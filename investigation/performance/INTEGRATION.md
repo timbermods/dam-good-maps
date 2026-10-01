@@ -1,5 +1,74 @@
 # Adoption contract
 
+## Round 3: released large brush
+
+Latest `dev` (`546fe9fa`) was merged into this branch (`92142148`). Product files match
+release `e5a6bf35`. Product source remains read-only. Standard uses that release directly.
+High is **unreleased**: `brush-look.mjs` integrates pinned presentation `84fe4d36` with
+the current renderer in ignored files, retaining released editor/computation/workers.
+Six explicit renderer conflict resolutions are guarded; fixture hashes are recorded.
+
+`brush-adoption.patch` is a **one-file allocation experiment, not approved for adoption**.
+It changes only `src/render3d/waterMesh.ts`: reusable typed vertex/index scratch buffers,
+independently owned output arrays, exceptional scratch discarded above 8,192 quads.
+Topology, easing, update order, sound and settle computation are unchanged.
+The earlier broad `adoption.patch` below is **rejected round 2 history; do not apply it**.
+
+Regenerate round 3 from this directory, Node 24 and the existing lockfiles:
+
+```powershell
+node brush-look.mjs
+node brush-adoption.mjs
+node brush-build.mjs before standard
+node brush-build.mjs before high
+node brush-build.mjs after standard
+node brush-build.mjs after high
+node ../../node_modules/vitest/vitest.mjs run --config brush-vitest.config.ts
+node brush-typecheck.mjs
+node brush-typecheck.mjs --high
+node brush-run.mjs --profileCPU=true --history=true --look=standard
+node brush-run.mjs --profileCPU=true --history=true --look=high
+node brush-series.mjs before
+node brush-series.mjs after
+node brush-status.mjs
+node gate.mjs --brush
+node brush-profile-index.mjs
+```
+
+Timing requires five before and five after repeats **on both profiles** in both looks.
+Each fresh browser runs Highlands 4242, 256², Raise Size 128, the same 16-move sweep,
+then undo/redo; separate stage markers prevent attributing history pauses to painting.
+No other force, abuse or hour measurements belong to this round. The existing optional
+full suite remains available in the historical harness for later work.
+Qualify unrelated CPU ≤25% for 60 seconds once, then sample continuously. A load-discarded
+case resets qualification and repeats; 15 minutes without requalification stops the series.
+Do not replace the five fixed repeats with faster runs. Profiles are diagnostic, excluded
+from timing medians. The CPU proxy is the same one-logical-CPU Windows job quota and
+four-logical-core affinity, with native GPU/RAM; it is not a physical laptop.
+
+All raw traces/profiles, per-frame timings, snapshots, actual `.timber` exports, geometry
+hashes, process ownership/load traces and frozen protocol copies stay ignored in
+`local/round3/` and the referenced `local/sessions/`. `brush-audit.mjs` regenerates the
+compact `brush-proof.json` without launching a browser. Frozen protocol must match
+the current protocol; explicit browser start/end bounds must be enclosed by load samples.
+Retries have unique attempt filenames. Earlier round 3 diagnostics lack complete bounds
+and are excluded: all 40 timing executions remain required. For each profiler folder run
+`node brush-profile.mjs local/round3/runs/<folder>` to regenerate task/stack attribution.
+`node brush-profile-index.mjs` binds the compact `brush-attribution.json` to full ignored
+raw profiles and lists every profiled hitch. The profiler aligns clocks from multiple independent task matches and reports elapsed **and thread
+CPU time**. CPU sample fractions are estimates; residual waiting and unprofiled hitches
+remain unattributed. Worker-bundle equality does not replace snapshot/export/geometry proof.
+
+The focused gate requires all 20 pairs, every final snapshot/export/geometry byte equal,
+after worst frame ≤50 ms and p99 ≤20 ms. Missing evidence fails. This threshold is a target,
+not a claim that the old provisional broad budgets were calibrated. Failed or incomplete
+evidence keeps PR #107 draft. Only the milestone session may adopt a successful patch.
+Every later **Erode, Rift, Landslide, Meander and Deposit** must pass the same smoothness
+harness before merging; force pops, long-session memory growth and abuse byte differences
+remain separate next targets.
+
+## Rejected round 2 history
+
 This is an investigation, based on `feature/forces` at
 `9e14f1895c386489928dda78f888fc79772ceef6`. Take only this investigation's commits.
 The PR also carries the force branch's ancestors until they reach `dev`.

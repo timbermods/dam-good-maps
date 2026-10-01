@@ -1,0 +1,98 @@
+diff --git a/src/render3d/waterMesh.ts b/src/render3d/waterMesh.ts
+index a83d9d69..765f7f16 100644
+--- a/src/render3d/waterMesh.ts
++++ b/src/render3d/waterMesh.ts
+@@ -39,38 +39,65 @@ export interface WaterMeshData {
+ }
+
+ class WaterBuffer {
+-  pos: number[] = [];
+-  data: number[] = [];
+-  nrm: number[] = [];
+-  flg: number[] = [];
++  private capacity = 0;
++  private pos = new Float32Array(0);
++  private data = new Float32Array(0);
++  private nrm = new Int8Array(0);
++  private flg = new Float32Array(0);
++  private idx = new Uint32Array(0);
+   quads = 0;
+-  /** The falls (falls.ts `pushFall`), FALL_STRIDE floats each. */
+   falls: number[] = [];
++  reset(): void {
++    this.quads = 0;
++    this.falls.length = 0;
++    // Do not keep an unusually large imported cave mesh's scratch allocation.
++    if (this.capacity > 8192) {
++      this.capacity = 0;
++      this.pos = new Float32Array(0); this.data = new Float32Array(0);
++      this.nrm = new Int8Array(0); this.flg = new Float32Array(0); this.idx = new Uint32Array(0);
++    }
++  }
++  private reserve(): void {
++    if (this.quads < this.capacity) return;
++    const previous = this.capacity;
++    this.capacity = Math.max(512, previous * 2);
++    const pos = new Float32Array(this.capacity * 12); pos.set(this.pos); this.pos = pos;
++    const data = new Float32Array(this.capacity * 8); data.set(this.data); this.data = data;
++    const nrm = new Int8Array(this.capacity * 12); nrm.set(this.nrm); this.nrm = nrm;
++    const flg = new Float32Array(this.capacity * 4); flg.set(this.flg); this.flg = flg;
++    const idx = new Uint32Array(this.capacity * 6); idx.set(this.idx); this.idx = idx;
++    for (let q = previous; q < this.capacity; q++) {
++      const v = q * 4;
++      idx.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
++    }
++  }
+   quad(c: number[], depth: number, cont: number, nx: number, ny: number, nz: number, flags = 0): void {
+     this.quad4(c, [depth, depth, depth, depth], [cont, cont, cont, cont], nx, ny, nz, flags);
+   }
+-  /** A quad with its own depth and badwater share at each corner. */
+   quad4(c: number[], depth: readonly number[], cont: readonly number[], nx: number, ny: number, nz: number, flags = 0): void {
+-    for (let k = 0; k < 12; k++) this.pos.push(c[k]);
++    this.reserve();
++    const q = this.quads;
++    this.pos.set(c, q * 12);
+     for (let v = 0; v < 4; v++) {
+-      this.data.push(depth[v], cont[v]);
+-      this.nrm.push(nx * 127, ny * 127, nz * 127);
+-      this.flg.push(flags);
++      const d = q * 8 + v * 2, n = q * 12 + v * 3;
++      this.data[d] = depth[v]; this.data[d + 1] = cont[v];
++      this.nrm[n] = nx * 127; this.nrm[n + 1] = ny * 127; this.nrm[n + 2] = nz * 127;
++      this.flg[q * 4 + v] = flags;
+     }
+     this.quads++;
+   }
+   finish(): WaterMeshData {
+-    const n = this.quads;
+-    const indices = new Uint32Array(n * 6);
+-    for (let q = 0; q < n; q++) {
+-      const v = q * 4;
+-      indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
+-    }
+-    const falls = new Float32Array(this.falls);
+-    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), normals: new Int8Array(this.nrm), indices, quads: n, falls, fallCount: falls.length / FALL_STRIDE };
++    const n = this.quads, falls = new Float32Array(this.falls);
++    // Each answer owns its bytes; subsequent chunks cannot change retained geometry.
++    return { positions: this.pos.slice(0, n * 12), data: this.data.slice(0, n * 8),
++      flags: this.flg.slice(0, n * 4), normals: this.nrm.slice(0, n * 12),
++      indices: this.idx.slice(0, n * 6), quads: n, falls, fallCount: falls.length / FALL_STRIDE };
+   }
+ }
+
++// Meshing is synchronous and does not call back into meshWaterChunk.
++const waterScratch = new WaterBuffer();
++
+ /** Lower than this below the surface, a neighbour gets a curtain. */
+ const STEP = 0.02;
+ /** Water within this of a tile's surface is the same water: it shares depth and badwater at the
+@@ -150,7 +177,8 @@ export function dropFlags(top: number, bottom: number, edge: boolean): number {
+ }
+
+ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, view: WaterView, lowerByTile: Map<number, number[]> | null, cx: number, cy: number): WaterMeshData {
+-  const b = new WaterBuffer();
++  const b = waterScratch;
++  b.reset();
+   const x0 = cx * CHUNK;
+   const y0 = cy * CHUNK;
+   const x1 = Math.min(W, x0 + CHUNK);

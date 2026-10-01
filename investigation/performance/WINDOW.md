@@ -1,5 +1,17 @@
 # Terrain smoothness windows
 
+**Round 3, October 1 daytime:** the latest explicit request authorizes profiling and repeated
+large-brush investigation on current released product, outside the expired overnight window.
+`brush-series.mjs` runs serially, qualifying other-process CPU once (≤25% for 60 seconds),
+retaining continuous sampling and repeating only load-discarded cases. It stops after a
+15-minute failed quiet wait. Round 3 evidence is separate in `local/round3/`; previous
+windows/protocols below remain frozen. No old qualified records are substituted for the
+new released-product proof. The one-window heartbeat remains paused. The daytime series ended at 18:43:52 UTC
+after two outside-load discards and a 15-minute quiet timeout; cleanup finished.
+No complete comparison passed. Timestamp/retry defects were corrected after diagnostics;
+see REPORT.md and the offline `node gate.mjs --brush` audit. No new measurements or
+automation are scheduled.
+
 **October 1, 02:00–05:00 PDT complete.** PID46928 finished cleanup at 04:59:45;
 controller and owned sampler stopped. No late or duplicate measurements.
 Trial 20/20 executions qualified. First hour outside-load discarded; retry completed

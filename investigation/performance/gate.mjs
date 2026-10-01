@@ -5,6 +5,11 @@ import { root } from './adoption.mjs';
 import { median,repeatedStats } from './metrics.mjs';
 import { createHash } from 'node:crypto';
 import { requirements, isQuiet, loadSpiked } from './coverage.mjs';
+if (process.argv.includes('--brush')) {
+ if (process.argv.length !== 3) throw Error('Use --brush alone');
+ await import('./brush-audit.mjs');
+ process.exit(process.exitCode ?? 0);
+}
 const dir = resolve(root, 'investigation/performance'), path = resolve(dir, 'local/runs');
 const budget = JSON.parse(readFileSync(resolve(dir, 'budgets.json')));
 const suite = process.argv.includes('--suite=full') ? 'full' : 'core';
