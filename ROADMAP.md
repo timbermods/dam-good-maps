@@ -62,7 +62,7 @@ differently, this file wins.
    Then **custom map sizes** (D357): any width and height from 4 to 512, shaped by the generator, after a probe of
    large and long maps in the game.
 2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
-3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
+3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished. The 20-second live tour of the editor's best controls is built here (D377; its section follows the design pass's).
    **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
    editing's first users (D349, 2026-09-30).
 4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
@@ -2065,6 +2065,16 @@ dangerous badwater route on the opposite side.").
 **Effort:** xhigh.
 
 ---
+
+## The 20-second tour (D377)
+
+In step 3, polish, with M13's help. A ghost cursor performs about 20 seconds of choreographed editing on the map in front of the player, to advertise the controls that can't be discovered by looking: hold F and move the mouse to size, hold F and scroll for Power, Shift+click for the opposite (Raise becomes Lower), Ctrl+click to take a level from the land. The sequence (Kyler's refinement, 2026-10-01): two forces only, so the rest stay a discovery: Carve (a river, grown with F and the mouse) and Craterize (a crater, its Power scrolled up with F); then the brushes' flow, which players will use most: Raise a hill and size it with F; Shift+click to lower; Ctrl+click a hilltop to take its level and Flatten a spot to it; Smooth the edges; then Save to Timberborn.
+
+- The keys show on screen as they're pressed (F held, the scroll, Shift, Ctrl).
+- Offered, never forced: the first visit's one quiet hint offers it ("Watch a 20-second tour"), and it's in the ⋯ menu. It plays on a temporary copy of the current map, so the player's map is untouched; Esc ends it at any moment.
+- Built from stored gestures replayed (every edit is a deterministic operation, D158, D342), using the keyboard shortcuts rather than toolbar clicks where possible, so it survives layout changes.
+- The same sequence is recorded once as a GIF and video for the website, the workshop page and posts.
+- No click-Next walkthrough, and no second "More forces" tour. Per-tool "Show me" demos can come later on the same machinery.
 
 ## M13. Problem reports, shortcuts and help, a final performance pass
 

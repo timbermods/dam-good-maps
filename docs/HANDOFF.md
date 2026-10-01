@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D375) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
+editor work), `PLAN.md` §20 (every decision, D1–D377) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
 ## 0. Resume here (2026-10-01, 07:00 PDT: the session ended on Kyler's main PC; the next one runs on another machine)
@@ -56,7 +56,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    the top of `docs/STATUS.md`. On his yes: release with `tools/release.sh` (§7, "Releases"), tag `forces-done`.
    **Glaciate's default Power (60) and its Power 0 are for his eye.**
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): Carve's river born as it cuts
-   (D371), Glaciate's Fast timing (D374), startup part 1 (D367), Carve's Maturity (D355), Deposit's adoption (D364), then
+   (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
    the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
    "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
@@ -69,7 +69,8 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
 5. **Still to do from this session:** time the faster water settle (D359) on a quiet machine; copy September's Progress
    log to `docs/progress-log/2026-09.md` (§7); the allowance report Kyler asked for on Wednesday evening wasn't written.
-6. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
+6. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
+7. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
 
 The sections below are the earlier handoffs' record. Where they differ from §0, §0 is current.
 
@@ -176,7 +177,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D376**.
+number on `dev` is **#94**. The next decision is **D378**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -290,7 +291,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D376), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D378), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away

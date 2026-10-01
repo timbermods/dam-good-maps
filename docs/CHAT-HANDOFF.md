@@ -1,7 +1,7 @@
 # Chat handoff: how Kyler and his planning chat work
 
 Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `docs/PERFECT.md` (the yardstick),
-`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D375) and
+`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D377) and
 `docs/HANDOFF.md`, all from github.com/timbermods/dam-good-maps (public). The previous version is
 `docs/chats/2026-09-27.md`. Past planning chats are searchable: use them for detail on any decision.
 
@@ -69,7 +69,8 @@ Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `
    - **The Weather view** (#73) with day stepping (D361), then **custom map sizes** (D357), closing step 1.
 2. **3D, terrain above terrain:** foundations (#71), the view (Codex's proposal approved, D365), then Erode and the
    Block tool.
-3. **Polish until mature:** Kyler's editor UI audit, the design pass, M13.
+3. **Polish until mature:** Kyler's editor UI audit, the design pass, M13, and the 20-second live tour of the
+   editor's best controls (D377).
 4. **Collaborative editing** (`docs/COLLAB-BRIEF.md`, D362; the spike and architecture investigations are merged).
 5. **M12** (Claude in the editor).
 
@@ -96,6 +97,8 @@ plus D368's eleven:
   the smoothness investigation's findings and its harness at 256².
 - **Startup part 1** (D367): stored maps open without rebuilding, shader warm-up, checks after the first frame.
   Kyler tests on a real modest laptop once adopted.
+- **Trees on dry soil say so** (D376): a hover hint ("Oak, grown · dry soil, will die") and a subtle mark with
+  Markers on; never a change to the trees.
 - **The smoothness fixes** (#107), once Kyler approves the investigation.
 - **The faster water settle's speed** (D359, merged into M9b, byte-identical): still to be timed on a quiet machine.
 
@@ -152,4 +155,4 @@ Approved on real maps (D346), one dry-earth tune done on its branch (#75). Relea
 recent commits and open PRs, and view captures with `git show`. Prefer git over the GitHub REST API, which
 rate-limits quickly from shared addresses.
 
-**The next free decision number is D376.**
+**The next free decision number is D378.**

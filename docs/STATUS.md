@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D375), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D377), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
@@ -31,7 +31,7 @@ agent or background task is running, and a new milestone session resumes from [H
 - **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
 - **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
-  (D374), startup part 1 (D367).
+  (D374), startup part 1 (D367), and **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees). Later, in polish: the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
 - **Not done:** the faster water settle's speed isn't timed (the machine was never quiet); September's Progress log
   isn't copied to `docs/progress-log/`; the Wednesday allowance report wasn't written.
 
