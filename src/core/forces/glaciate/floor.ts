@@ -8,6 +8,7 @@
 // the falls, then round 4's meander). Literal land throughout: the river's course, its pools and its
 // joins are carved, and the water is the game's own (nothing is masked: what you see is what you get).
 
+import * as portable from "../../math/portable";
 import { MinHeap, N8 } from "../../math/grid";
 import { WaterSim } from "../../sim/water";
 import { modelOf } from "../runs";
@@ -87,7 +88,7 @@ const smooth = (v: number) => {
 export function normalAt(path: readonly Point[], k: number): Point {
   const a = path[Math.max(0, k - 3)];
   const b = path[Math.min(path.length - 1, k + 3)];
-  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
   return { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
 }
 
@@ -156,7 +157,7 @@ export function riverCourse(
     const base = a.aim + (b.aim - a.aim) * smooth(t);
     // round 4's gentle meander, faded out where a visit holds the river
     const gap = Math.min((q.s - a.s) * length, (b.s - q.s) * length);
-    const meander = Math.sin(q.s * 8 + phase) * q.r * 0.35 * Math.sin(Math.PI * q.s) * smooth(gap / 14) * 0.6;
+    const meander = portable.sin(q.s * 8 + phase) * q.r * 0.35 * portable.sin(Math.PI * q.s) * smooth(gap / 14) * 0.6;
     const off = within(k, base + meander);
     const nrm = normalAt(path, k);
     return { x: q.x + nrm.x * off, y: q.y + nrm.y * off };

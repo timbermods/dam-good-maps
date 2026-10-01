@@ -11,6 +11,7 @@
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
+import * as portable from "../math/portable";
 import { toMapObject } from "../features/build";
 import type { WarmState } from "../sim/preview";
 import { waterModel } from "../sim/model";
@@ -247,13 +248,13 @@ export class CraterRun extends Staged implements StagedRun {
     const { W, H } = this.before;
     const out = new Float32Array(W * H);
     const reach = (this.settings.debris === "heavy" ? 2.65 : 1.48) + (this.settings.rays ? 1.4 : 0);
-    const c = Math.cos(a.angle);
-    const s = Math.sin(a.angle);
+    const c = portable.cos(a.angle);
+    const s = portable.sin(a.angle);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const dx = x - a.x;
         const dy = y - a.y;
-        const r = Math.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
+        const r = portable.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
         out[y * W + x] = r < 1.05 ? 0 : clamp(0.125 + ((r - 1.05) / Math.max(0.5, reach - 1.05)) * 0.875, 0.125, 1);
       }
     return (this.arrival = out);
@@ -367,7 +368,7 @@ export class EruptRun extends Staged implements StagedRun {
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        let dist = Math.hypot(x - a.x, y - a.y);
+        let dist = portable.hypot(x - a.x, y - a.y);
         let along = 0;
         if (a.segments.length) {
           dist = Infinity;
@@ -375,7 +376,7 @@ export class EruptRun extends Staged implements StagedRun {
             const dx = seg.b.x - seg.a.x;
             const dy = seg.b.y - seg.a.y;
             const t = clamp(((x - seg.a.x) * dx + (y - seg.a.y) * dy) / (seg.length * seg.length), 0, 1);
-            const d = Math.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
+            const d = portable.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
             if (d < dist) {
               dist = d;
               along = (seg.along + t * seg.length) / a.length;
@@ -518,7 +519,7 @@ export class QuakeRun extends Staged implements StagedRun {
         const y = Math.floor(i / W) + off(p.dy[i]);
         if (x < 0 || y < 0 || x >= W || y >= H) continue;
         const j = y * W + x;
-        const travel = Math.hypot(p.dx[i], p.dy[i]);
+        const travel = portable.hypot(p.dx[i], p.dy[i]);
         if (travel < priority[j]) continue;
         priority[j] = travel;
         m.heights[j] = this.before.heights[i];

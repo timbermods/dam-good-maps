@@ -12,6 +12,7 @@
 // Ported from investigation/forces-core `verbs/craterize/engine.ts` (PR #59, from #51 at 2f4963c),
 // kept to its structure: the pinned parity tests compare it with the prototype byte for byte.
 
+import * as portable from "../math/portable";
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
@@ -43,7 +44,7 @@ export interface CraterIntent {
 export const CRATER_DEFAULTS: CraterSettings = { mode: "strike", power: 55, size: null, walls: "terraced", centre: "auto", debris: "heavy", rays: false, seed: 0 };
 
 /** The diameter Power gives. */
-export const naturalSize = (power: number) => Math.round(6 + 112 * (power / 100) ** 1.4);
+export const naturalSize = (power: number) => Math.round(6 + 112 * portable.pow(power / 100, 1.4));
 export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 68 ? "peak" : "ring");
 
 export function validateCrater(s: CraterSettings, m: { W: number; H: number }, i: CraterIntent): void {
@@ -80,11 +81,11 @@ export interface Ray {
 
 // Low-frequency bends keep the streak radial overall without drawing a straight fence.
 function rayBend(ray: Ray, t: number): number {
-  return ray.bend * (Math.sin(t * Math.PI * 1.6 + ray.phase) - Math.sin(ray.phase)) + ray.width * 0.3 * Math.sin(t * Math.PI * 4 + ray.phase) * Math.sin(t * Math.PI);
+  return ray.bend * (portable.sin(t * Math.PI * 1.6 + ray.phase) - portable.sin(ray.phase)) + ray.width * 0.3 * portable.sin(t * Math.PI * 4 + ray.phase) * portable.sin(t * Math.PI);
 }
 
 function rayWidth(ray: Ray, t: number): number {
-  return ray.width * (0.65 + 0.45 * Math.sin(Math.PI * Math.min(1, t * 1.6))) * (1 - t) ** 0.65 * (0.8 + 0.2 * Math.sin(t * 19 + ray.phase));
+  return ray.width * (0.65 + 0.45 * portable.sin(Math.PI * Math.min(1, t * 1.6))) * portable.pow(1 - t, 0.65) * (0.8 + 0.2 * portable.sin(t * 19 + ray.phase));
 }
 
 /** The crater as planned: where, how big and deep, its shape and its rays. */
@@ -119,19 +120,19 @@ export function craterAnatomy(m: { W: number; H: number; heights: Uint8Array }, 
   const radius = diameter / 2;
   const ex = s.mode === "aim" ? intent.end! % m.W : x;
   const ey = s.mode === "aim" ? Math.floor(intent.end! / m.W) : y;
-  const angle = Math.atan2(ey - y, ex - x);
-  const glance = clamp(Math.hypot(ex - x, ey - y) / Math.max(12, diameter), 0, 1);
+  const angle = portable.atan2(ey - y, ex - x);
+  const glance = clamp(portable.hypot(ex - x, ey - y) / Math.max(12, diameter), 0, 1);
   const a = radius * (1 + 0.65 * glance);
   const b = radius / (1 + 0.18 * glance);
-  const depth = clamp((1 + (12 * s.power) / 100) * Math.sqrt(naturalSize(s.power) / diameter) * (1 - 0.28 * glance), 1, 20);
+  const depth = clamp((1 + (12 * s.power) / 100) * portable.sqrt(naturalSize(s.power) / diameter) * (1 - 0.28 * glance), 1, 20);
   const rim = clamp(1 + depth * 0.23, 1, 5);
   const samples: number[] = [];
   for (let k = 0; k < 48; k++) {
     const t = (k * Math.PI) / 24;
-    const u = Math.cos(t) * a;
-    const v = Math.sin(t) * b;
-    const xx = Math.round(x + u * Math.cos(angle) - v * Math.sin(angle));
-    const yy = Math.round(y + u * Math.sin(angle) + v * Math.cos(angle));
+    const u = portable.cos(t) * a;
+    const v = portable.sin(t) * b;
+    const xx = Math.round(x + u * portable.cos(angle) - v * portable.sin(angle));
+    const yy = Math.round(y + u * portable.sin(angle) + v * portable.cos(angle));
     if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H) samples.push(m.heights[yy * m.W + xx]);
   }
   samples.sort((p, q) => p - q);
@@ -143,12 +144,12 @@ export function craterAnatomy(m: { W: number; H: number; heights: Uint8Array }, 
   if (s.rays)
     for (let k = 0; k < 10; k++) {
       const t = angle + (k / 10) * Math.PI * 2 + (hash(s.seed, k) - 0.5) * 0.18;
-      const down = (1 + Math.cos(t - angle)) * 0.5;
-      const dx = Math.cos(t);
-      const dy = Math.sin(t);
+      const down = (1 + portable.cos(t - angle)) * 0.5;
+      const dx = portable.cos(t);
+      const dy = portable.sin(t);
       const baseWidth = 1.7 + radius * 0.11;
       const width = baseWidth * (heavy ? 1.65 : 1);
-      const start = 1.12 / Math.hypot(Math.cos(t - angle) / a, Math.sin(t - angle) / b);
+      const start = 1.12 / portable.hypot(portable.cos(t - angle) / a, portable.sin(t - angle) / b);
       let length = start + radius * (1.15 + hash(s.seed, k + 30) * 1.3) * (1 + glance * down * 0.5);
       // Leave breathing room at the map boundary, except for map-scale impacts.
       if (edgeInset) {
@@ -183,15 +184,15 @@ export interface CraterField {
 export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: number): CraterField {
   const dx = x - a.x;
   const dy = y - a.y;
-  const c = Math.cos(a.angle);
-  const sn = Math.sin(a.angle);
+  const c = portable.cos(a.angle);
+  const sn = portable.sin(a.angle);
   const u = (dx * c + dy * sn) / a.a;
   const v = (-dx * sn + dy * c) / a.b;
-  const theta = Math.atan2(v, u);
+  const theta = portable.atan2(v, u);
   const phase = hash(s.seed, 71) * Math.PI * 2;
-  const edge = 1 + 0.035 * Math.sin(theta * 3 + phase) + 0.022 * Math.sin(theta * 5 - phase * 0.6);
-  const r = Math.hypot(u, v) / edge;
-  const down = (1 + Math.cos(theta)) * 0.5;
+  const edge = 1 + 0.035 * portable.sin(theta * 3 + phase) + 0.022 * portable.sin(theta * 5 - phase * 0.6);
+  const r = portable.hypot(u, v) / edge;
+  const down = (1 + portable.cos(theta)) * 0.5;
   const heavy = s.debris === "heavy";
   const edgeFade = heavy && a.edgeInset ? smooth((Math.min(x, y, a.W - 1 - x, a.H - 1 - y) - a.edgeInset) / 12) : 1;
   let rayHeight = 0;
@@ -210,21 +211,21 @@ export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: n
         const grain = hash(rayInfo.seed, x + Math.imul(y, 65537));
         if (heavy) {
           // A coherent raised body remains readable at map scale; gaps and feathered margins stay irregular.
-          const wave = Math.sin(t * 13 + rayInfo.phase);
+          const wave = portable.sin(t * 13 + rayInfo.phase);
           const lobes = smooth((wave + 0.8) / 1.25);
           const gaps = smooth((wave + 0.96) / 0.28);
           const fade = 1 - smooth((t - 0.45) / 0.55);
           const height = (1.2 + (1.25 * s.power) / 100) * feather * (0.7 + 0.3 * lobes) * gaps * fade * edgeFade;
           rayHeight = Math.max(rayHeight, Math.floor(height + 0.3 + grain * 0.4));
         } else {
-          const lobes = smooth((Math.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
+          const lobes = smooth((portable.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
           const density = feather * (0.12 + 0.88 * lobes) * (1 - smooth((t - 0.2) / 0.8));
           if (density > 0.18 + grain * 0.66) rayHeight = 1;
         }
       }
       for (const pit of rayInfo.pits) {
-        const dist = (x - pit.x) ** 2 + (y - pit.y) ** 2;
-        if (edgeFade > 0.5 && dist < pit.r ** 2) secondary = Math.max(secondary, dist < pit.r ** 2 * 0.35 ? 2 : 1);
+        const dist = portable.pow(x - pit.x, 2) + portable.pow(y - pit.y, 2);
+        if (edgeFade > 0.5 && dist < portable.pow(pit.r, 2)) secondary = Math.max(secondary, dist < portable.pow(pit.r, 2) * 0.35 ? 2 : 1);
       }
     }
   return { r, theta, down, ray: rayHeight > 0, rayHeight, secondary };
@@ -284,10 +285,10 @@ export class ImpactPlan {
             for (let step = 0; step < 4; step++) wall += smooth((r - (0.48 + step * 0.16 + shift)) / 0.025) / 4;
           }
           const curve = s.walls === "steep" ? 0.23 : 0.16;
-          const t = a.centre === "bowl" ? curve * clamp(r / (s.walls === "steep" ? 0.89 : 0.48), 0, 1) ** 2 + (1 - curve) * wall : wall;
+          const t = a.centre === "bowl" ? curve * portable.pow(clamp(r / (s.walls === "steep" ? 0.89 : 0.48), 0, 1), 2) + (1 - curve) * wall : wall;
           let inside = a.floor + (a.datum - a.floor + a.rim) * t;
-          if (a.centre === "peak") inside += a.depth * 0.69 * Math.max(0, 1 - r / 0.31) ** 1.25;
-          if (a.centre === "ring") inside += a.depth * 0.55 * Math.exp(-(((r - 0.38) / 0.1) ** 2)) * (1 + 0.18 * Math.sin(theta * 7 + phase));
+          if (a.centre === "peak") inside += a.depth * 0.69 * portable.pow(Math.max(0, 1 - r / 0.31), 1.25);
+          if (a.centre === "ring") inside += a.depth * 0.55 * portable.exp(-(portable.pow(((r - 0.38) / 0.1), 2))) * (1 + 0.18 * portable.sin(theta * 7 + phase));
           // The newest bowl replaces prior relief; only the outermost lip rejoins its local ground.
           target = inside + (h - a.datum) * smooth((r - 0.84) / 0.16);
           if (s.walls === "terraced" && r > 0.54 && r < 0.93 && this.before.rockLayers[clamp(Math.round(target), 0, 22)] > 0.5) target = Math.ceil(target);
@@ -296,8 +297,8 @@ export class ImpactPlan {
           const heavy = s.debris === "heavy";
           const reach = heavy ? 2.65 : 1.48;
           const directional = 1 + a.glance * (down * 1.65 - 0.65);
-          const hummock = 0.8 + 0.18 * Math.sin(theta * 5 + phase + (r - 1) * 3) + 0.13 * Math.sin(theta * 3 - phase);
-          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * Math.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smooth((reach - r) / 0.4) * directional * hummock;
+          const hummock = 0.8 + 0.18 * portable.sin(theta * 5 + phase + (r - 1) * 3) + 0.13 * portable.sin(theta * 3 - phase);
+          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * portable.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smooth((reach - r) / 0.4) * directional * hummock;
           target = h + Math.max(rim, skirt);
           if (f.ray) target = Math.max(h + f.rayHeight, Math.round(target) + f.rayHeight);
           if (f.secondary) target = h - f.secondary;
@@ -337,7 +338,7 @@ export class ImpactPlan {
       }
       if (plant && (f.r < (s.debris === "heavy" ? 1.85 : 1.4) || f.ray)) {
         if (e.template !== "BlueberryBush") {
-          const d = Math.hypot(e.x - a.x, e.y - a.y) || 1;
+          const d = portable.hypot(e.x - a.x, e.y - a.y) || 1;
           this.map.fallen = this.map.fallen.filter((g) => g.id !== e.id);
           this.map.fallen.push({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: this.map.heights[tile], dx: (e.x - a.x) / d, dy: (e.y - a.y) / d, length: e.template === "Oak" ? 2.6 : 2 });
           e.components = { ...e.components, LivingNaturalResource: { IsDead: true } };

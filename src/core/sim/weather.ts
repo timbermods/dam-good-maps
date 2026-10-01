@@ -4,6 +4,7 @@
 // D173); the Weather view extends this module rather than repeating it. src/ never imports from
 // investigation/ (tests/unit/boundaries.test.ts), so each rule is copied here with its source.
 
+import * as portable from "../math/portable";
 import type { Difficulty } from "../spec/mapspec";
 
 export type Hazard = "drought" | "badtide";
@@ -34,7 +35,7 @@ export function hazardDays(d: Difficulty, hazard: Hazard): number {
 export function badtideContamination(sinceStart: number, days: number): number {
   const shape = (t: number) => {
     const x = 17 * (t - 0.5);
-    return 1 / (Math.exp(x) + Math.exp(-x)) + 0.5;
+    return 1 / (portable.exp(x) + portable.exp(-x)) + 0.5;
   };
   if (sinceStart < 0.5) return shape(sinceStart);
   const toEnd = days - sinceStart;

@@ -11,6 +11,7 @@
 // 89c6842), kept to its structure: the pinned parity tests compare it with the prototype byte for
 // byte.
 
+import * as portable from "../math/portable";
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
@@ -71,7 +72,7 @@ export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i: 
     throw Error("Draw a fissure on the land");
 }
 
-export const naturalSize = (p: number) => 2 * (7 + 36 * (p / 100) ** 1.15);
+export const naturalSize = (p: number) => 2 * (7 + 36 * portable.pow(p / 100, 1.15));
 export const autoSummit = (p: number): EruptSettings["summit"] => (p < 32 ? "peak" : p < 80 ? "crater" : "caldera");
 
 export interface Segment {
@@ -109,32 +110,32 @@ export function lavaLobes(W: number, H: number, heights: Uint8Array, a: { x: num
   for (let k = 0; k < count; k++) {
     let angle = unit(seed, 730 + k) * Math.PI * 2;
     // Random gaps and occasional neighboring lobes; never a regular angular fan.
-    for (let attempt = 0; attempt < 20 && angles.some((t) => Math.abs(Math.atan2(Math.sin(t - angle), Math.cos(t - angle))) < 0.29); attempt++) angle = unit(seed, 900 + k * 23 + attempt) * Math.PI * 2;
+    for (let attempt = 0; attempt < 20 && angles.some((t) => Math.abs(portable.atan2(portable.sin(t - angle), portable.cos(t - angle))) < 0.29); attempt++) angle = unit(seed, 900 + k * 23 + attempt) * Math.PI * 2;
     angles.push(angle);
     const start = a.summit === "caldera" ? 0.64 : a.summit === "crater" ? 0.19 : 0.12;
-    const reach = (heavy ? 0.86 : 0.72) + unit(seed, 800 + k) ** 1.4 * (heavy ? 1.5 : 0.7);
+    const reach = (heavy ? 0.86 : 0.72) + portable.pow(unit(seed, 800 + k), 1.4) * (heavy ? 1.5 : 0.7);
     const length = a.radius * (reach - start);
     const steps = Math.max(12, Math.ceil(length / 0.65));
     const width = (0.85 + unit(seed, 820 + k) * 1.35) * Math.max(0.7, a.radius / 22);
     const phase = unit(seed, 840 + k) * Math.PI * 2;
     const points: LobePoint[] = [];
-    let x = a.x + Math.cos(angle) * a.radius * start;
-    let y = a.y + Math.sin(angle) * a.radius * start;
+    let x = a.x + portable.cos(angle) * a.radius * start;
+    let y = a.y + portable.sin(angle) * a.radius * start;
     for (let j = 0; j <= steps; j++) {
       const u = j / steps;
       const r = a.radius * (start + (reach - start) * u);
-      const theta = angle + 0.32 * Math.sin(u * 5.8 + phase) + 0.19 * Math.sin(u * 10.2 - phase);
+      const theta = angle + 0.32 * portable.sin(u * 5.8 + phase) + 0.19 * portable.sin(u * 10.2 - phase);
       if (j) {
-        const desired = Math.atan2(a.y + Math.sin(theta) * r - y, a.x + Math.cos(theta) * r - x);
+        const desired = portable.atan2(a.y + portable.sin(theta) * r - y, a.x + portable.cos(theta) * r - x);
         const step = length / steps;
         let best = Infinity;
         let bx = x;
         let by = y;
         for (const turn of [0, -0.25, 0.25, -0.5, 0.5]) {
-          const nx = x + Math.cos(desired + turn) * step;
-          const ny = y + Math.sin(desired + turn) * step;
-          const nr = Math.hypot(nx - a.x, ny - a.y);
-          if (nr < Math.hypot(x - a.x, y - a.y)) continue;
+          const nx = x + portable.cos(desired + turn) * step;
+          const ny = y + portable.sin(desired + turn) * step;
+          const nr = portable.hypot(nx - a.x, ny - a.y);
+          if (nr < portable.hypot(x - a.x, y - a.y)) continue;
           const score = ground(nx, ny) * 0.7 + Math.abs(turn) * 0.65;
           if (score < best) {
             best = score;
@@ -143,11 +144,11 @@ export function lavaLobes(W: number, H: number, heights: Uint8Array, a: { x: num
           }
         }
         // Once beyond the cone, a lobe pools at uphill obstacles instead of climbing them.
-        if (Math.hypot(x - a.x, y - a.y) > a.radius && ground(bx, by) > ground(x, y)) break;
+        if (portable.hypot(x - a.x, y - a.y) > a.radius && ground(bx, by) > ground(x, y)) break;
         x = bx;
         y = by;
       }
-      const tongue = 1 + 1.2 * Math.exp(-(((u - 0.89) / 0.18) ** 2));
+      const tongue = 1 + 1.2 * portable.exp(-(portable.pow(((u - 0.89) / 0.18), 2)));
       points.push({ x, y, width: width * (0.38 + 0.62 * u) * tongue });
     }
     if (points.length > 1) out.push({ points, length, strength: 1.1 + unit(seed, 860 + k) * 1.4 });
@@ -170,9 +171,9 @@ export function lobeField(W: number, H: number, lobes: readonly LavaLobe[]): Flo
         for (let x = Math.max(0, Math.floor(Math.min(a.x, b.x) - w)); x <= Math.min(W - 1, Math.ceil(Math.max(a.x, b.x) + w)); x++) {
           const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (l2 || 1)));
           const width = a.width + (b.width - a.width) * t;
-          const d = Math.hypot(x - a.x - dx * t, y - a.y - dy * t) / width;
+          const d = portable.hypot(x - a.x - dx * t, y - a.y - dy * t) / width;
           if (d < 1) {
-            const v = (1 - d * d) ** 0.65 * lobe.strength;
+            const v = portable.pow(1 - d * d, 0.65) * lobe.strength;
             const i = y * W + x;
             field[i] = Math.max(field[i], v);
           }
@@ -222,7 +223,7 @@ export function shapeSpan(path: readonly Point[]): number {
   const pts = path.filter((_, k) => k % every === 0 || k === path.length - 1);
   let far = 0;
   for (let a = 0; a < pts.length; a++)
-    for (let b = a + 1; b < pts.length; b++) far = Math.max(far, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y));
+    for (let b = a + 1; b < pts.length; b++) far = Math.max(far, portable.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y));
   return far;
 }
 
@@ -265,10 +266,10 @@ export function coneProfile(s: Pick<EruptSettings, "shape">, summit: EruptSettin
   const e = s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65;
   if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
   if (!fissure && summit === "crater" && r < CRATER_R) {
-    const rim = (1 - CRATER_R) ** e;
+    const rim = portable.pow(1 - CRATER_R, e);
     return rim - CRATER_DEPTH * (1 - smooth(r / CRATER_R));
   }
-  return Math.max(0, 1 - r) ** e;
+  return portable.pow(Math.max(0, 1 - r), e);
 }
 
 /** A vent's profile at r (0 at its vent, 1 at its foot), by summit and shape. */
@@ -316,7 +317,7 @@ export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "su
     const r = k / 100;
     const profile = coneProfile(s, a.summit, r, fissure);
     const { reach, thick } = apronOf(s);
-    const apron = thick * Math.max(0, 1 - r / reach) ** 1.4;
+    const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4);
     const ridge = s.ridges
       ? fissure
         ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
@@ -345,7 +346,7 @@ function protoAnatomy(m: { W: number; H: number; heights: Uint8Array }, s: Erupt
     for (let k = 1; k < intent.path!.length; k++) {
       const a = intent.path![k - 1];
       const b = intent.path![k];
-      const l = Math.hypot(b.x - a.x, b.y - a.y);
+      const l = portable.hypot(b.x - a.x, b.y - a.y);
       if (l > 0.01) {
         segments.push({ a, b, length: l, along: length });
         length += l;
@@ -431,9 +432,9 @@ function flankVent(m: { W: number; H: number; heights: Uint8Array }, s: EruptSet
       if (xx < 2 || yy < 2 || xx > m.W - 3 || yy > m.H - 3) continue;
       const i = yy * m.W + xx;
       if (ceiling - m.heights[i] < need || keep?.[i]) continue;
-      const d = Math.hypot(dx, dy);
+      const d = portable.hypot(dx, dy);
       if (d > reach || d * 0.99 > bestScore) continue;
-      const bucket = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12) % 12;
+      const bucket = Math.floor(((portable.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12) % 12;
       const score = d * (1 + 0.3 * hash(s.seed, 940 + bucket));
       if (score < bestScore) {
         bestScore = score;
@@ -485,7 +486,7 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; max
     // broader rather than taller, but never so broad that its low summit spreads into a plateau (a
     // volcano already broad may grow a little narrower instead, to keep its summit)
     const span = topSpan(s, a.summit, a.height);
-    const broad = Math.max(NARROW_MIN, Math.min(Math.min(BROADEN_MAX, 1 / Math.sqrt(k)), span > 0 ? SUMMIT_TOP / (a.radius * span) : BROADEN_MAX));
+    const broad = Math.max(NARROW_MIN, Math.min(Math.min(BROADEN_MAX, 1 / portable.sqrt(k)), span > 0 ? SUMMIT_TOP / (a.radius * span) : BROADEN_MAX));
     a.radius *= broad;
     a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
   }
@@ -518,7 +519,7 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const { reach, thick } = apronOf(s);
   // (a vent's apron is thickest where its lava lobes run: flows down its sides, never a round skirt)
   const lobed = s.mode === "vent" && a.lobes.length ? 0.7 + 0.3 * Math.min(1, flows[i] / 1.1) : 1;
-  const apron = thick * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
+  const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4) * (0.86 + 0.14 * portable.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
   const ridge = s.ridges
     ? (s.mode === "fissure"
         ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
@@ -543,7 +544,7 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
     const t = clamp(((x - seg.a.x) * dx + (y - seg.a.y) * dy) / (seg.length * seg.length), 0, 1);
     const xx = seg.a.x + dx * t;
     const yy = seg.a.y + dy * t;
-    const d = Math.hypot(x - xx, y - yy);
+    const d = portable.hypot(x - xx, y - yy);
     if (d < distance) {
       distance = d;
       cx = xx;
@@ -551,15 +552,15 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
       along = seg.along + t * seg.length;
     }
   }
-  const theta = Math.atan2(y - cy, x - cx);
-  const edge = 1 + 0.07 * Math.sin(theta * 3 + a.phase) + 0.045 * Math.sin(theta * 5 - a.phase);
-  const r = Math.hypot(x - cx, y - cy) / (a.radius * edge);
+  const theta = portable.atan2(y - cy, x - cx);
+  const edge = 1 + 0.07 * portable.sin(theta * 3 + a.phase) + 0.045 * portable.sin(theta * 5 - a.phase);
+  const r = portable.hypot(x - cx, y - cy) / (a.radius * edge);
   const wave = s.mode === "vent" ? theta * (6 + Math.floor(hash(s.seed, 20) * 4)) + a.phase + r * 0.9 : along / (3 + hash(s.seed, 20) * 2) + a.phase + r * 0.8;
-  const ridge = Math.max(0, Math.cos(wave)) ** 8;
+  const ridge = portable.pow(Math.max(0, portable.cos(wave)), 8);
   let nearest = Infinity;
   let vent = a.vents[0];
   for (const v of a.vents) {
-    const d = Math.hypot(x - v.x, y - v.y);
+    const d = portable.hypot(x - v.x, y - v.y);
     if (d < nearest) {
       nearest = d;
       vent = v;
@@ -651,13 +652,13 @@ export class EruptPlan {
           const i = y * W + x;
           if (h[i] === b[i] || this.keep[i]) continue;
           // (the summit is its own: a peak's tip stands above everything round it by design)
-          if (a.vents.some((v) => Math.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
+          if (a.vents.some((v) => portable.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
           const n = [h[i - 1], h[i + 1], h[i - W], h[i + W]];
           const lo = Math.min(...n);
           const hi = Math.max(...n);
           let v = h[i];
           if (v > hi) v = hi;
-          else if (v < lo && Math.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
+          else if (v < lo && portable.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
           if (v === h[i]) continue;
           v = Math.max(v, b[i]);
           h[i] = v;
@@ -687,7 +688,7 @@ export class EruptPlan {
           this.stats.erased++;
           return false;
         }
-        const d = Math.hypot(e.x - f.vent.x, e.y - f.vent.y) || 1;
+        const d = portable.hypot(e.x - f.vent.x, e.y - f.vent.y) || 1;
         m.fallen = m.fallen.filter((v) => v.id !== e.id);
         m.fallen.push({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[tile], dx: (e.x - f.vent.x) / d, dy: (e.y - f.vent.y) / d, length: e.template === "Oak" ? 2.6 : 2 });
         e.components = { ...e.components, LivingNaturalResource: { IsDead: true } };

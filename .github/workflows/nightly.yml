@@ -1,7 +1,8 @@
 name: Nightly
 
 # The heaviest checks, too slow for every push: the long property runs and the settings batch
-# (vitest's "heavy" project, vitest.config.ts), the full Python oracle, and the 100-seed pass-rate
+# (vitest's "heavy" project, vitest.config.ts), the full Python oracle, the full cross-engine
+# determinism list on each CPU and OS of the matrix, and the 100-seed pass-rate
 # batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
 # rate is information, against its 60% target). Runs every night on dev's tip, by hand
 # (gh workflow run nightly.yml --ref dev), and on a pull request that changes this file. A failure
@@ -100,8 +101,61 @@ jobs:
           { echo "### Pass rates, 100 seeds a theme at 128²"; echo; for t in any riverValley canyon highlands lakeBasin delta islands; do sed -n '/ seeds of /,$p' .scratch/batch-$t.txt; echo; done; } >> "$GITHUB_STEP_SUMMARY"
           exit $fail
 
+  # The full determinism list (tools/determinism/, D366) in Chromium, Firefox, WebKit and Node, on each
+  # CPU and OS GitHub hosts for this public repository: Linux x64 and ARM64, Windows x64, macOS ARM64.
+  # "Available" means a hosted runner label the repository can use; a label GitHub retires or stops
+  # offering is dropped from the matrix (and said in docs/STATUS.md), never replaced by a self-hosted
+  # machine. Every host must agree with itself across engines, then with the others (hosts, below).
+  determinism:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECK_REF }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium, Firefox and WebKit for Playwright
+        run: npx playwright install --with-deps chromium firefox webkit
+      # (a pull request that changes this file runs the short list, to check the workflow)
+      - name: The same results in every engine (the full list)
+        run: npx tsx tools/determinism/run.ts --out nightly ${{ github.event_name == 'pull_request' && '--smoke' || '' }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: determinism-${{ matrix.os }}
+          path: .scratch/determinism/nightly/*.json
+          retention-days: 7
+
+  hosts:
+    needs: determinism
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECK_REF }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v7
+        with:
+          path: .scratch/hosts
+          pattern: determinism-*
+      - name: The same results on every CPU and OS
+        run: npx tsx tools/determinism/compare.ts .scratch/hosts/determinism-*
+
   issue:
-    needs: [heavy-tests, oracle, batches]
+    needs: [heavy-tests, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

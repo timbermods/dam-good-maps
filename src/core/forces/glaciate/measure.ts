@@ -3,6 +3,7 @@
 // asked to keep reporting (D292): the separate wet passages across the floor, the most disjoint wet
 // runs on any cross-section (goal 1), with the trough's wet share, the river's widths and the falls.
 
+import * as portable from "../../math/portable";
 import type { WaterState } from "../../sim/water";
 import type { FullForceMap } from "../force";
 import { entityTiles } from "../force";
@@ -104,7 +105,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
     const pt = p.path[k];
     const aa = p.path[k - 3];
     const bb = p.path[k + 3];
-    const len = Math.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
+    const len = portable.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
     const nx = -(bb.y - aa.y) / len;
     const ny = (bb.x - aa.x) / len;
     for (const side of [-1, 1])
@@ -133,7 +134,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
       }
   edges.sort((x, y) => y.drop - x.drop || x.lip - y.lip);
   const falls: typeof edges = [];
-  for (const e of edges) if (!falls.some((f) => Math.hypot((f.lip % W) - (e.lip % W), Math.floor(f.lip / W) - Math.floor(e.lip / W)) < 5)) falls.push(e);
+  for (const e of edges) if (!falls.some((f) => portable.hypot((f.lip % W) - (e.lip % W), Math.floor(f.lip / W) - Math.floor(e.lip / W)) < 5)) falls.push(e);
   const riverWidths: number[] = [];
   let passages = 0;
   const sections: GlaciateMeasure["sections"] = [];
@@ -141,7 +142,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
     const pt = p.streamPath[k];
     const aa = p.streamPath[k - 3];
     const bb = p.streamPath[k + 3];
-    const len = Math.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
+    const len = portable.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
     const nx = -(bb.y - aa.y) / len;
     const ny = (bb.x - aa.x) / len;
     let run: number[] = [];

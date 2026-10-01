@@ -4,6 +4,7 @@
 // river would give that strength); from a pool or a lake, the river breaks out where the water would
 // spill over, the lowest point of its rim, like a lake breaching, and carves on from there.
 
+import * as portable from "../../math/portable";
 import { sourceStrength } from "./run";
 
 /** How deep the water at a source must stand for it to be in a pool or a lake (levels): a pond, not
@@ -93,7 +94,7 @@ export function breakout(W: number, H: number, heights: ArrayLike<number>, depth
       if (inPool[j] || keep?.[j]) continue;
       // (aimed: the rim nearest where it is aimed; else the lowest, the nearest of them)
       const h = toward === null ? heights[j] : 0;
-      const d = Math.hypot(xx - sx, yy - sy);
+      const d = portable.hypot(xx - sx, yy - sy);
       if (h < low || (h === low && d < near)) {
         low = h;
         near = d;
