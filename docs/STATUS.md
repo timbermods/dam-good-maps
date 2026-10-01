@@ -39,8 +39,13 @@ forces; the deploy and the live check passed. The High look's release is next (D
      allow rules written, a second run found everything ready. It needed no change to `tools/setup-machine.mjs`.
      It reports only what is missing locally (the decompiled game code and the official maps, regenerated when needed).
      The temporary clone is deleted.
-  2. Not done yet: the flaky `save-to-timberborn.spec.ts:65` (below), September's Progress log copy, the faster settle's
-     timing, the Wednesday allowance report.
+  2. **The flaky `save-to-timberborn.spec.ts:65` (D341) is fixed in the test.** "browserContext.close: Test ended"
+     means the test finished, and the browser context closed, while the downloaded file was still being written: the
+     tests waited for the `download` event, which fires when the download *starts*. Each now also waits for
+     `download.path()`, which resolves when the file is complete. The failure never reproduced here (92 runs of the
+     old test, up to 12 in parallel, all passed), so it was a CI-timing race; the fixed file passes the same 60-run
+     stress. If it ever fails again on `dev`'s CI, reopen D341's trace with that run's log.
+  3. Not done yet: September's Progress log copy, the faster settle's timing, the Wednesday allowance report.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 

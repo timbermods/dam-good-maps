@@ -57,7 +57,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    `dev`, tag `map-look-2-done`, and release with `tools/release.sh` (§7, "Releases"); it is approved, so no new
    sitting is needed unless the merge changes how something looks. One test to trace (D341): on dev's CI after the
    forces merge, `tests/e2e/save-to-timberborn.spec.ts:65` failed once with "browserContext.close: Test ended" and
-   passed on re-run (likely the test ending before its download finishes). Item 34 (WORK.md, hand-back notes, one
+   passed on re-run (the test ended before its download finished; fixed in the test on 2026-10-01, see `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one
    file per decision) was due at this release boundary and is not done.
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
