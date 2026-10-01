@@ -46,6 +46,7 @@ import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
+import { riverSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
@@ -99,6 +100,8 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Whether a land whose river would spread as a sheet over a flat is drawn again (D372). */
+const SHEET_REJECT = true;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -141,6 +144,9 @@ export interface GenerationInfo {
   /** Mine-site pads levelled as the land was shaped (D363): each pad's middle, level and the tiles
    *  taken down a level. */
   pads?: MinePad[];
+  /** The largest flat a river of the shown land would spread over as a sheet, as a share of the
+   *  map (D372: a land over 5% is drawn again). */
+  sheet?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -279,6 +285,8 @@ interface LandStage {
   mineWay: Uint8Array;
   /** The mine sites' pads levelled as it was shaped (D363). */
   pads?: MinePad[];
+  /** Its rivers' largest sheet over a flat, a share of the map (D372). */
+  sheet?: number;
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
@@ -1481,6 +1489,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
   const mineWay = from ? from.mineWay : new Uint8Array(N);
   if (from?.pads) info.pads = from.pads;
+  if (from?.sheet !== undefined) info.sheet = from.sheet;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
@@ -1548,6 +1557,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
             if (hLand[i] >= spill[i]) shelf++;
           }
         if (shelf > SEA_SHELF_MOST || (shelf >= 0.75 * sea && shelf >= 0.25 * N)) return fail("a sea over its shelf", null, false);
+      }
+      // (D372: no river spreading as a shallow sheet over a flat of more than 5% of the map, at its
+      // bed's own level with no bank: it fills for days past the settle's six, Canyon 256² seeds 14
+      // and 22; deep water with banks, the planned lakes, is no sheet)
+      {
+        const sheet = riverSheet(hLand, W, H, hy.water);
+        info.sheet = Math.round(sheet.share * 1000) / 1000;
+        if (!lastAttempt && SHEET_REJECT && sheet.share > SHEET_MOST) return fail("a river over a flat", null, true);
       }
       {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
@@ -1682,7 +1699,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, sheet: info.sheet, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds

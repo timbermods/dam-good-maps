@@ -66,6 +66,8 @@ export interface MapMeasure {
   worn?: { cut: number; width: number; shape: { regions: number; strays: number; offPath: number } } | null;
   /** The mine sites' pads (D363): each pad's tiles taken down a level. */
   pads?: number[] | null;
+  /** The largest flat a river of the shown land would spread over as a sheet (D372). */
+  sheet?: number | null;
   /** The final settle's ticks (D358: up to 6 game days). */
   settleTicks?: number;
   /** Settles the map took, and lands drawn again by the land-stage screen. */
@@ -214,6 +216,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     planned: r.info.planned ?? null,
     settles: r.info.settles,
     pads: r.info.pads ? r.info.pads.map((p) => p.cut.length) : null,
+    sheet: r.info.sheet ?? null,
     worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width)) } : null,
     settleTicks: b.settle.ticks,
     redrawn: r.failures.filter((f) => f.failed.some((w) => w.includes('(planned)'))).length,
