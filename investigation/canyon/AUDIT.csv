@@ -1,0 +1,121 @@
+phase,size,seed,validator_pass,all_three,promise,standout,readable_water,land_ms,cpu_land_ms,water_ms,shown,changed_tiles,cliff_run,cliff_share,main_water_share,water_reach,main_wet,least_wet,logs,berries_near,mines_walked,level_land,farmland,bed_min,cause
+before,96,1,True,True,True,True,True,841,841,1438,1,59,133,0.48,1,0.542,1,0.848,275,48,2,451,408,3,
+before,96,2,True,True,True,True,True,919,919,1980,1,53,31,0.352,1,0.724,1,0.908,280,48,2,526,477,3,
+before,96,3,True,True,True,True,True,1560,1560,2128,1,67,37,0.314,1,0.633,1,1,487,48,2,469,360,3,
+before,96,4,True,False,False,True,True,1090,1090,1744,1,98,29,0.193,1,0.558,1,0.952,315,34,2,409,241,3,"Cliff run 29 is long enough, but only 19.3% of its course (23.1% required); broad 3.8-tile cleared floor and settled lake reaches interrupt the near-bank walls."
+before,96,5,True,True,True,True,True,596,596,735,1,127,38,0.286,1,0.472,1,1,273,48,2,475,432,3,
+before,96,6,True,True,True,True,True,428,428,1056,1,68,43,0.279,1,0.659,1,1,314,33,2,241,205,3,
+before,96,7,True,True,True,True,True,224,224,774,1,105,78,0.78,1,0.681,1,1,254,33,2,308,280,3,
+before,96,8,True,True,True,True,True,266,266,1001,1,71,58,0.387,1,0.598,1,0.789,431,48,2,672,413,3,
+before,96,9,True,False,True,True,False,4189,4189,4304,1,50,34,0.466,0.486,0.395,1,1,296,50,2,832,541,3,"Two independent drainage systems: main exits south, spring/2 west; spring/3 joins the latter. The larger-volume system holds only 49% of wet tiles. Planned water already missed the story screen."
+before,96,10,True,True,True,True,True,1362,1362,1717,1,54,97,0.519,1,0.587,1,1,334,48,2,595,410,3,
+before,96,11,True,True,True,True,True,255,255,550,1,53,47,0.364,0.856,0.59,1,1,271,48,2,529,483,3,
+before,96,12,True,True,True,True,True,742,678,1233,1,108,39,0.285,1,0.471,1,1,267,33,2,306,193,3,
+before,96,13,True,True,True,True,True,593,561,7682,1,64,28,0.243,0.981,0.542,1,0.862,243,43,2,617,398,3,
+before,96,14,True,True,True,True,True,1496,1496,1864,1,46,61,0.323,1,0.525,1,0.988,954,48,2,736,591,3,
+before,96,15,True,True,True,True,True,1142,901,10607,1,131,23,0.418,0.979,0.606,0.863,0.863,276,33,2,450,215,3,
+before,96,16,True,False,True,True,False,3635,2757,3895,1,73,20,0.267,1,0.342,0.771,0.771,383,51,2,653,510,5,"Declared main route is bypassed after settling: dry at (38,9), floor 9, with 12 consecutive dry course samples; main wet share 77% and clean-water reach 34%. Routing/description mismatch is shared."
+before,96,17,True,False,False,True,True,3748,2400,6106,1,109,7,0.167,1,0.485,1,1,342,48,2,695,521,3,D171 source removal drops the main and other rivers after land display; only spring/2 survives (plus the excluded start spring). Its cliff run is 7. Shared dropRivers leaves the old valley without its river.
+before,96,18,True,False,True,True,False,2480,1867,5939,1,56,25,0.269,0.457,0.508,1,0.885,514,35,2,377,123,3,Source removal leaves two independent spring routes to the west edge and an excluded start spring; dominant water holds 46%. Shared source removal/routing fragments the final story; no planned outcome was recorded on this capped last attempt.
+before,96,19,True,True,True,True,True,1820,1556,2614,1,65,28,0.56,0.866,0.53,1,0.931,277,49,2,411,343,3,
+before,96,20,True,True,True,True,True,333,246,813,1,124,45,0.398,1,0.516,1,1,346,48,2,479,268,3,
+before,128,1,True,True,True,True,True,1650,1650,3693,1,48,39,0.351,1,0.597,1,1,290,48,2,580,419,3,
+before,128,2,True,False,False,True,False,3138,3138,4360,1,175,24,0.113,0.597,0.512,1,0.95,448,48,2,511,241,3,No inflow drawn: main and spring/1 drain separately from spring/2. Main-volume system holds 60%; 8 dry course samples of spring/2 lie inside lake outlines. The broad floor (3.9) and lakes break the cliff run into 24 (11.3%).
+before,128,3,True,True,True,True,True,1007,1007,1680,1,107,49,0.295,1,0.529,0.986,0.986,294,48,2,795,511,3,
+before,128,4,True,True,True,True,True,2907,2907,4066,1,66,29,0.203,0.977,0.583,1,0.684,634,48,2,415,393,3,
+before,128,5,True,True,True,True,True,2461,2461,3116,1,50,54,0.947,1,0.483,1,1,298,51,2,583,497,3,
+before,128,6,True,True,True,True,True,1267,1267,2725,1,147,74,0.407,1,0.528,1,1,296,33,2,295,221,3,
+before,128,7,True,True,True,True,True,549,515,1932,1,103,40,0.29,1,0.796,1,1,442,36,2,331,317,3,
+before,128,8,True,True,True,True,True,1595,1404,2035,1,216,31,0.301,0.825,0.378,1,1,341,48,2,753,420,3,
+before,128,9,True,False,False,True,True,5947,4625,6819,1,90,31,0.132,1,0.456,0.968,0.742,297,48,2,638,293,3,"No inflow; five heads each carry 1.19, below the shared incision gate 1.2. Canyon incision 4.94 is unused. Narrow shallow courses and lakes leave only 31 cliff samples (13.2%)."
+before,128,10,True,False,True,True,False,7612,6287,8178,1,244,66,0.303,1,0.328,0.984,0.984,298,48,2,336,208,3,"Clean water is concentrated in the southern land, leaving broad dry uplands: only 33% of dry land lies within the shared 0.14-side reach. No river was removed. The planned story already missed; the capped screen was exhausted. This is the shared reach heuristic, not a disconnected network."
+before,128,11,True,False,False,True,True,3883,3409,4940,1,55,31,0.186,1,0.405,0.993,0.993,421,48,2,500,378,5,"No inflow; each river carries 1.0, so Canyon incision 4.33 is unused. Longest cliff run 31 (18.6%) misses the share line. Retaining an inflow resolves this in the prototype."
+before,128,12,True,False,True,True,False,2524,2256,6210,1,146,36,0.356,0.639,0.496,1,1,719,48,2,680,551,3,Source removal drops the main and leaves two spring routes with independent south-edge exits. The dominant system holds 64%. Planned water was readable; shared source removal invalidates that reading.
+before,128,13,True,True,True,True,True,2134,1937,2645,1,63,22,0.489,1,0.516,1,1,286,38,2,278,263,3,
+before,128,14,True,False,True,True,False,1180,951,2233,1,50,21,0.256,1,0.636,1,0.391,458,48,2,609,457,3,"Shared routing/description mismatch: spring/1 declares a main-river join but its settled water bypasses much of that path; 54 dry samples (46 consecutive), starting at (74,67), floor 5. Its course wet share is 39%."
+before,128,15,True,False,True,True,False,2189,1686,3174,1,139,32,0.286,1,0.328,1,1,348,33,2,395,158,3,"Source removal drops the main, retaining spring/1 and spring/2 as independent south-edge routes; clean-water reach falls to 33%. The planned story was readable. Shared source-removal/start-spring handling."
+before,128,16,True,True,True,True,True,2145,1605,2808,1,48,24,0.358,1,0.386,1,0.929,394,38,2,248,244,3,
+before,128,17,True,False,False,True,True,3388,2723,4622,1,62,34,0.163,1,0.543,1,1,285,48,2,953,481,3,"No inflow; four heads carry 1.02, so Canyon incision 7.76 is unused. Cliff run 34 (16.3%) misses the share line. The prototype changes the opening but still leaves a fragmented water system."
+before,128,18,True,True,True,True,True,584,441,1541,1,71,49,0.259,1,0.441,1,1,306,48,2,558,333,3,
+before,128,19,True,True,True,True,True,2542,2228,3496,1,57,75,0.267,1,0.606,1,1,370,48,2,304,282,3,
+before,128,20,True,True,True,True,True,1659,1575,2498,1,64,89,0.366,0.999,0.573,0.989,0.989,317,54,2,420,248,3,
+before,256,1,True,True,True,True,True,8495,8495,13213,1,109,38,0.144,0.793,0.591,1,1,305,51,3,713,434,3,
+before,256,2,True,True,True,True,True,4677,3988,16102,1,83,58,0.408,1,0.556,1,1,554,48,3,668,433,3,
+before,256,3,True,True,True,True,True,2953,2360,12936,1,65,52,0.315,0.884,0.495,1,0.765,411,46,3,401,287,3,
+before,256,4,True,True,True,True,True,9496,7818,18531,1,123,48,0.164,1,0.587,1,0.687,352,48,3,550,461,3,
+before,256,5,True,True,True,True,True,2047,1894,6897,1,115,45,0.336,0.953,0.463,1,0.709,716,48,3,689,494,3,
+before,256,6,True,True,True,True,True,2291,2223,8241,1,342,101,0.347,1,0.462,1,1,270,48,3,640,435,3,
+before,256,7,True,True,True,True,True,2830,2830,9709,1,156,30,0.265,0.726,0.745,1,0.981,293,48,3,638,293,3,
+before,256,8,True,True,True,True,True,4885,4845,8509,1,58,74,0.163,0.999,0.656,1,0.962,288,33,3,293,300,3,
+before,256,9,True,True,True,True,True,2488,2176,6318,1,61,93,0.694,1,0.495,0.997,0.997,1032,49,3,1044,631,3,
+before,256,10,True,True,True,True,True,10606,9150,28343,1,112,37,0.147,0.998,0.737,0.996,0.948,270,48,3,659,650,3,
+before,256,11,True,False,False,True,True,6852,5696,12765,1,94,24,0.144,1,0.604,1,0.845,555,48,3,764,358,3,"Width-blind shared signature: 8.4-wide main plus 2.5 floor puts nominal walls beyond radius 6. Main cliff run 1 becomes 36 at radius 12; production signature instead selects a tributary run of 24, below 29 required."
+before,256,12,True,False,False,True,True,6415,5646,9214,1,75,31,0.068,0.971,0.402,1,0.898,514,73,3,712,588,3,"Width-blind shared signature and interruptions by side channels/lakes: main width 7.7, measured run 31 (6.8%); radius-12 diagnostic finds 79. Do not narrow the map to pass a fixed-radius measurement."
+before,256,13,True,True,True,True,True,3378,2965,18703,1,206,88,0.765,1,0.666,1,1,407,48,3,822,657,3,
+before,256,14,True,False,True,True,False,20949,18678,46418,1,119,34,0.18,0.29,0.488,1,0.864,275,48,3,777,499,3,"Shared source removal drops the main; spring/1 and spring/5 occupy one system, spring/2,3,4 another. Main-volume system has only 29% of wet tiles and two rivers never join it. Planned story was readable."
+before,256,15,True,False,False,True,True,7352,7352,10813,1,63,59,0.136,1,0.432,1,1,325,44,3,457,416,3,Long course with interrupted near-bank cliffs: run 59 (13.6%) just below 14.1% required. Radius-12 diagnostic finds a 90-sample main run. No inflow at baseline; prototype retains one but the near-bank signature still misses.
+before,256,16,True,False,False,True,True,5731,4778,9269,1,143,16,0.126,1,0.524,0.976,0.731,1221,50,3,793,261,3,Wide main (7.8) outside the fixed near-bank scan and lower tributary/lake breaks: main run 8 becomes 69 at radius 12; production selects a tributary run 16. Shared width-blind signature.
+before,256,17,True,True,True,True,True,11000,8901,32758,1,186,44,0.244,0.722,0.647,1,0.983,522,48,3,326,290,3,
+before,256,18,True,False,False,True,True,15749,15205,24288,1,144,62,0.073,1,0.768,1,1,274,48,3,527,318,3,"Long, branching course through lake/floodplain reaches: near-bank run 62 (7.3%) below 14.1%; radius-12 main run 104. Shared fixed-radius signature under-reads broader cliffs; the near-bank stretches also genuinely break."
+before,256,19,True,True,True,True,True,3072,3028,10344,1,86,32,0.157,1,0.613,1,0.907,316,48,3,653,400,3,
+before,256,20,True,True,True,True,True,3149,3050,7400,1,69,63,0.17,1,0.626,1,1,251,33,3,224,174,3,
+after,96,1,True,True,True,True,True,1485,1485,2459,1,59,133,0.48,1,0.542,1,0.848,275,48,2,451,408,3,
+after,96,2,True,True,True,True,True,1283,1283,2532,1,53,31,0.352,1,0.724,1,0.908,280,48,2,526,477,3,
+after,96,3,True,True,True,True,True,2526,2349,3426,1,67,37,0.314,1,0.633,1,1,487,48,2,469,360,3,
+after,96,4,True,False,False,True,True,1586,1313,2597,1,98,29,0.193,1,0.558,1,0.952,315,34,2,409,241,3,"Cliff run 29 is long enough, but only 19.3% of its course (23.1% required); broad 3.8-tile cleared floor and settled lake reaches interrupt the near-bank walls."
+after,96,5,True,True,True,True,True,690,690,903,1,127,38,0.286,1,0.472,1,1,273,48,2,475,432,3,
+after,96,6,True,True,True,True,True,391,391,1175,1,68,43,0.279,1,0.659,1,1,314,33,2,241,205,3,
+after,96,7,True,True,True,True,True,345,280,1120,1,105,78,0.78,1,0.681,1,1,254,33,2,308,280,3,
+after,96,8,True,True,True,True,True,477,464,1511,1,71,58,0.387,1,0.598,1,0.789,431,48,2,672,413,3,
+after,96,9,True,False,True,True,False,4190,4190,4341,1,32,24,0.329,0.547,0.368,0.878,0.878,292,48,2,654,460,3,"The requested inflow is not retained in the final spring-fed layout. Two independent drainage systems remain, with two rivers outside the dominant system (55% of wet tiles). The shared fallback/routing still fragments the story."
+after,96,10,True,True,True,True,True,1731,1731,2096,1,54,97,0.519,1,0.587,1,1,334,48,2,595,410,3,
+after,96,11,True,True,True,True,True,250,250,459,1,53,47,0.364,0.856,0.59,1,1,271,48,2,529,483,3,
+after,96,12,True,True,True,True,True,762,600,1305,1,108,39,0.285,1,0.471,1,1,267,33,2,306,193,3,
+after,96,13,True,True,True,True,True,449,315,1029,1,59,18,0.327,1,0.526,1,1,304,48,2,395,349,3,
+after,96,14,True,True,True,True,True,2221,1135,2788,1,46,61,0.323,1,0.525,1,0.988,954,48,2,736,591,3,
+after,96,15,True,False,False,True,True,3172,2257,4449,1,113,22,0.144,1,0.562,1,1,608,48,2,646,365,3,"New prototype miss: the longer edge-fed main gives a cliff run of 22, only 14.4% of the course (23.1% required). The old spring-fed run was 23, 41.8%. The retained inflow does not establish cliffs for enough of its longer course."
+after,96,16,True,False,True,True,False,2530,2009,2762,1,73,20,0.267,1,0.342,0.771,0.771,383,51,2,653,510,5,"Declared main route is bypassed after settling: dry at (38,9), floor 9, with 12 consecutive dry course samples; main wet share 77% and clean-water reach 34%. Routing/description mismatch is shared."
+after,96,17,True,False,False,True,True,2642,2313,5089,1,109,7,0.167,1,0.485,1,1,342,48,2,695,521,3,D171 source removal drops the main and other rivers after land display; only spring/2 survives (plus the excluded start spring). Its cliff run is 7. Shared dropRivers leaves the old valley without its river.
+after,96,18,True,False,True,True,False,2001,1605,5605,1,56,25,0.269,0.457,0.508,1,0.885,514,35,2,377,123,3,Source removal leaves two independent spring routes to the west edge and an excluded start spring; dominant water holds 46%. Shared source removal/routing fragments the final story; no planned outcome was recorded on this capped last attempt.
+after,96,19,True,True,True,True,True,2279,1675,3370,1,65,28,0.56,0.866,0.53,1,0.931,277,49,2,411,343,3,
+after,96,20,True,True,True,True,True,414,307,887,1,124,45,0.398,1,0.516,1,1,346,48,2,479,268,3,
+after,128,1,True,True,True,True,True,2144,2144,3820,1,48,39,0.351,1,0.597,1,1,290,48,2,580,419,3,
+after,128,2,True,False,False,True,False,3075,3075,10159,1,203,24,0.113,0.492,0.489,1,0.95,280,48,2,625,238,3,"The requested inflow cannot be traced on the capped last attempt, so the shared planner falls back to three spring-fed routes; no river is dropped. Independent systems hold only 49% in the dominant one, and the near-bank cliff signature misses. A minimum inflow prior is not an exact-count guarantee."
+after,128,3,True,True,True,True,True,1026,1026,1865,1,107,49,0.295,1,0.529,0.986,0.986,294,48,2,795,511,3,
+after,128,4,True,True,True,True,True,5536,4113,7421,1,66,29,0.203,0.977,0.583,1,0.684,634,48,2,415,393,3,
+after,128,5,True,True,True,True,True,2599,2513,3494,1,102,50,0.625,1,0.487,1,1,271,37,2,408,343,3,
+after,128,6,True,True,True,True,True,1790,1538,3384,1,147,74,0.407,1,0.528,1,1,296,33,2,295,221,3,
+after,128,7,True,True,True,True,True,664,589,2255,1,103,40,0.29,1,0.796,1,1,442,36,2,331,317,3,
+after,128,8,True,True,True,True,True,1710,1611,2112,1,216,31,0.301,0.825,0.378,1,1,341,48,2,753,420,3,
+after,128,9,True,True,True,True,True,5838,5759,6671,1,79,66,0.201,1,0.579,1,1,414,48,2,622,406,3,
+after,128,10,True,False,True,True,False,7089,6291,7689,1,244,66,0.303,1,0.328,0.984,0.984,298,48,2,336,208,3,"Clean water is concentrated in the southern land, leaving broad dry uplands: only 33% of dry land lies within the shared 0.14-side reach. No river was removed. The planned story already missed; the capped screen was exhausted. This is the shared reach heuristic, not a disconnected network."
+after,128,11,True,True,True,True,True,2137,1832,3523,1,76,50,0.231,1,0.673,1,1,1232,48,2,286,249,3,
+after,128,12,True,False,True,True,False,2354,2310,5748,1,146,36,0.356,0.639,0.496,1,1,719,48,2,680,551,3,Source removal drops the main and leaves two spring routes with independent south-edge exits. The dominant system holds 64%. Planned water was readable; shared source removal invalidates that reading.
+after,128,13,True,True,True,True,True,2067,2067,2546,1,63,22,0.489,1,0.516,1,1,286,38,2,278,263,3,
+after,128,14,True,False,True,True,False,1083,1083,1845,1,50,21,0.256,1,0.636,1,0.391,458,48,2,609,457,3,"Shared routing/description mismatch: spring/1 declares a main-river join but its settled water bypasses much of that path; 54 dry samples (46 consecutive), starting at (74,67), floor 5. Its course wet share is 39%."
+after,128,15,True,False,True,True,False,1566,1566,2391,1,139,32,0.286,1,0.328,1,1,348,33,2,395,158,3,"Source removal drops the main, retaining spring/1 and spring/2 as independent south-edge routes; clean-water reach falls to 33%. The planned story was readable. Shared source-removal/start-spring handling."
+after,128,16,True,True,True,True,True,1350,1350,1879,1,48,24,0.358,1,0.386,1,0.929,394,38,2,248,244,3,
+after,128,17,True,False,False,True,False,3121,3121,4768,1,85,12,0.071,0.629,0.552,1,0.98,285,33,2,549,561,3,Changed opening still misses the near-bank cliff share and leaves two water systems (dominant share 63%). Retaining an inflow alone does not guarantee it survives shared source removal.
+after,128,18,True,True,True,True,True,491,490,1156,1,71,49,0.259,1,0.441,1,1,306,48,2,558,333,3,
+after,128,19,True,True,True,True,True,1896,1896,2585,1,57,75,0.267,1,0.606,1,1,370,48,2,304,282,3,
+after,128,20,True,True,True,True,True,1288,1288,1981,1,64,89,0.366,0.999,0.573,0.989,0.989,317,54,2,420,248,3,
+after,256,1,True,True,True,True,True,12792,10383,18712,1,109,38,0.144,0.793,0.591,1,1,305,51,3,713,434,3,
+after,256,2,True,True,True,True,True,6071,4331,19660,1,83,58,0.408,1,0.556,1,1,554,48,3,668,433,3,
+after,256,3,True,True,True,True,True,4052,2655,15462,1,65,52,0.315,0.884,0.495,1,0.765,411,46,3,401,287,3,
+after,256,4,True,True,True,True,True,13214,9064,22316,1,123,48,0.164,1,0.587,1,0.687,352,48,3,550,461,3,
+after,256,5,True,True,True,True,True,3176,2306,9693,1,115,45,0.336,0.953,0.463,1,0.709,716,48,3,689,494,3,
+after,256,6,True,True,True,True,True,3619,2643,11839,1,342,101,0.347,1,0.462,1,1,270,48,3,640,435,3,
+after,256,7,True,True,True,True,True,4552,3579,13084,1,156,30,0.265,0.726,0.745,1,0.981,293,48,3,638,293,3,
+after,256,8,True,True,True,True,True,7282,5520,11832,1,58,74,0.163,0.999,0.656,1,0.962,288,33,3,293,300,3,
+after,256,9,True,True,True,True,True,4231,2664,9806,1,61,93,0.694,1,0.495,0.997,0.997,1032,49,3,1044,631,3,
+after,256,10,True,True,True,True,True,14157,9539,35539,1,112,37,0.147,0.998,0.737,0.996,0.948,270,48,3,659,650,3,
+after,256,11,True,False,False,True,True,12996,6790,20778,1,94,24,0.144,1,0.604,1,0.845,555,48,3,764,358,3,"Width-blind shared signature: 8.4-wide main plus 2.5 floor puts nominal walls beyond radius 6. Main cliff run 1 becomes 36 at radius 12; production signature instead selects a tributary run of 24, below 29 required."
+after,256,12,True,False,False,True,True,15305,5898,20787,1,75,31,0.068,0.971,0.402,1,0.898,514,73,3,712,588,3,"Width-blind shared signature and interruptions by side channels/lakes: main width 7.7, measured run 31 (6.8%); radius-12 diagnostic finds 79. Do not narrow the map to pass a fixed-radius measurement."
+after,256,13,True,True,True,True,True,12089,4399,24420,1,117,59,0.457,1,0.601,1,1,304,48,3,610,510,3,
+after,256,14,True,False,True,True,False,54828,24612,94360,1,119,34,0.18,0.29,0.488,1,0.864,275,48,3,777,499,3,"Shared source removal drops the main; spring/1 and spring/5 occupy one system, spring/2,3,4 another. Main-volume system has only 29% of wet tiles and two rivers never join it. Planned story was readable."
+after,256,15,True,False,False,True,True,16703,8017,25409,1,71,26,0.068,1,0.637,1,0.626,324,33,3,458,251,3,"The stronger edge-fed main reaches width 8.4, moving its walls beyond the fixed near-bank scan over many reaches. Production signature reads 26 samples (6.8%), below both length and share lines. The changed layout remains a promise miss; radius-12 evidence above belongs to baseline only."
+after,256,16,True,False,False,True,True,11457,4779,16652,1,143,16,0.126,1,0.524,0.976,0.731,1221,50,3,793,261,3,Wide main (7.8) outside the fixed near-bank scan and lower tributary/lake breaks: main run 8 becomes 69 at radius 12; production selects a tributary run 16. Shared width-blind signature.
+after,256,17,True,True,True,True,True,23187,10410,56642,1,186,44,0.244,0.722,0.647,1,0.983,522,48,3,326,290,3,
+after,256,18,True,False,False,True,False,22417,10744,41246,1,110,43,0.134,0.543,0.793,1,0.926,1064,49,3,523,462,3,"New readable-water miss on a changed opening: shared source removal drops the main, leaving two independent south-edge spring systems (dominant share 54%, two separate rivers). The cliff signature also still misses."
+after,256,19,True,True,True,True,True,7687,3980,19293,1,86,32,0.157,1,0.613,1,0.907,316,48,3,653,400,3,
+after,256,20,True,True,True,True,True,7184,3303,14749,1,69,63,0.17,1,0.626,1,1,251,33,3,224,174,3,
