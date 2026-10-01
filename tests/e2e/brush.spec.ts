@@ -106,15 +106,15 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" })).toHaveValue(String(level));
   expect((await info(page)).history.length).toBe(steps);
 
-  // [ and ] size the brush; Shift+wheel sets Smooth's strength (D196, as the game); each shows
+  // { and } size the brush (D368 (1)); Shift+wheel sets Smooth's strength (D196, as the game); each shows
   // beside the pointer while it changes (D184), and the brush keeps it
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size: number; strength: number });
   // (nothing saved yet: the default size, 5)
   const s0 = (await saved()).size ?? 5;
-  await page.keyboard.press("]");
+  await page.keyboard.press("}");
   await expect.poll(async () => (await saved()).size).toBeGreaterThan(s0);
   await expect(page.locator(".shape-note")).toHaveText(`size ${(await saved()).size}`);
-  await page.keyboard.press("[");
+  await page.keyboard.press("{");
   await expect.poll(async () => (await saved()).size).toBe(s0);
   const k0 = (await saved()).strength;
   await page.keyboard.press("4");

@@ -16,7 +16,8 @@ import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type Er
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SIZE_KEYS, SizeControl, STRENGTH_KEYS, Toggle, type Force } from "./TopBar";
+import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
  *  rays), behind More, start on Auto (null) until the player pins one (D309). */
@@ -95,13 +96,13 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
           {st.stopping ? "Settling…" : doing}
         </span>
         {st.painting && !st.stopping ? (
-          <span class="bar-status force-keys" title="Esc takes the fault back">
+          <span class="bar-status force-keys" {...tip("Take the fault back", "Esc")}>
             Esc to cancel
           </span>
         ) : (
           <ForceKeys />
         )}
-        <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
+        <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
           Revert
         </button>
       </div>
@@ -112,7 +113,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
 function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
-    <label class="slider-field" title={`${p.title} ({ and })`}>
+    <label class="slider-field" {...tip(p.title, ...STRENGTH_KEYS)}>
       Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
       <output title={word}>{p.value}</output>
@@ -157,7 +158,8 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
         <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits" />
         <SizeControl
           label="Size"
-          title="The crater's width (F, [ and ])"
+          title="The crater's width"
+          keys={SIZE_KEYS}
           value={Math.round(size / 2) * 2}
           min={4}
           max={180}
@@ -228,7 +230,8 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
         <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws" />
         <SizeControl
           label="Size"
-          title="How broad it spreads (F, [ and ])"
+          title="How broad it spreads"
+          keys={SIZE_KEYS}
           value={breadth}
           min={ERUPT_SIZE_MIN}
           max={ERUPT_SIZE_MAX}
@@ -330,7 +333,8 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How deep the ice carves" />
         <SizeControl
           label="Size"
-          title="How wide the valley is (F, [ and ])"
+          title="How wide the valley is"
+          keys={SIZE_KEYS}
           value={Math.round(size / 2) * 2}
           min={GLACIATE_SIZE_MIN}
           max={GLACIATE_SIZE_MAX}

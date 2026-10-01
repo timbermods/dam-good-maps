@@ -3,6 +3,7 @@
 // terrain and water measures follow investigation/analyze_maps.py, so a generated map is measured
 // the way the official maps were calibrated.
 
+import * as portable from "../math/portable";
 import type { EntitySpec } from "../format/entities";
 import type { Feature, RiverFeature } from "../features/schema";
 import { waterModel } from "../sim/model";
@@ -165,13 +166,13 @@ export function measure(m: Measurable): MapMetrics {
     const p = main.params.path;
     const [ax, ay] = p[0];
     const [bx, by] = p[p.length - 1];
-    const cl = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
+    const cl = portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
     let len = 0;
     let dev = 0;
     for (let k = 0; k < p.length; k++) {
       const d = Math.abs((p[k][0] - ax) * (by - ay) - (p[k][1] - ay) * (bx - ax)) / cl;
       if (d > dev) dev = d;
-      if (k > 0) len += Math.sqrt((p[k][0] - p[k - 1][0]) ** 2 + (p[k][1] - p[k - 1][1]) ** 2);
+      if (k > 0) len += portable.sqrt(portable.pow(p[k][0] - p[k - 1][0], 2) + portable.pow(p[k][1] - p[k - 1][1], 2));
     }
     const across = Math.abs(bx - ax) >= Math.abs(by - ay) ? H : W;
     meander = dev / across;

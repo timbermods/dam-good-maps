@@ -1,6 +1,6 @@
 // The words beside the pointer while a brush is out (D322): one label, three sources. While F sizes
 // the brush, its size shows and nothing replaces it; a word flashed for a moment (a strength, a size
-// stepped with [ or ]) shows next, then the brush's own words come back (its target level, "up to
+// stepped with { or }) shows next, then the brush's own words come back (its target level, "up to
 // 8"). Pure logic, with its timer handed in, so the order is tested without a browser
 // (tests/unit/pointerWords.test.ts).
 

@@ -25,7 +25,7 @@ import { View3D } from "../ui/View3D";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTileFacts, type TileObject } from "../core/doc/describeTile";
-import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, withOwnStrength, type StartCheck, type StartStatus, type TileContext } from "./features";
+import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, strengthKey, strengthReader, type StartCheck, type StartStatus, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, SourceReadout, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { isPickable, pickWinner, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
@@ -67,13 +67,14 @@ import { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { PointerWords } from "./pointerWords";
-import { sized, sizeForReach, stepPower, stepSize, type SizedForce } from "./forceSize";
+import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "./forceSize";
 import { BRUSHES, BRUSH_NAMES, BrushPainter, DEFAULT_BRUSH, hasTarget, nextSize, paste, sizeMax, targetWords, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
 import { BAD, BADWATER_STRENGTHS, GHOST_OK, STATUS_COLOR, WARN, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
+import { tip } from "../ui/Tooltip";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -1106,8 +1107,22 @@ export default function Editor(props: EditorProps) {
    *  at once, the new strength beside the pointer; one adjustment is one undo step. */
   const sourceWheel = useRef<{ key: string; record: Promise<EntityInfo | null>; value: number | null; sent: number | null; busy: boolean } | null>(null);
   const wheelNoteTimer = useRef(0);
-  /** A source's strength, by its index in the page's objects. */
-  const strengthOfEntity = (k: number) => mirror.current.entities.strength[k];
+  /** The strengths set on sources still on their way to the worker (D368 (4)), and a tick when they change. */
+  const pendingStrength = useRef(new Map<string, number>());
+  const [strengthTick, setStrengthTick] = useState(0);
+  /** A source's strength, by its index in the page's objects: the one number its label, its row and the
+   *  scroll's note all read (D368 (4)), the page's copy with the strengths still on their way on top. */
+  const strengthOfEntity = (k: number) => strengthReader(mirror.current.entities, pendingStrength.current)(k);
+  /** A source's strength set on the page at once (null: the worker has answered, its own number stands): the
+   *  label, the row and the note all follow it, every notch (D368 (4)). */
+  function liveStrength(e: { x: number; y: number }, v: number | null) {
+    const key = strengthKey(e.x, e.y);
+    if (v === null) {
+      if (!pendingStrength.current.delete(key)) return;
+    } else pendingStrength.current.set(key, v);
+    sourcesChanged();
+    setStrengthTick((t) => t + 1);
+  }
   /** A picked object's index in the page's objects (-1: none there). */
   function entityIndexOf(e: { template: string; x: number; y: number }): number {
     const v = mirror.current.entities;
@@ -1130,15 +1145,17 @@ export default function Editor(props: EditorProps) {
     void state.record.then((e) => {
       if (!e || sourceWheel.current !== state) return;
       const steps = e.template === "BadwaterSource" ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
-      const now = state.value ?? ((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? steps[0]);
+      const ek = entityIndexOf(e);
+      const now = state.value ?? (ek >= 0 ? strengthOfEntity(ek) : ((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? steps[0]));
       const k = steps.reduce((best, f, j) => (Math.abs(f - now) < Math.abs(steps[best] - now) ? j : best), 0);
       const value = steps[Math.max(0, Math.min(steps.length - 1, k + (up ? 1 : -1)))];
       state.value = value;
       const over = value > OFFICIAL_FLOW;
-      // (one number everywhere: this source's and, in a row, the row's, as the marker's label; D361)
-      const ek = entityIndexOf(e);
+      // one number everywhere, at once (D361 (6), D368 (4)): the source's strength set on the page, which its
+      // label, its row and these words all read; this source's and, in a row, the row's
+      liveStrength(e, value);
       const s = ek >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, ek) : null;
-      const words = s ? sourceStrengthWords(withOwnStrength(s, value)) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
+      const words = s ? sourceStrengthWords(s) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
       setShapeNote({ text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at });
       clearTimeout(wheelNoteTimer.current);
       wheelNoteTimer.current = window.setTimeout(() => {
@@ -1152,14 +1169,20 @@ export default function Editor(props: EditorProps) {
         state.sent = v;
         const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
         const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
+        let ok = false;
         void run(
           () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
           (u) => {
+            ok = u.ok;
             const p = pickedRef.current;
             if (u.ok && p && p.list.some((x) => x.id === e.id)) pickTile(p.x, p.y);
           },
         ).finally(() => {
           state.busy = false;
+          // (the worker's answer is in the page's copy now: its number stands, unless another notch is on its
+          // way; refused, the source keeps the strength it had)
+          if (!ok) state.value = null;
+          if (!ok || state.value === v) liveStrength(e, null);
           send();
         });
       };
@@ -1171,7 +1194,9 @@ export default function Editor(props: EditorProps) {
   // ------------------------------------------------------------------------ the sources' markers
 
   /** The map's sources as markers (a river's mouth is one), from the page's view of the objects. */
-  const groups = useMemo(() => sourceGroups(mirror.current.entities, info.W, mirror.current.heights), [info.version, ready]);
+  // (the one number, D368 (4): worked out again whenever the page's copy of the objects or a strength set on it
+  // changes, never left on an older copy)
+  const groups = useMemo(() => sourceGroups(mirror.current.entities, info.W, mirror.current.heights, strengthOfEntity), [info.version, ready, mirror.current.entities, strengthTick]);
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   /** Near the pointer: the groups within two tiles; over water: the groups it comes from. */
@@ -1204,7 +1229,7 @@ export default function Editor(props: EditorProps) {
    *  or the background check. */
   function sourcesChanged() {
     // (the groups as the objects are now: the page's memo follows at its next render)
-    groupsRef.current = sourceGroups(mirror.current.entities, infoRef.current.W, mirror.current.heights);
+    groupsRef.current = sourceGroups(mirror.current.entities, infoRef.current.W, mirror.current.heights, strengthOfEntity);
     hoverKey.current = "";
     hoverSourcesRef.current(renderer.current?.hoverHit ?? null);
   }
@@ -1927,7 +1952,7 @@ export default function Editor(props: EditorProps) {
         return api.forceStart({ ...q, gesture });
       }),
     advance: (steps) => enqueue(() => api.forceAdvance(steps)),
-    // (a painted Lift takes the row's Power as it is now: { and } change it while it is painted, D361 (1))
+    // (a painted Lift takes the row's Power as it is now: [ and ] change it while it is painted, D361 (1), D368 (1))
     paint: (path, side) => enqueue(() => api.forcePaint(path, side, quakeUiRef.current.power)),
     keep: (gesture, wanted) => forceCalls.current!.keep(gesture, wanted),
     drop: (gesture) => forceCalls.current!.drop(gesture),
@@ -2061,11 +2086,11 @@ export default function Editor(props: EditorProps) {
           <span class="bar-status" role="status">
             {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
           </span>
-          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} title={st.paused ? "Carry on (Space)" : "Hold it here (Space)"}>
+          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
             {st.paused ? "Resume" : "Pause"}
           </button>
           <ForceKeys />
-          <button type="button" onClick={() => forcer.current?.cancel()} title="Take all of it back (Ctrl+Z)">
+          <button type="button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
             Revert
           </button>
         </>
@@ -2207,7 +2232,7 @@ export default function Editor(props: EditorProps) {
 
   // A force's Size and Power from the keys, exactly as a brush's (D344, A1; forceSize.ts): hold F and
   // move the mouse to size its ring on the map, its size beside the pointer (a click or letting go keeps
-  // it, Esc or a right click puts it back); [ and ] step its Size, { and } its Power. A Size set by hand
+  // it, Esc or a right click puts it back); { and } step its Size, [ and ] its Power (D368 (1)). A Size set by hand
   // is off Auto.
   const forceSizing = useRef<{ verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null>(null);
 
@@ -2680,23 +2705,27 @@ export default function Editor(props: EditorProps) {
     }
     if (c.strength === undefined) return;
     const v = c.strength;
-    // its water answers each step, and one adjustment is one undo step
+    // its water answers each step, and one adjustment is one undo step; its label and row show it at once (D368 (4))
     const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
     const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
+    liveStrength(e, v);
     void run(
       () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
       (u) => {
         if (u.ok) pickTile(at[0], at[1]);
       },
-    );
+    ).finally(() => liveStrength(e, null));
+  }
+  /** A picked source's strength: the one number its label shows too (D361 (6), D368 (4)), never the record's. */
+  function pickedStrength(e: EntityInfo): number {
+    const k = entityIndexOf(e);
+    return k >= 0 ? strengthOfEntity(k) : Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? 1);
   }
   /** A picked source's strength in words, as its marker's label says it (D361, item 6). */
   function pickedWords(e: EntityInfo): string {
-    // (its own strength from the record just read, the row's total corrected to it: never a stale number)
-    const own = Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? 1);
     const k = entityIndexOf(e);
     const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
-    return s ? sourceStrengthWords(withOwnStrength(s, own)) : `${own} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
+    return s ? sourceStrengthWords(s) : `${pickedStrength(e)} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
   }
   /** The row beneath the top bar for a picked source: its strength, its water, Remove. */
   function pickedRow(): { label: string; content: ComponentChildren } | null {
@@ -2710,7 +2739,7 @@ export default function Editor(props: EditorProps) {
             <span class="bar-status">Drag it to move it</span>
             <button
               type="button"
-              title="Delete it (Delete)"
+              {...tip("Delete it", "Delete")}
               onClick={() => {
                 setPickedObject(null);
                 void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
@@ -2718,7 +2747,7 @@ export default function Editor(props: EditorProps) {
             >
               Delete
             </button>
-            <button type="button" class="linkish" aria-label="Put it down" title="Put it down (X or Esc)" onClick={() => setPickedObject(null)}>
+            <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPickedObject(null)}>
               ×
             </button>
           </>
@@ -2729,12 +2758,12 @@ export default function Editor(props: EditorProps) {
     if (!e) return null;
     const bad = e.template === "BadwaterSource";
     const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
-    const strength = Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? steps[0]);
+    const strength = pickedStrength(e);
     return {
       label: `${bad ? "Badwater" : "Water"} source, selected`,
       content: (
         <>
-          <label title="Water a second (Ctrl+scroll over it)">
+          <label {...tip("Water a second", "Ctrl+scroll over it")}>
             Strength
             <select aria-label="Strength" value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
               {[...new Set([...steps, strength])]
@@ -2754,14 +2783,14 @@ export default function Editor(props: EditorProps) {
               <option value="bad">Badwater</option>
             </select>
           </label>
-          <button type="button" title="Remove this source (Delete)" onClick={() => removeSources(picked!.list)}>
+          <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
             Remove
           </button>
           <span class="bar-divider" aria-hidden="true" />
           <button
             type="button"
             class="unleash-button"
-            title="Carve a river from it (U)"
+            {...tip("Carve a river from it", "U")}
             onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)}
             onClick={() => unleash(e)}
           >
@@ -2777,7 +2806,7 @@ export default function Editor(props: EditorProps) {
               Try another
             </button>
           ) : null}
-          <button type="button" class="linkish" aria-label="Put it down" title="Put it down (X or Esc)" onClick={() => setPicked(null)}>
+          <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPicked(null)}>
             ×
           </button>
         </>
@@ -3341,7 +3370,7 @@ export default function Editor(props: EditorProps) {
     if (!z || (!brushTool && !tool)) return null;
     void selectionTick;
     return (
-      <button type="button" class="select-chip" title="Select an area (M)" onClick={openSelect}>
+      <button type="button" class="select-chip" {...tip("Select an area", "M")} onClick={openSelect}>
         Working inside {z.w} × {z.h} · Esc to clear
       </button>
     );
@@ -3373,19 +3402,19 @@ export default function Editor(props: EditorProps) {
               <ModeIcon mode={v} />
             </button>
           ))}
-          <button type="button" class="icon-button" aria-label="Whole map" title="Select the whole map (Ctrl+A)" onClick={selectAll}>
+          <button type="button" class="icon-button" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
             <WholeMapIcon />
           </button>
         </span>
         {z ? (
           <>
-            <button type="button" title="Raise the selection one level (Up)" {...way("raise")} onClick={() => selectAction("raise")}>
+            <button type="button" {...tip("Raise the selection one level", "Up")} {...way("raise")} onClick={() => selectAction("raise")}>
               Up 1
             </button>
-            <button type="button" title="Lower the selection one level (Down)" {...way("lower")} onClick={() => selectAction("lower")}>
+            <button type="button" {...tip("Lower the selection one level", "Down")} {...way("lower")} onClick={() => selectAction("lower")}>
               Down 1
             </button>
-            <label title="The level (Ctrl+click, Shift+scroll)">
+            <label {...tip("The level", "Ctrl+click", "Shift+scroll")}>
               Level
               <input
                 type="number"
@@ -3407,7 +3436,7 @@ export default function Editor(props: EditorProps) {
               Fill up
             </button>
             <span class="menu-wrap">
-              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} title="Delete what stands here (Delete)" onClick={() => setDeleteMenu(!deleteMenu)}>
+              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
               </button>
               {deleteMenu ? (
@@ -3454,7 +3483,7 @@ export default function Editor(props: EditorProps) {
             ) : null}
           </>
         ) : null}
-        <button type="button" class="linkish" aria-label="Close the selection" title="Close (Esc or X)" onClick={closeSelect}>
+        <button type="button" class="linkish" aria-label="Close the selection" {...tip("Close", "Esc", "X")} onClick={closeSelect}>
           ×
         </button>
       </div>
@@ -3719,7 +3748,7 @@ export default function Editor(props: EditorProps) {
         }
         return;
       }
-      // the brushes: 1–5 pick one (again: it stays out), [ and ] size it, Esc cancels a stroke,
+      // the brushes: 1–5 pick one (again: it stays out), { and } size it, Esc cancels a stroke,
       // then puts it away
       if (!mod && !ev.altKey && /^[1-5]$/.test(ev.key)) {
         const b = BRUSHES[Number(ev.key) - 1].tool;
@@ -3748,38 +3777,38 @@ export default function Editor(props: EditorProps) {
         selectAll();
         return;
       }
-      // a force picked (D344, A1): { and } step its Power, [ and ] its Size (off Auto), the number
-      // beside the pointer
+      // one key habit for every tool (D368 (1), swapping D344 A1's): { and } step the Size, [ and ] the
+      // strength (a force's Power; Smooth and Naturalize's strength; nothing on Raise, Lower and Flatten,
+      // whose target level is theirs), each beside the pointer; a force's Size set so is off Auto
       const forcePicked = toolRef.current;
-      if (!mod && !ev.altKey && forcePicked && !brushToolRef.current && (ev.key === "{" || ev.key === "}")) {
+      const habit = !mod && !ev.altKey ? keyHabit(ev.key) : null;
+      if (habit && forcePicked && !brushToolRef.current) {
         ev.preventDefault();
-        const power = stepPower(forcePowerOf(forcePicked), ev.key === "}" ? 1 : -1);
-        setForcePower(forcePicked, power);
-        if (forcePicked === "quake") repaintRef.current?.();
-        flashNote(`power ${power}`);
+        if (habit.what === "strength") {
+          const power = stepPower(forcePowerOf(forcePicked), habit.dir);
+          setForcePower(forcePicked, power);
+          if (forcePicked === "quake") repaintRef.current?.();
+          flashNote(`power ${power}`);
+        } else if (sized(forcePicked)) {
+          const now = forceSizeField(forcePicked) ?? 2 * (reachNow() ?? 0);
+          const size = stepSize(forcePicked, now, habit.dir);
+          setForceSize(forcePicked, size);
+          flashNote(`size ${size}`);
+        }
         return;
       }
-      if (!mod && !ev.altKey && sized(forcePicked) && !brushToolRef.current && (ev.key === "[" || ev.key === "]")) {
+      if (habit && brushToolRef.current) {
         ev.preventDefault();
-        const now = forceSizeField(forcePicked) ?? 2 * (reachNow() ?? 0);
-        const size = stepSize(forcePicked, now, ev.key === "]" ? 1 : -1);
-        setForceSize(forcePicked, size);
-        flashNote(`size ${size}`);
-        return;
-      }
-      // { and }: the strength (as Shift+scroll)
-      if (!mod && (ev.key === "{" || ev.key === "}") && brushToolRef.current) {
-        ev.preventDefault();
-        const strength = Math.max(1, Math.min(10, brushRef.current.strength + (ev.key === "}" ? 1 : -1)));
-        setBrush({ ...brushRef.current, strength });
-        flashNote(`strength ${strength}`);
-        return;
-      }
-      if (!mod && (ev.key === "[" || ev.key === "]") && brushToolRef.current) {
-        ev.preventDefault();
-        const size = nextSize(brushRef.current.size, ev.key === "]" ? 1 : -1, sizeMax(infoRef.current.W, infoRef.current.H));
-        setBrush({ ...brushRef.current, size });
-        flashNote(`size ${size}`);
+        if (habit.what === "size") {
+          const size = nextSize(brushRef.current.size, habit.dir, sizeMax(infoRef.current.W, infoRef.current.H));
+          setBrush({ ...brushRef.current, size });
+          flashNote(`size ${size}`);
+        } else if (!hasTarget(brushToolRef.current)) {
+          // (as Shift+scroll)
+          const strength = Math.max(1, Math.min(10, brushRef.current.strength + habit.dir));
+          setBrush({ ...brushRef.current, strength });
+          flashNote(`strength ${strength}`);
+        }
         return;
       }
       // F: hold and move the mouse to size the brush, a click sets it (D205; F does nothing else)
@@ -4054,7 +4083,7 @@ export default function Editor(props: EditorProps) {
               showLegend={layer !== "none"}
               viewButtons={
                 <>
-                  <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} title="See through the water (T)">
+                  <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} {...tip("See through the water", "T")}>
                     Clear water
                   </button>
                   {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
@@ -4074,7 +4103,7 @@ export default function Editor(props: EditorProps) {
                     Slow forces
                   </button>
                   <span class="reveal-group">
-                    {/* (the volume opens to the speaker's left, so the speaker stays where it is) */}
+                    {/* (the volume opens beneath the speaker, so the cluster stays as it is) */}
                     <label class="slider-field reveal" title="Volume">
                       <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
                     </label>

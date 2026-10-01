@@ -36,6 +36,7 @@ import type { GenProgress } from "../worker/api";
 import { MapCard } from "./MapCard";
 import { SettingsPanel } from "./SettingsPanel";
 import { shareText } from "./settingsModel";
+import { tip } from "./Tooltip";
 
 const generator = createGenerator();
 
@@ -559,7 +560,7 @@ export function App() {
             onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
           />
           <div class="generate-bar">
-            <button type="button" class="primary" disabled={busy || !!opening} title="Make a new map (Enter)" onClick={generateClick}>
+            <button type="button" class="primary" disabled={busy || !!opening} {...tip("Make a new map", "Enter")} onClick={generateClick}>
               {busy ? "Generating…" : stale ? "Generate (settings changed)" : "Generate"}
             </button>
             {edited ? <p class="note">Generate makes a new map. Yours stays saved, with its edits.</p> : null}

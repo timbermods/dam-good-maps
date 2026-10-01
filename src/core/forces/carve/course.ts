@@ -8,6 +8,7 @@
 //
 // Ported from investigation/carve/course.ts (PR #47), kept to its structure.
 
+import * as portable from "../../math/portable";
 import { drainage } from "../drainage";
 import type { ForceMap } from "../force";
 import type { RiverCharacter } from "./character";
@@ -33,7 +34,7 @@ export function pathCurve(points: readonly { x: number; y: number }[]): { x: num
     const p1 = p(k);
     const p2 = p(k + 1);
     const p3 = p(k + 2);
-    const n = Math.max(2, Math.ceil(Math.hypot(p2.x - p1.x, p2.y - p1.y) / CURVE_STEP));
+    const n = Math.max(2, Math.ceil(portable.hypot(p2.x - p1.x, p2.y - p1.y) / CURVE_STEP));
     for (let j = 1; j <= n; j++) {
       const t = j / n;
       const t2 = t * t;
@@ -41,14 +42,14 @@ export function pathCurve(points: readonly { x: number; y: number }[]): { x: num
       const c = (a: number, b: number, c1: number, d: number) => 0.5 * (2 * b + (-a + c1) * t + (2 * a - 5 * b + 4 * c1 - d) * t2 + (-a + 3 * b - 3 * c1 + d) * t3);
       const x = c(p0.x, p1.x, p2.x, p3.x);
       const y = c(p0.y, p1.y, p2.y, p3.y);
-      ss.push(ss[ss.length - 1] + Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]));
+      ss.push(ss[ss.length - 1] + portable.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]));
       xs.push(x);
       ys.push(y);
     }
   }
   return { x: xs, y: ys, s: ss };
 }
-export const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+export const angleDelta = (a: number, b: number) => portable.atan2(portable.sin(a - b), portable.cos(a - b));
 
 export interface CoursePoint {
   x: number;
@@ -86,7 +87,7 @@ export class Course {
       const distance = new Float64Array(m.W * m.H);
       for (const i of d.order) {
         const r = d.rcv[i];
-        if (r >= 0) distance[i] = distance[r] + Math.hypot((i % m.W) - (r % m.W), Math.floor(i / m.W) - Math.floor(r / m.W));
+        if (r >= 0) distance[i] = distance[r] + portable.hypot((i % m.W) - (r % m.W), Math.floor(i / m.W) - Math.floor(r / m.W));
       }
       this.potential = Float64Array.from(d.filled, (v, i) => v * 16 + distance[i]);
       this.receivers = d.rcv;
@@ -103,7 +104,7 @@ export class Course {
     let best = this.along;
     let d = Infinity;
     for (let k = this.along; k < Math.min(c.x.length, this.along + CURVE_WINDOW); k++) {
-      const e = (c.x[k] - x) ** 2 + (c.y[k] - y) ** 2;
+      const e = portable.pow(c.x[k] - x, 2) + portable.pow(c.y[k] - y, 2);
       if (e < d) {
         d = e;
         best = k;
@@ -122,9 +123,9 @@ export class Course {
     const c = this.curve;
     if (c) {
       const k = this.nearest(x, y);
-      return c.s[c.s.length - 1] - c.s[k] + Math.hypot(c.x[k] - x, c.y[k] - y);
+      return c.s[c.s.length - 1] - c.s[k] + portable.hypot(c.x[k] - x, c.y[k] - y);
     }
-    if (this.settings.mode === "aim") return Math.hypot((this.intent.end! % this.m.W) - x, Math.floor(this.intent.end! / this.m.W) - y);
+    if (this.settings.mode === "aim") return portable.hypot((this.intent.end! % this.m.W) - x, Math.floor(this.intent.end! / this.m.W) - y);
     const { W, H } = this.m;
     const xx = Math.max(0, Math.min(W - 1, x));
     const yy = Math.max(0, Math.min(H - 1, y));
@@ -144,13 +145,13 @@ export class Course {
       const k = this.nearest(x, y);
       let j = k;
       while (j + 1 < c.x.length && c.s[j] - c.s[k] < LOOK_AHEAD) j++;
-      return Math.atan2(c.y[j] - y, c.x[j] - x);
+      return portable.atan2(c.y[j] - y, c.x[j] - x);
     }
-    if (this.settings.mode === "aim") return Math.atan2(Math.floor(this.intent.end! / this.m.W) - y, (this.intent.end! % this.m.W) - x);
+    if (this.settings.mode === "aim") return portable.atan2(Math.floor(this.intent.end! / this.m.W) - y, (this.intent.end! % this.m.W) - x);
     const { W, H } = this.m;
     let i = Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)));
     for (let k = 0; k < 10 && this.receivers![i] >= 0; k++) i = this.receivers![i];
-    return Math.atan2(Math.floor(i / W) - y, (i % W) - x);
+    return portable.atan2(Math.floor(i / W) - y, (i % W) - x);
   }
 
   plan(x: number, y: number) {
@@ -165,7 +166,7 @@ export class Course {
 
   accept(x: number, y: number, heading: number, bearing: number, straightening: boolean) {
     if (this.curve) this.along = this.nearest(x, y);
-    this.forward += 1.35 * Math.max(0.05, Math.cos(angleDelta(heading, bearing)));
+    this.forward += 1.35 * Math.max(0.05, portable.cos(angleDelta(heading, bearing)));
     this.trace.push({ x, y, cost: this.cost(x, y), bearing, heading, straightening });
   }
 }

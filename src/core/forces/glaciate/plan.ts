@@ -11,6 +11,7 @@
 // After round 4's land, `finishFloor` (floor.ts) leads the floor's extra wet passages into the main
 // river so the floor reads as one river (Kyler, D292): literal land, the game's own water.
 
+import * as portable from "../../math/portable";
 import type { EntitySpec } from "../../format/entities";
 import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
@@ -78,7 +79,7 @@ export interface GlaciatePlan {
   joins: { kind: "fall" | "spill" | "inflow"; from: number; length: number }[];
 }
 
-export const lengthOf = (p: Point[]) => p.reduce((s, q, k) => s + (k ? Math.hypot(q.x - p[k - 1].x, q.y - p[k - 1].y) : 0), 0);
+export const lengthOf = (p: Point[]) => p.reduce((s, q, k) => s + (k ? portable.hypot(q.x - p[k - 1].x, q.y - p[k - 1].y) : 0), 0);
 const quantile = (a: number[], q: number) => (a.length ? a.sort((x, y) => x - y)[Math.floor((a.length - 1) * q)] : 0);
 /** (The investigation's order of the four neighbours.) */
 export const N4: readonly [number, number][] = [
@@ -170,21 +171,21 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   let level = headFloor;
   let barIndex = 0;
   const preliminary: Station[] = reference.map((q, k) => {
-    if (k) arc += Math.hypot(q.x - reference[k - 1].x, q.y - reference[k - 1].y);
+    if (k) arc += portable.hypot(q.x - reference[k - 1].x, q.y - reference[k - 1].y);
     if (arc >= bar && level > 0) {
       level--;
       bar += (8 + noise(s.seed, 81 + barIndex++) * 17) * stepScale;
     }
     const a = reference[Math.max(0, k - 3)];
     const b = reference[Math.min(reference.length - 1, k + 3)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
     const nx = -(b.y - a.y) / len;
     const ny = (b.x - a.x) / len;
     const rim = Math.max(sample(q.x + nx * r * 1.15, q.y + ny * r * 1.15), sample(q.x - nx * r * 1.15, q.y - ny * r * 1.15));
     const hard = hardAt(m, tile(q), Math.round(rim)) ? 1 : (m.rockLayers[Math.round(rim)] ?? 0);
-    const confluence = Math.min(0.1, Math.log2(1 + valley!.area[tile(q)]) * 0.011);
-    const width = clamp(0.94 + 0.14 * Math.sin(arc * 0.11 + phase) + 0.1 * Math.sin(arc * 0.27 - phase) + confluence - hard * 0.1, 0.7, 1.3);
-    const cirque = 1 + 0.72 * Math.exp(-((arc / (r * 0.95)) ** 2));
+    const confluence = Math.min(0.1, portable.log2(1 + valley!.area[tile(q)]) * 0.011);
+    const width = clamp(0.94 + 0.14 * portable.sin(arc * 0.11 + phase) + 0.1 * portable.sin(arc * 0.27 - phase) + confluence - hard * 0.1, 0.7, 1.3);
+    const cirque = 1 + 0.72 * portable.exp(-(portable.pow((arc / (r * 0.95)), 2)));
     return { ...q, s: arc, r: Math.max(2, Math.min(r * width * cirque, Math.max(2, Math.min(q.x, q.y, W - q.x, H - q.y) - 1) * 0.9)), floor: level, outlet: rim };
   });
   let lowRun = 0;
@@ -209,7 +210,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     for (let y = Math.max(0, Math.floor(q.y - q.r)); y < Math.min(H, q.y + q.r); y++)
       for (let x = Math.max(0, Math.floor(q.x - q.r)); x < Math.min(W, q.x + q.r); x++) {
         const i = y * W + x;
-        if (before.water.depth[i] > 0.05 && Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
+        if (before.water.depth[i] > 0.05 && portable.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
       }
   // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
   // still sink into the floor without going below the Floor; the plan is held at it below as well)
@@ -237,9 +238,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
           coarse[i] = 0.1 * texture(s.seed, x, y, 9);
           fine[i] = 0.045 * texture(s.seed ^ 812, x, y, 3);
         }
-        const angle = Math.atan2(y + 0.5 - q.y, x + 0.5 - q.x);
-        const rim = 1 + 0.045 * Math.sin(angle * 3 + q.s * 11 + phase) + coarse[i] + fine[i];
-        const physical = Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y);
+        const angle = portable.atan2(y + 0.5 - q.y, x + 0.5 - q.x);
+        const rim = 1 + 0.045 * portable.sin(angle * 3 + q.s * 11 + phase) + coarse[i] + fine[i];
+        const physical = portable.hypot(x + 0.5 - q.x, y + 0.5 - q.y);
         const d = physical / (q.r * rim);
         if (d < dist[i]) dist[i] = d;
         if (physical < closest[i]) {
@@ -247,7 +248,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
           nearest[i] = k;
         }
       }
-    work += (2 * rr) ** 2;
+    work += portable.pow(2 * rr, 2);
     if (work > 60000) {
       work = 0;
       yield;
@@ -266,7 +267,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     const k = nearest[i];
     const q = path[k];
     const d = dist[i];
-    const shift = Math.round(2.2 * Math.sin((i % W) * 0.22 + Math.floor(i / W) * 0.16 + phase));
+    const shift = Math.round(2.2 * portable.sin((i % W) * 0.22 + Math.floor(i / W) * 0.16 + phase));
     const f = path[clamp(k + shift, 0, path.length - 1)].floor;
     floor[i] = f;
     if (d <= 1) {
@@ -276,7 +277,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     } else if (d < 1 + 3 / q.r) {
       const M = before.heights[i];
       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
-      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
+      if (M - f >= 5 && hard < 0.5 && portable.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
         m.heights[i] = Math.min(M, f + Math.round((M - f) * 0.58));
         mask[i] = 2;
         arrival[i] = q.s;
@@ -305,7 +306,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     }
   incoming.sort((a, b) => (b.oldWet ? 100000 : 0) + b.area - ((a.oldWet ? 100000 : 0) + a.area) || a.lip - b.lip);
   const mouths: typeof incoming = [];
-  for (const c of incoming) if (!mouths.some((h) => Math.hypot((h.lip % W) - (c.lip % W), Math.floor(h.lip / W) - Math.floor(c.lip / W)) < 7)) mouths.push(c);
+  for (const c of incoming) if (!mouths.some((h) => portable.hypot((h.lip % W) - (c.lip % W), Math.floor(h.lip / W) - Math.floor(c.lip / W)) < 7)) mouths.push(c);
   // swept sources give their clean strength to the new head; badwater gives nothing; outside sources
   // and forests are never moved
   let cleanAbsorbed = 0;
@@ -362,14 +363,14 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     path.map((q, k) => {
     const a = path[Math.max(0, k - 3)];
     const b = path[Math.min(path.length - 1, k + 3)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
     const nx = -(b.y - a.y) / len;
     const ny = (b.x - a.x) / len;
-    let off = Math.sin(q.s * 8 + phase) * q.r * 0.35 * Math.sin(Math.PI * q.s);
+    let off = portable.sin(q.s * 8 + phase) * q.r * 0.35 * portable.sin(Math.PI * q.s);
     let weight = 0;
     for (const c of bends) {
       const d = (q.s - path[c.k].s) * length;
-      const w = Math.exp(-((d / Math.max(10, r * 0.85)) ** 2));
+      const w = portable.exp(-(portable.pow((d / Math.max(10, r * 0.85)), 2)));
       const target = ((c.landing % W) + 0.5 - q.x) * nx + (Math.floor(c.landing / W) + 0.5 - q.y) * ny;
       off += clamp(target, -q.r * 0.82, q.r * 0.82) * w;
       weight += w;
@@ -426,7 +427,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     for (let k = 0; k < points.length; k++) {
       const a = points[Math.max(0, k - 1)];
       const b = points[k];
-      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 3));
+      const steps = Math.max(1, Math.ceil(portable.hypot(b.x - a.x, b.y - a.y) * 3));
       const bed = Math.min(beds[Math.max(0, k - 1)], beds[k]);
       const paint = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= W || y >= H) return;
@@ -460,7 +461,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         paint(cx, cy);
         previous = { x: cx, y: cy };
         for (let yy = Math.max(0, Math.floor(y - width)); yy < Math.min(H, y + width + 1); yy++)
-          for (let xx = Math.max(0, Math.floor(x - width)); xx < Math.min(W, x + width + 1); xx++) if (Math.hypot(xx + 0.5 - x, yy + 0.5 - y) <= width) paint(xx, yy);
+          for (let xx = Math.max(0, Math.floor(x - width)); xx < Math.min(W, x + width + 1); xx++) if (portable.hypot(xx + 0.5 - x, yy + 0.5 - y) <= width) paint(xx, yy);
       }
     }
   };
@@ -486,7 +487,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   for (let y = Math.max(0, Math.floor(tarn.y - 3)); y < Math.min(H, tarn.y + 3); y++)
     for (let x = Math.max(0, Math.floor(tarn.x - 4)); x < Math.min(W, tarn.x + 4); x++) {
       const i = y * W + x;
-      if (detail.tarn && ((x + 0.5 - tarn.x) / tarnX) ** 2 + ((y + 0.5 - tarn.y) / tarnY) ** 2 < 1 && mask[i] === 1) {
+      if (detail.tarn && portable.pow(((x + 0.5 - tarn.x) / tarnX), 2) + portable.pow(((y + 0.5 - tarn.y) / tarnY), 2) < 1 && mask[i] === 1) {
         m.heights[i] = Math.max(0, path[0].floor - 1);
         lakeSeeds.push(i);
         stream[i] = 2;
@@ -549,7 +550,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const j = yy * W + xx;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H || mask[j] !== 1) continue;
         if (dx && dy && mask[y * W + xx] !== 1 && mask[yy * W + x] !== 1) continue;
-        const next = d + Math.hypot(dx, dy) * (finish ? 1 : 1 + Math.max(0, floor[j] - datum) * 0.25);
+        const next = d + portable.hypot(dx, dy) * (finish ? 1 : 1 + Math.max(0, floor[j] - datum) * 0.25);
         if (next < cost[j]) {
           cost[j] = next;
           parent[j] = i;
@@ -568,7 +569,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     if (finish && goal !== origin) {
       const a = { x: (origin % W) + 0.5, y: Math.floor(origin / W) + 0.5 };
       const b = join.at(-1)!;
-      const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)));
+      const count = Math.max(1, Math.ceil(portable.hypot(b.x - a.x, b.y - a.y)));
       const line = Array.from({ length: count + 1 }, (_, k) => ({ x: a.x + ((b.x - a.x) * k) / count, y: a.y + ((b.y - a.y) * k) / count }));
       if (line.every((q) => mask[tile(q)] === 1)) join = line;
     }
@@ -671,7 +672,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       const q = path[k];
       const a = path[k - 2];
       const b = path[Math.min(k + 2, path.length - 1)];
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
       const side = noise(s.seed, k + 900) > 0.5 ? 1 : -1;
       scree.push(tile({ x: q.x - ((b.y - a.y) / len) * q.r * 0.87 * side, y: q.y + ((b.x - a.x) / len) * q.r * 0.87 * side }));
     }
@@ -682,30 +683,30 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     for (let y = Math.max(0, Math.floor(cy - rad)); y < Math.min(H, cy + rad); y++)
       for (let x = Math.max(0, Math.floor(cx - rad)); x < Math.min(W, cx + rad); x++) {
         const i = y * W + x;
-        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        const d = portable.hypot(x + 0.5 - cx, y + 0.5 - cy);
         if (mask[i] !== 1 || stream[i] || d > rad) continue;
         m.heights[i] = Math.max(floor[i], Math.min(before.heights[i], floor[i] + Math.floor((1 - d / rad) * 3)));
       }
   }
   const snout = path.at(-1)!;
   const prior = path[Math.max(0, path.length - 7)];
-  const dl = Math.hypot(snout.x - prior.x, snout.y - prior.y) || 1;
+  const dl = portable.hypot(snout.x - prior.x, snout.y - prior.y) || 1;
   const sdx = (snout.x - prior.x) / dl;
   const sdy = (snout.y - prior.y) / dl;
   for (let i = 0; i < n; i++) {
     const ex = (i % W) + 0.5 - snout.x;
     const ey = Math.floor(i / W) + 0.5 - snout.y;
     const along = ex * sdx + ey * sdy;
-    const rad = Math.hypot(ex, ey);
-    const angle = Math.atan2(ey, ex);
-    if (along > 0 && Math.abs(rad - snout.r * 0.92 * (1 + 0.1 * Math.sin(angle * 3 + phase))) < 1.6 && !stream[i]) {
+    const rad = portable.hypot(ex, ey);
+    const angle = portable.atan2(ey, ex);
+    if (along > 0 && Math.abs(rad - snout.r * 0.92 * (1 + 0.1 * portable.sin(angle * 3 + phase))) < 1.6 && !stream[i]) {
       m.heights[i] = Math.max(m.heights[i], Math.min(top, snout.floor + 1 + (noise(s.seed, i) > 0.73 ? 1 : 0)));
       mask[i] = 2;
       arrival[i] = 1;
     }
     const across = -ex * sdy + ey * sdx;
     const width = r * (0.75 + along / (r * 3));
-    if (along > snout.r && along < snout.r + r * 2.8 && Math.abs(across) < width * (1 + 0.1 * Math.sin(along * 0.2 + phase)) && before.heights[i] < snout.floor && !stream[i]) {
+    if (along > snout.r && along < snout.r + r * 2.8 && Math.abs(across) < width * (1 + 0.1 * portable.sin(along * 0.2 + phase)) && before.heights[i] < snout.floor && !stream[i]) {
       const target = Math.max(0, snout.floor - Math.floor((along - snout.r) / (10 + noise(s.seed, 19) * 7)));
       if (target > before.heights[i]) {
         m.heights[i] = target;
@@ -748,7 +749,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const j = ny * W + nx;
         if (nx < 0 || ny < 0 || nx >= W || ny >= H || !allowed(j)) continue;
         if (xx && yy && !allowed(y * W + nx) && !allowed(ny * W + x)) continue;
-        const next = d + Math.hypot(xx, yy) * (1 + Math.max(0, before.heights[j] - snout.floor) * 0.35);
+        const next = d + portable.hypot(xx, yy) * (1 + Math.max(0, before.heights[j] - snout.floor) * 0.35);
         if (next < cost[j]) {
           cost[j] = next;
           parent[j] = i;
@@ -772,7 +773,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     let bed = outlet;
     let tailArc = 14;
     const beds = tail.map((q, k) => {
-      if (k) tailArc += Math.hypot(q.x - tail[k - 1].x, q.y - tail[k - 1].y);
+      if (k) tailArc += portable.hypot(q.x - tail[k - 1].x, q.y - tail[k - 1].y);
       return (bed = Math.max(0, Math.min(bed, before.heights[tile(q)], outlet - Math.floor(tailArc / 14))));
     });
     channel([streamPath.at(-1)!, ...tail], [outlet, ...beds], riverRadius, 1, 1);
@@ -787,7 +788,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     // boundary tile; the rest of its old bank stays at the rim
     const entry = entryOf(list);
     const centre = { x: (entry.i % W) + 0.5, y: Math.floor(entry.i / W) + 0.5 };
-    const far = (i: number) => !stream[i] && Math.hypot((i % W) - (entry.i % W), Math.floor(i / W) - Math.floor(entry.i / W)) > 2;
+    const far = (i: number) => !stream[i] && portable.hypot((i % W) - (entry.i % W), Math.floor(i / W) - Math.floor(entry.i / W)) > 2;
     for (const { i, outside } of list) if (far(i)) m.heights[i] = Math.max(m.heights[i], Math.min(top, Math.ceil(before.heights[outside] + before.water.depth[outside])));
     // (D292: its shore too, two tiles out from its water: an outside river backed up by its new
     // outlet spreads over its shore, and at the floor's level it would run over the floor as a sheet)

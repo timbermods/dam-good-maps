@@ -5,6 +5,7 @@
 // lower ground or an edge gives Try another somewhere else to go. The iteration order is the
 // investigation's, so the same map and settings give the same land.
 
+import * as portable from "../../math/portable";
 import { MinHeap, N8 } from "../../math/grid";
 import type { ForceMap } from "../force";
 
@@ -127,7 +128,7 @@ export const RELIEF_SPAN = GLACIATE_AUTO_SIZE;
 /** The trough's width: set, or Auto (30, whatever the Power). */
 export const sizeOf = (s: Pick<GlaciateSettings, "size">) => s.size ?? GLACIATE_AUTO_SIZE;
 
-const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+const distance = (a: Point, b: Point) => portable.hypot(a.x - b.x, a.y - b.y);
 
 export function sinuosity(p: Point[]): number {
   let l = 0;
@@ -197,7 +198,7 @@ export class Valley {
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
         // crossing high ground costs much more: this finds the low corridors already there
-        const nc = Math.max(c, h[j]) + Math.hypot(dx, dy) * 0.001;
+        const nc = Math.max(c, h[j]) + portable.hypot(dx, dy) * 0.001;
         if (nc < cost[j]) {
           cost[j] = nc;
           this.parent[j] = i;
@@ -272,7 +273,7 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
     const out: Point[] = [];
     for (let k = 0; k <= Math.ceil(len); k++) {
       const t = k / Math.ceil(len);
-      const bend = Math.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
+      const bend = portable.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
       out.push({ x: clamp(start.x + dx * len * t - dy * bend, 0.5, m.W - 0.5), y: clamp(start.y + dy * len * t + dx * bend, 0.5, m.H - 0.5) });
     }
     return out;
@@ -328,7 +329,7 @@ function aimLeg(m: Pick<ForceMap, "W" | "H" | "heights">, from: number, goal: nu
       if (nx < 1 || ny < 1 || nx >= m.W - 1 || ny >= m.H - 1) continue;
       const j = ny * m.W + nx;
       const across = Math.abs((nx - start.x) * dy - (ny - start.y) * dx);
-      const nc = c + Math.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + (across / Math.max(6, len * 0.22)) ** 2 * 0.7);
+      const nc = c + portable.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + portable.pow((across / Math.max(6, len * 0.22)), 2) * 0.7);
       if (nc < costs[j]) {
         costs[j] = nc;
         parent[j] = i;

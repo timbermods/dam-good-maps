@@ -7,12 +7,14 @@
 // `glacierStrength` follows Power alone. Quake has no Size (its Power sets its
 // lift and slide).
 
+import * as portable from "../math/portable";
+
 /** How strongly a force acts at `power` when its Size is `size` and Power alone would give `natural`
  *  (0 to 1; 1 when the Size is Power's own or smaller). */
 export function strength(power: number, size: number | null, natural: number): number {
   if (size === null || !(size > natural) || natural <= 0) return 1;
-  const floor = Math.sqrt(natural / size);
-  return floor + (1 - floor) * (Math.max(0, Math.min(100, power)) / 100) ** 1.2;
+  const floor = portable.sqrt(natural / size);
+  return floor + (1 - floor) * portable.pow(Math.max(0, Math.min(100, power)) / 100, 1.2);
 }
 
 /** Glaciate's Power (D368 (3)): how deep the ice carves. Every level its glacier (round 4's, always

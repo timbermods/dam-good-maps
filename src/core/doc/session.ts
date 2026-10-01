@@ -951,6 +951,8 @@ function tallNoted(file: TimberFile, heights: ArrayLike<number>): TimberFile {
   const md = file.metadata;
   if (!md) return file;
   const text = typeof md.MapDescription === "string" ? md.MapDescription : "";
-  const described = withTallNote(text, isTall(heights));
+  let top = 0;
+  for (let i = 0; i < heights.length; i++) if (heights[i] > top) top = heights[i];
+  const described = withTallNote(text, isTall(heights), top);
   return described === text ? file : { ...file, metadata: { ...md, MapDescription: described } };
 }

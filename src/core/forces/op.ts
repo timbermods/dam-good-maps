@@ -12,6 +12,7 @@
 // Projects saved with the `carve` operation before the forces shared this one still open and replay
 // exactly: `carve` stays a document operation (carve/op.ts), applied the same way.
 
+import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
 import type { CarveParams } from "./carve/op";
@@ -210,7 +211,7 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
       if (!Number.isInteger(i) || i <= prev || i >= W * H) return ["a force's rock tiles must be on the map, in order, once each"];
       prev = i;
       const b = p.rock.bits[k];
-      if (!Number.isInteger(b) || b < 0 || b >= 2 ** 22) return ["a force's rock is a bit for each of the levels 0 to 21"];
+      if (!Number.isInteger(b) || b < 0 || b >= portable.pow(2, 22)) return ["a force's rock is a bit for each of the levels 0 to 21"];
     }
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];

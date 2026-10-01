@@ -22,7 +22,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    the well-specified items (D318 (2)).
 2. Done with item 1: the models (item 38, D317).
 3. Done with item 1: model and task suitability (item 39, D318).
-4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary.
+4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary. The forces release waits for D361's ten sitting fixes and D366's cross-browser determinism (adopted on `feature/forces`, with its cross-engine check in CI).
 5. **Item 33's documents are written** (D326): `docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`. The per-decision statuses come with item 34.
 6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
 7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.

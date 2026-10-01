@@ -13,6 +13,7 @@
 // a293e41), kept to its structure: the pinned parity tests compare it with the prototype byte for
 // byte.
 
+import * as portable from "../math/portable";
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
@@ -95,7 +96,7 @@ export class Fault {
     for (let k = 1; k < intent.path.length; k++) {
       const a = intent.path[k - 1];
       const b = intent.path[k];
-      const l = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+      const l = portable.sqrt(portable.pow(b.x - a.x, 2) + portable.pow(b.y - a.y, 2));
       if (l < 0.01) continue;
       raw.push({ a, b, dx: (b.x - a.x) / l, dy: (b.y - a.y) / l, length: l, along: length });
       length += l;
@@ -111,8 +112,8 @@ export class Fault {
     // motions. A closed stroke uses its longest chord.
     const first = raw[0].a;
     let end = raw.at(-1)!.b;
-    if (Math.hypot(end.x - first.x, end.y - first.y) < 0.1) end = raw.reduce((best, s) => (Math.hypot(s.b.x - first.x, s.b.y - first.y) > Math.hypot(best.x - first.x, best.y - first.y) ? s.b : best), end);
-    const span = Math.hypot(end.x - first.x, end.y - first.y) || 1;
+    if (portable.hypot(end.x - first.x, end.y - first.y) < 0.1) end = raw.reduce((best, s) => (portable.hypot(s.b.x - first.x, s.b.y - first.y) > portable.hypot(best.x - first.x, best.y - first.y) ? s.b : best), end);
+    const span = portable.hypot(end.x - first.x, end.y - first.y) || 1;
     this.heading = { x: (end.x - first.x) / span, y: (end.y - first.y) / span };
     const wavelength = 7 + hash(settings.seed, 9) * 14;
     const rough = 0.35 + hash(settings.seed, 11) * 1.3;
@@ -131,7 +132,7 @@ export class Fault {
     for (let k = 1; k < this.points.length; k++) {
       const a = this.points[k - 1];
       const b = this.points[k];
-      const l = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+      const l = portable.sqrt(portable.pow(b.x - a.x, 2) + portable.pow(b.y - a.y, 2));
       this.segments.push({ a, b, dx: (b.x - a.x) / l, dy: (b.y - a.y) / l, length: l, along: this.length });
       this.length += l;
     }
@@ -150,7 +151,7 @@ export class Fault {
       }
       const a = pos(t - 6);
       const b = pos(t + 6);
-      const l = Math.hypot(b.x - a.x, b.y - a.y);
+      const l = portable.hypot(b.x - a.x, b.y - a.y);
       this.directions.push(l > 0.5 ? { x: (b.x - a.x) / l, y: (b.y - a.y) / l } : this.heading);
     }
   }
@@ -202,7 +203,7 @@ export class Fault {
       let dx = Math.round(direction.x * amount);
       let dy = Math.round(direction.y * amount);
       // Rounding a diagonal must not silently subtract a tile from Power.
-      if (amount === this.slide && Math.hypot(dx, dy) < this.slide) {
+      if (amount === this.slide && portable.hypot(dx, dy) < this.slide) {
         if (Math.abs(direction.x) >= Math.abs(direction.y)) dx += Math.sign(direction.x);
         else dy += Math.sign(direction.y);
       }
@@ -285,7 +286,7 @@ export class QuakePlan {
     if (this.settings.mode === "slide")
       for (let j = 0; j < W * H; j++) {
         const i = this.source[j];
-        const distance = Math.hypot((j % W) - (i % W), Math.floor(j / W) - Math.floor(i / W));
+        const distance = portable.hypot((j % W) - (i % W), Math.floor(j / W) - Math.floor(i / W));
         if (distance > 0 && this.map.heights[j] === this.before.heights[i]) this.stats.transported++;
         if (distance >= this.fault.slide && this.map.heights[j] === this.before.heights[i]) this.stats.fullOffset++;
       }
@@ -309,7 +310,7 @@ export class QuakePlan {
       const y = Math.floor(i / W) + this.dy[i];
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const j = y * W + x;
-      const travel = Math.hypot(this.dx[i], this.dy[i]);
+      const travel = portable.hypot(this.dx[i], this.dy[i]);
       if (travel < priority[j]) continue;
       priority[j] = travel;
       this.source[j] = i;
@@ -348,13 +349,13 @@ export class QuakePlan {
         for (let k = 1; k < path.length; k++) {
           const p0 = path[k - 1];
           const p1 = path[k];
-          const n = Math.max(1, Math.ceil(Math.hypot(p1.x - p0.x, p1.y - p0.y) * 2));
+          const n = Math.max(1, Math.ceil(portable.hypot(p1.x - p0.x, p1.y - p0.y) * 2));
           for (let t = 0; t <= n; t++) {
             const px = p0.x + ((p1.x - p0.x) * t) / n;
             const py = p0.y + ((p1.y - p0.y) * t) / n;
             for (let yy = Math.floor(py - 1); yy <= Math.ceil(py + 1); yy++)
               for (let xx = Math.floor(px - 1); xx <= Math.ceil(px + 1); xx++) {
-                if (xx < 0 || yy < 0 || xx >= W || yy >= H || (xx - px) ** 2 + (yy - py) ** 2 > 1.4) continue;
+                if (xx < 0 || yy < 0 || xx >= W || yy >= H || portable.pow(xx - px, 2) + portable.pow(yy - py, 2) > 1.4) continue;
                 const j = yy * W + xx;
                 if (this.map.heights[j] > bed) {
                   this.map.heights[j] = bed;
@@ -561,15 +562,15 @@ export function clickFault(heights: ArrayLike<number>, W: number, H: number, at:
       gy += h(cx + o, cy + d) - h(cx + o, cy - d);
     }
   const turn = (hash(seed, 31) - 0.5) * 0.9;
-  const angle = Math.hypot(gx, gy) > 2 ? Math.atan2(gy, gx) + Math.PI / 2 + turn : hash(seed, 37) * Math.PI;
+  const angle = portable.hypot(gx, gy) > 2 ? portable.atan2(gy, gx) + Math.PI / 2 + turn : hash(seed, 37) * Math.PI;
   const half = (10 + Math.round(power * 0.12)) / 2;
   const bend = (hash(seed, 41) - 0.5) * half * 0.5;
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
+  const dx = portable.cos(angle);
+  const dy = portable.sin(angle);
   const out: Point[] = [];
   for (let k = -2; k <= 2; k++) {
     const t = (k / 2) * half;
-    const off = bend * (1 - (k / 2) ** 2);
+    const off = bend * (1 - portable.pow(k / 2, 2));
     out.push({ x: Math.max(0, Math.min(W - 1, cx + dx * t - dy * off)), y: Math.max(0, Math.min(H - 1, cy + dy * t + dx * off)) });
   }
   return out;
@@ -578,6 +579,6 @@ export function clickFault(heights: ArrayLike<number>, W: number, H: number, at:
 /** A stroke's length along its points (tiles). */
 export function strokeLength(path: readonly Point[]): number {
   let l = 0;
-  for (let k = 1; k < path.length; k++) l += Math.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
+  for (let k = 1; k < path.length; k++) l += portable.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
   return l;
 }

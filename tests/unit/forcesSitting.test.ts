@@ -1,5 +1,5 @@
 // Kyler's forces sitting, batch A (PLAN §20 D344): the pure pieces. A1 a force's Size from F's
-// pointer, [ and ] and its Power from { and }, as a brush's; A3 a drawn gesture is a band of its width
+// pointer, { and } and its Power from [ and ], as a brush's (D368 (1) swapped them); A3 a drawn gesture is a band of its width
 // along the line, never a circle; A6 a fissure's breadth from the shape drawn, so a small loop gives a
 // small eruption at any Size; A7 Glaciate's sounds fitted to its showing, the meltwater ending as the
 // land settles.
@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, fissureBreadth, naturalBreadth, shapeSpan } from "../../src/core/forces/erupt";
 import { bandTiles } from "../../src/editor/freehand";
-import { FORCE_SIZES, sizeForReach, sized, snapSize, stepPower, stepSize } from "../../src/editor/forceSize";
+import { FORCE_SIZES, keyHabit, sizeForReach, sized, snapSize, stepPower, stepSize } from "../../src/editor/forceSize";
 import { recipe } from "../../src/editor/juice/palette";
 import { FORCE_KEYS } from "../../src/editor/TopBar";
 
@@ -27,7 +27,15 @@ describe("a force's Size and Power from the keys (A1)", () => {
       }
   });
 
-  it("[ and ] step the Size from where it is (an Auto size between steps goes to the next one that way); { and } step Power by five", () => {
+  it("one key habit for every tool (D368 (1)): { and } step the Size, [ and ] the strength (a force's Power)", () => {
+    expect(keyHabit("{")).toEqual({ what: "size", dir: -1 });
+    expect(keyHabit("}")).toEqual({ what: "size", dir: 1 });
+    expect(keyHabit("[")).toEqual({ what: "strength", dir: -1 });
+    expect(keyHabit("]")).toEqual({ what: "strength", dir: 1 });
+    expect(keyHabit("f")).toBeNull();
+  });
+
+  it("{ and } step the Size from where it is (an Auto size between steps goes to the next one that way); [ and ] step Power by five", () => {
     expect(stepSize("craterize", 20, 1)).toBe(22);
     expect(stepSize("craterize", 20, -1)).toBe(18);
     expect(stepSize("craterize", 21.3, 1)).toBe(22);

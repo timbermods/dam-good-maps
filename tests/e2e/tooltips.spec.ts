@@ -6,7 +6,10 @@
 //
 // A tooltip is a short phrase that says what the control is for at a glance, then its key where it has
 // one (D351, as amended by D361): no second sentence, no technical detail, about 60 characters at most.
-// This test fails on any title in the page that has a second sentence or runs past that.
+// This test fails on any title in the page that has a second sentence or runs past that. The key sits at
+// the end as a small key cap, never in brackets in the middle (D368 (6)): one shared tooltip shows the title
+// and the control's `data-keys` (src/ui/Tooltip.tsx); a title with a key in brackets fails, and so does a
+// control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -30,7 +33,8 @@ async function untitled(page: Page): Promise<string[]> {
       let t: HTMLElement | null = el;
       let title = "";
       while (t && !title) {
-        title = (t.getAttribute("title") ?? "").trim();
+        // (the one hovered waits in data-tip-held while its tooltip shows)
+        title = (t.getAttribute("title") ?? t.getAttribute("data-tip-held") ?? "").trim();
         t = t.parentElement;
       }
       if (title) continue;
@@ -49,19 +53,28 @@ async function untitled(page: Page): Promise<string[]> {
 /** The longest a tooltip may be, keys included. */
 const MAX_TOOLTIP = 60;
 
-/** Every tooltip on the page that breaks the form: a second sentence, or too long. */
+/** Every tooltip on the page that breaks the form: a second sentence, too long, a key in brackets, or a key the
+ *  control's name gives that its tooltip does not end with (D368 (6)). */
 async function wordy(page: Page): Promise<string[]> {
   return page.evaluate((max) => {
     const out: string[] = [];
     const seen = new Set<string>();
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>("[title]"))) {
-      const t = (el.getAttribute("title") ?? "").trim().replace(/\s+/g, " ");
+    // (a key in brackets: "(7)", "(Ctrl+Z)", "(F, [ and ])", "(X or Esc)", "(R turns it)"; "(48 to 256)" is no key)
+    const keyWord = /\b(Ctrl|Shift|Alt|Esc|Space|Delete|Enter|Tab|Up|Down|scroll|click)\b/;
+    const bracketedKey = (t: string) => [...t.matchAll(/\(([^)]*)\)/g)].some(([, inner]) => /^\s*\S\s*$/.test(inner) || keyWord.test(inner) || /[[\]{}]/.test(inner) || /(^|\s)[A-Z0-9](,|\s|$)/.test(inner));
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("[title], [data-tip-held]"))) {
+      const t = (el.getAttribute("title") ?? el.getAttribute("data-tip-held") ?? "").trim().replace(/\s+/g, " ");
       if (!t) continue;
       // (a second sentence: a full stop, ! or ? then a new capital or bracket; ".timber" and "Ctrl+Z" are not)
       const second = /[.!?][)"']?\s+[A-Z(]/.test(t);
-      if ((second || t.length > max) && !seen.has(t)) {
+      const bracket = bracketedKey(t);
+      // (a control named with its key, "Carve (7)": its tooltip ends with that key's cap)
+      const named = /\(([^()]+)\)$/.exec(el.getAttribute("aria-label") ?? "")?.[1];
+      const keys = (el.getAttribute("data-keys") ?? "").split("|").map((k) => k.split(" ")[0]);
+      const missing = named && !/\s/.test(named) && !keys.includes(named) ? named : null;
+      if ((second || bracket || missing || t.length > max) && !seen.has(t)) {
         seen.add(t);
-        out.push(`${second ? "second sentence" : `${t.length} characters`}: ${t}`);
+        out.push(`${second ? "second sentence" : bracket ? "a key in brackets" : missing ? `no key cap ${missing} at its end` : `${t.length} characters`}: ${t}`);
       }
     }
     return out;
@@ -202,4 +215,45 @@ test("every control on the settings page has a tooltip", async ({ page }) => {
   const m = [...(await untitled(page)), ...(await wordy(page))];
   if (m.length) missing["the settings page"] = m;
   expect(missing, "controls with no tooltip, by state").toEqual({});
+});
+
+test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, in the one shared tooltip", async ({ page }) => {
+  test.setTimeout(200_000);
+  await open(page);
+  const tip = page.locator(".tip");
+  /** The tooltip of a control, hovered: its words and its key caps, in order, and whether its own title waits. */
+  const tooltipOf = async (loc: ReturnType<Page["locator"]>) => {
+    await page.mouse.move(5, 500);
+    await expect(tip).toHaveCount(0);
+    await loc.hover();
+    await expect(tip).toBeVisible();
+    return {
+      text: (await tip.locator(".tip-text").textContent())?.trim(),
+      caps: await tip.locator("kbd").allTextContents(),
+      // (the key caps come last: nothing after the last one but its words)
+      last: await tip.evaluate((el) => el.lastElementChild?.className ?? ""),
+      native: await loc.getAttribute("title"),
+    };
+  };
+  const tools = page.getByRole("toolbar", { name: "Tools" });
+  const forces = page.getByRole("group", { name: "Forces" });
+  // Kyler's two: "Carve a river" then 7, "Smooth bumps and steps" then 4
+  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (7)" }))).toEqual({ text: "Carve a river", caps: ["7"], last: "tip-key", native: null });
+  expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (4)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["4"], last: "tip-key", native: null });
+  // a few more, keys of every kind: a force's own, a shelf item's with R's turn, the header's, a size's
+  expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (-)" }))).caps).toEqual(["-"]);
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  expect(await tooltipOf(shelf.getByRole("button", { name: "Water source (6)" }))).toMatchObject({ text: "Where water starts", caps: ["6"] });
+  expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
+  await page.keyboard.press("7");
+  const size = page.getByRole("group", { name: "Carve options" }).locator(".size-control .slider-field");
+  expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
+  const power = page.getByRole("group", { name: "Carve options" }).locator(".slider-field").filter({ hasText: "Power" });
+  expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["[", "]"] });
+  // a control with no key: its words alone, no cap
+  expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });
+  // the pointer gone: no tooltip, and the control's own title back
+  await page.mouse.move(5, 500);
+  await expect(tip).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reset view" })).toHaveAttribute("title", "Frame the whole map again");
 });

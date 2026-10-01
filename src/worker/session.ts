@@ -77,7 +77,7 @@ import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
 import { clickFault, strokeLength, TAP, type QuakeSettings } from "../core/forces/quake";
 import { geology, nextSeed } from "../core/forces/random";
-import { forceParamsOf, pathRecord } from "../core/forces/result";
+import { pathRecord, stagedParamsOf } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { GlaciateRun } from "../core/forces/glaciate/run";
@@ -359,16 +359,19 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice() };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice() };
 }
 
+/** The page has these objects already: every field it reads the same, a source's strength and a ruin's
+ *  model among them (D368 (4): a strength changed alone was once not sent, and the source's label and
+ *  row stayed on the old number). */
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
   if (!b || a.count !== b.count || a.templates.join() !== b.templates.join() || a.owners.join() !== b.owners.join()) return false;
   const eq = (p: ArrayLike<number>, q: ArrayLike<number>) => {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
 }
 
 function markSent(s: MapSession): void {
@@ -2466,7 +2469,8 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     if (!r.done && !(r instanceof QuakeRun && r.painting)) r.finishAll();
     const after = r.final();
     if (!after) return refused(["Nothing changed"]);
-    params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
+    // (its steps are the stages that show it, whatever the machine's speed: D366)
+    params = stagedParamsOf(f.before, r, { verb: f.verb, ...recordOf(f), cut: f.request.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
     // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
     // its whole ground, the levels it left as they were included (the build keeps its banks whole)

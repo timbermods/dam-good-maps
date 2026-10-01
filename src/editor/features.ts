@@ -802,8 +802,20 @@ export function sourceMiddle(v: EntityView, k: number, W: number): number {
   return y * W + x;
 }
 
-/** The map's sources, as markers: those within two tiles of each other in one group. */
-export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): SourceGroup[] {
+/** The strengths the page has set on sources that the worker has not answered yet (D368 (4)), by the source's
+ *  tile ("x,y"). */
+export type PendingStrengths = ReadonlyMap<string, number>;
+/** A source's key in `PendingStrengths`. */
+export const strengthKey = (x: number, y: number) => `${x},${y}`;
+/** A source's strength, the one number its label, its row and the scroll's note all read (D368 (4)): the
+ *  page's copy of the objects, with the strengths set on it and still on their way to the worker on top. */
+export function strengthReader(v: EntityView, pending: PendingStrengths): (k: number) => number {
+  return (k) => pending.get(strengthKey(v.x[k], v.y[k])) ?? v.strength[k];
+}
+
+/** The map's sources, as markers: those within two tiles of each other in one group, each group's strength
+ *  read by `strengthOf` (the page's one number, `strengthReader`). */
+export function sourceGroups(v: EntityView, W: number, heights: Uint8Array, strengthOf: (k: number) => number = (k) => v.strength[k]): SourceGroup[] {
   const list: number[] = [];
   for (let k = 0; k < v.count; k++) {
     const t = v.templates[v.template[k]];
@@ -838,7 +850,7 @@ export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): Sou
     for (const m of members) {
       sx += mid[m] % W;
       sy += Math.floor(mid[m] / W);
-      strength += v.strength[list[m]];
+      strength += strengthOf(list[m]);
       if (v.templates[v.template[list[m]]] === "BadwaterSource") bad = true;
     }
     const x = sx / members.length;
@@ -862,10 +874,6 @@ export function sourceStrengths(groups: readonly SourceGroup[], strengthOf: (k: 
   const g = groups.find((x) => x.members.includes(k));
   if (!g) return null;
   return { own: Math.round(strengthOf(k) * 100) / 100, row: g.strength, count: g.members.length, bad: g.bad };
-}
-/** The scroll moves one source, not the row: `own` becomes `value` and the row's total with it. */
-export function withOwnStrength(s: SourceStrengths, value: number): SourceStrengths {
-  return { ...s, own: value, row: Math.round((s.row - s.own + value) * 100) / 100 };
 }
 /** What the strength is, in words: "0.25 water/s" for a lone source; in a row, both numbers, so it
  *  is clear the scroll changes this source and not the row ("this source 0.25 · row 1 water/s"). */

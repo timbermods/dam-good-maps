@@ -10,6 +10,7 @@
 //   edge, kept away from the start. A levee across the outlet turns the badwater back into the
 //   basin; a basin has no other way out below its rim.
 
+import * as portable from "../../math/portable";
 import { arcAtX, floorAt } from "../geometry";
 import { carveChannel, channelBounds, channelTiles, channelWidth, checkChannel, routeChannel, type ChannelPlan } from "../route";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
@@ -101,7 +102,7 @@ function distToPath(path: readonly Point[], x: number, y: number): number {
     const d = px * px + py * py;
     if (d < best) best = d;
   }
-  return Math.sqrt(best);
+  return portable.sqrt(best);
 }
 
 // -------------------------------------------------------------------------------------- planning

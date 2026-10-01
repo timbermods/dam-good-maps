@@ -17,6 +17,7 @@
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
 
+import * as portable from "../math/portable";
 import type { Rng } from "../math/rng";
 import type { ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
@@ -295,7 +296,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       return s.lakes.some((lk) => lk.surface >= L + 1 && lk.keep9 >= 0.5 && near(lk.tiles, 40)) ? 1 : 0;
     case "farmland-past-gorge":
       return s.farms.some((f) => {
-        const d = Math.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
+        const d = portable.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
         return d <= 70 && crossesGorge(s.gorge, W, x, y, Math.round(f.cx), Math.round(f.cy));
       })
         ? 1
@@ -374,7 +375,7 @@ function resample(path: [number, number][], W: number, H: number): [number, numb
     const [ax, ay] = path[k];
     const vx = path[k + 1][0] - ax;
     const vy = path[k + 1][1] - ay;
-    const len = Math.sqrt(vx * vx + vy * vy);
+    const len = portable.sqrt(vx * vx + vy * vy);
     let t = carry;
     while (t < len) {
       const x = ax + (vx * t) / len;
@@ -398,13 +399,13 @@ function simplify(pts: [number, number][], eps: number): number[] {
     const [ax, ay] = pts[a];
     const vx = pts[b][0] - ax;
     const vy = pts[b][1] - ay;
-    const len = Math.sqrt(vx * vx + vy * vy);
+    const len = portable.sqrt(vx * vx + vy * vy);
     let far = -1;
     let fd = eps;
     for (let m = a + 1; m < b; m++) {
       const wx = pts[m][0] - ax;
       const wy = pts[m][1] - ay;
-      const d = len > 0 ? Math.abs(vx * wy - vy * wx) / len : Math.sqrt(wx * wx + wy * wy);
+      const d = len > 0 ? Math.abs(vx * wy - vy * wx) / len : portable.sqrt(wx * wx + wy * wy);
       if (d > fd) {
         fd = d;
         far = m;
@@ -525,7 +526,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
   const eu = (i: number) => {
     const dx = (i % W) - sx;
     const dy = Math.floor(i / W) - sy;
-    return Math.sqrt(dx * dx + dy * dy);
+    return portable.sqrt(dx * dx + dy * dy);
   };
   switch (id) {
     case "under-cliff": {
@@ -663,7 +664,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       for (let k = 0; k < sizes.length; k++) {
         if (ownLab.has(k) || sizes[k] < 400) continue;
         const [px, py] = cent[k];
-        const d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+        const d = portable.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
         if (d > 70) continue;
         // a gorge on the way: a wet tile on the line whose banks within 3 tiles stand 2+ above it
         let gorge = false;
@@ -880,8 +881,8 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const uy = by - ay;
           const vx = qx - bx;
           const vy = qy - by;
-          const lu = Math.sqrt(ux * ux + uy * uy);
-          const lv = Math.sqrt(vx * vx + vy * vy);
+          const lu = portable.sqrt(ux * ux + uy * uy);
+          const lv = portable.sqrt(vx * vx + vy * vy);
           if (lu < 3 || lv < 3) continue;
           // turning 30 degrees or more: the cosine at most 0.866
           if ((ux * vx + uy * vy) / (lu * lv) <= 0.866) bends.push({ k: keep[m], sign: ux * vy - uy * vx > 0 ? 1 : -1 });
@@ -920,7 +921,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let note = "no large lake";
       let ok = false;
       for (const L of lakes) {
-        const R = Math.sqrt(L.tiles.length / 3.14159);
+        const R = portable.sqrt(L.tiles.length / 3.14159);
         let high = 0;
         let ring = 0;
         for (const [ux, uy] of RAYS) {
@@ -1016,14 +1017,14 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           sxx += dx * dx;
           syy += dy * dy;
           sxy += dx * dy;
-          rmax = Math.max(rmax, Math.sqrt(dx * dx + dy * dy));
+          rmax = Math.max(rmax, portable.sqrt(dx * dx + dy * dy));
         }
         const a = sxx / open.length;
         const d = syy / open.length;
         const b = sxy / open.length;
         const tr = (a + d) / 2;
-        const disc = Math.sqrt(((a - d) * (a - d)) / 4 + b * b);
-        const axes = tr + disc > 0 ? Math.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 0;
+        const disc = portable.sqrt(((a - d) * (a - d)) / 4 + b * b);
+        const axes = tr + disc > 0 ? portable.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 0;
         const fill = open.length / (3.14159 * (rmax + 0.5) * (rmax + 0.5));
         let fall = 0;
         for (const f of c.falls) {

@@ -3,6 +3,7 @@
 // free tiles only, so a feature's entities depend only on its own params and on the ground, water
 // and occupancy under its area: an unchanged feature on unchanged ground is reused by a rebuild.
 
+import * as portable from "../../math/portable";
 import { ORIENTATIONS } from "../../format/footprints";
 import { bush, RUIN_VARIANTS, ruin, tree, type EntitySpec, type TreeSpecies } from "../../format/entities";
 import { hash32, tileHash01 } from "../../math/hash";
@@ -145,7 +146,7 @@ export function assignRuinHeights(tiles: number[], W: number, rng: Rng, mix: num
   }
   cx /= n;
   cy /= n;
-  const r = xs.map((x, k) => Math.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
+  const r = xs.map((x, k) => portable.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
   let rmax = 0;
   for (const v of r) if (v > rmax) rmax = v;
   if (rmax === 0) rmax = 1;

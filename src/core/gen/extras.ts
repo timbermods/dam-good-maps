@@ -13,6 +13,7 @@
 // ground with a level ring, away from water, in their band from the start (a third of the band
 // beyond its start where there is room), on ground the colony walks to when there is any there.
 
+import * as portable from "../math/portable";
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
@@ -273,7 +274,7 @@ function thornBelt(
     cy = by;
     const dx = mx - bx;
     const dy = my - by;
-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
     // across the way: perpendicular to it
     ux = -dy / l;
     uy = dx / l;
@@ -350,7 +351,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
     for (let x = r; x < W - r; x += 2) {
       const i = y * W + x;
       // (60–120 tiles from the start's middle, as the site's plan measures it)
-      const e = Math.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
+      const e = portable.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
       if (e < 60 || e > 120 || b.water[i] > 0.05 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i]) continue;
       if (regions.size[regions.labels[i]] < DISTRICT_LAND) continue;
       const p = pumpFor(h[i]);
