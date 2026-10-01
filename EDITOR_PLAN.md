@@ -809,7 +809,7 @@ the player shapes the land with the brushes and places things from the shelf. Se
 stay shared with the generator (`PLAN.md` §19.3). Saved projects that hold landform features from
 before D182 open with their land exactly as it was, as plain terrain.
 
-**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, derived slopes, water, resources, the start and entity edits, in that order. A generated map starts from its stored field (M9a): the rivers, natural lakes, badwater hollows and rises read back out of it are the field's own, so the build marks their channels and leaves their ground; one the player has changed is built as it now says. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
+**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, slopes (derived at generation, then kept as they stand: D368 (10)), water, resources, the start and entity edits, in that order. A generated map starts from its stored field (M9a): the rivers, natural lakes, badwater hollows and rises read back out of it are the field's own, so the build marks their channels and leaves their ground; one the player has changed is built as it now says. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
@@ -896,6 +896,22 @@ Edits referencing them therefore survive other edits wherever the referenced obj
   one-click fix **Lower the wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in
   `core/validate/checks.ts`). The session's checks run with `editing: true`; generated maps (`generate` profile) and the
   Real places conversions do not, so they still guarantee no walls.
+- **Only the player places objects** (D368 (10)): no force, brush or editor action, and nothing one of them triggers,
+  ever adds a Slope or any other shelf object; the editor repairs nothing by placing. Slopes are derived once, at
+  generation (`placeSlopes`, before the land is shown); an opened map's document keeps the generation's slopes in its
+  stored map (`BuildInput.generatedSlopes`, `features/slopes.ts` `keptSlopes`), and every rebuild after an edit keeps
+  those that still stand (the high side one level up, the tile behind at their own level) and loses those an edit took
+  away; it never derives again. (An eruption used to make Slopes appear across the map, far from the cone, because
+  the build re-derived the whole network after every edit.) The same holds for an edited import (no new slopes joining
+  its changed ground) and for the start: moving it places nothing, and the start's checks predict only the slopes that
+  stand. What an edit leaves out of reach is reported, never repaired: the start's walk by `start.reach`,
+  `start.water` and the rest, a mine site the colony can no longer walk to by `resources.mine_reach` (advisory, on
+  the quiet dot, only once the map has been edited), each for the player to fix with a Slope from the shelf or the
+  land. Two forces place the water they make, by design: Carve's river its source group (D314) and Glaciate its
+  meltwater springs (D246). A stroke from before D247 or D270 that asked the planner for slopes (a walkable Smooth, a
+  ramped Flatten with none recorded) still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
+  `newRampedStroke`). A test (`tests/contract/editsPlaceNothing.test.ts`) runs every force and brush and compares
+  the objects before and after.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal edit operation, applied live and undoable.
 - **Water preview:** the settled water of the prototype's port of the game's rules (`PLAN.md` §10).
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.

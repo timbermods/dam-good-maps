@@ -484,6 +484,9 @@ export interface ValidateOptions {
   water?: { model: WaterModel; settled: CanonicalWater };
   /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
   editing?: boolean;
+  /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
+   *  given, the playability check `resources.mine_reach` reports what edits cut off since. */
+  mineCutAtOpen?: ReadonlySet<number>;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
   /** The map's own water, as its wet tiles: by default the file's; an edited import passes the
@@ -532,6 +535,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
         rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal", String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "")),
         features: opts.features ?? null,
         ids: w.entities.filter((e) => placementOf(e)).map((e) => String(e.Id)),
+        ...(opts.mineCutAtOpen ? { mineCutAtOpen: opts.mineCutAtOpen } : {}),
       },
       c,
     );

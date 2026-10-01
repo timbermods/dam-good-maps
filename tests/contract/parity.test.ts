@@ -17,7 +17,8 @@ import * as ed from "../../src/worker/session";
 import { runGenerate } from "../../src/worker/api";
 
 const verdict = (c: CheckResult) => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
-const verdicts = (cs: readonly CheckResult[]) => cs.map((c) => [c.id, verdict(c)]);
+// (`resources.mine_reach` is the editor's alone, D368 (10): it names what the edits cut off since the map was opened)
+const verdicts = (cs: readonly CheckResult[]) => cs.filter((c) => c.id !== "resources.mine_reach").map((c) => [c.id, verdict(c)]);
 
 /** A few local edits: ground lowered beside water, a lake with its spring, a forest removed. */
 function edit(s: MapSession): void {

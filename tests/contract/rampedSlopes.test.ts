@@ -1,8 +1,9 @@
 // Flatten's Ramped edges lay their own natural slopes (PLAN §20 D270, Kyler's answer to #84): where
 // the pad's rim meets ground one level lower, slopes spaced along every stretch of it, so the pad is
 // walkable from each side that has such ground; a cliff pad gets none. They are kept in the stroke
-// (the page lays them when it ends), placed again by every build, and a saved ramped stroke replays
-// exactly; a ramped stroke saved before D270 (no slopes of its own) still asks the slope planner.
+// (laid when it was made), placed again by every build, and a saved ramped stroke replays exactly; a
+// ramped stroke saved before D270 (no slopes of its own) still asks the slope planner. Since D322 the
+// editor makes no ramped stroke, and since D368 (10) it refuses a new one: no brush places an object.
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -68,7 +69,7 @@ describe("a ramped Flatten lays its own slopes (D270)", () => {
     expect(rimSlopes(h, W, W, own, blocked)).toEqual([]);
   });
 
-  it("kept in the stroke: the editor lays them when the stroke is applied, the build places them, the project replays them exactly; a cliff pad and a stroke from before D270 lay none of their own", async () => {
+  it("kept in the stroke: the build places them, the project replays them exactly; the editor refuses a new ramped stroke (D368 (10)); a stroke from before D270 still asks the planner", async () => {
     await runGenerate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 96, y: 96 } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
@@ -92,7 +93,17 @@ describe("a ramped Flatten lays its own slopes (D270)", () => {
     const shown = b.heights.slice();
     const preview = new StrokePreview(settings, s0.terrainState(), shown, 96, 96);
     preview.add(dabs);
-    expect(ed.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Flatten").errors).toEqual([]);
+    // a new ramped stroke is refused with a reason, and nothing changes
+    const refused = ed.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Flatten");
+    expect(refused.ok).toBe(false);
+    expect(refused.errors.join(" ")).toMatch(/no ramped edges/);
+    expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(b.heights));
+    // one saved with its slopes (as the editor laid them before D322) replays as it always did
+    const own = new Uint8Array(96 * 96);
+    markBrushTiles({ ...settings, dabs }, 96, 96, own);
+    const laid = rimSlopes(shown, 96, 96, own, new Uint8Array(96 * 96));
+    expect(laid.length).toBeGreaterThan(0);
+    expect(ed.apply({ op: "brush", params: { ...settings, dabs, slopes: laid } }, "user", "Flatten").errors).toEqual([]);
     const s = MapSession.open(decodeProject(ed.project().bytes));
     expect(Array.from(shown)).toEqual(Array.from(s.built.heights));
     const op = s.state.sculpts.at(-1)!.params as BrushParams;

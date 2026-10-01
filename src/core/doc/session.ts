@@ -10,7 +10,9 @@
 //   reopening a project, share links).
 // - Documents made by another generator open from their stored base, exactly (PLAN §19.7).
 
-import { isTall, withTallNote } from "../format/world";
+import { isTall, surfaceOf, withTallNote } from "../format/world";
+import { mapObjects } from "../sim/model";
+import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -25,6 +27,8 @@ import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
+import { DERIVED_SLOPES } from "../features/ids";
+import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
@@ -119,6 +123,8 @@ export class MapSession {
   private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
+  private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
+  private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -631,7 +637,29 @@ export class MapSession {
   private input(): BuildInput {
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null);
+  }
+
+  /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable
+   *  Smooth, a ramped Flatten that recorded none): a document that holds one opens as it always did,
+   *  its slopes derived from its ground. No stroke the editor makes can ask (D368 (10)). */
+  private derivesSlopes(): boolean {
+    return this.st.sculpts.some((sc) => {
+      const p = sc.params as { tool?: string; walkable?: boolean; edges?: string; slopes?: unknown; dabs?: unknown };
+      return !!p.dabs && ((p.tool === "smooth" && !!p.walkable) || (p.tool === "flatten" && p.edges === "ramped" && p.slopes === undefined));
+    });
+  }
+
+  /** The slopes the generation placed, from the map it stored: an edited map keeps them and never
+   *  derives slopes again (D368 (10): only the player places objects). A document that stored no
+   *  owners keeps every slope of its stored map. */
+  private generatedSlopes(): { x: number; y: number; orientation: Orientation }[] {
+    const c = this.slopesCache;
+    if (c && c.key === this.gen.base) return c.slopes;
+    const owned = !!this.gen.base.owners;
+    const slopes = this.baseStuff().layer.entities.filter((e) => e.template === "Slope" && (!owned || e.owner === DERIVED_SLOPES)).map((e) => ({ x: e.x, y: e.y, orientation: e.orientation }));
+    this.slopesCache = { key: this.gen.base, slopes };
+    return slopes;
   }
 
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
@@ -656,8 +684,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -793,6 +821,7 @@ export class MapSession {
       external: !live,
       // (the map is being edited: an edge wall warns, D323)
       editing: true,
+      mineCutAtOpen: this.mineCutAtOpen(),
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,
@@ -801,6 +830,17 @@ export class MapSession {
       // an edited import's approximate-water rule compares the settle with the water it was opened with
       storedWet: live ? undefined : this.openedWet(),
     });
+  }
+
+  /** The mine sites out of the colony's reach when the map was opened (its stored map): the checks
+   *  blame only what edits cut off since (D368 (10)). */
+  private mineCutAtOpen(): ReadonlySet<number> {
+    const b = this.baseStuff();
+    if (this.cutCache?.key === this.gen.base) return this.cutCache.cut;
+    const w = b.file.world;
+    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), w.sizeX, w.sizeY);
+    this.cutCache = { key: this.gen.base, cut };
+    return cut;
   }
 
   /** The wet tiles of the imported map as it was opened (its own stored water). */

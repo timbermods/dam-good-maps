@@ -112,6 +112,10 @@ export interface PlayabilityInput {
   features: readonly Feature[] | null;
   /** Entity ids in object order, for `where` and fixes. */
   ids?: readonly string[];
+  /** The editor's: the first tile of each mine site that was out of the colony's reach when the map
+   *  was opened (`mineSitesCutAt`). Given, the check `resources.mine_reach` reports the sites an edit
+   *  has left out of reach since; absent (the generator, the oracle, Real places), it does not run. */
+  mineCutAtOpen?: ReadonlySet<number>;
 }
 
 /** What the checks measured, for the preview layers and the map card. */
@@ -141,6 +145,61 @@ export interface PlayabilityAnalysis {
   /** Water storage near the start (water.storage_possible): the clean flow feeding the start's water
    *  and what it needs, and what a dam, natural pools and levees hold, against the need. */
   storage: { running: number; runningNeed: number; dam: number; natural: number; levee: number; need: number } | null;
+}
+
+/** The district center's middle tile. */
+export function startMiddleTile(start: MapObject): [number, number] {
+  const cells = worldBlocks(FOOTPRINTS.StartingLocation, start).filter((b) => b.localZ === 0);
+  let sumX = 0;
+  let sumY = 0;
+  for (const b of cells) {
+    sumX += b.x;
+    sumY += b.y;
+  }
+  return [Math.round(sumX / cells.length), Math.round(sumY / cells.length)];
+}
+
+/** The first tile of each mine site no walk reaches: its footprint and the ring round it lie off the
+ *  start's walkable region (`labels`, `root`: analysis/regions.ts `walkRegions`). */
+function cutMineSites(objects: readonly MapObject[], W: number, H: number, labels: ArrayLike<number>, root: number): [number, number][] {
+  const cut: [number, number][] = [];
+  for (const o of objects) {
+    if (o.template !== "UndergroundRuins" || !FOOTPRINTS[o.template]) continue;
+    const tiles = footprintTiles(o.template, o).filter(([x, y]) => x >= 0 && x < W && y >= 0 && y < H);
+    let near = false;
+    for (const [x, y] of tiles) {
+      for (let dy = -1; dy <= 1 && !near; dy++)
+        for (let dx = -1; dx <= 1 && !near; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && xx < W && yy >= 0 && yy < H && root >= 0 && labels[yy * W + xx] === root) near = true;
+        }
+      if (near) break;
+    }
+    if (!near && tiles.length) cut.push(tiles[0]);
+  }
+  return cut;
+}
+
+/** The mine sites out of reach on a map as it stands, as the tile index of each one's first tile
+ *  (the editor takes it once, when the map is opened: `PlayabilityInput.mineCutAtOpen`). Walking is
+ *  the checks': the map's own ground and its slopes, round the objects that block. */
+export function mineSitesCutAt(objects: readonly MapObject[], h: Uint8Array, W: number, H: number): Set<number> {
+  const start = objects.find((o) => o.template === "StartingLocation");
+  const out = new Set<number>();
+  if (!start) return out;
+  const blocked = new Uint8Array(W * H);
+  const links: [number, number][] = [];
+  for (const o of objects) {
+    if (WALK_BLOCKERS.has(o.template) && FOOTPRINTS[o.template]) for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
+    if (o.template !== "Slope" || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
+    const [dx, dy] = slopeHighSide(o.orientation);
+    if (o.x + dx >= 0 && o.x + dx < W && o.y + dy >= 0 && o.y + dy < H) links.push([o.y * W + o.x, (o.y + dy) * W + o.x + dx]);
+  }
+  const [sx, sy] = startMiddleTile(start);
+  const labels = walkRegions(h, W, H, blocked, links);
+  for (const [x, y] of cutMineSites(objects, W, H, labels, labels[sy * W + sx])) out.add(y * W + x);
+  return out;
 }
 
 const N4: readonly [number, number][] = [[0, -1], [-1, 0], [0, 1], [1, 0]];
@@ -472,15 +531,7 @@ function checkStart(
   const C = water.contamination;
   const { M, SC, wet, clean, blocked, barrier } = fl;
   // the district center's middle tile
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, start).filter((b) => b.localZ === 0);
-  let sumX = 0;
-  let sumY = 0;
-  for (const b of cells) {
-    sumX += b.x;
-    sumY += b.y;
-  }
-  const sx = Math.round(sumX / cells.length);
-  const sy = Math.round(sumY / cells.length);
+  const [sx, sy] = startMiddleTile(start);
   const startMask = new Uint8Array(N);
   let flooded = false;
   for (let y = sy - 2; y <= sy + 2; y++) {
@@ -577,6 +628,30 @@ function checkStart(
     limit: rules.reachMin,
     message: `${dry} dry tiles are walkable from the start through slopes (the target is ${rules.reachMin}; official p10 1,007)`,
   });
+
+  // a mine site is walkable from the start (D368 (10)): the colony must reach it over the map's own
+  // ground and slopes. An edit may cut it off, and nothing is placed to join it again: the dot says
+  // so, for the player to fix (a slope from the shelf, or the ground back). Advisory, like the
+  // start's reach, and only for the editor (`mineCutAtOpen`: the sites already out of reach when the
+  // map was opened are the generator's, or the file's, and are not blamed on the edits).
+  const cutAtOpen = inp.mineCutAtOpen;
+  if (cutAtOpen) {
+    const mineSites = objects.filter((o) => o.template === "UndergroundRuins" && FOOTPRINTS[o.template]);
+    const cut = cutMineSites(objects, W, H, labels, root).filter(([x, y]) => !cutAtOpen.has(y * W + x));
+    if (mineSites.length)
+      c.add({
+        id: "resources.mine_reach",
+        class: "playability",
+        advisory: true,
+        ok: cut.length === 0,
+        value: cut.length,
+        limit: 0,
+        message: cut.length
+          ? `${cut.length === 1 ? "a mine site is" : `${cut.length} mine sites are`} out of the colony's reach: no walk over the map's ground and slopes joins ${cut.length === 1 ? "it" : "them"} to the start (place a slope or level the ground)`
+          : `${mineSites.length === 1 ? "the mine site is" : "every mine site is"} walkable from the start, or was not when the map was opened`,
+        ...(cut.length ? { where: { tiles: cut.slice(0, 20) } } : {}),
+      });
+  }
 
   // requirement 3 (D85): living berry bushes within 20 tiles' walk of the start, slopes allowed;
   // living means alive and on soil where it survives at steady state. Requirement 2, starting wood

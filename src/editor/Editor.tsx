@@ -3587,7 +3587,7 @@ export default function Editor(props: EditorProps) {
       const bank = moved ? undefined : f.params.bank;
       bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
     }
-    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs, moved) };
+    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs) };
   }
 
   /** The start's reach (D184): its three requirements where it stands, shown while the pointer is on
@@ -3614,7 +3614,7 @@ export default function Editor(props: EditorProps) {
       const door = startEntranceTile(cx, cy, s.orientation);
       const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
       const bench = f && f.kind === "start" ? { level: f.params.benchLevel, radius: f.params.benchRadius, ...(f.params.bank ? { bank: f.params.bank } : {}) } : null;
-      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs, moved: false }) };
+      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs }) };
     }
     const v = info.version;
     void reachCache.current.check.then((check) => {
