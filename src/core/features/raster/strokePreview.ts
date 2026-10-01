@@ -7,6 +7,7 @@
 // runs it on the main thread, the tests in Node.
 
 import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
+import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, padTile } from "./terrain";
 
@@ -51,7 +52,11 @@ export class StrokePreview {
   private readonly precise: boolean;
 
   /** `heights` are the map's heights as shown (changed in place as the stroke goes on). */
-  constructor(settings: Omit<BrushParams, "dabs">, state: TerrainState, heights: Uint8Array, W: number, H: number) {
+  constructor(settings: Omit<BrushParams, "dabs">, state: TerrainState, heights: Uint8Array, W: number, H: number, ground?: Runs) {
+    // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
+    // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
+    // stroke is not yet an operation, hands in the same ones (D368 (8))
+    if (settings.tool === "naturalize" && settings.weathers && ground?.length) settings = { ...settings, keep: [...(settings.keep ?? []), ...ground] };
     this.W = W;
     this.H = H;
     this.state = state;

@@ -6,6 +6,7 @@
 
 import { FOOTPRINTS, footprintTiles, type Orientation } from "../../format/footprints";
 import type { Runs } from "../../math/grid";
+import { brushBounds, type BrushParams } from "./brush";
 
 /** What stands on the ground: a template and where (an `EntitySpec` fits). */
 export interface StandingObject {
@@ -47,5 +48,17 @@ export function groundUnderObjects(entities: readonly StandingObject[]): Runs {
     }
     out.push([y, a, b]);
   }
+  return out;
+}
+
+/** The ground a weathering Naturalize stroke leaves as it is, within its reach: under every source and
+ *  object standing when the operation applies (D368 (8)). The session records these runs in the stroke's
+ *  `keep`, so a replay, an undo and a redo give the same map however the objects move later. */
+export function weatherKeep(p: BrushParams, entities: readonly StandingObject[], W: number, H: number): Runs {
+  if (p.tool !== "naturalize" || !p.weathers) return [];
+  const b = brushBounds(p, W, H);
+  if (!b) return [];
+  const out: Runs = [];
+  for (const [y, a, c] of groundUnderObjects(entities)) if (y >= b.y0 && y <= b.y1 && c >= b.x0 && a <= b.x1) out.push([y, Math.max(a, b.x0), Math.min(c, b.x1)]);
   return out;
 }

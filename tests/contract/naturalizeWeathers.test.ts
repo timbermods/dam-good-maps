@@ -4,6 +4,7 @@
 // item 37), a river and a set piece are all fair game.
 
 import { describe, expect, it } from "vitest";
+import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { planEntity } from "../../src/core/doc/placing";
@@ -173,7 +174,7 @@ describe("Naturalize still leaves what must not change (D368 (8))", () => {
     expect(wall.some((i) => s.built.heights[i] !== before[i])).toBe(true);
   });
 
-  it("the ground under a water source and under an object stays as it is, with a wall built against each", () => {
+  it("the ground under a water source and under an object stays as it is with no keep runs given, with a wall built against each", () => {
     const s = session();
     const [cx, cy] = openSpot(s);
     // a water source and a geothermal field on open ground, then walls lifted beside them
@@ -196,12 +197,23 @@ describe("Naturalize still leaves what must not change (D368 (8))", () => {
     const wall = [...disc(cx - 5, cy, 2), ...disc(cx + 5, cy + 5, 2)].filter((i) => !kept.has(i));
     expect(s.apply(liftOp(s, wall, 5), "user").errors).toEqual([]);
     const before = s.built.heights.slice();
-    const stroke = { ...weather(cx, cy + 2, 9), keep };
-    expect(s.apply({ op: "brush", params: stroke }, "user", "Naturalize").errors).toEqual([]);
+    // a headless stroke with no keep runs: the core works out the ground under them itself (D342)
+    const stroke = weather(cx, cy + 2, 9);
+    expect(stroke.keep).toBeUndefined();
+    const u = s.apply({ op: "brush", params: stroke }, "user", "Naturalize");
+    expect(u.errors).toEqual([]);
+    expect(u.applied[0].params).toMatchObject({ keep: expect.any(Array) });
     for (const i of kept) expect(s.built.heights[i], `kept tile (${i % W}, ${Math.floor(i / W)})`).toBe(before[i]);
     // the same stroke without them kept does weather that ground (they are in reach)
     expect(wall.some((i) => s.built.heights[i] !== before[i])).toBe(true);
     expect(tilesToRuns([...kept].sort((a, b) => a - b), W)).toEqual(keep);
+    // it replays the same: the project reopens to the map, and undo and redo agree
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
+    const done = s.built.heights.slice();
+    s.undo();
+    s.redo();
+    expect(Array.from(s.built.heights)).toEqual(Array.from(done));
   });
 
   it("trees, bushes and slopes are not objects whose ground it keeps", () => {
