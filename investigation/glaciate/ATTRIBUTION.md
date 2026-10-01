@@ -1,6 +1,6 @@
 # Asset provenance
 
-No assets were extracted from Timberborn. The ice ribbon, UI, terrain algorithm and captures are original work for this investigation. Code and existing procedural terrain/object models are covered by the repository's [MIT licence](../../LICENSE), copyright 2026 Timbermods. Dependencies retain their own licences in the locked npm packages (Three.js, fflate, esbuild, Vite, TypeScript, Playwright, gifenc and the canvas tooling).
+No assets were extracted from Timberborn. The ice ribbon, UI, terrain algorithm and captures are original work for this investigation. Code and existing procedural terrain/object models are covered by the repository's [AGPL v3 licence](../../LICENSE), copyright 2026 Timbermods. Dependencies retain their own licences in the locked npm packages (Three.js, fflate, esbuild, Vite, TypeScript, Playwright, gifenc and the canvas tooling).
 
 ## Recorded sound
 
@@ -46,4 +46,4 @@ The gallery comparison and picker reuse the bundled **Near Lauterbrunnen, Near A
 
 Captures are taken from the live WebGL demo by `tests/browser.ts`; panel captions/composition and GIF encoding use the local canvas tooling. They are not AI illustrations or game screenshots. The real-place maps are shown unchanged, and the generated Glaciate result is explicitly labelled separately.
 
-Round 3 adds the original Canyon 10 generator snapshot. Its waterfall pass uses the repository's existing `src/render3d/falls.ts` geometry and `fallMaterial`, under the same MIT licence; no game waterfall asset is used. The tall Round 1 heightfield is unchanged. Its loader now adds one ordinary start on already level ground to exercise the one-start contract, without adding terrain, resources or access repairs. Six random high-ground inputs and three modest-ground inputs are selected from the original fixtures before any glacier planning.
+Round 3 adds the original Canyon 10 generator snapshot. Its waterfall pass uses the repository's existing `src/render3d/falls.ts` geometry and `fallMaterial`, under the same licence; no game waterfall asset is used. The tall Round 1 heightfield is unchanged. Its loader now adds one ordinary start on already level ground to exercise the one-start contract, without adding terrain, resources or access repairs. Six random high-ground inputs and three modest-ground inputs are selected from the original fixtures before any glacier planning.
