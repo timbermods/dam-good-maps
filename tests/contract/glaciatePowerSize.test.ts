@@ -74,7 +74,8 @@ describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
     for (const r of [p0, p50, p100]) expect(r.sections, where).toBeGreaterThanOrEqual(10);
     // a light scour at Power 0 (D361 (3): still visible, at most 4 levels anywhere)
     expect(p0.walls, where).toBeGreaterThanOrEqual(1);
-    expect(p0.walls, where).toBeLessThanOrEqual(2);
+    // (its sides worn a level, its river's channel two more: D368 (3), amended)
+    expect(p0.walls, where).toBeLessThanOrEqual(3);
     expect(p0.deepest, where).toBeLessThanOrEqual(4);
     // its walls, its deepest cut and the levels taken out of a section grow clearly with Power
     expect(p50.walls, where).toBeGreaterThanOrEqual(p0.walls + 3);
