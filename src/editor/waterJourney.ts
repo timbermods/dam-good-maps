@@ -72,9 +72,9 @@ export class WaterJourney {
       return;
     }
     this.settledVersion = e.version;
-    // (no water in it: the map's water was sent before, so it is the last put in place, not the frame on screen)
+    // (no water in it: the worker sent it before, so it is the last settled water the journey has, not the frame on screen)
     this.player.push({
-      water: e.view.water ?? this.host.mapWater(),
+      water: e.view.water ?? this.latestWater(),
       done: 1,
       final: () => {
         this.host.applyView(e.view);
@@ -83,13 +83,20 @@ export class WaterJourney {
     });
   }
 
+  /** The water the worker's news that carries none means: what the page was last sent. That is the last settled
+   *  frame of the journey, shown or waiting (the page's copy of the map's water is behind while the journey is), else
+   *  the map's own. */
+  private latestWater(): WaterView {
+    return this.player.settledWater ?? this.host.mapWater();
+  }
+
   /** A background check's answer: the canonical water it put in place, and whether a settle still runs. */
   check(r: { view: ViewUpdate; waterSettled?: boolean }): void {
     // (a journey playing ends here when the worker says the water is settled, whether or not this answer
     // carries water: the check may have put it in place and stopped the worker's own settle)
     if (r.waterSettled) this.settledVersion = this.version;
     if (this.player.playing && (r.view.water || r.waterSettled)) {
-      this.player.push({ water: r.view.water ?? this.host.mapWater(), done: 1, final: () => this.host.applyView(r.view) });
+      this.player.push({ water: r.view.water ?? this.latestWater(), done: 1, final: () => this.host.applyView(r.view) });
     } else this.host.applyView(r.view);
   }
 }
