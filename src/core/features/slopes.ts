@@ -1,7 +1,8 @@
 // Derived slopes (PLAN §7.5, build step 8). Beavers cannot cross even a 1-level step without a
 // Slope, and player stairs cost 70 science. A slope stands on the low tile, its high side toward the
-// higher neighbour; the tile behind its low side must be at the same level. Slopes are derived again
-// after every terrain change, and the player's pinned and removed slopes apply on top (edits.ts).
+// higher neighbour; the tile behind its low side must be at the same level. Slopes are derived at
+// generation only: an edited map keeps those that still stand (`keptSlopes`) and never derives again
+// (PLAN §20 D368 (10)); the player's pinned and removed slopes apply on top (edits.ts).
 //
 // The rules (§7.5):
 // 1–2. Label same-level regions (4-connected); two regions are neighbours where they differ by
@@ -22,7 +23,7 @@
 
 import * as portable from "../math/portable";
 import { levelRegions } from "../math/grid";
-import type { Orientation } from "../format/footprints";
+import { slopeHighSide, type Orientation } from "../format/footprints";
 import { orientationForHigh } from "./setpieces";
 
 export interface PlacedSlope {
@@ -55,7 +56,30 @@ export interface SlopeRules {
  *  the build reserves it, and the editor's start indicators predict the slopes round it. */
 export const START_CLEAR_RADIUS = 3;
 
-/** §7.5 for generated and edited maps. */
+/** The generation's slopes that still stand on the ground as it is now: the high side one level up
+ *  and the tile behind the low side at the slope's own level (the shape `placeSlopes` places), on a
+ *  tile no other slope has taken. An edit that took the step away takes the slope with it; nothing
+ *  is ever added (PLAN §20 D368 (10)). */
+export function keptSlopes(kept: readonly { x: number; y: number; orientation: Orientation }[], h: Uint8Array, W: number, H: number, taken: ReadonlySet<number>): PlacedSlope[] {
+  const out: PlacedSlope[] = [];
+  const used = new Set(taken);
+  for (const s of kept) {
+    if (s.x < 0 || s.y < 0 || s.x >= W || s.y >= H) continue;
+    const [dx, dy] = slopeHighSide(s.orientation);
+    const i = s.y * W + s.x;
+    const hx = s.x + dx;
+    const hy = s.y + dy;
+    const bx = s.x - dx;
+    const by = s.y - dy;
+    if (used.has(i) || hx < 0 || hy < 0 || hx >= W || hy >= H || bx < 0 || by < 0 || bx >= W || by >= H) continue;
+    if (h[hy * W + hx] !== h[i] + 1 || h[by * W + bx] !== h[i]) continue;
+    used.add(i);
+    out.push({ x: s.x, y: s.y, z: h[i], orientation: s.orientation });
+  }
+  return out;
+}
+
+/** §7.5 for generated maps (the generator's build; an edited map keeps what the generation placed). */
 export const SLOPE_RULES: SlopeRules = { core: 40, bigRegion: 400 };
 /** Slopes stand at least this far apart (Manhattan), as in the prototype. */
 const SPACING = 12;

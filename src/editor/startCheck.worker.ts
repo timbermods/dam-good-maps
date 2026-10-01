@@ -21,14 +21,12 @@ export interface StartCheckJob {
   bench: { level: number; radius: number } | null;
   self: string | null;
   needs: StartNeeds;
-  /** Away from where the start stands (its slopes are predicted there); true unless said. */
-  moved?: boolean;
 }
 
 const api = {
   check(j: StartCheckJob): StartCheck {
     const c: TileContext = { W: j.W, H: j.H, heights: j.heights, water: j.water, entities: j.entities, entitiesAt: entitiesByTile(j.entities, j.W), index: j.river ? ({ river: j.river } as FeatureIndex) : null };
-    return checkStartAt(c, j.x, j.y, j.door, j.bench, j.self, j.needs, j.moved ?? true);
+    return checkStartAt(c, j.x, j.y, j.door, j.bench, j.self, j.needs);
   },
 };
 

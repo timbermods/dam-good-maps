@@ -659,9 +659,11 @@ or ramps anyway.
    max-size maps 1.9, small 18). Measured on River Valley (seeds 1–10): 13–16 per 10k at 96²,
    7–10 at 128², 4–5 at 192² and 3–4 at 256² (D52).
 
-Slopes are derived again after every terrain change, in generation and in the editor; the player's
-pinned and removed slopes apply on top. An imported map keeps its own slopes, and only the ground its
-edits changed gets new ones (D52).
+Slopes are derived at generation, before the land is shown; the player's pinned and removed slopes apply
+on top. An edited map keeps the generation's slopes that still stand and never derives any again (D368
+(10): only the player places objects); an imported map keeps its own slopes and gets none, the ground its
+edits changed included (D52 amended). What an edit leaves out of reach is reported by the checks, never
+repaired.
 
 ### 7.6 Water
 

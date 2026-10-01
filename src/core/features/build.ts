@@ -15,7 +15,7 @@
 // moisture and each resource feature are reused when their inputs are unchanged. The property
 // tests check that it equals a full build.
 
-import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide } from "../format/footprints";
+import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
 import { soilContamination } from "../sim/contamination";
@@ -26,7 +26,7 @@ import { previewSettle, staleWater } from "../sim/preview";
 import { sameRetained, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
 import { DERIVED_SLOPES, entityId, RIM_SLOPES } from "./ids";
-import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
+import { keptSlopes, placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
 import {
@@ -122,6 +122,11 @@ export interface BuildInput {
   slopeEdits?: readonly SlopeEdit[];
   entityEdits?: readonly EntityEdit[];
   locked?: LockedLayer | null;
+  /** The slopes the generation placed (a generated map's document keeps them in its stored map). An
+   *  edited map keeps these and never derives slopes again (PLAN §20 D368 (10): only the player
+   *  places objects): each one stands where its ground still steps up, and is gone where an edit
+   *  took that step away. Absent for the generator's own build, which derives them. */
+  generatedSlopes?: readonly { x: number; y: number; orientation: Orientation }[] | null;
 }
 
 export interface BuildResult {
@@ -661,10 +666,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
   // an imported map's objects keep their tiles (derived slopes go round them)
   if (base) for (const e of base.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) reserved[y * W + x] = 1;
-  const slopeStart = startInfo ?? (base ? importedStart(base, W, H) : undefined);
+  const slopeStart = startInfo;
   let rules: SlopeRules | null = null;
   let slopesKey = "";
-  if (slopeStart && !base) {
+  if (slopeStart && !base && !input.generatedSlopes) {
     const targets = landformTargets(features.filter(live), target);
     // the ground a walkable smooth stroke went over, and a ramped flatten's with the ground round
     // it (its rim steps down to that ground, D204): the natural slopes join their steps too
@@ -701,18 +706,6 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const ramps = input.field?.ramps ?? null;
     rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}) };
     slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
-  } else if (slopeStart && base) {
-    // an edited import: join the changed ground to the start's network (the file's own slopes and
-    // the set pieces' stairs), nothing else
-    let changed: Uint8Array | null = null;
-    for (let i = 0; i < N; i++) {
-      if (heights[i] !== base.heights[i] && !base.columns.has(i)) (changed ??= new Uint8Array(N))[i] = 1;
-    }
-    if (changed) {
-      const own = fileSlopeLinks(base, heights, W, H);
-      rules = { core: 0, bigRegion: 0, targets: changed, links: [...own, ...links] };
-      slopesKey = `import:${slopeStart.x},${slopeStart.y}|${JSON.stringify(links)}`;
-    }
   }
   // the player's own forests, berry patches and ruin fields keep their tiles: no derived slope
   // takes one (PLAN §7.0: nothing the generator derives touches the player's placements)
@@ -723,7 +716,13 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     for (const [y, x0, x1] of f.params.area) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) slopeOcc[y * W + x] = 1;
   }
   let slopes: PlacedSlope[] = [];
-  if (rules) {
+  if (input.generatedSlopes) {
+    // an edited generated map: the generation's slopes that still stand; none is ever added
+    const standing = new Set<number>();
+    for (const e of entities) if (e.template === "Slope") standing.add(e.y * W + e.x);
+    slopes = keptSlopes(input.generatedSlopes, heights, W, H, standing);
+    slopesKey = "kept";
+  } else if (rules) {
     const reuse = prev && prev.slopesKey === slopesKey && sameBytes(prev.terrain.heights, heights) && sameBytes(prev.terrain.channel, terrain.channel) && sameBytes(prev.reserved, slopeOcc);
     slopes = reuse ? prev.slopes : placeSlopes(heights, W, H, slopeStart!, slopeOcc, rules);
   }
@@ -1051,39 +1050,6 @@ export function badwaterMouth(tiles: readonly number[], edge: "west" | "east" | 
     }
   }
   return { groups, seals };
-}
-
-/** The centre of an imported map's start, when it has exactly one. */
-function importedStart(base: BaseLayer, W: number, H: number): { x: number; y: number } | undefined {
-  const starts = base.entities.filter((e) => e.template === "StartingLocation");
-  if (starts.length !== 1) return undefined;
-  const s = starts[0];
-  const tiles = footprintTiles("StartingLocation", { template: s.template, x: s.x, y: s.y, z: s.z, orientation: s.orientation, flipped: s.flipped });
-  let sx = 0;
-  let sy = 0;
-  for (const [x, y] of tiles) {
-    sx += x;
-    sy += y;
-  }
-  const x = Math.round(sx / tiles.length);
-  const y = Math.round(sy / tiles.length);
-  return x >= 0 && y >= 0 && x < W && y < H ? { x, y } : undefined;
-}
-
-/** An imported map's own slopes that still join a 1-level step on the current terrain, as (low
- *  tile, high tile) pairs. */
-function fileSlopeLinks(base: BaseLayer, heights: Uint8Array, W: number, H: number): [number, number][] {
-  const out: [number, number][] = [];
-  for (const e of base.entities) {
-    if (e.template !== "Slope" || e.x < 0 || e.y < 0 || e.x >= W || e.y >= H) continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    const i = e.y * W + e.x;
-    if (heights[i] === e.z && heights[hy * W + hx] === e.z + 1) out.push([i, hy * W + hx]);
-  }
-  return out;
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
