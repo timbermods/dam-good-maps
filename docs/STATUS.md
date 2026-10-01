@@ -33,8 +33,14 @@ forces; the deploy and the live check passed. The High look's release is next (D
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
 - **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
   (D374), startup part 1 (D367), and **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees). Later, in polish: the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
-- **Not done:** the faster water settle's speed isn't timed (the machine was never quiet); September's Progress log
-  isn't copied to `docs/progress-log/`; the Wednesday allowance report wasn't written.
+- **Last-allowance session, 2026-10-01 (small tasks, each pushed):**
+  1. **The handoff is proved.** A fresh clone of `dev` in a temporary folder ran `npm run setup:machine` end to end:
+     six worktrees and the probe folder created, `npm ci` in all of them and in the probe's own folder, the four probe
+     allow rules written, a second run found everything ready. It needed no change to `tools/setup-machine.mjs`.
+     It reports only what is missing locally (the decompiled game code and the official maps, regenerated when needed).
+     The temporary clone is deleted.
+  2. Not done yet: the flaky `save-to-timberborn.spec.ts:65` (below), September's Progress log copy, the faster settle's
+     timing, the Wednesday allowance report.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
