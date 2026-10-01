@@ -55,7 +55,7 @@ differently, this file wins.
   its seed and theme; our own generated maps only; under 1 MB.
 
 **The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
-1. **Finish the editor as players will know it:** the forces release (done: `forces-done`, 2026-10-01, D375), M9b's release, the High look's release, the
+1. **Finish the editor as players will know it:** the forces release (done: `forces-done`, 2026-10-01, D375), M9b's release, the High look's release (done: `map-look-2-done`, 2026-10-01, D378), the
    parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
    #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
    timeline; its sitting comes then (D349, 2026-09-30).

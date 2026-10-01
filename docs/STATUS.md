@@ -3,22 +3,13 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D377), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D378), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-> **Your final look at the High look (2026-10-01):** the preview at <https://timbermods.github.io/dam-good-maps/preview/>
-> is `feature/high-look` (#75) with the released forces merged in (tip 682e2f2b, CI green; the live site's check passed
-> too). Switch **Look** to **High** and check only what the merge could have changed:
->
-> 1. **Erupt in High.** The eruption's glow now goes through High's lighting, so it looks a little different from
->    Standard. Switch the look in the middle of an eruption: the glow should stay.
-> 2. **Remove and Clear sources on High's stone-basin sources:** Remove's red and Clear sources' glow should reach them.
-> 3. **The forces in High:** Carve, Craterize, Quake and Glaciate look and feel as they did in Standard; the High look
->    itself is as you approved it (D346).
-> 4. **The editor's header:** the look menu sits between Save to Timberborn and ⋯ beside the new view bar; its tooltips
->    read as the rest do ("Choose how the map is drawn").
->
-> **Your yes** releases it: merge #75 into `dev`, tag `map-look-2-done`, `tools/release.sh`. Anything wrong, and it is
-> fixed on `feature/high-look` first.
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
+> works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
+> skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
+> every force); tests for an eruption in High and for the highlight on High's basin sources.
 
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
@@ -46,6 +37,7 @@ forces; the deploy and the live check passed. The High look's release is next (D
   planned lakes at their level, speed at 256², the re-pins (its CI is red on maps that moved), then your review set.
 - **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
+- **Added after the High look's release (D378):** Craterize clicked quickly sometimes skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check every force); tests for an eruption in High and for the highlight on High's basin sources.
 - **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
   (D374), startup part 1 (D367), and **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees). Later, in polish: the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
 - **Last-allowance session, 2026-10-01 (small tasks, each pushed):**
@@ -73,7 +65,7 @@ forces; the deploy and the live check passed. The High look's release is next (D
      exists; about 25 old worktree folders beside the clone (`-brushes`, `-esc`, `-forces`, ...) point at branches
      whose remote is gone, and are Kyler's to remove if he wants the space.
   6. **Consistency sweep** of PLAN §20, ROADMAP, STATUS, HANDOFF and CHAT-HANDOFF: they were all rewritten the same
-     morning and agree on the forces' release, the next decision (D378), the order of work and the held items. Fixed: HANDOFF
+     morning and agree on the forces' release, the next decision (D379), the order of work and the held items. Fixed: HANDOFF
      said the forces release still had to reach `dev` (it has) and still listed the flake as to-trace. No retired term
      is in a living document ("Watch" survives only in the marked checklist record and in HANDOFF's earlier-handoffs
      history; ROADMAP's "Watch a 20-second tour" is a different thing).
