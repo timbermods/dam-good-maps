@@ -1093,6 +1093,10 @@ terrain steps extend the same brushes to caves and tunnels.
 
 After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
 
+## Carve's river is born as it cuts (D371)
+
+Right after the forces release, alongside the startup's part 1 (D367): while Carve cuts, the water front follows just behind the cutting edge from upstream, handing off to the real simulation's water with no jump and ending exactly where it settles; both looks, reduced motion calm; the same approach for Glaciate's lakes, Craterize's crater lakes and the Rift's captured rivers, using `investigation/performance`'s findings. Gates: no frame-rate cost at 256² (the smoothness harness), and the final frame's water equals the settled water.
+
 ## Startup: maps open fast (D367)
 
 Codex's startup investigation (`investigation/startup`, #127), approved by Kyler on 2026-10-01: first-visit maps editable in 1.30–1.44 s median (1.59 s worst), cold on a typical connection, with byte identity and Save and export still gated.
