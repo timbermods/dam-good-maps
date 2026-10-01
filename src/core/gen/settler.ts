@@ -50,6 +50,10 @@ export const BANK_FOOT = 800;
 
 export interface SettlerOptions {
   avoid?: Uint8Array | null;
+  /** Whether a start may need its ground levelled (a 5×5 within a level, or the last resort's pad
+   *  and path to the shore); false on a shown land, where only a start that needs no levelling
+   *  leaves the land as it was shown (D348), the levelled ones a last resort. */
+  level?: boolean;
   /** Depth left after the first drought (analytic), for `drought`. */
   kept?: ArrayLike<number> | null;
   drought?: DroughtPolicy;
@@ -314,7 +318,7 @@ export function pickStart(
   const cands: { i: number; score: number; kind: string; o: Orientation; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
-  for (let pass = 0; pass < 2 && !cands.length; pass++)
+  for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !cands.length; pass++)
     for (let y = margin; y < H - margin; y++) {
       for (let x = margin; x < W - margin; x++) {
         const i = y * W + x;
@@ -413,7 +417,7 @@ export function pickStart(
         cands.push({ i, score, kind, o, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
-  if (!cands.length) return footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
+  if (!cands.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
   cands.sort((a, b) => b.score - a.score || a.i - b.i);
   // the best few, far enough apart that the choice matters
   const top: typeof cands = [];
@@ -435,7 +439,7 @@ export function pickStart(
     }
     top.push(c);
   }
-  if (!top.length) return footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
+  if (!top.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);
@@ -477,7 +481,7 @@ export function padFloods(h: Uint8Array, W: number, H: number, D: ArrayLike<numb
  *  ground, off `avoid`, with no water asked for: a spring by it gives it water afterwards (D330's
  *  fix). Among such places, the most level ground at the start's own level within 8 tiles and the
  *  most land joined by one-level steps (`foot`), nearest the water, then nearest `near`. */
-export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, hydro: Pick<Hydro, "water">, opts: { avoid?: Uint8Array | null; foot?: { lab: Int32Array; size: number[] } | null; minFoot?: number; near?: { x: number; y: number } | null } = {}): StartPick | null {
+export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, hydro: Pick<Hydro, "water">, opts: { avoid?: Uint8Array | null; foot?: { lab: Int32Array; size: number[] } | null; minFoot?: number; near?: { x: number; y: number } | null; level?: boolean } = {}): StartPick | null {
   const N = W * H;
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wet[i] = 1;
@@ -485,7 +489,7 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
   const margin = Math.max(8, Math.round(Math.min(W, H) * 0.08));
   let best: StartPick | null = null;
   let bestScore = -Infinity;
-  for (let pass = 0; pass < 2 && !best; pass++)
+  for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !best; pass++)
     for (let y = margin; y < H - margin; y++)
       for (let x = margin; x < W - margin; x++) {
         const i = y * W + x;
