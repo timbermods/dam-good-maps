@@ -534,8 +534,10 @@ left nothing.
     exactly 45°, and a lake filled it. On the plan its bank read 22 tiles straight, broken by the
     channels that join it; those settled too shallow to count and the bank read 47, over the limit of
     44, on a land already shown. A land's planned lakes are now read alone as well, at the limit
-    itself (47 here). Of the 840 maps two more read over it and settle within it today, River Valley
-    256² seed 11 (51) and Lake Basin 256² seed 39 (46): each draws one more land and builds. Fixed.
+    itself (47 here). Fixed. The cost, measured: on five other maps of the 840 a land that settled
+    within the limit before is drawn again (Any 128² seed 38; River Valley 11, Canyon 27 and 31, Lake
+    Basin 39 at 256²; nine lands in all); all five still build, none loses an outcome, River Valley
+    11 gains all three.
     Capping a joined channel's width at twice its swing, tried first, changed about 240 lands and
     not this one: taken out again.
   - *A wall on the settled water only* (Any 96² seed 18, Lake Basin 128² seed 5), **cause found, not
@@ -552,12 +554,17 @@ left nothing.
     lakes their own river drains, so the dam-wall check sees the wall before the land is shown.
   - *Still failing, with their causes:* Any 96² seed 31 and Islands 96² seed 4 (the settled water
     moves the start off the plan's, and no other start's land holds two level squares 24 tiles out:
-    Islands 4's island is about 20 tiles across); Highlands 96² seed 14 (three starts in turn lose
-    their water once it settles).
+    Islands 4's island is about 20 tiles across). Highlands 96² seed 14 passes at cc161b3a, by the
+    order of its attempts only: three of its starts still lose their water once it settles.
   - *A reading for later:* `info.preWet`, the share of the map under the planned water or the
     pre-fill before the land is shown (nothing reads the water cap before then; on one land tried it
     read 39% where the settled water covered 36%).
-- RESULTS
+- **Measured at cc161b3a** (840 maps, seeds 1–40; in brackets the measure before this round):
+  failing an absolute 3 (4) at 96² (Any 18, Any 31, Islands 4), 1 (3) at 128² (Lake Basin 5), 0 (0) at
+  256²; first maps meeting all three outcomes 212 (211), 227 (225), 229 (228) of 280. Per theme,
+  seeds 1–20, at 96², 128², 256²: Any 18, 18, 17; River Valley 19, 18, 16; Canyon 11, 15, 15;
+  Highlands 9, 15, 17; Lake Basin 12, 12, 12; Delta 19, 18, 17; Islands 19, 20, 20 of 20. Median time
+  to the map 2.2 s, 3.1 s and 8.9 s (the faster settle, D359).
 
 ## Handoff (2026-09-27, evening)
 
