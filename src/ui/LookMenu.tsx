@@ -11,8 +11,8 @@ import type { LookChoice } from "../render3d/high/fallback";
 import type { Look } from "../render3d/renderer";
 
 const CHOICES: { key: LookChoice; label: string; note: string }[] = [
-  { key: "auto", label: "Automatic", note: "High where this computer draws it smoothly, Standard where it doesn't" },
-  { key: "high", label: "High", note: "Warm light, soft shadows, deeper water and new trees" },
+  { key: "auto", label: "Automatic", note: "High where it runs smoothly, else Standard" },
+  { key: "high", label: "High", note: "Warm light, soft shadows, deeper water, new trees" },
   { key: "standard", label: "Standard", note: "The clean look, the lightest to draw" },
 ];
 
@@ -62,7 +62,7 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
   const effects = r.highEffects;
   return (
     <div class="menu-wrap" ref={wrap}>
-      <button type="button" class={props.buttonClass} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title={lookWords(choice, look)}>
+      <button type="button" class={props.buttonClass} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title="Choose how the map is drawn">
         Look: {high ? "High" : "Standard"}
       </button>
       {open ? (
@@ -91,7 +91,7 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
                 const keys = HIGH_EFFECTS.filter((e) => e.from === p.from).map((e) => e.key);
                 return (
                   <div key={p.from}>
-                    <label>
+                    <label title={`Turn High's ${p.label.toLowerCase()} on or off`}>
                       <input
                         type="checkbox"
                         checked={keys.every((k) => effects[k])}
