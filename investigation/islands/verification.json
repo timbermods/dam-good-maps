@@ -1,0 +1,52 @@
+[
+  {
+    "size": 96,
+    "seed": 1,
+    "deterministic": true,
+    "shown": 1,
+    "exportMatches": true,
+    "rebuildMatches": true,
+    "maxDepthError": 5.549147830130607e-7,
+    "sha256": "9115cca7c18c3717a7f30c2ddebac78e47b10177b9d309691e5cd0456de2e2c1"
+  },
+  {
+    "size": 96,
+    "seed": 20,
+    "deterministic": true,
+    "shown": 1,
+    "exportMatches": true,
+    "rebuildMatches": true,
+    "maxDepthError": 5.546670878153748e-7,
+    "sha256": "8531a5f5a03f5cea0fb3615668e409c6f2070a05d2767aa9e8fb36ac8a63e6f5"
+  },
+  {
+    "size": 128,
+    "seed": 1,
+    "deterministic": true,
+    "shown": 1,
+    "exportMatches": true,
+    "rebuildMatches": true,
+    "maxDepthError": 5.566776504206672e-7,
+    "sha256": "22ed0612921c367abb9d2a16e0296f7479df4bd39f31eba25728e793964ed9d3"
+  },
+  {
+    "size": 256,
+    "seed": 1,
+    "deterministic": true,
+    "shown": 1,
+    "exportMatches": true,
+    "rebuildMatches": true,
+    "maxDepthError": 5.578277206819138e-7,
+    "sha256": "9b5e11c08c8b197253209afd2f40768cc6ba85dbed1450d45bd23e03bdb56692"
+  },
+  {
+    "size": 256,
+    "seed": 20,
+    "deterministic": true,
+    "shown": 1,
+    "exportMatches": true,
+    "rebuildMatches": true,
+    "maxDepthError": 5.586538420754295e-7,
+    "sha256": "522772f407cc7bfffb1fc5fca33041c03ee3b1a4ea1bafb97630562f4e71a0bd"
+  }
+]

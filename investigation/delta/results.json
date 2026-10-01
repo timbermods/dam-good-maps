@@ -1,0 +1,475 @@
+{
+  "base": "6c29b7e524eea5739d49b6f0df2eae3b0856f4bd",
+  "summary": [
+    {
+      "mode": "before",
+      "size": 96,
+      "n": 20,
+      "all": 9,
+      "promise": 11,
+      "readable": 13,
+      "standout": 20,
+      "failing": [],
+      "landMedian": 459,
+      "landP90": 702,
+      "cpuMedian": 387,
+      "cpuP90": 675,
+      "waterMedian": 1408,
+      "waterP90": 5972,
+      "settled": 20,
+      "settleMax": 1792,
+      "shown": 0,
+      "changed": [
+        [
+          1,
+          84
+        ],
+        [
+          2,
+          143
+        ],
+        [
+          3,
+          77
+        ],
+        [
+          4,
+          66
+        ],
+        [
+          5,
+          55
+        ],
+        [
+          6,
+          113
+        ],
+        [
+          7,
+          51
+        ],
+        [
+          8,
+          62
+        ],
+        [
+          9,
+          72
+        ],
+        [
+          10,
+          120
+        ],
+        [
+          11,
+          86
+        ],
+        [
+          12,
+          91
+        ],
+        [
+          13,
+          73
+        ],
+        [
+          14,
+          141
+        ],
+        [
+          15,
+          140
+        ],
+        [
+          16,
+          110
+        ],
+        [
+          17,
+          99
+        ],
+        [
+          18,
+          130
+        ],
+        [
+          19,
+          97
+        ],
+        [
+          20,
+          78
+        ]
+      ],
+      "mainWetMin": 0.698,
+      "logsMin": 252,
+      "minesMin": 2,
+      "bushesMin": 33,
+      "flatMin": 0,
+      "fertileMin": 0,
+      "minArm": null,
+      "maxDry": null
+    },
+    {
+      "mode": "after",
+      "size": 96,
+      "n": 20,
+      "all": 18,
+      "promise": 20,
+      "readable": 20,
+      "standout": 18,
+      "failing": [],
+      "landMedian": 260,
+      "landP90": 419,
+      "cpuMedian": 186,
+      "cpuP90": 419,
+      "waterMedian": 1038,
+      "waterP90": 3385,
+      "settled": 20,
+      "settleMax": 2944,
+      "shown": 0,
+      "changed": [
+        [
+          4,
+          49
+        ],
+        [
+          11,
+          58
+        ]
+      ],
+      "mainWetMin": 1,
+      "logsMin": 249,
+      "minesMin": 2,
+      "bushesMin": 33,
+      "flatMin": 0.6917717319177173,
+      "fertileMin": 0.5610667572617632,
+      "minArm": 1,
+      "maxDry": 0
+    },
+    {
+      "mode": "before",
+      "size": 128,
+      "n": 20,
+      "all": 16,
+      "promise": 16,
+      "readable": 18,
+      "standout": 20,
+      "failing": [],
+      "landMedian": 751,
+      "landP90": 1625,
+      "cpuMedian": 605,
+      "cpuP90": 1425,
+      "waterMedian": 2142,
+      "waterP90": 7878,
+      "settled": 20,
+      "settleMax": 3328,
+      "shown": 0,
+      "changed": [
+        [
+          1,
+          68
+        ],
+        [
+          2,
+          77
+        ],
+        [
+          3,
+          73
+        ],
+        [
+          4,
+          163
+        ],
+        [
+          5,
+          128
+        ],
+        [
+          6,
+          199
+        ],
+        [
+          7,
+          179
+        ],
+        [
+          8,
+          166
+        ],
+        [
+          9,
+          57
+        ],
+        [
+          10,
+          167
+        ],
+        [
+          11,
+          182
+        ],
+        [
+          12,
+          100
+        ],
+        [
+          13,
+          186
+        ],
+        [
+          14,
+          77
+        ],
+        [
+          15,
+          85
+        ],
+        [
+          16,
+          156
+        ],
+        [
+          17,
+          158
+        ],
+        [
+          18,
+          87
+        ],
+        [
+          19,
+          52
+        ],
+        [
+          20,
+          91
+        ]
+      ],
+      "mainWetMin": 0.825,
+      "logsMin": 250,
+      "minesMin": 2,
+      "bushesMin": 33,
+      "flatMin": 0.0001548467017652524,
+      "fertileMin": 0,
+      "minArm": null,
+      "maxDry": null
+    },
+    {
+      "mode": "after",
+      "size": 128,
+      "n": 20,
+      "all": 20,
+      "promise": 20,
+      "readable": 20,
+      "standout": 20,
+      "failing": [],
+      "landMedian": 274,
+      "landP90": 592,
+      "cpuMedian": 239,
+      "cpuP90": 592,
+      "waterMedian": 1916,
+      "waterP90": 4868,
+      "settled": 20,
+      "settleMax": 4608,
+      "shown": 0,
+      "changed": [
+        [
+          1,
+          52
+        ],
+        [
+          11,
+          61
+        ],
+        [
+          12,
+          73
+        ],
+        [
+          13,
+          48
+        ],
+        [
+          19,
+          72
+        ],
+        [
+          20,
+          56
+        ]
+      ],
+      "mainWetMin": 1,
+      "logsMin": 241,
+      "minesMin": 2,
+      "bushesMin": 33,
+      "flatMin": 0.6906280024456284,
+      "fertileMin": 0.44870601377769503,
+      "minArm": 1,
+      "maxDry": 0
+    },
+    {
+      "mode": "before",
+      "size": 256,
+      "n": 20,
+      "all": 15,
+      "promise": 17,
+      "readable": 17,
+      "standout": 20,
+      "failing": [],
+      "landMedian": 5104,
+      "landP90": 9817,
+      "cpuMedian": 3522,
+      "cpuP90": 9264,
+      "waterMedian": 15559,
+      "waterP90": 35976,
+      "settled": 20,
+      "settleMax": 3712,
+      "shown": 0,
+      "changed": [
+        [
+          1,
+          81
+        ],
+        [
+          2,
+          65
+        ],
+        [
+          3,
+          134
+        ],
+        [
+          4,
+          253
+        ],
+        [
+          5,
+          55
+        ],
+        [
+          6,
+          351
+        ],
+        [
+          7,
+          116
+        ],
+        [
+          8,
+          50
+        ],
+        [
+          9,
+          111
+        ],
+        [
+          10,
+          114
+        ],
+        [
+          11,
+          241
+        ],
+        [
+          12,
+          85
+        ],
+        [
+          13,
+          67
+        ],
+        [
+          14,
+          168
+        ],
+        [
+          15,
+          123
+        ],
+        [
+          16,
+          302
+        ],
+        [
+          17,
+          327
+        ],
+        [
+          18,
+          406
+        ],
+        [
+          19,
+          86
+        ],
+        [
+          20,
+          72
+        ]
+      ],
+      "mainWetMin": 0.736,
+      "logsMin": 242,
+      "minesMin": 3,
+      "bushesMin": 33,
+      "flatMin": 0,
+      "fertileMin": 0,
+      "minArm": null,
+      "maxDry": null
+    },
+    {
+      "mode": "after",
+      "size": 256,
+      "n": 20,
+      "all": 17,
+      "promise": 19,
+      "readable": 20,
+      "standout": 18,
+      "failing": [],
+      "landMedian": 2980,
+      "landP90": 5565,
+      "cpuMedian": 1347,
+      "cpuP90": 2346,
+      "waterMedian": 13787,
+      "waterP90": 20325,
+      "settled": 20,
+      "settleMax": 3456,
+      "shown": 0,
+      "changed": [
+        [
+          3,
+          93
+        ],
+        [
+          6,
+          83
+        ],
+        [
+          14,
+          94
+        ],
+        [
+          16,
+          107
+        ],
+        [
+          18,
+          82
+        ],
+        [
+          19,
+          82
+        ]
+      ],
+      "mainWetMin": 1,
+      "logsMin": 240,
+      "minesMin": 3,
+      "bushesMin": 33,
+      "flatMin": 0.7449106979376466,
+      "fertileMin": 0.2801475981950341,
+      "minArm": 1,
+      "maxDry": 0
+    }
+  ]
+}

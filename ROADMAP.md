@@ -54,6 +54,20 @@ differently, this file wins.
   `docs/sheets/<step>.png`: seeds 1–30 of every built theme at 128², top-down, each labelled with
   its seed and theme; our own generated maps only; under 1 MB.
 
+**The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
+1. **Finish the editor as players will know it:** the forces release, M9b's release, the High look's release, the
+   parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
+   #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
+   timeline; its sitting comes then (D349, 2026-09-30).
+   Then **custom map sizes** (D357): any width and height from 4 to 512, shaped by the generator, after a probe of
+   large and long maps in the game.
+2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
+3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished.
+   **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
+   editing's first users (D349, 2026-09-30).
+4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
+5. **M12 (Claude)**, after collaborative editing (D277, D342).
+
 ## Overview
 
 | # | Milestone | From | In-game check (logged as pending, D11) | Effort |
@@ -74,10 +88,10 @@ differently, this file wins.
 | 3D-2 | Terrain above terrain, step 2: the view, after Map look 2 | DESIGN.md §6–7 · D126, D280, D281 | no | high |
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
 | 3D-4 | Terrain above terrain, step 4: generation, once M9b has settled | DESIGN.md §5 · PLAN §5.9 · D123, D132, D138, D280 | a probe batch (T1–T4, T6, T7; D145) | high |
-| Weather | Weather view: the drought line and a map-card line, after the 3D stages (slimmed, D285) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
-| Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
+| Weather | Weather view: the drought line and a map-card line; Drought and Badtide day by day (#73) with the contamination veins and the Unstable Core's moment; closes step 1, after "The page is the editor" (D285, D349) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
+| Design | Design pass, in step 3, polish, after 3D: Kyler's editor UI audit, then the design pass (D236, D349) | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration (deferred until Kyler resumes it, D277) | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
-| M13 | Problem reports, shortcuts and help, a final performance pass (slimmed, D285) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
+| M13 | Problem reports, shortcuts and help, a final performance pass, folded into the polish step before collaborative editing (D285, D349) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
 | Later | See the end of this file, now including versioned deploys, mobile layouts and the build time-lapse (D285) | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
 
 In the rows for M1–M8 and Look, "EDITOR §n" and E1–E9 name EDITOR_PLAN.md's sections and
@@ -103,7 +117,7 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   `3d-c-done` split;
 - the Weather view (slimmed to the drought line and a map-card line, D285 (2)): tagged
   `weather-view-done`;
-- the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236);
+- the design pass: tagged `design-done` (in step 3, polish, after 3D, following Kyler's editor UI audit; D236, D349);
   **housekeeping** (the former refinement phase's remaining items, D283 (3)) has no milestone, gate
   or tag — each item ships on its own, when convenient;
 - after M12: Claude.
@@ -1092,6 +1106,23 @@ terrain steps extend the same brushes to caves and tunnels.
 
 After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
 
+## Glaciate in Fast: the ice carves as it advances (D374)
+
+Right after the forces release, with D371: Glaciate's land change takes most of its time, carving as the ice advances (no long opening circle, no rush at the end); its Fast time is 3.5 s with easing, the other forces about 2 s, Slow forces proportionally slower; every force checked for the same imbalance; any stutter left is fixed with the smoothness work's adoption, its harness run on every force at 256², Glaciate first.
+
+## Carve's river is born as it cuts (D371)
+
+Right after the forces release, alongside the startup's part 1 (D367): while Carve cuts, the water front follows just behind the cutting edge from upstream, handing off to the real simulation's water with no jump and ending exactly where it settles; both looks, reduced motion calm; the same approach for Glaciate's lakes, Craterize's crater lakes and the Rift's captured rivers, using `investigation/performance`'s findings. Gates: no frame-rate cost at 256² (the smoothness harness), and the final frame's water equals the settled water.
+
+## Startup: maps open fast (D367)
+
+Codex's startup investigation (`investigation/startup`, #127), approved by Kyler on 2026-10-01: first-visit maps editable in 1.30–1.44 s median (1.59 s worst), cold on a typical connection, with byte identity and Save and export still gated.
+
+1. **Right after the forces release** (`build`, Opus 5.5, high): a stored map opens from its stored state without rebuilding (legacy files and files with water still pending keep the rebuild fallback); the renderer warms its shaders and GPU state while the map loads; the checks start after the first editable frame, every gate unchanged.
+2. **With "The page is the editor"**: the ready-made first-visit map picker and parallel loading, and the caching, merged into one service worker with the multi-core water investigation's isolation worker.
+
+Both add the investigation's budgets and its CI check. Open: a whole-laptop measurement, which Kyler makes on a real modest laptop once it's adopted.
+
 ## The page is the editor (D232–D234)
 
 **The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), approved by Kyler on 2026-09-29, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
@@ -1103,10 +1134,8 @@ full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser w
 changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
 way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
 exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
-pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
-his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
-M9b doesn't wait for this step: it runs in parallel with it and takes the machine first when the two compete
-(D236).
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview. Kyler's editor UI audit and the design pass come later, in step 3, polish, after 3D (D349),
+so both judge the finished editor.
 
 **Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
 always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
@@ -1176,9 +1205,8 @@ it's chosen for (blocking: what a player feels). **High's frame rate is measured
 
 ## Design pass
 
-Straight after Kyler's editor UI audit of the combined page and editor, which follows "The page is the editor" on the
-preview (Kyler, 2026-09-26; PLAN §20 D236; before that it came after M11 and the refinement phase). It runs alongside
-M9b, which takes the machine first. It is the Impeccable design pass with the timbermods design system, moved
+In step 3, polish, after 3D (Kyler, 2026-10-01, D349; earlier it followed "The page is the editor" straight away, D236),
+after Kyler's editor UI audit of the finished editor. It is the Impeccable design pass with the timbermods design system, moved
 from M13 and then forward to here. It follows the impeccable-app-flow skill
 (timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
 MEANING.md behind: the design records every later interface follows (D176, D236).
@@ -1663,6 +1691,8 @@ Once M9b has settled (D280 (4)).
 
 ## Weather view
 
+**Also required (Kyler, 2026-10-01, D361):** the day-by-day view can stay on any chosen day (the drought's worst day, say) without cycling back to the start, and steps forward and back one day at a time.
+
 After the 3D stages (Kyler, 2026-09-25; PLAN §20 D133, D253; **slimmed by D285 (2)**, 2026-09-27:
 the separate timeline and its plain-language summary are dropped; the strategy axes move to M9b as
 information instead).
@@ -2064,7 +2094,61 @@ the new screens; no second full design pass.
 
 ---
 
+## Custom map sizes (D357)
+
+At the end of step 1, after the Weather view. Any width and height from the game's minimum (4) up to 512 on either
+side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
+boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
+down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
+with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
+player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
+256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
+refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
+loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
+reported. PLAN §20 D357 has the whole decision.
+
+- **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
+  references. Our file writer and both validators' other load checks handle every size and shape already.
+- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
+  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
+  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
+  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
+  "4–256 per axis".
+
+## Collaborative editing (D349)
+
+**The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
+
+After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
+ordered list of operations; each browser rebuilds the map from it, so both see identical terrain and water (every
+change is a deterministic operation, D158, D342).
+
+- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
+- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply
+  code to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with
+  one-click copy and each step plainly worded.
+- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay;
+  a network that blocks the connection is told plainly.
+- One player hosts and keeps the order of operations.
+- **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
+  intended action).
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109, merged 2026-10-01): the two-code join works, with 324-character codes; the maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across different networks over the internet (Kyler tests it himself).
+- **Planned: area locks** (Kyler, 2026-09-30; to settle in the design Q&A). Each player can reserve parts of the map (for
+  example half each), so the other player's operations can't change them. Open questions: locks protect land and objects
+  from the other player's edits, but water still flows across borders as physics dictates; a force whose effect would reach
+  into the other's area (a Carve drawn through both, an eruption near the line); how areas are claimed (drawn with
+  Select's shapes), shown (a tint in each player's colour), released or offered to the other; and the default (the whole
+  map shared until someone claims an area).
+
 ## Later
+
+**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
+
+**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
+
+**A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
+
+Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

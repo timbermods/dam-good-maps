@@ -1,0 +1,38 @@
+[
+  {
+    "map": "river-valley-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  },
+  {
+    "map": "canyon-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  },
+  {
+    "map": "highlands-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  },
+  {
+    "map": "lake-basin-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  },
+  {
+    "map": "delta-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  },
+  {
+    "map": "islands-1",
+    "immediateExportIdentical": true,
+    "missingStartBlocked": true,
+    "replicaChecksIdentical": true
+  }
+]

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {generate,rebuild} from '../../src/core/gen/generate';
+import {makeSpec} from '../../src/core/spec/mapspec';
+import {terrainColumns} from '../../src/core/terrain/runs';
+import {createHash} from 'node:crypto';
+const s=makeSpec({theme:'delta',seed:8,size:{x:96,y:96}});
+let shown=0,initial:Uint8Array|undefined;
+const a=generate(s,{onLand:l=>{shown++;initial??=l.heights.slice();}}),b=generate(s);
+assert.equal(a.report.passed,true);assert.equal(a.built.settle.settled,true);
+assert.equal(shown,1);assert.deepEqual(initial,a.built.heights);
+assert.deepEqual(a.bytes,b.bytes,'same seed reproduces export bytes');
+const f=a.field!,columns=terrainColumns(f,96*96);
+const ramps: [number,number][]=[];for(let i=0;i<(f.ramps?.length??0);i+=2)ramps.push([f.ramps![i],f.ramps![i+1]]);
+const r=rebuild(a.spec,a.features,{heights:columns.heights,contains:new Set(f.contains),ramps,...(f.top===undefined?{}:{top:f.top})});
+assert.equal(r.report.passed,true);assert.deepEqual(r.bytes,a.bytes,'stored field and features reproduce the export');
+console.log(JSON.stringify({checks:'determinism, one shown land, unchanged heights, canonical settle, rebuild byte parity',sha256:createHash('sha256').update(a.bytes).digest('hex')}));

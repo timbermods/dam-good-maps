@@ -1,0 +1,3 @@
+import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+export default defineConfig({ cacheDir:'local/vite-cache', optimizeDeps:{entries:['index.html']}, resolve:{ alias:[{find:'three/addons',replacement:fileURLToPath(new URL('./node_modules/three/examples/jsm',import.meta.url))},{find:/^three$/,replacement:fileURLToPath(new URL('./node_modules/three/build/three.module.js',import.meta.url))}]}, server:{watch:{ignored:['**/local/terrain/**','**/local/rift/**','**/local/performance/**']},fs:{allow:[fileURLToPath(new URL('../../',import.meta.url))]}}, build:{outDir:'local/dist'} });

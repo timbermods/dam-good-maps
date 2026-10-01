@@ -134,6 +134,45 @@ namespace DGMProbe
         public List<LogLine> Log = new List<LogLine>();
         public List<ActionRecord> Actions = new List<ActionRecord>();
         public List<string> Notes = new List<string>();
+        // Real seconds from starting the new game to the game's interface, and the game's memory then.
+        public double LoadSeconds;
+        public double WorkingSetAtLoadMb;
+        public PerfResult Perf;
+    }
+
+    public class PerfResult
+    {
+        public PerfEnvironment Environment;
+        public string Camera;
+        public List<PerfPhaseResult> Phases = new List<PerfPhaseResult>();
+    }
+
+    public class PerfPhaseResult
+    {
+        public string Id;
+        public float Speed;
+        public float Seconds;
+        public int Frames;
+        public float MedianMs;
+        public float P95Ms;
+        public float P99Ms;
+        public float MaxMs;
+        public int Over50Ms;
+        public int Over100Ms;
+        public double Days;
+        public double SpeedReached;
+        public double WorkingSetMb;
+    }
+
+    public class PerfEnvironment
+    {
+        public string Screen;
+        public int VSync;
+        public int TargetFrameRate;
+        public string QualityLevel;
+        public string Gpu;
+        public string Cpu;
+        public int MemoryMb;
     }
 
     // A whole-map record at one moment (written gzipped beside the result).

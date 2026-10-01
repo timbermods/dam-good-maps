@@ -63,7 +63,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       beat();
       process.exit(3);
     }
-    fs.writeFileSync(path.join(results, `${m.id}.json`), JSON.stringify({ runId: job.runId, mapId: m.id, title: m.title, mapFile: m.mapFile, status: 'done', ticks: 100, realSeconds: 1, meanSpeed: 99, log: [], notes: [], samples: [], snapshots: [], shots: [], entitiesAtStart: [], entitiesAtEnd: [], plantDeaths: [], loadingIssues: [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: null, adults: 0, children: 0, bots: 0 } }));
+    // a map with frame-time phases gets them back, one per phase of the job, and a load time (mod 0.2.1)
+    const perf = m.perf ? { loadSeconds: 12.5, workingSetAtLoadMb: 2100, perf: { camera: 'fake', phases: m.perf.phases.map((p) => ({ id: p.id, speed: p.speed || job.settings.speed, seconds: p.seconds - p.warmup, frames: 100, medianMs: 16.7, p95Ms: 21, p99Ms: 30, maxMs: 45, over50Ms: 0, over100Ms: 0, days: 0.1, speedReached: p.speed || job.settings.speed, workingSetMb: 2200 })) } } : {};
+    fs.writeFileSync(path.join(results, `${m.id}.json`), JSON.stringify({ runId: job.runId, mapId: m.id, title: m.title, mapFile: m.mapFile, status: 'done', ticks: 100, realSeconds: 1, meanSpeed: 99, log: [], notes: [], samples: [], snapshots: [], shots: [], entitiesAtStart: [], entitiesAtEnd: [], plantDeaths: [], loadingIssues: [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: null, adults: 0, children: 0, bots: 0 }, ...perf }));
     phase = 'menu';
     beat();
   }

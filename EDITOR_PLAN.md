@@ -334,6 +334,10 @@ editor is desktop-first (D185).
   aimed, the start's ground too (D257), and never adds water; one undo step: undo reverts it, Esc skips it to its end (D344). Built from
   `investigation/craterize` (#51) on the forces core (#59), on the preview until Kyler has tried it
   (D219; ready: D216, D226).
+- **Every force has a visible effect wherever it's used** (D356): never "nothing happened", never "not here". It adapts to
+  where it's used (a slope, flat ground, water, a peak), scaled by Power. A force that works only in one narrow situation
+  becomes an option on another force or is dropped (Meander into Carve, D355; the Landslide dropped, D354). Every adopted
+  force has a random-click check proving a click anywhere changes the terrain visibly.
 - **Quake, a force of nature** (D203, D219): in the forces group (key 9). It splits the land along a
   fault drawn freehand (D327, with the travelling forces' pen): **Lift** or **Slide** (its one choice, D289); **Power**;
   **Try another** (another tilt and crack).
