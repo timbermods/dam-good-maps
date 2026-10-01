@@ -2079,7 +2079,7 @@ At the end of step 1, after the Weather view. Any width and height from the game
 side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
 boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
 down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
-with the map while the absolutes never relax. What grows with area may take longer beyond the standard sizes; what the
+with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
 player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
 256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
 refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
