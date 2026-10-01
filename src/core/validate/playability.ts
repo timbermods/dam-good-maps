@@ -106,7 +106,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     droughtDays: DROUGHT[difficulty].days,
     reservoirNeed: reservoirNeeded(difficulty) * RESERVE[s?.water.droughtReserve ?? "normal"],
     reservoirDepth: difficulty === "hard" ? 3 : 0,
-    maxWaterShare: spec && (spec.theme === "lakeBasin" || spec.theme === "islands" || spec.theme === "any") ? 0.55 : 0.35,
+    // (the total water cap per theme, D369: Islands' sea may be most of the map)
+    maxWaterShare: spec?.theme === "islands" ? 0.7 : spec && (spec.theme === "lakeBasin" || spec.theme === "any") ? 0.55 : 0.35,
     multipliers: s
       ? { scrap: s.resources.ruins / 100, trees: s.resources.forestDensity / 100, bushes: s.resources.berryBushes / 100 }
       : { scrap: 1, trees: 1, bushes: 1 },

@@ -266,7 +266,8 @@ def rules_for(spec, difficulty, description=""):
         "drought_days": DROUGHT_DAYS[d],
         "reservoir_need": cal.reservoir_needed(d) * RESERVE[s["water"]["droughtReserve"] if s else "normal"],
         "reservoir_depth": 3 if d == "hard" else 0,
-        "max_share": 0.55 if spec and spec["theme"] in ("lakeBasin", "islands", "any") else cal.WATER["max_water_share"],
+        # (the total water cap per theme, D369: Islands' sea may be most of the map)
+        "max_share": 0.70 if spec and spec["theme"] == "islands" else 0.55 if spec and spec["theme"] in ("lakeBasin", "any") else cal.WATER["max_water_share"],
         "mult": ({"scrap": s["resources"]["ruins"] / 100, "trees": s["resources"]["forestDensity"] / 100,
                   "bushes": s["resources"]["berryBushes"] / 100} if s else {"scrap": 1, "trees": 1, "bushes": 1}),
         "badwater_source": asks_for_badwater(s["hazards"]["badwater"] if s else None, description),

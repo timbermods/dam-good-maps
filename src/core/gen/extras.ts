@@ -62,6 +62,21 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   return out;
 }
 
+/** The lakes' beds: the tiles inside a lake's outline at or under its water (its sill), which no
+ *  object takes. Dry land inside the outline standing above the water, an island, is land like any
+ *  other (D369 (2): it may hold a mine site or another object, every placement rule holding there). */
+export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number>, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  for (const f of features) {
+    if (f.kind !== "lake") continue;
+    const m = polygonMask(f.params.outline, W, H);
+    const level = f.params.outlet.sill;
+    for (let i = 0; i < N; i++) if (m[i] && heights[i] <= level) out[i] = 1;
+  }
+  return out;
+}
+
 /** Placing order: the biggest footprints first, so they find room. */
 const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMedium", "relicSmall", "unstableCore"];
 
@@ -98,11 +113,8 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
           if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
         }
   }
-  for (const f of inp.features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) blocked[i] = 1;
-  }
+  const beds = lakeBeds(inp.features, h, W, H);
+  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 
@@ -362,12 +374,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
     pump[lv] = any ? distanceFrom(m, W, H) : null;
     return pump[lv];
   };
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const moist = new Uint8Array(N);
   for (let i = 0; i < N; i++) moist[i] = b.moisture[i] > 0 && !(b.water[i] > 0) && !b.occupied[i] ? 1 : 0;
   const scored: [number, number][] = [];
@@ -421,12 +428,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
   }
   const labels = walkRegions(b.heights, W, H, null, links);
   const root = labels[b.start.y * W + b.start.x];
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const h = b.heights;
   const bad = (i: number) => labels[i] === root || b.water[i] > 0 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i];
   const R = radius;
