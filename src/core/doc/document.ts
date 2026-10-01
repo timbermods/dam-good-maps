@@ -24,7 +24,7 @@ import type { Runs } from "../math/grid";
 import { GENERATOR_VERSION, upgradeMineSites, upgradeSpec, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
-import { description, mapName, toTimberFile } from "../gen/pack";
+import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
 import { replay, type AppliedOp } from "./ops";
@@ -40,6 +40,8 @@ export interface DocMeta {
   designedFor: Difficulty;
   /** The app version that made or last changed the document. */
   appVersion?: string;
+  /** A seed typed as a word: the saved file is named with it (D345, B10); the spec holds its number. */
+  seedWord?: string;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
   /** Set by the app when it saves (ISO 8601); never part of a build. */
@@ -115,7 +117,7 @@ export function baseFeaturesOf(doc: MapDocument): Feature[] {
 }
 
 /** The document of a freshly generated map (PLAN §7.10 `toDocument`). */
-export function toDocument(spec: MapSpec, features: Feature[], built: BuildResult, file: TimberFile = toTimberFile(spec, built), field: FieldData | null = null): MapDocument {
+export function toDocument(spec: MapSpec, features: Feature[], built: BuildResult, file: TimberFile = toTimberFile(spec, built), field: FieldData | null = null, seedWord?: string): MapDocument {
   return {
     formatVersion: 3,
     app: "dam-good-maps",
@@ -127,13 +129,13 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
     features,
     edits: [],
     nextSeq: 1,
-    meta: { name: mapName(spec), premise: description(spec), designedFor: spec.designedFor, appVersion: GENERATOR_VERSION },
+    meta: { name: mapName(spec), premise: description(spec), designedFor: spec.designedFor, appVersion: GENERATOR_VERSION, ...(seedWord ? { seedWord } : {}) },
   };
 }
 
 /** The document of a map the generator just made, with its field (format 3). */
-export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null }): MapDocument {
-  return toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null);
+export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string }): MapDocument {
+  return toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null, r.seedWord);
 }
 
 /** The document of an imported map: normalized once, with the changes listed (PLAN §19.6).
@@ -293,11 +295,12 @@ export function checkDocument(doc: MapDocument): void {
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
 }
 
-export function projectFileName(spec: MapSpec): string {
-  return `${mapName(spec)} (${spec.seed}).damgoodmaps.json`;
+/** The project file's name: the map's saved name (D345, B10) with its own extension. */
+export function projectFileName(spec: MapSpec, seedWord?: string): string {
+  return fileName(spec, seedWord).replace(/\.timber$/, ".damgoodmaps.json");
 }
 
 /** The project file's name for any document. */
 export function documentFileName(doc: MapDocument): string {
-  return doc.spec ? projectFileName(doc.spec) : `${doc.meta.name}.damgoodmaps.json`;
+  return doc.spec ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
 }

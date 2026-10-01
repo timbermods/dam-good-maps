@@ -40,6 +40,10 @@ once, and only for the plan it was printed for.
     against the file's settled water (our model); frame times with a camera pan over the whole map at normal speed, the
     fastest and the probe's speed (`size-smooth`, against the 256² map); the time to load (`size-load-time`). The run's
     `summary.md` has a table of both. The plan estimates about 36 minutes for the six maps.
+- The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
+  `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
+  worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
+  group `Ceiling`, with `--keep-mods`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
@@ -97,7 +101,7 @@ game to its interface. The game runs several days during the probe-speed phase, 
 Everything the probe produces stays in `C:\dgm-probe\` (Kyler's decision, outside his Timberborn folders):
 the job, the heartbeat, `results\` (one JSON file per map, whole-map snapshots, the game's logs),
 `shots\` (the screenshots, never committed), `maps\` (the files played), `sheet\` (the HTML contact
-sheet), `tall\` and `sizes\` (the maps their writers make) and `runner\` (the backups a run restores from). The game is told the
+sheet), `tall\` and `sizes\` (the maps their writers make), `ceiling\` (the ceiling maps) and `runner\` (the backups a run restores from). The game is told the
 folder with `-dgmprobeHome`; `DGM_PROBE_HOME` changes it.
 
 ## Safety

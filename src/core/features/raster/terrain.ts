@@ -3,16 +3,20 @@
 // rectangle it can touch (`footprint`) so an edit rebuilds only that area (PLAN §19.7).
 
 import { fbm } from "../../math/noise";
+import { CEILING } from "../../format/world";
 import { hash32 } from "../../math/hash";
 import type { Runs } from "../../math/grid";
 import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
-import { carveBounds, isCarve, type CarveParams } from "../../forces/carve/op";
-import { applyBrush, brushBounds, brushReadsNeighbours, type BrushParams } from "./brush";
+import type { CarveParams } from "../../forces/carve/op";
+import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
+import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 
-export const MAX_TERRAIN = 16; // PLAN §20, D4
+/** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
+ *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
+export const MAX_TERRAIN = CEILING;
 
 // ------------------------------------------------------------------------------------ landforms
 
@@ -299,6 +303,12 @@ export function inBench(f: StartFeature, x: number, y: number): boolean {
   return !!bank && segmentDistance2(x, y, f.params.position, bank) <= BANK_HALF_WIDTH * BANK_HALF_WIDTH;
 }
 
+/** Whether tile (x, y) is on any of the starts' pads. */
+export function padTile(starts: readonly StartFeature[], x: number, y: number): boolean {
+  for (const f of starts) if (inBench(f, x, y)) return true;
+  return false;
+}
+
 /** The start bench (step 5): its disc, and in a project saved before the water rule changed
  *  (D153) the strip that runs it to the bank (D97). It never fills the river channel,
  *  which it would dam. */
@@ -315,17 +325,17 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number } | BrushParams | CarveParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | CarveParams | ForceResultParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
   return "dabs" in p;
 }
 
-/** A sculpt's tiles' bounds; a carve's need the map's width (its tiles are indices). */
+/** A sculpt's tiles' bounds; a force's need the map's width (its tiles are indices). */
 export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
   if (isBrush(s.params)) return brushBounds(s.params, Infinity, Infinity);
-  if (isCarve(s.params)) return carveBounds(s.params, W);
+  if (isForce(s.params)) return forceBounds(s.params, W);
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -341,7 +351,7 @@ export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
 
 /** Brushes that read neighbouring cells: a rebuild that touches their cells rebuilds all of them. */
 export function sculptReadsNeighbours(s: SculptEdit): boolean {
-  if (isCarve(s.params)) return false;
+  if (isForce(s.params)) return false;
   return isBrush(s.params) ? brushReadsNeighbours(s.params) : s.params.mode === "smooth";
 }
 
@@ -350,8 +360,8 @@ export function sculptReadsNeighbours(s: SculptEdit): boolean {
  *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
 export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean): void {
   const { W, heights } = t;
-  if (isCarve(s.params)) {
-    // a force's result, literally (D194): its tiles take their levels, and the integrity pass leaves
+  if (isForce(s.params)) {
+    // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
     // them as they are
     const p = s.params;
     for (let k = 0; k < p.tiles.length; k++) {
@@ -365,13 +375,20 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
-    const was = s.params.precise ? heights.slice() : null;
-    // Naturalize roughens only open land: it leaves every protected tile as it is (a set piece's,
-    // the start's bench, a precise stroke's, a force's), so it never breaks what they hold (D253)
-    const open = s.params.tool === "naturalize" ? (i: number) => !t.protectedMask[i] : () => true;
+    const was = brushHard(s.params) ? heights.slice() : null;
+    // kept sources' ground (D322, item 31): the integrity pass leaves it as it is
+    if (s.params.sources === "keep") for (const [y, a, bb] of s.params.keep ?? []) if (y >= 0 && y < t.H) for (let x = Math.max(0, a); x <= Math.min(W - 1, bb); x++) if (t.inRegion(y * W + x)) t.protectedMask[y * W + x] = 1;
+    // Naturalize weathers whatever the player paints (D368 (8)): a force's result, a stroke's exact
+    // tiles, a river, a set piece. It leaves only the start's pad here; the ground under sources and
+    // objects is the stroke's own `keep` (objectGround.ts), and the build's drops a slope it leaves
+    // joining nothing (D253)
+    // (a stroke saved before D368 leaves every protected tile as it did: the set pieces', the start's
+    // bench, an exact stroke's, a force's, D253)
+    const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
+    const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
     applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
-    // a precise stroke's tiles stay as it left them: the integrity pass leaves them out (a one-tile
-    // pit stays a pit, D193)
+    // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
+    // one-tile pit stays a pit, D193, D322)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
@@ -406,6 +423,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       const i = y * W + x;
       if (!t.inRegion(i)) continue;
       const h = heights[i];
+      // (exact: what it changes stays as it left it, a one-tile pit included)
+      if (p.exact) t.protectedMask[i] = 1;
       switch (p.mode) {
         case "raise":
           if (h < MAX_TERRAIN) heights[i] = Math.min(MAX_TERRAIN, h + (p.amount ?? 0));

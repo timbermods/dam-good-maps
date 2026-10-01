@@ -97,7 +97,8 @@ describe("map objects placed in the editor (ROADMAP M7)", () => {
     expect(entityProblem(s, { template: "Blockage", x: slope.x, y: slope.y, orientation: "Cw0" })).toMatch(/slope/);
     const refused = s.apply({ op: "placeEntity", params: { id: "33333333-2222-4333-8444-555555555555", template: "LargeRelic", x: uneven![0], y: uneven![1], orientation: "Cw0" } });
     expect(refused.ok).toBe(false);
-    expect(refused.errors.join(" ")).toMatch(/can't stand there/);
+    // one plain reason (D290)
+    expect(refused.errors).toEqual(["the ground under it is not level"]);
   });
 
   it("previews the footprint under the pointer: red with the reason where the click would be refused", () => {

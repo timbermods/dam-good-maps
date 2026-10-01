@@ -78,7 +78,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 6b. **Codex's M9b audits: outcome in D370** (Islands, Delta and River Valley adopted one at a time after the shared D348 fix; Canyon, Highlands, Lake Basin and settings held). *Earlier:* **Four Codex prototypes for M9b** (Kyler, 2026-10-01; Codex GPT-6.1 Sol, high; each on its own investigation branch from `feature/m9b`): Islands, Delta, River Valley's water, and the weak settings (Verticality, Lakes and basins). Each PR, once open and green, is held for Kyler's look; on his yes, the M9b agent adopts them one at a time, re-measuring first-map outcomes and absolutes after each, never all at once. Three more Codex audits join them (Kyler, 2026-10-01): Canyon, Highlands and Lake Basin (`investigation/canyon`, `investigation/highlands`, `investigation/lake-basin`, each from `feature/m9b`); each reports shared-code findings separately, for the M9b agent to fix once, and proposes theme shaping only where the theme falls short; each is held for Kyler's look and adopted one at a time with the other theme prototypes. The settings prototype (`investigation/settings`) comes last, after Islands, Delta and River Valley: it changes the global height normalisation and how lakes join the river network, which every theme shares; after it, every theme is re-measured, saying whether it costs any theme what its own prototype gained.
 7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.
 8. **The forces sitting, with your changes from it (D312–D315): on the preview on Tuesday.** Everything is built on three
-   branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's
+<!-- retired-terms:allow -->   branches: the size ring, Carve's and Glaciate's waypoints, Erupt final in about two seconds (D312, `feature/forces`); Smooth's<!-- /retired-terms:allow -->
    softer sound, re-encoded sounds and a quieter default (D313), and **Delete sources** on the Select row (D315)
    (`feature/forces-sounds`, #81); Glaciate's meltwater springs in groups (D314, `feature/glaciate`, #76). Carve's own source is a row too (D314; Unleash places none). Tuesday's
    first job is to merge them and refresh the preview; you'll get a toast. Your checklist is below (items 21–23 are the new ones).
@@ -142,7 +142,7 @@ On <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refin
 
 **The editor** (D345, D347, D351, D352, D360 (2))
 7. Every camera view frames the map centred; long settings rows wrap to a second line; More opens as a grid.
-8. The level control sits top right beside the compass, with Watch and Sound under it.
+<!-- retired-terms:allow -->8. The level control sits top right beside the compass, with Watch and Sound under it.<!-- /retired-terms:allow -->
 9. Ctrl+scroll over a source changes its strength at once; clicking a source never places a second one.
 10. Delete counts and removes submerged objects, and everything inside a selection.
 11. Placing an object never spills water.
@@ -160,9 +160,9 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/>: Generate, 
 one thing to try; say what feels wrong.
 
 **The forces** (batch 1, D321, D327)
-1. **Fast and Watch** (item 29): every force's land is final in about two seconds; **Watch** (beside Sound) plays it
+<!-- retired-terms:allow -->1. **Fast and Watch** (item 29): every force's land is final in about two seconds; **Watch** (beside Sound) plays it<!-- /retired-terms:allow -->
    about four times slower, and a click, a new gesture or Esc jumps to the end.
-2. **Nothing changes before the force reaches it** (item 30): watch a Glaciate or Carve in Watch; trees, sources and
+<!-- retired-terms:allow -->2. **Nothing changes before the force reaches it** (item 30): watch a Glaciate or Carve in Watch; trees, sources and<!-- /retired-terms:allow -->
    water go only as it passes.
 3. **Esc and undo, at any moment** (D341): press Esc mid-force, right after release, while it settles: the map is
    exactly as before, and nothing lands afterwards.
@@ -447,7 +447,9 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D172 (1) confirmed: the tall-maps probe batch passed, so both validators allow heights up to 22 (built in the start and edge rules).
 - D177: in the Standard look, badwater blends smoothly into clean water by contamination (toward #4B3C37), a soft gradient over several tiles, distinct in greyscale; consistent with #38's High look.
 - D178: mine sites and ruins get models of our own: a sunken pit with a rusty frame and corner scaffolding; ruined scaffold towers with braces, panels and ivy on moist ground.
-- D179: **Live editing is how you edit a map**, the editor's core principle: every tool live, water flowing visibly after every edit, brush shapes and a precise mode, one Select tool; no plan-confirm-place flow remains (its water tools, plant painting and object dragging became D184's smart Lower, Source and left shelf).
+<!-- retired-terms:allow -->
+- D179: **Live editing is how you edit a map**, the editor's core principle: every tool live, water flowing visibly after every edit, brush shapes and a precise mode, one Select tool; no plan-confirm-place flow remains (its water tools, plant painting and object dragging became D184's smart Lower, Source and left shelf). Its precise mode retired by D322 (the target level).
+<!-- /retired-terms:allow -->
 - #56: a failed Pick a place map is never shown; nearby choices that passed, or what to try.
 - D180: Live editing additions: a smooth native camera (WASD, Q/E, Shift), Remove (first named Demolish), water-aware Ctrl-click sampling, player-set source strength, "let the water carve" (Carve since D194), water time controls with a "drought" button, and local-first water that always ends at the game's settled result (its drawn-river rules and natural or exact rivers removed by D184).
 - D181: more for water: carving forms valleys (downcutting, slumping terraces, floodplains, deltas; steep or wide walls), moisture and grass spreading live from new water, a "badtide" button, optional water sounds of our own.
@@ -460,7 +462,9 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D190: #51–#53 decided (the defaults): world traits are candidate intentions; wet caves allowed in 3D-b; the no-clone distance picks candidates, the score breaks near ties.
 - D191: Save to Timberborn never overwrites; a same-named map is saved as "Name (2)" with a quiet note.
 - D192: Pick a place's signature water (#45) with ESA WorldCover, credited like the elevation data; hard cases offered with nearby alternatives.
-- D193: hold to dig: in precise mode, holding Lower or Raise keeps working a level at a time, with an optional stop level.
+<!-- retired-terms:allow -->
+- D193: hold to dig: in precise mode, holding Lower or Raise keeps working a level at a time, with an optional stop level. Retired by D322 (the target level).
+<!-- /retired-terms:allow -->
 - D194: Carve becomes a force of nature with its own top-bar button next to Source; PR #47 held until Kyler says it's ready.
 - D195: investigations commit reports, code, small samples and a few captures; large generated results stay out of git (a gitignored `local/` folder or a GitHub Release), with how to regenerate them.
 - D196: water is never an object (no river selection or panel; flow and clean or bad belong to sources); sources always findable; clear water while a tool is picked or with T; Alt+scroll slices layers and Shift+scroll sets strength, as in the game (replaces #58); water in the hover readout.
@@ -495,7 +499,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D315: the Select row gains Delete sources: every source in the selection (Ctrl+A: the map), nothing else, one undo step.
 - D314: sources in rows and clusters as in the official maps (the investigation #78; the rule `src/core/water/sourceGroups.ts`, #79): a row across the flow for clean water, single or a close pair for badwater; wired into the generator (M9b), Real places, Carve's source and Glaciate's meltwater. The shelf's source stays single, and Unleash carves from the source it was given (no row at its head).
 - D313: Smooth's sound a softer relative of Flatten's; over-compressed sounds re-encoded; the default volume a quarter lower (saved volumes kept).
-- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.
+<!-- retired-terms:allow -->- D312: a force's size ring at the cursor; Shift+click waypoints for Carve and Glaciate; Erupt's terrain final in ~2 s.<!-- /retired-terms:allow -->
 - D311: the game's water rules in M9b accepted where thin sheets form less; the pooled probe checks against the game.
 - D310: clean water and badwater's floor darken together toward the game; the readability tests restored; bubbles and texture help the faintest badwater.
 - D309: the forces' details come back behind a More button, each on Auto (nature's pick), pinnable; after a run each Auto detail shows its value with one click to pin it; Try another re-rolls only Auto. On feature/forces (`build-light`).
@@ -560,7 +564,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
-- D247: Smooth's "Make walkable" removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
+- D247: Smooth's walkable option removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.
 - D246: Glaciate, a new force (a valley made glacial: a level floor, a chain of lakes, hanging valleys, moraines; Flow or Aim, Power, Size, Meltwater, Try another); Codex's `investigation/glaciate` is held until you've tried its demo, then built on the forces core after round 2.
 - D245: Real places are kept on their own land (amends D214): only the correctness checks and the starting-logs floor gate a place; its card notes only no pumpable water in reach, too little wood near the start, or water that keeps moving; the grey area answered: unsettled water is preference, not correctness. The 34 changed places get their best version, second maps go back to their centre, a new review sheet.
 - D244: one height ceiling in the editor on every map (D172's tall maximum) for the brushes, the forces and Claude's steps; a map above 16 becomes tall and standard again at 16 or below; generation unchanged; Erupt's round-2 fit kept. Step 1, an in-game probe check of editor-made tall maps, before building; then built with Unleash, on the preview.

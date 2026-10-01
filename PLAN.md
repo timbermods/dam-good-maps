@@ -115,14 +115,20 @@ Node:
   of a forest, columns of a ruin field, sources of a river) draws from that feature's own stream,
   `hash(seed, featureId, purpose)` (§19.7). Changing one forest's density then reshuffles
   neither the terrain nor the other forests, and an edit in the editor stays local.
-- **Arithmetic.** Anything that affects output uses only `+ − × ÷`, `Math.sqrt`, `Math.floor`,
-  `Math.round`, `Math.abs`, `Math.min` and `Math.max`, which IEEE-754 makes exact across engines.
-  - `Math.sin/cos/exp/log/pow/atan2` are implementation-defined in precision, so they are not used
-    on output paths.
-  - Meanders use a polynomial sine (`core/math/detmath.ts`: an odd polynomial through x¹⁷ on an
-    argument reduced to [−π/2, π/2], error below 1e-13). `exp` and `ln`, which the log-normal
-    draws and the size-aware densities need, are built the same way from basic operations
-    (D15).
+- **Arithmetic.** Anything that affects output uses only `+ − × ÷`, `Math.floor`, `Math.round`,
+  `Math.abs`, `Math.min` and `Math.max`, which IEEE-754 makes exact across engines, and the portable
+  maths (`core/math/portable.ts`, D366).
+  - `Math.sin/cos/tan/exp/log/pow/hypot/atan2/sqrt` and `**` are implementation-approximated in the
+    language, and engines do differ (D366 measured it: Glaciate's heights, Craterize's fallen trees,
+    the Badtide's contamination). None of them appears in `src/core/`: `tests/unit/portable.test.ts`
+    rejects one, with a short allow-list.
+  - `portable.ts`: the polynomial sine, cosine and exp of `core/math/detmath.ts` (an odd polynomial
+    through x¹⁷ on an argument reduced to [−π/2, π/2], error below 1e-13; D15), and fixed-order
+    `atan`, `atan2`, `log`, `log2`, `hypot`, `tanh` and `pow` (an integer power multiplies; any other
+    is exp(y·log x)), with `sqrt` from WebAssembly's correctly rounded `f64.sqrt`. They are for finite
+    map arguments, not a general maths library.
+  - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
+    zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.
 - **Iteration order.** Always over typed arrays in index order. Priority queues break ties by
   index. No iteration over `Object` keys on output paths.
@@ -654,9 +660,11 @@ or ramps anyway.
    max-size maps 1.9, small 18). Measured on River Valley (seeds 1–10): 13–16 per 10k at 96²,
    7–10 at 128², 4–5 at 192² and 3–4 at 256² (D52).
 
-Slopes are derived again after every terrain change, in generation and in the editor; the player's
-pinned and removed slopes apply on top. An imported map keeps its own slopes, and only the ground its
-edits changed gets new ones (D52).
+Slopes are derived at generation, before the land is shown; the player's pinned and removed slopes apply
+on top. An edited map keeps the generation's slopes that still stand and never derives any again (D368
+(10): only the player places objects); an imported map keeps its own slopes and gets none, the ground its
+edits changed included (D52 amended). What an edit leaves out of reach is reported by the checks, never
+repaired.
 
 ### 7.6 Water
 
@@ -1653,7 +1661,7 @@ As §2.3: a plain **Report a problem** link to GitHub issues, for bug reports (M
 | **Unit** (Vitest) | RNG streams; sine polynomial error < 1e-9; noise; C#-style float formatting; world.json encoding; footprint transform (all templates × 4 orientations vs `footprints.json`); slope orientation; region labelling; dam-site finder; score normalisation. | every push |
 | **Round trip** | Read → write → read on every fixture map (official maps are not redistributable, so CI uses generated fixtures plus a local job for `investigation/raw`); byte-identical `world.json`. | every push (generated); local (official) |
 | **Water golden vectors** | TS sim vs Python fixtures (`tests/golden/water.json.gz`) after 50/200/975 ticks within 1e-6; moisture mask exact; pre-fill, canonical settle and drought storage; the analytic drought within 5% of the simulated one; the game's own save reproduced within 0.001 (local only). | every push |
-| **Determinism** | The same 20 seeds × 6 themes give identical sha256 in Node, Chromium, Firefox and WebKit (Playwright), and across two runs. | every push (Node), nightly (browsers) |
+| **Determinism** | `tools/determinism/` (D366): generation (every theme, 128² and 256²), every brush, every force at three Powers and Sizes, long mixed sequences, placements with undo, redo and reopening, the water and the Badtide give the same full-state SHA-256 checkpoints in Chromium, Firefox, WebKit and Node; a force's record is the same however fast it was planned. No native approximate maths in `src/core/` (the guard in the quick suite). | every push (the short list, one Linux runner); nightly (the full list on Linux x64 and ARM64, Windows and macOS ARM64, compared across hosts) |
 | **Oracle** | The Node CLI writes 50 seeds × 3 sizes; Python `validate.py --load-only` and `roundtrip_test.py` must pass; on 50 of them, and on the 19 official maps when present, each TS check verdict must equal the Python verdict. | every push (5 seeds); full at each milestone |
 | **Contract** (§19) | The `MapSpec` schema accepts every preset and rejects out-of-bound values. Features survive a JSON round trip. `build(features)` equals the generated map byte for byte. An incremental rebuild after a feature edit equals a full rebuild. Feature and entity ids stay the same when an unrelated feature is added or removed. Import normalization (migrator halving, 4-field water, legacy `Heights`) is checked on the investigation maps. | every push |
 | **Golden maps** | 12 pinned seeds (2 per theme; 96² and 256²): sha256 of the `.timber` plus key metrics (score, check values). Any change must be intentional: `npm run golden:update`, and the diff shows the metric changes. | every push |
@@ -1687,7 +1695,7 @@ milestone and says where it went. Effort: S under a day, M 1–3 days, L 3–7 d
 | Risk or question | Impact | Mitigation |
 |---|---|---|
 | **Pre-filled water behaves differently in game** (the loader copies depth by slot and recomputes floors; untested with our tokens). | Rivers surge or drain at start. | In-game check B compares the pre-filled file with the empty-water file of the same map (the prototype writes both). Fallback: ship empty water; the game fills rivers in about a day, and living trees are within moisture reach of the *settled* river, so they survive (their dry timers reset). |
-| Cross-browser floating point in the water sim. | Share links reproduce a different map. | Only IEEE-exact operations on output paths (§2.1); the nightly cross-browser determinism test. The water result feeds placement, so a divergence would move trees; the golden tests catch it. |
+| Cross-browser floating point in the water sim. | Share links reproduce a different map. | Only IEEE-exact operations and the portable maths on output paths (§2.1, D366); the cross-engine determinism check on every push and the CPU matrix nightly. The water result feeds placement, so a divergence would move trees; the golden tests catch it. |
 | Generator changes break old share links. | Players lose maps. | Versioned deploys `/v/<version>/`; the version in the link and the map description. |
 | JS performance of the Dijkstra moisture pass and the sim at 256². | Slow generation. | Budgets in §10; a binary heap over typed arrays; active-set simulation; a priority-flood initial state; progressive candidates. |
 | Official calibration is 19 maps (2 small, 3 medium). | Small-map targets are noisy. | Blend with workshop numbers for small maps; tune from the objective measures and the in-site feedback on generated maps (D137). |

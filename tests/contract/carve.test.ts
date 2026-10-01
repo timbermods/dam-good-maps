@@ -106,9 +106,13 @@ describe("the force: every step keeps the rules", () => {
     new CarveRun(mountain, Object.freeze(legacy) as CarveSettings, intent);
     expect(legacy.seed).toBeUndefined();
     for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/Invalid character/);
-    // the start's own ground can't be a carve's origin
+    // the start's own ground is a carve's like any other (D257: the editor carries the start)
     const start = mountain.entities.find((e) => e.template === "StartingLocation")!;
-    expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).toThrow(/protected/);
+    expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).not.toThrow();
+    // what it leaves alone is only what it is told to (the land above the layer showing, caves)
+    const keep = new Uint8Array(64 * 64);
+    keep[20 * 64 + 20] = 1;
+    expect(() => new CarveRun(mountain, DEFAULTS, { origin: 20 * 64 + 20 }, { keep })).toThrow(/land showing/);
   });
 });
 
@@ -150,11 +154,14 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(r.map.entities.length).toBeLessThan(m.entities.length);
   });
 
-  it("Keep river leaves a source whose strength follows the Width (linked to Power by default); Dry canyon leaves none", () => {
+  it("Keep river leaves a source group whose strength follows the Width (linked to Power by default; a row across the flow, D314); Dry canyon leaves none", () => {
     expect(high.source).not.toBeNull();
-    // a second carve keeps the first one's river
+    // a second carve keeps the first one's river: both groups stand
     const another = new CarveRun(high.map, DEFAULTS, { origin: 54 * 64 + 53 }, { sourceId: "second" });
-    expect(another.map.entities.filter((e) => e.template === "WaterSource").length).toBe(2);
+    const firstIds = high.added;
+    const sources = another.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
+    expect(sources.length).toBe(firstIds.length + another.added.length);
+    for (const id of [...firstIds, ...another.added]) expect(sources).toContain(id);
     expect(sourceStrength(100)).toBe(8);
     expect(sourceStrength(0)).toBe(0.5);
     expect(sourceStrength(95, 2)).toBe(0.5);
@@ -162,8 +169,15 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(sourceStrength(85, naturalWidth(85))).toBe(sourceStrength(85));
     const slot = new CarveRun(mountain, { ...DEFAULTS, power: 95, width: 2 }, intent);
     const broad = new CarveRun(mountain, { ...DEFAULTS, power: 15, width: 24 }, intent);
-    expect(modelFor(slot.map).emitters.find((e) => e.cells.includes(intent.origin))!.strength).toBe(0.5);
-    expect(modelFor(broad.map).emitters.find((e) => e.cells.includes(intent.origin))!.strength).toBe(8);
+    // (the group's strengths sum to it: one source or a row sharing it, D314)
+    const total = (r: CarveRun) => Math.round(r.group.reduce((a, g) => a + g.strength, 0) * 1000) / 1000;
+    expect(total(slot)).toBe(0.5);
+    expect(total(broad)).toBe(8);
+    expect(broad.group.length).toBeGreaterThan(1);
+    expect(broad.group[0].tile).toBe(intent.origin);
+    const emitted = (r: CarveRun) => modelFor(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
+    expect(emitted(slot)).toBeCloseTo(0.5, 3);
+    expect(emitted(broad)).toBeCloseTo(8, 3);
     const dry = complete(mountain, { dry: true, power: 95 });
     expect(dry.source).toBeNull();
     expect(dry.added).toEqual([]);
@@ -190,7 +204,7 @@ describe("the force: Aim, Defy gravity and Wander", () => {
   it("Defy gravity cuts to an uphill end, on a floor that never rises", () => {
     const uphill = study("uphill", 64);
     expect(uphill.heights[aim.end]).toBeGreaterThan(uphill.heights[aim.origin]);
-    expect(() => new CarveRun(uphill, { ...DEFAULTS, mode: "aim" }, aim)).toThrow(/Defy gravity/);
+    expect(() => new CarveRun(uphill, { ...DEFAULTS, mode: "aim" }, aim)).toThrow(/uphill/);
     const defy = complete(uphill, { power: 95, mode: "aim", defyGravity: true }, aim);
     expect(defy.reason).toBe("destination");
     let last = Infinity;
@@ -365,8 +379,9 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
   });
 
   it("an unfed oxbow lake evaporates under the game's rules: correct physics, and nothing refills it", () => {
-    // no source feeds it: the carve's only source is at its origin
-    expect(r.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.y * 96 + e.x)).toEqual([aimed.origin]);
+    // no source feeds it: the carve's only sources are its row at its origin (D314)
+    expect(r.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.y * 96 + e.x).sort()).toEqual(r.group.map((g) => g.tile).sort());
+    expect(r.group[0].tile).toBe(aimed.origin);
     const sim = new WaterSim(model, water);
     const volume = () => lake!.tiles.reduce((v, i) => v + sim.D[i], 0);
     sim.run(256);
@@ -594,7 +609,7 @@ describe("a carve in the document (breakage rule)", () => {
 });
 
 describe("a carve at work in the editor's worker", () => {
-  it("frames as it runs; Esc drops all of it; Stop keeps it as one step, exactly as shown; Try another path replaces it", async () => {
+  it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
@@ -606,7 +621,7 @@ describe("a carve at work in the editor's worker", () => {
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const origin = farFromStart(s);
     const settings = { ...DEFAULTS, power: 70 };
-    // a frame at a time: the ground near the head, the water with it
+    // worked out a slice a call (nothing changes on the land meanwhile), then shown a frame at a time
     const st = ed.carveStart({ settings, origin, cut: null });
     expect(st.errors).toEqual([]);
     expect(ed.carving()).toBe(true);
@@ -614,25 +629,39 @@ describe("a carve at work in the editor's worker", () => {
     const show = (f: ed.ForceFrame | null) => {
       expect(f).not.toBeNull();
       if (f!.heights) shown = f!.heights;
+      return f!;
     };
     show(st.frame);
+    for (let k = 0; k < 200 && !show(ed.carveAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
+    const worked = ed.carveAdvance(0)!;
+    expect(worked.planned).toBe(true);
+    expect(worked.total).toBeGreaterThan(3 * STEPS_PER_SECOND);
     for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
-    expect(ed.carveAdvance(0)!.steps).toBe(3 * STEPS_PER_SECOND);
+    expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
+    // (the water stays as it was: no frame carries any)
+    expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
     const back = ed.carveCancel();
     expect(Array.from(back.heights!)).toEqual(Array.from(ground));
     expect(ed.carving()).toBe(false);
     expect(steps()).toBe(n0);
-    // Stop: one step, the ground exactly as the page showed it
+    // kept part way (Watch's jump to the end): one step, the whole result, the same as shown to its end
     show(ed.carveStart({ settings, origin, cut: null }).frame);
     for (let k = 0; k < 4; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
+    const partWay = shown;
     const kept = ed.carveStop();
     expect(kept.errors).toEqual([]);
     expect(kept.kept).toBe(true);
     expect(steps()).toBe(n0 + 1);
     expect(kept.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Carve a river");
     const first = ed.terrainNow().heights;
+    expect(Array.from(first)).not.toEqual(Array.from(partWay));
+    ed.undo();
+    show(ed.carveStart({ settings, origin, cut: null }).frame);
+    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
+    expect(ed.carveStop().kept).toBe(true);
+    expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     expect(Array.from(first)).toEqual(Array.from(shown));
     expect(kept.info.carveAgain).toBe(true);
     // Try another path: the same carve from the same land, the next seed; it replaces the first
@@ -640,7 +669,7 @@ describe("a carve at work in the editor's worker", () => {
     expect(again.errors).toEqual([]);
     expect(again.settings!.seed).toBe(1);
     show(again.frame);
-    for (let k = 0; k < 4; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
+    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
     const other = ed.carveStop();
     expect(other.kept).toBe(true);
     expect(other.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Try another path");

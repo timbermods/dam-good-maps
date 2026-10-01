@@ -13,6 +13,7 @@
 //   (Chebyshev) whose top stands above the source's level: near 1 in a hollow or a side valley, near
 //   0 on a rise.
 
+import * as portable from "../math/portable";
 import { FOOTPRINTS, worldBlocks } from "../format/footprints";
 import { JsonFloat } from "../format/json";
 import type { TimberFile } from "../format/timber";
@@ -274,7 +275,7 @@ function waterDistance(W: number, H: number, wet: (i: number) => boolean): Int32
 /** The distance from `p` to an object's footprint's nearest ground tile, to a tenth of a tile. */
 function nearestTo(o: MapObject, p: { x: number; y: number }): number {
   let d = Infinity;
-  for (const b of worldBlocks(FOOTPRINTS[o.template], o)) if (b.localZ === 0) d = Math.min(d, Math.hypot(b.x - p.x, b.y - p.y));
+  for (const b of worldBlocks(FOOTPRINTS[o.template], o)) if (b.localZ === 0) d = Math.min(d, portable.hypot(b.x - p.x, b.y - p.y));
   return Math.round(d * 10) / 10;
 }
 
@@ -436,7 +437,7 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
     const hs = f.map((t) => ruinAt.get(t)!.h);
     const n = hs.length;
     const mean = hs.reduce((a, b) => a + b, 0) / n;
-    const sd = Math.sqrt(hs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n);
+    const sd = portable.sqrt(hs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n);
     let x0 = W;
     let x1 = 0;
     let y0 = H;

@@ -42,10 +42,12 @@ import {
   WebGLRenderTarget,
   Box3,
   LinearSRGBColorSpace,
+  LinearFilter,
   ColorManagement,
 } from "three";
-import { BrushCursor, type BrushCursorState } from "./brushCursor";
+import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
+import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -56,10 +58,15 @@ import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
+import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
 
 export type ViewMode = "orbit" | "top";
+
+/** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
+ *  a clear red. */
+const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
 export interface ViewState {
   mode: ViewMode;
@@ -121,6 +128,9 @@ export interface PointerTool {
   cancel?(): void;
   /** It takes Alt+click and Alt+drag itself (the Select tool's subtract), instead of the layer pick. */
   wantsAlt?: boolean;
+  /** It points at the water's surface over water, where the cursor is seen (the forces, D321 item
+   *  13), not at the bed under it. */
+  surface?: boolean;
 }
 
 interface MapState {
@@ -138,6 +148,8 @@ interface MapState {
 }
 
 const PITCH_MIN = 0.18;
+/** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
+const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
@@ -253,6 +265,9 @@ export class MapRenderer {
   private pageOverlay: Uint8Array | null = null;
   /** The brush under the cursor (live editing), made on first use. */
   private cursor: BrushCursor | null = null;
+  private ring: ForceRing | null = null;
+  /** A force's ring as last shown (tests). */
+  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -477,6 +492,7 @@ export class MapRenderer {
   setMap(v: MapView, keepView = false): BuildStats {
     const t0 = performance.now();
     this.clearMap();
+    this.waterQueue.clear();
     const { W, H, heights } = v;
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
@@ -596,6 +612,8 @@ export class MapRenderer {
     this.lightTex?.dispose();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
+    this.forceFx?.clear();
+    this.setHeat(null);
   }
 
   private dropMesh(m: Mesh): void {
@@ -823,6 +841,9 @@ export class MapRenderer {
     m.water = water;
     m.surface = surface;
     const lower = lowerByTile(surface, water);
+    // (a stroke's chunks still waiting are meshed now too, on this water)
+    for (const key of this.waterQueue) changed.add(key);
+    this.waterQueue.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
@@ -833,6 +854,59 @@ export class MapRenderer {
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
+  }
+
+  /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
+  private readonly waterQueue = new Set<string>();
+
+  /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
+   *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
+   *  nearest the view's middle first, with the ground's tile data under them. While a stroke is
+   *  painted the water can move all over the map (a lake still filling after a force): meshing every
+   *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
+   *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
+  updateWaterSoon(water: WaterView): number {
+    const m = this.map;
+    if (!m) return 0;
+    const surface = surfaceWater(m.W, m.H, water);
+    if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0);
+    m.water = water;
+    m.surface = surface;
+    for (const key of changed) this.waterQueue.add(key);
+    this.updateClearAround();
+    this.requestRender();
+    this.onMapChange?.();
+    return changed.size;
+  }
+
+  /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
+  private drainWater(budget: number): void {
+    const m = this.map;
+    if (!m) {
+      this.waterQueue.clear();
+      return;
+    }
+    const t0 = performance.now();
+    const tx = this.view.target[0] / CHUNK;
+    const ty = -this.view.target[2] / CHUNK;
+    const keys = [...this.waterQueue].map((k) => {
+      const [cx, cy] = k.split(",").map(Number);
+      return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
+    });
+    keys.sort((a, b) => a.d - b.d);
+    let baked = false;
+    for (const { k, cx, cy } of keys) {
+      if (baked && performance.now() - t0 > budget) break;
+      this.waterQueue.delete(k);
+      this.meshWater(cx, cy, null);
+      // the ground under it: its tile data (the water over each top)
+      if (this.tileTex) {
+        tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+        this.tileTex.needsUpdate = true;
+      }
+      baked = true;
+    }
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -897,7 +971,7 @@ export class MapRenderer {
   /** The ghost of an object being placed (the left shelf, D184): the object itself, its footprint's
    *  corner at tile (x, y) on the ground at `z`, tinted green where it fits, red where it doesn't
    *  (null: not known yet); null puts it away. */
-  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | null } | null): void {
+  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | "warn" | null } | null): void {
     if (!g) {
       if (this.ghost) {
         this.scene.remove(this.ghost.group);
@@ -915,7 +989,7 @@ export class MapRenderer {
         disposeGroup(this.ghost.group);
       }
       const { group } = buildEntities(oneObject(g.template, g.orientation), this.objectMat, null, 0, this.software);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
+      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
       if (tint)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
@@ -1011,7 +1085,10 @@ export class MapRenderer {
           const k = own[i];
           if (k < 0 || !want.has(m.entities.y[k] * m.W + m.entities.x[k])) continue;
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * color[j]);
+          // (a source's blue would only darken: it turns a clear red, D249)
+          const t = m.entities.templates[m.entities.template[k]];
+          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
           mesh.instanceColor.needsUpdate = true;
         }
       }
@@ -1034,6 +1111,57 @@ export class MapRenderer {
   }
 
   private surge: Surge | null = null;
+  private forceFx: ForceEffects | null = null;
+
+  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+   *  effects play on their own clocks. Not with reduced motion, not in software. */
+  setForceMoment(m: ForceMoment): void {
+    if (!this.juicy || m.verb === "carve") return;
+    this.forceFxOf().set(m);
+  }
+
+  /** The force was kept: its tails play out (dust settling, lava cooling). */
+  forceDone(): void {
+    this.forceFx?.finish();
+  }
+
+  /** Esc, undo: a force's effects and its heat go at once. */
+  clearForce(): void {
+    this.forceFx?.clear();
+    this.setHeat(null);
+  }
+
+  private forceFxOf(): ForceEffects {
+    return (this.forceFx ??= new ForceEffects(this.scene, () => this.requestRender(), (x, y) => {
+      const m = this.map;
+      if (!m) return 0;
+      const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+      return m.heights[i];
+    }));
+  }
+
+  /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null. */
+  setHeat(mask: Uint8Array | null): void {
+    const u = this.terrainMat?.uniforms;
+    if (!u?.eruptionMask) return;
+    const m = this.map;
+    const old = u.eruptionMask.value as DataTexture;
+    if (!mask || !m || mask.length !== m.W * m.H * 4 || this.software) {
+      u.eruptionAge.value = -1;
+      if (old.image.width !== 1) {
+        old.dispose();
+        u.eruptionMask.value = overlayTexture(1, 1);
+      }
+      return;
+    }
+    old.dispose();
+    const t = overlayTexture(m.W, m.H);
+    (t.image.data as Uint8Array).set(mask);
+    t.magFilter = t.minFilter = LinearFilter;
+    t.needsUpdate = true;
+    u.eruptionMask.value = t;
+    this.requestRender();
+  }
 
   /** A force's head at work (a carve's surge, D199), on the ground shown; null puts it away. Not
    *  with reduced motion, not in software. */
@@ -1044,6 +1172,20 @@ export class MapRenderer {
       return;
     }
     (this.surge ??= new Surge(this.scene, () => this.requestRender())).set(head, trail, m.heights, m.W);
+  }
+
+  /** Where tile (x, y) is in the view, for a sound (D220, D226): its distance (0 near, 1 far) and its
+   *  pan (−1 left, 1 right). What is on screen is what is being edited: it plays at nearly its full
+   *  level at any zoom (the camera's own distance made every sound far, a whisper, at the usual
+   *  views); only what is off screen fades and softens, the further off the more. */
+  soundPlace(x: number, y: number): { distance: number; pan: number } {
+    const m = this.map;
+    if (!m) return { distance: 0, pan: 0 };
+    const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
+    const p = new Vector3(x + 0.5, m.heights[i], -(y + 0.5));
+    const ndc = p.project(this.camera());
+    const off = Math.max(Math.abs(ndc.x), Math.abs(ndc.y));
+    return { distance: Number.isFinite(off) && ndc.z <= 1 ? Math.max(0, Math.min(1, (off - 0.8) / 1.5)) : 1, pan: Number.isFinite(ndc.x) ? Math.max(-1, Math.min(1, ndc.x)) : 0 };
   }
 
   /** A puff of dust where ground was lowered at tile (x, y), `size` tiles across. */
@@ -1177,6 +1319,26 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
+   *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
+   *  hides it. */
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
+    const m = this.map;
+    if (!m) return;
+    this.forceRingState = s;
+    if (!this.ring) {
+      if (!s) return;
+      this.ring = new ForceRing(this.scene);
+    }
+    const level = (tx: number, ty: number) => {
+      const i = ty * m.W + tx;
+      const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
+      return m.surface.depth[i] > 0.05 && this.slice === null ? Math.max(top, m.surface.surface[i]) : top;
+    };
+    this.ring.set(s, level, m.W, m.H);
+    this.requestRender();
+  }
+
   /** Where the water is clear round the pointer (D212): the middle and radius, or null (tests). */
   clearNear: { x: number; y: number; radius: number } | null = null;
 
@@ -1297,6 +1459,9 @@ export class MapRenderer {
 
   setMode(mode: ViewMode): void {
     this.setView({ mode });
+    // (a view switched to frames the whole map, centred: D345, B1)
+    this.frameMap();
+    this.requestRender();
   }
 
   private glideFrameTo = 0;
@@ -1337,7 +1502,55 @@ export class MapRenderer {
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
     this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.frameMap();
     this.requestRender();
+  }
+
+  /** The map waits to be framed until the canvas has a size. */
+  private framePending = false;
+
+  /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
+   *  the canvas's middle, whatever the view (orbit or top-down) and however big the window. The map's
+   *  four corners are projected; the distance scales to fit them and the target moves to centre them. */
+  frameMap(): void {
+    const m = this.map;
+    if (!m) return;
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    if (!w || !h) {
+      this.framePending = true;
+      return;
+    }
+    this.framePending = false;
+    let sum = 0;
+    for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
+    const level = sum / m.heights.length;
+    const corners: [number, number][] = [[0, 0], [m.W, 0], [0, m.H], [m.W, m.H]];
+    const box = () => {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const [x, y] of corners) {
+        const p = this.project(x, level, -y);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+      return { x0, y0, x1, y1 };
+    };
+    const r = this.canvas.getBoundingClientRect();
+    for (let pass = 0; pass < 4; pass++) {
+      let b = box();
+      const s = Math.max((b.x1 - b.x0) / (w * 0.86), (b.y1 - b.y0) / (h * 0.86));
+      if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
+      b = box();
+      const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
+      const mid = this.pickAtLevel(r.left + w / 2, r.top + h / 2, level);
+      if (!at || !mid) break;
+      this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
+    }
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
@@ -1388,11 +1601,25 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
+    if (this.waterQueue.size) {
+      this.drainWater(WATER_MESH_BUDGET_MS);
+      if (this.waterQueue.size) this.requestRender();
+    }
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
+    // a force's heat on the ground (the camera never shakes, D265)
+    const fx = this.forceFx;
+    const heat = fx && !this.reducedMotion ? fx.heat(t0) : null;
+    const u = this.terrainMat.uniforms;
+    if (u.eruptionAge) {
+      u.eruptionAge.value = heat ? heat.age : -1;
+      u.coolingAge.value = heat ? heat.cooling : 0;
+    }
+    const cam = this.camera();
     const q = this.beginGpuTimer();
-    this.gl.render(this.scene, this.camera());
+    this.gl.render(this.scene, cam);
     this.endGpuTimer(q);
     if (this.recording) this.cpuTimes.push(performance.now() - t0);
     // tell the page only when the view moved (the water's frames do not)
@@ -1415,6 +1642,7 @@ export class MapRenderer {
     const h = this.canvas.clientHeight;
     if (!w || !h) return;
     this.gl.setSize(w, h, false);
+    if (this.framePending) this.frameMap();
     this.requestRender();
   }
 
@@ -1465,6 +1693,24 @@ export class MapRenderer {
     if (!this.sliced || this.sliced.length !== m.heights.length) this.sliced = new Uint8Array(m.heights.length);
     for (let i = 0; i < m.heights.length; i++) this.sliced[i] = Math.min(m.heights[i], cut);
     return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, this.sliced);
+  }
+
+  /** The tile under a point on the screen as it is seen: over water, where the ray meets the water's
+   *  surface (D321, item 13: a force's cursor is where the pointer is, not on the bed below). */
+  pickSurface(clientX: number, clientY: number): TileHit | null {
+    const hit = this.pick(clientX, clientY);
+    const m = this.map;
+    if (!hit || !m || this.slice !== null) return hit;
+    const i = hit.y * m.W + hit.x;
+    if (!(m.surface.depth[i] > 0.05)) return hit;
+    const p = pickPlane(this.rayAt(clientX, clientY), m.surface.surface[i]);
+    if (!p || p.x < 0 || p.y < 0 || p.x >= m.W || p.y >= m.H) return hit;
+    return { x: p.x, y: p.y, point: p.point, face: "top", t: hit.t };
+  }
+
+  /** The tile under the pointer for a tool (the water's surface for one that asks for it). */
+  private pickFor(t: PointerTool | null, clientX: number, clientY: number): TileHit | null {
+    return t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
   }
 
   /** The tile under a point on the screen, on a level plane (steady while dragging). */
@@ -1536,7 +1782,7 @@ export class MapRenderer {
         return;
       }
       if (ev.button === 0 && this.tool) {
-        const hit = this.pick(ev.clientX, ev.clientY);
+        const hit = this.pickFor(this.tool, ev.clientX, ev.clientY);
         if (this.tool.down(hit, ev)) {
           this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
           capture(ev.pointerId);
@@ -1557,7 +1803,10 @@ export class MapRenderer {
         d.y = ev.clientY;
         d.moved += Math.abs(dx) + Math.abs(dy);
         if (d.kind !== "tool" && d.moved < 4) return;
-        if (d.kind === "tool") (this.grabbed ?? this.tool)?.move(this.pick(ev.clientX, ev.clientY), ev);
+        if (d.kind === "tool") {
+          const t = this.grabbed ?? this.tool;
+          t?.move(this.pickFor(t, ev.clientX, ev.clientY), ev);
+        }
         else if (d.kind === "orbit") this.setView({ yaw: this.view.yaw - dx * 0.006, pitch: this.view.pitch + dy * 0.005 });
         else this.panPixels(dx, dy);
         return;
@@ -1565,7 +1814,7 @@ export class MapRenderer {
       const hit = this.pick(ev.clientX, ev.clientY);
       this.hoverHit = hit;
       this.setHoverTile(hit ? hit.x : null, hit?.y ?? 0);
-      this.tool?.hover?.(hit, ev);
+      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY) : hit, ev);
       this.onHover?.(hit);
     });
     const end = (e: Event) => {
@@ -1578,7 +1827,7 @@ export class MapRenderer {
         const t = this.grabbed ?? this.tool;
         this.grabbed = null;
         if (ev.type === "pointercancel" && t?.cancel) t.cancel();
-        else t?.up(this.pick(ev.clientX, ev.clientY), ev);
+        else t?.up(this.pickFor(t ?? null, ev.clientX, ev.clientY), ev);
       } else if (d.button === 0 && d.moved < 4 && ev.type === "pointerup") this.onClick?.(this.pick(ev.clientX, ev.clientY), ev);
     };
     this.on(c, "pointerup", end);
@@ -1617,6 +1866,8 @@ export class MapRenderer {
     this.on(window, "keydown", (e) => {
       const ev = e as KeyboardEvent;
       if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.defaultPrevented || typing(ev.target) || !this.map || !this.canvas.isConnected) return;
+      // a key the page has claimed for itself (Select's Up and Down, D323 item 6) is not the camera's
+      if (this.claimKey?.(ev)) return;
       const k = ev.key.toLowerCase();
       if (CAMERA_KEYS.has(k)) {
         ev.preventDefault();
@@ -1635,7 +1886,11 @@ export class MapRenderer {
       this.held.delete(ev.key.toLowerCase());
       if (ev.key === "Shift") this.glide.fast = false;
     });
-    this.on(window, "blur", () => this.held.clear());
+    // the window loses focus: no key, Shift or mouse button is held any more, and a stroke or gesture
+    // in progress ends as a released button ends it (D361, item 5)
+    this.on(window, "blur", () => {
+      focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
+    });
   }
 
   /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still
@@ -1643,6 +1898,9 @@ export class MapRenderer {
   cameraGlide(): Glide & { gliding: boolean } {
     return { ...this.glide, gliding: this.glideFrame !== 0 };
   }
+
+  /** Keys the page claims from the camera for now (true: it takes this one). */
+  claimKey: ((ev: KeyboardEvent) => boolean) | null = null;
 
   /** Move the camera every frame while its keys are held: a quick ease-in to full speed, a short
    *  glide to a stop; the speed follows the zoom (slower up close), and Shift is faster. */
@@ -1803,8 +2061,10 @@ export class MapRenderer {
     cancelAnimationFrame(this.glideFrame);
     this.clearMap();
     this.cursor?.dispose();
+    this.ring?.dispose();
     this.effects?.dispose();
     this.surge?.dispose();
+    this.forceFx?.dispose();
     this.terrainMat.dispose();
     this.waterMat.dispose();
     this.fallMat.dispose();

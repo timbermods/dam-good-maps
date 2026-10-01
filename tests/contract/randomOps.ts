@@ -10,7 +10,15 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { deleteEdit, moveEdit, planContextOf, planLake, planLandform, planPiece, planRiver, type PlannedEdit } from "../../src/core/doc/tools";
 import { DEFAULTS as CARVE_DEFAULTS, CarveRun, type CarveSettings } from "../../src/core/forces/carve/run";
 import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { protectedGround } from "../../src/core/forces/force";
+import { plainEntities, protectedGround, type FullForceMap } from "../../src/core/forces/force";
+import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/craterize";
+import { ERUPT_DEFAULTS, type EruptSettings } from "../../src/core/forces/erupt";
+import { QUAKE_DEFAULTS, type QuakeSettings } from "../../src/core/forces/quake";
+import { footprint } from "../../src/core/forces/objects";
+import { geology } from "../../src/core/forces/random";
+import { forceParamsOf, pathRecord } from "../../src/core/forces/result";
+import { CraterRun, EruptRun, QuakeRun } from "../../src/core/forces/runs";
+import type { ForceWhere } from "../../src/core/forces/op";
 import type { Facing } from "../../src/core/features/setpieces/common";
 import type { Feature, LandformFeature, Point, RiverFeature } from "../../src/core/features/schema";
 import type { Orientation } from "../../src/core/format/footprints";
@@ -142,6 +150,68 @@ function randomCarve(s: MapSession, rng: Rng): EditOp | null {
   for (let k = 0, n = 30 + rng.int(0, 40); k < n && !run.done; k++) run.step();
   const params = carveParams(m, run, { settings, origin: [ox, oy], cut: null });
   return params ? { op: "carve", params } : null;
+}
+
+/** A small, real force (Craterize, Erupt or Quake's Lift; D202, D203, D206, the way the product makes
+ *  one): a low-power, small one planned on the map as its build stands (plain copies of its objects,
+ *  the rock of the map as opened) and kept as the forces' one operation, `forceResult`, literally.
+ *  Only planned, not played through its stages (the plan is what is kept; its stages only show it),
+ *  so the sweep stays fast on the heavy project's larger presets. Null when there is no room, or the
+ *  start's ground refuses it, or it changed nothing. */
+function randomForce(s: MapSession, rng: Rng): EditOp | null {
+  const b = s.built;
+  const { x: W, y: H } = s.size;
+  const m = forceMapOf(b);
+  const entities = plainEntities(m.entities.map((e) => (e.raw ? (({ raw: _raw, ...rest }) => rest)(e) : e)));
+  const map: FullForceMap = { ...m, entities, rockLayers: geology(s.openedHeights), lava: new Uint32Array(W * H), fallen: [] };
+  const keep = new Uint8Array(W * H);
+  for (const i of s.columns.keys()) keep[i] = 1;
+  // (the draw keeps its forces off the start's ground: applied straight to the session, a force
+  // there would leave the start for the editor to carry, which the worker does, not the session)
+  const guard = new Uint8Array(W * H);
+  for (const e of map.entities) if (e.template === "StartingLocation") for (const i of footprint(map, e, 1)) guard[i] = 1;
+  let ox = -1;
+  let oy = -1;
+  for (let tries = 0; tries < 25 && ox < 0; tries++) {
+    const x = rng.int(12, W - 12);
+    const y = rng.int(12, H - 12);
+    const i = y * W + x;
+    if (!guard[i] && !keep[i] && b.water[i] === 0) {
+      ox = x;
+      oy = y;
+    }
+  }
+  if (ox < 0) return null;
+  const verb = rng.pick(["craterize", "erupt", "quake"] as const);
+  const seed = rng.int(0, 1000);
+  let run: CraterRun | EruptRun | QuakeRun;
+  let settings: CraterSettings | EruptSettings | QuakeSettings;
+  let where: ForceWhere;
+  try {
+    if (verb === "craterize") {
+      settings = { ...CRATER_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, seed };
+      run = new CraterRun(map, settings, { origin: oy * W + ox }, keep);
+      where = { origin: [ox, oy] };
+    } else if (verb === "erupt") {
+      settings = { ...ERUPT_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, flows: "light", seed };
+      run = new EruptRun(map, settings, { origin: oy * W + ox }, keep);
+      where = { origin: [ox, oy] };
+    } else {
+      const path = [
+        { x: Math.max(1, ox - 6), y: oy },
+        { x: Math.min(W - 2, ox + 6), y: Math.max(1, Math.min(H - 2, oy + rng.int(-2, 3))) },
+      ];
+      const side = rng.float() < 0.5 ? (1 as const) : (-1 as const);
+      settings = { ...QUAKE_DEFAULTS, mode: "lift", power: rng.int(10, 35), seed };
+      run = new QuakeRun(map, settings, { path, side }, keep);
+      where = { path: pathRecord(path), side };
+    }
+    run.planAll();
+  } catch {
+    return null;
+  }
+  const params = forceParamsOf(map, run.final()!, { verb, settings, where, cut: null, steps: 1, reason: "done" });
+  return params ? { op: "forceResult", params } : null;
 }
 
 /** One random operation (or a tool's group of them) for the session's current map, or null when
@@ -294,7 +364,8 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     return sl ? { op: "removeSlope", params: { x: sl.x, y: sl.y } } : null;
   }
   if (roll < 91) return { op: "pinSlope", params: { x: rng.int(1, W - 1), y: rng.int(1, H - 1), orientation: pick(rng, ORIENT)! } };
-  if (roll < 98) return randomCarve(s, rng);
+  if (roll < 96) return randomCarve(s, rng);
+  if (roll < 98) return randomForce(s, rng);
   // an invalid operation: it must be rejected with a reason, and change nothing
   return pick(rng, [
     { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } },

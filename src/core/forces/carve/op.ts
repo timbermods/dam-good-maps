@@ -18,6 +18,14 @@ export interface CarveParams {
   wander: number;
   /** Nominal width in tiles, or null when it followed Power. */
   width: number | null;
+  /** Its Depth set by hand, in levels below the land (D226; absent: it followed Power). */
+  depth?: number;
+  /** Its Floor (D321, item 40), when set above 1. */
+  floor?: number;
+  /** Its River depth (item 17): a number of levels, or null for Off; absent on carves from before. */
+  riverDepth?: number | null;
+  /** Its Banks (item 18), in tiles; absent on carves from before (none). */
+  banks?: number;
   seed: number;
   walls: "steep" | "wide";
   defyGravity: boolean;
@@ -34,6 +42,8 @@ export interface CarveParams {
   removed: string[];
   /** Keep river: the water source it leaves at the origin (its strength follows the Width). */
   source?: { id: string; x: number; y: number; strength: number };
+  /** Since D314: the rest of its source group (op.ts `ForceResultParams.sources`). */
+  sources?: { id: string; x: number; y: number; strength: number }[];
   /** The water its sealed oxbow lake keeps (its tiles ascending, their floors, depths and
    *  contamination then). */
   lake?: RetainedWater;

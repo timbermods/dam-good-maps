@@ -11,7 +11,7 @@
     { "term": "resource brush", "retired": "D184", "instead": "trees and bushes from the left shelf" },
     { "term": "live shape tool", "retired": "D182", "instead": "the brushes" },
     { "term": "Terrace brush", "retired": "D184", "instead": "Flatten's \"in steps\" option" },
-    { "term": "Ramp brush", "retired": "D184", "instead": "the shelf's Slope and Flatten's ramped edges (D247)" },
+    { "term": "Ramp brush", "retired": "D184", "instead": "the shelf's Slope (D247, D322)" },
     { "term": "Demolish tool", "retired": "D184", "instead": "Remove" },
     { "term": "Show dropdown", "retired": "D184", "instead": "the view buttons" },
     { "term": "Advanced checkbox", "retired": "D184", "instead": "smart defaults, with options hidden until wanted" },
@@ -21,12 +21,19 @@
     { "term": "Resources tab", "retired": "D184", "instead": "the top bar and the left shelf" },
     { "term": "Start tab", "retired": "D184", "instead": "the start on the left shelf" },
     { "term": "Source tool", "retired": "D212", "instead": "the Water source and Badwater source on the left shelf, right after the start" },
+    { "term": "make walkable", "retired": "D247", "instead": "the shelf's Slope (D322)" },
     { "term": "regenerate area", "retired": "D253", "instead": "the working area (D254): the player protects what they like and keeps shaping the rest with the same tools" },
     { "term": "Stamps and symmetry", "retired": "D253", "instead": "the forces reshape land instead; symmetry is not planned" },
     { "term": "symmetric layout", "retired": "D253", "instead": "not planned; the forces make dramatic land far better" },
     { "term": "More like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
     { "term": "Less like this", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
     { "term": "A-or-B", "retired": "D278", "instead": "Another like this: one button makes one sibling per click" },
+    { "term": "Dam sites view", "retired": "D287", "instead": "none: dam sites are never drawn; the analysis stays internal" },
+    { "term": "Moisture view", "retired": "D287", "instead": "the land shows moisture itself" },
+    { "term": "hold to dig", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
+    { "term": "precise mode", "retired": "D322", "instead": "Raise, Lower and Flatten's target level, exact with hard edges, as the game's editor (item 37)" },
+    { "term": "waypoint", "retired": "D321", "instead": "the freehand path: a drag draws the travelling force's path (item 41)" },
+    { "term": "aim arrow", "retired": "D321", "instead": "the drawn line: a drag shows the line the player draws (item 41)" },
     { "term": "Generate, keeping my edits", "retired": "D336", "instead": "Generate: every Generate makes a new map; an edited map stays saved and one step away (Back to editing)" },
     { "term": "Discard edits", "retired": "D336", "instead": "Generate: the edited map stays saved beside the new one" },
     { "term": "lets you edit what the generator made", "retired": "D336", "instead": "an older map opens exactly as it was saved; no rebuild keeps its edits" },
@@ -34,9 +41,75 @@
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [
+    {
+      "pattern": "\\bfast,? (?:or|and) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Fast or Watch"
+    },
+    {
+      "pattern": "\\bwatch(?:'s)? (?:and|or) sound\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Watch and Sound"
+    },
+    {
+      "pattern": "\\bsound (?:and|or) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "Sound and Watch"
+    },
+    {
+      "pattern": "\\bwatch (?:toggle|button|switch)\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "the Watch toggle"
+    },
+    {
+      "pattern": "\\b(?:in|with|beside|off) watch\\b",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "the forces in Watch"
+    },
+    {
+      "pattern": ">\\s*watch\\s*<",
+      "retired": "D361",
+      "instead": "Slow forces: the view-bar toggle that plays the forces out slowly (D361, item 8)",
+      "example": "<button>Watch</button>"
+    },
+    {
+      "pattern": "\\bno room to rise here: it breaks out\\b",
+      "retired": "D258",
+      "instead": "no fit preview: Erupt says only \"No room to rise here\" when a vent can't rise at all",
+      "example": "No room to rise here: it breaks out on the flank"
+    },
+    {
+      "pattern": "\\bnear the height limit: it grows broader\\b",
+      "retired": "D258",
+      "instead": "no fit preview: the volcano simply rises as it can",
+      "example": "Near the height limit: it grows broader"
+    },
+    {
+      "pattern": "\\bthe start's ground stays as it is\\b",
+      "retired": "D257",
+      "instead": "the forces go through the start's ground; the editor carries the start to level ground",
+      "example": "The start's ground stays as it is: start the carve away from it"
+    },
     { "pattern": "\\b(hill|plateau|ridge|canyon|valley|island|terraces?|mesa|valley floor): reaches level\\b", "retired": "D182", "instead": "the brushes: hills and valleys come from painting", "example": "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles" },
     { "pattern": "\\bits edge (climbs|sinks) 1 level every\\b", "retired": "D182", "instead": "the brushes, whose edge slopes a level a tile", "example": "its edge sinks 1 level every 3 tiles from level 9" },
     { "pattern": ">on this map<", "retired": "D184", "instead": "the land itself: the generator's features are its plan, never a list of objects", "example": "<h2>On this map</h2>" },
+    { "pattern": ">\\s*best dam site\\s*<", "retired": "D287", "instead": "none: the map card and the map name no dam site", "example": "<dt>Best dam site</dt>" },
+    { "pattern": "\\bshow dam sites\\b", "retired": "D287", "instead": "none: dam sites are never drawn", "example": "Show dam sites" },
+    { "pattern": ">\\s*orbit\\s*<", "retired": "D287", "instead": "one Top-down toggle, off for the usual orbit", "example": "<button>Orbit</button>" },
+    { "pattern": "\\bremove \\(x\\)", "retired": "D288", "instead": "Select and Delete; Delete on what the pointer is on", "example": "<button aria-label=\"Remove (X)\">" },
+    { "pattern": ">\\s*clear objects\\s*<", "retired": "D288", "instead": "the Selection row's Delete (or the Delete key)", "example": "<button>Clear objects</button>" },
+    { "pattern": "label=\"defy gravity\"|turn on defy gravity", "retired": "D289", "instead": "an aimed carve goes where the player drags, cutting through rises on its way", "example": "<Toggle label=\"Defy gravity\" />" },
+    { "pattern": "keep what.s carved so far", "retired": "D289", "instead": "a carve keeps itself when it ends; Esc and undo take it back", "example": "Keep what's carved so far: one undo step" },
+    { "pattern": "label=\"side that moves\"", "retired": "D289", "instead": "X flips the side of Quake's fault that moves", "example": "<div aria-label=\"Side that moves\">" },
+    { "pattern": "label=\"precise\"", "retired": "D322", "instead": "the height brushes' target level: exact, with hard edges (item 37)", "example": "<Toggle label=\"Precise\" title=\"Hard edges\" />" },
+    { "pattern": "label=\"stop at\"", "retired": "D322", "instead": "the height brushes' target level: Raise and Lower stop at it (item 37)", "example": "<Toggle label=\"Stop at\" />" },
+    { "pattern": "aria-label=\"edges\"|>\\s*ramped\\s*<", "retired": "D322", "instead": "Flatten has hard edges as the game's editor; a walkable edge is the shelf's Slope", "example": "<select aria-label=\"Edges\"><option value=\"ramped\">Ramped</option></select>" },
+    { "pattern": "label=\"clear sources\"", "retired": "D322", "instead": "each brush's Sources choice: Ride, Keep or Clear (item 31)", "example": "<Toggle label=\"Clear sources\" />" },
     { "pattern": "\\bpick source\\b", "retired": "D212", "instead": "the shelf's Water source and Badwater source", "example": "Add water: pick Source, then click where the water starts." }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],

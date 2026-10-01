@@ -3,9 +3,9 @@
 // rectangle.
 
 import { describe, expect, it } from "vitest";
-import { removeTool, shelfTool } from "../../src/editor/placeTools";
+import { shelfTool } from "../../src/editor/placeTools";
 import { quietWord, SHELF } from "../../src/editor/shelfItems";
-import { DEFAULT_OPTIONS, sourceRequest } from "../../src/editor/tools";
+import { BADWATER_STRENGTHS, DEFAULT_OPTIONS, SOURCE_STRENGTHS, sourceRequest } from "../../src/editor/tools";
 import type { TileHit } from "../../src/render3d";
 
 const hit = (x: number, y: number) => ({ x, y }) as TileHit;
@@ -47,10 +47,10 @@ describe("the shelf's pointer tool", () => {
   });
 });
 
-describe("the shelf's objects (D212)", () => {
-  it("read Start, Water source, Badwater source, Pine, Birch, Oak, Berry bush and so on; the sources place clean and bad", () => {
-    expect(SHELF.slice(0, 7).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Pine", "Birch", "Oak", "Berry bush"]);
-    const [clean, bad] = [SHELF[1], SHELF[2]];
+describe("the shelf's objects (D212, D226)", () => {
+  it("read Water source, Badwater source, Start, Pine, Birch, Oak, Berry bush and so on (D226); the sources place clean and bad", () => {
+    expect(SHELF.slice(0, 7).map((it) => it.name)).toEqual(["Water source", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush"]);
+    const [clean, bad] = [SHELF[0], SHELF[1]];
     expect([clean.source, clean.template, clean.key, bad.source, bad.template]).toEqual(["clean", "WaterSource", "6", "bad", "BadwaterSource"]);
     // what they place: a clean source on the tile, a bad one's 3 x 3 round it, at the row's strength
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: false, sourceStrength: 4 }, 10, 12)).toMatchObject({ template: "WaterSource", x: 10, y: 12, components: { WaterSource: { SpecifiedStrength: 4 } } });
@@ -58,28 +58,15 @@ describe("the shelf's objects (D212)", () => {
   });
 });
 
-describe("Remove's pointer tool", () => {
-  it("glows under the pointer; a click takes a tile, a drag a rectangle", () => {
-    const removed: number[][] = [];
-    const lit: (number[] | null)[] = [];
-    const t = removeTool({
-      W,
-      H: W,
-      objectsOn: (tiles) => tiles.filter((i) => i % 2 === 0),
-      highlight: (c) => lit.push(c),
-      drawing: () => undefined,
-      remove: (tiles) => removed.push(tiles),
-    });
-    t.hover!(hit(2, 0), ev());
-    expect(lit.at(-1)).toEqual([2]);
-    t.down(hit(3, 3), ev());
-    t.up(hit(3, 3), ev());
-    expect(removed).toEqual([[63]]);
-    t.down(hit(1, 1), ev());
-    t.move(hit(3, 2), ev());
-    t.up(hit(3, 2), ev());
-    expect(removed.at(-1)!.length).toBe(6);
-    expect(lit.at(-1)).toBeNull();
+describe("a placed source starts at the game's own default strength (D323 item 46)", () => {
+  it("1 water/s for a water source, 3 for a badwater source, from the game's blueprints (WaterSourceSpec DefaultStrength); both sit among the official maps' strengths", () => {
+    expect(DEFAULT_OPTIONS.sourceStrength).toBe(1);
+    expect(DEFAULT_OPTIONS.badwaterStrength).toBe(3);
+    expect(sourceRequest(DEFAULT_OPTIONS, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } });
+    expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true }, 10, 12).components).toEqual({ WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } });
+    // (docs/FINDINGS.md "Sources": official water sources run 0.25 to 1.5, badwater 0.5 to 3.0)
+    expect(SOURCE_STRENGTHS).toContain(DEFAULT_OPTIONS.sourceStrength);
+    expect(BADWATER_STRENGTHS).toContain(DEFAULT_OPTIONS.badwaterStrength);
   });
 });
 
@@ -87,6 +74,7 @@ describe("the shelf's quiet words (D184)", () => {
   it("say why in a word or two", () => {
     expect(quietWord("it would stand inside the ground: the ground under it is not level")).toBe("needs level ground");
     expect(quietWord("the district center stands there")).toBe("the start stands there");
+    expect(quietWord("the water is in the way: the ground here is uneven, and levelling it would spill the water")).toBe("water is in the way");
     expect(quietWord("a mine site stands there")).toBe("a mine site is there");
     expect(quietWord("too close to the map edge")).toBe("too near the edge");
     expect(quietWord("under water")).toBe("under water");

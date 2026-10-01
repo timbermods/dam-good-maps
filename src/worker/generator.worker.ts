@@ -26,7 +26,13 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 }
 
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
-  return viewBuffers({ heights: f.heights, water: f.water, entities: f.entities }) as Transferable[];
+  const out = viewBuffers({ heights: f.heights, entities: f.entities }) as Transferable[];
+  if (f.heat) out.push(f.heat.buffer as Transferable);
+  return out;
+}
+
+function sendFrame(f: ed.ForceFrame | null): ed.ForceFrame | null {
+  return f ? transfer(f, frameBuffers(f)) : null;
 }
 
 function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
@@ -43,8 +49,8 @@ ed.setAutoWater(true);
 
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
-  async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void): Promise<GenerateResponse> {
-    const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined);
+  async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
+    const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined, seedWord);
     return transfer(r, responseBuffers(r));
   },
   /** The last generated map without pre-filled water, or null. */
@@ -59,8 +65,10 @@ const api = {
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
-    const r = placeTimber(decodePlaceFile(data));
-    return sendOpen(ed.openTimber(r.bytes, r.fileName));
+    const place = decodePlaceFile(data);
+    const r = placeTimber(place);
+    // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
+    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
   },
   sessionView: () => sendOpen(ed.sessionView()),
   terrainNow() {
@@ -106,21 +114,40 @@ const api = {
   moveFeature: (id: string, dx: number, dy: number) => sendUpdate(ed.moveFeature(id, dx, dy)),
   deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
-  damSites: () => ed.damSiteLayer(),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  describeTile: (x: number, y: number) => ed.describeTileAt(x, y),
+  moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
+  clearEverything: () => sendUpdate(ed.clearEverything()),
+  /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
+  applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
+  /** A brush stroke that clears the sources it passed over (D249): one undo step. */
+  strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
   instantCheck: () => ed.instantCheck(),
-  // the forces (D194, D203): a carve at work, a frame at a time; Stop keeps it, Esc drops it
-  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
-  /** Try another path: the last kept carve again, with the next seed. */
-  carveAgain: () => sendStarted(ed.carveAgain()),
-  carveAdvance(steps: number) {
-    const f = ed.carveAdvance(steps);
-    return f ? transfer(f, frameBuffers(f)) : null;
+  // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
+  // Esc drops it
+  forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
+  /** Try another: the last kept force again, with the next seed. `pins`: the row's current
+   *  per-detail state (D309); left out, every detail re-rolls. */
+  forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
+  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
+  /** A painted Lift's fault as it is painted now. */
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power)),
+  /** Keep the force at work (`gesture`: only if it is that one, D341). */
+  forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+  /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
+  forceCancel(gesture?: number) {
+    const v = ed.forceCancel(gesture);
+    return transfer(v, viewBuffers(v) as Transferable[]);
   },
+  // (the carve's own calls)
+  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
+  carveAgain: () => sendStarted(ed.carveAgain()),
+  carveAdvance: (steps: number) => sendFrame(ed.carveAdvance(steps)),
   carveStop: () => sendUpdate(ed.carveStop()),
   carveCancel() {
     const v = ed.carveCancel();
@@ -133,7 +160,7 @@ const api = {
   exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
-    return transfer(r, [r.moisture.buffer, r.badwater.buffer, r.drought.buffer, r.roofed.buffer] as Transferable[]);
+    return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
   },
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);

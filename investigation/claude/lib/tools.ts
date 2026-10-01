@@ -25,6 +25,7 @@ import { MAP_METRICS, mapMetric, measureFeature, measureSession, startRequiremen
 import { compassWords, extent, resolve, resolveRef, type Place } from "./places";
 import { findSites, SITE_KINDS, type SiteKind } from "./sites";
 import { hintIds, POWER_WORDS, STEP_OPS } from "./steps";
+import { ERUPT_WORDS, IMPACT_WORDS, QUAKE_WORDS } from "./forceSteps";
 import { mapSummary, SUMMARY_LIMIT } from "./summary";
 import { JUDGEMENT, sizeTarget, type SizeWord } from "./words";
 import { round1, viewOf } from "./view";
@@ -101,7 +102,7 @@ export const TOOL_DEFS: ToolDef[] = [
     input_schema: {
       type: "object",
       properties: {
-        kind: { type: "string", description: "waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, ruinField, river, brush, carve, start, words" },
+        kind: { type: "string", description: "waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, ruinField, river, brush, carve, craterize, erupt, quake, start, words" },
         facing: { type: "string", enum: ["north", "east", "south", "west"] },
       },
       required: ["kind"],
@@ -499,7 +500,7 @@ export class ClaudeTools {
         path: "one stroke along 2–24 points instead of a place, size tiles wide (1–9): a lower stroke that starts in or beside water, or beside a source, carves a bed that keeps flowing downhill, and the water follows it",
         edges: "slope (the brushes' own) or cliff (every tile the full amount: beavers need stairs); flatten also ramped (its rim's steps get the game's natural slopes, so beavers walk up)",
         steps: { min: 2, max: 8, note: "flatten in steps: terraces, a bench every so many levels from its level" },
-        walkable: "smooth only: true wears steps to one level and puts the game's natural slopes on them, so beavers can walk up",
+        slopes: "Smooth lays no slopes (D247): a natural slope is placeObject's slope, facing a 1-level step",
         edge: "a brush makes no cliffs: its edge slopes a level a tile to the ground round it, so a place rises its full amount only where it is 2·amount − 1 tiles across or more",
         note: "levels stay within 0–16; an imported map's caves and overhangs are left as they are",
       };
@@ -508,6 +509,8 @@ export class ClaudeTools {
         how: "the editor's Carve: unleash a river from a spot (from [x, y], or where: its start is the highest dry ground there) and it finds its own way down, or aim it at an end (to: a tile or a place); it runs until it ends by itself (a lake, the map's edge, its end, or its power spent), or for seconds",
         power: { min: 0, max: 100, words: POWER_WORDS, note: "how deep it cuts and how far it runs: a creek to a catastrophe" },
         width: { min: 2, max: 24, note: "tiles; left out, it follows power (2.8 + power/10): narrow for a slot canyon, wide for a lazy river" },
+        depth: { min: 1, max: 12, note: "levels below the land it runs through, at most; left out, it follows power (deeper downstream): set low with a wide width and high power for a wide, shallow river" },
+        source: "Unleash: the tile [x, y] of a placed water or badwater source, instead of from or where: its own water carves the river, its width from the source's strength (leave out width, river and defyGravity); from a pool it breaks out where the water spills over (the lowest point of its rim); to aims it downhill; the source stays and no other is added",
         wander: { min: 0, max: 100, note: "straight to winding" },
         walls: "steep (a gorge) or wide (broad terraces)",
         river: "keep (the default: a source at its start, its strength following the width, keeps the river flowing) or dry (a dry canyon, no source)",
@@ -517,10 +520,48 @@ export class ClaudeTools {
         maxTiles: Math.floor(0.3 * W * H),
         note: "the start's own ground and an imported map's caves stay as they are; objects on the cut ground go with it",
       };
+    if (kind === "craterize")
+      return {
+        how: "the editor's Craterize: a giant impact at a tile (at) or the middle of a place (where); toward [x, y] makes it a glancing blow, an oval crater thrown that way",
+        power: { min: 0, max: 100, words: IMPACT_WORDS, note: "how hard it hits: deeper, wider, more debris" },
+        size: { min: 4, max: 180, note: "the crater's width in tiles; left out, it follows power (6 + 112 × (power/100)^1.4)" },
+        walls: "steep (one cliff all round) or terraced (broad benches stepping down)",
+        centre: "auto (by size: bowl, peak, ring), bowl, peak, ring or flat",
+        debris: "light (a thin skirt) or heavy (a thick apron thrown far: it can dam a river)",
+        rays: "true: streaks of debris in a starburst",
+        path: { min: 0, max: 99, note: "0 the first personality; 1, 2, … another (the editor's Try another)" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "it refuses to strike on the start's ground; it never adds water; trees inside the bowl go, those round it are knocked down (dead), other objects whose ground changes go",
+      };
+    if (kind === "erupt")
+      return {
+        how: "the editor's Erupt: a volcano at a tile (at) or the middle of a place (where), or a fissure along a line of 2–24 points",
+        power: { min: 0, max: 100, words: ERUPT_WORDS, note: "how high it throws: a small cinder cone to a towering volcano" },
+        size: { min: 6, max: 140, note: "its breadth, tiles across; left out, it follows power (and shape)" },
+        ceiling: "it rises to the map's height limit at most (16, or the map's own top up to 22), keeping a peak: near it the volcano grows broader rather than taller; with no room at the vent (an earlier volcano's top) it breaks out on the flank",
+        shape: "steep (a tall cone) or broad (a wide shield)",
+        summit: "auto (by power: peak, crater, caldera), peak, crater or caldera",
+        flows: "light (short lava flows) or heavy (long ones that can dam rivers)",
+        ridges: "true: the flows set into ridges down its sides",
+        path: { min: 0, max: 99, note: "0 the first personality; 1, 2, … another (the editor's Try another)" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "its fresh lava is hard rock (Carve cuts it slowly); objects ride the rising ground, trees near the vent fall and what stands in it goes; it refuses to erupt on the start's ground and never adds water",
+      };
+    if (kind === "quake")
+      return {
+        how: "the editor's Quake: a fault along a line of 2–24 points; the side that moves (left or right of the line as drawn, north up) lifts (the other drops a little) or slides along it",
+        mode: "lift (the default) or slide",
+        power: { min: 0, max: 100, words: QUAKE_WORDS, note: "a lift of 1 + power × 0.075 levels (with a tilt), or a slide of 3 + power × 0.17 tiles; how far the shaking reaches" },
+        scarp: "sheer (one cliff) or stepped (benches)",
+        side: "left or right: the side that moves",
+        path: { min: 0, max: 99, note: "0 the first personality (its tilt, its crack); 1, 2, … another" },
+        maxTiles: Math.floor(0.3 * W * H),
+        note: "a fault within a few tiles of the start is refused, and so is a slide that would carry the start; objects ride with the land, trees on the fault fall; the water there moves with the land (it never adds any), and a river crossing a slide is joined again along it",
+      };
     if (kind === "badwaterBasin") return { strength: { min: 1, max: 3 }, keepsFromStart: rulesFor(s.spec, designedFor).badwaterWithin, sizeWords: sizes("badwaterBasin"), note: "a 7×7 basin with one outlet; its channel runs to a river or the map edge" };
     const b = BUILDERS[kind as SetPieceKind];
     if (b) return { ranges: b.limits(planContextOf(s)) };
-    throw new ArgError("kind is waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, berryPatch, ruinField, river, brush, carve, start or words");
+    throw new ArgError("kind is waterfall, damSite, gorge, terracedCliffs, badwaterBasin, lake, landform, forest, berryPatch, ruinField, river, brush, carve, craterize, erupt, quake, start or words");
   }
 }
 

@@ -52,6 +52,10 @@ export function probeHome(): string {
 export function tallDir(): string {
   return resolve(process.env.DGM_PROBE_TALL ?? join(DEFAULT_PROBE_HOME, 'tall'));
 }
+/** The ceiling maps tools/probe-ceiling.ts writes (PLAN §20 D244), with their manifest ceiling.json. */
+export function ceilingDir(): string {
+  return resolve(process.env.DGM_PROBE_CEILING ?? join(DEFAULT_PROBE_HOME, 'ceiling'));
+}
 /** The size maps tools/probe-maps/sizes.ts writes (PLAN §20 D357 (9)), with their manifest sizes.json. */
 export function sizesDir(): string {
   return resolve(process.env.DGM_PROBE_SIZES ?? join(DEFAULT_PROBE_HOME, 'sizes'));

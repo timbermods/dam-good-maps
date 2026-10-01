@@ -11,28 +11,26 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo, WaterLayers } 
 import type { FixOp } from "../core/validate/report";
 import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail } from "../core/analysis/wood";
-import type { StartCheck } from "./features";
+import { startStatus, type StartCheck } from "./features";
 import { plain } from "./words";
+import { tip } from "../ui/Tooltip";
 
 // ------------------------------------------------------------------------------ the water layers
 
-export type LayerKind = "none" | "moisture" | "badwater" | "drought" | "roofed";
+/** The water layers the view bar shows (D287: the land shows moisture itself, and the day-by-day
+ *  Drought button shows a drought; no Moisture or Drought view). */
+export type LayerKind = "none" | "badwater" | "roofed";
 
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
-  moisture: "Soil moisture",
   badwater: "Badwater",
-  drought: "Drought",
   roofed: "Water under roofs",
 };
 
 /** What the water layer on the map shows, in a line or two. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
   let text = "";
-  if (kind === "moisture") text = "Green soil is moist: living trees and bushes grow there. Darker is wetter.";
-  else if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
-  else if (kind === "drought")
-    text = `After a ${layers.droughtDays}-day drought, blue water is still there and orange water has dried up. About ${layers.droughtKept.toLocaleString()} of ${layers.droughtNow.toLocaleString()} water is left.`;
+  if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
   else if (kind === "roofed")
     text = layers.roofed.length
       ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`
@@ -64,6 +62,17 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
   );
 }
 
+/** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
+ *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and
+ *  not the row. Highlighted: it is the source being changed. */
+export function SourceReadout(p: { label: string; words: string }) {
+  return (
+    <span class="source-readout" role="status" aria-label={p.label} data-source-readout>
+      <span class="source-readout-label">{p.label}</span> <output>{p.words}</output>
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------------------- the start
 
 /** The start's footprint check while it is dragged: whether it fits, the three start requirements
@@ -71,11 +80,12 @@ export function StrengthSlider(p: { value: number; steps: readonly number[]; onC
  *  targets it misses as warnings. */
 export function StartIndicators({ check, rules }: { check: StartCheck; rules: { waterWithin: number; woodWithin20: number; bushesWithin20: number } }) {
   const mark = (ok: boolean) => (ok ? "ok" : "low");
+  const status = startStatus(check);
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
 
   return (
     <div class="start-indicators" role="status">
-      <p class={check.problem || !check.meets ? "bad" : "ok"}>
+      <p class={status === "blocked" ? "bad" : status === "warn" ? "warn" : "ok"} data-status={status}>
         {check.problem ? `Does not fit: ${check.problem}` : check.meets ? "The district center fits here" : "Fits, but misses a start requirement"}
       </p>
       <ul>
@@ -110,20 +120,20 @@ export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJ
     <aside class="history" aria-label="History">
       <header>
         <h2>History</h2>
-        <button type="button" class="linkish" aria-label="Close the history" onClick={onClose}>
+        <button type="button" class="linkish" aria-label="Close the history" title="Close the history" onClick={onClose}>
           ×
         </button>
       </header>
       <p class="muted">Click a step to go back to it. Nothing is lost: you can go forward again until you make a new edit.</p>
       <ol>
         <li>
-          <button type="button" class="linkish" aria-current={current === -1} onClick={() => onJump(-1)}>
+          <button type="button" class="linkish" aria-current={current === -1} title="Go back to before any edit" onClick={() => onJump(-1)}>
             {info.kind === "import" ? "Opened the map" : "The generated map"}
           </button>
         </li>
         {info.history.map((h, k) => (
           <li key={k} class={h.applied ? "" : "undone"}>
-            <button type="button" class="linkish" aria-current={current === k} onClick={() => onJump(k)}>
+            <button type="button" class="linkish" aria-current={current === k} title="Go back to this step" onClick={() => onJump(k)}>
               {h.label}
             </button>
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}
@@ -173,7 +183,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && c.fix?.length ? (
             <>
               {" "}
-              <button type="button" class="linkish" onClick={() => actions.onFix(c.fix!)}>
+              <button type="button" class="linkish" {...tip(c.fix[0].label || "Fix it", "Ctrl+Z undoes it")} onClick={() => actions.onFix(c.fix!)}>
                 {c.fix[0].label || "Fix it"}
               </button>
             </>
@@ -181,7 +191,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && actions.canShow(c) ? (
             <>
               {" "}
-              <button type="button" class="linkish" onClick={() => actions.onShow(c)}>
+              <button type="button" class="linkish" title="Show where on the map this is" onClick={() => actions.onShow(c)}>
                 Show
               </button>
             </>

@@ -6,8 +6,10 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, type BrushParams, type Rect } from "./brush";
-import { integrityAt } from "./terrain";
+import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
+import type { Runs } from "../../math/grid";
+import type { StartFeature } from "../schema";
+import { integrityAt, padTile } from "./terrain";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -27,6 +29,8 @@ export interface TerrainState {
   field?: Uint8Array | null;
   /** The highest the terrain may stand: 16, or a tall map's top (D172). */
   top?: number;
+  /** The start features: their pads are the one ground Naturalize leaves (D368 (8)). */
+  starts?: readonly StartFeature[];
 }
 
 export class StrokePreview {
@@ -48,7 +52,11 @@ export class StrokePreview {
   private readonly precise: boolean;
 
   /** `heights` are the map's heights as shown (changed in place as the stroke goes on). */
-  constructor(settings: Omit<BrushParams, "dabs">, state: TerrainState, heights: Uint8Array, W: number, H: number) {
+  constructor(settings: Omit<BrushParams, "dabs">, state: TerrainState, heights: Uint8Array, W: number, H: number, ground?: Runs) {
+    // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
+    // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
+    // stroke is not yet an operation, hands in the same ones (D368 (8))
+    if (settings.tool === "naturalize" && settings.weathers && ground?.length) settings = { ...settings, keep: [...(settings.keep ?? []), ...ground] };
     this.W = W;
     this.H = H;
     this.state = state;
@@ -56,16 +64,21 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
-    this.precise = settings.precise === true;
-    this.protect = this.precise ? state.protect.slice() : state.protect;
+    // (a target's stroke too, D322: exact, as a precise one was)
+    this.precise = brushHard(settings);
+    this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
+    // kept sources' ground stays exactly as it is (D322, item 31): the integrity pass leaves it too
+    if (settings.sources === "keep") for (const [y, a, b] of settings.keep ?? []) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) this.protect[y * W + x] = 1;
     let keep: Uint8Array | null = null;
     if (state.columns.length) {
       keep = new Uint8Array(W * H);
       for (const i of state.columns) keep[i] = 1;
     }
-    // Naturalize leaves protected tiles alone, as build step 6 does (D253)
-    const prot = settings.tool === "naturalize" ? state.protect : null;
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]));
+    // Naturalize weathers all but the start's pad, as build step 6 does (D368 (8))
+    // (a stroke from before D368 leaves every protected tile, as the build does)
+    const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
+    const prot = settings.tool === "naturalize" && !settings.weathers ? state.protect : null;
+    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))));
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;
@@ -78,7 +91,24 @@ export class StrokePreview {
    *  shown heights that changed, or null. */
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
     const r = this.stroke.add(dabs, pressure, levels);
+    return r ? this.settle(r) : null;
+  }
+
+  /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle
+   *  tile (D249), as the build does. Returns the rectangle of shown heights that changed, or null. */
+  finish(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
+    const r = rigid.length ? this.stroke.level(rigid) : null;
     if (!r) return null;
+    this.finished = this.finished ? { x0: Math.min(this.finished.x0, r.x0), y0: Math.min(this.finished.y0, r.y0), x1: Math.max(this.finished.x1, r.x1), y1: Math.max(this.finished.y1, r.y1) } : r;
+    return this.settle(r);
+  }
+
+  /** The tiles `finish` changed (outside the dabs' reach too), or null. */
+  finished: Rect | null = null;
+
+  /** After the stroke changed the tiles in `r`: the integrity pass round them, and what the page
+   *  shows that changed. */
+  private settle(r: Rect): Rect | null {
     const { W, H, heights, last } = this;
     // a precise stroke's tiles stay as it leaves them (build step 6 marks them the same way)
     if (this.precise)

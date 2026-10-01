@@ -40,7 +40,9 @@ export interface SettingsPanelProps {
   spec: MapSpec;
   seedText: string;
   onSeed(text: string): void;
-  onDice(): void;
+  /** The seed is kept (typed, or from a link): Generate makes that map again. */
+  seedPinned: boolean;
+  onUnpinSeed(): void;
   onSize(size: { x: number; y: number }): void;
   onTheme(theme: ThemeId): void;
   onDifficulty(d: Difficulty): void;
@@ -115,6 +117,47 @@ function ThemeGlyph({ theme }: { theme: ThemeId }) {
   }
 }
 
+/** What each setting does, in one line, for its tooltip (D351). */
+const HINT: Record<string, string> = {
+  seed: "The same seed and settings make the same map",
+  size: "The map's size: the game's, or your own",
+  "size-x": "The map's width in tiles (48 to 256)",
+  "size-y": "The map's height in tiles (48 to 256)",
+  "designed-for": "The difficulty the map is balanced for",
+  relief: "How much the land rises and falls, from flat to rugged",
+  verticality: "How steep and tall the cliffs and slopes are",
+  highest: "The highest level the land may reach",
+  terracing: "How much of the land is cut into flat terraces",
+  buildable: "How much of the land is flat enough to build on",
+  rivers: "How many rivers cross the map",
+  "river-style": "How the rivers run: straight, meandering or braided",
+  "river-flow": "How much water the rivers carry, from a trickle to lush",
+  reserve: "Water kept to last through a drought",
+  lakes: "How many lakes and basins the map has",
+  falls: "How many waterfalls the rivers make",
+  badwater: "How much badwater the map has",
+  "badwater-distance": "How far the badwater is kept from the start, in tiles",
+  thorns: "Belts of thorns that block some ways",
+  cores: "How many unstable cores the map has: an advanced hazard",
+  forest: "How thickly trees grow, as a share of the usual amount",
+  groves: "How big each grove of trees is",
+  "mix-pine": "How many of the trees are pines",
+  "mix-birch": "How many of the trees are birches",
+  "mix-oak": "How many of the trees are oaks",
+  "mix-succulent": "How many of the trees are succulents",
+  "berries-start": "How many berry bushes grow near the start",
+  berries: "How many berry bushes grow elsewhere",
+  ruins: "How much ruin and scrap metal the map has",
+  relics: "How many relics are placed",
+  geothermal: "Whether geothermal fields are placed, and how many",
+  mines: "How many mine sites the map has",
+  "start-area": "How roomy the land round the start is",
+  "rule-water": "The farthest the start may be from water",
+  "rule-wood": "The fewest logs the start must reach",
+  "rule-bushes": "The fewest bushes the start must reach",
+  "rule-ruins": "How far from the start ruins must stay, in tiles",
+};
+
 function Band({ id, text }: { id: string; text: string }) {
   return text ? (
     <span class="band" id={id}>
@@ -126,7 +169,7 @@ function Band({ id, text }: { id: string; text: string }) {
 function Slider(props: { id: string; label: string; value: number; min: number; max: number; step?: number; unit?: string; band?: string; onChange(v: number): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">
         {props.label}
         <output for={props.id}>
@@ -152,7 +195,7 @@ function Slider(props: { id: string; label: string; value: number; min: number; 
 function Pick<T extends string>(props: { id: string; label: string; value: T; choices: Choice<T>[]; band?: string; note?: string; onChange(v: T): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">{props.label}</span>
       <select id={props.id} value={props.value} aria-describedby={props.band || props.note ? bandId : undefined} onChange={(e) => props.onChange((e.target as HTMLSelectElement).value as T)}>
         {props.choices.map((c) => (
@@ -170,7 +213,7 @@ function Pick<T extends string>(props: { id: string; label: string; value: T; ch
 function Num(props: { id: string; label: string; value: number; min: number; max: number; band?: string; onChange(v: number): void }) {
   const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id}>
+    <label class="field" for={props.id} title={HINT[props.id]}>
       <span class="field-head">{props.label}</span>
       <input
         id={props.id}
@@ -192,7 +235,7 @@ function Num(props: { id: string; label: string; value: number; min: number; max
 function Section(props: { title: string; open?: boolean; children: JSX.Element | (JSX.Element | null)[] }) {
   return (
     <details class="section" open={props.open}>
-      <summary>{props.title}</summary>
+      <summary title={`Show or hide the ${props.title.toLowerCase()} settings`}>{props.title}</summary>
       <div class="section-body">{props.children}</div>
     </details>
   );
@@ -243,17 +286,22 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </fieldset>
 
       <h2>Map</h2>
-      <label class="field" for="seed">
+      <label class="field" for="seed" title={HINT.seed}>
         <span class="field-head">Seed</span>
         <div class="row">
           <input id="seed" value={p.seedText} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} aria-describedby="seed-band" />
-          <button type="button" class="ghost" title="Pick a random seed" onClick={p.onDice}>
-            Dice
-          </button>
+          {p.seedPinned ? (
+            <button type="button" class="ghost icon-button" aria-label="Seed kept: click to unlock" title="Seed kept: click to unlock it" onClick={p.onUnpinSeed}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+              </svg>
+            </button>
+          ) : null}
         </div>
-        <Band id="seed-band" text="A number, or any word." />
+        <Band id="seed-band" text={p.seedPinned ? "Kept: Generate makes this map again." : "Generate picks a new seed. Type a number or a word to keep one."} />
       </label>
-      <label class="field" for="size">
+      <label class="field" for="size" title={HINT.size}>
         <span class="field-head">Size</span>
         <select
           id="size"
@@ -364,14 +412,14 @@ export function SettingsPanel(p: SettingsPanelProps) {
       </Section>
 
       <details class="section">
-        <summary>Limits for this size</summary>
+        <summary title="Show or hide what this map size limits">Limits for this size</summary>
         <ul class="limits">
           {limitsText(W, H).map((l) => (
             <li key={l}>{l}</li>
           ))}
         </ul>
       </details>
-      <button type="button" class="ghost wide" onClick={p.onReset}>
+      <button type="button" class="ghost wide" title="Put every setting back to the chosen theme's own" onClick={p.onReset}>
         Reset to the theme's settings
       </button>
     </div>

@@ -60,8 +60,8 @@ describe("the legend: only what is on the map", () => {
 
   it("keeps a page's own line with the tiles it gives, and drops it when it has none", () => {
     const m = map();
-    expect(presentEntries([{ swatch: "", label: "Dam sites", markers: true, tiles: [3, 4] }], m)).toEqual([{ swatch: "", label: "Dam sites", markers: true, tiles: [3, 4], key: "Dam sites" }]);
-    expect(presentEntries([{ swatch: "", label: "Dam sites", markers: true, tiles: [] }], m)).toEqual([]);
+    expect(presentEntries([{ swatch: "", label: "Picked tiles", markers: true, tiles: [3, 4] }], m)).toEqual([{ swatch: "", label: "Picked tiles", markers: true, tiles: [3, 4], key: "Picked tiles" }]);
+    expect(presentEntries([{ swatch: "", label: "Picked tiles", markers: true, tiles: [] }], m)).toEqual([]);
   });
 });
 
