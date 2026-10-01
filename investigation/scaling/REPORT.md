@@ -180,3 +180,29 @@ water/mesh preparation to `investigation/performance` for scheduling; startup ca
 stored build directly. Stress page-timer gaps reach 8.1 s in Chromium and 23.2 s in the
 WebKit adapter; Firefox reaches 33 ms. Cause needs its main-thread/IPC/GC profiling gate;
 these core timings establish no UI smoothness claim. No product files were changed.
+
+## Round 4 — patches, with a remaining latency gate
+
+Format 6 replaces whole-map checkpoints with compressed inverse/forward changes. It stores the exact current state, complete gesture journal and **100 undoable steps** after reopening. In-session patches stay on disk. Opening and Undo replay **zero gestures**; streaming writes stay at most 32 KiB.
+
+| 2,048 mixed edits | Round 3 → Round 4 MiB (% of Round 3) | Literal baseline / Round 2 gesture MiB |
+|---|---:|---:|
+| 256² | 29.89 → 7.11 (24%) | 0.43 / 0.24 |
+| 512² | 104.27 → 19.93 (19%) | 0.90 / 0.70 |
+
+The literal baseline uses this sparse workload, unlike Round 1's dense stress. Round 4 remains larger than that literal file: editable internal state and dense water/entity changes account for the remaining bytes.
+
+Chromium timings below are median/worst of three runs, with contemporaneous whole-machine CPU median/worst % in parentheses. Individual Undo at a depth and traversing 100 steps are separate measurements; traversal sums the descending 1/32/100 segments, excluding oracle hashing.
+
+| Map | Direct open s (CPU) | Open + real first edit s (CPU) | Individual Undo at depths 1; 32; 100 ms (CPU) | Traverse 100 Undo steps s (CPU) |
+|---|---:|---:|---:|---:|
+| 256² | 1.20/1.26 (100/100) | 2.21/2.23 (100/100) | 31.90/34.90 (100/100); 0.30/0.40 (100/100); 0.40/0.50 (100/100) | 1.47/1.53 (100/100) |
+| 512² | 3.88/4.50 (96.5/100) | 6.78/8.25 (93/100) | 78.00/91.20 (96/97); 0.90/1.00 (99/100); 0.40/0.40 (95/96) | 5.70/7.46 (87.5/100) |
+
+**“Instant at every depth” remains an adoption gate.** Sparse steps are fast; dense metadata decode still makes a 100-step jump take seconds (Firefox 512²: 12.01/13.97 s, CPU 100/100%). Only the immediate inverse is warmed on opening; warming all 100 cost several extra seconds. Dirty-span capture, incremental decode/cache warming and worker/UI scheduling need milestone integration. Reopening/editable budgets also need checking under comparable load; earlier quieter runs establish no controlled speed-up.
+
+Decoded patches retain **64 MiB/100**, compressed frames **32 MiB**, results/fields **32 MiB** each; one oversized working patch reaches 85.2 MiB at 512². Construction GC heap/buffers at edits 512→2,048 are **274+64 → 280+55 MiB** (256²), **373+55 → 388+53 MiB** (512²); full-run peak RSS is 1.8/2.7 GiB. That trace used the larger JSON/copy-pair codec; final binary/range retention is checked separately. Journal/native metadata and disk indexes grow; retained payload is bounded.
+
+**All three engines verify every retained Undo/Redo position, direct opening and streamed disk readback at both sizes.** Full live-session proofs cover 2,048 undos/redos per size; forward states/exports match Round 2. Five-force input receipts, saved-past redo, water boundaries, aliases/float bits/UTF-16, corruption and legacy migration pass. A native decompressor lost the Windows WebKit page twice and was excluded. WebKit uses host-disk IPC; native Safari OPFS and rendered-editor budgets remain gates.
+
+[All engine timings and load](round4/timings.csv), [compact evidence](round4/measurements.json), [adoption/regeneration](round4/INTEGRATION.md) and [canonical force/collaboration recipe](round4/REPLAY.md). Product files remain unchanged; Round 1 capacity/allocation patches remain in the combined adoption patch.

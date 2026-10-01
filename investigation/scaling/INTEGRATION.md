@@ -1,8 +1,17 @@
 # Scaling to 512 on a side
 
+## Round 4
+
+Use [Round 4 integration](round4/INTEGRATION.md) for the current combined patch: direct stored-state
+opening, compact inverse/forward patches, streaming saves, and the last 100 steps undoable after
+reopening. Older gestures remain replayable. New sessions have no historical whole-map checkpoints.
+The force/water recipe and source/determinism pins are unchanged. Earlier notes are historical.
+Byte correctness and file reduction pass; dense cold undo and editable-opening budgets remain
+adoption gates in [the report](REPORT.md#round-4--patches-with-a-remaining-latency-gate).
+
 ## Round 3
 
-Use [Round 3 integration](round3/INTEGRATION.md) for the current combined patch: direct editable
+The superseded [Round 3 integration](round3/INTEGRATION.md) describes direct editable
 opening from versioned current state, shared disk checkpoints, bounded recent caches and async
 deep undo. [The force replay recipe](round3/REPLAY.md) is reusable by collaboration. The source and
 determinism pins are unchanged. Round 1 and Round 2 notes below are historical.

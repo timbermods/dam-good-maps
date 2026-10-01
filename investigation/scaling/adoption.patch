@@ -832,10 +832,10 @@ index 00000000..3963207d
 +}
 diff --git a/src/core/doc/gestureHistory.ts b/src/core/doc/gestureHistory.ts
 new file mode 100644
-index 00000000..bcf5f43f
+index 00000000..ce8d8ed0
 --- /dev/null
 +++ b/src/core/doc/gestureHistory.ts
-@@ -0,0 +1,292 @@
+@@ -0,0 +1,341 @@
 +import {MapSession} from "./session";
 +import {decodeProjectObject,baseFeaturesOf,checkDocument,type MapDocument} from "./document";
 +import type {EditOp,OpOrigin,AppliedOp} from "./ops";
@@ -843,6 +843,7 @@ index 00000000..bcf5f43f
 +import {readProject,writeProject} from "./projectStream";
 +import {packState,unpackState,StateBank} from "./stateGraph";
 +import {archiveSource,readArchive,writeArchive,CHECKPOINT_KEY,STATE_ABI,type CheckpointIndex} from "./projectArchive";
++import {inversePatch,applyPatch,packPatch,unpackPatch,PatchIndices,type InversePatch} from "./inversePatch";
 +import {HistorySnapshots as RecentStates} from "./historySnapshots";
 +import {fullMap,forceCeiling} from "../forces/force";
 +import {forceMapOf,carveForceParams} from "../forces/carve/result";
@@ -861,6 +862,7 @@ index 00000000..bcf5f43f
 +import {planRemoveAt} from "./selectionHelpers";
 +import {runsToTiles,type Runs} from "../math/grid";
 +import type {RemoveKind} from "../features/objects";
++export {inversePatch,applyPatch,packPatch,unpackPatch} from "./inversePatch";
 +export {rockOf,fallenOf} from "./forceHelpers";
 +export {BoundedFields} from "./boundedFields";
 +export {HistorySnapshots} from "./historySnapshots";
@@ -947,6 +949,14 @@ index 00000000..bcf5f43f
 +  private entries:GestureEntry[]=[];private cursor=0;
 +  private revision=0;
 +  private tempKey=2**40;
++  private patchMode=true;
++  private undoFloor=0;
++  private nextPatchKey=CHECKPOINT_KEY+1;
++  private patchIndex:CheckpointIndex[]=[];
++  private patches=new RecentStates<InversePatch>();
++  private patchIndices=new PatchIndices();
++  private compressedPatches=new Map<number,Uint8Array>();
++  private execution:any;
 +  private checkpoints:CheckpointIndex[]=[];
 +  private recent=new RecentStates<object>();
 +  private spacing:number;
@@ -961,9 +971,10 @@ index 00000000..bcf5f43f
 +    if(execution)checkDocument(this.base);
 +    this.results=executionStore??new ResultStore(cold,policy.results??32*1024*1024);
 +    this.session.useResultStore(this.results,0,1,!execution);
-+    this.remember();if(!execution&&this.spacing)this.persistCheckpoint();
++    this.remember();
 +  }
 +  private remember():void {
++    if(this.patchMode){this.execution=this.session.checkpointExecution();return;}
 +    const known=this.recent.get(this.cursor) as any,b=this.session.built;
 +    if(known?.cur.heights===b.heights&&known.cur.water===b.water&&known.cur.entities===b.entities&&known.cur.cache.keys===b.cache.keys&&known.gen.meta===this.session.meta){known.seqNext=this.session.nextOperationSeq;return;}
 +    this.recent.set(this.cursor,this.session.checkpointExecution());
@@ -980,15 +991,30 @@ index 00000000..bcf5f43f
 +      this.spacing*=2;this.checkpoints=this.checkpoints.filter(c=>c.at===0||c.at===this.cursor||c.at%this.spacing===0);
 +    }
 +  }
++  private putPatch(at:number,before:object,after:object):void {
++    const patch=inversePatch(before,after,this.patchIndices),packed=packPatch(patch);
++    const key=this.nextPatchKey++;this.results.cold.put(key,packed.bytes);
++    this.patchIndex=this.patchIndex.filter(x=>x.at!==at);this.patchIndex.push({at,key,bytes:packed.bytes.length,results:packed.results,blobs:[]});
++    this.compressedPatches.delete(at);this.patches.delete(at);this.patches.set(at,packed.patch);
++    while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);
++  }
++  private patch(at:number):InversePatch {
++    let patch=this.patches.get(at);if(!patch){if(!this.patchIndex.some(x=>x.at===at))throw Error('missing inverse patch');patch=unpackPatch(this.compressedPatches.get(at)??this.results.cold.get(this.patchIndex.find(x=>x.at===at)!.key??CHECKPOINT_KEY+at),this.results);this.patches.set(at,patch);while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);}return patch;
++  }
++  private waterBoundary():void {
++    if(this.patchMode){const current=this.session.checkpointExecution();if(this.cursor>this.undoFloor){const before=applyPatch(this.execution,this.patch(this.cursor).back);this.putPatch(this.cursor,before,current);}this.execution=current;}
++    else this.remember();
++  }
 +  private record(entry:GestureEntry):void {
++    if(this.patchMode){const current=this.session.checkpointExecution();this.patchIndex=this.patchIndex.filter(x=>x.at<=this.cursor);for(const at of this.patches.keys())if(at>this.cursor)this.patches.delete(at);this.putPatch(this.cursor+1,this.execution,current);this.execution=current;}
 +    this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;
 +    for(const at of this.recent.keys())if(at>this.cursor)this.recent.delete(at);
 +    this.checkpoints=this.checkpoints.filter(c=>c.at<this.cursor);
 +    for(const at of this.canonicalBoundaries)if(at>=this.cursor)this.canonicalBoundaries.delete(at);
-+    this.remember();if(this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
++    if(!this.patchMode)this.remember();if(!this.patchMode&&this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
 +  }
 +  private importLegacy(op:AppliedOp):void {
-+    const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
++    this.remember();const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
 +    // Undo metadata is derived, and must stay mutable in the execution log.
 +    const {undo:_,orphaned:__,...literal}=applied;
 +    this.record({kind:"legacy",seq:op.seq,origin:op.origin,...(op.label?{label:op.label}:{}),op:literal});
@@ -1001,12 +1027,12 @@ index 00000000..bcf5f43f
 +  }
 +  private canonicalBoundaries=new Set<number>();
 +  adoptWater(...args:Parameters<MapSession['adoptWater']>):boolean {
-+    const before=this.session.built,ok=this.session.adoptWater(...args);
-+    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}return ok;
++    if(this.patchMode)this.remember();const before=this.session.built,ok=this.session.adoptWater(...args);
++    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}return ok;
 +  }
 +  settleCanonical():void {
-+    const before=this.session.built;this.session.settleCanonical();
-+    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}
++    if(this.patchMode)this.remember();const before=this.session.built;this.session.settleCanonical();
++    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}
 +  }
 +  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<void>{
 +    gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
@@ -1022,6 +1048,7 @@ index 00000000..bcf5f43f
 +    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
 +  }
 +  private async inputAt(count:number):Promise<MapSession> {
++    if(this.patchMode&&count>=this.undoFloor){let execution:any=this.session.checkpointExecution();for(let at=this.cursor;at>count;at--)execution=applyPatch(execution,this.patch(at).back);for(let at=this.cursor+1;at<=count;at++)execution=applyPatch(execution,this.patch(at).forward);if(this.entries[count])execution.seqNext=this.entries[count].seq;return MapSession.restoreExecution(this.base,execution);}
 +    const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
 +    const cp=this.checkpoints.filter(c=>c.at<=count).at(-1);
 +    const execution=cp?unpackState(this.results.cold.get(CHECKPOINT_KEY+cp.at),this.results,this.bank):undefined;
@@ -1055,9 +1082,9 @@ index 00000000..bcf5f43f
 +    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputHashVersion,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
 +    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
 +  }
-+  undo():boolean {if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
++  undo():boolean {if(this.patchMode){if(this.cursor<=this.undoFloor)return false;this.movePatch(this.cursor-1);return true;}if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
 +    if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("cold undo requires await seek(count-1)");this.cursor--;this.revision++;this.remember();return true;}
-+  redo():boolean {if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
++  redo():boolean {if(this.patchMode){if(this.cursor===this.entries.length||!this.patchIndex.some(x=>x.at===this.cursor+1))return false;this.movePatch(this.cursor+1);return true;}if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
 +    if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("cold redo requires await seek(count+1)");this.cursor++;this.revision++;this.remember();return true;}
 +  private async replayEntry(entry:GestureEntry):Promise<void> {
 +    if(!entry||!['user','claude','fix'].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=='string')throw Error('invalid gesture envelope');
@@ -1068,10 +1095,18 @@ index 00000000..bcf5f43f
 +    else if(entry.kind==='force'){await this.force(entry.gesture,entry.origin,entry.label,entry.replaces,entry.inputHash,entry.inputHashVersion??1);const actual=this.entries.at(-1) as Extract<GestureEntry,{kind:'force'}>;if(actual.forceSeq!==entry.forceSeq||actual.inputCursor!==entry.inputCursor)throw Error('force cursor/sequence differs');}
 +    else throw Error('unknown gesture kind');
 +  }
-+  /** Cold history movement is asynchronous; callers retain the current visible map until it succeeds. */
++  private movePatch(target:number):void {
++    const seq=this.session.nextOperationSeq;
++    this.execution=this.session.checkpointExecution();
++    const state=target<this.cursor?applyPatch(this.execution,this.patch(this.cursor).back):applyPatch(this.execution,this.patch(this.cursor+1).forward);
++    this.session.installExecution(state);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.execution=this.session.checkpointExecution();
++  }
++  /** Patch movement commits each step; progress callbacks may publish it. Legacy replay
++   * installs the reconstructed target only after its revision check succeeds. */
 +  async seek(target:number,progress?:(at:number,session:MapSession)=>Promise<void>):Promise<void> {
 +    if(!Number.isSafeInteger(target)||target<0||target>this.entries.length)throw Error('invalid history cursor');
 +    if(target===this.cursor)return;
++    if(this.patchMode){if(target<this.undoFloor)throw Error('older gestures are replay-only after reopening');const started=this.cursor;while(this.cursor!==target){this.movePatch(this.cursor+(target>this.cursor?1:-1));const revision=this.revision;await progress?.(this.cursor,this.session);if(this.revision!==revision)throw Error('history seek superseded');}this.lastSeek={replayed:0,checkpoint:started,cache:true};return;}
 +    const nextSeq=this.session.nextOperationSeq,revision=this.revision,cached=this.recent.get(target);
 +    let execution:object,replayed=0,at=target;
 +    if(cached)execution=cached;
@@ -1089,10 +1124,17 @@ index 00000000..bcf5f43f
 +    this.remember();this.session.installExecution(execution);this.session.setReplaySequence(Math.max(nextSeq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.remember();this.lastSeek={replayed,checkpoint:at,cache:!!cached};
 +  }
 +  private checkpointBytes():number{return this.checkpoints.reduce((n,c)=>n+c.bytes,0)+this.bank.index(this.checkpoints.flatMap(c=>c.blobs)).reduce((n,c)=>n+c.bytes,0);}
-+  get checkpointStats(){return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
++  get checkpointStats(){if(this.patchMode)return {spacing:0,count:0,bytes:0,recentBytes:this.patches.bytes,recentCount:this.patches.size,failure:null,compressedBytes:[...this.compressedPatches.values()].reduce((n,x)=>n+x.length,0),patchBytes:this.patchIndex.reduce((n,x)=>n+x.bytes,0),undoFloor:this.undoFloor};return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
++  get canUndo():boolean{return this.cursor>this.undoFloor;}
++  get canRedo():boolean{return this.cursor<this.entries.length&&(!this.patchMode||this.patchIndex.some(x=>x.at===this.cursor+1));}
 +  get count():number{return this.cursor;}
 +  get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
 +  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {
++    if(this.patchMode){
++      const floor=Math.max(this.undoFloor,this.cursor-100),ceiling=Math.min(this.entries.length,this.cursor+100),index=this.patchIndex.filter(x=>x.at>floor&&x.at<=ceiling).sort((a,b)=>a.at-b.at),current=this.session.checkpointExecution();
++      const manifest={...this.project,formatVersion:6,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:1,patches:index,undoFloor:floor,canonicalBoundaries:[...this.canonicalBoundaries]};
++      await writeArchive(manifest,current,index,this.results,this.bank,sink);return;
++    }
 +    this.remember();this.persistCheckpoint();
 +    const index=this.checkpoints.filter(c=>c.at<=this.entries.length),current=this.session.checkpointExecution();
 +    const manifest={...this.project,formatVersion:5,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:this.spacing,checkpoints:index,canonicalBoundaries:[...this.canonicalBoundaries]};
@@ -1101,12 +1143,19 @@ index 00000000..bcf5f43f
 +  static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
 +    const input=await archiveSource(source);
 +    if(input.archive){const store=new ResultStore(cold,policy.results??32*1024*1024),archive=await readArchive(input.source,store);if(!archive)throw Error('missing archive');const raw=archive.manifest;
-+      if(raw.app!=='dam-good-maps'||raw.formatVersion!==5||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
++      if(raw.app!=='dam-good-maps'||![5,6].includes(raw.formatVersion)||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
 +      if(!Array.isArray(raw.entries)||!Number.isSafeInteger(raw.cursor)||raw.cursor<0||raw.cursor>raw.entries.length||!Number.isSafeInteger(raw.spacing)||raw.spacing<1||archive.current.undoStack.length!==raw.cursor||archive.current.seqNext!==raw.nextSeq)throw Error('invalid saved history');
 +      let prior=0;for(const e of raw.entries){if(!Number.isSafeInteger(e.seq)||e.seq<=prior||!['operations','selection','force','legacy'].includes(e.kind)||!['user','claude','fix'].includes(e.origin)||e.label!==undefined&&typeof e.label!=='string')throw Error('invalid gesture envelope');
 +        if((e.kind==='force'||e.kind==='selection')&&((e.inputHashVersion!==undefined&&e.inputHashVersion!==1&&e.inputHashVersion!==2)||typeof e.inputHash!=='string'||!/^[0-9a-f]{64}$/.test(e.inputHash)))throw Error('unsupported or invalid input hash');prior=e.seq;}
 +      const boundaries=raw.canonicalBoundaries??[];if(!Array.isArray(boundaries)||boundaries.some((n:any)=>!Number.isSafeInteger(n)||n<0||n>raw.entries.length)||new Set(boundaries).size!==boundaries.length)throw Error('invalid canonical water boundaries');
-+      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();h.remember();return h;
++      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.patchMode=raw.formatVersion===6;h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();
++      if(h.patchMode){if(!Number.isSafeInteger(raw.undoFloor)||raw.undoFloor<0||raw.undoFloor>raw.cursor||raw.cursor-raw.undoFloor>100)throw Error('invalid undo retention');h.undoFloor=raw.undoFloor;h.patchIndex=archive.checkpoints;h.nextPatchKey=Math.max(CHECKPOINT_KEY,...h.patchIndex.map(x=>x.key??CHECKPOINT_KEY+x.at))+1;h.checkpoints=[];h.compressedPatches=archive.patchBytes;for(let at=h.undoFloor+1;at<=h.cursor;at++)if(!h.patchIndex.some(x=>x.at===at))throw Error("missing retained undo patch");}
++      // Decode the immediate inverse before publishing an editable document. Dense
++      // water/entity patches must not make the first Undo pay a cold inflater cost.
++      // Other retained patches remain lazy and share the bounded decoded cache.
++      if(h.patchMode&&h.canUndo)h.patch(h.cursor);
++      else if(h.patchMode&&h.canRedo)h.patch(h.cursor+1);
++      h.remember();return h;
 +    }
 +    const raw=await readProject(input.source) as GestureProject;
 +    if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
@@ -1116,7 +1165,7 @@ index 00000000..bcf5f43f
 +      // A saved legacy result may lack its historical force/water inputs. Preserve it losslessly;
 +      // all NEW edits use gestures. Do not guess a seed recipe or discard old undo depth.
 +      for(const op of doc.edits)h.importLegacy(op);
-+      h.session.setReplaySequence(doc.nextSeq);h.session.settleCanonical();return h;
++      h.session.setReplaySequence(doc.nextSeq);h.settleCanonical();return h;
 +    }
 +    if(raw.replayVersion!==REPLAY_VERSION)throw Error("unsupported replay version; original engine required");
 +    if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
@@ -1174,9 +1223,242 @@ index 00000000..f674e162
 + override delete(key:number):boolean {this.release(key);return super.delete(key);}
 + override clear():void {super.clear();this.graphs.clear();this.refs.clear();this.versions.clear();this.bytes=0;}
 +}
+diff --git a/src/core/doc/inversePatch.ts b/src/core/doc/inversePatch.ts
+new file mode 100644
+index 00000000..8d08aff7
+--- /dev/null
++++ b/src/core/doc/inversePatch.ts
+@@ -0,0 +1,177 @@
++import {packState,unpackState} from './stateGraph';
++import {derivedResultKey,type ResultStore} from './resultStore';
++import {Gzip,Gunzip} from 'fflate';
++import {fromBase64} from '../format/base64';
++import {JsonFloat} from '../format/json';
++import {PatchRecordWriter,PatchRecordReader} from './patchRecords';
++type Path=any[];
++type Graph={root:any;nodes:any[]};
++export type InversePatch={back:Graph;forward:Graph};
++const ownFields=(v:any):[string,any][]=>{const out:[string,any][]=[];for(const k of Object.getOwnPropertyNames(v)){const d=Object.getOwnPropertyDescriptor(v,k)!;if('value'in d)out.push([k,d.value]);}return out;};
++function sameBytes(a:ArrayBuffer,b:ArrayBuffer):boolean {if(a.byteLength!==b.byteLength)return false;const n=a.byteLength>>>2,x=new Uint32Array(a,0,n),y=new Uint32Array(b,0,n);for(let i=0;i<n;i++)if(x[i]!==y[i])return false;const aa=new Uint8Array(a),bb=new Uint8Array(b);for(let i=n*4;i<aa.length;i++)if(aa[i]!==bb[i])return false;return true;}
++function child(v:any,k:any):any {
++ if(typeof k==='object'){if('m'in k)return [...v][k.m]?.[k.k];if('s'in k)return [...v][k.s];}
++ return v[k];
++}
++/** These execution inputs are replaced, never edited in place by MapSession. Their
++ * immutable topology can be indexed once, rather than rescanning imported entity JSON
++ * on every brush. Mutable current caches are deliberately excluded. */
++export class PatchIndices {
++ private cached=new WeakMap<object,Map<string,Map<object,Path>>>();
++ for(root:any):Map<object,Path>[] {
++  const result:Map<object,Path>[]=[];
++  for(const name of ['gen','baseCache','fieldCache','keptCache','storedWaterCache']){
++   const anchor=root[name];if(!anchor||typeof anchor!=='object')continue;
++   let slots=this.cached.get(anchor);if(!slots){slots=new Map();this.cached.set(anchor,slots);}let index=slots.get(name);
++   if(!index){index=new Map();const visit=(v:any,p:Path):void=>{if(!v||typeof v!=='object'||index!.has(v))return;index!.set(v,p);
++    if(v instanceof ArrayBuffer||derivedResultKey(v)!==undefined||v instanceof JsonFloat)return;
++    if(ArrayBuffer.isView(v)){visit(v.buffer,[...p,'buffer']);return;}
++    if(v instanceof Map){let i=0;for(const [k,x]of v){visit(k,[...p,{m:i,k:0}]);visit(x,[...p,{m:i,k:1}]);i++;}return;}
++    if(v instanceof Set){let i=0;for(const x of v)visit(x,[...p,{s:i++}]);return;}
++    for(const [k,x]of ownFields(v))visit(x,[...p,k]);
++   };visit(anchor,[name]);slots.set(name,index);}
++   result.push(index);
++  }return result;
++ }
++}
++function graph(source:any,target:any,indices?:PatchIndices):Graph {
++ // Source and target are stable during this synchronous traversal. Cache descriptors
++ // only for this call; native history/cache wrappers may change between transactions.
++ const fieldCache=new WeakMap<object,[string,any][]>(),fields=(v:object)=>{let result=fieldCache.get(v);if(!result){result=ownFields(v);fieldCache.set(v,result);}return result;};
++ const paths=new Map<object,Path>(),nodes:any[]=[],seen=new Map<object,any>(),shortcuts=new Map<object,Path>(),claimed=new Map<object,object>();
++ const sourceAnchors=indices?.for(source)??[],targetAnchors=indices?.for(target)??[];
++ const anchored=(v:object,maps:Map<object,Path>[])=>maps.some(m=>m.has(v));
++ const sourcePath=(v:object)=>paths.get(v)??sourceAnchors.find(m=>m.has(v))?.get(v);
++ let anchors=targetAnchors;
++ const index=(v:any,p:Path)=>{if(!v||typeof v!=='object'||paths.has(v)||anchored(v,anchors))return;paths.set(v,p);
++  if(v instanceof ArrayBuffer||derivedResultKey(v)!==undefined||v instanceof JsonFloat)return;
++  if(ArrayBuffer.isView(v)){index(v.buffer,[...p,'buffer']);return;}
++  if(v instanceof Map){let i=0;for(const [k,x]of v){index(k,[...p,{m:i,k:0}]);index(x,[...p,{m:i,k:1}]);i++;}return;}
++  if(v instanceof Set){let i=0;for(const x of v)index(x,[...p,{s:i++}]);return;}
++  for(const [k,x]of fields(v))index(x,[...p,k]);
++ };index(target,[]);const targetObjects=new Set(paths.keys());paths.clear();anchors=sourceAnchors;index(source,[]);
++ const equal=(t:any,s:any):boolean=>{
++  const pairs=new Map<object,object>(),reverse=new Map<object,object>();
++  const visit=(a:any,b:any):boolean=>{
++   if(Object.is(a,b))return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||a.constructor!==b.constructor)return false;
++   if(derivedResultKey(a)!==undefined||derivedResultKey(b)!==undefined)return false;
++   if(targetObjects.has(b)||anchored(b,targetAnchors)||sourcePath(a)||claimed.has(b)&&claimed.get(b)!==a)return false;
++   if(pairs.has(a))return pairs.get(a)===b;if(reverse.has(b))return false;pairs.set(a,b);reverse.set(b,a);
++   if(a instanceof ArrayBuffer)return sameBytes(a,b);
++   if(ArrayBuffer.isView(a))return a.byteOffset===b.byteOffset&&(a as any).length===(b as any).length&&visit(a.buffer,b.buffer);
++   if(a instanceof Map){const x=[...a],y=[...b];return x.length===y.length&&x.every(([k,v],i)=>visit(k,y[i][0])&&visit(v,y[i][1]));}
++   if(a instanceof Set){const x=[...a],y=[...b];return x.length===y.length&&x.every((v,i)=>visit(v,y[i]));}
++   const x=fields(a),y=fields(b);return x.length===y.length&&x.every(([k,v],i)=>k===y[i][0]&&visit(v,y[i][1]));
++  };
++  if(!visit(t,s))return false;for(const [a,b]of pairs){const p=sourcePath(b);if(!p)return false;shortcuts.set(a,p);claimed.set(b,a);}return true;
++ };
++ const value=(t:any,s:any,p?:Path):any=>{
++  if(typeof t==='string'&&t.length>8192){const id=nodes.length;nodes.push({t:'literal',v:t});return {r:id};}
++  if(!t||typeof t!=='object')return {v:t};
++  const prior=seen.get(t);if(prior!==undefined)return prior;
++  const known=sourcePath(t)??shortcuts.get(t);if(known){const ref={p:known};seen.set(t,ref);return ref;}
++  if(p&&equal(t,s)){const ref={p};seen.set(t,ref);return ref;}
++  const id=nodes.length;seen.set(t,{r:id});nodes.push(null);
++  if(derivedResultKey(t)!==undefined||t instanceof JsonFloat||t instanceof Set){nodes[id]={t:'literal',v:t};return {r:id};}
++  if(t instanceof ArrayBuffer){const a=new Uint8Array(t),b=s instanceof ArrayBuffer&&s.byteLength===t.byteLength?new Uint8Array(s):null,runs:any[]=[];
++   if(b){for(let i=0;i<a.length;){if(a[i]===b[i]){i++;continue;}const start=i++;let end=i;while(i<a.length){if(a[i]!==b[i])end=i+1;else if(i-end>8)break;i++;}runs.push([start,a.slice(start,end)]);}}
++   nodes[id]=b?{t:'buffer',p,runs}:{t:'literal',v:t};return {r:id};
++  }
++  if(ArrayBuffer.isView(t)){nodes[id]={t:'view',name:t.constructor.name,buffer:value(t.buffer,ArrayBuffer.isView(s)?s.buffer:undefined,p&&[...p,'buffer']),offset:t.byteOffset,length:(t as any).length};return {r:id};}
++  if(t instanceof Map){const before=s instanceof Map?[...s]:[],positions=new Map(before.map(([k],i)=>[k,i]));nodes[id]={t:'map',entries:[...t].map(([k,x])=>{const j=positions.get(k);return [value(k,j===undefined?undefined:before[j][0],j===undefined?undefined:p&&[...p,{m:j,k:0}]),value(x,j===undefined?undefined:before[j][1],j===undefined?undefined:p&&[...p,{m:j,k:1}])];})};return {r:id};}
++  const array=Array.isArray(t),compatible=array?Array.isArray(s):s&&typeof s==='object'&&!ArrayBuffer.isView(s)&&!(s instanceof Map)&&!(s instanceof Set)&&!(s instanceof ArrayBuffer)&&!(s instanceof JsonFloat);
++  const ids=array&&compatible?new Map(s.map((x:any,i:number)=>[x?.id,i]).filter(([id]:any)=>typeof id==='string')):null;
++  const groups=new Map<string,{p:Path;moves:number[]}>();
++  const changes:any[]=[];for(const [k,x]of fields(t)){if(array&&k==='length')continue;if(compatible&&Object.hasOwn(s,k)&&Object.is(x,s[k]))continue;
++   const ref=x&&typeof x==='object'?(sourcePath(x)??shortcuts.get(x)):undefined;
++   if(array&&ref&&/^\d+$/.test(String(ref.at(-1)))&&/^\d+$/.test(k)){const prefix=ref.slice(0,-1),id=JSON.stringify(prefix),group=groups.get(id)??{p:prefix,moves:[] as number[]};group.moves.push(Number(k),Number(ref.at(-1)));groups.set(id,group);continue;}
++   const paired=ids&&x&&typeof x.id==='string'&&ids.has(x.id)?String(ids.get(x.id)):k,encoded=value(x,compatible?s[paired]:undefined,compatible?p&&[...p,paired]:undefined);
++   if(encoded.p&&p&&JSON.stringify(encoded.p)===JSON.stringify([...p,k]))continue;
++   if(encoded.p&&compatible){let existing=source;for(const key of encoded.p)existing=child(existing,key);if(Object.hasOwn(s,k)&&Object.is(s[k],existing))continue;}
++   if(array&&encoded.p&&/^\d+$/.test(String(encoded.p.at(-1)))&&/^\d+$/.test(k)){const prefix=encoded.p.slice(0,-1),id=JSON.stringify(prefix),group=groups.get(id)??{p:prefix,moves:[] as number[]};group.moves.push(Number(k),Number(encoded.p.at(-1)));groups.set(id,group);continue;}
++   if(encoded.p&&p&&JSON.stringify(encoded.p)===JSON.stringify([...p,k]))continue;changes.push([k,encoded]);}
++  const remove=compatible?Object.keys(s).filter(k=>!Object.hasOwn(t,k)):[];
++  const keys=Object.keys(t),predicted=compatible?[...Object.keys(s).filter(k=>!remove.includes(k)),...keys.filter(k=>!Object.hasOwn(s,k))]:keys;
++  const order=!array&&keys.some((k,i)=>k!==predicted[i])?keys:undefined;
++  nodes[id]={t:array?'array':'object',p:compatible?p:undefined,changes,remove,copies:[...groups.values()],order,...(array?{length:t.length}:{})};return {r:id};
++ };return {root:value(target,source,[]),nodes};
++}
++/** Lossless graph changes: only differing raw bytes and metadata. Float bits, aliases,
++ * view offsets, entity order and hidden inputs to the next edit are retained. */
++export function inversePatch(before:object,after:object,indices?:PatchIndices):InversePatch {return {back:graph(after,before,indices),forward:graph(before,after,indices)};}
++export function applyPatch(source:any,g:Graph):any {
++ const made:any[]=[],types:any={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++ const path=(p:Path)=>{if(!Array.isArray(p))throw Error('invalid patch source');let v=source;for(const k of p){if(v===null||v===undefined)throw Error('missing patch source');v=child(v,k);}return v;};
++ const value=(v:any):any=>Object.hasOwn(v,'v')?v.v:Object.hasOwn(v,'p')?path(v.p):get(v.r);
++ const get=(id:number):any=>{if(!Number.isSafeInteger(id)||id<0||id>=g.nodes.length)throw Error('invalid patch reference');if(made[id]!==undefined)return made[id];const n=g.nodes[id];
++  if(n.t==='ref')return made[id]=path(n.p);
++  if(n.t==='literal')return made[id]=n.v;
++  if(n.t==='buffer'){const old=path(n.p);if(!(old instanceof ArrayBuffer))throw Error('invalid patch buffer');const b=old.slice(0),bytes=new Uint8Array(b);for(const [at,v]of n.runs){if(!Number.isSafeInteger(at)||at<0||at+v.length>bytes.length)throw Error('patch outside buffer');bytes.set(v,at);}return made[id]=b;}
++  if(n.t==='view'){const C=types[n.name];if(!C)throw Error('invalid patch view');return made[id]=new C(value(n.buffer),n.offset,n.length);}
++  if(n.t==='map'){const m=made[id]=new Map();for(const [k,v]of n.entries)m.set(value(k),value(v));return m;}
++  if(n.t!=='array'&&n.t!=='object')throw Error('invalid patch node');
++  const base=n.p===undefined?undefined:path(n.p),out=made[id]=n.t==='array'?(base?base.slice():[]):(base?{...base}:{});
++  for(const k of n.remove)delete out[k];for(const group of n.copies??[]){const from=path(group.p);if(group.ranges){for(let i=0;i<group.ranges.length;i+=3)for(let j=0;j<group.ranges[i+2];j++)out[group.ranges[i]+j]=from[group.ranges[i+1]+j];}else for(let i=0;i<group.moves.length;i+=2)out[group.moves[i]]=from[group.moves[i+1]];}for(const [k,v]of n.changes)Object.defineProperty(out,k,{value:value(v),writable:true,enumerable:true,configurable:true});if(n.t==='array')out.length=n.length;
++  if(n.order){const values=n.order.map((k:string)=>out[k]);for(const k of Object.keys(out))delete out[k];for(let i=0;i<n.order.length;i++)Object.defineProperty(out,n.order[i],{value:values[i],writable:true,enumerable:true,configurable:true});}return out;
++ };return value(g.root);
++}
++function compactGraph(g:Graph):Graph {
++ const resolve=(v:any):any=>v&&Object.hasOwn(v,'r')&&g.nodes[v.r]?.t==='ref'?{p:g.nodes[v.r].p}:v;
++ const nodes=g.nodes.map(n=>({...n}));
++ for(const n of nodes){if(n.t==='view')n.buffer=resolve(n.buffer);if(n.t==='map')n.entries=n.entries.map(([k,v]:any)=>[resolve(k),resolve(v)]);
++  if(n.t==='array'||n.t==='object'){const changes:any[]=[],groups=new Map<string,{p:Path;moves:number[]}>();n.copies=(n.copies??[]).map((x:any)=>x.ranges?{p:x.p,ranges:x.ranges}:{p:x.p,moves:x.moves.filter((v:number,i:number)=>JSON.stringify(x.p)!==JSON.stringify(n.p)||x.moves[i-i%2]!==x.moves[i-i%2+1])}).filter((x:any)=>(x.ranges??x.moves).length);
++   for(const [k,original]of n.changes){const v=resolve(original);if(v.p&&n.p&&JSON.stringify(v.p)===JSON.stringify([...n.p,k]))continue;
++    if(n.t==='array'&&v.p&&/^\d+$/.test(String(v.p.at(-1)))&&/^\d+$/.test(k)){const p=v.p.slice(0,-1),id=JSON.stringify(p),group=groups.get(id)??{p,moves:[] as number[]};group.moves.push(Number(k),Number(v.p.at(-1)));groups.set(id,group);}else changes.push([k,v]);}
++   n.changes=changes;n.copies.push(...groups.values());n.copies=n.copies.map((group:any)=>{if(group.ranges)return group;const ranges:number[]=[];for(let i=0;i<group.moves.length;i+=2){const a=group.moves[i],b=group.moves[i+1],last=ranges.length-3;if(last>=0&&a===ranges[last]+ranges[last+2]&&b===ranges[last+1]+ranges[last+2])ranges[last+2]++;else ranges.push(a,b,1);}return {p:group.p,ranges};});
++  }
++ }
++ const used=new Set<number>(),mark=(v:any)=>{v=resolve(v);if(!v||!Object.hasOwn(v,'r')||used.has(v.r))return;used.add(v.r);const n=nodes[v.r];if(!n)throw Error('missing patch node');if(n.t==='view')mark(n.buffer);if(n.t==='map')for(const [k,v]of n.entries){mark(k);mark(v);}if(n.changes)for(const [,v]of n.changes)mark(v);};
++ const root=resolve(g.root);mark(root);const indices=[...used].sort((a,b)=>a-b),ids=new Map(indices.map((old,i)=>[old,i]));
++ const remap=(v:any):any=>Object.hasOwn(v,'r')?{r:ids.get(v.r)}:v;
++ return {root:remap(root),nodes:indices.map(id=>{const n=nodes[id];if(n.t==='view')n.buffer=remap(n.buffer);if(n.t==='map')n.entries=n.entries.map(([k,v]:any)=>[remap(k),remap(v)]);if(n.changes)n.changes=n.changes.map(([k,v]:any)=>[k,remap(v)]);return n;})};
++}
++export const compactPatch=(p:InversePatch):InversePatch=>({back:compactGraph(p.back),forward:compactGraph(p.forward)});
++function deatom(v:any):any {if(v&&typeof v==='object'){if(Object.keys(v).length===1&&Object.hasOwn(v,'@scalar')){const n=v['@scalar'];return n==='undefined'?undefined:n==='-0'?-0:Number(n);}for(const k of Object.keys(v))Object.defineProperty(v,k,{value:deatom(v[k]),enumerable:true,writable:true,configurable:true});}return v;}
++/** Bounded literal records avoid expanding each tiny metadata patch into a second object
++ * graph. Binary changes and the uncommon new opaque value have their own chunk records. */
++export function packPatch(patch:InversePatch):{bytes:Uint8Array;results:number[];blobs:number[];patch:InversePatch} {
++ patch=compactPatch(patch);
++ const out:Uint8Array[]=[],results=new Set<number>(),gzip=new Gzip({level:6,mtime:0},b=>out.push(b)),records=new PatchRecordWriter();
++ const pending=new Uint8Array(32768);let used=0;
++ const push=(b:Uint8Array)=>{for(let at=0;at<b.length;){const n=Math.min(b.length-at,pending.length-used);pending.set(b.subarray(at,at+n),used);used+=n;at+=n;if(used===pending.length){gzip.push(pending,false);used=0;}}};push(new Uint8Array([73,80,66,49]));
++ const emit=(r:any)=>{const b=records.encode(r),len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,b.length,true);push(len);push(b);};
++ const list=(direction:string,id:number,name:string,items:any[]):void=>{for(let at=0;at<items.length;){let count=Math.min(256,items.length-at);for(;;){try{emit(['list',direction,id,name,items.slice(at,at+count)]);break;}catch(error){if(count===1||String(error)!=='Error: patch record bound')throw error;count=Math.ceil(count/2);}}at+=count;}};
++ emit(['roots',patch.back.root,patch.forward.root]);
++ for(const [direction,g]of [['back',patch.back],['forward',patch.forward]] as const)for(let id=0;id<g.nodes.length;id++){
++  const n=g.nodes[id],{changes,entries,runs,copies,order,remove,...small}=n;
++  if(n.t==='literal'){const p=packState({value:n.v});for(const k of p.results)results.add(k);emit(['node',direction,id,{t:'packed'}]);for(let at=0;at<p.bytes.length;at+=16384)emit(['literal',direction,id,p.bytes.subarray(at,at+16384)]);continue;}
++  emit(['node',direction,id,small]);
++  if(copies)for(const group of copies)for(let at=0;at<group.ranges.length;at+=384)emit(['copy-range',direction,id,group.p,group.ranges.slice(at,at+384)]);
++  for(const [name,items]of [['changes',changes],['entries',entries],['remove',remove],['order',order]] as const)if(items){if(name==='order')emit(['list',direction,id,name,[]]);list(direction,id,name,items);}
++  if(runs)for(const [start,bytes]of runs)for(let at=0;at<bytes.length;at+=16384)emit(['run',direction,id,start+at,bytes.subarray(at,at+16384)]);
++ }
++ gzip.push(pending.subarray(0,used),true);const bytes=new Uint8Array(out.reduce((n,b)=>n+b.length,0));let at=0;for(const b of out){bytes.set(b,at);at+=b.length;}return {bytes,results:[...results],blobs:[],patch};
++}
++function patchDecoder(store:ResultStore) {
++ const patch:InversePatch={back:{root:null,nodes:[]},forward:{root:null,nodes:[]}},literals=new Map<any,Uint8Array[]>(),decoder=new TextDecoder('utf-8',{fatal:true}),binary=new PatchRecordReader();let pending='',inflated=0,wire=new Uint8Array(),mode:undefined|'binary'|'json';
++ const record=(r:any)=>{const [kind,direction,id,...args]=r;if(kind==='roots'){patch.back.root=direction;patch.forward.root=id;return;}
++  if(!['back','forward'].includes(direction)||!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('invalid patch record');const nodes=patch[direction as 'back'|'forward'].nodes;
++  if(kind==='node'){if(nodes[id])throw Error('duplicate patch node');nodes[id]={...args[0]};if(nodes[id].t==='buffer')nodes[id].runs=[];if(['array','object'].includes(nodes[id].t)){nodes[id].changes=[];nodes[id].remove??=[];}if(nodes[id].t==='map')nodes[id].entries=[];return;}
++  const node=nodes[id];if(!node)throw Error('patch data before node');
++  if(kind==='copy'){(node.copies??=[]).push({p:args[0],moves:args[1]});}
++  else if(kind==='copy-range'){(node.copies??=[]).push({p:args[0],ranges:args[1]});}
++  else if(kind==='list'){if(!['changes','entries','remove','order'].includes(args[0]))throw Error('invalid patch list');(node[args[0]]??=[]).push(...args[1]);}
++  else if(kind==='run')node.runs.push([args[0],args[1] instanceof Uint8Array?args[1]:fromBase64(args[1])]);
++  else if(kind==='literal'){const list=literals.get(node)??[];list.push(args[0] instanceof Uint8Array?args[0]:fromBase64(args[0]));literals.set(node,list);}
++  else throw Error('unknown patch record');
++ };
++ const json=(b:Uint8Array)=>{pending+=decoder.decode(b,{stream:true});let at;while((at=pending.indexOf('\n'))>=0){if(at>65536)throw Error('patch record bound');record(deatom(JSON.parse(pending.slice(0,at))));pending=pending.slice(at+1);}if(pending.length>65536)throw Error('patch record bound');};
++ const push=(b:Uint8Array)=>{inflated+=b.length;if(inflated>512*1024*1024)throw Error('inverse patch exceeds bound');if(mode==='json'){json(b);return;}const joined=new Uint8Array(wire.length+b.length);joined.set(wire);joined.set(b,wire.length);wire=joined;if(!mode){if(wire.length<4)return;mode=wire.subarray(0,4).every((v,i)=>v===[73,80,66,49][i])?'binary':'json';if(mode==='json'){json(wire);wire=new Uint8Array();return;}wire=wire.subarray(4);}
++  let at=0;while(at+4<=wire.length){const n=new DataView(wire.buffer,wire.byteOffset+at,4).getUint32(0,true);if(!n||n>65536)throw Error('patch record bound');if(at+4+n>wire.length)break;record(binary.decode(wire.subarray(at+4,at+4+n)));at+=4+n;}wire=wire.slice(at);if(wire.length>65540)throw Error('patch record bound');};
++ const finish=(bytes:Uint8Array):InversePatch=>{pending+=decoder.decode();if(pending||wire.length||!mode||bytes.length<18||new DataView(bytes.buffer,bytes.byteOffset+bytes.length-4,4).getUint32(0,true)!==inflated)throw Error('truncated patch');
++ for(const [node,parts]of literals){const b=new Uint8Array(parts.reduce((n,x)=>n+x.length,0));let at=0;for(const x of parts){b.set(x,at);at+=x.length;}node.t='literal';node.v=unpackState(b,store).value;}
++ return patch;};return {push,finish};
++}
++export function unpackPatch(bytes:Uint8Array,store:ResultStore):InversePatch {
++ const parser=patchDecoder(store),gunzip=new Gunzip(parser.push);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);return parser.finish(bytes);
++}
+diff --git a/src/core/doc/patchRecords.ts b/src/core/doc/patchRecords.ts
+new file mode 100644
+index 00000000..1faf2b1d
+--- /dev/null
++++ b/src/core/doc/patchRecords.ts
+@@ -0,0 +1,44 @@
++/** Bounded binary records for inverse changes. String IDs remove repeated paths/property
++ * names, UTF-16 preserves every code unit, and byte runs avoid base64 expansion. */
++export class PatchRecordWriter {
++ private strings=new Map<string,number>();
++ private scratch=new Uint8Array(65536);
++ encode(value:any):Uint8Array {
++  const bytes=this.scratch,view=new DataView(bytes.buffer),added:string[]=[];let at=0;
++  const byte=(v:number)=>{if(at===bytes.length)throw Error('patch record bound');bytes[at++]=v;};
++  const uint=(v:number)=>{if(!Number.isSafeInteger(v)||v<0)throw Error('invalid patch integer');while(v>=128){byte(v%128+128);v=Math.floor(v/128);}byte(v);};
++  const put=(v:any):void=>{
++   if(v===undefined){byte(0);return;}if(v===null){byte(1);return;}if(v===false){byte(2);return;}if(v===true){byte(3);return;}
++   if(typeof v==='number'){if(Number.isSafeInteger(v)&&!Object.is(v,-0)){byte(v>=0?4:5);uint(v>=0?v:-v-1);}else{byte(6);if(at+8>bytes.length)throw Error('patch record bound');view.setFloat64(at,v,true);at+=8;}return;}
++   if(typeof v==='string'){
++    if(/^(0|[1-9][0-9]*)$/.test(v)&&Number(v)<=0xffffffff){byte(12);uint(Number(v));return;}
++    const known=this.strings.get(v);if(known!==undefined){byte(8);uint(known);return;}
++    this.strings.set(v,this.strings.size);added.push(v);let ascii=true;for(let i=0;i<v.length;i++)if(v.charCodeAt(i)>127){ascii=false;break;}byte(ascii?13:7);uint(v.length);for(let i=0;i<v.length;i++){const c=v.charCodeAt(i);byte(c&255);if(!ascii)byte(c>>>8);}return;
++   }
++   if(v instanceof Uint8Array){byte(11);uint(v.length);if(at+v.length>bytes.length)throw Error('patch record bound');bytes.set(v,at);at+=v.length;return;}
++   if(Array.isArray(v)){byte(9);uint(v.length);for(const x of v)put(x);return;}
++   if(typeof v==='object'&&Object.getPrototypeOf(v)===Object.prototype){const keys=Object.keys(v);byte(10);uint(keys.length);for(const k of keys){put(k);put(v[k]);}return;}
++   throw Error('unsupported patch record value');
++  };try{put(value);return bytes.slice(0,at);}catch(error){for(const s of added)this.strings.delete(s);throw error;}
++ }
++}
++export class PatchRecordReader {
++ private strings:string[]=[];
++ decode(bytes:Uint8Array):any {
++  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);let at=0;
++  const byte=()=>{if(at===bytes.length)throw Error('truncated patch record');return bytes[at++];};
++  const uint=()=>{let value=0,scale=1;for(let i=0;i<8;i++){const b=byte();value+=(b&127)*scale;if(!Number.isSafeInteger(value))throw Error('invalid patch integer');if(b<128)return value;scale*=128;}throw Error('invalid patch integer');};
++  const get=(depth=0):any=>{if(depth>128)throw Error('patch record depth');const tag=byte();
++   if(tag===0)return undefined;if(tag===1)return null;if(tag===2)return false;if(tag===3)return true;
++   if(tag===4)return uint();if(tag===5)return -uint()-1;
++   if(tag===6){if(at+8>bytes.length)throw Error('truncated patch float');const v=view.getFloat64(at,true);at+=8;return v;}
++   if(tag===7||tag===13){const n=uint();if(n*(tag===7?2:1)>bytes.length-at)throw Error('truncated patch string');let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(tag===7?byte()|byte()<<8:byte());this.strings.push(s);return s;}
++   if(tag===8){const id=uint();if(id>=this.strings.length)throw Error('invalid patch string reference');return this.strings[id];}
++   if(tag===12)return String(uint());
++   if(tag===11){const n=uint();if(n>bytes.length-at)throw Error('truncated patch bytes');const v=bytes.slice(at,at+n);at+=n;return v;}
++   if(tag===9){const n=uint();if(n>65536)throw Error('patch array bound');const out=[];for(let i=0;i<n;i++)out.push(get(depth+1));return out;}
++   if(tag===10){const n=uint();if(n>65536)throw Error('patch object bound');const out={};for(let i=0;i<n;i++){const k=get(depth+1);if(typeof k!=='string')throw Error('invalid patch property');Object.defineProperty(out,k,{value:get(depth+1),enumerable:true,writable:true,configurable:true});}return out;}
++   throw Error('unknown patch record type');
++  };const result=get();if(at!==bytes.length)throw Error('trailing patch record');return result;
++ }
++}
 diff --git a/src/core/doc/projectArchive.ts b/src/core/doc/projectArchive.ts
 new file mode 100644
-index 00000000..16ede5d9
+index 00000000..1958dbc7
 --- /dev/null
 +++ b/src/core/doc/projectArchive.ts
 @@ -0,0 +1,54 @@
@@ -1184,9 +1466,9 @@ index 00000000..16ede5d9
 +import {packState,unpackState,StateBank,BLOB_KEY,type BlobIndex} from "./stateGraph";
 +export const STATE_ABI='scaling-execution-1/portable-forces-v1-canonical';
 +export const CHECKPOINT_KEY=2**42;
-+const MAGIC=new TextEncoder().encode('DGM5\r\n\x1a\n'),LIMIT=128*1024*1024;
-+export type CheckpointIndex={at:number;bytes:number;results:number[];blobs:number[]};
-+export type Archive={manifest:any;current:any;checkpoints:CheckpointIndex[];currentAt:number;bank:StateBank};
++const MAGIC=new TextEncoder().encode('DGM6\r\n\x1a\n'),LIMIT=128*1024*1024;
++export type CheckpointIndex={at:number;key?:number;bytes:number;results:number[];blobs:number[]};
++export type Archive={manifest:any;current:any;checkpoints:CheckpointIndex[];currentAt:number;bank:StateBank;patchBytes:Map<number,Uint8Array>};
 +const hex=(b:ArrayBuffer)=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 +const digest=async(b:Uint8Array)=>hex(await crypto.subtle.digest('SHA-256',b as BufferSource));
 +/** Binary length frames carry separately compressed, bounded-record graphs. Old gzip JSON is
@@ -1195,21 +1477,21 @@ index 00000000..16ede5d9
 + const c=packState(current,bank),blobs=new Set(c.blobs);for(const item of index)for(const key of item.blobs)blobs.add(key);
 + const blobIndex=bank.index(blobs),m=packState({...manifest as object,blobs:blobIndex,bankNextInstance:bank.nextInstance}),binding=await digest(m.bytes),results=new Set(c.results);
 + for(const item of index)for(const key of item.results)results.add(key);
-+ await sink(MAGIC);
++ await sink((manifest as any).formatVersion===5?new TextEncoder().encode('DGM5\r\n\x1a\n'):MAGIC);
 + const frame=async(kind:string,key:number,bytes:Uint8Array)=>{if(bytes.length>LIMIT)throw Error('project frame exceeds capacity');
 +  const header=new TextEncoder().encode(JSON.stringify({kind,key,bytes:bytes.length,sha:await digest(bytes),abi:STATE_ABI,binding}));const len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,header.length,true);await sink(len);await sink(header);for(let at=0;at<bytes.length;at+=32768)await sink(bytes.subarray(at,at+32768));};
 + await frame('manifest',0,m.bytes);await frame('current',0,c.bytes);
 + for(const key of results)await frame('result',key,store.cold.get(key));
 + for(const item of blobIndex)await frame('blob',item.key,bank.cold.get(item.key));
-+ for(const item of index)await frame('checkpoint',item.at,store.cold.get(CHECKPOINT_KEY+item.at));
++ for(const item of index)await frame((manifest as any).formatVersion===6?'patch':'checkpoint',item.at,store.cold.get(item.key??CHECKPOINT_KEY+item.at));
 + await frame('end',0,new Uint8Array());
 +}
 +export async function readArchive(source:AsyncIterable<Uint8Array>|Iterable<Uint8Array>,store:ResultStore):Promise<Archive|null>{
 + const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();let pending:Uint8Array=new Uint8Array(),offset=0,done=false;
 + const take=async(n:number,optional=false)=>{const out=new Uint8Array(n);let at=0;while(at<n){if(offset===pending.length){const r=await iterator.next();if(r.done){done=true;if(optional&&at===0)return null;throw Error('truncated project archive');}pending=r.value;offset=0;}
 +   const count=Math.min(n-at,pending.length-offset);out.set(pending.subarray(offset,offset+count),at);offset+=count;at+=count;}return out;};
-+ const magic=await take(MAGIC.length);if(!magic!.every((v,i)=>v===MAGIC[i]))throw Error('not format-5 archive');
-+ let manifest:any,currentBytes:Uint8Array|undefined,binding:string|undefined;const checkpoints:CheckpointIndex[]=[],seen=new Set<string>();
++ const magic=await take(MAGIC.length);if(!magic!.every((v,i)=>i===3?(v===53||v===54):v===MAGIC[i]))throw Error('not a stored-state archive');
++ let manifest:any,currentBytes:Uint8Array|undefined,binding:string|undefined;const patchBytes=new Map<number,Uint8Array>();let retained=0;const checkpoints:CheckpointIndex[]=[],seen=new Set<string>();
 + for(;;){const len=await take(4);const n=new DataView(len!.buffer).getUint32(0,true);if(!n||n>4096)throw Error('invalid project header');const h=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode((await take(n))!));
 +  if(h.abi!==STATE_ABI)throw Error('unsupported execution ABI; original engine required');if(!Number.isSafeInteger(h.bytes)||h.bytes<0||h.bytes>LIMIT||!Number.isSafeInteger(h.key))throw Error('invalid project frame');
 +  if(binding!==undefined&&h.binding!==binding)throw Error('project binding mismatch');
@@ -1220,19 +1502,19 @@ index 00000000..16ede5d9
 +  else if(h.kind==='current'){if(h.key!==0)throw Error('invalid current state');currentBytes=bytes;}
 +  else if(h.kind==='result'){if(h.key<1||h.key>=CHECKPOINT_KEY)throw Error('invalid result key');store.cold.put(h.key,bytes);}
 +  else if(h.kind==='blob'){if(!manifest?.blobs?.some((x:BlobIndex)=>x.key===h.key&&x.bytes===bytes.length)||h.key<BLOB_KEY)throw Error('invalid state blob');store.cold.put(h.key,bytes);}
-+  else if(h.kind==='checkpoint'){const item=manifest?.checkpoints?.find((x:CheckpointIndex)=>x.at===h.key);if(!item||item.bytes!==bytes.length)throw Error('checkpoint index differs');store.cold.put(CHECKPOINT_KEY+h.key,bytes);checkpoints.push(item);}
++  else if(h.kind==='checkpoint'||h.kind==='patch'){if(manifest?.patches&&h.kind!=='patch'||manifest?.formatVersion===5&&h.kind!=='checkpoint')throw Error('history frame kind differs');const item=(manifest?.patches??manifest?.checkpoints)?.find((x:CheckpointIndex)=>x.at===h.key);if(!item||item.bytes!==bytes.length)throw Error('checkpoint index differs');if(item.key!==undefined&&(!Number.isSafeInteger(item.key)||item.key<CHECKPOINT_KEY||item.key>=BLOB_KEY))throw Error("invalid inverse key");store.cold.put(item.key??CHECKPOINT_KEY+h.key,bytes);checkpoints.push(item);if(manifest.formatVersion===6){patchBytes.set(item.at,bytes);retained+=bytes.length;while(patchBytes.size>1&&retained>32*1024*1024){const key=patchBytes.keys().next().value!;retained-=patchBytes.get(key)!.length;patchBytes.delete(key);}}}
 +  else if(h.kind==='end'){if(h.bytes||h.key)throw Error('invalid project end');break;}
 +  else throw Error('unknown project frame');
 + }
 + if(offset!==pending.length||await take(1,true)!==null||!done)throw Error('trailing project data');
-+ if(!manifest||!currentBytes||checkpoints.length!==manifest.checkpoints.length)throw Error('incomplete project archive');
-+ const bank=new StateBank(store.cold,manifest.blobs,manifest.bankNextInstance??1);return {manifest,current:unpackState(currentBytes,store,bank),checkpoints,currentAt:manifest.cursor,bank};
++ if(!manifest||!currentBytes||checkpoints.length!==(manifest.patches??manifest.checkpoints).length)throw Error('incomplete project archive');
++ const bank=new StateBank(store.cold,manifest.blobs,manifest.bankNextInstance??1);return {manifest,current:unpackState(currentBytes,store,bank),checkpoints,currentAt:manifest.cursor,bank,patchBytes};
 +}
 +export async function archiveSource(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>):Promise<{archive:boolean;source:AsyncIterable<Uint8Array>}>{
 + const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();const prefix:Uint8Array[]=[];let length=0;
 + while(length<MAGIC.length){const r=await iterator.next();if(r.done)break;prefix.push(r.value);length+=r.value.length;}
 + const first=new Uint8Array(Math.min(length,MAGIC.length));let at=0;for(const b of prefix){const n=Math.min(first.length-at,b.length);first.set(b.subarray(0,n),at);at+=n;if(at===first.length)break;}
-+ return {archive:first.length===MAGIC.length&&first.every((v,i)=>v===MAGIC[i]),source:(async function*(){yield*prefix;for(;;){const r=await iterator.next();if(r.done)break;yield r.value;}})()};
++ return {archive:first.length===MAGIC.length&&first.every((v,i)=>i===3?(v===53||v===54):v===MAGIC[i]),source:(async function*(){yield*prefix;for(;;){const r=await iterator.next();if(r.done)break;yield r.value;}})()};
 +}
 diff --git a/src/core/doc/projectStream.ts b/src/core/doc/projectStream.ts
 new file mode 100644
@@ -1555,13 +1837,13 @@ index 00000000..8feb8161
 +}
 diff --git a/src/core/doc/stateGraph.ts b/src/core/doc/stateGraph.ts
 new file mode 100644
-index 00000000..ec286544
+index 00000000..72810101
 --- /dev/null
 +++ b/src/core/doc/stateGraph.ts
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,105 @@
 +// Exact execution checkpoints. Based on startup's stored-build graph, with bounded records,
 +// shared ArrayBuffer/view identity, and external (disposable) force-result references.
-+import {Gzip,Gunzip,gzipSync,gunzipSync} from "fflate";
++import {Gzip,Gunzip,gzipSync} from "fflate";
 +import {JsonFloat} from "../format/json";
 +import {toBase64,fromBase64} from "../format/base64";
 +import {derivedResultKey,ResultStore,type ColdResults} from "./resultStore";
@@ -1577,13 +1859,16 @@ index 00000000..ec286544
 + private objects=new WeakMap<object,number>();private buckets=new Map<string,number[]>();private items=new Map<number,BlobIndex>();private next=BLOB_KEY;
 + readonly external=new WeakMap<object,{key:number;node:number;instance:string}>();
 + nextInstance:number;
-+ constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1){this.nextInstance=nextInstance;for(const item of index){this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
++ constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1,nextKey=BLOB_KEY){this.next=Math.max(BLOB_KEY,nextKey);this.nextInstance=nextInstance;for(const item of index){if(!Number.isSafeInteger(item.rawBytes)||item.rawBytes<0||item.rawBytes>128*1024*1024||!Number.isSafeInteger(item.key)||item.key<BLOB_KEY||this.items.has(item.key))throw Error('invalid state blob bounds');this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
 + keep(bytes:Uint8Array,owner?:object):number {
++  if(bytes.length>128*1024*1024)throw Error('state blob exceeds capacity');
 +  const known=owner&&this.objects.get(owner);if(known!==undefined)return known;let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
 +  const id=bytes.length+':'+crc;for(const key of this.buckets.get(id)??[]){const old=this.read(key);if(old.length===bytes.length&&old.every((v,i)=>v===bytes[i])){if(owner)this.objects.set(owner,key);return key;}}
-+  const key=this.next++,compressed=gzipSync(bytes,{level:1,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
++  const key=this.next++,compressed=gzipSync(bytes,{level:6,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
 + }
-+ read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=gunzipSync(this.cold.get(key));if(bytes.length!==item.rawBytes)throw Error('state blob length differs');return bytes;}
++ read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=new Uint8Array(item.rawBytes);let written=0;
++  const gzip=this.cold.get(key),inflate=new Gunzip(b=>{if(written+b.length>bytes.length)throw Error('state blob length exceeds bound');bytes.set(b,written);written+=b.length;});
++  for(let at=0;at<gzip.length;at+=4096)inflate.push(gzip.subarray(at,at+4096),false);inflate.push(new Uint8Array(),true);if(written!==bytes.length)throw Error('state blob length differs');return bytes;}
 + share(root:object):void {
 +  if(this.external.has(root))return;let nodes:Map<object,number>|undefined;
 +  const packed=packState(root,this,seen=>nodes=seen),key=this.keep(packed.bytes),item=this.items.get(key)!;
@@ -1598,7 +1883,7 @@ index 00000000..ec286544
 +/** Each JSON record is bounded; neither the execution graph nor a large array is stringified. */
 +export function packState(root:object,bank?:StateBank,register?:(seen:Map<object,number>)=>void):PackedState {
 + const seen=new Map<object,number>(),queue:object[]=[],strings=new Map<string,number>(),textNodes=new Set<object>(),resultKeys=new Set<number>(),blobKeys=new Set<number>(),out:Uint8Array[]=[];
-+ const gzip=new Gzip({level:1,mtime:0},b=>out.push(b));let pending='';
++ const gzip=new Gzip({level:6,mtime:0},b=>out.push(b));let pending='';
 + const emit=(r:unknown)=>{const text=JSON.stringify(r);if(text.length>65536)throw Error("checkpoint record exceeds bound");if(pending.length+text.length>32768){gzip.push(utf8.encode(pending),false);pending='';}pending+=text+'\n';};
 + const value=(v:any):any=>{
 +  if(v===undefined)return {u:1};if(typeof v==='number'&&(!Number.isFinite(v)||Object.is(v,-0)))return {n:Object.is(v,-0)?'-0':String(v)};
@@ -1634,7 +1919,7 @@ index 00000000..ec286544
 +}
 +
 +export function unpackState(bytes:Uint8Array,store:ResultStore,bank?:StateBank,components=new Map<string,any[]>(),allNodes=false):any {
-+ const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='';
++ const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='',inflated=0;
 + const record=(r:any[])=>{const [id,type,...args]=r;if(!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('bad checkpoint node');
 +  if(type==='Entries'){if(!nodes[id])throw Error('checkpoint entries precede node');nodes[id].entries.push(...args[0]);return;}
 +  if(type==='Bytes'){const b=fromBase64(args[1]),v=values[id];if(!(v instanceof ArrayBuffer)||args[0]<0||args[0]+b.length>v.byteLength)throw Error('bad checkpoint bytes');new Uint8Array(v).set(b,args[0]);return;}
@@ -1643,7 +1928,7 @@ index 00000000..ec286544
 +  else if(type==='Map')values[id]=new Map();else if(type==='Set')values[id]=new Set();else if(type==='Array')values[id]=[];else if(type==='Object')values[id]={};
 +  else if(!['View','Float','Derived','String','ExternalBuffer','ExternalString','ExternalObject'].includes(type))throw Error('unknown checkpoint node');
 + };
-+ const parse=(b:Uint8Array)=>{for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
++ const parse=(b:Uint8Array)=>{inflated+=b.length;if(inflated>512*1024*1024)throw Error('execution graph exceeds bound');for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
 + const gunzip=new Gunzip(parse);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);pending+=decoder.decode();if(pending)throw Error('truncated checkpoint record');
 + const val=(v:any):any=>{if(!v||typeof v!=='object')return v;if('r'in v){if(!nodes[v.r])throw Error('bad checkpoint reference');return get(v.r);}if(v.u)return undefined;if(v.s)return v.s.join('');if(v.n)return v.n==='-0'?-0:Number(v.n);throw Error('bad checkpoint value');};
 + const get=(id:number):any=>{if(values[id]!==undefined)return values[id];const {type,args}=nodes[id];

@@ -1,6 +1,6 @@
 // Exact execution checkpoints. Based on startup's stored-build graph, with bounded records,
 // shared ArrayBuffer/view identity, and external (disposable) force-result references.
-import {Gzip,Gunzip,gzipSync,gunzipSync} from "fflate";
+import {Gzip,Gunzip,gzipSync} from "fflate";
 import {JsonFloat} from "../format/json";
 import {toBase64,fromBase64} from "../format/base64";
 import {derivedResultKey,ResultStore,type ColdResults} from "./resultStore";
@@ -16,13 +16,16 @@ export class StateBank {
  private objects=new WeakMap<object,number>();private buckets=new Map<string,number[]>();private items=new Map<number,BlobIndex>();private next=BLOB_KEY;
  readonly external=new WeakMap<object,{key:number;node:number;instance:string}>();
  nextInstance:number;
- constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1){this.nextInstance=nextInstance;for(const item of index){this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
+ constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1,nextKey=BLOB_KEY){this.next=Math.max(BLOB_KEY,nextKey);this.nextInstance=nextInstance;for(const item of index){if(!Number.isSafeInteger(item.rawBytes)||item.rawBytes<0||item.rawBytes>128*1024*1024||!Number.isSafeInteger(item.key)||item.key<BLOB_KEY||this.items.has(item.key))throw Error('invalid state blob bounds');this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
  keep(bytes:Uint8Array,owner?:object):number {
+  if(bytes.length>128*1024*1024)throw Error('state blob exceeds capacity');
   const known=owner&&this.objects.get(owner);if(known!==undefined)return known;let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
   const id=bytes.length+':'+crc;for(const key of this.buckets.get(id)??[]){const old=this.read(key);if(old.length===bytes.length&&old.every((v,i)=>v===bytes[i])){if(owner)this.objects.set(owner,key);return key;}}
-  const key=this.next++,compressed=gzipSync(bytes,{level:1,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
+  const key=this.next++,compressed=gzipSync(bytes,{level:6,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
  }
- read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=gunzipSync(this.cold.get(key));if(bytes.length!==item.rawBytes)throw Error('state blob length differs');return bytes;}
+ read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=new Uint8Array(item.rawBytes);let written=0;
+  const gzip=this.cold.get(key),inflate=new Gunzip(b=>{if(written+b.length>bytes.length)throw Error('state blob length exceeds bound');bytes.set(b,written);written+=b.length;});
+  for(let at=0;at<gzip.length;at+=4096)inflate.push(gzip.subarray(at,at+4096),false);inflate.push(new Uint8Array(),true);if(written!==bytes.length)throw Error('state blob length differs');return bytes;}
  share(root:object):void {
   if(this.external.has(root))return;let nodes:Map<object,number>|undefined;
   const packed=packState(root,this,seen=>nodes=seen),key=this.keep(packed.bytes),item=this.items.get(key)!;
@@ -37,7 +40,7 @@ export type PackedState={bytes:Uint8Array;results:number[];blobs:number[]};
 /** Each JSON record is bounded; neither the execution graph nor a large array is stringified. */
 export function packState(root:object,bank?:StateBank,register?:(seen:Map<object,number>)=>void):PackedState {
  const seen=new Map<object,number>(),queue:object[]=[],strings=new Map<string,number>(),textNodes=new Set<object>(),resultKeys=new Set<number>(),blobKeys=new Set<number>(),out:Uint8Array[]=[];
- const gzip=new Gzip({level:1,mtime:0},b=>out.push(b));let pending='';
+ const gzip=new Gzip({level:6,mtime:0},b=>out.push(b));let pending='';
  const emit=(r:unknown)=>{const text=JSON.stringify(r);if(text.length>65536)throw Error("checkpoint record exceeds bound");if(pending.length+text.length>32768){gzip.push(utf8.encode(pending),false);pending='';}pending+=text+'\n';};
  const value=(v:any):any=>{
   if(v===undefined)return {u:1};if(typeof v==='number'&&(!Number.isFinite(v)||Object.is(v,-0)))return {n:Object.is(v,-0)?'-0':String(v)};
@@ -73,7 +76,7 @@ export function packState(root:object,bank?:StateBank,register?:(seen:Map<object
 }
 
 export function unpackState(bytes:Uint8Array,store:ResultStore,bank?:StateBank,components=new Map<string,any[]>(),allNodes=false):any {
- const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='';
+ const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='',inflated=0;
  const record=(r:any[])=>{const [id,type,...args]=r;if(!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('bad checkpoint node');
   if(type==='Entries'){if(!nodes[id])throw Error('checkpoint entries precede node');nodes[id].entries.push(...args[0]);return;}
   if(type==='Bytes'){const b=fromBase64(args[1]),v=values[id];if(!(v instanceof ArrayBuffer)||args[0]<0||args[0]+b.length>v.byteLength)throw Error('bad checkpoint bytes');new Uint8Array(v).set(b,args[0]);return;}
@@ -82,7 +85,7 @@ export function unpackState(bytes:Uint8Array,store:ResultStore,bank?:StateBank,c
   else if(type==='Map')values[id]=new Map();else if(type==='Set')values[id]=new Set();else if(type==='Array')values[id]=[];else if(type==='Object')values[id]={};
   else if(!['View','Float','Derived','String','ExternalBuffer','ExternalString','ExternalObject'].includes(type))throw Error('unknown checkpoint node');
  };
- const parse=(b:Uint8Array)=>{for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
+ const parse=(b:Uint8Array)=>{inflated+=b.length;if(inflated>512*1024*1024)throw Error('execution graph exceeds bound');for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
  const gunzip=new Gunzip(parse);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);pending+=decoder.decode();if(pending)throw Error('truncated checkpoint record');
  const val=(v:any):any=>{if(!v||typeof v!=='object')return v;if('r'in v){if(!nodes[v.r])throw Error('bad checkpoint reference');return get(v.r);}if(v.u)return undefined;if(v.s)return v.s.join('');if(v.n)return v.n==='-0'?-0:Number(v.n);throw Error('bad checkpoint value');};
  const get=(id:number):any=>{if(values[id]!==undefined)return values[id];const {type,args}=nodes[id];

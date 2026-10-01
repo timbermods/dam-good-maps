@@ -5,6 +5,7 @@ import {ResultStore,type ColdResults} from "./resultStore";
 import {readProject,writeProject} from "./projectStream";
 import {packState,unpackState,StateBank} from "./stateGraph";
 import {archiveSource,readArchive,writeArchive,CHECKPOINT_KEY,STATE_ABI,type CheckpointIndex} from "./projectArchive";
+import {inversePatch,applyPatch,packPatch,unpackPatch,PatchIndices,type InversePatch} from "./inversePatch";
 import {HistorySnapshots as RecentStates} from "./historySnapshots";
 import {fullMap,forceCeiling} from "../forces/force";
 import {forceMapOf,carveForceParams} from "../forces/carve/result";
@@ -23,6 +24,7 @@ import {geologyOf,rockOf,fallenOf,stagedForceMap,buildTouches,withOwned,glacierS
 import {planRemoveAt} from "./selectionHelpers";
 import {runsToTiles,type Runs} from "../math/grid";
 import type {RemoveKind} from "../features/objects";
+export {inversePatch,applyPatch,packPatch,unpackPatch} from "./inversePatch";
 export {rockOf,fallenOf} from "./forceHelpers";
 export {BoundedFields} from "./boundedFields";
 export {HistorySnapshots} from "./historySnapshots";
@@ -109,6 +111,14 @@ export class GestureHistory {
   private entries:GestureEntry[]=[];private cursor=0;
   private revision=0;
   private tempKey=2**40;
+  private patchMode=true;
+  private undoFloor=0;
+  private nextPatchKey=CHECKPOINT_KEY+1;
+  private patchIndex:CheckpointIndex[]=[];
+  private patches=new RecentStates<InversePatch>();
+  private patchIndices=new PatchIndices();
+  private compressedPatches=new Map<number,Uint8Array>();
+  private execution:any;
   private checkpoints:CheckpointIndex[]=[];
   private recent=new RecentStates<object>();
   private spacing:number;
@@ -123,9 +133,10 @@ export class GestureHistory {
     if(execution)checkDocument(this.base);
     this.results=executionStore??new ResultStore(cold,policy.results??32*1024*1024);
     this.session.useResultStore(this.results,0,1,!execution);
-    this.remember();if(!execution&&this.spacing)this.persistCheckpoint();
+    this.remember();
   }
   private remember():void {
+    if(this.patchMode){this.execution=this.session.checkpointExecution();return;}
     const known=this.recent.get(this.cursor) as any,b=this.session.built;
     if(known?.cur.heights===b.heights&&known.cur.water===b.water&&known.cur.entities===b.entities&&known.cur.cache.keys===b.cache.keys&&known.gen.meta===this.session.meta){known.seqNext=this.session.nextOperationSeq;return;}
     this.recent.set(this.cursor,this.session.checkpointExecution());
@@ -142,15 +153,30 @@ export class GestureHistory {
       this.spacing*=2;this.checkpoints=this.checkpoints.filter(c=>c.at===0||c.at===this.cursor||c.at%this.spacing===0);
     }
   }
+  private putPatch(at:number,before:object,after:object):void {
+    const patch=inversePatch(before,after,this.patchIndices),packed=packPatch(patch);
+    const key=this.nextPatchKey++;this.results.cold.put(key,packed.bytes);
+    this.patchIndex=this.patchIndex.filter(x=>x.at!==at);this.patchIndex.push({at,key,bytes:packed.bytes.length,results:packed.results,blobs:[]});
+    this.compressedPatches.delete(at);this.patches.delete(at);this.patches.set(at,packed.patch);
+    while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);
+  }
+  private patch(at:number):InversePatch {
+    let patch=this.patches.get(at);if(!patch){if(!this.patchIndex.some(x=>x.at===at))throw Error('missing inverse patch');patch=unpackPatch(this.compressedPatches.get(at)??this.results.cold.get(this.patchIndex.find(x=>x.at===at)!.key??CHECKPOINT_KEY+at),this.results);this.patches.set(at,patch);while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);}return patch;
+  }
+  private waterBoundary():void {
+    if(this.patchMode){const current=this.session.checkpointExecution();if(this.cursor>this.undoFloor){const before=applyPatch(this.execution,this.patch(this.cursor).back);this.putPatch(this.cursor,before,current);}this.execution=current;}
+    else this.remember();
+  }
   private record(entry:GestureEntry):void {
+    if(this.patchMode){const current=this.session.checkpointExecution();this.patchIndex=this.patchIndex.filter(x=>x.at<=this.cursor);for(const at of this.patches.keys())if(at>this.cursor)this.patches.delete(at);this.putPatch(this.cursor+1,this.execution,current);this.execution=current;}
     this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;
     for(const at of this.recent.keys())if(at>this.cursor)this.recent.delete(at);
     this.checkpoints=this.checkpoints.filter(c=>c.at<this.cursor);
     for(const at of this.canonicalBoundaries)if(at>=this.cursor)this.canonicalBoundaries.delete(at);
-    this.remember();if(this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
+    if(!this.patchMode)this.remember();if(!this.patchMode&&this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
   }
   private importLegacy(op:AppliedOp):void {
-    const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
+    this.remember();const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
     // Undo metadata is derived, and must stay mutable in the execution log.
     const {undo:_,orphaned:__,...literal}=applied;
     this.record({kind:"legacy",seq:op.seq,origin:op.origin,...(op.label?{label:op.label}:{}),op:literal});
@@ -163,12 +189,12 @@ export class GestureHistory {
   }
   private canonicalBoundaries=new Set<number>();
   adoptWater(...args:Parameters<MapSession['adoptWater']>):boolean {
-    const before=this.session.built,ok=this.session.adoptWater(...args);
-    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}return ok;
+    if(this.patchMode)this.remember();const before=this.session.built,ok=this.session.adoptWater(...args);
+    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}return ok;
   }
   settleCanonical():void {
-    const before=this.session.built;this.session.settleCanonical();
-    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}
+    if(this.patchMode)this.remember();const before=this.session.built;this.session.settleCanonical();
+    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}
   }
   async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<void>{
     gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
@@ -184,6 +210,7 @@ export class GestureHistory {
     }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
   }
   private async inputAt(count:number):Promise<MapSession> {
+    if(this.patchMode&&count>=this.undoFloor){let execution:any=this.session.checkpointExecution();for(let at=this.cursor;at>count;at--)execution=applyPatch(execution,this.patch(at).back);for(let at=this.cursor+1;at<=count;at++)execution=applyPatch(execution,this.patch(at).forward);if(this.entries[count])execution.seqNext=this.entries[count].seq;return MapSession.restoreExecution(this.base,execution);}
     const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
     const cp=this.checkpoints.filter(c=>c.at<=count).at(-1);
     const execution=cp?unpackState(this.results.cold.get(CHECKPOINT_KEY+cp.at),this.results,this.bank):undefined;
@@ -217,9 +244,9 @@ export class GestureHistory {
     this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputHashVersion,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
     }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
   }
-  undo():boolean {if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
+  undo():boolean {if(this.patchMode){if(this.cursor<=this.undoFloor)return false;this.movePatch(this.cursor-1);return true;}if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
     if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("cold undo requires await seek(count-1)");this.cursor--;this.revision++;this.remember();return true;}
-  redo():boolean {if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
+  redo():boolean {if(this.patchMode){if(this.cursor===this.entries.length||!this.patchIndex.some(x=>x.at===this.cursor+1))return false;this.movePatch(this.cursor+1);return true;}if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
     if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("cold redo requires await seek(count+1)");this.cursor++;this.revision++;this.remember();return true;}
   private async replayEntry(entry:GestureEntry):Promise<void> {
     if(!entry||!['user','claude','fix'].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=='string')throw Error('invalid gesture envelope');
@@ -230,10 +257,18 @@ export class GestureHistory {
     else if(entry.kind==='force'){await this.force(entry.gesture,entry.origin,entry.label,entry.replaces,entry.inputHash,entry.inputHashVersion??1);const actual=this.entries.at(-1) as Extract<GestureEntry,{kind:'force'}>;if(actual.forceSeq!==entry.forceSeq||actual.inputCursor!==entry.inputCursor)throw Error('force cursor/sequence differs');}
     else throw Error('unknown gesture kind');
   }
-  /** Cold history movement is asynchronous; callers retain the current visible map until it succeeds. */
+  private movePatch(target:number):void {
+    const seq=this.session.nextOperationSeq;
+    this.execution=this.session.checkpointExecution();
+    const state=target<this.cursor?applyPatch(this.execution,this.patch(this.cursor).back):applyPatch(this.execution,this.patch(this.cursor+1).forward);
+    this.session.installExecution(state);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.execution=this.session.checkpointExecution();
+  }
+  /** Patch movement commits each step; progress callbacks may publish it. Legacy replay
+   * installs the reconstructed target only after its revision check succeeds. */
   async seek(target:number,progress?:(at:number,session:MapSession)=>Promise<void>):Promise<void> {
     if(!Number.isSafeInteger(target)||target<0||target>this.entries.length)throw Error('invalid history cursor');
     if(target===this.cursor)return;
+    if(this.patchMode){if(target<this.undoFloor)throw Error('older gestures are replay-only after reopening');const started=this.cursor;while(this.cursor!==target){this.movePatch(this.cursor+(target>this.cursor?1:-1));const revision=this.revision;await progress?.(this.cursor,this.session);if(this.revision!==revision)throw Error('history seek superseded');}this.lastSeek={replayed:0,checkpoint:started,cache:true};return;}
     const nextSeq=this.session.nextOperationSeq,revision=this.revision,cached=this.recent.get(target);
     let execution:object,replayed=0,at=target;
     if(cached)execution=cached;
@@ -251,10 +286,17 @@ export class GestureHistory {
     this.remember();this.session.installExecution(execution);this.session.setReplaySequence(Math.max(nextSeq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.remember();this.lastSeek={replayed,checkpoint:at,cache:!!cached};
   }
   private checkpointBytes():number{return this.checkpoints.reduce((n,c)=>n+c.bytes,0)+this.bank.index(this.checkpoints.flatMap(c=>c.blobs)).reduce((n,c)=>n+c.bytes,0);}
-  get checkpointStats(){return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
+  get checkpointStats(){if(this.patchMode)return {spacing:0,count:0,bytes:0,recentBytes:this.patches.bytes,recentCount:this.patches.size,failure:null,compressedBytes:[...this.compressedPatches.values()].reduce((n,x)=>n+x.length,0),patchBytes:this.patchIndex.reduce((n,x)=>n+x.bytes,0),undoFloor:this.undoFloor};return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
+  get canUndo():boolean{return this.cursor>this.undoFloor;}
+  get canRedo():boolean{return this.cursor<this.entries.length&&(!this.patchMode||this.patchIndex.some(x=>x.at===this.cursor+1));}
   get count():number{return this.cursor;}
   get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
   async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {
+    if(this.patchMode){
+      const floor=Math.max(this.undoFloor,this.cursor-100),ceiling=Math.min(this.entries.length,this.cursor+100),index=this.patchIndex.filter(x=>x.at>floor&&x.at<=ceiling).sort((a,b)=>a.at-b.at),current=this.session.checkpointExecution();
+      const manifest={...this.project,formatVersion:6,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:1,patches:index,undoFloor:floor,canonicalBoundaries:[...this.canonicalBoundaries]};
+      await writeArchive(manifest,current,index,this.results,this.bank,sink);return;
+    }
     this.remember();this.persistCheckpoint();
     const index=this.checkpoints.filter(c=>c.at<=this.entries.length),current=this.session.checkpointExecution();
     const manifest={...this.project,formatVersion:5,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:this.spacing,checkpoints:index,canonicalBoundaries:[...this.canonicalBoundaries]};
@@ -263,12 +305,19 @@ export class GestureHistory {
   static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
     const input=await archiveSource(source);
     if(input.archive){const store=new ResultStore(cold,policy.results??32*1024*1024),archive=await readArchive(input.source,store);if(!archive)throw Error('missing archive');const raw=archive.manifest;
-      if(raw.app!=='dam-good-maps'||raw.formatVersion!==5||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
+      if(raw.app!=='dam-good-maps'||![5,6].includes(raw.formatVersion)||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
       if(!Array.isArray(raw.entries)||!Number.isSafeInteger(raw.cursor)||raw.cursor<0||raw.cursor>raw.entries.length||!Number.isSafeInteger(raw.spacing)||raw.spacing<1||archive.current.undoStack.length!==raw.cursor||archive.current.seqNext!==raw.nextSeq)throw Error('invalid saved history');
       let prior=0;for(const e of raw.entries){if(!Number.isSafeInteger(e.seq)||e.seq<=prior||!['operations','selection','force','legacy'].includes(e.kind)||!['user','claude','fix'].includes(e.origin)||e.label!==undefined&&typeof e.label!=='string')throw Error('invalid gesture envelope');
         if((e.kind==='force'||e.kind==='selection')&&((e.inputHashVersion!==undefined&&e.inputHashVersion!==1&&e.inputHashVersion!==2)||typeof e.inputHash!=='string'||!/^[0-9a-f]{64}$/.test(e.inputHash)))throw Error('unsupported or invalid input hash');prior=e.seq;}
       const boundaries=raw.canonicalBoundaries??[];if(!Array.isArray(boundaries)||boundaries.some((n:any)=>!Number.isSafeInteger(n)||n<0||n>raw.entries.length)||new Set(boundaries).size!==boundaries.length)throw Error('invalid canonical water boundaries');
-      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();h.remember();return h;
+      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.patchMode=raw.formatVersion===6;h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();
+      if(h.patchMode){if(!Number.isSafeInteger(raw.undoFloor)||raw.undoFloor<0||raw.undoFloor>raw.cursor||raw.cursor-raw.undoFloor>100)throw Error('invalid undo retention');h.undoFloor=raw.undoFloor;h.patchIndex=archive.checkpoints;h.nextPatchKey=Math.max(CHECKPOINT_KEY,...h.patchIndex.map(x=>x.key??CHECKPOINT_KEY+x.at))+1;h.checkpoints=[];h.compressedPatches=archive.patchBytes;for(let at=h.undoFloor+1;at<=h.cursor;at++)if(!h.patchIndex.some(x=>x.at===at))throw Error("missing retained undo patch");}
+      // Decode the immediate inverse before publishing an editable document. Dense
+      // water/entity patches must not make the first Undo pay a cold inflater cost.
+      // Other retained patches remain lazy and share the bounded decoded cache.
+      if(h.patchMode&&h.canUndo)h.patch(h.cursor);
+      else if(h.patchMode&&h.canRedo)h.patch(h.cursor+1);
+      h.remember();return h;
     }
     const raw=await readProject(input.source) as GestureProject;
     if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
@@ -278,7 +327,7 @@ export class GestureHistory {
       // A saved legacy result may lack its historical force/water inputs. Preserve it losslessly;
       // all NEW edits use gestures. Do not guess a seed recipe or discard old undo depth.
       for(const op of doc.edits)h.importLegacy(op);
-      h.session.setReplaySequence(doc.nextSeq);h.session.settleCanonical();return h;
+      h.session.setReplaySequence(doc.nextSeq);h.settleCanonical();return h;
     }
     if(raw.replayVersion!==REPLAY_VERSION)throw Error("unsupported replay version; original engine required");
     if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
