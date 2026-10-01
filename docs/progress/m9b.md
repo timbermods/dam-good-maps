@@ -432,6 +432,24 @@ maps. D358's four slow-settling maps (Lake Basin 256² seeds 16 and 5, Any 256²
 128² seed 3: 4,096–4,608 ticks) keep their stored water: after a day 100%, 100%, 100% and 98.3% of
 their wet tiles within 0.1 deep of the file, the volume within 0.2–0.9%.
 
+### The faster water settle, adopted (D359, Codex's `investigation/water-speed`, 2026-10-01)
+
+`sim/water.ts` keeps its bookkeeping up to date as tiles turn wet or dry instead of rebuilding it
+each substep or tick (the active list by reference counts, wet-neighbour counts, the evaporation
+modifiers of the 5×5 round a change, neighbour indices, clearing only dried outflows, a dry tile that
+receives nothing set directly, the active list sorted every 64 ticks). Codex's mechanisms, rewritten
+for reading; the file says why each is exact. A new test checks the kept bookkeeping against a rebuild
+every tick (`water-speedups`; it fails if the 5×5 shrinks to 3×3).
+
+**Identity** (0ee6e276, Codex's A/B harness against the engine before, both in one process, every
+step compared): 303 of 303 cases identical: seeds 1–20 of all seven themes at 128² and 256² (map
+sha and settled water, every generation attempt, the canonical settle in slices, a live edit, a
+Normal drought and badtide day by day and the return), the 19 official maps, two saves and two
+projects; 95,167 checkpoints. Under D358's 6 days: 26 maps settle after day 4, 9 never do, all
+identical. Every golden fixture under both rules, the edge grids and 100 random scenes too. The
+Python checker: 0 disagreements (47 generated, 19 official maps; `npm run oracle`'s 6 refusals are
+the generator's). The quick suite's 43 failures on this base are the same 43 with the engine before.
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
