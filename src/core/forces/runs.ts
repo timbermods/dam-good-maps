@@ -7,10 +7,11 @@
 // sources go as the front, the lava or the ice arrives (an impact's all at once, at its moment; under
 // a quake they ride the ground), and the water stays as it was until the land is final, then flows
 // on from there as after any edit (a force never adds any). The editor paces the stages (Fast or
-// Watch, item 29); Carve (carve/play.ts) is played back through the same worker calls.
+// Slow forces, item 29); Carve (carve/play.ts) is played back through the same worker calls.
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
+import * as portable from "../math/portable";
 import { toMapObject } from "../features/build";
 import type { WarmState } from "../sim/preview";
 import { waterModel } from "../sim/model";
@@ -50,6 +51,10 @@ export interface ForceCue {
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
+  /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
+   *  Fast compresses it, Slow forces stretch it; D344 A7): its effects and sounds keep to the land. Absent:
+   *  its own pace. */
+  pace?: number;
 }
 
 /** A staged force as the worker drives it. */
@@ -243,13 +248,13 @@ export class CraterRun extends Staged implements StagedRun {
     const { W, H } = this.before;
     const out = new Float32Array(W * H);
     const reach = (this.settings.debris === "heavy" ? 2.65 : 1.48) + (this.settings.rays ? 1.4 : 0);
-    const c = Math.cos(a.angle);
-    const s = Math.sin(a.angle);
+    const c = portable.cos(a.angle);
+    const s = portable.sin(a.angle);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const dx = x - a.x;
         const dy = y - a.y;
-        const r = Math.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
+        const r = portable.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
         out[y * W + x] = r < 1.05 ? 0 : clamp(0.125 + ((r - 1.05) / Math.max(0.5, reach - 1.05)) * 0.875, 0.125, 1);
       }
     return (this.arrival = out);
@@ -363,7 +368,7 @@ export class EruptRun extends Staged implements StagedRun {
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        let dist = Math.hypot(x - a.x, y - a.y);
+        let dist = portable.hypot(x - a.x, y - a.y);
         let along = 0;
         if (a.segments.length) {
           dist = Infinity;
@@ -371,7 +376,7 @@ export class EruptRun extends Staged implements StagedRun {
             const dx = seg.b.x - seg.a.x;
             const dy = seg.b.y - seg.a.y;
             const t = clamp(((x - seg.a.x) * dx + (y - seg.a.y) * dy) / (seg.length * seg.length), 0, 1);
-            const d = Math.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
+            const d = portable.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
             if (d < dist) {
               dist = d;
               along = (seg.along + t * seg.length) / a.length;
@@ -417,7 +422,7 @@ export class QuakeRun extends Staged implements StagedRun {
   protected readonly approach = 1;
   private painted = false;
 
-  constructor(before: FullForceMap, readonly settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
+  constructor(before: FullForceMap, public settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
     super(before, keep);
     this.plan0 = new QuakePlan(before, settings, intent);
   }
@@ -449,9 +454,12 @@ export class QuakeRun extends Staged implements StagedRun {
 
   /** A painted Lift: the fault as painted so far, planned whole and shown at once (the page's pointer
    *  never waits: the worker takes the latest stroke when it is free). */
-  repaint(intent: QuakeIntent): void {
+  /** The stroke as it is now, and (D361 (1)) its Power as the row has it now: a Lift answers Power
+   *  while it is painted. */
+  repaint(intent: QuakeIntent, power?: number): void {
     const prev = this.map;
     this.intent = intent;
+    if (power !== undefined && power !== this.settings.power) this.settings = { ...this.settings, power };
     this.plan0 = new QuakePlan(this.before, this.settings, intent);
     this.planAll();
     this.painted = true;
@@ -498,32 +506,14 @@ export class QuakeRun extends Staged implements StagedRun {
       src.set(p.source);
     } else {
       m = snapshotMap(this.before);
-      const off = (v: number) => Math.round(v * f);
-      for (let j = 0; j < N; j++) {
-        const x = j % W;
-        const y = (j - x) / W;
-        const s = clamp(y - off(p.dy[j]), 0, H - 1) * W + clamp(x - off(p.dx[j]), 0, W - 1);
-        m.heights[j] = this.before.heights[s];
-        m.lava[j] = this.before.lava[s];
-        src[j] = s;
-      }
-      const priority = new Float32Array(N).fill(-1);
-      for (let i = 0; i < N; i++) {
-        if (!p.dx[i] && !p.dy[i]) continue;
-        const x = (i % W) + off(p.dx[i]);
-        const y = Math.floor(i / W) + off(p.dy[i]);
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        const j = y * W + x;
-        const travel = Math.hypot(p.dx[i], p.dy[i]);
-        if (travel < priority[j]) continue;
-        priority[j] = travel;
-        m.heights[j] = this.before.heights[i];
-        m.lava[j] = this.before.lava[i];
-        src[j] = i;
-      }
+      this.shift(f, m.heights, m.lava, src);
+      // (what the fault does besides moving the block, its rivers joined again across it and its
+      // tear, D368 (9): each part shown as the slide passes it, never all at the end)
+      for (const e of this.extras()) if (e.at <= stage) m.heights[e.i] = p.map.heights[e.i];
       trimRock(m);
       // the objects move with their ground (the view's: the kept result is the plan's)
       const final = new Map(p.map.entities.map((e) => [e.id, e]));
+      const off = (v: number) => Math.round(v * f);
       m.entities = this.before.entities.map((e) => {
         const to = final.get(e.id) ?? e;
         const x = e.x + off(to.x - e.x);
@@ -550,6 +540,70 @@ export class QuakeRun extends Staged implements StagedRun {
     } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
     this.sim = null;
+  }
+
+  /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
+   *  from (of `this.before`). */
+  private shift(f: number, heights: Uint8Array, lava: Uint32Array | null, src: Uint32Array | null): void {
+    const p = this.plan0;
+    const { W, H } = this.before;
+    const N = W * H;
+    const off = (v: number) => Math.round(v * f);
+    for (let j = 0; j < N; j++) {
+      const x = j % W;
+      const y = (j - x) / W;
+      const s = clamp(y - off(p.dy[j]), 0, H - 1) * W + clamp(x - off(p.dx[j]), 0, W - 1);
+      heights[j] = this.before.heights[s];
+      if (lava) lava[j] = this.before.lava[s];
+      if (src) src[j] = s;
+    }
+    const priority = new Float32Array(N).fill(-1);
+    for (let i = 0; i < N; i++) {
+      if (!p.dx[i] && !p.dy[i]) continue;
+      const x = (i % W) + off(p.dx[i]);
+      const y = Math.floor(i / W) + off(p.dy[i]);
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const j = y * W + x;
+      const travel = portable.hypot(p.dx[i], p.dy[i]);
+      if (travel < priority[j]) continue;
+      priority[j] = travel;
+      heights[j] = this.before.heights[i];
+      if (lava) lava[j] = this.before.lava[i];
+      if (src) src[j] = i;
+    }
+  }
+
+  private extras0: { i: number; at: number }[] | null = null;
+
+  /** A Slide's land where its plan differs from its block moved all the way (its rivers joined again,
+   *  its tear, the Floor held): each tile with the stage it shows at, through the slide's second half
+   *  in the order the fault runs, so the last stage adds only the block's last move (D368 (9)). */
+  private extras(): { i: number; at: number }[] {
+    if (this.extras0) return this.extras0;
+    const p = this.plan0;
+    const { W } = this.before;
+    const moved = new Uint8Array(p.map.heights.length);
+    this.shift(1, moved, null, null);
+    const pts = p.fault.points;
+    const first = Math.ceil(this.stages / 2);
+    const span = Math.max(1, this.stages - 1 - first);
+    const out: { i: number; at: number }[] = [];
+    for (let i = 0; i < moved.length; i++) {
+      if (moved[i] === p.map.heights[i]) continue;
+      const x = (i % W) + 0.5;
+      const y = Math.floor(i / W) + 0.5;
+      let near = 0;
+      let best = Infinity;
+      for (let k = 0; k < pts.length; k++) {
+        const d = (pts[k].x - x) * (pts[k].x - x) + (pts[k].y - y) * (pts[k].y - y);
+        if (d < best) {
+          best = d;
+          near = k;
+        }
+      }
+      out.push({ i, at: first + Math.round((span * near) / Math.max(1, pts.length - 1)) });
+    }
+    return (this.extras0 = out);
   }
 
   cue(): ForceCue {

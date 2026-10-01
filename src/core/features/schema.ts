@@ -192,6 +192,9 @@ export interface RuinFieldParams {
    *  columns, and the official shares of models and turns. Without it, heights follow `heightMix`
    *  and `centerBias` and the models are even. */
   layout?: { tallness: number };
+  /** Tiles the player deleted (D360 b): no column stands on them, though the columns' heights are still
+   *  assigned over the whole area, so the ones that stay keep their shape. */
+  cleared?: Runs;
 }
 
 export type MapObjectKind = "mineSite" | "relicSmall" | "relicMedium" | "relicLarge" | "geothermal" | "thornBelt" | "weir" | "plug" | "bridge" | "unstableCore";

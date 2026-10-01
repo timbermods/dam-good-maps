@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "node prepare.mjs",
+    "measure": "node measure.mjs",
+    "gate": "node gate.mjs",
+    "test": "node --test tests.mjs cache-tests.mjs",
+    "prepare:round2": "node prepare-round2.mjs",
+    "measure:round2": "node measure.mjs --variants round2-before,round2-after --maps all --runs 5 --out local/round2-measured.json --summary local/round2-measured-summary.json"
+  }
+}

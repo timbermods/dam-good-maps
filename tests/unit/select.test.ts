@@ -3,7 +3,7 @@
 // added and taken away; its size in words (D183); Max water depth's levels.
 
 import { describe, expect, it } from "vitest";
-import { circleTiles, depthLevels, outlineTiles, rectTilesBetween, sameLevelTiles, Selection, sizeWords, waterTiles } from "../../src/editor/select";
+import { circleTiles, depthLevels, outlineTiles, rectTilesBetween, sameLevelTiles, Selection, selectTool, sizeWords, waterTiles, type SelectHost, type SelectMode } from "../../src/editor/select";
 
 const W = 20;
 const H = 16;
@@ -71,5 +71,73 @@ describe("the Select tool", () => {
     expect(s.count).toBe(93);
     s.clear();
     expect(s.size()).toBeNull();
+  });
+});
+
+// Ctrl+click on the land only sets the Level box to that spot's height and never changes the selection
+// (PLAN §20 D361, item 7): three or four of them used to clear it.
+describe("Select's Ctrl+click on land", () => {
+  const heights = new Uint8Array(W * H).map((_, i) => 1 + (i % 7));
+  const hitAt = (x: number, y: number) => ({ x, y }) as never;
+  const press = (ctrl: boolean): PointerEvent => ({ button: 0, ctrlKey: ctrl, metaKey: false, shiftKey: false, altKey: false }) as PointerEvent;
+  function setup(mode: SelectMode) {
+    const sel = new Selection(W, H);
+    sel.apply(rectTilesBetween([2, 2], [6, 5], W, H), "set");
+    const before = [...sel.mask];
+    const sampled: number[] = [];
+    let changed = 0;
+    const host: SelectHost = {
+      W,
+      H,
+      heights: () => heights,
+      mode: () => mode,
+      changed: () => changed++,
+      drawing: () => undefined,
+      sample: (level) => sampled.push(level),
+      wet: () => false,
+    };
+    return { sel, before, sampled, host, changed: () => changed, tool: selectTool(sel, host) };
+  }
+
+  for (const mode of ["rect", "circle", "free", "brush", "wand"] as const) {
+    it(`${mode}: a click samples the level and leaves the selection alone`, () => {
+      const t = setup(mode);
+      t.tool.down(hitAt(10, 8), press(true));
+      t.tool.up(hitAt(10, 8) as never, press(true));
+      expect(t.sampled).toEqual([heights[8 * W + 10]]);
+      expect([...t.sel.mask]).toEqual(t.before);
+      expect(t.changed()).toBe(0);
+    });
+
+    it(`${mode}: hand jitter to a neighbouring tile is still a click, never a selection`, () => {
+      const t = setup(mode);
+      t.tool.down(hitAt(10, 8), press(true));
+      t.tool.move(hitAt(11, 8), press(true));
+      t.tool.move(hitAt(11, 9), press(true));
+      t.tool.up(hitAt(11, 9) as never, press(true));
+      expect(t.sampled).toEqual([heights[8 * W + 10]]);
+      expect([...t.sel.mask]).toEqual(t.before);
+      expect(t.changed()).toBe(0);
+    });
+  }
+
+  it("four Ctrl+clicks in a row leave the selection as it was", () => {
+    const t = setup("rect");
+    for (const [x, y] of [[9, 9], [12, 3], [14, 12], [1, 14]] as const) {
+      t.tool.down(hitAt(x, y), press(true));
+      t.tool.move(hitAt(x + 1, y), press(true));
+      t.tool.up(hitAt(x + 1, y) as never, press(true));
+    }
+    expect(t.sampled.length).toBe(4);
+    expect([...t.sel.mask]).toEqual(t.before);
+  });
+
+  it("a plain drag still selects", () => {
+    const t = setup("rect");
+    t.tool.down(hitAt(10, 8), press(false));
+    t.tool.move(hitAt(12, 9), press(false));
+    t.tool.up(hitAt(12, 9) as never, press(false));
+    expect(t.sampled).toEqual([]);
+    expect(t.sel.count).toBe(6);
   });
 });

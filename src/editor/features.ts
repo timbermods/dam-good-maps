@@ -14,9 +14,7 @@ import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
-import { DERIVED_SLOPES } from "../core/features/ids";
 import { inBench } from "../core/features/raster/terrain";
-import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS } from "../core/features/slopes";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../core/data/logFloor";
 import { FOOTPRINTS, footprintTiles, slopeHighSide, type Orientation } from "../core/format/footprints";
 import { WALK_BLOCKERS } from "../core/validate/playability";
@@ -552,6 +550,30 @@ export interface StartCheck {
   warnings: string[];
 }
 
+/** What the start's colour means, one thing everywhere (D361): green, it fits and meets every start
+ *  requirement; amber, it fits but misses some (the panel lists which); red, it cannot be placed
+ *  there. */
+export type StartStatus = "ok" | "warn" | "blocked";
+export function startStatus(check: Pick<StartCheck, "problem" | "meets">): StartStatus {
+  return check.problem ? "blocked" : check.meets ? "ok" : "warn";
+}
+
+/** Whether two checks of one start say the same (so a placed start's colour and panel change only
+ *  when something about it changed, not each time the water moves on and it is asked again). */
+export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
+  return (
+    a.problem === b.problem &&
+    a.meets === b.meets &&
+    a.water === b.water &&
+    a.wood === b.wood &&
+    a.woodGrowing === b.woodGrowing &&
+    a.woodFloor === b.woodFloor &&
+    a.bushes === b.bushes &&
+    a.warnings.length === b.warnings.length &&
+    a.warnings.every((w, i) => w === b.warnings[i])
+  );
+}
+
 export interface StartNeeds {
   rules: { waterWithin: number; woodWithin20: number; bushesWithin20: number; badwaterWithin: number; ruinsWithin: number };
   /** Dry land walkable from the start that the map aims for. */
@@ -562,50 +584,21 @@ export interface StartNeeds {
  *  away. */
 const PLACED_AFTER_SLOPES = /^(Pine|Birch|Oak|Succulent|BlueberryBush|RuinColumnH\d|StartingLocation)$/;
 
-/** The slopes the colony walks on from a start at (x, y) on the ground `h`, as (low tile, high
- *  tile) links. A generated map's start that moves gets its slopes derived again by the build
- *  (PLAN §7.5), so `derive` predicts them: the standing slopes that are not derived (a set piece's
- *  stairs), and the derived ones placed round the new start, clear of the objects and sources that
- *  stand. Otherwise the map's slopes as they stand. */
-function startLinks(c: TileContext, h: Uint8Array, x: number, y: number, door: [number, number], derive: boolean): [number, number][] {
+/** The slopes the colony walks on from a start, as (low tile, high tile) links: the map's slopes as
+ *  they stand. Moving the start places no slope (D368 (10): only the player places objects), so
+ *  nothing is predicted here; a start that lands where no slope joins it to the rest of the map
+ *  shows in its checks. */
+function startLinks(c: TileContext): [number, number][] {
   const { W, H } = c;
   const e = c.entities;
-  const own: [number, number][] = [];
-  const occupied = derive ? new Uint8Array(W * H) : null;
+  const links: [number, number][] = [];
   for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
+    if (e.templates[e.template[k]] !== "Slope") continue;
     const inMap = e.x[k] >= 0 && e.y[k] >= 0 && e.x[k] < W && e.y[k] < H;
-    if (t === "Slope") {
-      if (occupied && e.owners[e.owner[k]] === DERIVED_SLOPES) continue;
-      const [dx, dy] = slopeHighSide(ORIENTATION_NAMES[e.orientation[k]] as Orientation);
-      const hx = e.x[k] + dx;
-      const hy = e.y[k] + dy;
-      if (inMap && hx >= 0 && hy >= 0 && hx < W && hy < H) own.push([e.y[k] * W + e.x[k], hy * W + hx]);
-      if (occupied && inMap) occupied[e.y[k] * W + e.x[k]] = 1;
-      continue;
-    }
-    if (!occupied || PLACED_AFTER_SLOPES.test(t)) continue;
-    const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
-    const tiles: [number, number][] = FOOTPRINTS[t] ? footprintTiles(t, p) : [[e.x[k], e.y[k]]];
-    for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) occupied[ty * W + tx] = 1;
-  }
-  if (!occupied) return own;
-  // the start's clear zone, and the tiles in front of its door (features/build.ts)
-  const mark = (cx: number, cy: number, r: number) => {
-    for (let yy = cy - r; yy <= cy + r; yy++) for (let xx = cx - r; xx <= cx + r; xx++) if (xx >= 0 && yy >= 0 && xx < W && yy < H) occupied[yy * W + xx] = 1;
-  };
-  mark(x, y, START_CLEAR_RADIUS);
-  mark(Math.round(x + 1.5 * (door[0] - x)), Math.round(y + 1.5 * (door[1] - y)), 1);
-  const links = own.slice();
-  // the rivers' channels: the slopes out of the start's region go toward them, as the build's do
-  let water: Uint8Array | null = null;
-  if (c.index) {
-    water = new Uint8Array(W * H);
-    for (let i = 0; i < W * H; i++) if (c.index.river[i] >= 0) water[i] = 1;
-  }
-  for (const sl of placeSlopes(h, W, H, { x, y }, occupied, { ...SLOPE_RULES, links: own, water })) {
-    const [dx, dy] = slopeHighSide(sl.orientation);
-    links.push([sl.y * W + sl.x, (sl.y + dy) * W + (sl.x + dx)]);
+    const [dx, dy] = slopeHighSide(ORIENTATION_NAMES[e.orientation[k]] as Orientation);
+    const hx = e.x[k] + dx;
+    const hy = e.y[k] + dy;
+    if (inMap && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y[k] * W + e.x[k], hy * W + hx]);
   }
   return links;
 }
@@ -633,8 +626,7 @@ export function startProblemAt(c: TileContext, x: number, y: number, door: [numb
 /** The start's footprint and the three start requirements at (x, y), from what the page shows
  *  (EDITOR_PLAN §4: the footprint preview, green or red, and simple indicators). `bench` is the
  *  bench a start that levels its ground (a generated map) would make there, or null for an
- *  imported start that stands on the ground as it is; `moved` says the start is away from where it
- *  stands, so a generated map's slopes are predicted there (`startLinks`). The walks are the
+ *  imported start that stands on the ground as it is. The walks are the
  *  validator's (analysis/walk.ts) on the ground as it would be; which plants live is the page's
  *  guess from their dead flags (the validator, after the move, also checks their soil). */
 export function checkStartAt(
@@ -645,7 +637,6 @@ export function checkStartAt(
   bench: { level: number; radius: number; bank?: Point } | null,
   self: string | null,
   needs: StartNeeds,
-  moved = true,
 ): StartCheck {
   const { W, H } = c;
   const tiles: number[] = [];
@@ -684,7 +675,7 @@ export function checkStartAt(
     const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
     for (const [tx, ty] of footprintTiles(t, p)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
   }
-  const links = startLinks(c, h, x, y, door, !!bench && moved);
+  const links = startLinks(c);
   const walk = walkDistance(h, W, H, blocked, links, { x, y });
   // 1. water: a shore the walk reaches, touching clean water a pump there reaches
   let nearestBad = Infinity;
@@ -778,8 +769,20 @@ export function sourceMiddle(v: EntityView, k: number, W: number): number {
   return y * W + x;
 }
 
-/** The map's sources, as markers: those within two tiles of each other in one group. */
-export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): SourceGroup[] {
+/** The strengths the page has set on sources that the worker has not answered yet (D368 (4)), by the source's
+ *  tile ("x,y"). */
+export type PendingStrengths = ReadonlyMap<string, number>;
+/** A source's key in `PendingStrengths`. */
+export const strengthKey = (x: number, y: number) => `${x},${y}`;
+/** A source's strength, the one number its label, its row and the scroll's note all read (D368 (4)): the
+ *  page's copy of the objects, with the strengths set on it and still on their way to the worker on top. */
+export function strengthReader(v: EntityView, pending: PendingStrengths): (k: number) => number {
+  return (k) => pending.get(strengthKey(v.x[k], v.y[k])) ?? v.strength[k];
+}
+
+/** The map's sources, as markers: those within two tiles of each other in one group, each group's strength
+ *  read by `strengthOf` (the page's one number, `strengthReader`). */
+export function sourceGroups(v: EntityView, W: number, heights: Uint8Array, strengthOf: (k: number) => number = (k) => v.strength[k]): SourceGroup[] {
   const list: number[] = [];
   for (let k = 0; k < v.count; k++) {
     const t = v.templates[v.template[k]];
@@ -814,7 +817,7 @@ export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): Sou
     for (const m of members) {
       sx += mid[m] % W;
       sy += Math.floor(mid[m] / W);
-      strength += v.strength[list[m]];
+      strength += strengthOf(list[m]);
       if (v.templates[v.template[list[m]]] === "BadwaterSource") bad = true;
     }
     const x = sx / members.length;
@@ -823,6 +826,27 @@ export function sourceGroups(v: EntityView, W: number, heights: Uint8Array): Sou
     out.push({ members: members.map((m) => list[m]), tiles: members.map((m) => mid[m]), x, y, z: heights[i] ?? 0, strength: Math.round(strength * 100) / 100, bad });
   }
   return out;
+}
+
+/** The strength of one source and of the row it stands in (D361, item 6): the settings row, the
+ *  scroll's note and the marker's label all say the same numbers. `own` is the source's, `row` the
+ *  whole group's (the marker's label), `count` its sources. Null when `k` is in no group. */
+export interface SourceStrengths {
+  own: number;
+  row: number;
+  count: number;
+  bad: boolean;
+}
+export function sourceStrengths(groups: readonly SourceGroup[], strengthOf: (k: number) => number, k: number): SourceStrengths | null {
+  const g = groups.find((x) => x.members.includes(k));
+  if (!g) return null;
+  return { own: Math.round(strengthOf(k) * 100) / 100, row: g.strength, count: g.members.length, bad: g.bad };
+}
+/** What the strength is, in words: "0.25 water/s" for a lone source; in a row, both numbers, so it
+ *  is clear the scroll changes this source and not the row ("this source 0.25 · row 1 water/s"). */
+export function sourceStrengthWords(s: SourceStrengths): string {
+  const unit = `${s.bad ? "badwater" : "water"}/s`;
+  return s.count > 1 ? `this source ${s.own} · row ${s.row} ${unit}` : `${s.own} ${unit}`;
 }
 
 /** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over

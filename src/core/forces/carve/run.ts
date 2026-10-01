@@ -25,6 +25,7 @@
 // prototype ports across as a diff. The result is stored literally (force.ts), so replay never
 // runs this code.
 
+import * as portable from "../../math/portable";
 import { toMapObject } from "../../features/build";
 import { PLACED } from "../../features/edits";
 import { waterSource, type EntitySpec } from "../../format/entities";
@@ -34,7 +35,8 @@ import { waterModel } from "../../sim/model";
 import type { WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
 import { entityTiles, protectedGround, type ForceHead, type ForceMap, type ForceRun, type Lane } from "../force";
-import { RiverCharacter } from "./character";
+import { naturalWidth, RiverCharacter } from "./character";
+import { strength } from "../strength";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
@@ -207,6 +209,8 @@ export class CarveRun implements ForceRun {
   private visited = new Uint16Array();
   private born = new Uint16Array();
   private heading = 0;
+  /** Wider than its Power's own river: the deepest it cuts anywhere, its banks included (D361 (3)). */
+  strengthDepth: number | null = null;
   private bed = 0;
   private energy = 0;
   private splitSeen = new Set<string>();
@@ -260,7 +264,12 @@ export class CarveRun implements ForceRun {
       throw new Error("Invalid character settings");
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
-    this.depth = settings.depth ?? null;
+    // Size and Power (D361 (3)): wider than Power's own river, it cuts in proportion: no deeper than
+    // its strength's share of the deepest a carve goes (12 levels), at least 2
+    const k = strength(settings.power, settings.width, naturalWidth(settings.power));
+    const cap = k < 1 ? Math.max(2, Math.round(12 * k)) : null;
+    this.depth = cap === null ? (settings.depth ?? null) : Math.min(cap, settings.depth ?? cap);
+    this.strengthDepth = cap;
     this.floor = forceFloor(settings);
     this.initialWater = input.water.depth.slice();
     this.initialContamination = input.water.contamination.slice();
@@ -290,7 +299,7 @@ export class CarveRun implements ForceRun {
     this.bed = Math.max(Math.min(2, input.heights[intent.origin]), input.heights[intent.origin] - Math.round(Math.min(12, 1 + 6 * p * this.character.intensity)));
     this.energy = Math.max(input.W, input.H) * (1.2 + 4 * p) * (1 + 0.6 * this.character.wander);
     this.heading = this.course.guide(x, y);
-    this.head = { x, y, z: input.heights[intent.origin], dx: Math.cos(this.heading), dy: Math.sin(this.heading), width: this.character.width(0), event: "surge", cut: 0 };
+    this.head = { x, y, z: input.heights[intent.origin], dx: portable.cos(this.heading), dy: portable.sin(this.heading), width: this.character.width(0), event: "surge", cut: 0 };
     if (settings.mode === "aim" && !settings.defyGravity && input.heights[intent.end!] > input.heights[intent.origin]) {
       throw new Error("The end point is uphill of the start");
     }
@@ -375,12 +384,12 @@ export class CarveRun implements ForceRun {
     const grade = Math.max(0, sourceBed - drop);
     this.bed = Math.min(this.bed, grade, Math.max(0, Math.max(Math.min(2, raw), raw - incision) - drop));
     const reachWidth = this.character.width(this.metrics.distance);
-    const dx = Math.cos(this.heading);
-    const dy = Math.sin(this.heading);
+    const dx = portable.cos(this.heading);
+    const dy = portable.sin(this.heading);
     // Curvature over a reach, not a single candidate turn: coherent cut banks and inner shelves
     // survive at maximum Wander without speckled tile noise.
     const prior = this.path[Math.max(0, this.path.length - 6)];
-    const bend = prior ? clamp(angleDelta(this.heading, Math.atan2(prior.dy, prior.dx)) / 0.9, -1, 1) : 0;
+    const bend = prior ? clamp(angleDelta(this.heading, portable.atan2(prior.dy, prior.dx)) / 0.9, -1, 1) : 0;
     const width = reachWidth * (1 - 0.22 * this.character.wander + 0.5 * Math.abs(bend));
     const { lanes, knob } = this.character.lanes(x, y, dx, dy, width);
     let event: ForceHead["event"] = "surge";
@@ -415,7 +424,7 @@ export class CarveRun implements ForceRun {
         for (let xx = Math.max(0, Math.floor(lane.x - radius)); xx <= Math.min(W - 1, Math.ceil(lane.x + radius)); xx++) {
           const i = yy * W + xx;
           if (this.keep[i] || this.character.rock[i] || this.sign[i] > 0) continue;
-          const d = Math.hypot(xx - lane.x, yy - lane.y);
+          const d = portable.hypot(xx - lane.x, yy - lane.y);
           const slope = this.settings.walls === "wide" ? 1 : 4;
           const outside = ((xx - x) * dy - (yy - y) * dx) * Math.sign(bend);
           const innerShelf = Math.abs(bend) > 0.3 && outside < -reachWidth * 0.2 ? Math.min(2, Math.ceil((-outside / reachWidth - 0.2) * Math.abs(bend) * 2)) : 0;
@@ -446,7 +455,7 @@ export class CarveRun implements ForceRun {
     for (let yy = Math.max(0, Math.floor(y - radius - 1)); yy <= Math.min(H - 1, Math.ceil(y + radius + 1)); yy++)
       for (let xx = Math.max(0, Math.floor(x - radius - 1)); xx <= Math.min(W - 1, Math.ceil(x + radius + 1)); xx++) {
         const i = yy * W + xx;
-        const d = Math.hypot(xx - x, yy - y);
+        const d = portable.hypot(xx - x, yy - y);
         let t = floor + Math.ceil(Math.max(0, d - radius) * 4);
         if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
         t = Math.max(t, this.floor);
@@ -509,7 +518,7 @@ export class CarveRun implements ForceRun {
           if (segmentsCross(a, b, path[k], path[k + 1])) return true;
         }
     return this.oxbows.some((o) =>
-      o.neck.some((c, k, list) => k + 1 < list.length && Math.hypot(a.x - c.x, a.y - c.y) > 1e-6 && Math.hypot(a.x - list[k + 1].x, a.y - list[k + 1].y) > 1e-6 && segmentsCross(a, b, c, list[k + 1])),
+      o.neck.some((c, k, list) => k + 1 < list.length && portable.hypot(a.x - c.x, a.y - c.y) > 1e-6 && portable.hypot(a.x - list[k + 1].x, a.y - list[k + 1].y) > 1e-6 && segmentsCross(a, b, c, list[k + 1])),
     );
   }
 
@@ -522,13 +531,13 @@ export class CarveRun implements ForceRun {
       return;
     }
     const goal = this.settings.mode === "aim" ? { x: this.intent.end! % W, y: Math.floor(this.intent.end! / W) } : null;
-    if (goal && Math.hypot(goal.x - x, goal.y - y) < 1.8 && this.course.nearEnd()) {
+    if (goal && portable.hypot(goal.x - x, goal.y - y) < 1.8 && this.course.nearEnd()) {
       if (this.crossesCourse({ x, y }, goal)) {
         this.end("power spent");
         return;
       }
-      this.heading = Math.atan2(goal.y - y, goal.x - x);
-      this.metrics.distance += Math.hypot(goal.x - x, goal.y - y);
+      this.heading = portable.atan2(goal.y - y, goal.x - x);
+      this.metrics.distance += portable.hypot(goal.x - x, goal.y - y);
       this.course.accept(goal.x, goal.y, this.heading, this.heading, false);
       this.stamp(goal.x, goal.y);
       this.end("destination");
@@ -543,8 +552,8 @@ export class CarveRun implements ForceRun {
     for (let k = -11; k <= 11; k++) angles.push(nav.bearing + k * 0.165);
     for (const a of angles) {
       if (Math.abs(angleDelta(a, nav.bearing)) > HEADING_LIMIT) continue;
-      const dx = Math.cos(a);
-      const dy = Math.sin(a);
+      const dx = portable.cos(a);
+      const dy = portable.sin(a);
       const nx = x + dx * 1.35;
       const ny = y + dy * 1.35;
       if (nx < 0 || ny < 0 || nx > W - 1 || ny > H - 1) {
@@ -562,7 +571,7 @@ export class CarveRun implements ForceRun {
       const here = this.original[this.at(x, y)];
       const farTile = this.at(nx + dx * 5, ny + dy * 5);
       const resistance = Math.max(0, far - here) * (1 + this.hard(far, farTile) * 2) * (1 - p) + (this.settings.layers && hardAt(this.map, farTile, far) ? 12 * (1 - p) : 0);
-      const score = 12 * Math.cos(angleDelta(a, nav.preferred)) + 3 * Math.cos(angleDelta(a, this.heading)) + (here - far) * 0.35 * (1 - p) - resistance - this.visited[i] * 2;
+      const score = 12 * portable.cos(angleDelta(a, nav.preferred)) + 3 * portable.cos(angleDelta(a, this.heading)) + (here - far) * 0.35 * (1 - p) - resistance - this.visited[i] * 2;
       if (score > best) {
         best = score;
         bestA = a;
@@ -682,7 +691,7 @@ export class CarveRun implements ForceRun {
           this.metrics.suspended++;
           this.wear[i] = Math.max(0, this.wear[i] - 1);
           if (!this.channel[i]) this.metrics.bankCuts++;
-          if (Math.hypot((i % this.map.W) - this.head.x, Math.floor(i / this.map.W) - this.head.y) < this.head.width + 2) frontCut++;
+          if (portable.hypot((i % this.map.W) - this.head.x, Math.floor(i / this.map.W) - this.head.y) < this.head.width + 2) frontCut++;
         } else {
           this.metrics.deposited++;
           this.metrics.suspended--;

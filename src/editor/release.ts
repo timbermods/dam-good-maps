@@ -5,9 +5,10 @@
 // /dam-good-maps/preview/), the dev server, the tests (vitest, and the browser tests' build in the
 // "e2e" mode) and `npm run try`. The top bar reads this (TopBar.tsx `SHOWN_FORCES`).
 //
-// At the forces' release, set FORCES_RELEASED to true: every build shows them from then on.
+// The forces were released on 2026-10-01 (`forces-done`, PLAN §20 D375): FORCES_RELEASED is true, and every build
+// shows them.
 
-export const FORCES_RELEASED = false;
+export const FORCES_RELEASED = true;
 
 /** What a build is: vite's mode ("production" for a site build, "development" for the dev server,
  *  "test" under vitest, "e2e" for the browser tests) and its base. */

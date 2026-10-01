@@ -1,7 +1,8 @@
 // Carve (PLAN §20 D194, D199, D289), through the page: its row is Power, Size, Keep river or Dry
 // canyon and Try another path, nothing more; a click unleashes a river that runs visibly, a frame at
-// a time, and keeps itself as one undo step when it ends (the ground as it was shown; no Stop); Esc
-// or undo takes all of it back at once; Try another path replaces the kept carve, and undoing it
+// a time, and keeps itself as one undo step when it ends (the ground as it was shown; no Stop); undo
+// takes all of it back at once, Esc skips it to its end (D344, A4), while its row's hint says so; Try
+// another path replaces the kept carve, and undoing it
 // brings the first one back. A drag draws its path freehand (D321, item 41: the gesture is the mode):
 // the line shows as it is drawn, nothing else on the land; on release the river carves along it, from
 // the line's higher end to its lower, whichever way it was drawn.
@@ -58,7 +59,7 @@ async function highGround(page: Page): Promise<[number, number]> {
   );
 }
 
-test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Esc takes it back, Try another path replaces it", async ({ page }) => {
+test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path replaces it", async ({ page }) => {
   await refine(page, "s=4242&z=96&d=n&t=highlands");
   // its row: Power, Size, Keep river or Dry canyon (D289), a mode is the gesture, and a More button
   // for its other settings (D309: wander, walls and depth, closed by default)
@@ -81,26 +82,42 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   const before = await heights(page);
   const n0 = (await labels(page)).length;
   const at = await highGround(page);
-  // Esc: the whole carve goes at once, and the history never had it. (Esc comes in the same page
-  // frame that sees the river cutting, so it finds the carve at work on any machine, however quick
-  // Fast's showing is there: D341. Every other moment of a force's run is forceEsc.test's.)
-  await clickTile(page, at[0], at[1]);
-  const seen = await page.waitForFunction(
-    (was) => {
-      const st = window.dgmEditor!.carve();
-      if (!st || st.steps < 12) return false;
-      const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
-      const row = !!document.querySelector('[aria-label="Carve at work"]');
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-      return { cut, row, running: !!window.dgmEditor!.carve() };
-    },
-    before,
-    { timeout: 20_000 },
-  );
-  expect(await seen.jsonValue()).toEqual({ cut: true, row: true, running: false });
-  await expect.poll(() => status(page)).toBeNull();
-  await idle(page);
+  // Ctrl+Z: the whole carve goes at once, and the history never had it; its row said so meanwhile.
+  // (The key comes in the same page frame that sees the river cutting, so it finds the carve at work
+  // on any machine, however quick Fast's showing is there: D341. Every other moment of a force's run
+  // is forceEsc.test's.)
+  const pressWhileCutting = async (key: { key: string; ctrlKey?: boolean }) => {
+    await clickTile(page, at[0], at[1]);
+    const seen = await page.waitForFunction(
+      ([was, k]) => {
+        const st = window.dgmEditor!.carve();
+        if (!st || st.steps < 12) return false;
+        const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
+        const row = document.querySelector('[aria-label="Carve at work"]');
+        const hint = row?.querySelector(".force-keys")?.textContent ?? null;
+        window.dispatchEvent(new KeyboardEvent("keydown", { ...k, bubbles: true, cancelable: true }));
+        return { cut, row: !!row, hint };
+      },
+      [before, key] as const,
+      { timeout: 20_000 },
+    );
+    expect(await seen.jsonValue()).toEqual({ cut: true, row: true, hint: "Esc to skip · Ctrl+Z to undo" });
+    await expect.poll(() => status(page)).toBeNull();
+    await idle(page);
+  };
+  await pressWhileCutting({ key: "z", ctrlKey: true });
   expect(await heights(page)).toEqual(before);
+  expect((await labels(page)).length).toBe(n0);
+  // Esc: skipped to its end, the whole river kept as one step, as the worker keeps it; undo takes it back
+  await pressWhileCutting({ key: "Escape" });
+  expect((await labels(page)).length).toBe(n0 + 1);
+  expect((await labels(page)).at(-1)).toBe("Carve a river");
+  const skipped = await heights(page);
+  expect(skipped).not.toEqual(before);
+  expect(await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights))).toEqual(skipped);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
 
   // again, to its end: one undo step, the ground as the page showed it; its row while it works is
@@ -206,6 +223,11 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   await page.mouse.move(a.x, a.y, { steps: 10 });
   const g = await gesture();
   expect(g.stroke).toBeGreaterThan(20);
+  // (a band of its width along the line, D344 A3: half its Size either side, and no ring)
+  const size = Number(await row.getByRole("slider", { name: "Size" }).inputValue());
+  expect(g.band).toBeGreaterThan(size / 2 - 1);
+  expect(g.band).toBeLessThan(size / 2 + 1);
+  expect(g.ring).toBeNull();
   expect(await status(page)).toBeNull();
   // let go: it carves along the line, and the line goes as it starts
   await page.mouse.up();
@@ -224,11 +246,11 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   };
   expect(cut(at[0], at[1])).toBeGreaterThan(0);
   expect(cut(Math.round((endX + at[0]) / 2), bendY)).toBeGreaterThan(0);
-  // undo while it runs takes it back (Watch: long enough to catch it running)
+  // undo while it runs takes it back (Slow forces: long enough to catch it running)
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
-  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
   await page.mouse.move(s0.x, s0.y);
   await page.mouse.down();
   await page.mouse.move(s1.x, s1.y, { steps: 10 });
@@ -240,5 +262,5 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   await idle(page);
   expect(await heights(page)).toEqual(before);
   expect((await labels(page)).length).toBe(n0);
-  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
 });

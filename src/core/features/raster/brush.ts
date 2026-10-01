@@ -16,6 +16,7 @@
 // - Smooth and naturalize work where the brush presses, a level at a time as pressure gathers:
 //   smooth moves a tile toward the mean of its neighbours; naturalize wears cliffs into slopes and
 //   breaks long straight edges (noise from the stroke's seed), as weather would.
+//   Naturalize weathers all but the start's pad and its `keep` runs (D368 (8), `weathers`).
 // - Shapes (the brush kit, PLAN §20 D182, D179 (3)): round, or square (by the larger of the two
 //   distances, on the tile grid). A pen's pressure scales each dab's pressure (a mouse presses
 //   fully).
@@ -100,6 +101,10 @@ export interface BrushParams {
   sources?: "keep";
   /** Naturalize: the seed of its noise. */
   seed?: number;
+  /** Naturalize (D368 (8)): weathers everything but the start's pad and the `keep` runs (the ground
+   *  under sources and objects), a force's result, an exact stroke, a river and a set piece
+   *  included. Absent, a stroke from before leaves every protected tile as it did. */
+  weathers?: true;
   /** Square (by the larger distance, on the tile grid); round when absent. */
   shape?: "square";
   /** Precise (retired by D322; its strokes replay): hard edges, no falloff, vertical walls (see
@@ -732,6 +737,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.bank !== undefined && !(Array.isArray(p.bank) && p.bank.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= BRUSH_MAX_LEVEL))) return [`a stroke's banks are runs [y, x0, x1, level 0 to ${BRUSH_MAX_LEVEL}]`];
   if (p.sources !== undefined && (p.sources !== "keep" || p.keep === undefined)) return ["a stroke keeps its sources with their kept runs"];
   if (p.seed !== undefined && !Number.isInteger(p.seed)) return ["a brush's seed is a whole number"];
+  if (p.weathers !== undefined && (p.weathers !== true || p.tool !== "naturalize")) return ["only a naturalize stroke weathers"];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
   if (p.dabs.length > 2 * MAX_DABS) return [`a stroke holds at most ${MAX_DABS} dabs`];
   if (p.shape !== undefined && p.shape !== "square") return ["a brush is round or square"];

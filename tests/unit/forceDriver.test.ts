@@ -311,7 +311,7 @@ describe("the force driver", () => {
     expect((28 * paceOf("erupt").ms) / 1000).toBeGreaterThan(1.2);
     expect((50 * paceOf("glaciate").ms) / 1000).toBeCloseTo(5, 1);
     expect(showMs("glaciate", 50, "fast", 0)).toBe(FAST_MS);
-    expect([0, 30, 60, 90].map((p) => forcePowerWord("glaciate", p))).toEqual(["Cirque", "Glacier", "Great glacier", "Ice age"]);
+    expect([0, 30, 60, 90].map((p) => forcePowerWord("glaciate", p))).toEqual(["Light scour", "Glacier", "Great glacier", "Ice age"]);
     expect([0, 30, 60, 90].map(powerWord)).toEqual(["Creek", "Torrent", "River", "Catastrophe"]);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("craterize", p))).toEqual(["Pebble", "Meteor", "Asteroid", "Cataclysm"]);
   });

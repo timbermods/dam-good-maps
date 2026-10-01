@@ -55,6 +55,7 @@
         "bank": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
+        "weathers": { "const": true },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square"] },
         "precise": { "type": "boolean" },

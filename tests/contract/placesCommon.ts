@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { namedFile } from "../../src/core/gen/pack";
 import { readTimber } from "../../src/core/format/timber";
 import { decodePlaceFile, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
@@ -152,7 +153,7 @@ export function checkShard(k: number, n: number): void {
       // the export profile passes but for the edge wall, a principle it blocks (D151); the gallery
       // still gets the file, as placeTimber refuses only what would not load
       expect(r.validation.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS);
-      expect(r.fileName).toBe(`${entry.name}.timber`);
+      expect(r.fileName).toBe(namedFile(entry.name));
       // the written file, read back: every check of the strictest profile, on its own settle
       const file = readTimber(r.bytes);
       const v = validateMap(file, { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });

@@ -11,12 +11,13 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/terrain.ts).
 
+import * as portable from "../math/portable";
 import { fromBase64, toBase64 } from "../format/base64";
 import { LAYERS } from "../format/world";
 
 /** The game's 23 layers (22 + 1); layer 22 stays empty. */
 export const TERRAIN_LAYERS = LAYERS;
-const FULL = 2 ** TERRAIN_LAYERS - 1;
+const FULL = portable.pow(2, TERRAIN_LAYERS) - 1;
 
 /** Format 3's terrain, for the document's `field` and `base` (DESIGN.md §2.2). */
 export interface TerrainData {
@@ -88,7 +89,7 @@ export class ColumnTerrain {
 
   static fromHeights(h: ArrayLike<number>, W: number, H: number): ColumnTerrain {
     const mask = new Uint32Array(W * H);
-    for (let i = 0; i < W * H; i++) mask[i] = h[i] >= TERRAIN_LAYERS ? FULL : 2 ** h[i] - 1;
+    for (let i = 0; i < W * H; i++) mask[i] = h[i] >= TERRAIN_LAYERS ? FULL : portable.pow(2, h[i]) - 1;
     return new ColumnTerrain(W, H, mask);
   }
 

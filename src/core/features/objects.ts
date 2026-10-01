@@ -202,6 +202,32 @@ export function singleParams(kind: MapObjectKind, x: number, y: number, o: Orien
 // --------------------------------------------------------------------------------- Remove
 
 /** What the editor's Remove takes (its filters, PLAN §20 D184). */
+/** Whether the plain pointer picks and drags an object of this template (D360 a): every object on the map,
+ *  trees, bushes and ruin columns included. Not the sources and the start, which have their own grab
+ *  (D249, D184), and not a slope, which the ground derives. */
+export function isPickable(template: string): boolean {
+  return template !== "WaterSource" && template !== "BadwaterSource" && template !== "StartingLocation" && template !== "Slope" && !!FOOTPRINTS[template];
+}
+
+const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Dandelion|Cattail|Spadderdock)$/;
+
+/** Which of several objects under the pointer is the one picked (D360 a): the bigger object (more tiles)
+ *  wins over a smaller one, and of equal size what is not a plant wins over a tree or a bush; of a tie the
+ *  first. Returns its index in `templates`. */
+export function pickWinner(templates: readonly string[]): number {
+  const size = (t: string) => {
+    const b = FOOTPRINTS[t]?.blocks ?? [];
+    return new Set(b.filter((k) => k[4] !== 0).map((k) => `${k[0]},${k[1]}`)).size || 1;
+  };
+  let best = 0;
+  for (let k = 1; k < templates.length; k++) {
+    const a = size(templates[k]);
+    const b = size(templates[best]);
+    if (a > b || (a === b && PLANT.test(templates[best]) && !PLANT.test(templates[k]))) best = k;
+  }
+  return best;
+}
+
 export type RemoveKind = "trees" | "bushes" | "ruins" | "sources" | "water" | "badwater" | "slopes" | "objects" | "start";
 
 /** The kind of object a template is, for Remove's filters. The start is the player's like any object

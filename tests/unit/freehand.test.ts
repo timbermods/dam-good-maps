@@ -1,4 +1,4 @@
-// A force's reach ring (PLAN §20 D312) and the freehand path (D321, items 41 and 13; D327): the ring's
+// A force's size ring (PLAN §20 D312; Quake has none, D368 (2)) and the freehand path (D321, items 41 and 13; D327): the ring's
 // radius follows Power and Size; a press becomes a drawn path once the pointer moves six pixels, a
 // click otherwise; the path is kept resampled along its length, its ends exact; a river's runs from
 // its higher end, whichever way it was drawn; the curve through its points passes through each.
@@ -21,7 +21,6 @@ describe("a force's reach at its Power and Size (D312)", () => {
     const erupt = (power: number, size: number | null) => forceReach({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power, size } });
     expect(erupt(90, null)).toBeGreaterThan(erupt(20, null));
     expect(erupt(20, 30)).toBe(15);
-    expect(forceReach({ verb: "quake", settings: { power: 80 } })).toBeGreaterThan(forceReach({ verb: "quake", settings: { power: 20 } }));
   });
 });
 

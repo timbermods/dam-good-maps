@@ -18,3 +18,4 @@ playwright-report/
 out/*/local/
 # Large generated investigation results stay out of git (PLAN.md §20, D195)
 investigation/*/local/
+.claude/settings.local.json

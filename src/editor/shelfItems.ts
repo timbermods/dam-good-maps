@@ -6,6 +6,7 @@
 // Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
 import { hash32 } from "../core/math/hash";
+import { tip } from "../ui/Tooltip";
 
 export interface ShelfItem {
   id: string;
@@ -25,22 +26,27 @@ export interface ShelfItem {
 }
 
 export const SHELF: readonly ShelfItem[] = [
-  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "click where the water starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
-  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "click where badwater starts; its strength in the options. Over a source, Ctrl+scroll sets its strength; drag it to move it" },
-  { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "the district center: click where the colony starts; R turns its door" },
-  { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "Oak", name: "Oak", template: "Oak", fill: 0.8, turns: true, hint: "click one, or drag to plant a grove" },
-  { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", fill: 0.55, turns: true, hint: "click one, or drag to plant a patch" },
-  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower; its height in the options" },
-  { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "the scrap mine is built on it late in the game" },
-  { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "demolished for science; its size in the options" },
-  { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a natural slope up a 1-level step: R turns it to face the step" },
-  { id: "Thorns", name: "Thorns", template: "Thorns", turns: true, hint: "blocks walking until builders clear it" },
-  { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back until it is demolished" },
-  { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel until it is demolished" },
-  { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a geothermal engine on it makes free power" },
+  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "where water starts" },
+  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "where badwater starts" },
+  { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "where the colony starts" },
+  { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "plant pines" },
+  { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "plant birches" },
+  { id: "Oak", name: "Oak", template: "Oak", fill: 0.8, turns: true, hint: "plant oaks" },
+  { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", fill: 0.55, turns: true, hint: "plant berry bushes" },
+  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower" },
+  { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "where a scrap mine goes" },
+  { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "a relic to demolish for science" },
+  { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level" },
+  { id: "Thorns", name: "Thorns", template: "Thorns", turns: true, hint: "blocks the way until cleared" },
+  { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
+  { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel" },
+  { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a spot for free power" },
 ];
+
+/** An item's tooltip (D368 (6)): what it is for, then its key and R's turn as key caps. */
+export function shelfTip(it: ShelfItem) {
+  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1), it.key, it.turns && "R turns it");
+}
 
 export interface ShelfOptions {
   /** A ruin's height, 1–8 levels. */
@@ -85,6 +91,7 @@ export function quietWord(problem: string): string {
   if (/district center/.test(p)) return "the start stands there";
   if (/off the map|does not fit on the map|map edge/.test(p)) return "too near the edge";
   if (/cave|overhang/.test(p)) return "a cave is there";
+  if (/water is in the way/.test(p)) return "water is in the way";
   if (/under water|in a river/.test(p)) return "under water";
   const stands = /^(an? [a-z ]+) stands there/.exec(p);
   if (stands) return `${stands[1]} is there`;

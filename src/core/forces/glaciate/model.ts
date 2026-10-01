@@ -5,6 +5,7 @@
 // lower ground or an edge gives Try another somewhere else to go. The iteration order is the
 // investigation's, so the same map and settings give the same land.
 
+import * as portable from "../../math/portable";
 import { MinHeap, N8 } from "../../math/grid";
 import type { ForceMap } from "../force";
 
@@ -13,7 +14,7 @@ import type { ForceMap } from "../force";
 export interface GlaciateSettings {
   mode: "flow" | "aim";
   power: number;
-  /** The trough's width in tiles, or null: it follows Power (Auto). */
+  /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */
   size: number | null;
   meltwater: boolean;
   seed: number;
@@ -88,8 +89,14 @@ export interface Hanging {
   joinLength: number;
 }
 
-/** The demo's defaults (Power 60, Auto size, Meltwater on) and its first personality. */
+/** Its defaults: Power 60, a middle depth like the other forces' (Power 100 is round 4's glacier in full,
+ *  the deep U-shaped valley Kyler approved; lower Powers lift it toward a light scour, D368 (3)), Auto
+ *  size, Meltwater on, and the demo's first personality. */
 export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 60, size: null, meltwater: true, seed: 891 };
+
+/** The Power round 4's glacier was designed at (the investigation's default): the plan is always round
+ *  4's, as deep as it was there, and Glaciate's Power lifts it afterwards (`shallowGlacier`). */
+export const ROUND4_POWER = 60;
 
 /** Size's range in tiles (the row's slider). */
 export const GLACIATE_SIZE_MIN = 4;
@@ -107,10 +114,22 @@ export const noise = (seed: number, i: number) => {
 /** Try another's next personality (the investigation's series). */
 export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 1013904223) >>> 0;
 
-/** The trough's width: set, or Auto (30 at Power 60). */
-export const sizeOf = (s: Pick<GlaciateSettings, "size" | "power">) => s.size ?? Math.round(8 + (36 * s.power) / 100);
+/** The most a click's glacier flows down its valley, as a share of the map's width (round 4's at its
+ *  default Power): how far it flows is the valley's, never Power's (D368 (3)). */
+export const FLOW_REACH = 0.22 + (0.85 * ROUND4_POWER) / 100;
 
-const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+/** The trough's width on Auto: round 4's at its default Power (D368 (3): Size is how wide, Power how
+ *  deep, and neither drives the other, so Auto no longer follows Power). */
+export const GLACIATE_AUTO_SIZE = 30;
+
+/** The width at which a glacier's head measures the land's relief round it (round 4's at its default
+ *  Size): its depth is never its Size's (D368 (3)). */
+export const RELIEF_SPAN = GLACIATE_AUTO_SIZE;
+
+/** The trough's width: set, or Auto (30, whatever the Power). */
+export const sizeOf = (s: Pick<GlaciateSettings, "size">) => s.size ?? GLACIATE_AUTO_SIZE;
+
+const distance = (a: Point, b: Point) => portable.hypot(a.x - b.x, a.y - b.y);
 
 export function sinuosity(p: Point[]): number {
   let l = 0;
@@ -180,7 +199,7 @@ export class Valley {
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
         // crossing high ground costs much more: this finds the low corridors already there
-        const nc = Math.max(c, h[j]) + Math.hypot(dx, dy) * 0.001;
+        const nc = Math.max(c, h[j]) + portable.hypot(dx, dy) * 0.001;
         if (nc < cost[j]) {
           cost[j] = nc;
           this.parent[j] = i;
@@ -235,7 +254,9 @@ export function flatHead(m: Pick<ForceMap, "W" | "H" | "heights">, origin: numbe
  *  edge); Aim along a direction-biased least-cost pass to the dragged end, ridges and all. */
 export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSettings, intent: GlaciateIntent, v = new Valley(m)): Point[] {
   const start = { x: (intent.origin % m.W) + 0.5, y: Math.floor(intent.origin / m.W) + 0.5 };
-  const reach = m.W * (0.22 + (0.85 * s.power) / 100);
+  // (how far it flows is the valley's, never Power's: Power is how deep it carves, D368 (3); round 4's
+  // reach at its default Power)
+  const reach = m.W * FLOW_REACH;
   if (s.mode === "flow") {
     const ordinary = v.path(intent.origin, reach);
     if (!flatHead(m, intent.origin) && ordinary.length >= 8) return ordinary;
@@ -253,7 +274,7 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
     const out: Point[] = [];
     for (let k = 0; k <= Math.ceil(len); k++) {
       const t = k / Math.ceil(len);
-      const bend = Math.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
+      const bend = portable.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
       out.push({ x: clamp(start.x + dx * len * t - dy * bend, 0.5, m.W - 0.5), y: clamp(start.y + dy * len * t + dx * bend, 0.5, m.H - 0.5) });
     }
     return out;
@@ -309,7 +330,7 @@ function aimLeg(m: Pick<ForceMap, "W" | "H" | "heights">, from: number, goal: nu
       if (nx < 1 || ny < 1 || nx >= m.W - 1 || ny >= m.H - 1) continue;
       const j = ny * m.W + nx;
       const across = Math.abs((nx - start.x) * dy - (ny - start.y) * dx);
-      const nc = c + Math.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + (across / Math.max(6, len * 0.22)) ** 2 * 0.7);
+      const nc = c + portable.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + portable.pow((across / Math.max(6, len * 0.22)), 2) * 0.7);
       if (nc < costs[j]) {
         costs[j] = nc;
         parent[j] = i;

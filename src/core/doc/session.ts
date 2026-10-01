@@ -10,9 +10,12 @@
 //   reopening a project, share links).
 // - Documents made by another generator open from their stored base, exactly (PLAN §19.7).
 
-import { isTall, withTallNote } from "../format/world";
+import { isTall, surfaceOf, withTallNote } from "../format/world";
+import { mapObjects } from "../sim/model";
+import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
+import { weatherKeep } from "../features/raster/objectGround";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
@@ -23,9 +26,11 @@ import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
-import type { Feature } from "../features/schema";
+import type { Feature, StartFeature } from "../features/schema";
+import { DERIVED_SLOPES } from "../features/ids";
+import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { fileName as timberFileName, toTimberFile } from "../gen/pack";
+import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -118,6 +123,8 @@ export class MapSession {
   private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
+  private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
+  private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -259,8 +266,8 @@ export class MapSession {
   }
 
   /** The session of a map the generator just made: its own build is the starting map. */
-  static fromGenerated(r: GenerateResult, file?: TimberFile): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field), r.built);
+  static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
+    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field, seedWord), r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
@@ -347,6 +354,7 @@ export class MapSession {
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+      starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
     };
   }
 
@@ -508,6 +516,12 @@ export class MapSession {
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
+    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
+    if (applied.op === "brush") {
+      const runs = weatherKeep(applied.params, this.cur.entities, this.size.x, this.size.y);
+      if (runs.length) applied.params = { ...applied.params, keep: [...(applied.params.keep ?? []), ...runs] };
+    }
     applyOp(this.st, applied);
     if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
     this.log.push(applied);
@@ -623,7 +637,29 @@ export class MapSession {
   private input(): BuildInput {
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null);
+  }
+
+  /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable
+   *  Smooth, a ramped Flatten that recorded none): a document that holds one opens as it always did,
+   *  its slopes derived from its ground. No stroke the editor makes can ask (D368 (10)). */
+  private derivesSlopes(): boolean {
+    return this.st.sculpts.some((sc) => {
+      const p = sc.params as { tool?: string; walkable?: boolean; edges?: string; slopes?: unknown; dabs?: unknown };
+      return !!p.dabs && ((p.tool === "smooth" && !!p.walkable) || (p.tool === "flatten" && p.edges === "ramped" && p.slopes === undefined));
+    });
+  }
+
+  /** The slopes the generation placed, from the map it stored: an edited map keeps them and never
+   *  derives slopes again (D368 (10): only the player places objects). A document that stored no
+   *  owners keeps every slope of its stored map. */
+  private generatedSlopes(): { x: number; y: number; orientation: Orientation }[] {
+    const c = this.slopesCache;
+    if (c && c.key === this.gen.base) return c.slopes;
+    const owned = !!this.gen.base.owners;
+    const slopes = this.baseStuff().layer.entities.filter((e) => e.template === "Slope" && (!owned || e.owner === DERIVED_SLOPES)).map((e) => ({ x: e.x, y: e.y, orientation: e.orientation }));
+    this.slopesCache = { key: this.gen.base, slopes };
+    return slopes;
   }
 
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
@@ -648,8 +684,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -738,7 +774,7 @@ export class MapSession {
    *  profile, PLAN §19.5): they are noted at the end of the map's description. */
   /** The exported file's name. */
   exportTimberName(): string {
-    return this.gen.spec ? timberFileName(this.gen.spec) : `${this.gen.meta.name}.timber`;
+    return this.gen.spec ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
@@ -785,6 +821,7 @@ export class MapSession {
       external: !live,
       // (the map is being edited: an edge wall warns, D323)
       editing: true,
+      mineCutAtOpen: this.mineCutAtOpen(),
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,
@@ -793,6 +830,17 @@ export class MapSession {
       // an edited import's approximate-water rule compares the settle with the water it was opened with
       storedWet: live ? undefined : this.openedWet(),
     });
+  }
+
+  /** The mine sites out of the colony's reach when the map was opened (its stored map): the checks
+   *  blame only what edits cut off since (D368 (10)). */
+  private mineCutAtOpen(): ReadonlySet<number> {
+    const b = this.baseStuff();
+    if (this.cutCache?.key === this.gen.base) return this.cutCache.cut;
+    const w = b.file.world;
+    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), w.sizeX, w.sizeY);
+    this.cutCache = { key: this.gen.base, cut };
+    return cut;
   }
 
   /** The wet tiles of the imported map as it was opened (its own stored water). */
@@ -951,6 +999,8 @@ function tallNoted(file: TimberFile, heights: ArrayLike<number>): TimberFile {
   const md = file.metadata;
   if (!md) return file;
   const text = typeof md.MapDescription === "string" ? md.MapDescription : "";
-  const described = withTallNote(text, isTall(heights));
+  let top = 0;
+  for (let i = 0; i < heights.length; i++) if (heights[i] > top) top = heights[i];
+  const described = withTallNote(text, isTall(heights), top);
   return described === text ? file : { ...file, metadata: { ...md, MapDescription: described } };
 }

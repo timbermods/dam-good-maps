@@ -1,0 +1,116 @@
+[
+  {
+    "size": 96,
+    "maps": 20,
+    "all": 14,
+    "promise": 15,
+    "standout": 20,
+    "water": 18,
+    "absoluteFailures": 0,
+    "strongPromise": 13,
+    "firstLandMs": {
+      "median": 834,
+      "p90": 1794,
+      "max": 1981
+    },
+    "timedWaterMaps": 20,
+    "firstWaterMs": {
+      "median": 2825,
+      "p90": 3933
+    },
+    "cpuLandMs": {
+      "median": 833,
+      "p90": 1537
+    },
+    "cpuWaterMs": {
+      "median": 2783,
+      "p90": 3933
+    },
+    "finalMs": {
+      "median": 3881,
+      "p90": 5153
+    },
+    "settleDays": {
+      "median": 2.1666666666666665,
+      "p90": 4.333333333333333,
+      "max": 4.333333333333333
+    },
+    "shownMoreThanOne": 0
+  },
+  {
+    "size": 128,
+    "maps": 20,
+    "all": 13,
+    "promise": 14,
+    "standout": 20,
+    "water": 17,
+    "absoluteFailures": 0,
+    "strongPromise": 17,
+    "firstLandMs": {
+      "median": 1384,
+      "p90": 3070,
+      "max": 7071
+    },
+    "timedWaterMaps": 20,
+    "firstWaterMs": {
+      "median": 5173,
+      "p90": 11122
+    },
+    "cpuLandMs": {
+      "median": 1249,
+      "p90": 2005
+    },
+    "cpuWaterMs": {
+      "median": 4170,
+      "p90": 8179
+    },
+    "finalMs": {
+      "median": 7567,
+      "p90": 13109
+    },
+    "settleDays": {
+      "median": 3,
+      "p90": 5.333333333333333,
+      "max": 6
+    },
+    "shownMoreThanOne": 0
+  },
+  {
+    "size": 256,
+    "maps": 20,
+    "all": 13,
+    "promise": 16,
+    "standout": 18,
+    "water": 15,
+    "absoluteFailures": 2,
+    "strongPromise": 17,
+    "firstLandMs": {
+      "median": 8246,
+      "p90": 17714,
+      "max": 21526
+    },
+    "timedWaterMaps": 19,
+    "firstWaterMs": {
+      "median": 24304,
+      "p90": 37342
+    },
+    "cpuLandMs": {
+      "median": 4401,
+      "p90": 6484
+    },
+    "cpuWaterMs": {
+      "median": 12886,
+      "p90": 26671
+    },
+    "finalMs": {
+      "median": 36666,
+      "p90": 68312
+    },
+    "settleDays": {
+      "median": 3.5,
+      "p90": 6,
+      "max": 6
+    },
+    "shownMoreThanOne": 0
+  }
+]

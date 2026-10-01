@@ -113,7 +113,7 @@ export interface Layer {
 
 /** A sound's layers (all recorded material; calibration.ts has each recipe's measured trim). A force
  *  may play one phase of its recipe at a time, as it happens. */
-export function recipe(name: string, params: Partial<SoundParams> = {}, { semitones = 0, random = Math.random, phase }: { semitones?: number; random?: () => number; phase?: string } = {}): Layer[] {
+export function recipe(name: string, params: Partial<SoundParams> = {}, { semitones = 0, random = Math.random, phase, span }: { semitones?: number; random?: () => number; phase?: string; span?: number } = {}): Layer[] {
   const p = parameters(params);
   const pick = (a: string, b: string) => (random() < 0.5 ? a : b);
   const r = 2 ** ((semitones + (random() - 0.5) * 0.22 - p.size * 0.6) / 12);
@@ -235,12 +235,15 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
       break;
     }
     case "glaciate": {
-      // (investigation/glaciate `audio.ts`: its runtime edits, as bank.json records them)
+      // (investigation/glaciate `audio.ts`: its runtime edits, as bank.json records them). Played a
+      // phase at a time, it fits the phase as it is shown (`span`, D344 A7: Fast's is shorter, Slow forces'
+      // longer): the cracks within the advance, the meltwater ending as the land settles
+      const k = phase && span !== undefined ? Math.max(0.1, span) / (phase === "advance" ? 3 : 2) : 1;
       if (!phase || phase === "advance") {
-        add("crack-a", 0.45, 0, { rate: 0.55, duration: 2, lowpass: 1100, attack: 0.04, release: 0.15 });
-        add("crack-b", 0.3, 1.75, { rate: 0.7, duration: 1, lowpass: 7000, attack: 0.04, release: 0.15 });
+        add("crack-a", 0.45, 0, { rate: 0.55, duration: Math.min(2, 3 * k), lowpass: 1100, attack: 0.04, release: 0.15 });
+        add("crack-b", 0.3, 1.75 * Math.min(1, k), { rate: 0.7, duration: Math.max(0.2, Math.min(1, 3 * k - 1.75 * Math.min(1, k))), lowpass: 7000, attack: 0.04, release: 0.15 });
       }
-      if (!phase || phase === "retreat") add("waterfall", 0.8, phase ? 0 : 3, { rate: 1.05, duration: 2.2, lowpass: 7000, offset: random() * 2, attack: 0.04, release: 0.15 });
+      if (!phase || phase === "retreat") add("waterfall", 0.8, phase ? 0 : 3, { rate: 1.05, duration: phase && span !== undefined ? Math.max(0.25, span) : 2.2, lowpass: 7000, offset: random() * 2, attack: 0.04, release: 0.15 });
       break;
     }
     case "undo":

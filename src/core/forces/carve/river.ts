@@ -18,6 +18,7 @@
 // Only the carve's own ground is raised (never above the land before it); new ground is only ever
 // lowered, never below the Floor (floor.ts).
 
+import * as portable from "../../math/portable";
 import { hash32 } from "../../math/hash";
 import { spillLevels } from "../../sim/prefill";
 import { forceFloor } from "../floor";
@@ -56,6 +57,8 @@ export function shapeRiver(run: CarveRun): number[] {
     const carved = h[i] < run.original[i];
     let v = carved ? Math.min(run.original[i], level) : Math.min(h[i], level);
     v = Math.max(v, Math.min(h[i], floor));
+    // (a river wider than its Power's own cuts no deeper, its banks included: D361 (3))
+    if (run.strengthDepth !== null) v = Math.max(v, Math.min(h[i], run.original[i] - run.strengthDepth));
     h[i] = v;
   };
   if (depth !== null) {
@@ -112,7 +115,7 @@ function shapeBanks(run: CarveRun, banks: number, depth: number, set: (i: number
         const t = clamp(raw, 0, 1);
         const px = a.x + ex * t;
         const py = a.y + ey * t;
-        const d = Math.hypot(x - px, y - py);
+        const d = portable.hypot(x - px, y - py);
         if (d >= dist[i]) continue;
         dist[i] = d;
         near[i] = t > 0.5 ? k + 1 : k;

@@ -683,3 +683,125 @@ button[aria-pressed="true"] {
   padding: 3px 10px;
   border-radius: 999px;
 }
+
+/* the top-right corner, one tidy cluster (D345, B3; D368 (5)): the compass in the corner, the level control
+   beside it on the same line (larger and easy to see, as in Timberborn's own editor), Slow forces and Sound
+   beneath, from the level control's left edge to the compass's right; every piece one height, one gap
+   between them all (tests/e2e/viewAndHeader.spec.ts measures it) */
+.view3d-corner {
+  --corner-h: 44px;
+  --corner-gap: 8px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  grid-template-columns: auto var(--corner-h);
+  gap: var(--corner-gap);
+  align-items: center;
+  pointer-events: none;
+}
+
+.view3d-corner > * {
+  pointer-events: auto;
+}
+
+.view3d-corner .compass {
+  position: static;
+}
+
+.corner-level {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view3d-corner .layer-widget {
+  height: var(--corner-h);
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.view3d-corner .layer-widget button {
+  height: var(--corner-h);
+  min-width: 40px;
+  padding: 0 10px;
+  font-size: 1.2rem;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.view3d-corner .layer-widget output {
+  min-width: 3ch;
+  height: var(--corner-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  padding: 0 8px;
+}
+
+.view3d-corner .layer-widget.quiet output {
+  color: inherit;
+}
+
+.corner-below {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--corner-gap);
+  align-items: center;
+}
+
+.corner-below button {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  padding: 0 12px;
+  font-size: 0.85rem;
+  height: var(--corner-h);
+  border-radius: 8px;
+}
+
+/* Slow forces fills the line, so the switches span the cluster */
+.corner-below > button:first-child {
+  flex: 1;
+}
+
+/* the speaker: an icon, crossed out when the sounds are off (D361, item 8), square under the compass */
+.corner-below .reveal-group {
+  position: relative;
+}
+
+.corner-below .speaker {
+  width: var(--corner-h);
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* its volume opens beneath it, so nothing in the cluster moves */
+.corner-below .reveal-group .reveal {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  padding-top: var(--corner-gap);
+}
+
+.corner-below .reveal-group .reveal input {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.corner-below .speaker .crossed {
+  stroke: var(--bad);
+}
+
+.corner-below button[aria-pressed="true"] {
+  background: var(--accent);
+}
+
+/* the view bar leaves room for the corner's level control */
+.editor-view .view3d-controls {
+  right: 230px;
+}

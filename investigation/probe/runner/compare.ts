@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { type CheckDef, D0, startWater, startWaterOf, type Verdict, weirTiles } from './catalog';
-import type { MapResult, MapSnapshot, SampleRow } from './job';
+import type { MapResult, MapSnapshot, PerfPhaseResult, SampleRow } from './job';
 import type { Prepared } from './jobs';
 import { wetAreas, type MapInfo } from './mapfile';
 import { isObject, num } from '../../../src/core/format/json';
@@ -74,6 +74,9 @@ export class Loaded {
 }
 
 const safe = (s: string) => s.replace(/[^A-Za-z0-9_-]/g, '_');
+
+/** The size every size map's frame times and load time are set against: the largest standard size. */
+export const SIZE_REFERENCE = 'sizes-256x256';
 
 // ------------------------------------------------------------------------------ generic measures
 
@@ -366,6 +369,68 @@ const EVALS: Record<string, Eval> = {
       verdict: 'recorded',
       detail: `${shots.length} screenshots (${[...new Set(shots.map((s) => s.pose))].join(', ')}) at the load and at the end, in the run's shots folder and contact sheet. Judged by eye: terrain whole up to 22 (no holes, no missing or cut-off tops), no floating or missing objects, no water hanging in the air or cut off, the start and the tall parts as built`,
     };
+  },
+
+  // ---- size maps (PLAN §20 D357 (9)): the 256² reference is the game this batch compares every size with
+  'size-load'(c) {
+    const v = loadVerdict(c);
+    const info = c.L.info;
+    const s = c.L.snapshot('start');
+    if (!s) return { verdict: 'failed', detail: `no record of the map at the load; ${v.detail}` };
+    const right = s.width === info.W && s.height === info.H;
+    return { verdict: v.verdict === 'passed' && right ? 'passed' : 'failed', detail: `the game's map ${s.width}×${s.height}, the file's ${info.W}×${info.H}${right ? '' : ' (NOT THE SAME)'}; ${v.detail}` };
+  },
+  'size-terrain'(c) {
+    return EVALS['tall-terrain'](c);
+  },
+  'size-objects'(c) {
+    return EVALS.objects(c);
+  },
+  'size-water'(c) {
+    const info = c.L.info, t = c.L.prepared.game.sizes!;
+    const s0 = need(c.L.snapshot('start'), 'start'), s1 = need(c.L.snapshotAt(D0 + 1, 0.1), 'day-1');
+    const a0 = waterDiff(info, s0), a1 = waterDiff(info, s1);
+    const vol = Math.abs(a1.volumeGame / Math.max(1e-9, a1.volumeFile) - 1);
+    const rows = c.L.samples().filter((r) => r.day <= D0 + 1.05);
+    if (!rows.length) throw new NotMeasurable('no samples before the frame-time phases');
+    const row1 = c.L.sampleAt(D0 + 1)!;
+    const dry: string[] = [], pools: string[] = [];
+    for (const [x, y] of t.flowTiles) {
+      const low = Math.min(...rows.map((r) => Loaded.topWater(r, x, y).depth));
+      if (!(low > 0.01)) dry.push(`(${x}, ${y}) down to ${f3(low)}`);
+    }
+    for (const [x, y] of t.poolTiles) {
+      const i = y * info.W + x;
+      const want = info.floor[i] + info.depth[i], got = Loaded.topWater(row1, x, y).surface;
+      if (!(Math.abs(got - want) <= 0.1)) pools.push(`(${x}, ${y}) surface ${f3(want)} → ${f3(got)}`);
+    }
+    const ok = a0.within01 >= 0.99 && a1.within01 >= 0.95 && vol <= 0.1 && dry.length === 0 && pools.length === 0;
+    return {
+      verdict: ok ? 'passed' : 'failed',
+      detail: `at the load: ${waterText(a0)}; after ${f2(s1.day - D0)} days: ${waterText(a1)}. River: ${t.flowTiles.length - dry.length} of ${t.flowTiles.length} sampled tiles down its length wet in every sample${dry.length ? ` (dried: ${dry.join(', ')})` : ''}; lake: ${t.poolTiles.length - pools.length} of ${t.poolTiles.length} tiles with the file's surface within 0.1 after a day${pools.length ? ` (${pools.join(', ')})` : ''}`,
+    };
+  },
+  'size-smooth'(c) {
+    const r = c.L.result!;
+    const phases = r.perf?.phases ?? [];
+    if (!phases.length) throw new NotMeasurable(`no frame times recorded (DGM Probe ${r.modVersion ?? '?'}; they need 0.2.1 or later)`);
+    const ref = c.L.prepared.game.id === SIZE_REFERENCE ? null : c.others.get(SIZE_REFERENCE)?.result?.perf?.phases ?? null;
+    const text = (p: PerfPhaseResult) => {
+      const q = ref?.find((x) => x.id === p.id);
+      return `${p.id} (speed ${p.speed}): median ${p.medianMs.toFixed(1)} ms, p95 ${p.p95Ms.toFixed(1)} ms, p99 ${p.p99Ms.toFixed(1)} ms, longest ${p.maxMs.toFixed(0)} ms, ${p.over100Ms} of ${p.frames} frames over 100 ms; the game ran at ${p.speedReached.toFixed(1)}× (${p.days.toFixed(2)} days in ${p.seconds.toFixed(0)} s)${q ? ` [256²: median ${q.medianMs.toFixed(1)}, p95 ${q.p95Ms.toFixed(1)} ms, ${q.speedReached.toFixed(1)}×]` : ''}`;
+    };
+    const env = r.perf?.environment;
+    return { verdict: 'recorded', detail: `${phases.map(text).join('; ')}. ${r.perf?.camera ?? ''}${env ? `; ${env.screen}, vsync ${env.vSync}, ${env.qualityLevel}, ${env.gpu}, ${env.cpu}, ${env.memoryMb} MB` : ''}; memory at the end ${phases.at(-1)!.workingSetMb.toFixed(0)} MB` };
+  },
+  'size-load-time'(c) {
+    const r = c.L.result!;
+    if (!r.loadSeconds) throw new NotMeasurable(`no load time recorded (DGM Probe ${r.modVersion ?? '?'}; it needs 0.2.1 or later)`);
+    const ref = c.L.prepared.game.id === SIZE_REFERENCE ? null : c.others.get(SIZE_REFERENCE)?.result ?? null;
+    return { verdict: 'recorded', detail: `${r.loadSeconds.toFixed(1)} s from starting the new game to the game's interface, ${(r.workingSetAtLoadMb ?? 0).toFixed(0)} MB then${ref?.loadSeconds ? ` (256²: ${ref.loadSeconds.toFixed(1)} s, ${(ref.workingSetAtLoadMb ?? 0).toFixed(0)} MB; ${(r.loadSeconds / ref.loadSeconds).toFixed(1)}×)` : ''}` };
+  },
+  'size-shots'(c) {
+    const shots = c.L.result!.shots ?? [];
+    return { verdict: 'recorded', detail: `${shots.length} screenshots (${[...new Set(shots.map((s) => s.pose))].join(', ')}), in the run's shots folder and contact sheet. Judged by eye: the whole map drawn (no missing or cut-off parts at the far ends), the river and the lake where the file has them` };
   },
 
   // ---- ceiling maps (PLAN §20 D244, step 1)
@@ -956,7 +1021,7 @@ export function evaluate(ctx: Ctx, checks: CheckDef[]): CheckResult[] {
   return checks.map((def) => {
     if (def.how === 'none') return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: def.why ?? '' };
     if (!ctx.L.result) return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: 'the game produced no result for this map' };
-    if (ctx.L.result.status !== 'done' && !['load', 'high-load', 'tall-load', 'A1', 'E4', 'M6-1a', 'M6-1b'].includes(def.id))
+    if (ctx.L.result.status !== 'done' && !['load', 'high-load', 'tall-load', 'size-load', 'size-load-time', 'A1', 'E4', 'M6-1a', 'M6-1b'].includes(def.id))
       return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: `the map did not finish (${ctx.L.result.status}${ctx.L.result.failure ? ': ' + ctx.L.result.failure : ''})` };
     const e = EVALS[def.id];
     if (!e) return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: 'no evaluation for this check' };

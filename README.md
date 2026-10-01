@@ -28,7 +28,7 @@ The generator:
 - **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
-  name is kept, and the new one is saved as "Name (2)".
+  name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **Download project file** keeps the map for editing later.
 
@@ -37,8 +37,8 @@ The editor:
   zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
 - Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
-- [ and ] size the brush, or hold F and move the mouse. Shift while painting swaps Raise and Lower.
-  Esc cancels a stroke.
+- { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
+  **Smooth** and **Naturalize**'s strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
 - **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
   shown beside the pointer, with hard edges.
 - Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
@@ -53,6 +53,11 @@ The editor:
   from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
+- The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
+  a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
+- Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
+  Power. **Try another** gives a different result; **More** holds the details.
+- **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.

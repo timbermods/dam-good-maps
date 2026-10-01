@@ -8,7 +8,8 @@
 // image and offered to open it).
 
 import { useRef } from "preact/hooks";
-import { SHELF, type ShelfItem } from "./shelfItems";
+import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
+import { tip } from "../ui/Tooltip";
 
 /** How far a press must move before it is a drag and not a click, in pixels. */
 const DRAG_PX = 6;
@@ -53,15 +54,19 @@ export function Shelf(p: ShelfProps) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
+      window.removeEventListener("blur", lost);
       if (press.current === s) press.current = null;
       if (s.dragging) {
         swallow.current = true;
         latest.current.onDrop(it, u.type === "pointercancel");
       }
     };
+    // the window loses focus mid-drag (a screenshot tool): the release never comes, so it ends as a cancel (D361, item 5)
+    const lost = () => end({ type: "pointercancel", pointerId: s.id } as PointerEvent);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
+    window.addEventListener("blur", lost);
   }
 
   return (
@@ -76,7 +81,7 @@ export function Shelf(p: ShelfProps) {
               class="shelf-item"
               aria-pressed={p.picked === it.id}
               aria-label={it.key ? `${it.name} (${it.key})` : it.name}
-              title={p.loading ? "The map is still loading" : `${it.name}${it.key ? ` (${it.key})` : ""}: ${it.hint}${it.turns ? " (R turns it)" : ""}. Click to pick it up, or drag it onto the map. Esc puts it back.`}
+              {...(p.loading ? tip("The map is still loading") : shelfTip(it))}
               disabled={p.loading}
               onPointerDown={(e) => down(e, it)}
               onDragStart={(e) => e.preventDefault()}

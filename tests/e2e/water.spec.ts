@@ -20,7 +20,7 @@ test("the map card shows the water facts, the layers toggle, and both water vari
   await expect(page.getByText(/plants\.drought/)).toBeVisible();
   const empty = page.waitForEvent("download");
   await page.getByRole("button", { name: "Without pre-filled water" }).click();
-  expect((await empty).suggestedFilename()).toBe("River Valley (4242) (empty water).timber");
+  expect((await empty).suggestedFilename()).toBe("dgm-river-valley-4242-empty-water.timber");
   expect(errors).toEqual([]);
 });
 

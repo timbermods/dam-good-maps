@@ -1,6 +1,7 @@
 // Geometry shared by the rasterizers: distance from every tile to a river path, the arc position
 // of the nearest point, and which side of the path a tile lies on; polygons; bed profiles.
 
+import * as portable from "../math/portable";
 import type { BedStep, Point, RiverParams } from "./schema";
 
 export interface PathField {
@@ -22,7 +23,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
   for (let i = 0; i + 1 < n; i++) {
     const dx = path[i + 1][0] - path[i][0];
     const dy = path[i + 1][1] - path[i][1];
-    const l = Math.sqrt(dx * dx + dy * dy);
+    const l = portable.sqrt(dx * dx + dy * dy);
     segLen.push(l);
     cum.push(cum[i] + l);
   }
@@ -54,7 +55,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
         }
       }
       const idx = y * W + x;
-      d[idx] = Math.sqrt(best);
+      d[idx] = portable.sqrt(best);
       s[idx] = bestS;
       side[idx] = bestSide;
     }
@@ -68,7 +69,7 @@ export function arcAtX(path: Point[], x: number): number {
   for (let i = 0; i + 1 < path.length; i++) {
     const [ax, ay] = path[i];
     const [bx, by] = path[i + 1];
-    const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+    const l = portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
     if (x <= bx || i + 2 === path.length) {
       const t = bx !== ax ? Math.max(0, Math.min(1, (x - ax) / (bx - ax))) : 0;
       return acc + t * l;
@@ -84,7 +85,7 @@ export function pointAtArc(path: Point[], s: number): { p: Point; normal: Point 
   for (let i = 0; i + 1 < path.length; i++) {
     const [ax, ay] = path[i];
     const [bx, by] = path[i + 1];
-    const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+    const l = portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
     if (s <= acc + l || i + 2 === path.length) {
       const t = l > 0 ? Math.max(0, Math.min(1, (s - acc) / l)) : 0;
       const nx = l > 0 ? -(by - ay) / l : 0;
@@ -160,7 +161,7 @@ export function nearestOnPath(path: readonly Point[], x: number, y: number): { p
     const px = ax + u * vx;
     const py = ay + u * vy;
     const d = (px - x) * (px - x) + (py - y) * (py - y);
-    const len = Math.sqrt(l2);
+    const len = portable.sqrt(l2);
     if (d < best) {
       best = d;
       bp = [px, py];
@@ -168,7 +169,7 @@ export function nearestOnPath(path: readonly Point[], x: number, y: number): { p
     }
     arc += len;
   }
-  return { p: bp, d: Math.sqrt(best), s: bs };
+  return { p: bp, d: portable.sqrt(best), s: bs };
 }
 
 /** Squared distance from (x, y) to the segment a–b. */
@@ -186,6 +187,6 @@ export function segmentDistance2(x: number, y: number, a: readonly number[], b: 
 
 /** Round to a fixed number of decimals for compact, stable JSON. */
 export function round(v: number, decimals = 2): number {
-  const k = decimals === 2 ? 100 : decimals === 3 ? 1000 : 10 ** decimals;
+  const k = decimals === 2 ? 100 : decimals === 3 ? 1000 : portable.pow(10, decimals);
   return Math.round(v * k) / k;
 }

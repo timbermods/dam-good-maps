@@ -1,0 +1,57 @@
+name: Cross-engine map determinism
+on:
+  pull_request:
+    branches: [dev]
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+jobs:
+  maps:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install isolated harness
+        working-directory: investigation/determinism
+        run: npm run setup
+      - name: Install engines
+        working-directory: investigation/determinism
+        run: node local/runtime/node_modules/playwright/cli.js install --with-deps chromium firefox webkit
+      - name: Guard deterministic code
+        run: node investigation/determinism/guard.mjs
+      - name: Check actual product code
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = schedule ]; then
+            node investigation/determinism/run.mjs
+          else
+            node investigation/determinism/run.mjs --smoke
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: determinism-${{ matrix.os }}
+          path: investigation/determinism/local/baseline/*.json
+          retention-days: 7
+  compare-hosts:
+    needs: maps
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v7
+        with:
+          path: investigation/determinism/local/hosts
+          pattern: determinism-*
+      - name: Compare OS and CPU results
+        shell: bash
+        run: node investigation/determinism/compare.mjs investigation/determinism/local/hosts/determinism-*

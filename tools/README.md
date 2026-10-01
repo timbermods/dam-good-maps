@@ -11,8 +11,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
-- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` makes the probe's tall test maps; `ingame-files.ts` makes the files for the in-game checks.
+- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, and the probe's runner calls them itself before a batch); `ingame-files.ts` makes the files for the in-game checks.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
+- `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 
 **Batches and measures**
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
@@ -33,3 +34,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
 **Tests**: tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+
+## Machine setup
+
+`npm run setup:machine` (`tools/setup-machine.mjs`): on a fresh clone, creates the worktrees the plan uses, installs their
+dependencies, writes the probe allow rules for this machine's paths into `.claude/settings.local.json`, checks the tools
+the work needs and prints what's ready and what's missing. Safe to run again; `--dry-run`, `--all`, `--no-install`.

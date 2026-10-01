@@ -33,9 +33,9 @@ import {
 import type { PlanRecord } from "../core/features/setpieces";
 import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, lakeAt, moveObject, planEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
+import { entityProblem, footprintCheck as checkFootprint, lakeAt, levelProblem, moveObject, planEntity, planMoveEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
 import type { SetPieceKind } from "../core/features/schema";
-import { distanceFrom } from "../core/math/grid";
+import { distanceFrom, runsToTiles, tilesToRuns, type Runs } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
 import { toTimberFile } from "../core/gen/pack";
 import { thumbnailJpeg } from "../core/render/shade";
@@ -43,6 +43,8 @@ import type { EntitySpec } from "../core/format/entities";
 import { JsonFloat } from "../core/format/json";
 import { startEntranceTile, type Orientation } from "../core/format/footprints";
 import { entityTiles } from "../core/features/edits";
+import { describeTileOf, type TileDescription } from "../core/doc/describeTile";
+import { objectsIn, ruinFieldTilesIn, submergedIn } from "../core/doc/inArea";
 import { rebuiltSlope } from "../core/features/ids";
 import { placementOf } from "../core/format/entities";
 import type { ImportReport } from "../core/format/normalize";
@@ -68,24 +70,23 @@ import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
+import { edgeAim } from "../core/forces/carve/edge";
 import type { CraterSettings } from "../core/forces/craterize";
-import type { EruptSettings, Point } from "../core/forces/erupt";
+import { fissureBreadth, type EruptSettings, type Point } from "../core/forces/erupt";
 import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "../core/forces/op";
-import type { QuakeSettings } from "../core/forces/quake";
+import { clickFault, strokeLength, TAP, type QuakeSettings } from "../core/forces/quake";
 import { geology, nextSeed } from "../core/forces/random";
-import { forceParamsOf, pathRecord } from "../core/forces/result";
+import { pathRecord, stagedParamsOf } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { GlaciateRun } from "../core/forces/glaciate/run";
 import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
-import { areaDepth, markBrushTiles } from "../core/features/raster/brush";
-import { StrokePreview } from "../core/features/raster/strokePreview";
-import { rimSlopes } from "../core/features/slopes";
+import { areaDepth } from "../core/features/raster/brush";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
-import { lastGenerated, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
+import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
   kind: "generated" | "import";
@@ -143,6 +144,10 @@ export interface SessionUpdate {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** The map's water is settled as this answer leaves (D345, B14): no settle is running for it, so no
+   *  journey will follow. False while the worker is settling the water after this change: its frames,
+   *  then its settled water, come as events. The water bar reads this, never a guess. */
+  waterSettled?: boolean;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -352,16 +357,19 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice() };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice() };
 }
 
+/** The page has these objects already: every field it reads the same, a source's strength and a ruin's
+ *  model among them (D368 (4): a strength changed alone was once not sent, and the source's label and
+ *  row stayed on the old number). */
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
   if (!b || a.count !== b.count || a.templates.join() !== b.templates.join() || a.owners.join() !== b.owners.join()) return false;
   const eq = (p: ArrayLike<number>, q: ArrayLike<number>) => {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
 }
 
 function markSent(s: MapSession): void {
@@ -430,7 +438,7 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     kickWater();
     syncChecks();
   }
-  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant };
+  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !(waterJob && waterJob.session === s) };
 }
 
 // ------------------------------------------------------------------------------ the checks worker
@@ -733,8 +741,18 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
   waterJob = null;
   const s = j.session;
   if (session !== s || !s.adoptWater(j.job.model, water)) return;
-  const view = viewUpdate(s);
-  listener?.({ kind: "settled", version, view, info: sessionInfo(s) });
+  settledNews(s, viewUpdate(s));
+}
+
+/** The map's water is settled and in place: tell the page, on the channel its frames came on, so that its
+ *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
+ *  background check that stopped it, D345 B14). */
+function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
+  if (!listener) return view;
+  // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
+  const copy = structuredClone(view);
+  listener({ kind: "settled", version, view, info: sessionInfo(s) });
+  return copy;
 }
 
 // ------------------------------------------------------------------------------------ weather
@@ -899,7 +917,7 @@ export function refine(): SessionOpen {
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
   if (!r.report.passed) throw new Error("this map did not pass its checks: generate another one first");
-  return opened(MapSession.fromGenerated(r, r.file));
+  return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
 /** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
@@ -941,34 +959,19 @@ export function check(op: EditOp): string[] {
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const r = s.apply(withRimSlopes(s, op), origin, label);
+  const refused = newRampedStroke(op);
+  if (refused) return changed(s, false, [refused], t0);
+  const r = s.apply(op, origin, label);
   return changed(s, r.ok, r.errors, t0);
 }
 
-/** A ramped Flatten stroke lays its own slopes along its rim (D270), kept in the stroke: worked out
- *  here, on the ground as the stroke leaves it, clear of what stands there, the water, and the tiles
- *  the build keeps free (the start's, the rivers' mouths, the map objects'). A stroke that has its
- *  slopes already (a replay) or isn't a ramped Flatten goes as it is. */
-function withRimSlopes(s: MapSession, op: EditOp): EditOp {
-  if (op.op !== "brush") return op;
-  const p = op.params;
-  if (p.tool !== "flatten" || p.edges !== "ramped" || p.slopes !== undefined) return op;
-  const { x: W, y: H } = s.size;
-  const b = s.built;
-  const after = b.heights.slice();
-  const { dabs, pressure, levels, ...settings } = p;
-  const preview = new StrokePreview(settings, s.terrainState(), after, W, H);
-  preview.add(dabs, pressure, levels);
-  if (p.rigid?.length) preview.finish(p.rigid);
-  const own = new Uint8Array(W * H);
-  markBrushTiles(p, W, H, own);
-  const blocked = b.cache.reserved.length === W * H ? b.cache.reserved.slice() : new Uint8Array(W * H);
-  for (const e of b.entities) {
-    if (e.template === "Slope" && rebuiltSlope(e.owner)) continue;
-    for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
-  }
-  for (let i = 0; i < W * H; i++) if (b.water[i] > 0.05) blocked[i] = 1;
-  return { op: "brush", params: { ...p, slopes: rimSlopes(after, W, H, own, blocked) } };
+/** A new ramped Flatten would lay Slope objects along its rim (D270). The editor has no such stroke
+ *  (D322), and no brush places an object (D368 (10): only the player places objects): it is refused,
+ *  with the way to a walkable edge. A stroke saved earlier, with its slopes recorded, replays as it
+ *  always did, through the project and the history, never through here. */
+function newRampedStroke(op: EditOp): string | null {
+  if (op.op !== "brush" || op.params.tool !== "flatten" || op.params.edges !== "ramped" || op.params.slopes !== undefined) return null;
+  return "Flatten has no ramped edges: place a Slope from the shelf where you want a way up";
 }
 
 /** The last change a control made step by step (a strength slider moved with the arrow keys):
@@ -1205,6 +1208,9 @@ export interface BackgroundResult {
   /** The view after the canonical water replaced the preview's (water, and the plants on it). */
   view: ViewUpdate;
   info: SessionInfo;
+  /** No settle is running for the open map as this answer leaves (D345, B14): its water is the
+   *  canonical one, and whatever journey the page shows is over. */
+  waterSettled?: boolean;
 }
 
 let bgToken = 0;
@@ -1250,7 +1256,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
   const v0 = version;
   const token = ++bgToken;
   const current = () => session === s && version === v0 && token === bgToken;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const t0 = performance.now();
   let view: ViewUpdate = {};
   if (s.waterPending) {
@@ -1260,7 +1266,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     s.adoptWater(run.model, w);
     // the canonical water replaces the preview's: the background preview has nothing left to do
     stopWater();
-    view = viewUpdate(s);
+    view = settledNews(s, viewUpdate(s));
   }
   onProgress?.({ stage: "checks", done: 1 });
   let v: Validation;
@@ -1272,7 +1278,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
-      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s) };
+      return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
     if (!originalFull) {
       const om = importModel(s, true);
@@ -1288,7 +1294,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     if (!current()) return null;
     v = s.validate("export");
   }
-  return { check: grouped(s, v, t0), view, info: sessionInfo(s) };
+  return { check: grouped(s, v, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** The background check in the checks worker: its canonical water goes in place here (the view
@@ -1296,17 +1302,17 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
 async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => void): Promise<BackgroundResult | null> {
   const s = need();
   const v0 = version;
-  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s) };
+  if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const r = await c.check(v0, onProgress);
   if (!r || version !== v0 || session !== s) return null;
   let view: ViewUpdate = {};
   if (r.water && s.waterPending && s.adoptWater(r.water.model, r.water.water)) {
     stopWater();
-    view = viewUpdate(s);
+    view = settledNews(s, viewUpdate(s));
   }
   if (r.layers) lastWater = { version: v0, ...r.layers };
   lastCheck = r.check;
-  return { check: r.check, view, info: sessionInfo(s) };
+  return { check: r.check, view, info: sessionInfo(s), waterSettled: !waterSettling() };
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
@@ -1449,26 +1455,80 @@ export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[],
   const startFeatures = new Set<string>();
   const removed: number[] = [];
   const counts = new Map<RemoveKind, number>();
+  // (a ruin field the selection reaches gives up the tiles inside it, the columns the water hides too; the
+  // columns outside keep their heights and places, D360 b)
+  const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
     if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
     const kind = removeKindOf(e.template);
     if (!kind || !removeTakes(kinds, e.template)) continue;
+    if (kind === "ruins" && fields.has(e.owner)) {
+      removed.push(e.y * W + e.x);
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+      continue;
+    }
     if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
     else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
     else ids.push(e.id);
     removed.push(e.y * W + e.x);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
+  // what the resource features hold under water there is deleted too (D345, B5), and nothing they would
+  // plant on these tiles later stands again as the water drains or the ground dries: the features'
+  // areas give up the tiles where nothing stands now
+  for (const o of submergedIn(s, want)) {
+    if (!removeTakes(kinds, o.template)) continue;
+    removed.push(o.tile);
+    const kind = removeKindOf(o.template)!;
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  const trims = new Map<string, Set<number>>();
+  for (const f of s.features) {
+    // (not a ruin field: its columns' heights are assigned over its whole area, so giving tiles up would
+    // change the ones that stand)
+    if (f.kind !== "forest" && f.kind !== "berryPatch") continue;
+    if (!removeTakes(kinds, f.kind === "forest" ? "Pine" : "BlueberryBush")) continue;
+    const standing = new Set<number>();
+    for (const e of s.built.entities) if (e.owner === f.id) for (const [tx, ty] of entityTiles(e)) standing.add(ty * W + tx);
+    const gone = new Set<number>();
+    for (const i of runsToTiles(f.params.area as Runs, W)) if (want.has(i) && !standing.has(i)) gone.add(i);
+    if (gone.size) trims.set(f.id, gone);
+  }
   if (!removed.length) return { ...changed(s, false, ["nothing to remove there"], t0), removed };
   const ops: EditOp[] = [];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
+  for (const [id, gone] of trims) {
+    const f = s.features.find((g) => g.id === id);
+    if (!f || !("area" in f.params)) continue;
+    const keep = runsToTiles(f.params.area as Runs, W).filter((i) => !gone.has(i));
+    // (a feature whose whole area was under water has nothing left: it goes)
+    ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
+  }
+  for (const [id, gone] of fields) {
+    const f = s.features.find((g) => g.id === id);
+    if (!f || f.kind !== "ruinField") continue;
+    const cleared = new Set<number>(f.params.cleared ? runsToTiles(f.params.cleared, W) : []);
+    for (const i of gone) cleared.add(i);
+    const left = runsToTiles(f.params.area, W).some((i) => !cleared.has(i));
+    ops.push(left ? { op: "updateFeature", params: { id, patch: { params: { cleared: tilesToRuns([...cleared].sort((a, b) => a - b), W) } } } } : { op: "deleteFeature", params: { id } });
+  }
   for (const p of slopes) ops.push({ op: "removeSlope", params: p });
   for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
   const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
   const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
   const r = s.applyAll(ops, "user", label ?? auto);
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
+}
+
+/** What is on tile (x, y): its ground and every object standing on it (D347, B11). */
+export function describeTileAt(x: number, y: number): TileDescription | null {
+  return describeTileOf(need(), x, y);
+}
+
+/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
+export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
+  return objectsIn(need(), tiles);
 }
 
 /** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope
@@ -1515,7 +1575,9 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
     if (e.raw && !placementOf(e.raw)) continue;
     if (entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) ids.push(e.id);
   }
-  const ops: EditOp[] = [withRimSlopes(s, op)];
+  const refused = newRampedStroke(op);
+  if (refused) return changed(s, false, [refused], t0);
+  const ops: EditOp[] = [op];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
   const r = ids.length ? s.applyAll(ops, "user", `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared`) : s.apply(op, "user", label);
   return changed(s, r.ok, r.errors, t0);
@@ -1529,6 +1591,17 @@ export function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
   if (!r.ok) return changed(s, false, r.errors, t0);
   const a = s.applyAll(r.ops, "user", r.label);
   return changed(s, a.ok, a.errors, t0);
+}
+
+/** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
+export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const p = planMoveEntity(s, id, dx, dy);
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
+  return changed(s, r.ok, r.errors, t0);
 }
 
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
@@ -1555,6 +1628,8 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
   // its door are cut down to the lowest tile, in the same step (D328)
   const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return changed(s, false, [wet], t0);
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
   const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
   const r = s.applyAll([...level, move], "user", o !== e.orientation ? "Move and turn the start" : "Move start");
@@ -1573,6 +1648,8 @@ function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: num
   }
   const [cx, cy] = cornerFor(x, y, o);
   const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return changed(s, false, [wet], t0);
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set(), [door[1] * s.size.x + door[0]]);
   const place: EditOp = { op: "placeEntity", params: { id: crypto.randomUUID(), template: "StartingLocation", x: cx, y: cy, orientation: o, components: {} } };
   const r = s.applyAll([...level, place], "user", "Place the start");
@@ -1633,7 +1710,7 @@ export function entitiesAt(x: number, y: number): EntityInfo[] {
 }
 
 /** The hover preview of a single object or an entity: its tiles, and why it can't stand there. */
-export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: string | null } {
+export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: string | null; level?: number } {
   const s = need();
   if (req.tool !== "object" && req.tool !== "entity") return { tiles: [], problem: null };
   return checkFootprint(s, req);
@@ -1702,10 +1779,11 @@ let lastWater: { version: number; depth: Float64Array; contamination: Float64Arr
 /** A force to start (D194, D202, D203, D206): which, its settings (the seed is the series', Try
  *  another takes the next), where (a carve's origin and aimed end, an impact and its aim, a vent or
  *  a painted fissure, a painted fault and the side that moves), and the layer showing (D207: the
- *  ground above it is left as it is). A painted Lift (`painting`) shows its result as it is painted
+ *  ground above it is left as it is). A carve drawn uphill is shown from its end (`shownFrom`, D344
+ *  A5: only its showing; its operation and its land are the same). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
-  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string }
+  | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
   | { verb: "quake"; settings: QuakeSettings; path: Point[]; side: 1 | -1; cut: number | null; painting?: boolean }
@@ -1744,7 +1822,7 @@ export interface TrailPoint {
  *  (the heights and the rectangle they changed in; the objects, when they changed; an eruption's heat
  *  on the land, once). No water: it stays as it was until the land is final (D321, item 30). Once
  *  the force is worked out (`planned`), `total` steps show it and `shown` of them have: the page
- *  paces them (Fast or Watch, item 29). */
+ *  paces them (Fast or Slow forces, item 29). */
 export interface ForceFrame {
   verb: Verb;
   steps: number;
@@ -1782,6 +1860,8 @@ export interface ForceTakenBack extends ViewUpdate {
   info?: SessionInfo;
   /** Why nothing was taken back, when a kept force was named. */
   reason?: string;
+  /** As `SessionUpdate.waterSettled`, for the history that changed (D345, B14). */
+  waterSettled?: boolean;
 }
 
 /** The force at work: its run on its own copy of the map, the map it started from (its result is
@@ -1977,6 +2057,11 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const { W, H } = base;
   const N = W * H;
   if (req.natural) req = naturalRequest(req, base);
+  // a Carve clicked where its water would run straight off the map carves inward (D360 (1a))
+  if (req.natural && req.verb === "carve" && req.settings.mode === "unleash" && !req.source && !req.end) {
+    const aim = edgeAim(base.heights, base.W, base.H, Math.round(req.origin[1]) * base.W + Math.round(req.origin[0]), req.settings.power);
+    if (aim !== null) req = { ...req, settings: { ...req.settings, mode: "aim", defyGravity: true }, end: [aim % base.W, Math.floor(aim / base.W)] };
+  }
   const cut = req.cut;
   const inMap = (p: [number, number]) => p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
@@ -2039,7 +2124,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
       case "erupt": {
         map = stagedForceMap(base);
         const fissure = req.settings.mode === "fissure" && req.path && req.path.length >= 2;
-        staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent" }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
+        // the editor's fissure (D344, A6): its drawn shape sets its breadth; Size is for a vent's click
+        const size = fissure && req.natural ? { size: fissureBreadth(req.settings, req.path!) } : {};
+        staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent", ...size }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
         staged.finalize = buildTouches(state, base.heights);
         break;
       }
@@ -2061,7 +2148,11 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
       }
       case "quake": {
         map = stagedForceMap(base);
-        const run = new QuakeRun(map, req.settings, { path: req.path, side: req.side }, keep);
+        // a click (a tap, no line drawn) makes a short natural fault there, the land choosing its way
+        // and the seed turning it, so Try another varies it (D360 (1b)); the operation keeps the fault
+        const tap = req.natural && !req.painting && strokeLength(req.path) < TAP;
+        const path = tap ? clickFault(base.heights, W, H, req.path[0], req.settings.power, req.settings.seed ?? 0) : req.path;
+        const run = new QuakeRun(map, req.settings, { path, side: req.side }, keep);
         run.finalize = buildTouches(state, base.heights);
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;
@@ -2081,7 +2172,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     gesture,
     verb: req.verb,
     carve,
-    play: carve ? new CarvePlay(carve) : null,
+    // (a river drawn uphill is shown from its end, the way it was drawn: D344, A5; its land the same)
+    play: carve ? new CarvePlay(carve, req.verb === "carve" && req.shownFrom === "end") : null,
     staged,
     before: map,
     state,
@@ -2235,12 +2327,12 @@ export function forceAdvance(steps: number): ForceFrame | null {
 
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
-export function forcePaint(path: Point[], side: 1 | -1): ForceFrame | null {
+export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session || !(f.staged instanceof QuakeRun) || f.request.verb !== "quake") return null;
   try {
-    f.staged.repaint({ path, side });
-    f.request = { ...f.request, path, side };
+    f.staged.repaint({ path, side }, power);
+    f.request = { ...f.request, path, side, ...(power !== undefined ? { settings: { ...f.request.settings, power } } : {}) } as typeof f.request;
   } catch {
     // (a stroke that reaches the start's ground: the last good one stays)
   }
@@ -2288,7 +2380,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     stopWater();
     const u = changed(s, true, [], t0);
     // (the whole view, not what changed since the keep: the page may never have shown the keep)
-    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info };
+    return { ...u.view, ...restoreView(s), taken: "kept", info: u.info, waterSettled: u.waterSettled };
   }
   if (gesture > gestureLast) takenBack.add(gesture);
   return { taken: null };
@@ -2343,7 +2435,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   let water: WarmState;
   if (f.carve) {
     const r = f.carve;
-    // a carve kept part way (Watch's jump to the end, D321) keeps its whole result: the playback only
+    // a carve kept part way (Slow forces' jump to the end, D321) keeps its whole result: the playback only
     // shows it
     f.play?.plan(Infinity);
     const req = f.request as Extract<ForceRequest, { verb: "carve" }>;
@@ -2362,7 +2454,8 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     if (!r.done && !(r instanceof QuakeRun && r.painting)) r.finishAll();
     const after = r.final();
     if (!after) return refused(["Nothing changed"]);
-    params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
+    // (its steps are the stages that show it, whatever the machine's speed: D366)
+    params = stagedParamsOf(f.before, r, { verb: f.verb, ...recordOf(f), cut: f.request.cut, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
     if (!params) return refused(["Nothing changed"]);
     // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
     // its whole ground, the levels it left as they were included (the build keeps its banks whole)

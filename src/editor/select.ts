@@ -216,8 +216,10 @@ export interface SelectHost {
   brushSize?(): number;
   /** The Brush mode's ring under the pointer (null: none). */
   ring?(at: [number, number] | null, radius: number): void;
-  /** Ctrl+click on the land while a selection is open: that tile's level, as the Level number. */
+  /** Ctrl+click on the land: that tile's level, as the Level number (D345, B8). */
   sample?(level: number): void;
+  /** Shift+scroll: the Level number a step up (1) or down (-1) (D345, B8). */
+  dial?(step: 1 | -1, ev: WheelEvent): void;
 }
 
 /** The Select tool's pointer handling (D184, D259): one drag (or click) at a time. Rectangle and
@@ -231,7 +233,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   let tiles: number[] = [];
   /** Brush mode: the tiles painted so far in this drag. */
   let painted: Set<number> | null = null;
-  /** Ctrl held on a click: the Level number, unless it drags. */
+  /** Ctrl held on a click: the Level number, from the tile pressed, never a selection. */
   let sampling: TileHit | null = null;
   const mode = () => forced ?? host.mode();
   const words = (list: readonly number[]): string | null => {
@@ -274,10 +276,15 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
     wantsAlt: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
-      // Ctrl+click: the tile's level, as the Level number
-      // (a brush's Ctrl+drag hands its drag here: that one selects)
-      if ((ev.ctrlKey || ev.metaKey) && !forced && sel.count && host.sample) {
+      // Ctrl+click: the tile's level, as the Level number, and nothing else: it never creates or changes
+      // the selection, however the hand moves before the button is let go (D361, item 7). A brush's
+      // Ctrl+drag hands its drag here `forced`, and only selects.
+      if ((ev.ctrlKey || ev.metaKey) && !forced && host.sample) {
         sampling = hit;
+        start = null;
+        painted = null;
+        tiles = [];
+        host.drawing(null, null, null);
         return true;
       }
       how = ev.shiftKey ? "add" : ev.altKey ? "subtract" : "set";
@@ -300,8 +307,8 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
       return true;
     },
     move(hit: TileHit | null, ev: PointerEvent) {
-      if (sampling) return;
       if (mode() === "brush") host.ring?.(hit ? [hit.x + 0.5, hit.y + 0.5] : null, host.brushSize?.() ?? 3);
+      if (sampling) return;
       if (!start || !hit) return;
       const last = points[points.length - 1];
       const m = mode();
@@ -321,6 +328,10 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
       if (sampling) {
         const s = sampling;
         sampling = null;
+        start = null;
+        painted = null;
+        tiles = [];
+        host.drawing(null, null, null);
         host.sample?.(host.heights()[s.y * host.W + s.x]);
         return;
       }
@@ -331,6 +342,12 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
       tiles = [];
       host.drawing(null, null, null);
       host.changed();
+    },
+    // Shift+scroll (browsers turn a Shift+wheel sideways): the Level number, as for the brushes (D345, B8)
+    wheel(ev: WheelEvent) {
+      if (!ev.shiftKey || !host.dial) return false;
+      host.dial((ev.deltaY || ev.deltaX) < 0 ? 1 : -1, ev);
+      return true;
     },
     cancel() {
       start = null;

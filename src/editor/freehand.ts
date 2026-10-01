@@ -82,3 +82,45 @@ export class FreehandPath {
     this.pen = null;
   }
 }
+
+/** A drawn gesture as it shows on the land (D344, A3): a band `radius` tiles either side of the line
+ *  (Carve's and Glaciate's width, their Size; a fault's or a fissure's narrow line, D361 (2)), never a
+ *  circle; the tiles whose middle is within `radius` of it (at least the line's own). */
+export function bandTiles(points: readonly PathPoint[], radius: number, W: number, H: number): number[] {
+  if (!points.length) return [];
+  const r = Math.max(0.5, radius);
+  // (a point every quarter of the radius is close enough: fewer, larger boxes)
+  const gap = Math.max(1, r / 4);
+  const pts: PathPoint[] = [points[0]];
+  for (const p of points) if (Math.hypot(p.x - pts[pts.length - 1].x, p.y - pts[pts.length - 1].y) >= gap) pts.push(p);
+  const last = points[points.length - 1];
+  if (pts[pts.length - 1] !== last) pts.push(last);
+  const mask = new Uint8Array(W * H);
+  const out: number[] = [];
+  const r2 = r * r;
+  for (let k = 0; k < pts.length; k++) {
+    const a = pts[Math.max(0, k - 1)];
+    const b = pts[k];
+    const x0 = Math.max(0, Math.floor(Math.min(a.x, b.x) - r - 1));
+    const x1 = Math.min(W - 1, Math.ceil(Math.max(a.x, b.x) + r + 1));
+    const y0 = Math.max(0, Math.floor(Math.min(a.y, b.y) - r - 1));
+    const y1 = Math.min(H - 1, Math.ceil(Math.max(a.y, b.y) + r + 1));
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (mask[i]) continue;
+        // (the path's points are tile coordinates: a tile's middle is where it is)
+        const t = len2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+        const ex = x - (a.x + dx * t);
+        const ey = y - (a.y + dy * t);
+        if (ex * ex + ey * ey <= r2) {
+          mask[i] = 1;
+          out.push(i);
+        }
+      }
+  }
+  return out;
+}

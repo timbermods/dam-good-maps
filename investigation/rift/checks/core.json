@@ -1,0 +1,34 @@
+{
+  "randomGestures": 1440,
+  "settingsPerCase": 240,
+  "deterministicPairs": 1440,
+  "literalReplayChecks": 1440,
+  "undoSnapshots": 7200,
+  "arrivalSnapshots": 5760,
+  "carriedStarts": 57,
+  "worstPlanMs": 52.7,
+  "waterCases": [
+    {
+      "case": "plateau",
+      "changed": 1020,
+      "drop": 10,
+      "capturedNewWetTiles": 167,
+      "settleMs": 461.9
+    },
+    {
+      "case": "river",
+      "changed": 1010,
+      "drop": 13,
+      "capturedNewWetTiles": 494,
+      "settleMs": 461
+    },
+    {
+      "case": "curved",
+      "changed": 2534,
+      "drop": 12,
+      "capturedNewWetTiles": 1709,
+      "settleMs": 528.3
+    }
+  ],
+  "totalSeconds": 297.54
+}

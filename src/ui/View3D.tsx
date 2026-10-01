@@ -38,6 +38,10 @@ export interface View3DProps {
   class?: string;
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
+  /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
+   *  switches (Slow forces, Sound). */
+  cornerLevel?: ComponentChildren;
+  cornerBelow?: ComponentChildren;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
@@ -277,32 +281,45 @@ export function View3D(props: View3DProps) {
         Height colours
       </button>
       {props.besideHeight}
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show the sources, slope arrows and a line at every level, and draw small far-off objects larger">
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
     </>
   );
 
+  const compassDial = (
+    <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
+      <div ref={compass} class="needle">
+        <span>N</span>
+      </div>
+    </div>
+  );
   return (
     <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
       <div ref={controls} class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down, north up: click to turn the view again" : "Look straight down, north up (drag to move, wheel to zoom)"}>
+        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
           Top-down
         </button>
-        <button type="button" onClick={() => renderer.current?.resetView()}>
+        <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
           Reset view
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
       </div>
-      <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
-        <div ref={compass} class="needle">
-          <span>N</span>
+      {props.cornerLevel || props.cornerBelow ? (
+        // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the
+        // switches beneath, lined up with the cluster's edges; one height and one gap throughout
+        <div class="view3d-corner" role="group" aria-label="Layers and switches">
+          <div class="corner-level">{props.cornerLevel}</div>
+          {compassDial}
+          {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
         </div>
-      </div>
+      ) : (
+        compassDial
+      )}
       {props.hoverText ? (
         <div class="readout" role="status">
           {props.hoverText}

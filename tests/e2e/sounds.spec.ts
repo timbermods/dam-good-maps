@@ -10,7 +10,7 @@ const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const sound = (page: Page) => page.evaluate(() => window.dgmEditor!.sound());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-test("the sounds: the recorded bank loads on the first gesture, never with the page; the first edit never waits on it; a placement's accent plays; Esc stops a force's sounds at once", async ({ page }) => {
+test("the sounds: the recorded bank loads on the first gesture, never with the page; the first edit never waits on it; a placement's accent plays; Ctrl+Z stops a force's sounds at once", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   const fetched: string[] = [];
@@ -52,7 +52,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 2_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
 
-  // an impact: its sounds as it strikes; Esc takes it back and every sound of it stops at once
+  // an impact: its sounds as it strikes; Ctrl+Z takes it back and every sound of it stops at once
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 5_000 }).toBe(0);
   // (at the slowest pace, so Esc comes while it is still at work)
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("slower");
@@ -63,7 +63,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await page.mouse.click(c.x, c.y);
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 3_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.dgmEditor!.force())).not.toBeNull();
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+z");
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 1_000, intervals: [50, 100] }).toBe(0);
   await idle(page);
   expect((await info(page)).history.filter((h) => h.applied).length).toBe(kept);

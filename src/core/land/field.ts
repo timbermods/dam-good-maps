@@ -12,6 +12,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/field.ts).
 
+import * as portable from "../math/portable";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
@@ -88,8 +89,8 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const r = stream(s, "basin-shape");
       const [ux, uy] = unit(p.turn);
       const aspect = sea ? 1 + 0.4 * r.float() : 1.6 + 1.8 * r.float();
-      const major = p.size * Math.sqrt(aspect);
-      const minor = p.size / Math.sqrt(aspect);
+      const major = p.size * portable.sqrt(aspect);
+      const minor = p.size / portable.sqrt(aspect);
       const bend = sea ? 0 : (r.float() * 2 - 1) * 0.6;
       const cell = Math.max(5, p.size * 0.32);
       const arms: { ax: number; ay: number; bx: number; by: number; w: number }[] = [];
@@ -108,7 +109,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const a = dx * ux + dy * uy;
         const b = -dx * uy + dy * ux - (bend * a * a) / major;
         const n = 1 + 0.45 * fbm(s, x, y, cell, 3);
-        let d = Math.sqrt((a / major) * (a / major) + (b / minor) * (b / minor)) / n;
+        let d = portable.sqrt((a / major) * (a / major) + (b / minor) * (b / minor)) / n;
         for (const arm of arms) {
           const vx = arm.bx - arm.ax;
           const vy = arm.by - arm.ay;
@@ -155,7 +156,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const n = Math.max(2, Math.round(p.extra));
       for (let j = 0; j < n; j++) {
         const a = rng.float();
-        const r = p.size * Math.sqrt(rng.float());
+        const r = p.size * portable.sqrt(rng.float());
         const [ux, uy] = unit(a);
         const mx = cx + ux * r;
         const my = cy + uy * r;
@@ -251,7 +252,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       else {
         const du = x / (W - 1) - g.focus[0];
         const dv = y / (H - 1) - g.focus[1];
-        h += g.tilt * (Math.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
+        h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
       }
       // the slow regional field: broad highs and lows that are not one plane
       h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
@@ -310,7 +311,7 @@ export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: num
       const dx = (i % W) - (r % W);
       const dy = Math.floor(i / W) - Math.floor(r / W);
       const len = dx !== 0 && dy !== 0 ? Math.SQRT2 : 1;
-      const F = (k * (1 - 0.85 * hard[i]) * Math.sqrt(d.area[i])) / len;
+      const F = (k * (1 - 0.85 * hard[i]) * portable.sqrt(d.area[i])) / len;
       h[i] = (h[i] + F * h[r]) / (1 + F);
     }
     if (diffusion > 0) {

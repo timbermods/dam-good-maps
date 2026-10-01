@@ -29,7 +29,7 @@
 // Controls: left-drag paints; right- or middle-drag and the wheel move the camera; Shift inverts
 // (raise ↔ lower); Shift+scroll sets the target (Smooth and Naturalize: the strength); Ctrl+click
 // takes the land's level as the target (on water, its bed); Ctrl+drag selects (the Select tool);
-// [ and ] change the size; hold F and move the mouse to size the ring, its size beside it, and let go
+// { and } change the size (D368 (1)); hold F and move the mouse to size the ring, its size beside it, and let go
 // (a click sets it too, D205, from Blender); 1–5 pick a brush; Esc cancels a stroke in progress or a
 // resize, then lets a set target follow the ground again.
 
@@ -71,11 +71,11 @@ const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten:
 export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, levelLines: false, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
-  { tool: "raise", name: "Raise", key: "1", hint: "Raise the ground under the brush to the level beside the pointer, as the game editor's relative raise: higher ground stays. Shift+scroll sets the level; past its ends, Free raises softly." },
-  { tool: "lower", name: "Lower", key: "2", hint: "Cut the ground under the brush down to the level beside the pointer, as the game editor's relative lower: lower ground stays. Shift+scroll sets the level; past its ends, Free digs softly. From water, it carves a bed the water follows." },
-  { tool: "flatten", name: "Flatten", key: "3", hint: "Set the ground under the brush to the level beside the pointer, as the game editor's absolute height. Shift+scroll or Ctrl+click sets the level." },
-  { tool: "smooth", name: "Smooth", key: "4", hint: "Smooth steps and bumps toward the ground round them." },
-  { tool: "naturalize", name: "Naturalize", key: "5", hint: "Wear cliffs into slopes and break straight edges, as weather would." },
+  { tool: "raise", name: "Raise", key: "1", hint: "raise the ground" },
+  { tool: "lower", name: "Lower", key: "2", hint: "lower the ground" },
+  { tool: "flatten", name: "Flatten", key: "3", hint: "level the ground" },
+  { tool: "smooth", name: "Smooth", key: "4", hint: "smooth bumps and steps" },
+  { tool: "naturalize", name: "Naturalize", key: "5", hint: "weather cliffs into slopes" },
 ];
 
 export const BRUSH_NAMES: Record<BrushTool, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
@@ -90,7 +90,7 @@ export function sizeMax(W: number, H: number): number {
   return Math.max(24, Math.ceil(Math.max(W, H) / 2));
 }
 
-/** Brush sizes the [ and ] keys step through (up to the map's largest). */
+/** Brush sizes the { and } keys step through (up to the map's largest). */
 const SIZES = [1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24, 32, 40, 48, 64, 80, 96, 112, 128];
 
 export function nextSize(size: number, dir: 1 | -1, max = 24): number {
@@ -178,6 +178,9 @@ export interface PainterHost {
   rides?(): [number, number, number, number][];
   /** The sources' own tiles, as runs [y, x0, x1]: Keep leaves them as they are (D322, item 31). */
   sourceGround?(): [number, number, number][];
+  /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
+   *  (D368 (8)). */
+  objectGround?(): [number, number, number][];
   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
    *  a stroke changes only its tiles, feathered toward its edge. */
   area?(): [number, number, number][] | null;
@@ -222,6 +225,8 @@ interface StrokeState {
 
 /** Paints strokes with the brushes: the renderer's pointer tool while a brush is out. */
 export class BrushPainter {
+  /** The ground under sources and objects while a Naturalize stroke is painted (D368 (8)): its preview leaves it as it is. */
+  private ground: [number, number, number][] = [];
   private stroke: StrokeState | null = null;
   private cursorAt: [number, number] | null = null;
   /** The ground's level under the pointer (under a layer cut: at most the cut). */
@@ -573,13 +578,16 @@ export class BrushPainter {
     const keepSources = s.sources[s.tool] === "keep";
     const sourceRuns = keepSources ? (h.sourceGround?.() ?? []) : [];
     keep.push(...sourceRuns);
+    // Naturalize leaves the ground under sources and objects as it is: the preview shows it, and the
+    // core works it out itself when the operation applies (D368 (8), D342); the recorded stroke has no runs for it
+    this.ground = tool === "naturalize" ? (h.objectGround?.() ?? []) : [];
     const stop = target === null && tool === "raise" && cut !== null ? Math.min(BRUSH_MAX_LEVEL, cut) : null;
     const settings: Omit<BrushParams, "dabs"> = {
       tool,
       size: s.size,
       strength: s.strength,
       ...(target !== null ? { target } : {}),
-      ...(tool === "naturalize" ? { seed: (Math.random() * 0x7fffffff) | 0 } : {}),
+      ...(tool === "naturalize" ? { seed: (Math.random() * 0x7fffffff) | 0, weathers: true as const } : {}),
       ...(s.square ? { shape: "square" as const } : {}),
       ...(tool === "flatten" && s.steps ? { steps: s.steps } : {}),
       ...(stop !== null ? { stop } : {}),
@@ -593,7 +601,7 @@ export class BrushPainter {
     // below that water's surface, once it leaves it)
     const channel = settings.channel ? this.channelStart(x, y) : null;
     if (channel) Object.assign(settings, channel.wet[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
-    const preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H);
+    const preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     // the stroke follows the cursor on the level it started on (a target's, for Flatten), so the
     // brush stays under the pointer while the ground rises or sinks beneath it
     const plane = tool === "flatten" && target !== null ? target : h.renderer.heightAt(Math.floor(x), Math.floor(y));
@@ -670,7 +678,7 @@ export class BrushPainter {
       const { deepen: _d, bed: _b, dry: _y, ...rest } = st.settings;
       st.settings = st.channel.wet[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
     }
-    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H);
+    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     st.dabs = [];
     if (st.pressure) st.pressure = [];
     const [ax, ay] = st.anchor!;
@@ -709,7 +717,7 @@ export class BrushPainter {
       const { deepen: _deepen, ...rest } = st.settings;
       st.settings = { ...rest, bed: st.channel!.bed, dry };
       const back = st.preview.restore();
-      st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H);
+      st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
       const again = st.preview.add(st.dabs, st.pressure ?? undefined);
       r = again && back ? { x0: Math.min(again.x0, back.x0), y0: Math.min(again.y0, back.y0), x1: Math.max(again.x1, back.x1), y1: Math.max(again.y1, back.y1) } : (again ?? back);
     } else r = st.preview.add(add, pressure);
@@ -789,7 +797,7 @@ export class BrushPainter {
     const keep = tilesToRuns([...new Set(tiles)].sort((a, c) => a - c), h.W);
     const back = st.preview.restore();
     st.settings = { ...st.settings, keep: [...(st.settings.keep ?? []), ...keep] };
-    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H);
+    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     const r = st.preview.add(st.dabs, st.pressure ?? undefined);
     const changed = r && back ? { x0: Math.min(r.x0, back.x0), y0: Math.min(r.y0, back.y0), x1: Math.max(r.x1, back.x1), y1: Math.max(r.y1, back.y1) } : (r ?? back);
     if (changed) h.renderer.updateTerrainRect(h.heights(), changed);
@@ -848,7 +856,7 @@ export class BrushPainter {
     if (st.settings.sources === "keep") {
       const back = st.preview.restore();
       st.settings = settings;
-      st.preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H);
+      st.preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
       const r = st.preview.add(st.dabs, st.pressure ?? undefined);
       const changed = r && back ? { x0: Math.min(r.x0, back.x0), y0: Math.min(r.y0, back.y0), x1: Math.max(r.x1, back.x1), y1: Math.max(r.y1, back.y1) } : (r ?? back);
       if (changed) h.renderer.updateTerrainRect(h.heights(), changed);

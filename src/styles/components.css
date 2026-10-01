@@ -553,3 +553,121 @@ button.pick-line[aria-pressed="true"] {
   margin: 0 0 6px;
   font-size: 0.95rem;
 }
+
+/* a brush's options on two lines (D345, B2): Size, Level and Mode, then Sources, Square and Straight
+   lines below them */
+.options-row.two-lines {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* a tool's More opens as a compact panel laid out as a grid, not a longer row (D345, B2) */
+.force-options.more-grid {
+  max-width: 640px;
+}
+
+.force-options.more-grid > .bar-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, max-content));
+  align-items: center;
+  gap: 8px 18px;
+  padding: 2px 6px;
+}
+
+/* the forces row's clusters (D352): the groups sit side by side in one row with a small gap between them;
+   the design pass styles them */
+.force-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.force-cluster + .force-cluster {
+  margin-left: 10px;
+}
+
+/* a force's More / Less: an accent outline and a chevron, so it is clear more settings are behind it (D361, item 10) */
+.more-button {
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.more-button::after {
+  content: "";
+  display: inline-block;
+  margin-left: 6px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.more-button[aria-expanded="true"]::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+/* the strength of the source being pointed at or picked, highlighted: this source's and, in a row, the row's (D361, item 6) */
+.source-readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.source-readout .source-readout-label {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+/* the one tooltip (D351, D368 (6)): a short phrase, then the control's keys as small key caps at the end */
+.tip {
+  position: fixed;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--rule);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tip.above {
+  transform: translateY(-100%);
+}
+
+.tip-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+}
+
+/* a small key cap */
+.tip kbd,
+kbd.cap {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 600 0.72rem/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  text-align: center;
+}

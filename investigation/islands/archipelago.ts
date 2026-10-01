@@ -1,0 +1,202 @@
+// Adoption source: imports are rewritten to ../... when installed in src/core/land/.
+// A sea is the field's low ground; independent, separated uplifts rise out of it.
+import { stream } from '../../src/core/math/rng';
+import { fbm } from '../../src/core/math/noise';
+import { hash32 } from '../../src/core/math/hash';
+import { sinDet, TWO_PI } from '../../src/core/math/detmath';
+import { density } from '../../src/core/gen/calibrated';
+import { featureId } from '../../src/core/features/ids';
+import { mouthTilesOf } from '../../src/core/features/raster/terrain';
+import type { RiverFeature, Point, Edge } from '../../src/core/features/schema';
+import type { Genome } from '../../src/core/land/genome';
+import type { Hydro } from '../../src/core/land/hydro';
+import { naturalRamps } from '../../src/core/land/levels';
+import { orientXY } from '../../src/core/land/orient';
+import { unit } from '../../src/core/land/num';
+import { blockedCourses } from '../../src/core/land/courses';
+import { makeSpec, type MapSpec } from '../../src/core/spec/mapspec';
+
+const starts = new WeakMap<Genome, Uint8Array>();
+const enabled = new WeakSet<Genome>();
+/** Only the measured default Normal Islands path is changed by this adoption prototype. */
+export function enableIslandPrototype(g: Genome, spec: MapSpec): boolean {
+  if(spec.theme!=='islands'||spec.designedFor!=='normal'||spec.size.x<96||spec.size.x>256||spec.size.x!==spec.size.y) return false;
+  if(spec.archetype!=='islands'||spec.colonies.count!==1||spec.colonies.mod!=='none'||spec.setPieces.length||spec.constraints.keep.length||spec.constraints.keepOut.length) return false;
+  const preset=makeSpec({seed:spec.seed,theme:'islands',size:spec.size});
+  if(JSON.stringify(preset.settings)!==JSON.stringify(spec.settings))return false;
+  enabled.add(g);return true;
+}
+export function islandPrototypeEnabled(g: Genome): boolean {return enabled.has(g);}
+export function islandStartAvoid(g: Genome, avoid: Uint8Array | null): Uint8Array | null {
+  const mask = starts.get(g);
+  if (!mask) return avoid;
+  const out = mask.slice();
+  if (avoid) for (let i=0; i<out.length; i++) out[i] ||= avoid[i];
+  return out;
+}
+
+interface Isle { x:number; y:number; rx:number; ry:number; ux:number; uy:number; key:number; high:number }
+
+export function islandStage(g: Genome, seed: number, W: number, H: number, attempt: number) {
+  const N=W*H, side=Math.min(W,H);
+  const rng=stream(seed,'islands-sea-first',g.variation,attempt);
+  const key=hash32(seed,'islands-coast',g.variation,attempt);
+  const o=g.orientation ?? 0;
+  const h=new Uint8Array(N);
+  const main=new Uint8Array(N);
+  const water=new Uint8Array(N);
+  const mainDistance=new Float64Array(N);
+  const mainSpine=new Float64Array(N);
+  const [ux,uy]=unit(rng.float());
+  const mainX=(0.43+0.10*rng.float())*W, mainY=(0.43+0.10*rng.float())*H;
+  const isles:Isle[]=[{x:mainX,y:mainY,rx:(0.27+0.06*rng.float())*side,ry:(0.19+0.05*rng.float())*side,ux,uy,key,high:Math.min(g.top,10+Math.floor(rng.float()*3))}];
+  // A rejection spacing rule reserves actual sea channels, rather than detaching headlands later.
+  const want=5+Math.floor(rng.float()*4);
+  for(let draw=0;draw<240 && isles.length<want;draw++) {
+    const x=(0.13+0.74*rng.float())*W,y=(0.13+0.74*rng.float())*H;
+    const r=side*(0.045+0.053*rng.float());
+    const [ax,ay]=unit(rng.float());
+    const rx=r*(1+0.4*rng.float()),ry=r*(0.65+0.35*rng.float());
+    const gap=Math.max(4,0.022*side);
+    let clear=true;
+    for(const p of isles) {
+      const dx=x-p.x,dy=y-p.y;
+      const a=dx*p.ux+dy*p.uy,b=-dx*p.uy+dy*p.ux;
+      if(Math.sqrt((a/(p.rx+rx+gap))**2+(b/(p.ry+rx+gap))**2)<1.12) {clear=false;break;}
+    }
+    if(clear) isles.push({x,y,rx,ry,ux:ax,uy:ay,key:hash32(key,'isle',draw),high:7+Math.floor(rng.float()*5)});
+  }
+  // Bed 3, shelf 4, beach 5. The surface is between 4 and 5, never on a large shelf.
+  // A wandering coastal strip continues past the edges, several tiles wide, with one estuary.
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const i=y*W+x;
+    const edge=Math.min(x,W-1-x,y,H-1-y);
+    const coast=Math.max(3,side*(0.008+0.006*(fbm(key+1,x,y,side*0.16,2)+1)));
+    let L=edge<coast?5:edge<coast+2?4:3;
+    const headland=Math.sqrt((x/(0.29*side))**2+(y/(0.27*side))**2)/(1+0.12*fbm(key+31,x,y,12,2));
+    if(headland<1.10) L=Math.max(L,headland<0.94?6:headland<1?5:4);
+    for(let k=0;k<isles.length;k++) {
+      const p=isles[k];
+      const dx=x-p.x+0.22*p.rx*fbm(p.key+2,x,y,Math.max(6,p.rx*0.8),2);
+      const dy=y-p.y+0.22*p.ry*fbm(p.key+3,x,y,Math.max(6,p.ry*0.8),2);
+      const a=(dx*p.ux+dy*p.uy)/p.rx,b=(-dx*p.uy+dy*p.ux)/p.ry;
+      const wiggle=1+0.18*fbm(p.key,x,y,Math.max(7,p.rx*0.7),3)+0.08*fbm(p.key+1,x,y,Math.max(4,p.rx*0.22),2);
+      const d=Math.sqrt(a*a+b*b)/wiggle;
+      if(k===0) {
+        const [ox,oy]=orientXY(x,y,W,H,o),j=oy*W+ox;
+        mainDistance[j]=d;
+        mainSpine[j]=0.12*fbm(p.key+9,x,y,Math.max(5,p.rx*0.4),2)+0.13*a;
+        continue;
+      }
+      if(d<1.13 && L<4) L=4;
+      if(d<1) {
+        L=Math.max(L,5);
+        // Broad coastal benches and an asymmetric higher spine, rather than stacked circles.
+        const spine=(0.47-d)+0.12*fbm(p.key+9,x,y,Math.max(5,p.rx*0.4),2)+0.13*a;
+        if(spine>0) L=Math.max(L,Math.min(p.high,6+Math.floor(spine*(p.high-5)*3)));
+        if(k===1) {
+          const stack=Math.sqrt(((a-0.12)*p.rx)**2+((b+0.05)*p.ry)**2);
+          const reach=3.5+1.1*fbm(p.key+33,x,y,4,2);
+          if(stack<reach) L=Math.max(L,Math.min(Math.floor(g.top),14));
+        }
+      }
+    }
+    const [ox,oy]=orientXY(x,y,W,H,o); h[oy*W+ox]=L;
+  }
+  // Select a coastline contour, not a seed retry or an outcome-score retry. About two-thirds
+  // sea, with room below the Islands flood ceiling for badwater and the source/outlet channels.
+  let coastLand=0;
+  const candidates:number[]=[];
+  for(let i=0;i<N;i++) {if(h[i]>=5)coastLand++;else candidates.push(i);}
+  candidates.sort((a,b)=>mainDistance[a]-mainDistance[b]||a-b);
+  const wantMain=Math.max(1,Math.ceil(N*0.37)-coastLand);
+  const contour=mainDistance[candidates[Math.min(candidates.length-1,wantMain-1)]];
+  if(contour>1.3) throw Error('Main island would crowd the channels');
+  for(let i=0;i<N;i++) {
+    const d=mainDistance[i]/contour;
+    if(d<1.10&&h[i]<4)h[i]=4;
+    if(d<=1) {
+      h[i]=Math.max(h[i],5);main[i]=1;
+      const spine=0.24-d+mainSpine[i];
+      if(spine>0) h[i]=Math.max(h[i],Math.min(isles[0].high,6+Math.floor(spine*(isles[0].high-5)*3)));
+    }
+  }
+  // Parts of the shelf fall away into deeper bays. A beach must offer pumpable water even when
+  // the outlet's head is below 0.3, rather than needing a spring added after the first look.
+  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++) {
+    const i=y*W+x;
+    if(h[i]===4 && [i-1,i+1,i-W,i+W].some(j=>main[j]&&h[j]===5) && fbm(key+55,x,y,10,2)>-0.15) h[i]=3;
+  }
+  const flow=Math.max(2,density('water_strength_per_10k',N)*N/1e4*g.hydro.flowMul);
+  const mouthWidth=Math.max(3,Math.min(9,Math.ceil(flow/0.65)));
+  const entries:number[]=[];
+  for(let x=Math.ceil(W*0.16);x<W*0.84;x++) {
+    let clear=true;
+    for(let y=Math.floor(H*0.80);y<=Math.floor(H*0.86);y++) {
+      const [ox,oy]=orientXY(x,y,W,H,o);
+      if(h[oy*W+ox]>=5) {clear=false;break;}
+    }
+    if(clear)entries.push(x);
+  }
+  const entryX=entries.length?entries[Math.floor(rng.float()*entries.length)]:W*0.86;
+  const exitX=(0.38+0.42*rng.float())*W;
+  // Both courses stay in coastal water. No channel crosses the main island.
+  const path:Point[]=[[entryX,H-1],[entryX-2,H*0.93],[entryX+2,H*0.86],[W*0.88,H*0.79],[W*0.89,H*0.55],[W*0.86,H*0.22],[exitX+3,H*0.13],[exitX-2,H*0.06],[exitX,0]];
+  const outletWidth=Math.max(3,Math.ceil(flow/1.0));
+  // Estuary cut: variable width, gently curved, under the coastal strip; not a straight notch.
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const [ox,oy]=orientXY(x,y,W,H,o),i=oy*W+ox;
+    const inlet=y>H*0.85;
+    const outlet=y<H*0.15;
+    const cx=inlet?entryX+2*sinDet(TWO_PI*(H-1-y)/(0.25*H)):exitX+2*sinDet(TWO_PI*y/(0.24*H));
+    const width=inlet?mouthWidth:outletWidth*(1+0.15*sinDet(TWO_PI*y/(0.20*H)));
+    if((inlet||outlet)&&Math.abs(x-cx)<=width/2) h[i]=Math.min(h[i],4);
+    // Sources on the inlet row are sealed by the standard water model; the neighbouring edge is dry.
+  }
+  const turnPoint=(p:Point):Point=>orientXY(p[0],p[1],W,H,o);
+  const p=path.map(turnPoint);
+  const edgeOf=(p:Point):Edge=>p[0]===0?'west':p[0]===W-1?'east':p[1]===0?'south':'north';
+  const river:RiverFeature={id:featureId(seed,'river',`river/main/${attempt}`),kind:'river',origin:'generated',role:'river/main',locked:false,params:{
+    path:p,width:mouthWidth,bedDepth:1,bedProfile:{start:4,steps:[]},flow:Math.round(flow*100)/100,
+    style:'meandering',entry:{edge:edgeOf(p[0])},exit:{edge:edgeOf(p[p.length-1])},badwater:false,
+  }};
+  const row=new Set(mouthTilesOf(river,W,H));
+  for(let x=0;x<W;x++) {
+    const [ox,oy]=orientXY(x,H-1,W,H,o),i=oy*W+ox;
+    h[i]=row.has(i)?4:6;
+  }
+  // Find the described course through wet ground; it cannot run across a satellite island.
+  const start=p[0],finish=p[p.length-1];
+  const si=Math.round(start[1])*W+Math.round(start[0]);
+  const ei=Math.round(finish[1])*W+Math.round(finish[0]);
+  const prev=new Int32Array(N).fill(-1),q=new Int32Array(N);
+  let head=0,tail=0;q[tail++]=si;prev[si]=si;
+  while(head<tail&&prev[ei]<0) {
+    const c=q[head++],x=c%W,y=Math.floor(c/W);
+    for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]) {
+      const xx=x+dx,yy=y+dy,j=yy*W+xx;
+      if(xx<0||yy<0||xx>=W||yy>=H||prev[j]>=0||h[j]>=5)continue;
+      prev[j]=c;q[tail++]=j;
+    }
+  }
+  if(prev[ei]<0) throw Error('Sea course disconnected');
+  const route:Point[]=[];
+  for(let c=ei;;c=prev[c]) {route.push([c%W,Math.floor(c/W)]);if(c===si)break;}
+  route.reverse();
+  river.params.path=route.filter((v,k)=>k===0||k===route.length-1||
+    (v[0]-route[k-1][0])*(route[k+1][1]-v[1])!==(v[1]-route[k-1][1])*(route[k+1][0]-v[0]));
+  const tiles:number[]=[];
+  for(let i=0;i<N;i++) if(h[i]<5) {water[i]=2;tiles.push(i);}
+  // Mark the inlet and estuary as courses; the broad sea remains a single read-back lake.
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const [ox,oy]=orientXY(x,y,W,H,o),i=oy*W+ox;
+    if((y>H*0.85||y<H*0.15) && h[i]===4 && (Math.abs(x-entryX)<mouthWidth+3||Math.abs(x-exitX)<outletWidth+3)) water[i]=1;
+  }
+  const startAvoid=new Uint8Array(N).fill(1);
+  for(let i=0;i<N;i++) if(main[i]) startAvoid[i]=0;
+  starts.set(g,startAvoid);
+  const keep=Uint8Array.from(water,v=>v>0?1:0);
+  const ramps=naturalRamps(h,W,H,keep,new Uint8Array(N),g,seed,attempt);
+  const hy:Hydro={rivers:[river],water,lakes:[{tiles,outletBed:4,river:river.id}],falls:[],arms:[],flowTotal:flow};
+  return {h,hy,keep,ramps,blocked:blockedCourses(h,W,H,hy.rivers,[])};
+}

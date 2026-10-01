@@ -3,6 +3,8 @@
 // Erupt's fissure follow. The pen itself (`PathBrush`, the painted fault's brush before it) smooths the
 // pointer into sub-tile points as it moves; a force keeps the path resampled along its length.
 
+import * as portable from "../math/portable";
+
 export interface PathPoint {
   x: number;
   y: number;
@@ -13,7 +15,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /** A path's length along its points, in tiles. */
 export function pathLength(points: readonly PathPoint[]): number {
   let l = 0;
-  for (let k = 1; k < points.length; k++) l += Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
+  for (let k = 1; k < points.length; k++) l += portable.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
   return l;
 }
 
@@ -29,7 +31,7 @@ export function resamplePath(points: readonly PathPoint[], spacing = 2, max = 12
   let from = points[0];
   for (let next = step; next < length - step * 0.5; next += step) {
     while (k < points.length) {
-      const seg = Math.hypot(points[k].x - from.x, points[k].y - from.y);
+      const seg = portable.hypot(points[k].x - from.x, points[k].y - from.y);
       if (walked + seg >= next) {
         const t = seg ? (next - walked) / seg : 0;
         from = { x: from.x + (points[k].x - from.x) * t, y: from.y + (points[k].y - from.y) * t };
@@ -88,10 +90,10 @@ export class PathBrush {
   }
 
   advance(dt: number, finish = false): void {
-    const a = finish ? 1 : 1 - Math.exp(-Math.max(0, dt) / 0.018);
+    const a = finish ? 1 : 1 - portable.exp(-Math.max(0, dt) / 0.018);
     this.smoothed = { x: this.smoothed.x + (this.target.x - this.smoothed.x) * a, y: this.smoothed.y + (this.target.y - this.smoothed.y) * a };
     const last = this.points.at(-1)!;
-    if (Math.hypot(this.smoothed.x - last.x, this.smoothed.y - last.y) > 0.45) this.points.push({ ...this.smoothed });
+    if (portable.hypot(this.smoothed.x - last.x, this.smoothed.y - last.y) > 0.45) this.points.push({ ...this.smoothed });
     // Bound both the worker and line buffers, retaining the beginning and end.
     if (this.points.length > 480) this.points.splice(1, this.points.length - 2, ...this.points.slice(1, -1).filter((_, i) => i % 2 === 0));
   }

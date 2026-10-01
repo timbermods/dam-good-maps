@@ -1,5 +1,55 @@
 # The forces: Carve, Craterize, Quake and Erupt, and the editor's sounds
 
+> **D361 (1)–(3), 2026-09-30: Kyler's short sitting, the forces' three (`fix/sitting-3`).** (1) Power on every mode:
+> a painted Lift took its Power when the stroke began, so { } while painting changed nothing, and Try another reused
+> the first run's Power and Size; now the Lift is painted again with the row's Power (`forcePaint`'s `power`), and Try
+> another sends the row's Power and Size. (2) The preview is the stroke: a fault's and a fissure's band is a narrow
+> line (radius 1), no reach, no filled loop; Carve's and Glaciate's keep their width. (3) Size and Power
+> (`core/forces/strength.ts`): larger than Power's own size, a force acts in proportion (Craterize, Erupt tempered
+> level by level; Carve's depth capped, banks included; Glaciate below Power 60 too), every reached tile still moving a level; Slide 2 to 20 tiles. At the
+> largest Size, 128² highlands, Power 0 against Power 100 (tiles changed, deepest, sum of levels): Carve 1,250 /
+> 1,820, 4 / 14, 2,177 / 15,501; Craterize 15,713 / 15,541, 2 / 14, 20,128 / 83,855; Erupt 4,710 / 7,878, 3 / 22,
+> 4,715 / 56,118; Glaciate 1,832 / 1,341, 2 / 13, 1,848 / 10,540; Lift 11,835 / 15,355, 2 / 9; Slide 2 tiles / 20.
+> Tests that failed first: `tests/contract/forcePower.test.ts` (5 forces and the painted Lift), `forceKeys.spec.ts`
+> (the narrow band, } while painting, Try another's Power). Tests changed to the decision: eruptHeadroom's Size test
+> (wider than Power's own volcano is now lower, not the same peak) and forces.test's Quake parity (Slide compared at
+> Power 100, where the new travel meets the prototype's).
+
+> **D360 (1), 2026-09-30: the gaps D356's check found, closed (`fix/force-gaps`).** (a) Carve clicked where its water
+> would run straight off the map (its drainage reaching the edge within a few tiles of a click within 8 of it) carves
+> inward: an aimed river toward the lowest ground within 60° of straight in, 18 + Power/2 tiles away
+> (`core/forces/carve/edge.ts`; the worker turns the click into it, the operation keeps it). (b) A Quake click, Lift
+> or Slide, makes a short natural fault (`clickFault`): along the contour, seeded on flat ground, bent and turned by
+> the seed, so Try another varies it; the page now starts a Lift on a click. The sweep clicks Quake too;
+> `KNOWN` is empty. Tests: `tests/contract/forceGaps.test.ts`.
+
+> **D344, 2026-09-29: the forces sitting, batch A (`feature/sitting-a`).** A4 (amends D341 (2)): Esc cancels a
+> gesture still being drawn (a line not yet let go; a painted Lift, taken back at once); once a force plays, in Fast
+> or Watch, Esc skips it to its end, kept as one step (`ForceDriver.escape`: the keep of `stop`); Ctrl+Z (or Z,
+> or Revert) takes it back at any moment; the at-work rows say "Esc to skip · Ctrl+Z to undo" (a painted Lift
+> still drawn: "Esc to cancel"). #94's machinery stands (`forceCancel`, `forceStop`, the stepped clock);
+> `forceEsc.test` now presses undo and Esc at every moment of every force, Fast and Watch, the painted Lift in both.
+> A1: F and the mouse, [ ] and { } set a force's Size and Power as a brush's (`editor/forceSize.ts`), the number
+> beside the pointer, a Size set by hand off Auto; Quake has no Size. A2: Power and Size read as numbers, "Auto
+> (68)" on Auto (Power's word is its tooltip). A3: a drawn gesture is a band of the force's width along the line,
+> no ring (`bandTiles`; Carve's and Glaciate's width, Quake's reach, a fissure's breadth). A6: a fissure's breadth
+> is Power's, never more than its shape's span (`fissureBreadth`, recorded as its `size`); Carve and Glaciate
+> already ran their drawn line end to end, Quake's line is its length: unchanged. A5: a river drawn uphill is shown
+> from where the stroke began (`CarvePlay` `fromEnd`), its land and operation the same. A7: Glaciate's ice and
+> sounds ran on their own five-second clock, so in Fast the land was final while the ice still advanced and the
+> meltwater played on; the ice now follows the glacier's stages at the showing's pace (`ForceCue.pace`), its
+> sounds fit each act (`recipe`'s `span`), and ice and sound end as the land settles. Tests: `forcesSitting`
+> (unit and contract), `e2e/forceKeys.spec.ts`; the specs that reverted a playing force with Esc use Ctrl+Z, and
+> carve's and Craterize's check Esc's skip. Tooltips follow D351 for everything above.
+> **A8 (D356): a visible effect wherever a force is used.** `tests/contract/forceEverywhere.ts`: each force used as
+> the page does (Quake on a 12-tile fault) at 4 random places and on flat ground, water, a peak, a slope, the edge
+> and beside the start, Power 10, 50 and 90, headless, seed 5; visible = at least 9 tiles change by a level. Every
+> theme at 128²: 1,079 of 1,080 uses visible; at 256², 1,078 of 1,080. The ones not: Carve unleashed at the map's
+> edge, the river running straight off it (Power 10 on islands 128², 6 tiles; Power 10 and 50 on delta 256², 0 and 2
+> tiles). In the editor, a Quake click with Lift starts nothing (the page waits for a
+> drawn tile); a Slide click quakes. Both wait for Kyler (`KNOWN`). Quick suite: a 96² sample; nightly: every theme at
+> 128²; `tools/force-everywhere.ts` for 256² too.
+
 > **D341 (2) and (3), 2026-09-29: Esc was a real race; no test stays flaky.** Esc (or Ctrl+Z) while a force
 > was being kept (its last frame shown, the keep on its way to the worker, the row saying "Settling…") did
 > nothing, and the force landed: `ForceDriver.cancel` returned early while `stopping`. That is carve.spec:61's
@@ -1454,3 +1504,125 @@ At the last push: `npm run test:quick` 621 passed, 13 skipped; `npx playwright t
   again may bring the rock back (the rock is taken from the forces' operations and trimmed to the
   ground as it stands).
 - Water ambience (a nearby waterfall or stream) is not wired (off by default, as decided).
+
+## The forces sitting, batch B: the editor (D345, D347; `feature/sitting-b`)
+
+Kyler's B1 to B10 and B11, on the editor, off `feature/forces`. Short notes; EDITOR_PLAN has the rules.
+
+- **B6, the water spill:** the cause was neither a filled wet tile nor the edge slopes as such. A footprint touching
+  water fell back to D328's "cut down to its lowest tile", which cut dry ground below the water beside it, and the water
+  ran in and then drained; the integrity pass also rounded a lone levelled tile down beside a lake. Now the level rises
+  to the water's surface instead (filling dry ground), the edge never cuts below it, the levelling ops are `exact`, and a
+  footprint standing in water on uneven ground is refused ("the water is in the way…"). `tests/contract/placeNoSpill.test.ts`.
+- **B5:** the counts and Everything include what the resource features hold under water (`core/doc/inArea.ts`); a ruin
+  field only partly inside the selection keeps the columns the water hides (their heights are assigned over the whole area).
+- **B4:** Ctrl+scroll and a click near a source's marker (a few pixels) count as on the source; the old exact-tile test
+  missed it and the click placed a second source. Placing on a source's own tile is refused by the core, as before.
+- **B7:** the plain pointer picks and drags placed objects too (mine site, relics, geothermal field, natural dam, blockage:
+  `planMoveEntity`); X puts down whatever is held. **B8, B10, B11** as EDITOR_PLAN describes.
+- Keys: **X** changed (it closed the selection; now it puts down anything held, the selection included); **Shift+scroll**
+  and **Ctrl+click** now also work in Select (the Level number). No key was added or moved otherwise. The shortcuts
+  reference (EDITOR_PLAN §7) is updated; the first-run hints name no key, so they stand.
+- Tests updated for the new names: the Select row's "Up 1" and "Down 1", the saved file names (`dgm-<theme>-<seed>`,
+  places `dgm-<place>`, the folder's numbering `-2`), the taken-name test in `platform.test.ts`.
+- **B12 (D351):** every control has a tooltip; the sweep added the missing ones and corrected the ones this week's changes
+  made wrong (Select's Ctrl+click, Shift+scroll and X, Delete's menu, a picked source and object, Quake's Lift and Slide,
+  the ⋯ menu, the history, the settings page). `tests/e2e/tooltips.spec.ts` collects the interactive controls from the
+  rendered page in every state and fails on any without a `title` (its own, or its label's). Batch A's new controls carry
+  their own tooltips; check them when `feature/forces` is merged in.
+- **B13 (D352):** the forces row in clusters, one list (`FORCE_GROUPS`); keys unchanged (Erupt 0 before Quake 9 in the row);
+  the first-run hint points at Carve, and a kept force completes it.
+- **B14, the water bar stuck at "0%" after an undo:** every edit began a journey in the page, and the worker sent water
+  frames and a settled event only when it had a settle to run; an undo back to water that was already settled ran none, so
+  the journey waited for ever. The worker now answers every update with `waterSettled` (its own state: no settle running for
+  it), and the page begins a journey only when it is false. `tests/contract/waterStatus.test.ts` (fails without it),
+  `tests/unit/waterPlayer.test.ts`, and an e2e in `sittingB.spec.ts`. The background check's answer carries it too and ends any journey (a CI run of the e2e once stuck at "flowing 84%" after a redo: the check had put the canonical water in place and stopped the worker's own settle, and its answer carried no water, so nothing ended the journey); a journey now always has a first frame. A kept force taken back carries it too; the force
+  paths batch A owns (a force's own keep) answer without it and play as before. The Weather view builds on the same
+  `WaterPlayer` (`settled()` is its "nothing playing" state).
+- **B13 again:** Landslide (D354) and Meander (D355) are out of the ordered list: Carve, Craterize, Erupt · Rift, Quake,
+  Glaciate · Erode, Deposit.
+
+## The water bar's race, found by ordering (D341, after batch B merged)
+
+B14's e2e once left the bar at "Water flowing… 84%" after a redo on CI, which is the state B14 fixes, so it was treated
+as a real race. The cause, found by delivering the worker's real messages in every order (no clock):
+- The page's journey was ended by two things only, the worker's `settled` event and the background check's answer.
+- When the check put the canonical water in place first, it stopped the worker's own settle, so no `settled` event
+  came; the check's answer ended the journey only if it carried water and the journey had frames, and it ended nothing
+  when the worker's settle had finished in between (an answer without water). A journey the worker had finished
+  therefore waited for news that was never sent.
+- Now every route to "settled" is on the channel the frames use: the worker sends the `settled` event whenever it puts
+  settled water in place (its own settle or a check's), the check's answer and the update's answer carry the worker's
+  word (`waterSettled`), and the page's journey (`src/editor/waterJourney.ts`, pure of the page) ends on any of them,
+  holds news that comes before the page reaches its version, ignores older news and frames of a version already settled.
+- `tests/contract/waterJourneyOrder.test.ts` records the messages of a redo (the check first, the settle first) and
+  delivers them in every interleaving and with each terminal message lost; it fails without the worker's new event.
+
+## D360 (Kyler's answers on batch B's three open points)
+
+- **(a) Picking:** the plain pointer picks and drags every object (trees, bushes, ruin columns included), with a hover
+  highlight of exactly what a click picks; a bigger object wins over a tree or bush (`pickWinner`). Sources and the start keep
+  their own grabs, a slope is not picked. Note: a left-drag over trees in the orbit view now moves a tree, not the camera
+  (right-drag still pans). `tests/contract/pickObjects.test.ts` (failed first), `tests/e2e/sittingB.spec.ts`.
+- **(b) Delete and a partly selected ruin field:** the field gets a `cleared` tile list (schema, `rasterizeRuins`), its
+  columns' heights still assigned over the whole area, so the columns outside the selection stay exactly as they were and the
+  ones inside (under water too) are deleted. `tests/contract/deleteSubmerged.test.ts` (failed first).
+- **(c) Save names:** already what Kyler asked (imported maps and places save as `dgm-<name>`, file-safe, numbered `-2` rather
+  than overwritten), so there was no failing test to write first; a contract test now pins the imported-file names.
+
+## Kyler's short sitting, the editor half (D361, items 4 to 10; `fix/sitting-3-editor`)
+
+Batch A took items 1 to 3 (the forces' Power, the stroke-only preview, Size). Each of 4 to 7 has a test at the level where
+its rule lives (D342), written before the fix.
+
+- **4, the start's colour:** `startStatus` (`editor/features.ts`): green it fits and meets every start requirement, amber it
+  fits but misses some (the panel says which), red it cannot be placed there. The overlay, the 3D ghost (now tri-state) and the
+  panel's first line all take it from there; the shelf's Start runs the requirements' walk in the start's own worker before it
+  colours (neutral until it answers). The placed start's reach keeps its object when the answer is the same
+  (`sameStartCheck`), so it changes colour only when something about it changed. `tests/unit/startStatus.test.ts`.
+- **5, window blur:** `render3d/focusLost.ts`: the camera keys, Shift's speed and a drag in progress are released on blur (a
+  stroke ends as a released button would end it, a camera drag ends without a click); the editor also ends F's sizing, kept.
+  `tests/unit/cameraGlide.test.ts`.
+- **6, one strength number:** `sourceStrengths`, `withOwnStrength`, `sourceStrengthWords`: the settings row's "Pointing at"
+  and "This source" readouts, the scroll's note and the marker's label agree ("this source 0.25 · row 1 water/s" in a row);
+  the source being changed is outlined; the shelf's slider is labelled **Next source**. `tests/unit/sourceStrength.test.ts`.
+- **7, Select's Ctrl+click:** a Ctrl press on land only samples the level, whatever the hand does before it lets go (my B8 rule
+  that a Ctrl press moving to another tile was a drag let jitter replace the selection). `tests/unit/select.test.ts`.
+- **8, the top right:** the level control on the compass's line, **Slow forces** (was Watch) and a speaker icon under them
+  flush with the compass; "Watch" as the toggle's name joins `tools/retired-terms.json`.
+- **9, tooltips:** every tool, force, option, shelf item, menu and settings-page tooltip rewritten to a short phrase and its key;
+  `tests/e2e/tooltips.spec.ts` fails on a second sentence or over 60 characters, and `tests/unit/tooltipForm.test.ts` checks
+  the hints where the tools, forces and shelf carry them. What the long tooltips said (Auto's value, the force details,
+  what Delete takes) now lives in EDITOR_PLAN and the rows themselves.
+- **10, More / Less:** an accent outline and a chevron.
+
+## Kyler's re-check, the editor half (D368 (1), (4)–(6); `fix/recheck-editor`)
+
+Items 2 and 3 (Quake's hover, Glaciate's depth and width) are another branch's. Each behaviour has a test written first and
+seen failing.
+
+- **(1) One key habit:** F with the mouse and { } set Size; [ ] set Power on every force, strength on Smooth and Naturalize,
+  nothing on Raise, Lower and Flatten (`keyHabit` in `forceSize.ts`, the one handler in `Editor.tsx`). The A1, D361 (1), brush
+  and brush kit specs moved to the new keys. `tests/e2e/forceKeys.spec.ts` "D368 (1)" (failed first on the old keys).
+- **(4) Sources' one number:** the cause was two-fold. The worker sent the objects to the page only when it judged them
+  changed, and its comparison (`sameEntityView`) ignored a source's strength, so a strength change alone never reached the
+  page's copy and the marker's label kept the old number until something else moved. And the row read its own record of the
+  source, fetched after each answer, while the label read the page's copy (through a memo keyed on the map's version that
+  could hold an older copy): two values. Now the worker compares strength and a ruin's model too, and the label, the row and
+  the note read one value, the page's copy with each notch's strength set on it at once (`strengthReader`), cleared when the
+  worker's answer is in. `tests/contract/sourceNumber.test.ts` and `tests/e2e/sources.spec.ts` (both failed first; the e2e
+  saw the label at 1 while the note said 1.5).
+- **(5) The top right:** one grid: the compass in the corner, the level control centred on its line, Slow forces and the
+  speaker beneath on the cluster's edges, 44 px and an 8 px gap throughout; the volume opens beneath the speaker.
+  `tests/e2e/viewAndHeader.spec.ts` "D368 (5)" measures the boxes to a pixel, at rest and with a layer cut.
+- **(6) Key caps:** one shared tooltip (`src/ui/Tooltip.tsx`, mounted once at the page's root): a control's `title` is the
+  phrase, its `data-keys` the caps shown at the end; the browser's own tooltip is held back while ours shows. Every bracketed
+  key moved to caps. The tooltip spec fails on a key in brackets and on a control named with a key its tooltip doesn't end
+  with; a new spec hovers Carve (7), Smooth (4) and others and reads the caps.
+
+## F+scroll sets strength (D368 (11); `fix/f-scroll-strength`)
+
+- Holding F and scrolling steps the strength through the same `keyHabit` that maps { } and [ ] (`forceSize.ts`): Power on
+  every force, strength on Smooth and Naturalize, nothing on Raise, Lower and Flatten; the number beside the pointer. The
+  first notch ends F's sizing (kept), so the wheel's number shows. Plain, Shift, Ctrl and Alt scroll are unchanged. Power's
+  tooltips gain an F+scroll cap. `tests/e2e/forceKeys.spec.ts` "D368 (11)" (failed first: F+scroll zoomed).

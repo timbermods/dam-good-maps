@@ -58,6 +58,7 @@ import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
+import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
 
@@ -266,7 +267,7 @@ export class MapRenderer {
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
   /** A force's ring as last shown (tests). */
-  forceRingState: { x: number; y: number; r: number } | null = null;
+  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -970,7 +971,7 @@ export class MapRenderer {
   /** The ghost of an object being placed (the left shelf, D184): the object itself, its footprint's
    *  corner at tile (x, y) on the ground at `z`, tinted green where it fits, red where it doesn't
    *  (null: not known yet); null puts it away. */
-  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | null } | null): void {
+  setGhost(g: { template: string; x: number; y: number; z: number; orientation: number; ok: boolean | "warn" | null } | null): void {
     if (!g) {
       if (this.ghost) {
         this.scene.remove(this.ghost.group);
@@ -988,7 +989,7 @@ export class MapRenderer {
         disposeGroup(this.ghost.group);
       }
       const { group } = buildEntities(oneObject(g.template, g.orientation), this.objectMat, null, 0, this.software);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
+      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
       if (tint)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
@@ -1319,8 +1320,9 @@ export class MapRenderer {
   }
 
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
-   *  water, on the ground elsewhere; null hides it. */
-  setForceRing(s: { x: number; y: number; r: number } | null): void {
+   *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
+   *  hides it. */
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
@@ -1457,6 +1459,9 @@ export class MapRenderer {
 
   setMode(mode: ViewMode): void {
     this.setView({ mode });
+    // (a view switched to frames the whole map, centred: D345, B1)
+    this.frameMap();
+    this.requestRender();
   }
 
   private glideFrameTo = 0;
@@ -1497,7 +1502,55 @@ export class MapRenderer {
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
     this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.frameMap();
     this.requestRender();
+  }
+
+  /** The map waits to be framed until the canvas has a size. */
+  private framePending = false;
+
+  /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
+   *  the canvas's middle, whatever the view (orbit or top-down) and however big the window. The map's
+   *  four corners are projected; the distance scales to fit them and the target moves to centre them. */
+  frameMap(): void {
+    const m = this.map;
+    if (!m) return;
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    if (!w || !h) {
+      this.framePending = true;
+      return;
+    }
+    this.framePending = false;
+    let sum = 0;
+    for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
+    const level = sum / m.heights.length;
+    const corners: [number, number][] = [[0, 0], [m.W, 0], [0, m.H], [m.W, m.H]];
+    const box = () => {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const [x, y] of corners) {
+        const p = this.project(x, level, -y);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+      return { x0, y0, x1, y1 };
+    };
+    const r = this.canvas.getBoundingClientRect();
+    for (let pass = 0; pass < 4; pass++) {
+      let b = box();
+      const s = Math.max((b.x1 - b.x0) / (w * 0.86), (b.y1 - b.y0) / (h * 0.86));
+      if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
+      b = box();
+      const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
+      const mid = this.pickAtLevel(r.left + w / 2, r.top + h / 2, level);
+      if (!at || !mid) break;
+      this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
+    }
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
@@ -1589,6 +1642,7 @@ export class MapRenderer {
     const h = this.canvas.clientHeight;
     if (!w || !h) return;
     this.gl.setSize(w, h, false);
+    if (this.framePending) this.frameMap();
     this.requestRender();
   }
 
@@ -1832,7 +1886,11 @@ export class MapRenderer {
       this.held.delete(ev.key.toLowerCase());
       if (ev.key === "Shift") this.glide.fast = false;
     });
-    this.on(window, "blur", () => this.held.clear());
+    // the window loses focus: no key, Shift or mouse button is held any more, and a stroke or gesture
+    // in progress ends as a released button ends it (D361, item 5)
+    this.on(window, "blur", () => {
+      focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
+    });
   }
 
   /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still

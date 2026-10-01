@@ -175,14 +175,16 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
     }
   });
 
-  it("Size sets its breadth and Power its height (D226): a set Size spreads it wider or narrower at the same peak", () => {
+  it("Size sets its breadth and Power its strength within it (D226, D361 (3)): a set Size spreads it wider or narrower; up to Power's own breadth at the same peak, wider than it lower", () => {
     const m = study(3, 22);
     const narrow = editor(m, { power: 40, summit: "peak", size: 24 });
     const wide = editor(m, { power: 40, summit: "peak", size: 80 });
     const natural = editor(m, { power: 40, summit: "peak" });
     expect(raisedOf(wide.heights, m.heights)).toBeGreaterThan(raisedOf(natural.heights, m.heights));
     expect(raisedOf(narrow.heights, m.heights)).toBeLessThan(raisedOf(natural.heights, m.heights));
-    expect(top(narrow.heights, 64, 64).peak).toBe(top(wide.heights, 64, 64).peak);
+    expect(top(narrow.heights, 64, 64).peak).toBe(top(natural.heights, 64, 64).peak);
+    // (broader than Power's own volcano, it rises in proportion: D361 (3))
+    expect(top(wide.heights, 64, 64).peak).toBeLessThan(top(natural.heights, 64, 64).peak);
     // Size absent (an operation from before D226) is Size following Power
     const s = { ...PROTO_DEFAULTS, power: 40, summit: "peak", seed: 890 } as Settings;
     const { size: _size, ...absent } = { ...ERUPT_DEFAULTS, ...s, size: null };

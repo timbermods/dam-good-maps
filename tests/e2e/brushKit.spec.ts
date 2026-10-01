@@ -151,8 +151,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.keyboard.up("Shift");
   await expect(note).toHaveText(`down to ${h0 - 2}`);
   await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue(String(h0 - 2));
-  // a small brush: 3 × 3 tiles ([ steps the size down: 5, 4, 3, 2)
-  for (let k = 0; k < 3; k++) await page.keyboard.press("[");
+  // a small brush: 3 × 3 tiles ({ steps the size down: 5, 4, 3, 2)
+  for (let k = 0; k < 3; k++) await page.keyboard.press("{");
   await page.waitForTimeout(100);
   await page.mouse.down();
   await page.waitForTimeout(1200);
@@ -178,7 +178,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.mouse.move(pp.x + 2, pp.y);
   await expect(note).toHaveText("Free");
   await page.keyboard.press("Escape");
-  for (let k = 0; k < 3; k++) await page.keyboard.press("]");
+  for (let k = 0; k < 3; k++) await page.keyboard.press("}");
   await lowerRow.getByLabel("Square").uncheck();
 
   // straight lines: the stroke is one straight line, its length beside the pointer (D183)
@@ -223,7 +223,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const pf = await client(page, ...f);
   await page.mouse.move(pf.x, pf.y);
-  for (let k = 0; k < 2; k++) await page.keyboard.press("]");
+  for (let k = 0; k < 2; k++) await page.keyboard.press("}");
   await page.mouse.down();
   await page.waitForTimeout(1500);
   await page.mouse.up();
@@ -240,7 +240,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.locator(".start-hint").click();
   await idle(page);
   await expect.poll(async () => ((await info(page)).features.find((g) => g.kind === "start")!.params as { position: [number, number] }).position).toEqual([hint.x, hint.y]);
-  for (let k = 0; k < 2; k++) await page.keyboard.press("[");
+  for (let k = 0; k < 2; k++) await page.keyboard.press("{");
   await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
 
   // hold F and move the mouse: the ring's size follows, a click sets it (D205)
@@ -295,6 +295,12 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // (below the rows over the map, which are three now: D323 item 9)
   // (a stroke that runs up to the mine site's west edge and holds there: its rim crosses the site
   // however fast the machine paints)
+  // (the mine site to the middle of the view, clear of the rows over the map: the map is centred now)
+  await page.evaluate(([x, y]) => {
+    const r = window.dgm3d!.renderer;
+    r.setView({ target: [x + 0.5, r.getView().target[1], -(y + 0.5)] });
+  }, [mine[0], mine[1]]);
+  await page.waitForTimeout(300);
   const pm = await client(page, Math.max(2, mine[0] - 7), mine[1] - 4);
   const pe = await client(page, Math.max(2, mine[0] - 2), mine[1] - 4);
   await page.mouse.move(pm.x, pm.y);
@@ -308,6 +314,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   expect(st.keep?.length ?? 0).toBeGreaterThan(0);
   expect((await page.evaluate(() => window.dgmEditor!.instant())).filter((c) => /floating|buried/i.test(c.message))).toEqual([]);
   await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
+  // (the map framed again, as it was)
+  await page.evaluate(() => window.dgm3d!.renderer.frameMap());
 
   await page.keyboard.press("4");
   // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted) and no target;
@@ -340,7 +348,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.mouse.up();
   await expect(sel.getByRole("status")).toHaveText("6 × 5 tiles");
   const before = await heightAt(page, ...c0);
-  await sel.getByRole("button", { name: "Raise", exact: true }).click();
+  await sel.getByRole("button", { name: "Up 1", exact: true }).click();
   await idle(page);
   expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
   await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);

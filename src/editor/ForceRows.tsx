@@ -1,22 +1,23 @@
 // The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226, D289, D309):
 // every force's row is Power, Size, at most one signature choice, Try another and a small More button
 // for its other settings. Craterize: Power, Size (following Power, or set by hand), Try another; a
-// click strikes, a drag aims a glancing blow. Erupt: Power, Size (its breadth), Try another; a click
+// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: Power, Size (its breadth), Try another; a click
 // vents, a drag opens a fissure. Quake: its one choice, Lift or Slide, and Power (its drawn line sets
 // its length); V flips the side that moves. More opens the rest of each force's character (Craterize's
 // walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
 // Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
 // it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
-// another re-rolls only the details still on Auto. While a force is at work its row is its status and
-// Revert (Esc). Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
+// another re-rolls only the details still on Auto. While a force is at work its row is its status, the
+// hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
 // and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
-import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
+import { CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
+import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceOptions, MoreButton, MoreRow, Segmented, SizeControl, Toggle, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SIZE_KEYS, SizeControl, STRENGTH_KEYS, Toggle, type Force } from "./TopBar";
+import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
  *  rays), behind More, start on Auto (null) until the player pins one (D309). */
@@ -74,15 +75,17 @@ export const glaciateDetails = (u: GlaciateUi): Record<string, unknown> => ({ be
 
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
- *  force starts; the gesture sets the mode: `aimed` a dragged, glancing impact; `fissure` a painted
- *  fissure. */
+ *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
+ *  makes one since D368 (7); the engine keeps it for the operations already saved); `fissure` a
+ *  painted fissure. */
 export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ mode: aimed ? "aim" : "strike", power: u.power, size: u.size, walls: u.walls, centre: u.centre, debris: u.debris, rays: u.rays, seed: CRATER_DEFAULTS.seed }) as CraterSettings;
 export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges, seed: ERUPT_DEFAULTS.seed }) as EruptSettings;
 export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed }) as QuakeSettings;
 /** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
 export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
 
-/** A force at work: what it is doing, and Revert (Esc). */
+/** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
+ *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (V flips the side that moves)" : "The ground is moving…";
@@ -92,7 +95,14 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
         <span class="bar-status" role="status">
           {st.stopping ? "Settling…" : doing}
         </span>
-        <button type="button" onClick={p.onRevert} title="Take all of it back (Esc)">
+        {st.painting && !st.stopping ? (
+          <span class="bar-status force-keys" {...tip("Take the fault back", "Esc")}>
+            Esc to cancel
+          </span>
+        ) : (
+          <ForceKeys />
+        )}
+        <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
           Revert
         </button>
       </div>
@@ -103,17 +113,17 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
 function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: number; onChange(v: number): void; title: string }) {
   const word = forcePowerWord(p.verb, p.value);
   return (
-    <label class="slider-field" title={p.title}>
+    <label class="slider-field" {...tip(p.title, ...STRENGTH_KEYS)}>
       Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
-      <output>{word}</output>
+      <output title={word}>{p.value}</output>
     </label>
   );
 }
 
 function Again(p: { show: boolean; onAgain(): void; what: string }) {
   return p.show ? (
-    <button type="button" onClick={p.onAgain} title={`The same ${p.what} from the same land, another way, with another character (it replaces the last one)`}>
+    <button type="button" onClick={p.onAgain} title={`Another ${p.what}, same land`}>
       Try another
     </button>
   ) : null;
@@ -140,16 +150,16 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
   const drawn = p.drawn;
   const walls = u.walls ?? drawn?.walls ?? "steep";
   const centreRaw = u.centre ?? drawn?.centre ?? "auto";
-  const centre = centreRaw === "auto" ? autoCentre(size) : centreRaw;
   const debris = u.debris ?? drawn?.debris ?? "light";
   const rays = u.rays ?? drawn?.rays ?? false;
   return (
     <>
       <ForceOptions force={p.force}>
-        <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits: deeper, wider, with more debris" />
+        <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits" />
         <SizeControl
           label="Size"
-          title="The crater's width, in tiles (Auto: the size Power gives; a bigger crater is shallower for the same Power)"
+          title="The crater's width"
+          keys={SIZE_KEYS}
           value={Math.round(size / 2) * 2}
           min={4}
           max={180}
@@ -163,7 +173,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
       {p.more ? (
         <MoreRow force={p.force}>
           <AutoDetail label="Walls" on={u.walls === null} onAuto={(on) => set({ walls: on ? null : walls })}>
-            <label title="Steep: one cliff all round. Terraced: broad benches stepping down (Auto: drawn from the land and the seed)">
+            <label title="Steep or terraced walls">
               Walls
               <select aria-label="Walls" value={walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as Exclude<CraterUi["walls"], null> })}>
                 <option value="steep">Steep</option>
@@ -172,7 +182,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
             </label>
           </AutoDetail>
           <AutoDetail label="Centre" on={u.centre === null} onAuto={(on) => set({ centre: on ? null : centreRaw })}>
-            <label title={`What stands in the middle (Auto: ${centre} for this size)`}>
+            <label title="What stands in the middle">
               Centre
               <select aria-label="Centre" value={centreRaw} onChange={(e) => set({ centre: (e.target as HTMLSelectElement).value as Exclude<CraterUi["centre"], null> })}>
                 <option value="auto">Auto</option>
@@ -189,13 +199,13 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
               value={debris}
               onChange={(debris) => set({ debris })}
               options={[
-                ["light", "Light debris", "A thin skirt of debris round the rim"],
-                ["heavy", "Heavy debris", "A thick apron of debris thrown far round it"],
+                ["light", "Light debris", "A thin skirt of debris"],
+                ["heavy", "Heavy debris", "A thick apron of debris"],
               ]}
             />
           </AutoDetail>
           <AutoDetail label="Rays" on={u.rays === null} onAuto={(on) => set({ rays: on ? null : rays })}>
-            <Toggle label="Rays" title="Streaks of debris thrown out in a starburst" on={rays} onChange={(rays) => set({ rays })} />
+            <Toggle label="Rays" title="Streaks of debris" on={rays} onChange={(rays) => set({ rays })} />
           </AutoDetail>
         </MoreRow>
       ) : null}
@@ -217,10 +227,11 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws: a small cone to a towering volcano" />
+        <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws" />
         <SizeControl
           label="Size"
-          title="How broad the volcano spreads, in tiles across (Auto: the breadth Power gives)"
+          title="How broad it spreads"
+          keys={SIZE_KEYS}
           value={breadth}
           min={ERUPT_SIZE_MIN}
           max={ERUPT_SIZE_MAX}
@@ -245,7 +256,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
             />
           </AutoDetail>
           <AutoDetail label="Summit" on={u.summit === null} onAuto={(on) => set({ summit: on ? null : summitRaw })}>
-            <label title={`Its top (Auto: ${summitRaw === "auto" ? autoSummit(u.power) : summitRaw} at this power)`}>
+            <label title="What its top is">
               Summit
               <select aria-label="Summit" value={summitRaw} onChange={(e) => set({ summit: (e.target as HTMLSelectElement).value as Exclude<EruptUi["summit"], null> })}>
                 <option value="auto">Auto</option>
@@ -262,12 +273,12 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
               onChange={(flows) => set({ flows })}
               options={[
                 ["light", "Light flows", "Short lava flows"],
-                ["heavy", "Heavy flows", "Long lava flows that can dam rivers"],
+                ["heavy", "Heavy flows", "Long lava flows"],
               ]}
             />
           </AutoDetail>
           <AutoDetail label="Ridges" on={u.ridges === null} onAuto={(on) => set({ ridges: on ? null : ridges })}>
-            <Toggle label="Ridges" title="The flows set into ridges down its sides" on={ridges} onChange={(ridges) => set({ ridges })} />
+            <Toggle label="Ridges" title="Ridges down its sides" on={ridges} onChange={(ridges) => set({ ridges })} />
           </AutoDetail>
         </MoreRow>
       ) : null}
@@ -282,7 +293,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
   return (
     <>
       <ForceOptions force={p.force} mode={u.mode === "slide" ? "Slide" : "Lift"} onMode={(m) => set({ mode: m === "Slide" ? "slide" : "lift" })}>
-        <Power verb="quake" value={u.power} onChange={(power) => set({ power })} title={u.mode === "slide" ? `How far the land slides: ${slideTiles(u.power)} tiles` : "How high the land lifts, and how far the shaking reaches"} />
+        <Power verb="quake" value={u.power} onChange={(power) => set({ power })} title={u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts"} />
         <Again show={p.canAgain} onAgain={p.onAgain} what="quake" />
         <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
       </ForceOptions>
@@ -294,8 +305,8 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
               value={scarp}
               onChange={(scarp) => set({ scarp })}
               options={[
-                ["sheer", "Sheer", "One sheer cliff along the fault"],
-                ["stepped", "Stepped", "Benches stepping down from the fault"],
+                ["sheer", "Sheer", "One sheer cliff"],
+                ["stepped", "Stepped", "Benches stepping down"],
               ]}
             />
           </AutoDetail>
@@ -319,10 +330,11 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice: a deeper, longer valley" />
+        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How deep the ice carves" />
         <SizeControl
           label="Size"
-          title="The valley's width, in tiles (Auto: the width Power gives)"
+          title="How wide the valley is"
+          keys={SIZE_KEYS}
           value={Math.round(size / 2) * 2}
           min={GLACIATE_SIZE_MIN}
           max={GLACIATE_SIZE_MAX}
@@ -330,7 +342,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
           onChange={(v) => set({ size: v })}
           auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
         />
-        <Toggle label="Meltwater" title="Springs feed its river, its falls and its lakes; off, the valley is left dry" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} />
+        <Toggle label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} />
         <Again show={p.canAgain} onAgain={p.onAgain} what="glacier" />
         <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
       </ForceOptions>
@@ -342,9 +354,9 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
               value={benches}
               onChange={(benches) => set({ benches })}
               options={[
-                ["none", "Sheer walls", "Sheer walls all along the valley"],
-                ["some", "Some benches", "Benches cut into the soft rock along some stretches of the walls"],
-                ["many", "Many benches", "Benches cut into the soft rock along most of the walls"],
+                ["none", "Sheer walls", "Sheer walls all along"],
+                ["some", "Some benches", "Benches along some of the walls"],
+                ["many", "Many benches", "Benches along most of the walls"],
               ]}
             />
           </AutoDetail>
@@ -354,17 +366,17 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
               value={steps}
               onChange={(steps) => set({ steps })}
               options={[
-                ["few", "Few steps", "Long level reaches: the floor drops by few steps"],
-                ["some", "Some steps", "The floor drops a level every so often"],
-                ["many", "Many steps", "Short reaches: the floor drops by many steps"],
+                ["few", "Few steps", "Long level reaches, few steps"],
+                ["some", "Some steps", "A step every so often"],
+                ["many", "Many steps", "Short reaches, many steps"],
               ]}
             />
           </AutoDetail>
           <AutoDetail label="Tarn" on={u.tarn === null} onAuto={(on) => set({ tarn: on ? null : tarn })}>
-            <Toggle label="Tarn" title="A small lake in the cirque at its head" on={tarn} onChange={(tarn) => set({ tarn })} />
+            <Toggle label="Tarn" title="A small lake at its head" on={tarn} onChange={(tarn) => set({ tarn })} />
           </AutoDetail>
           <AutoDetail label="Scree" on={u.scree === null} onAuto={(on) => set({ scree: on ? null : scree })}>
-            <Toggle label="Scree" title="Cones of fallen rock at the walls' feet" on={scree} onChange={(scree) => set({ scree })} />
+            <Toggle label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(scree) => set({ scree })} />
           </AutoDetail>
         </MoreRow>
       ) : null}

@@ -1,0 +1,35 @@
+--- a/src/core/land/genome.ts
++++ b/src/core/land/genome.ts
+@@ -379,6 +379,23 @@
+
+ const PRIORS: Record<ThemeId, Prior> = { any: anyPrior(), ...P };
+
++// Small Highlands: rivers cut below benches and carry water over their steps.
++// Kept outside P: Any's averaged prior and every other theme retain their existing draws.
++function highlandsPrior(W: number, H: number): Prior {
++  const p = P.highlands;
++  const k = clamp((128 - Math.min(W, H)) / 32, 0, 1);
++  if (k === 0) return p;
++  const blend = (r: Range, lo: number, hi: number): Range => ({
++    lo: r.lo * (1 - k) + lo * k, hi: r.hi * (1 - k) + hi * k,
++  });
++  return {
++    ...p,
++    flowMul: blend(p.flowMul, 1.8, 2.8),
++    incise: blend(p.incise, 2.5, 4.5),
++    floor: blend(p.floor, 1, 4),
++  };
++}
++
+ /** Variety widens a range: at 0 the middle third, at 70 the range, at 100 half as wide again. */
+ export function draw(rng: Rng, r: Range, vy: number): number {
+   const mid = (r.lo + r.hi) / 2;
+@@ -481,7 +498,7 @@
+   // nudges the continuous values; its land comes from its own noise seeds (field.ts)
+   const rng = stream(seed, "genome2", theme, attempt);
+   const nudge = variation ? stream(seed, "variation", theme, attempt, variation) : null;
+-  const p = PRIORS[theme];
++  const p = theme === "highlands" ? highlandsPrior(W, H) : PRIORS[theme];
+   const vy = clamp(o.variety ?? DEFAULT_VARIETY, 0, 100);
+   const areaK = (W * H) / (128 * 128);
+   const vtSetting = clamp(o.vt ?? VT_DEFAULT[theme], 0, 100);

@@ -1,0 +1,20 @@
+[
+  {
+    "size": 96,
+    "all": 17,
+    "water": 18,
+    "failed": 0
+  },
+  {
+    "size": 128,
+    "all": 16,
+    "water": 17,
+    "failed": 0
+  },
+  {
+    "size": 256,
+    "all": 15,
+    "water": 18,
+    "failed": 0
+  }
+]
