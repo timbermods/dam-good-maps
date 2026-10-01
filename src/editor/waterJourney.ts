@@ -39,8 +39,11 @@ export class WaterJourney {
     private readonly host: JourneyHost,
   ) {}
 
-  /** The worker answered an update, and the page now shows its version. */
+  /** The worker answered an update: its view goes in (after the journey's waiting parts), and the page now shows its version. */
   update(u: { ok: boolean; waterSettled?: boolean; view: ViewUpdate }, version: number): void {
+    // (what the journey's waiting settled frames carry goes in first: the answer's view is a difference from it)
+    this.flush();
+    this.host.applyView(u.view);
     this.version = version;
     if (u.ok) {
       // (an update whose water is settled starts no journey: nothing will come to end it)
@@ -56,6 +59,12 @@ export class WaterJourney {
     const held = this.held;
     this.held = [];
     for (const e of held) this.news(e);
+  }
+
+  /** The journey is about to be dropped for other water (an edit's answer, a stroke's, a force's): the parts of the
+   *  settled water still waiting to be shown are put in place first, never lost (D341). */
+  flush(): void {
+    this.player.flushFinals();
   }
 
   /** A frame or the settled water from the worker. */

@@ -74,3 +74,53 @@ describe("the water a journey ends on", () => {
     expect(p.player.playing).toBe(false);
   });
 });
+
+// A new edit while settled frames wait to be shown (D341). The worker diffs each view against what it has sent, so
+// the settled view of an earlier version (the plants, the soil, the water) is not sent again: a journey that drops
+// its waiting frames for the new edit's would lose those parts for good. Only the parts are applied, in the order the
+// worker made them, before the new edit's view; no frame of the old journey is played again.
+describe("an edit that comes while settled frames wait", () => {
+  const A = water(1);
+  const B = water(3);
+  const tag = (name: string, w?: WaterView) => ({ name, ...(w ? { water: w } : {}) }) as unknown as ViewUpdate & { name: string };
+  const names = (log: ViewUpdate[]) => log.map((v) => (v as unknown as { name: string }).name);
+
+  function setup() {
+    const log: ViewUpdate[] = [];
+    const player = new WaterPlayer({ show: () => undefined, changed: () => undefined });
+    const journey = new WaterJourney(player, { applyView: (v) => void log.push(v), mapWater: () => A, settledInPlace: () => undefined });
+    journey.update({ ok: true, waterSettled: false, view: tag("edit 2", A) }, 2);
+    journey.news({ kind: "water", version: 2, water: water(2), done: 0.5 });
+    // (the settled water has come, but the page is still playing the frames before it)
+    journey.news({ kind: "settled", version: 2, view: tag("settled 2", B) });
+    return { log, player, journey };
+  }
+
+  it("applies the waiting settled view before the new edit's, once", () => {
+    const { log, player, journey } = setup();
+    expect(names(log)).toEqual(["edit 2"]);
+    journey.update({ ok: true, waterSettled: true, view: tag("edit 3") }, 3);
+    expect(names(log)).toEqual(["edit 2", "settled 2", "edit 3"]);
+    // (and nothing of the old journey is left to apply or play)
+    player.skip();
+    journey.update({ ok: true, waterSettled: true, view: tag("edit 4") }, 4);
+    expect(names(log)).toEqual(["edit 2", "settled 2", "edit 3", "edit 4"]);
+  });
+
+  it("applies a settled view that was shown before only that once", () => {
+    const { log, player, journey } = setup();
+    player.skip();
+    expect(names(log)).toEqual(["edit 2", "settled 2"]);
+    journey.update({ ok: true, waterSettled: true, view: tag("edit 3") }, 3);
+    expect(names(log)).toEqual(["edit 2", "settled 2", "edit 3"]);
+  });
+
+  it("flush applies the waiting settled views when the journey is dropped for a stroke's water", () => {
+    const { log, player, journey } = setup();
+    journey.flush();
+    player.clear();
+    expect(names(log)).toEqual(["edit 2", "settled 2"]);
+    journey.flush();
+    expect(names(log)).toEqual(["edit 2", "settled 2"]);
+  });
+});
