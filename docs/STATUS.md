@@ -90,7 +90,8 @@ forces; the deploy and the live check passed. The High look's release is next (D
      read documents, `retired-terms` and `juiceSounds`), and a skipped job counts as passed for merge and release. Why: the licence release's CI took about 25 minutes a run (the longest job: `engines` 26 min, `test` 22 min,
      each browser shard 7–12 min), twice (push, then the release PR); jobs waited in the queue only 2–400 s, mostly when the
      push and PR runs competed for runners, so the time was running, not waiting. A code change keeps the full suite: the
-     change itself ran it in full (all green).
+     change itself ran it in full (all green). A documents-only push then finished its CI in about a minute (`changes` 17 s,
+     `test` 42 s, four heavy jobs skipped), CodeQL in two.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
