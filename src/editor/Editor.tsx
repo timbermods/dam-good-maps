@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../core/doc/ops";
 import { cornerFor } from "../core/doc/tools";
 import { footprintTiles, startEntranceTile, type Orientation } from "../core/format/footprints";
+import { groundUnderObjects } from "../core/features/raster/objectGround";
 import type { Point } from "../core/features/schema";
 import type { FixOp } from "../core/validate/report";
 import { rulesFor } from "../core/validate/playability";
@@ -3003,6 +3004,13 @@ export default function Editor(props: EditorProps) {
       rides: () => (brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "ride" ? spots().filter((c) => c.tiles.length > 1 && inArea(c.tiles)).map((c) => c.rect) : []),
       // Keep (D322): every source's own tiles
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
+      // Naturalize leaves the ground under every source and object as it is (D368 (8))
+      objectGround: () => {
+        const e = mirror.current.entities;
+        const list = [];
+        for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
+        return groundUnderObjects(list);
+      },
       maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),

@@ -275,8 +275,11 @@ editor is desktop-first (D185).
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a natural
   slope exactly where the player puts it); Smooth has no walkable option (D247) and Flatten no Ramped edges (D322).
-  **Naturalize** leaves protected tiles as they are (set pieces', the start's bench, rivers', exact strokes' and forces'),
-  and its wear never leaves a slope joining nothing (D253). Pen pressure on drawing tablets (a soft stroke's strength).
+  **Naturalize** weathers what the player paints: forces' results, brush strokes (exact ones too), rivers (the water
+  re-settles as after any edit) and set pieces are all fair game. It leaves only what must not change for the map to
+  stay correct: the start's pad and the ground under water sources, badwater sources and objects (not trees, bushes,
+  ruin columns or slopes), worked out by the core when the stroke applies and recorded in it, so a headless operation gets the same protection and a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8), D342). A stroke saved before
+  D368 (8) has no `weathers` flag and replays as it did, leaving protected tiles alone. Pen pressure on drawing tablets (a soft stroke's strength).
   Every brush's options row starts with its **Size**, a number and a slider up to half the map's width, so the largest
   brush paints the whole map in one stroke (D322, item 42); hold F and move the mouse to size the ring on the map, its
   size beside the pointer, and let go to keep it (a click sets it too; Esc or a right click puts it back); { and } step
