@@ -71,6 +71,46 @@ export interface JobMap {
   moments: Moment[];
   actions: Action[];
   poses: Pose[];
+  /** How smoothly the game runs the map (mod/src/PerfMeter.cs): absent for most maps. */
+  perf?: PerfSpec;
+}
+
+/**
+ * Frame times after the map's first day (PLAN §20 D357 (9)): each phase holds a game speed (0: the job's speed) for
+ * `seconds` real seconds while the camera pans over the whole map at its own zoom and angles, with the player's
+ * graphics; the first `warmup` seconds of a phase are not counted. Nothing else is recorded meanwhile: the moments,
+ * samples and the end wait until the phases are done.
+ */
+export interface PerfSpec {
+  /** The game day the phases start at. */
+  startDay: GameDay;
+  /** Tiles between the pan's rows down the long axis. */
+  rowSpacing: number;
+  phases: { id: string; speed: number; seconds: number; warmup: number }[];
+}
+
+export interface PerfPhaseResult {
+  id: string;
+  speed: number;
+  /** Real seconds measured (after the warm-up) and the frames in them. */
+  seconds: number;
+  frames: number;
+  medianMs: number;
+  p95Ms: number;
+  p99Ms: number;
+  maxMs: number;
+  over50Ms: number;
+  over100Ms: number;
+  /** Game days the phase ran, and game seconds a real second (1 at normal speed when the game keeps up). */
+  days: number;
+  speedReached: number;
+  workingSetMb: number;
+}
+
+export interface PerfResult {
+  environment?: { screen: string; vSync: number; targetFrameRate: number; qualityLevel: string; gpu: string; cpu: string; memoryMb: number };
+  camera?: string;
+  phases: PerfPhaseResult[];
 }
 
 export interface JobSettings {
@@ -188,4 +228,8 @@ export interface MapResult {
   log: LogLine[];
   actions: { day: GameDay; kind: string; template: string; removed: number }[];
   notes: string[];
+  /** Real seconds from starting the new game to the game's interface, and the game's memory then (mod 0.2.1). */
+  loadSeconds?: number;
+  workingSetAtLoadMb?: number;
+  perf?: PerfResult;
 }

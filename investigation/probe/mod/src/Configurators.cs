@@ -28,6 +28,7 @@ namespace DGMProbe
                 containerDefinition.Bind<WeatherForcer>().AsSingleton();
                 containerDefinition.Bind<ShotTaker>().AsSingleton();
                 containerDefinition.Bind<PanelCloser>().AsSingleton();
+                containerDefinition.Bind<PerfMeter>().AsSingleton();
             }
         }
     }

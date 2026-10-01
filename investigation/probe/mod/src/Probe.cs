@@ -29,6 +29,8 @@ namespace DGMProbe
         public static int Tick;
         public static float Speed;
         public static int ShotsTaken;
+        // When the current map's new game was asked for (real seconds since launch), for its load time.
+        public static float LoadStartedReal;
 
         private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {

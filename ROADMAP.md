@@ -2077,6 +2077,14 @@ refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×
 loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
 reported. PLAN §20 D357 has the whole decision.
 
+- **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
+  references. Our file writer and both validators' other load checks handle every size and shape already.
+- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
+  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
+  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
+  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
+  "4–256 per axis".
+
 ## Collaborative editing (D349)
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
