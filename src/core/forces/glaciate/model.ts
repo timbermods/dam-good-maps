@@ -14,7 +14,7 @@ import type { ForceMap } from "../force";
 export interface GlaciateSettings {
   mode: "flow" | "aim";
   power: number;
-  /** The trough's width in tiles, or null: it follows Power (Auto). */
+  /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */
   size: number | null;
   meltwater: boolean;
   seed: number;

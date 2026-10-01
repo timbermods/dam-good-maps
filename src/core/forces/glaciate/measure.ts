@@ -213,12 +213,12 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
   const out: GlacierSection[] = [];
   let arc = 0;
   for (let k = 0; k < path.length; k++) {
-    if (k) arc += Math.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
+    if (k) arc += portable.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
     if (arc < fromArc || arc > toArc || k < 3 || k > path.length - 4) continue;
     const q = path[k];
     const a = path[k - 3];
     const b = path[k + 3];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
     const nx = -(b.y - a.y) / len;
     const ny = (b.x - a.x) / len;
     const cut = (t: number): number | null => {
