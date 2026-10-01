@@ -6,7 +6,7 @@
 
 import { entityJson } from "../format/entities";
 import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
-import { emptySimulationSingletons, GAME_VERSION, LAYERS, settledSimulationSingletons, voxelsFromHeights, type WorldModel } from "../format/world";
+import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, settledSimulationSingletons, voxelsFromHeights, type WorldModel } from "../format/world";
 import { thumbnailJpeg } from "../render/shade";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import type { BuildResult } from "../features/build";
@@ -59,7 +59,7 @@ export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" |
   }
   let top = 0;
   if (built) for (const v of built.heights) if (v > top) top = v;
-  if (top > 16) out.push(`The land rises to level ${top}: the game's map editor edits only up to level 16.`);
+  if (top > EDITOR_MAX_HEIGHT) out.push(generatedTallSentence(top));
   out.push(`Made with Dam Good Maps ${GENERATOR_VERSION}, seed ${spec.seed}.`);
   return out.join(" ");
 }
