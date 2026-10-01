@@ -149,7 +149,7 @@ const f = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000)).join(", ")})`;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
-const PATTERN_SIZE = 512;
+const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
 const CRACK_CELLS = 16;
 const COBBLE_CELLS: [number, number] = [16, 24];
@@ -162,7 +162,9 @@ const COBBLE_CELLS: [number, number] = [16, 24];
  *    them: 0 on the mortar, 0.5–1 on a stone by its shade;
  *  - A: each crack plate's own shade. */
 export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
-  const rt = new WebGLRenderTarget(PATTERN_SIZE, PATTERN_SIZE, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false });
+  // anisotropic filtering at the renderer's maximum (at most 16×, at least 8× where it has that): ground and
+  // rock seen at a slant stay detailed instead of settling on a blurrier mip level
+  const rt = new WebGLRenderTarget(PATTERN_SIZE, PATTERN_SIZE, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false, anisotropy: Math.min(16, gl.capabilities.getMaxAnisotropy()) });
   const mat = new ShaderMaterial({
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -226,9 +228,23 @@ export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
         float crack = 1.0 - smoothstep(width * 0.4, width, v.y - v.x);
         // cobbles: wider than tall, mortar between them
         vec2 kp = vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])});
-        vec3 k = voronoi(vUv * kp, kp, vec2(1.0, 1.5), 0.75);
-        float mortar = smoothstep(0.05, 0.16, k.y - k.x);
-        float stone = mortar * (0.5 + 0.5 * k.z) * (0.9 + 0.2 * valueNoise(vUv * kp * 3.0, kp * 3.0));
+        vec2 stoneP = vUv * kp;
+        stoneP += vec2(valueNoise(stoneP * 0.25, kp * 0.25), valueNoise(stoneP * 0.5 + 31.0, kp * 0.5)) * 0.65;
+        vec2 stoneCell = floor(stoneP), stoneFr = fract(stoneP);
+        float first = 9.0, second = 9.0, stoneId = 0.0, face = 0.0;
+        for (int sy = -1; sy <= 1; sy++) for (int sx = -1; sx <= 1; sx++) {
+          vec2 off = vec2(float(sx), float(sy)), id = stoneCell + off;
+          float seed = hash12(id + 11.0, kp);
+          vec2 delta = (off + 0.5 + (hash22(id, kp) - 0.5) * 0.96 - stoneFr) * vec2(1.0, 1.28);
+          float distance = length(delta) + (seed < 0.16 ? 3.0 : 0.0);
+          if (distance < first) {
+            second = first; first = distance; stoneId = seed;
+            face = dot(delta, normalize(hash22(id + 47.0, kp) - 0.5)) * 0.42;
+          } else second = min(second, distance);
+        }
+        vec3 k = vec3(first, second, stoneId);
+        float mortar = smoothstep(0.012, 0.19, k.y - k.x);
+        float stone = mortar * clamp(0.70 + 0.25 * k.z + face - k.x * 0.07, 0.38, 1.0);
         gl_FragColor = vec4(noise, crack, clamp(stone, 0.0, 1.0), v.z);
       }
     `,
@@ -324,8 +340,82 @@ export function lightTexture(W: number, H: number, data: Uint8Array): DataTextur
   return t;
 }
 
+/** The High look's additions to a shader (render3d/high, PLAN §20 D242, D250, D284): GLSL put in at
+ *  named points of the shaders below. Without them (the Standard and light looks) every point is
+ *  empty or holds the Standard code itself, so those shaders are exactly as they were: the Standard
+ *  look stays the same to the pixel. Each point is named for what it changes. */
+export interface ShaderHooks {
+  /** Uniforms and functions, after the shared GLSL. */
+  decl?: string;
+  /** A sun shadow of its own: `float sunLit(vec2 g, float z)` (the baked one is kept as
+   *  `bakedSunLit`, for when the effect is off). */
+  sunLit?: string;
+  /** A factor on the sky's light (`lightOf`, the objects' light): the ambient occlusion. */
+  skyLight?: string;
+  /** finish(): the haze (replacing the Standard line), and the last step (replacing the clamp). */
+  haze?: string;
+  finishEnd?: string;
+  // the terrain
+  /** Where grass meets earth, and where contamination ends (expressions). */
+  moist?: string;
+  bad?: string;
+  /** After the ground's colour, before contamination is layered over it (c, g). */
+  groundVariation?: string;
+  /** Before groundColor returns (c: its colour with contamination; glow). */
+  groundEnd?: string;
+  /** After the ground's colour at a top (ground, soil, glow, d0, g). */
+  groundTop?: string;
+  /** In a wall, before its level lines (wc, n, along, y, k, shade). */
+  wall?: string;
+  /** How strong the wall's level lines are (an expression; Standard: `markers`). */
+  wallLines?: string;
+  /** After the light, before the overlays (c, light, n, h0, d0). */
+  lit?: string;
+  // the water
+  /** Functions after the shared water palette's GLSL (they may use it). */
+  waterDecl?: string;
+  /** A water surface of its own, before clear water (c, alpha, foam, n, g, depth, cont, shore, V, lit). */
+  water?: string;
+  // falls
+  fallVertexDecl?: string;
+  /** Before the fall's vertex is placed (p, kind, land). */
+  fallVertex?: string;
+  /** The fall's normal (an expression). */
+  fallNormal?: string;
+  /** Before the crown's billows are read (b1, b2, g, t). */
+  crownNoise?: string;
+  /** Before the crown's colour (foam, swirl, up, bil). */
+  crownFoam?: string;
+  /** The sheet's translucent body colour (an expression; Standard: clean water's `WATER_SHALLOW`). */
+  fallBody?: string;
+  /** After the splash's froth (broken, tail, froth, g, t). */
+  splashFroth?: string;
+  /** Before the splash's colour (foam, g, t). */
+  splashFoam?: string;
+  /** Before clear water on a fall (alpha, kind, g, t). */
+  fallEnd?: string;
+  // objects
+  objectVertexDecl?: string;
+  /** The object's normal and its position before placing (expressions of position and normal). */
+  objectNormal?: string;
+  objectPosition?: string;
+  /** Its colour (an expression; Standard: `pcolor`). */
+  objectColor?: string;
+  /** Before `vec3 p = position;` */
+  objectVertex?: string;
+  /** The wrapped sun light (an expression; Standard: `dot(n, sunDir) * 0.75 + 0.25`). */
+  objectSun?: string;
+  /** Its final colour before the finish (an expression; Standard: `vColor * light`). */
+  objectFinal?: string;
+  // the sky
+  /** At the sky's end (c, d). */
+  sky?: string;
+}
+
+const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
+
 /** Shared GLSL: the scene's uniforms, the patterns, the baked shadow, the light and the finish. */
-const COMMON = /* glsl */ `
+const common = (h?: ShaderHooks) => /* glsl */ `
   uniform vec3 sunDir;
   uniform vec3 sunColor;
   uniform vec3 skyColor;
@@ -364,7 +454,7 @@ const COMMON = /* glsl */ `
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
   }
   /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
-  float sunLit(vec2 g, float z) {
+  float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
     #if LITE
       return 1.0;
     #endif
@@ -372,13 +462,13 @@ const COMMON = /* glsl */ `
     float hi = s.r * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
-  }
+  }${hook(h, "decl")}${hook(h, "sunLit")}
   /** Sky light and sun light on a surface: shadows keep about three fifths of the light on the
    *  ground, with a violet cast (moist ground in shadow still stays lighter than dry ground in
    *  sun), so shadows read from afar as in the game. */
   vec3 lightOf(vec3 n, float sky, float ao, float lit) {
     float ndl = max(dot(n, sunDir), 0.0);
-    return skyColor * 1.0 * (0.7 + 0.3 * n.y) * ao * sky + sunColor * 0.55 * ndl * lit * mix(1.0, ao, 0.35);
+    return skyColor * ${hook(h, "skyLight")}1.0 * (0.7 + 0.3 * n.y) * ao * sky + sunColor * 0.55 * ndl * lit * mix(1.0, ao, 0.35);
   }
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
@@ -415,11 +505,11 @@ const COMMON = /* glsl */ `
   /** The blue-grey haze over distant ground, and the warm grade. */
   vec3 finish(vec3 c, vec3 world) {
     float d = distance(world, cameraPosition);
-    c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));
+    ${hook(h, "haze", "c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));")}
     c *= vec3(1.01, 1.0, 0.98);
     float l = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(vec3(l), c, 1.03);
-    return clamp(c, 0.0, 1.0);
+    ${hook(h, "finishEnd", "return clamp(c, 0.0, 1.0);")}
   }
 `;
 
@@ -437,7 +527,7 @@ export interface TerrainUniforms {
 
 /** `lite`: a lighter look for browsers that render in software: no patterns, shadows or soil
  *  blending. */
-export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, lite = false): ShaderMaterial {
+export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, lite = false, h?: ShaderHooks): ShaderMaterial {
   const own: TerrainUniforms = {
     heightRange: { value: new Vector2(lo, hi) },
     hover: { value: new Vector3(0, 0, 0) },
@@ -472,7 +562,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform float coolingAge;
       varying vec3 vWorld;
       varying vec3 vNormal;
-      ${COMMON}
+      ${common(h)}
       vec4 tileAt(vec2 t) {
         t = clamp(t, vec2(0.0), mapSize - 1.0);
         return texture2D(tileTex, (t + 0.5) / mapSize);
@@ -488,9 +578,38 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float t = clamp((z - heightRange.x) / max(1.0, heightRange.y - heightRange.x), 0.0, 1.0);
         return mix(${glColor(HEIGHT_RAMP.low)}, ${glColor(HEIGHT_RAMP.high)}, t);
       }
+      /** Contamination's veins at ground point p and contamination level lvl (0–1), as in the game
+       *  (D334): sparse, irregular orange-red fissures, the edges of a coarse jittered cell field
+       *  (about a tile and a half across), some edges dropped, the kept ones thick main cracks or
+       *  thinner branches. Returns the stroke (x) and its narrower glowing core (y), antialiased;
+       *  none at zero contamination. World-anchored, so the veins never reseed as the level changes.
+       *  (Kyler tunes the few junctions that widen abruptly on real maps: the two smoothsteps on
+       *  importance set which edges are kept and how wide.) */
+      vec2 veinsOf(vec2 p, float lvl) {
+        vec2 q = p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+        vec2 cell = floor(q), f = fract(q);
+        float first = 9.0, second = 9.0, id1 = 0.0, id2 = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 off = vec2(float(x), float(y)), id = cell + off;
+          vec2 rnd = fract(sin(vec2(dot(id, vec2(127.1, 311.7)), dot(id, vec2(269.5, 183.3)))) * 43758.5453);
+          float tag = fract(sin(dot(id, vec2(91.7, 37.1))) * 17213.371);
+          float d = length(off + 0.10 + rnd * 0.80 - f);
+          if (d < first) { second = first; id2 = id1; first = d; id1 = tag; }
+          else if (d < second) { second = d; id2 = tag; }
+        }
+        // (the two cells either side of an edge agree on its importance: dropping edges opens the
+        // net, and the main cracks and thinner branches kept meet at the same junctions)
+        float importance = fract(sin((id1 + id2) * 173.71) * 31741.13);
+        float present = smoothstep(0.42, 0.47, importance);
+        float width = mix(${f(CT.width[0])}, ${f(CT.width[1])}, smoothstep(0.54, 0.84, importance)) * mix(${f(CT.widthByLevel[0])}, ${f(CT.widthByLevel[1])}, lvl);
+        float aa = max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
+        float distance = (second - first) * 0.5;
+        float rim = 1.0 - smoothstep(width, width + aa, distance);
+        float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
+        return vec2(rim, core) * present * smoothstep(0.0, ${f(CT.onset)}, lvl);
+      }
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
-       *  its contamination level (0–1), and in glow the light of the contamination's veins. Noise
-       *  shapes the edges between soils (grass bleeds onto the earth in patches) and their grain. */
+       *  its contamination level (0–1), and in glow the light of the contamination's veins. */
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {
         #if LITE
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
@@ -499,6 +618,10 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
         #endif
+        // (the patterns are read through a broad warp, so their repeat never shows from afar)
+        vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
+        vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
+        g += patternWarp * 3.2;
         float n1 = vnoise(g * 1.3);
         float n2 = vnoise(g * 4.1 + 17.0);
         float n3 = vnoise(g * 19.0 + 5.0) - 0.5;
@@ -506,56 +629,48 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float b1 = vnoise(g * 0.09 + 31.0);
         float b2 = vnoise(g * 0.23 + 57.0);
         float b3 = vnoise(g * 0.55 + 83.0);
-        vec2 dry = cracks(g * 1.9);
-        vec2 rust = cracks(g * 1.2 + 11.3);
-        // grass bleeds onto the earth in ragged patches
-        float edge = (n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4;
-        float moist = smoothstep(0.42, 0.58, s.x + edge);
-        float bad = smoothstep(0.4, 0.6, s.z + edge * 0.6);
+        vec2 dry = cracks(g * 3.1);
+        // grass meets the earth along the tile's edge
+        // (a slight wobble along the tile's edge only: the soil itself changes there, not in ragged patches)
+        float edge = ((n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4) * 0.22;
+        float moist = ${hook(h, "moist", "smoothstep(0.42, 0.58, s.x + edge)")};
+        float bad = ${hook(h, "bad", "smoothstep(0.4, 0.6, s.z + edge * 0.6)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
-        // dry: cracked earth, grey-brown, drifting in broad patches to a cooler grey and a warmer
-        // brown and in lightness; each plate its own shade; the crack network is broken here and
-        // there, as real cracks are, and fainter from afar
-        float open = smoothstep(0.2, 0.55, vnoise(g * 0.8 + 3.7));
+        // dry: cracked earth, warm brown, drifting in broad patches to a cooler mauve and a warmer
+        // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
-        c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.5, 0.8, b2) * 0.6);
-        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.05 * (dry.y - 0.5) + detail * 0.07 * n3);
-        c = mix(c, ${glColor(GROUND.crack)}, dry.x * open * (0.4 + 0.25 * detail));
-        // moist: grass, a muted yellowish green, deeper by the water, in lighter and deeper patches
-        // and darker blotches; up close, clumps a few to a tile with yellower tips, and blades
+        c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
+        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
+        c = mix(c, ${glColor(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));
+        // moist: grass, a muted green, deeper by the water, in lighter and deeper patches and darker
+        // blotches; up close, clumps a few to a tile and painted strokes, jittered and turned, so the
+        // pattern never repeats in rows
         vec3 grass = mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0));
         grass = mix(grass, grass * vec3(0.86, 0.94, 0.86), smoothstep(0.45, 0.75, b2));
         float blot = smoothstep(0.62, 0.82, vnoise(g * 0.7 + 5.3));
         float tuft = vnoise(g * 3.3 + 21.0) - 0.5;
         float blade = vnoise(vec2(g.x * 9.0 + g.y * 3.0, g.y * 9.0 - g.x * 3.0) + 40.0) - 0.5;
-        grass = mix(grass, grass * vec3(1.1, 1.04, 0.78), smoothstep(0.05, 0.35, tuft) * 0.6);
-        float tex = 1.0 + 0.16 * tuft + (0.14 * blade + 0.2 * n3) * detail;
-        c = mix(c, grass * (0.84 + 0.18 * b1 + 0.08 * (n1 - 0.5)) * tex * (1.0 - 0.12 * blot), moist);
-        // contamination: a layer over the ground, as in the game (palette.ts's contaminationVeins
-        // says the same, for the tests). The ground keeps its own look; red-orange veins run over
-        // it, more of them and brighter the more contaminated: on dry earth its own cracks glow
-        // orange in rust rims, through grass run dark red veins; a finer network joins the more
-        // contaminated; the soil round them is stained a little; from afar, where the veins are too
-        // fine to see, they tint the ground instead (rust on earth, dark red on grass)
+        grass = mix(grass, grass * vec3(1.035, 1.045, 0.97), smoothstep(0.05, 0.35, tuft) * 0.6);
+        vec2 bladeUV = mat2(0.91, -0.415, 0.415, 0.91) * g * 7.0;
+        bladeUV += vec2(vnoise(g * 2.7), vnoise(g * 2.1 + 41.0)) * 2.0;
+        vec2 bladeCell = floor(bladeUV);
+        float bladeHash = fract(sin(dot(bladeCell, vec2(127.1, 311.7))) * 43758.5453);
+        float bladeTurn = bladeHash * 6.28318;
+        vec2 bf = fract(bladeUV) - vec2(0.20 + bladeHash * 0.6, 0.20 + fract(bladeHash * 13.7) * 0.6);
+        bf = mat2(cos(bladeTurn), -sin(bladeTurn), sin(bladeTurn), cos(bladeTurn)) * bf;
+        float bladeAA = max(0.025, max(fwidth(bladeUV.x), fwidth(bladeUV.y)));
+        float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
+        float tex = 0.91 + 0.31 * tuft + painted * (0.08 + bladeHash * 0.16) * detail + 0.09 * blade * detail;
+        c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
         float lvl = clamp(clev, 0.0, 1.0);
-        float reach = mix(${f(CT.reach[0])}, ${f(CT.reach[1])}, lvl);
-        float gate = smoothstep(0.9 - reach, 1.1 - reach, vnoise(g * 0.9 + 61.0));
-        vec2 fineNet = cracks(g * 3.1 + 7.7);
-        float fine = smoothstep(${f(CT.fineFrom)}, 1.0, lvl);
-        float onDry = bad * (1.0 - moist) * (1.0 - wet);
-        float onGrass = bad * moist * (1.0 - wet);
-        float veinD = max(dry.x * gate, fineNet.x * fine * 0.8) * onDry;
-        float veinW = max(rust.x * gate, fineNet.x * fine * 0.7) * onGrass;
-        float stain = mix(${f(CT.stain[0])}, ${f(CT.stain[1])}, lvl);
-        // (the veins are a few hundredths of a tile wide: they fade once a pixel spans that much)
-        float cover = mix(${f(CT.cover[0])}, ${f(CT.cover[1])}, lvl) * smoothstep(0.02, 0.1, fwidth(g.x));
-        c = mix(c, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedGrass)}, moist), stain * bad * (1.0 - wet));
-        c = mix(c, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedWet)}, moist), cover * bad * (1.0 - wet));
-        c = mix(c, ${glColor(GROUND.contaminated)} * ${f(CT.rim)}, veinD);
-        c = mix(c, ${glColor(GROUND.contaminatedWet)}, veinW);
-        // (the glow is added after the light: the veins' cores, narrower than their rims)
-        glow = smoothstep(0.4, 0.95, veinD) * mix(${f(CT.glowDry[0])}, ${f(CT.glowDry[1])}, lvl) + smoothstep(0.35, 0.9, veinW) * mix(${f(CT.glowWet[0])}, ${f(CT.glowWet[1])}, lvl);
-        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), wet);
+        // contamination: a layer over the ground, as in the game (palette.ts's CONTAMINATION says
+        // the same, for the tests): orange-red veins over either soil, its own colour between them
+        vec2 vein = vec2(0.0);
+        if (bad > 0.0 && wet < 1.0) vein = veinsOf(g, lvl) * bad * (1.0 - wet);
+        c = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
+        // (the glow is added after the light: the veins' cores, narrower than their strokes)
+        glow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);
+${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), wet);
       }
       void main() {
         vec3 n = normalize(vNormal);
@@ -593,6 +708,17 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           float w01 = (1.0 - w.x) * w.y * sy;
           float w11 = w.x * w.y * sg;
           float w00 = 1.0 - w10 - w01 - w11;
+          // the soil changes at the tile's edge, as in the game: a narrow, deliberate transition (about a
+          // pixel, at least a twenty-fifth of a tile) instead of a blend across the whole tile, wobbling
+          // a little along the edge (the same wobble seen from both tiles, so it stays continuous); the
+          // light and the contamination's level (shading) keep the smooth weights above
+          float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
+          vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
+          vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
+          float v10 = ws.x * (1.0 - ws.y) * sx;
+          float v01 = (1.0 - ws.x) * ws.y * sy;
+          float v11 = ws.x * ws.y * sg;
+          float v00 = 1.0 - v10 - v01 - v11;
           vec4 s0 = soilOf(d0);
           vec4 s1 = soilOf(dx);
           vec4 s2 = soilOf(dy);
@@ -601,21 +727,28 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
           vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
           vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
-          vec4 soil = flags0 * w00 + flags1 * w10 + flags2 * w01 + flags3 * w11;
+          vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
           float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
           float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
-          vec3 ground = groundColor(soil, g, detail, clev, glow);
+          vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
           if (groundMode > 0.5) {
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
             glow = 0.0;
-          } else c = ground;
+          } else {
+            // a thin darker rim where grass meets earth, painted as the game's is
+            float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));
+            c = ground * (1.0 - rim * 0.22);
+          }
           // contact shadow at the foot of higher neighbours, fading within half a tile
           float rx = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.x);
           float ry = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.y);
           float ox = min(max(hx - h0, 0.0), 2.0) * 0.5 * rx;
           float oy = min(max(hy - h0, 0.0), 2.0) * 0.5 * ry;
           float od = min(max(hd - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, hx - h0), step(0.5, hy - h0)));
-          float ao = 1.0 - 0.55 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          // a thin dark line along the top of a drop, and a deeper contact shadow at a wall's foot
+          float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
+          c *= 1.0 - topLip * 0.30;
+          float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
           light = lightOf(n, mix(0.55, 1.0, sky), ao, sunLit(g, h0));
           if (vWorld.y < h0 - 0.5) {
             // a floor under an overhang (a cave's or a ledge's): the top's soil, never its water,
@@ -629,7 +762,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           c = ${glColor(WALL.mortar)};
           light = lightOf(n, 0.5, 0.6, 0.0);
         } else {
-          // a wall: dark cobbled stone, every other level a shade darker; with Markers, a pale ledge
+          // a wall: olive-grey cobbled stone (D334), every other level a shade darker; with Markers, a pale ledge
           // at the top of each level over a dark groove at the foot of the next (each at least a
           // pixel wide, and gone where a level is under three pixels); a lip of the top's ground
           vec2 out2 = vec2(n.x, -n.z);
@@ -642,12 +775,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           #if LITE
             float k = 0.75;
           #else
-            float k = cobble(vec2(along * 2.0, y * 2.0));
+            float k = cobble(vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6));
           #endif
           float shade = mix(${f(WALL.low)}, ${f(WALL.high)}, clamp(level / 16.0, 0.0, 1.0)) * (mod(level, 2.0) > 0.5 ? ${f(WALL.alternate)} : 1.0);
           vec3 wc = mix(${glColor(WALL.mortar)}, ${glColor(WALL.stone)} * shade * (0.78 + 0.44 * (k - 0.5)), smoothstep(0.1, 0.4, k));
-          float py = fwidth(y);
-          float lines = (1.0 - smoothstep(0.22, 0.34, py)) * markers;
+${hook(h, "wall")}          float py = fwidth(y);
+          float lines = (1.0 - smoothstep(0.22, 0.34, py)) * ${hook(h, "wallLines", "markers")};
           float lw = max(0.09, 1.2 * py);
           float gw = max(0.035, 0.8 * py);
           wc = mix(wc, ${glColor(WALL.ledge)} * shade, smoothstep(1.0 - lw - py * 0.5, 1.0 - lw + py * 0.5, fy) * lines);
@@ -655,13 +788,20 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           float lip = 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
           vec3 top = groundMode > 0.5 ? heightColor(h0) : (s0.x > 0.5 ? ${glColor(GROUND.moistHigh)} : ${glColor(GROUND.dry)} * 0.85);
-          c = mix(wc, top, lip * 0.9);
+          vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
+          float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
+          float seamAA = max(0.012, fwidth(y));
+          float seam = (1.0 - smoothstep(0.025, 0.025 + seamAA, min(fy, 1.0 - fy))) * (1.0 - smoothstep(0.25, 0.6, seamAA));
+          float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
+          c = mix(wc, top * 0.58, lip * 0.55);
           float ao = mix(0.5, 1.0, smoothstep(0.0, 1.1, y - base));
           light = lightOf(n, 1.0, ao, sunLit(g + out2 * 0.26, y));
         }
         c *= light;
         // the glowing cracks of contaminated ground shine in shadow too
-        c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};
+        c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
         vec4 o = texture2D(overlay, (tile + 0.5) / mapSize);
         if (o.a < 0.998) c = mix(c, o.rgb * (0.8 + 0.2 * min(light.g, 1.0)), o.a);
         else c = mix(c, o.rgb, (n.y > 0.5 ? float(LITE) : 0.5) * markers);
@@ -756,7 +896,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
   });
 }
 
-export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMaterial {
+export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     defines: { LITE: lite ? 1 : 0 },
     uniforms: scene as unknown as Record<string, { value: unknown }>,
@@ -781,8 +921,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
       varying float vFlags;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      ${COMMON}
-      ${WATER_GLSL}
+      ${common(h)}
+      ${WATER_GLSL}${hook(h, "waterDecl")}
       /** The slope of the ripples (gentle, moving) at q. */
       vec2 ripple(vec2 q, float t) {
         float a1 = q.x * 1.3 + q.y * 0.35 + t * 1.1;
@@ -905,16 +1045,17 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
-        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
+${hook(h, "water")}        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
         // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
-        // its shore; badwater keeps its colour, half see-through, with dark diagonal stripes
+        // its shore; badwater keeps its colour, murky and half see-through, with its dull troughs
+        // and slow glowing bubbles (never a hatching: it reads by lightness, colour and texture, D324)
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          float stripe = step(0.55, fract((g.x - g.y) * 2.5));
-          vec3 bc = mix(murky, murky * CLEAR_STRIPE, stripe);
+          vec3 bc = mix(murky, badwaterShade(BADWATER_TROUGH, depth), trough * BADWATER_TROUGH_AMOUNT);
+          bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES;
           vec3 cc = c;
           float ca = alpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {
@@ -996,7 +1137,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false): ShaderMateria
  *  the landing zone only; soft white water, with no cells of dark water between patches of foam
  *  (D222: they read as cracked tiles). Clear water (D196, D212) turns a fall to a faint veil; the
  *  game's layers cut it at the slice. */
-export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial {
+export function fallMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   const inset = FALL_SHAPE.inset;
   const S = FALL_SPLASH;
   return new ShaderMaterial({
@@ -1008,7 +1149,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
       attribute vec4 fTop;
       attribute vec4 fShape;
       attribute vec4 fMore;
-      uniform float viewHeight;
+      uniform float viewHeight;${hook(h, "fallVertexDecl")}
       varying vec4 vRib;
       varying vec4 vFall;
       varying vec4 vEdge;
@@ -1138,7 +1279,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           vEdge = vec4(inner, freeA, freeB, 0.0);
           vEnds = vec2(ue - ea, 1.0 - eb - ue);
         }
-        vNormal = n;
+${hook(h, "fallVertex")}        vNormal = n;
         vec4 wp = modelMatrix * vec4(p, 1.0);
         vWorld = wp.xyz;
         gl_Position = projectionMatrix * viewMatrix * wp;
@@ -1151,7 +1292,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
       varying vec2 vEnds;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      ${COMMON}
+      ${common(h)}
       ${WATER_GLSL}
       void main() {
         // the game's layers: a fall above the slice is cut away
@@ -1164,7 +1305,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
         float bad = waterDull(cont);
         float t = time;
         vec2 g = vec2(vWorld.x, -vWorld.z);
-        vec3 N = normalize(vNormal);
+        vec3 N = ${hook(h, "fallNormal", "normalize(vNormal)")};
         vec3 V = normalize(cameraPosition - vWorld);
         if (dot(N, V) < 0.0) N = -N;
         float lit = sunLit(g, vWorld.y);
@@ -1179,6 +1320,10 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
         vec3 foamColour = mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.92 + 0.08 * lit);
         // whitewater where it lands: more for stronger and taller falls
         float amount = clamp(0.78 + 0.2 * strength + 0.04 * min(h, 6.0), 0.75, 1.0) * (1.0 - 0.3 * bad);
+        // (D324, feedback items 4 and 2: a one-level spill is gentle, and each step of a cascade holds
+        // its whitewater down, so steps never stack into a white wall)
+        float gentle = 1.0 - smoothstep(1.0, 2.2, h);
+        amount *= mix(0.86, 0.5, gentle);
         vec3 c;
         float alpha;
         if (kind > 4.5) {
@@ -1192,7 +1337,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           #else
             float b1 = vnoise(vec2(along * 5.0, swirl * 5.0 - t * 1.4 - up * 1.5));
             float b2 = vnoise(vec2(along * 12.0 + 3.7, swirl * 11.0 - t * 2.6 + up * 3.0));
-            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fine);
+${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fine);
             float spray = mix(0.5, vnoise(vec2(along * 15.0 + 1.3, up * 2.2 - t * 2.4)), fine);
           #endif
           // (soft-edged billows, D222: never hard cells with the pool showing between them)
@@ -1200,9 +1345,9 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           foam = max(foam, (1.0 - smoothstep(0.0, 0.4, up)) * (0.55 + 0.45 * bil));
           foam = max(foam, smoothstep(0.52, 0.78, spray) * (1.0 - smoothstep(0.35, 1.0, up)) * 0.85) * amount;
           // (ragged at a free end)
-          foam *= smoothstep(0.0, 0.25, end + 0.15 * (bil - 0.6)) * mix(0.7, 1.0, weak);
-          c = foamColour;
-          alpha = foam * FALL_FOAM;
+          foam *= smoothstep(0.0, 0.25, end + 0.15 * (bil - 0.6)) * mix(0.7, 1.0, weak);${hook(h, "crownFoam")}
+          c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, FALL_WHITEWATER_TINT);
+          alpha = foam * FALL_FOAM * FALL_WHITEWATER;
         } else if (kind > 3.5) {
           // the splash: white along the impact line (its edge ragged), churning back to the foot of
           // the cliff, and soft white water drifting out past it, thinning as it goes and fading
@@ -1225,12 +1370,12 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           float core = 1.0 - smoothstep(0.4 * cw, cw, abs(d));
           float tail = d > 0.0 ? 1.0 - smoothstep(0.1 * spread, spread, d) : 1.0 - 0.35 * smoothstep(0.0, X + 0.05, -d);
           float froth = smoothstep(${f(S.froth[0])}, ${f(S.froth[1])}, 0.55 * blot + 0.45 * churn);
-          float broken = pow(tail, 0.7) * mix(${f(S.frothFloor)}, 1.0, froth);
+          float broken = pow(tail, 0.7) * mix(${f(S.frothFloor)}, 1.0, froth);${hook(h, "splashFroth")}
           float foam = (core * (0.85 + 0.15 * churn) + (1.0 - core) * broken) * amount;
           // (fading at its edges: raggedly past a free end, toward the cliff, and at its outer edge)
-          foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);
-          c = foamColour;
-          alpha = foam * FALL_FOAM;
+          foam *= smoothstep(0.0, 0.32, end + 0.25 * (0.55 * blot + 0.45 * churn - 0.6)) * smoothstep(0.0, 0.1, d + X - ${f(S.back)}) * smoothstep(0.0, 0.3, vEdge.x);${hook(h, "splashFoam")}
+          c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, FALL_WHITEWATER_TINT);
+          alpha = foam * FALL_FOAM * FALL_WHITEWATER;
         } else {
           float arc = vRib.y;
           float above = vRib.z;
@@ -1251,14 +1396,22 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           float lip = 1.0 - smoothstep(0.08 + 0.1 * rag, 0.3 + 0.2 * rag + 0.1 * strength, arc);
           float aerate = smoothstep(0.2, 2.0, arc);
           float foot = 1.0 - smoothstep(0.05, 0.55 + 0.35 * strength, above);
-          float foam = clamp(streak * (0.35 + 0.5 * aerate) + lip * 0.85 + foot * (0.7 + 0.3 * streak), 0.0, 1.0);
-          foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak);
-          // a translucent body, clean water's light shallows or badwater's crimson, its streaks;
-          // thicker where seen edge-on (where it curves over the brink, and at its ends)
-          vec3 body = waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont);
-          vec3 streaks = mix(WATER_FOAM, badwaterShade(BADWATER_STREAK, 0.25), bad);
-          c = mix(body, streaks, streak * 0.35) * light;
-          c = mix(c, foamColour, foam);
+          // (D324: the falling sheet reads as teal water first, its white only in streaks, at the brink
+          // and at the foot; never a white curtain)
+          float whiteStreak = smoothstep(0.43, 0.82, streak);
+          #if !LITE
+            // (and fine threads along it, as the game's falls have)
+            float thread = vnoise(vec2(along * 37.0 + sin(phi * 1.2) * 0.5, phi * 0.46 - t * 2.3));
+            whiteStreak = clamp(whiteStreak * 0.68 + smoothstep(0.48, 0.76, thread) * 0.55, 0.0, 1.0);
+          #endif
+          float foam = clamp(whiteStreak * (0.22 + 0.3 * aerate) + lip * 0.7 + foot * (0.6 + 0.25 * streak), 0.0, 1.0);
+          foam *= (1.0 - 0.3 * bad) * mix(0.7, 1.0, weak) * mix(1.0, 0.55, gentle);
+          // a body, clean water's light shallows or badwater's crimson, its streaks a lighter teal
+          // (orange-red on badwater), little white (D334); thicker where seen edge-on (where it
+          // curves over the brink, and at its ends)
+          vec3 body = ${hook(h, "fallBody", "waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)")};
+          c = mix(body, mix(FALL_TEAL, FALL_BAD_STREAK, bad), whiteStreak * 0.78) * light;
+          c = mix(c, foamColour, foam * 0.18);
           float edgeOn = 1.0 - max(dot(N, V), 0.0);
           alpha = mix(FALL_CLEAR, FALL_STREAK, streak);
           alpha = mix(alpha, BADWATER_FALL, waterMurk(cont));
@@ -1268,16 +1421,13 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
           alpha *= mix(1.0, FALL_INNER, vEdge.x);
           alpha *= kind > 0.5 && kind < 2.5 ? 0.8 : mix(0.6, 1.0, smoothstep(0.0, 0.15, end));
         }
-        // clear water (D196, D212; waterPalette.ts CLEAR_WATER), as the water has it: all of it with
+${hook(h, "fallEnd")}        // clear water (D196, D212; waterPalette.ts CLEAR_WATER), as the water has it: all of it with
         // T, else round the brush while it paints a submerged bed. A clean fall turns to a faint
-        // veil (the cliff and the bed show); a badwater fall keeps its colour, half see-through,
-        // with dark diagonal stripes
+        // veil (the cliff and the bed show); a badwater fall keeps its colour, half see-through
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          float stripe = step(0.55, fract((g.x - g.y + vWorld.y) * 2.5));
-          c = mix(c, mix(c, c * CLEAR_STRIPE, stripe), badish * clr);
           alpha = mix(alpha, mix(alpha * CLEAR_FALL, min(alpha, CLEAR_BAD_OPACITY), badish), clr);
         }
         if (alpha < 0.01) discard;
@@ -1292,7 +1442,7 @@ export function fallMaterial(scene: SceneUniforms, lite = false): ShaderMaterial
 
 /** The sky round the map, drawn behind everything: blue overhead, paler toward the horizon, a
  *  hazy blue below it, where the map floats, with soft clouds above and below. */
-export function skyMaterial(): ShaderMaterial {
+export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader: /* glsl */ `
       varying vec3 vDir;
@@ -1303,7 +1453,7 @@ export function skyMaterial(): ShaderMaterial {
       }
     `,
     fragmentShader: /* glsl */ `
-      varying vec3 vDir;
+      varying vec3 vDir;${hook(h, "decl")}
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) {
         vec2 i = floor(p);
@@ -1320,7 +1470,7 @@ export function skyMaterial(): ShaderMaterial {
         vec2 q = d.xz / max(abs(d.y), 0.08) * 1.6;
         float n = vn(q) * 0.55 + vn(q * 2.3 + 7.1) * 0.3 + vn(q * 5.1 + 3.3) * 0.15;
         float cloud = smoothstep(0.52, 0.8, n) * smoothstep(0.02, 0.2, abs(d.y));
-        c = mix(c, ${glColor(SKY.cloud)}, cloud * 0.75);
+        c = mix(c, ${glColor(SKY.cloud)}, cloud * 0.75);${hook(h, "sky")}
         gl_FragColor = vec4(c, 1.0);
       }
     `,
@@ -1330,8 +1480,13 @@ export function skyMaterial(): ShaderMaterial {
 }
 
 /** Where a model's parts for close up give way to its parts for afar (`lod`, entities3d.ts): at this
- *  many pixels a unit of the model takes on screen (a ruin's storey from afar is a solid block). */
+ *  many pixels a unit of the model takes on screen (a ruin's storey from afar is a lattice of open
+ *  cells in the near skeleton's own muted colour, D305, not a solid painted block). */
 export const RUIN_NEAR_PX = 9;
+
+/** The far ruin block's lattice (D305): cells this many to a world unit, on whichever two axes
+ *  aren't the face's normal (so it reads consistently on every face, without UVs). */
+export const RUIN_LATTICE_SCALE = 3.2;
 
 /** Instanced objects: each vertex's own colour times the instance's tint, lit like the terrain,
  *  darker toward the model's foot, and in the terrain's shadow where it stands in one. An
@@ -1340,7 +1495,7 @@ export const RUIN_NEAR_PX = 9;
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
  *  model takes RUIN_NEAR_PX pixels or more), 2 from afar; the others are dropped (the light look
  *  draws every part it has: its models have none for afar). */
-export function objectMaterial(scene: SceneUniforms, lite = false): ShaderMaterial {
+export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     defines: { LITE: lite ? 1 : 0 },
     uniforms: scene as unknown as Record<string, { value: unknown }>,
@@ -1349,20 +1504,22 @@ export function objectMaterial(scene: SceneUniforms, lite = false): ShaderMateri
       attribute vec3 grow;
       attribute float lod;
       uniform float viewHeight;
-      uniform float markers;
+      uniform float markers;${hook(h, "objectVertexDecl")}
       varying vec3 vColor;
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFoot;
+      varying float vLod;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
-        vNormal = normalize(mat3(m) * normal);
-        vColor = pcolor;
+        vLod = lod;
+${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objectNormal", "normal")});
+        vColor = ${hook(h, "objectColor", "pcolor")};
         #ifdef USE_INSTANCING_COLOR
           vColor *= instanceColor;
         #endif
         vFoot = position.y;
-        vec3 p = position;
+        vec3 p = ${hook(h, "objectPosition", "position")};
         #if !LITE
         if (lod > 0.5 || (grow.x > 0.0 && markers > 0.5)) {
           vec4 o = projectionMatrix * viewMatrix * m * vec4(0.0, 0.0, 0.0, 1.0);
@@ -1389,17 +1546,28 @@ export function objectMaterial(scene: SceneUniforms, lite = false): ShaderMateri
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFoot;
-      ${COMMON}
+      varying float vLod;
+      ${common(h)}
       void main() {
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
+        // a ruin's far block (D305): a lattice of open cells so it reads as a framework, not a
+        // solid box, from any face (the two world axes across the face, whichever the normal
+        // isn't closest to; cheap, no extra geometry or UVs)
+        if (vLod > 1.5) {
+          vec3 an = abs(normalize(vNormal));
+          vec2 uv = an.x >= an.y && an.x >= an.z ? vWorld.yz : (an.y >= an.z ? vWorld.xz : vWorld.xy);
+          float strut = 0.16;
+          bool onStrut = fract(uv.x * ${f(RUIN_LATTICE_SCALE)}) < strut || fract(uv.y * ${f(RUIN_LATTICE_SCALE)}) < strut;
+          if (!onStrut) discard;
+        }
         vec3 n = normalize(vNormal);
         float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
         // soft (wrapped) sun light, kinder to leaves
-        float ndl = clamp(dot(n, sunDir) * 0.75 + 0.25, 0.0, 1.0);
-        vec3 light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * lit;
-        gl_FragColor = vec4(finish(vColor * light, vWorld), 1.0);
+        float ndl = clamp(${hook(h, "objectSun", "dot(n, sunDir) * 0.75 + 0.25")}, 0.0, 1.0);
+        vec3 light = skyColor * ${hook(h, "skyLight")}1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * lit;
+        gl_FragColor = vec4(finish(${hook(h, "objectFinal", "vColor * light")}, vWorld), 1.0);
       }
     `,
   });

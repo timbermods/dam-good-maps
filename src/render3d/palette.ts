@@ -1,21 +1,20 @@
 // The 3D view's colours (ROADMAP "Map look", PLAN §20 D86, D110, D114 and Kyler's clean look), in
 // one place: the shaders and models read them and the legend shows the same swatches, so the legend
 // always says what the scene shows. The clean view is as close to the game as we can make it with
-// our own shaders (Kyler's reference screenshots): moist ground a muted yellowish grass (living
-// plants grow), dry ground cracked earth in a grey-brown, contamination a layer over either (red-
-// orange veins, more and brighter the more contaminated: dry earth's own cracks glow orange, dark
-// red veins run through grass), clean water a deep teal body darkening to navy with depth, clear in
+// our own shaders (Kyler's reference screenshots, D334: follow Timberborn's references): moist ground
+// a muted grass green (living plants grow), dry ground cracked earth in a warm brown drifting to mauve,
+// contamination a layer over either (sparse orange-red fissures, wider and glowing a little more the
+// more contaminated, through earth and grass alike), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
-// Walls are dark cobbled stone, every other level a shade darker. Colours are display values (the
+// Walls are olive-grey cobbled stone, every other level a shade darker. Colours are display values (the
 // renderer outputs them without conversion).
 //
-// Meanings differ in lightness too, so they read in greyscale and with any colour blindness: from
-// light to dark, dead trees, moist ground, dry ground, badwater. Contamination reads by its veins:
-// light lines on dry earth, dark lines on grass, and a darker stain from afar. Clean water's body is
-// about as dark as the stained contaminated earth (Kyler, 2026-09-25: as in the game); it reads as
-// water by its light shore foam, glints and ripple crests and its see-through shallows, and in
-// colour by its blue. Badwater is darker than clean water of the same depth, and dull; water partly
+// Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
+// beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
+// its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
+// High its pink caustics and red contact at rock). Clean water reads as water by its light shore foam, glints and ripple crests and its see-through shallows, and in
+// colour by its blue. Badwater is darker than clean water of the same depth in Standard, and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, through a teal-grey and
 // a warm brown to crimson, never in streaks, patches or purple (D177). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
@@ -36,29 +35,32 @@ export type GroundMode = "moisture" | "height";
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 
 export const GROUND = {
-  /** Dry ground: cracked earth, the grey-brown of Kyler's reference (never reddish), with dark
-   *  cracks; plants die there. Broad patches drift between it, a cooler grey and a warmer brown. */
-  dry: [0.44, 0.395, 0.34] as Rgb,
+  /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
+   *  drift between it, a cooler mauve and a warmer tan (D334, from Timberborn's references: the earth
+   *  may be warm brown and mauve, amending D324's neutral grey-beige; D346: from above a little greyer and
+   *  less saturated, a muted brown-mauve with grey patches, as the game's overview reads). Grass a muted green, darker
+   *  and less yellow than it was (the game's L* 50-55 on screen, D324); it reads apart from dry earth
+   *  as it does in the game, by hue and its painted strokes, with no lightness gap asked beyond the
+   *  game's own (D334 (2); `look-readable.test.ts` reports the colour-blindness simulations as
+   *  information). */
+  dry: [0.463, 0.403, 0.367] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.39, 0.38, 0.37] as Rgb,
+  dryCool: [0.444, 0.414, 0.438] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.47, 0.39, 0.31] as Rgb,
+  dryWarm: [0.52, 0.438, 0.375] as Rgb,
   /** The cracks in dry ground. */
-  crack: [0.19, 0.17, 0.17] as Rgb,
-  /** Moist ground at the edge of the moist area (the least moisture): a muted, yellowish grass
-   *  green, lighter than dry ground. */
-  moistLow: [0.6, 0.66, 0.31] as Rgb,
+  crack: [0.19, 0.14, 0.125] as Rgb,
+  /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */
+  moistLow: [0.445, 0.575, 0.28] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.56, 0.66, 0.26] as Rgb,
-  /** Contamination (badwater spoils the soil and plants die), a layer over the ground as in the
-   *  game: the rust of the veins' rims on dry earth and of the stain round them... */
+  moistHigh: [0.415, 0.55, 0.265] as Rgb,
+  /** Contamination (badwater spoils the soil and plants die) in the light look, which draws no
+   *  veins: a rust tint over dry earth... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
-  /** ...the veins' glowing orange cores on dry earth... */
-  contaminatedGlow: [0.96, 0.52, 0.2] as Rgb,
-  /** ...the dark red veins through contaminated grass (wet contaminated ground)... */
+  /** ...and a dark red one over grass. */
   contaminatedWet: [0.34, 0.09, 0.06] as Rgb,
-  /** ...and the sickly brown the grass round them is stained. */
-  contaminatedGrass: [0.46, 0.36, 0.17] as Rgb,
+  /** The glow of the veins' cores (`CONTAMINATION`), added after the light. */
+  contaminatedGlow: [0.96, 0.52, 0.2] as Rgb,
   /** Ground under water (seen through it). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
@@ -89,12 +91,12 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: dark grey-green cobbled stone, as in Kyler's reference, every other level a
- *  shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
+/** The block walls: olive-grey cobbled stone, as Timberborn's references (D334, amending D324's bluer grey), every other
+ *  level a shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
  *  groove between levels, so levels can be counted. */
 export const WALL = {
-  stone: [0.36, 0.38, 0.35] as Rgb,
-  mortar: [0.15, 0.16, 0.15] as Rgb,
+  stone: [0.40, 0.395, 0.29] as Rgb,
+  mortar: [0.13, 0.125, 0.095] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   alternate: 0.86,
@@ -102,59 +104,51 @@ export const WALL = {
   high: 1.12,
 } as const;
 
-/** Contamination as a layer (Kyler, 2026-09-25: as in the game): red-orange veins over the ground's
- *  own look, more of them and brighter the more contaminated, and the soil round them stained a
- *  little (more from afar, where the veins are too fine to see). The terrain shader reads these. */
+/** Contamination as a layer, as in the game (Kyler, 2026-09-25; D334: the game's own look and cues):
+ *  sparse, irregular orange-red fissures over the ground's own colour, through dry earth and grass
+ *  alike, thick main cracks with thinner branches meeting at the same junctions, wider and glowing a
+ *  little more the more contaminated; the ground between them keeps its own colour. The terrain
+ *  shader reads these (`veinsOf`, the full looks; the light look tints instead, `GROUND.contaminated`). */
 export const CONTAMINATION = {
-  /** The share of the vein network drawn, at the least and the most contamination. */
-  reach: [0.15, 0.95] as const,
-  /** From which contamination a second, finer network of veins joins (all of it at the most). */
-  fineFrom: 0.45,
-  /** The veins' glow on dry earth and on grass, at the least and the most contamination, and how
-   *  strongly the glow shines (added after the light, so it shows in shade too). */
-  glowDry: [0.45, 1] as const,
-  glowWet: [0.05, 0.25] as const,
+  /** The veins' colour, over either soil. */
+  vein: [0.52, 0.13, 0.035] as Rgb,
+  /** How much of the soil under a vein its colour covers. */
+  cover: 0.92,
+  /** A vein's half-width, a share of the vein network's cell (about a tile and a half): its thinnest
+   *  branch and its thickest main crack... */
+  width: [0.007, 0.039] as const,
+  /** ...times this, from the least to the most contamination. */
+  widthByLevel: [0.65, 1] as const,
+  /** The glow of a vein's core, at the least and the most contamination, and how strongly the glow
+   *  shines (added after the light, so it shows in shade too). */
+  glow: [0.16, 0.3] as const,
   glowAdd: 0.85,
-  /** How dark a vein's rust rim is on dry earth (a share of the rust). */
-  rim: 0.75,
-  /** The stain round the veins, at the least and the most contamination. */
-  stain: [0.06, 0.2] as const,
-  /** From afar, where the veins are too fine to see, they tint the ground this much instead (rust
-   *  on dry earth, dark red on grass), at the least and the most contamination. */
-  cover: [0.12, 0.5] as const,
+  /** The contamination (0–1) by which the veins have come in fully (none at zero). */
+  onset: 0.06,
 } as const;
 
 /** With **Markers** on, an outline where contaminated ground ends: a light line between dark
  *  edges, so it shows on grass, earth and at the water's edge, in any colours. */
 export const CONTAMINATION_OUTLINE = { light: [1, 0.86, 0.6] as Rgb, dark: [0.1, 0.03, 0.02] as Rgb } as const;
 
-/** The contamination layer at a contamination level (0–1): the share of the vein network drawn,
- *  the finer network's strength, the veins' glow on dry earth and on grass, the stain round them,
- *  and how much the veins tint the ground from afar (as the terrain shader draws it). */
-export function contaminationVeins(level: number): { reach: number; fine: number; glowDry: number; glowWet: number; stain: number; cover: number } {
+/** The contamination layer at a contamination level (0–1), as the terrain shader draws it: how
+ *  much of it has come in (0 at zero contamination), its veins' width as a share of their widest,
+ *  and the glow of their cores. */
+export function contaminationVeins(level: number): { onset: number; width: number; glow: number } {
   const C = CONTAMINATION;
   const l = Math.max(0, Math.min(1, level));
   const lerp = (r: readonly [number, number]) => r[0] + (r[1] - r[0]) * l;
-  return { reach: lerp(C.reach), fine: smooth(C.fineFrom, 1, l), glowDry: lerp(C.glowDry), glowWet: lerp(C.glowWet), stain: lerp(C.stain), cover: lerp(C.cover) };
+  return { onset: smooth(0, C.onset, l), width: lerp(C.widthByLevel), glow: lerp(C.glow) };
 }
 
-/** A vein's core as drawn (in full light), at a contamination level (0–1): on dry earth a rust rim
- *  glowing orange, through grass dark red with a faint glow. */
-export function contaminationVein(level: number, onGrass: boolean): Rgb {
+/** A vein's core as drawn in full light over the soil `soil` (a ground colour), at a contamination
+ *  level (0–1): the vein's orange-red over the soil, with its glow; the soil itself at zero. */
+export function contaminationVein(level: number, soil: Rgb): Rgb {
   const v = contaminationVeins(level);
-  const base: Rgb = onGrass ? GROUND.contaminatedWet : [GROUND.contaminated[0] * CONTAMINATION.rim, GROUND.contaminated[1] * CONTAMINATION.rim, GROUND.contaminated[2] * CONTAMINATION.rim];
-  const glow = CONTAMINATION.glowAdd * (onGrass ? v.glowWet : v.glowDry);
-  return [Math.min(1, base[0] + glow * GROUND.contaminatedGlow[0]), Math.min(1, base[1] + glow * GROUND.contaminatedGlow[1]), Math.min(1, base[2] + glow * GROUND.contaminatedGlow[2])];
-}
-
-/** Contaminated ground between its veins, with the soil's moisture: stained a little close up, and
- *  from afar (where the veins are too fine to see) tinted by them, rust on earth, dark red on grass. */
-export function contaminatedGround(moisture: number, level: number, afar: boolean): Rgb {
-  const v = contaminationVeins(level);
-  const onGrass = moisture > 0;
-  let c = mixRgb(groundColor(moisture, 0, false), onGrass ? GROUND.contaminatedGrass : GROUND.contaminated, v.stain);
-  if (afar) c = mixRgb(c, onGrass ? GROUND.contaminatedWet : GROUND.contaminated, v.cover);
-  return c;
+  const k = CONTAMINATION.cover * v.onset;
+  const glow = CONTAMINATION.glowAdd * v.glow * v.onset;
+  const at = (i: number) => Math.min(1, soil[i] + (CONTAMINATION.vein[i] - soil[i]) * k + glow * GROUND.contaminatedGlow[i]);
+  return [at(0), at(1), at(2)];
 }
 
 const smooth = (a: number, b: number, x: number) => {
@@ -181,20 +175,23 @@ export const START = {
   banner: [1.0, 0.82, 0.16] as Rgb,
 } as const;
 
-/** Ruins (Kyler's rounds, D178; his colours, measured in the game): ruined scaffold towers, one
- *  storey per level: thin rusty posts, beams and braces (#8D5631), beige slab panels (#B8A775) and,
- *  on moist ground, ivy (#405634, the brighter green on its clusters' edges) draped over about the
- *  lower half of the storeys, the panels' middles showing through. From afar each storey is a block in the scaffolding's rust (what
- *  makes ruins read from afar), a pale panel set in where it has one. The rust and the panels are
- *  lighter than rusty contaminated ground. */
+/** Ruins (Kyler's rounds, D178; D334: bright orange with cream, near and far, as Timberborn's
+ *  references): ruined scaffold towers, one storey per level: thin orange posts, beams and braces
+ *  (#D4781F), cream sacks and slab panels (#E3CF96) and, on moist ground, ivy (#405634, the brighter
+ *  green on its clusters' edges) draped over about the lower half of the storeys, the sacks' middles
+ *  showing through. From afar each storey is a block in the scaffolding's orange (what makes ruins
+ *  read from afar), a cream panel set in where it has one. Both stand apart from contaminated ground. */
 export const RUIN = {
-  rust: [0.553, 0.337, 0.192] as Rgb,
-  panel: [0.722, 0.655, 0.459] as Rgb,
+  rust: [0.83, 0.47, 0.12] as Rgb,
+  panel: [0.89, 0.81, 0.59] as Rgb,
   ivy: [0.251, 0.337, 0.204] as Rgb,
   /** The ivy's brighter leaves, on its clusters' edges. */
   leaf: [0.36, 0.5, 0.24] as Rgb,
-  /** From afar: the top of a storey (its beams, lit from above), a brighter rust. */
-  top: [0.6, 0.38, 0.22] as Rgb,
+  /** The far block's own colour (D305; D334: the near skeleton's orange as seen from afar, a little
+   *  darker, #B86E30, not D305's muted rust), apart from contaminated ground in lightness
+   *  (`look-water-slopes.test.ts`). Both the far block's four faces and its top use it; the lattice
+   *  pattern (materials.ts, `RUIN_LATTICE_SCALE`) is what tells it apart from a solid box. */
+  far: [0.72, 0.43, 0.19] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
@@ -214,23 +211,25 @@ export const THORNS: Rgb = [0.34, 0.16, 0.14];
  *  colour, so distant ground fades into it). */
 export const SKY = { zenith: [0.36, 0.55, 0.8] as Rgb, horizon: [0.64, 0.75, 0.87] as Rgb, below: [0.46, 0.6, 0.77] as Rgb, cloud: [0.93, 0.95, 0.97] as Rgb } as const;
 
-/** Mine sites (Kyler's rounds, D178; his colours, measured in the game): a rusty frame in a dull
+/** Mine sites (Kyler's rounds, D178; his colours, measured in the game; the pit's earth a little darker
+ *  since D324): a rusty frame in a dull
  *  brown-orange (#844D2F) round the edge of the 5 × 5 footprint, and a pit with real depth filling
  *  the rest, its earth a dark grey-brown with roots, rubble and cracks; scaffold towers on the
  *  frame's corners with pale wooden platforms, crates and planks (#A78E65). With **Markers** on, an
  *  orange line between dark edges outlines the footprint, a few pixels wide from any distance. */
 export const MINE = {
-  /** The pit as it shows in its shade (about #373A34): the legend's colour. */
-  pit: [0.216, 0.227, 0.204] as Rgb,
+  /** The pit as it shows in its shade (about #2F312C: Kyler's #373A34 darkened a little by D324, option (a),
+   *  to keep it 5 L* under the darker badwater): the legend's colour. */
+  pit: [0.184, 0.193, 0.173] as Rgb,
   /** The pit's earth as the model colours it: lit only by the sky down there, it shows about as
    *  `pit`. The walls' topsoil is browner and lighter, with a pale seam, and the earth darkens
    *  toward the floor; the floor darkens toward its edges. */
-  earthTop: [0.66, 0.58, 0.45] as Rgb,
-  earth: [0.56, 0.55, 0.46] as Rgb,
-  earthLow: [0.43, 0.43, 0.37] as Rgb,
-  seam: [0.68, 0.64, 0.53] as Rgb,
-  floor: [0.43, 0.45, 0.37] as Rgb,
-  floorEdge: [0.34, 0.35, 0.3] as Rgb,
+  earthTop: [0.561, 0.493, 0.383] as Rgb,
+  earth: [0.476, 0.468, 0.391] as Rgb,
+  earthLow: [0.365, 0.365, 0.315] as Rgb,
+  seam: [0.578, 0.544, 0.451] as Rgb,
+  floor: [0.365, 0.383, 0.315] as Rgb,
+  floorEdge: [0.289, 0.297, 0.255] as Rgb,
   crack: [0.16, 0.16, 0.15] as Rgb,
   floorCrack: [0.24, 0.24, 0.21] as Rgb,
   /** The shaft in the pit's floor. */
@@ -286,7 +285,7 @@ function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
 
 /** The ground's base colour (before light and texture) for soil bytes, in moisture mode; the
  *  shader's `groundColor` does the same per pixel. Contamination is a layer drawn over it (its
- *  veins and stain, `contaminationVeins`): the ground under it keeps its own colour. */
+ *  veins, `contaminationVeins`): the ground under and between them keeps its own colour. */
 export function groundColor(moisture: number, contamination: number, underwater: boolean): Rgb {
   switch (groundKind(moisture, contamination, underwater)) {
     case "underwater":
@@ -341,11 +340,11 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           { swatch: `linear-gradient(90deg, ${c(GROUND.moistLow)}, ${c(GROUND.moistHigh)})`, label: "Moist ground: plants grow" },
           { swatch: cracks(GROUND.dry, GROUND.crack), label: "Dry ground: plants die" },
           {
-            // veins over the ground: glowing orange on dry earth, dark red through grass
+            // orange-red veins over the ground, dry earth and grass alike
             swatch: icon(
               `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.moistLow)}"/>` +
-                `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(GROUND.contaminatedGlow)}" stroke-width="1.3" fill="none"/>` +
-                `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(GROUND.contaminatedWet)}" stroke-width="1.3" fill="none"/>`,
+                `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
+                `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
             label: "Contaminated ground: plants die",
           },
@@ -448,7 +447,7 @@ export function objectLegend(): LegendEntry[] {
     {
       swatch: icon(
         `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.moistLow)}"/>` +
-          `<path d="M2 4 L8 6 L7 11" stroke="${c(GROUND.contaminatedGlow)}" stroke-width="1.1" fill="none"/>` +
+          `<path d="M2 4 L8 6 L7 11" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.1" fill="none"/>` +
           `<rect x="10" width="4" height="16" fill="${c(CONTAMINATION_OUTLINE.dark)}"/><rect x="11" width="2" height="16" fill="${c(CONTAMINATION_OUTLINE.light)}"/>`,
       ),
       label: "Contaminated ground: an outline where it ends",

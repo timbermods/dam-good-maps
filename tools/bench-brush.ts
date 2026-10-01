@@ -175,7 +175,12 @@ async function main() {
       if (CONFIGS && !CONFIGS.includes(k + 1)) continue;
       const keep = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"];
       const browser = await chromium.launch({ channel: "chrome", headless: false, args: [...args, ...keep] });
-      const page = await browser.newPage({ viewport: { width: screen.width, height: screen.height }, deviceScaleFactor: screen.scale });
+      // Standard held: this budget is D46, before the High look existed, and a capable GPU would
+      // otherwise silently draw High, which costs more to render and would invalidate the budget
+      // (found auditing capture-badwater.ts's same gap, D304's investigation)
+      const context = await browser.newContext({ viewport: { width: screen.width, height: screen.height }, deviceScaleFactor: screen.scale });
+      await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+      const page = await context.newPage();
       await page.addInitScript("window.__name = (f) => f;");
       if (slow > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: slow });
       const gpu = (await page.evaluate(`(() => { const c = document.createElement("canvas").getContext("webgl2"); const e = c.getExtension("WEBGL_debug_renderer_info"); return String(e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : c.getParameter(c.RENDERER)); })()`)) as string;

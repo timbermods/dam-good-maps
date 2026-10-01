@@ -119,6 +119,8 @@ export interface HeaderProps {
   historyOpen: boolean;
   onHistory(): void;
   onBack(): void;
+  /** The look's menu (High or Standard, D284), beside More. */
+  look?: ComponentChildren;
 }
 
 export function Header(p: HeaderProps) {
@@ -171,6 +173,7 @@ export function Header(p: HeaderProps) {
         <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
           {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
         </button>
+        {p.look}
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
             ⋯

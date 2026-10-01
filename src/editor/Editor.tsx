@@ -23,6 +23,7 @@ import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
 import { DEAD, FLIPPED, YOUNG, ORIENTATION_NAMES, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "../render3d/model";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
+import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckItem, CheckProgress, EditorEvent, EntityInfo, ExportCheck, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate, WaterLayers } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTileFacts, type TileObject } from "../core/doc/describeTile";
@@ -4096,6 +4097,7 @@ export default function Editor(props: EditorProps) {
         historyOpen={showHistory}
         onHistory={() => setShowHistory(!showHistory)}
         onBack={() => props.onBack(info)}
+        look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       />
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
@@ -4108,6 +4110,7 @@ export default function Editor(props: EditorProps) {
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               togglesInButtons
+              lookMenu={false}
               besideHeight={
                 // a view switch (D248): what shows, never how a brush works; whatever tool is picked
                 <button type="button" aria-pressed={brush.levelLines} onClick={() => setBrush({ ...brushRef.current, levelLines: !brushRef.current.levelLines })} title="A line at every level">

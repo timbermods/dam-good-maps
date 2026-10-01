@@ -351,7 +351,12 @@ async function withSite<T>(run: (page: Page) => Promise<T>, extraArgs: string[] 
   const keepDrawing = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"];
   const browser = await chromium.launch({ channel: "chrome", headless: false, args: [...keepDrawing, ...extraArgs] });
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: this is a Map look fix round (D178), before the High look existed; a capable
+    // GPU would otherwise draw it in High by itself (found auditing capture-badwater.ts's same gap,
+    // D304's investigation)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     if (cpuSlowdown > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: cpuSlowdown });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));

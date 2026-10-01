@@ -3,7 +3,13 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D377), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D378), the order of work in [ROADMAP.md](../ROADMAP.md).
+
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
+> works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
+> skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
+> every force); tests for an eruption in High and for the highlight on High's basin sources.
 
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
@@ -11,31 +17,70 @@ The session on your main PC ended at 07:00 PDT on 2026-10-01, with your allowanc
 agent or background task is running, and a new milestone session resumes from [HANDOFF.md §0](HANDOFF.md) by running
 `npm run setup:machine` first. The planning chat's handoff is [CHAT-HANDOFF.md](CHAT-HANDOFF.md).
 
+**Released this morning: the forces** (`forces-done`, [#149](https://github.com/timbermods/dam-good-maps/pull/149), on your yes, D375). The public site shows all five
+forces; the deploy and the live check passed. The High look's release is next (D284, D346).
+
 **Waiting for you**
 
-1. **The forces release: your yes on the checklist below.** Everything is merged into `feature/forces` and green, and
-   the preview is built from it: <https://timbermods.github.io/dam-good-maps/preview/>.
-2. **Glaciate, two things for your eye:** its default Power is 60 again (the agent's call once the lower Powers passed
-   its test; say if it should stay 100), and Power 0 leaves a thin sheet on up to 5% of the floor where a river crosses.
-3. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
-4. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
+1. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
+2. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
+3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
 
 **Where things stand**
 
-- **The forces** (`feature/forces`, #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
+- **The forces** (released; `feature/forces` merged by #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
   three-engine check in CI, and three bugs fixed on the way (a re-imported tall map's bytes, two water-journey races).
-- **M9b** (`feature/m9b`, #70; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted on the
-  strict D348 base. Over 840 maps: failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps meeting all three
-  outcomes 212 / 227 / 229 of 280 (76%, 81%, 82%). Lake Basin (12 of 20 at every size) and Canyon and Highlands at 96²
-  are under two-thirds. Left: two dam walls, the 96² starts, speed at 256², the re-pins, then your review set.
+- **M9b** (`feature/m9b`, #70, tip e292cefe; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted
+  on the strict D348 base. Over 840 maps: failing absolutes 2 / 0 / 0 at 96² / 128² / 256² (Any 96² 31 and Islands 96² 4,
+  both the small-map start class); first maps meeting all three outcomes 213 / 228 / 229 of 280 (76%, 81%, 82%). Lake
+  Basin (12–13 of 20) and Canyon and Highlands at 96² are under two-thirds. Left: the 96² starts, a trial keeping
+  planned lakes at their level, speed at 256², the re-pins (its CI is red on maps that moved), then your review set.
 - **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
+- **Added after the High look's release (D378):** Craterize clicked quickly sometimes skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check every force); tests for an eruption in High and for the highlight on High's basin sources.
 - **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
   (D374), startup part 1 (D367), and **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees). Later, in polish: the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
-- **Not done:** the faster water settle's speed isn't timed (the machine was never quiet); September's Progress log
-  isn't copied to `docs/progress-log/`; the Wednesday allowance report wasn't written.
+- **Last-allowance session, 2026-10-01 (small tasks, each pushed):**
+  1. **The handoff is proved.** A fresh clone of `dev` in a temporary folder ran `npm run setup:machine` end to end:
+     six worktrees and the probe folder created, `npm ci` in all of them and in the probe's own folder, the four probe
+     allow rules written, a second run found everything ready. It needed no change to `tools/setup-machine.mjs`.
+     It reports only what is missing locally (the decompiled game code and the official maps, regenerated when needed).
+     The temporary clone is deleted.
+  2. **The flaky `save-to-timberborn.spec.ts:65` (D341) is fixed in the test.** "browserContext.close: Test ended"
+     means the test finished, and the browser context closed, while the downloaded file was still being written: the
+     tests waited for the `download` event, which fires when the download *starts*. Each now also waits for
+     `download.path()`, which resolves when the file is complete. The failure never reproduced here (92 runs of the
+     old test, up to 12 in parallel, all passed), so it was a CI-timing race; the fixed file passes the same 60-run
+     stress. If it ever fails again on `dev`'s CI, reopen D341's trace with that run's log.
+  3. **September's Progress log is copied** to [progress-log/2026-09.md](progress-log/2026-09.md): 232 comments of #57
+     (2026-09-26 to 2026-09-30 UTC). The 69 from October go into `2026-10.md` at that month's end.
+  4. Not done: **the faster settle's timing (D359)**. This PC wasn't quiet (Codex, OpenCode and Chrome running, CPU at
+     15–40%), so a timing would have been noise; Codex's own figure stands (about 1.25× at the median, 1.4× on 256²
+     lakes and seas; `investigation/water-speed`, `bench.mjs --workers 1 --reps 5`, `local/` inputs regenerated per its
+     INTEGRATION.md).
+  5. **Branches and PRs, cleaned (Kyler's authorization).** #95 was retargeted to `dev`; 109 remote branches, each
+     re-checked as fully merged into `dev` or `main` and in no open PR, were deleted (none skipped); the list with each
+     last commit, to restore any, is [merged-branches.md](merged-branches.md). No open PR is superseded (all eleven are
+     live or held). Local worktrees: `git worktree prune` found nothing to prune, since every local branch still
+     exists; about 25 old worktree folders beside the clone (`-brushes`, `-esc`, `-forces`, ...) point at branches
+     whose remote is gone, and are Kyler's to remove if he wants the space.
+  6. **Consistency sweep** of PLAN §20, ROADMAP, STATUS, HANDOFF and CHAT-HANDOFF: they were all rewritten the same
+     morning and agree on the forces' release, the next decision (D379), the order of work and the held items. Fixed: HANDOFF
+     said the forces release still had to reach `dev` (it has) and still listed the flake as to-trace. No retired term
+     is in a living document ("Watch" survives only in the marked checklist record and in HANDOFF's earlier-handoffs
+     history; ROADMAP's "Watch a 20-second tour" is a different thing).
+  7. The "didn't make it" list: the Wednesday allowance report is dropped (not needed); left: the faster settle's timing
+     and item 34.
+  8. **`dev` (the released forces) is merged into `feature/high-look`** (#75, merge 47f934b3, tip 682e2f2b; CI
+     green). Conflicts: the renderer (both kept: High's models, cost timing and materials beside the forces' ghost
+     tint, camera, reframing and effects), the editor's view bar (dev's, the look's menu staying in the header), one
+     readability test (High's D334 re-base with D287's dam sites gone) and the docs. One fix: High's terrain now
+     shares the eruption's heat uniforms with Standard's, so an eruption glows in High and through a change of look.
+     The look's menu tooltips are in the D351 form. Locally: typecheck, 1,078 unit and contract tests, 117 browser
+     tests, all passing. Left: Kyler's final look on the preview (the eruption's glow in High is the place the two
+     meet visibly), then #75 into `dev`, `map-look-2-done` and `tools/release.sh`.
 
-### Your checklist: the eleven fixes since your re-check (the preview from `feature/forces`, 2026-10-01)
+### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
 1. **Keys:** F with the mouse (or `{ }`) sets Size; `[ ]` or F+scroll sets Power on every force and strength on Smooth
    and Naturalize, nothing on Raise, Lower and Flatten. The number shows beside the pointer. The first F+scroll notch
@@ -53,7 +98,7 @@ agent or background task is running, and a new milestone session resumes from [H
 10. **No Slopes** or other objects appear after any force or brush; a mine site an edit cuts off shows in the checks.
 11. **F+scroll** for strength (with item 1).
 
-On your yes, the forces are released.
+All eleven passed; the forces are released.
 
 ## Earlier summary (2026-09-27 to 2026-10-01; history, superseded above where they differ)
 
@@ -110,10 +155,10 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    a drought (the game's rule; it bears on PERFECT's "the start survives its first cycles" and may belong in M9b). Its defaults
    #120–#125.
 13. **The High look** ([#75](https://github.com/timbermods/dam-good-maps/pull/75), held; D284): Standard beside High, with greyscale and
-   colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 25 effects, each switchable; High by default with a fallback.
-   My read: warmer and richer, the dead trees far better; the grass quite saturated and yellow; the water calmer, losing Standard's
-   glints; from far away the poisoned soil is a dark olive stain, harder to spot than Standard's red glow (its own switch,
-   `poison`). Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
+   colour-blind sheets, in `docs/look/high/` on `feature/high-look`; 24 effects, each switchable; High by default with a fallback.
+   Timberborn's soul (D334) is adopted on it (Codex's `adoption.patch`, the six tests re-based): warm brown and mauve earth,
+   orange ruins with cream sacks, the game's orange-red contamination veins in both looks, exposure 1.00, navy pools. Left for
+   your tuning on real maps: the channel water's marbled streaks and the vein junctions that widen abruptly. Its defaults #110–#117. The capture-tool audit is done (seven tools pinned to Standard, b62188ba); three of them no
    longer run against today's interface and are on the housekeeping list. It goes on the preview after the forces' release.
 14. **Pending defaults you can overrule** (`docs/decisions-pending.md`): #110–#117 (High look), #120–#125 (day by day), #134
    (M9b, above). Everything else is answered.
@@ -206,6 +251,7 @@ places (parked, D319).
 
 ### 2. Released or merged
 
+- **Released: `forces-done`** ([#149](https://github.com/timbermods/dam-good-maps/pull/149), `main` e5a6bf35; tagged at 99ac168a, after #77 merged `feature/forces` into `dev`; Kyler's yes, D375). The forces (Carve, Craterize, Erupt, Quake, Glaciate) and the editor around them: Power and Size on every force, one key habit, the brushes' target level, modes and sources options, Select, Delete and the shelf, tooltips with key caps, sounds, cross-browser determinism with a three-engine CI check, only the player placing objects. `FORCES_RELEASED` is true, so the public site shows them (checked live: the Forces group with all five). Generated maps unchanged (generator 0.7.0). The deploy and the live check passed; the preview is republished.
 - **Released: `m9a-done`** ([#80](https://github.com/timbermods/dam-good-maps/pull/80), `main` a4af2bb0; tagged at c31a77e, the merge of
   #56). Generator 0.7.0: maps grown from design version 2's processes, Any (Surprise me) as the default, starts that don't look alike,
   the starting-logs floor, start water fed or lasting (D302), the settled water's flows stored in the file. Also carried: #63, #69
@@ -561,7 +607,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D253: M10 and M11 removed: no symmetry, stamps, regrowing an area, or locks; Naturalize's checks kept as tests; the steps after them follow the Weather view.
 - D252: M9 is judged by your eye against PERFECT before each stage's release: starts stop looking alike (M9a); a review set on #56 before M9a's release; M9b's and M9c's acceptance adds your eye as blocking.
 - D251: every task on its own agent definition's model and effort.
-- D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on poisoned soil and a cost measurement on this machine's RTX 2070 SUPER.
+- D250: Map look phase 3, "Finish the world" (#67), approved as revised in round 2 and merged (8ed950a; 10 MB, 94 capture JPEGs from the two review rounds, all original); adopted into High with #38, #65 and #66, plus badtide withering on contaminated soil and a cost measurement on this machine's RTX 2070 SUPER.
 - D249: the terrain brushes get **Clear sources** (off by default; the sources under the ring glow red and go with the stroke); with it off, sources ride the ground (no pits or pillars); sources are easy to hit (within about two tiles, any tool) and Delete removes the targeted one; a Remove drag starting on a source takes only sources. On feature/forces, for your forces sitting.
 - D248: Level lines moves from the brush options row to the view bar, beside Height colours (a view switch, working with any tool). On feature/forces, for your forces sitting.
 - D247: Smooth's walkable option removed (it only nominated ground to the slope planner, so usually nothing happened where the player painted); the shelf's Slope puts a slope exactly where wanted; saved strokes still replay exactly; Flatten's ramped edges checked. On feature/forces, for your forces sitting.

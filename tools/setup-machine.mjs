@@ -22,7 +22,6 @@ const INSTALL = !args.has("--no-install");
 
 /** The worktrees the plan uses: folder suffix, branch. Update this list when a branch starts or is released. */
 const WORKTREES = [
-  ["forces", "feature/forces"],
   ["m9b", "feature/m9b"],
   ["high", "feature/high-look"],
   ["parity", "feature/parity"],

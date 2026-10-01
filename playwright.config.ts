@@ -17,6 +17,9 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${port}/dam-good-maps/`,
     channel,
+    // the Standard look, held: the tests of the look check Standard's colours, and a GPU would
+    // otherwise pick the High look by itself (D284); look-high.spec.ts clears it to try High
+    storageState: { cookies: [], origins: [{ origin: `http://localhost:${port}`, localStorage: [{ name: "dgm.look", value: "standard" }] }] },
   },
   webServer: {
     command: `npx vite build --mode e2e && npx vite build --base /dam-good-maps/public-build/ --outDir dist/public-build && npx vite preview --port ${port} --strictPort`,

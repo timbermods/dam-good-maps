@@ -1,7 +1,7 @@
 # Chat handoff: how Kyler and his planning chat work
 
 Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `docs/PERFECT.md` (the yardstick),
-`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D377) and
+`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D378) and
 `docs/HANDOFF.md`, all from github.com/timbermods/dam-good-maps (public). The previous version is
 `docs/chats/2026-09-27.md`. Past planning chats are searchable: use them for detail on any decision.
 
@@ -60,7 +60,7 @@ Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `
 ## The milestone order (D349, as amended) and where each step stands
 
 1. **Finish the editor as players will know it.**
-   - **The forces release:** built on `feature/forces` (#77); waits only for Kyler's yes on the checklist below.
+   - **The forces: released** on 2026-10-01 (`forces-done`, #149; Kyler's yes, D375).
    - **Right after it** (not blocking): Carve's river born as it cuts (D371), Glaciate's 3.5 s timing (D374),
      startup part 1 (D367), the smoothness fixes (#107), Carve's Maturity (D355).
    - **M9b's release** (`feature/m9b`, #70): in progress, see below.
@@ -76,20 +76,11 @@ Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `
 
 ## Open items, with owner and next step
 
-### The forces release (owner: the milestone session; waits for Kyler)
+### The forces: released (2026-10-01)
 
-Everything is merged into `feature/forces` and green. **Next:** Kyler checks the preview
-(<https://timbermods.github.io/dam-good-maps/preview/>) against the checklist in `docs/STATUS.md`; on his yes the
-session releases (`tools/release.sh`, CLAUDE.md "Deploying"). The checklist covers D361's ten fixes as re-checked,
-plus D368's eleven:
-
-- one key habit (F or `{ }` Size; `[ ]` or F+scroll strength), sources' one live number, the top-right cluster,
-  tooltip key caps;
-- Quake's hover a dot, Craterize click-only, Glaciate's Power as depth and Size as width (lower Powers a shallower
-  clean glacier; default Power 60, for Kyler to confirm), Carve's banks forming behind the cut (no pop at the end);
-- Naturalize weathering what the player paints, no Slopes or other objects ever placed by an edit.
-- Also in: cross-browser determinism (D366) with its three-engine CI check, and three bug fixes found on the way
-  (a re-imported tall map's bytes, two water-journey races).
+Released as `forces-done` (#149) on Kyler's yes after all eleven D368 fixes passed on the preview (D375): the five
+forces, one key habit, tooltips with key caps, cross-browser determinism (D366), only the player placing objects.
+The public site shows them. **Next: the High look's release** (the milestone session's first task).
 
 ### After the forces release (owner: the milestone session, `build` agents)
 
@@ -107,12 +98,12 @@ plus D368's eleven:
 - **Adopted:** Codex's Islands, Delta and River Valley shaping, on the strict D348 base, with the shared fixes (the
   channel carved through planned lakes, channels sized for joined flow, the mine pair, river joins, one shared
   reading of the colony's reach).
-- **Measured** (840 maps, seeds 1–40 of every theme): failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps
-  meeting all three outcomes 212 / 227 / 229 of 280. Lake Basin (12 of 20 at every size), and Canyon and Highlands
-  at 96², are under two-thirds.
-- **Failing maps and their plans:** two dam walls (Any 96² 18, Lake Basin 128² 5: a river drains a planned lake
-  the plan still counts full; fix: make the plan true, then trial keeping planned lakes at their level); the 96²
-  start class (Any 31, Islands 4, Highlands 14: no start with room for two mine sites, or its water moves).
+- **Measured** (840 maps, seeds 1–40 of every theme; `feature/m9b` e292cefe): failing absolutes 2 / 0 / 0 at 96² /
+  128² / 256²; first maps meeting all three outcomes 213 / 228 / 229 of 280. Lake Basin (12–13 of 20 at every size),
+  and Canyon and Highlands at 96², are under two-thirds.
+- **Failing maps and their plans:** the 96² start class (Any 31, Islands 4: no start with room for two mine sites;
+  Highlands 14 passes only by luck, its starts' water moves). The dam walls are fixed. Still to try: keeping planned
+  lakes at their planned level (the cleared floor lets water round the outlet), which may lift Lake Basin.
 - **Held:** Canyon, Highlands and Lake Basin's prototypes (re-audit after the shared fixes; Lake Basin most worth
   a second Codex round) and the settings prototype (**Codex's round 2 starts from `feature/m9b` at a69c9f11 or
   later**; adopted last).
@@ -155,4 +146,4 @@ Approved on real maps (D346), one dry-earth tune done on its branch (#75). Relea
 recent commits and open PRs, and view captures with `git show`. Prefer git over the GitHub REST API, which
 rate-limits quickly from shared addresses.
 
-**The next free decision number is D378.**
+**The next free decision number is D379.**

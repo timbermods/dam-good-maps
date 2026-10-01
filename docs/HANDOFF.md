@@ -6,9 +6,15 @@
 > where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
 > (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
 
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
+> works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
+> skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
+> every force); tests for an eruption in High and for the highlight on High's basin sources.
+
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D377) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
+editor work), `PLAN.md` §20 (every decision, D1–D378) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
 ## 0. Resume here (2026-10-01, 07:00 PDT: the session ended on Kyler's main PC; the next one runs on another machine)
@@ -20,7 +26,7 @@ npm run setup:machine
 ```
 
 (`tools/setup-machine.mjs`, plain Node, safe to run again at any time.) It creates the worktrees the plan uses beside the
-clone (`<clone>-forces`, `-m9b`, `-high`, `-parity`, `-page`, `-weather`, `-3d` and the dedicated probe folder `-probe`),
+clone (`<clone>-m9b`, `-high`, `-parity`, `-page`, `-weather`, `-3d` and the dedicated probe folder `-probe`),
 installs their dependencies, writes the four probe allow rules for this machine's own paths into
 `.claude/settings.local.json` (keeping any rules already there), checks Node, `gh`, the .NET 8 SDK, Python and
 Timberborn's folders, and prints what's ready and what's missing. **Tell Kyler only about what the next task needs.**
@@ -51,25 +57,36 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
 
 **State at the end (everything is pushed; no agent or background task is running):**
 
-1. **The forces release waits only for Kyler's yes.** `feature/forces` (#77) holds D361's ten fixes, D368's eleven, D366's
-   cross-browser determinism and three bug fixes, all merged green. The preview is built from it; Kyler's checklist is at
-   the top of `docs/STATUS.md`. On his yes: release with `tools/release.sh` (§7, "Releases"), tag `forces-done`.
-   **Glaciate's default Power (60) and its Power 0 are for his eye.**
-2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): Carve's river born as it cuts
+1. **The forces are released** (`forces-done`, #149, `main` e5a6bf35, 2026-10-01; Kyler's yes, D375). `FORCES_RELEASED`
+   is true and the public site shows all five. **The High look is released** (D284, D346, D378: #75 merged into `dev` at ae2133f5 after Kyler's yes on the preview, tag
+   `map-look-2-done`; the release record is in `docs/STATUS.md`). The first task now is the post-release list (item 2).
+   The D341 flake (`tests/e2e/save-to-timberborn.spec.ts:65`,
+   "browserContext.close: Test ended") is fixed in the test (the test ended before its download finished; see
+   `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one file per decision) was due at this release boundary and
+   is not done.
+2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): **the quick-click bug (D378: Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force should skip to its end while the new one plays in full; check every force)**, **tests for an eruption in High and for the highlight on High's basin sources (D378)**, Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
    the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
    "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
-   failing absolutes 3 / 1 / 0 at 96² / 128² / 256² over 840 maps; next the dam-wall fix (the plan made true), a trial
-   keeping planned lakes at their level, the 96² start class, the canyon measure's separate effect, speed at 256², the
-   D148 re-pins, then the review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
-   settings are held; Codex's settings round 2 starts from a69c9f11 or later. When the forces release reaches `dev`,
-   fold `resources.mine_reach` into M9b's `resources.mine_site`.
+   failing absolutes 2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed);
+   **first merge `dev` into `feature/m9b`** (the forces are released there) and re-measure against the committed
+   baseline; then a trial keeping planned lakes at their level, the 96² start class (Any 31, Islands 4, Highlands 14),
+   the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), then the
+   review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
+   settings are held; Codex's settings round 2 starts from a69c9f11 or later. The forces release is on `dev` now:
+   when `dev` is merged into `feature/m9b`, fold `resources.mine_reach` into M9b's `resources.mine_site`.
 4. **Codex's open investigations** (hold until Kyler says): smoothness (#107, its 2–5 AM trial of 2026-10-01 pending),
    multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
-5. **Still to do from this session:** time the faster water settle (D359) on a quiet machine; copy September's Progress
-   log to `docs/progress-log/2026-09.md` (§7); the allowance report Kyler asked for on Wednesday evening wasn't written.
-6. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
+5. **What didn't make it** (the faster water settle, D359, still has to be timed on a quiet machine; item 34, the
+   document reorganisation, is the next session's first small task). **Done in the last-allowance session
+   (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed,
+   September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7),
+   and a consistency sweep of these documents. The 109 remote branches already merged into `dev` or `main` are deleted
+   (log in `docs/merged-branches.md`) and #95 now targets `dev`.
+6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
+   keep-awake script, stopped with the session.
+6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
 7. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
 
 The sections below are the earlier handoffs' record. Where they differ from §0, §0 is current.
@@ -177,7 +194,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D378**.
+number on `dev` is **#94**. The next decision is **D379**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -291,7 +308,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D378), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D379), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away

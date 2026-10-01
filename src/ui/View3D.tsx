@@ -10,6 +10,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
+import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
 import { presentEntries, type PresentEntry } from "./legendMap";
 
@@ -49,6 +50,8 @@ export interface View3DProps {
   besideHeight?: ComponentChildren;
   /** Whether the legend shows (the editor: only while an overlay is on, D184). */
   showLegend?: boolean;
+  /** The look's menu among the view's buttons (the editor has it in its header instead). */
+  lookMenu?: boolean;
 }
 
 const GROUND_KEY = "dgm.groundColours";
@@ -113,6 +116,8 @@ export function View3D(props: View3DProps) {
   const compass = useRef<HTMLDivElement>(null);
   const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
+  /** The renderer, for the look's menu (High or Standard, D284). */
+  const [made, setMade] = useState<MapRenderer | null>(null);
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
   const [markers, setMarkers] = useState<boolean>(() => savedMarkers() || !!props.markersWanted);
@@ -147,6 +152,7 @@ export function View3D(props: View3DProps) {
       return;
     }
     renderer.current = r;
+    setMade(r);
     r.setGroundMode(ground);
     r.setMarkers(markers);
     r.onHover = (hit) => onHover.current?.(hit);
@@ -167,6 +173,7 @@ export function View3D(props: View3DProps) {
     };
     return () => {
       renderer.current = null;
+      setMade(null);
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
       r.dispose();
     };
@@ -308,6 +315,7 @@ export function View3D(props: View3DProps) {
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
+        {props.lookMenu === false ? null : <LookMenu renderer={made} />}
       </div>
       {props.cornerLevel || props.cornerBelow ? (
         // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the

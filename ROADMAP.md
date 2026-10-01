@@ -55,7 +55,7 @@ differently, this file wins.
   its seed and theme; our own generated maps only; under 1 MB.
 
 **The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
-1. **Finish the editor as players will know it:** the forces release, M9b's release, the High look's release, the
+1. **Finish the editor as players will know it:** the forces release (done: `forces-done`, 2026-10-01, D375), M9b's release, the High look's release (done: `map-look-2-done`, 2026-10-01, D378), the
    parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
    #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
    timeline; its sitting comes then (D349, 2026-09-30).
@@ -83,7 +83,7 @@ differently, this file wins.
 | Look | Map look, after M8, before M9 | Kyler's plan (PLAN §20, D86, D135) · EDITOR §8 · PLAN §14.2 (3D) | no (Kyler approves the look from captures) | high |
 | Places | Real places, right after Map look is released | the landscape survey (investigation/landscapes/) · PLAN §20 D136 | optional (a probe batch, if Kyler approves one) | high |
 | M9 | Terrain, water and variety (staged M9a–M9b; M9c removed, D278) | PLAN §7.1, §7.9, §8, §12, §13 · the workshop study (D87) · the M9 design (D112) | a probe batch for M9a (D116) | xhigh |
-| Look 2 | Map look 2: the High look, right after the forces' release, alongside "The page is the editor" (moved up, D284; folds in the Frame pass's touch-up, D283) | PLAN §20 D147, D284 | no | high |
+| Look 2 | Map look 2: the High look, right after the forces' release, alongside "The page is the editor" (moved up, D284; the frame's touch-up is in the design pass, D296) | PLAN §20 D147, D284, D296 | no | high |
 | 3D-1 | Terrain above terrain, step 1: Foundations, starting alongside M9b | investigation/terrain3d/DESIGN.md §2–4, §9 · PLAN §10, §11, §19.6, §19.8 · D118–D122, D279, D280, D286 | the golden-fixture probe batch | xhigh until the lapse, then high |
 | 3D-2 | Terrain above terrain, step 2: the view, after Map look 2 | DESIGN.md §6–7 · D126, D280, D281 | no | high |
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
@@ -109,8 +109,8 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
 - M9's stages: tagged `m9a-done` and `m9b-done` (M9c removed, D278); M9a goes public only after its
   probe batch passes (D116);
 - the forces' release (Live editing), then Map look 2 (the High look) tagged `map-look-2-done`,
-  right alongside "The page is the editor" (D284; folds in the Frame pass's touch-up, D283 (2); the
-  Frame pass and its own tag are cut);
+  right alongside "The page is the editor" (D284; the Frame pass and its own tag are cut, D283, and
+  the frame's touch-up is done in the design pass, D296);
 - the four 3D terrain steps: 1 Foundations (tagged `3d-foundations-done`), 2 the view (tagged
   `3d-view-done`), 3 creating them (tagged `3d-creating-done`), 4 generation (tagged
   `3d-generation-done`) — D279–D281, D286 (3), replacing the earlier `3d-a-done`/`3d-b-done`/
@@ -1147,16 +1147,31 @@ the page never freezes; the editor never slows for the history).
 
 **Right after the forces' release, alongside "The page is the editor"** (Kyler, 2026-09-27; PLAN §20 D284; amends D147
 and Map look 2's earlier place after the Map quality checkpoint, both cut, D283). High becomes the default on computers
-that run it smoothly, with an automatic fallback to Standard (like the 3D view's fallback, D232); Standard stays exactly
-as it is, and every High effect stays switchable. Measured on this machine's RTX 2070 SUPER to set where the fallback
-starts. **Folds in the Frame pass's touch-up** (D283 (2)): the light update of the frame to the High look, done as part
-of this adoption rather than as its own step. The 3D view (3D terrain step 2, "The view") follows it.
+that run it smoothly, with an automatic fallback to Standard (like the 3D view's fallback, D232); Standard keeps its own
+water, light and finish, apart from what Kyler's decisions changed in both looks (D304, D305, D310, D324, and D334's
+references), and every High effect
+stays switchable. Measured on this machine's RTX 2070 SUPER to set where the fallback
+starts. The frame's touch-up to the High look is done in the design pass, so the frame is styled once; this adoption
+changes no interface styling (D296, amending D283 (2)). The 3D view (3D terrain step 2, "The view") follows it.
+
+**Built on `feature/high-look`** (held until Kyler's yes, D286 (4); the progress log is
+[docs/progress/high-look.md](docs/progress/high-look.md), the captures [docs/look/high/](docs/look/high/)): #38, #65, #66
+and #67's stages 1–3, in `src/render3d/high/`; the **Look** menu (Automatic, High, Standard, and High's four parts);
+the automatic choice and its fallback, measured on this machine's RTX 2070 SUPER. **Timberborn's soul (D334):** Codex's
+proposal (`investigation/high-soul`, merged through #90) adopted by its `adoption.patch` and INTEGRATION.md, in both
+looks where it says so: warm brown and mauve earth, grass with a painted edge, olive stone, orange ruins with cream sacks,
+the game's orange-red contamination veins (they replace #67's dark stain, whose switch is retired), exposure 1.00, navy
+pools, current-aligned water light, badwater's pink highlights and red contact at rock; the six tests it lists re-based
+(D148). Left for Kyler's tuning on real maps: the channel water's marbled streaks and the vein junctions that widen abruptly.
+Left: #67's visible seasons with D250's badtide withering (after the Drought and Badtide branch), and pending #83 (the
+new trees in Standard).
 
 **Map look 3 and the vegetation are approved** (D241, D242): Codex's phase 1 of a higher-fidelity High look (#65,
 `investigation/maplook3`) and its vegetation (#66, `investigation/vegetation`) are merged as investigations and adopted
 into High here, with #38's water and soft shadows. Phase 3, "finish the world" (#67, `investigation/maplook-finish`: the
 diorama edge, water's finishing touches including D231's three waterfall issues, refreshed objects and landmarks,
-visible seasons for drought and badtide, the High poisoned soil), is approved too (D250) and adopted here, following its
+visible seasons for drought and badtide, a dark stain on contaminated soil that D334 later replaced), is approved too
+(D250) and adopted here, following its
 INTEGRATION.md, with two additions: in a badtide, plants on contaminated ground wither as plants on dry ground do in a
 drought (by the ground's own contamination); and every stage's cost measured on this machine's RTX 2070 SUPER on dense
 256² maps, orbiting and painting, with which effects the lower-cost mode drops.
@@ -1164,13 +1179,14 @@ drought (by the ground's own contamination); and every stage's cost measured on 
 **Visible seasons** (phase 3's stage) waits until the Drought and Badtide branch has merged (D286 (4)), then joins,
 built on that branch's day-by-day display, so the seasons aren't drawn twice.
 
-**Queued for the next look pass on waterfalls** (D231; here or with Map look 3): the crown's per-tile curls (a repeating
-pattern); the straight edge where a fall meets the pool (make it irregular and natural); froth that reads milky rather
-than bubbly.
+**The waterfall issues queued by D231** are answered in High by #67's stage 2: one continuous crown along joined falls
+(no per-tile curls), an irregular, dissolving landing edge, and bubbly froth where falls land. Standard's falls stay as
+they are.
 
 **Delivers**
-- A graphics quality setting: **High** (chosen automatically on capable GPUs), **Standard**
-  (today's clean look) and **Light** (the existing software-rendering look).
+- The look: **Automatic** (the default: High where the computer draws it smoothly, falling back by itself to a lower-cost
+  High and then to Standard where it doesn't, remembered per GPU and window size), **High** or **Standard** held, from
+  the **Look** menu; **Light** stays the look where the browser draws in software.
 - High, each effect switchable (D242):
   - a proper water shader (#38): colour by depth, clear shallows, gentle ripples catching the light,
     shore and fall foam, badwater distinct; Kyler's direction: fewer, subtler sparkle flecks
@@ -1182,8 +1198,8 @@ than bubbly.
     with its sway, its colours tuned to this lighting; the shelf icons and placement ghosts use the same models (D241).
 - **Standard stays exactly as it is** (D242). Its trees switch to #66's models, without the sway, only if they cost little
   on real hardware (D241; the threshold is pending #83).
-- High's water reads the shared water palette (`src/render3d/waterPalette.ts`, D177): the same
-  colours, opacity, badwater blend and calibration as Standard, so the two never drift apart.
+- High's water reads the shared water palette (`src/render3d/waterPalette.ts` `HIGH_WATER`, D177): #38's own inputs,
+  calibrated to the same targets as Standard's badwater, beside Standard's, so the two never drift apart.
 - Today's grass and dirt textures stay exactly as they are (Kyler likes them).
 
 **Later, optional** (not part of this step): richer or higher-resolution textures, softened block edges and grass lips,
