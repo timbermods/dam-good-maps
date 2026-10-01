@@ -1,14 +1,30 @@
-# September 30 quiet window
+# Terrain smoothness windows
 
-**Next authorized window: October 1, 02:00–05:00 America/Los_Angeles (09:00–12:00 UTC).**
-One serial `window.mjs --trial-first=true` starts inside those bounds. Trial: Craterize Power 100
-Fast, 256², Standard/High, five before/after repeats on Edge/native. Qualify using **outside-process
-CPU**, exclude the measured tree, sample continuously, and retain top outside processes.
-Any unqualified trial run stops the session and waits for Kyler; do not launch the scaled set.
-If all 20 executions qualify, count them toward core, start the full proxy/High hour immediately,
-then other cases. Native core requires five timing pairs per case/look; proxy one. Firefox is
-deferred. Deadline cleanup stays within 05:00; the full hour is never shortened.
-No October browser measurement has started. Prior sections are frozen history.
+**October 1, 02:00–05:00 PDT complete.** PID46928 finished cleanup at 04:59:45;
+controller and owned sampler stopped. No late or duplicate measurements.
+Trial 20/20 executions qualified. First hour outside-load discarded; retry completed
+3,613.4 seconds on Edge/CPU-proxy/High. Short work reached Craterize Fast, brush and
+Standard/native abuse. All 72 manifests audited: 67 qualified, two load discards,
+two Node heap failures, one deadline abort. 25/144 timing pairs, 6/48 capture pairs,
+one hour; coverage and pacing/byte/memory/manual-oracle budgets fail. PR #107 stays draft.
+One-window heartbeat pauses after reporting; further measurements require new explicit bounds.
+
+Frozen source: `local/windows/2026-10-01-0200/`: controller status/log, PID/stdout/stderr,
+actual continuous session, metadata and original 11 protocol files. Other-process CPU
+≤25% for 60 sampled seconds qualifies once; only load discards requalify. Total CPU is
+diagnostic. Every active interval, bracketing sample and all three generations were checked.
+Historical window-load.jsonl is never substituted.
+
+Offline regeneration from this directory (no browser launched):
+`node --max-old-space-size=8192 overnight-audit.mjs`,
+`node --max-old-space-size=8192 overnight-validation.mjs`,
+`python review-overnight.py`,
+`python gifs.py --proof overnight-proof.json --output local/overnight-gifs`.
+Pillow/NumPy required. Hour JSONL is streamed because it exceeds Node's single-string limit.
+Gate inputs are compacted one manifest at a time; raw evidence stays intact. Overlapping
+PCM refuses conversion. The review lists actual inspection and outstanding perceptual/aural checks.
+
+Earlier sections below retain their historical protocols/results.
 
 **Afternoon complete: 10:30–13:30 PDT (17:30–20:30 UTC).** Controller and continuous sampler
 finished at 13:29:45; neither remains active. No late or duplicate measurements. The single

@@ -215,3 +215,44 @@ counts and remains in the five-run median/worst, with budget violations reported
 After all 20 qualify, the full proxy/High hour goes immediately next, then remaining core work.
 The existing 65-minute reservation prevents shortening or starting an hour too late.
 Continue short work only inside the authorized bounds; missing coverage keeps the PR draft.
+
+## October 1 completion and regeneration
+
+Outside-process trial passed qualification; core **fails adoption**: 25/144 timing pairs,
+6/48 captures, one hour; pacing/memory failures and abuse byte differences. Do not adopt the
+patch or mark PR ready from qualification/worker equality. Export identity, remaining core,
+calibration and visual/audio oracles are missing. Firefox stays deferred; optional full mode
+is preserved. Every later Erode, Rift, Landslide, Meander and Deposit must still pass the
+same complete core harness before it merges.
+
+Offline commands from this directory, using retained ignored data:
+```
+node --max-old-space-size=8192 overnight-audit.mjs
+node --max-old-space-size=8192 overnight-validation.mjs
+python review-overnight.py
+python gifs.py --proof overnight-proof.json --output local/overnight-gifs
+node --max-old-space-size=8192 gate.mjs
+```
+`overnight-proof.json` binds original controller/session/protocol/run sources through
+`local/overnight-evidence.json`; every hitch/task/candidate stays in `local/overnight-hitches/`.
+Hour chunks are recomputed and matched; `overnight-validation.json` checks actual redo bytes,
+completed capture digests, paired snapshots and full-hour foreground. Frozen source is
+`local/windows/2026-10-01-0200/`; never substitute historical load logs. Existing source/build
+hashes must match; missing raw evidence cannot be regenerated. Do not rebuild/change measured
+files before preserving their original provenance.
+
+`review-overnight.py` (Pillow/NumPy) decodes/compares every original full-resolution PNG and
+converts each labelled PCM context via `audio.py --context-id`, rejecting overlaps before
+writing output. Change sheets do not certify all perceptual oracles; unavailable listening
+remains unverified. GIFs include only offline-audited qualified pairs, using original timestamps
+with 10 ms GIF quantization and held frames; originals remain authoritative. Raw/media stay local.
+Readiness needs all requested oracles; unavailable evidence is never zero faults.
+
+Two proxy brush captures exhausted the harness Node heap, leaving invalid `running` manifests.
+Future captures need bounded/streamed candidate events with a **new** protocol fingerprint;
+raising heap limits alone is not a demonstrated fix. Seven qualified PCM streams overlap and
+need recording diagnosis. Wall-clock abuse ends with different bytes/history; resolve timing/
+cancellation determinism and prove full export identity before adoption. No post-window change
+silently recertifies these runs. The offline gate compacts summaries without retaining every
+candidate object. Budgets.json remains unchanged: calibration needs supported repeated baselines
+and a migration preserving this measured fingerprint; observed hitch/byte faults cannot be hidden.

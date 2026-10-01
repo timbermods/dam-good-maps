@@ -9,7 +9,14 @@ const dir = resolve(root, 'investigation/performance'), path = resolve(dir, 'loc
 const budget = JSON.parse(readFileSync(resolve(dir, 'budgets.json')));
 const suite = process.argv.includes('--suite=full') ? 'full' : 'core';
 if (process.argv.slice(2).some(arg => !['--suite=core','--suite=full'].includes(arg))) throw new Error('Use --suite=core or --suite=full');
-const manifests = existsSync(path) ? readdirSync(path).filter(n => !n.endsWith('-smoke')).map(n => resolve(path, n, 'manifest.json')).filter(existsSync).map(p => ({ path: p, ...JSON.parse(readFileSync(p)) })) : [];
+const manifests = existsSync(path) ? readdirSync(path).filter(n => !n.endsWith('-smoke')).map(n => resolve(path, n, 'manifest.json')).filter(existsSync).map(p => {
+ const m=JSON.parse(readFileSync(p));
+ const compact=s=>s&&({...s,hitches:{length:s.hitches.length},longTasks:{length:s.longTasks.length},glitches:{length:s.glitches.length},slowCalls:undefined,findings:undefined,discontinuities:undefined,instrumentation:undefined});
+ return {path:p,phase:m.phase,mode:m.mode,flags:m.flags,results:m.results.map(r=>({...r,error:undefined,discardTopProcesses:undefined,
+  summary:compact(r.summary),longSession:r.longSession&&{elapsed:r.longSession.elapsed},
+  longReference:r.longReference&&{first:compact(r.longReference.first),last:compact(r.longReference.last)},
+  longWindows:r.longWindows?.map(w=>({summary:compact(w.summary)}))}))};
+}) : [];
 const failures = [], totals = [];
 if (budget.status !== 'calibrated') failures.push({ reason: 'budgets are provisional; calibrate from three quiet baselines before adoption' });
 const currentAfter = resolve(dir, 'local/build/after/provenance.json');

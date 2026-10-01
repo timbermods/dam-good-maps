@@ -1,0 +1,1362 @@
+{
+  "measuredHarnessHash": "a5031ad43a23be217db760fd0260c219422c2c13008d65c22303e17bed5ba797",
+  "records": [
+    {
+      "folder": "2026-10-01T09-03-09.817Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-03-58.841Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-04-49.173Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-05-36.436Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-06-23.583Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-07-10.773Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-07-58.008Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-08-46.311Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-09-30.962Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-10-15.973Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-11-00.914Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-11-46.221Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-12-31.231Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-13-16.221Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-14-02.802Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-14-47.292Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-15-34.612Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-16-21.441Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-17-08.826Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-17-55.985Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-18-43.026Z-after-measure",
+      "qualified": false,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": true,
+      "actualRedoExact": true,
+      "fullHourForeground": {
+        "frames": 14138,
+        "badForeground": 0,
+        "rendered": 6599
+      }
+    },
+    {
+      "folder": "2026-10-01T09-26-39.704Z-before-capture",
+      "qualified": false,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false
+    },
+    {
+      "folder": "2026-10-01T09-29-14.473Z-after-capture",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "e9a47a173bd1dc56134d15cc1707b53fc5db3c147215000fb0bef743d0e35fce",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-30-47.504Z-before-capture",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "ecf4bf4aff74045ca75b9b531384dbfcb76d7741982fbaaa3ea339b410351c98",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-32-04.822Z-after-capture",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "51fbc30fa80dda6914f39e604d8dae525aa016167bcb8adcf1a1ef99304d014c",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-33-30.362Z-before-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "f97efefa946d0b5d27cdb348efb89c85615fbdb11b5a031b8c4c7f8a2dce747c",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-36-13.752Z-after-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "64bddc79cbd130f7efd06673bedef9a607cc9a98059aef6b2035f9e90d240122",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-39-02.026Z-before-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-40-20.493Z-after-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-41-44.046Z-before-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "8d0a9e36df62daa817c611d9f13a620967134d7da22d492ad55660fcb813c47b",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-44-34.004Z-after-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "c42f145860e05a147ae6d5889e29db772899cee685ec34b9f97111957b488725",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T09-47-17.757Z-before-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-48-44.505Z-after-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "craterize-fast",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T09-50-06.943Z-after-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": true,
+      "actualRedoExact": true,
+      "fullHourForeground": {
+        "frames": 192917,
+        "badForeground": 0,
+        "rendered": 131823
+      }
+    },
+    {
+      "folder": "2026-10-01T10-53-57.278Z-before-capture",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "c04f71541156df5553d38b9c2bb0a085de7d5cee408728f2bf96d8b876d15c54",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T10-55-55.755Z-after-capture",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "c3b039462ab9e0ed838f2977bfa56f2e77aade88d5344cba40cad533891fa7f2",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T10-58-05.195Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T10-59-01.616Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-00-07.090Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-01-19.151Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-02-23.388Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-03-33.956Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-04-31.457Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-05-35.656Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-06-41.803Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-07-39.813Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "brush-large",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-08-51.304Z-before-capture",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "e5a9477ff7b6a28cae76488f1feccc5dc21887cda57e424e25a0e79fe502dc2f",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-10-47.575Z-after-capture",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "f86a6c1dbcf9bf1cac05cbd8b7c3836f3a70011d514b7d7fe657ab194af16d2e",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-12-20.675Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-13-20.731Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-14-24.044Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-15-33.732Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-16-43.158Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-17-39.090Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 3,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-18-41.978Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-19-44.623Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 4,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-20-47.524Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-21-58.154Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/high",
+      "case": "brush-large",
+      "repeat": 5,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-23-07.433Z-before-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "68d6a6922a5a1fe4bd88187155f27b333a644a91fd9dd41bd7e19390a6717695",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-28-16.477Z-after-capture",
+      "qualified": false,
+      "config": "edge/laptop/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-33-46.434Z-before-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-35-41.343Z-after-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/standard",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-37-25.600Z-before-capture",
+      "qualified": false,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-42-54.387Z-after-capture",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "ee87a409b1d4e88dbe2026a1dfcc629da8614ac7c8123b5c1a4efaa489139de1",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-47-13.869Z-before-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-49-09.290Z-after-measure",
+      "qualified": true,
+      "config": "edge/laptop/256/high",
+      "case": "brush-large",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-50-55.355Z-before-capture",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "1823c5b7d0072f57462a3f52fc9b766d850df802ba4a310b17e250c7ff7a9008",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-52-37.844Z-after-capture",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 1,
+      "mode": "capture",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true,
+      "actualCaptureHash": "1903fb1c1e353c2af7c6bc6373fc557eba757dff901357df52c986ae85a6c5ce",
+      "captureHashMatches": true
+    },
+    {
+      "folder": "2026-10-01T11-55-47.013Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-56-47.926Z-after-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 1,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-57-51.957Z-before-measure",
+      "qualified": true,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "before",
+      "hour": false,
+      "actualRedoExact": true
+    },
+    {
+      "folder": "2026-10-01T11-58-52.277Z-after-measure",
+      "qualified": false,
+      "config": "edge/native/256/standard",
+      "case": "abuse",
+      "repeat": 2,
+      "mode": "measure",
+      "phase": "after",
+      "hour": false
+    }
+  ],
+  "pairs": [
+    {
+      "id": "edge/native/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T09-03-09.817Z-before-measure",
+      "after": "2026-10-01T09-03-58.841Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 2,
+      "before": "2026-10-01T09-04-49.173Z-before-measure",
+      "after": "2026-10-01T09-05-36.436Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 3,
+      "before": "2026-10-01T09-06-23.583Z-before-measure",
+      "after": "2026-10-01T09-07-10.773Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 4,
+      "before": "2026-10-01T09-07-58.008Z-before-measure",
+      "after": "2026-10-01T09-08-46.311Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 5,
+      "before": "2026-10-01T09-09-30.962Z-before-measure",
+      "after": "2026-10-01T09-10-15.973Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T09-11-00.914Z-before-measure",
+      "after": "2026-10-01T09-11-46.221Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 2,
+      "before": "2026-10-01T09-12-31.231Z-before-measure",
+      "after": "2026-10-01T09-13-16.221Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 3,
+      "before": "2026-10-01T09-14-02.802Z-before-measure",
+      "after": "2026-10-01T09-14-47.292Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 4,
+      "before": "2026-10-01T09-15-34.612Z-before-measure",
+      "after": "2026-10-01T09-16-21.441Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 5,
+      "before": "2026-10-01T09-17-08.826Z-before-measure",
+      "after": "2026-10-01T09-17-55.985Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/craterize-fast",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T09-30-47.504Z-before-capture",
+      "after": "2026-10-01T09-32-04.822Z-after-capture",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/standard/craterize-fast",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T09-33-30.362Z-before-capture",
+      "after": "2026-10-01T09-36-13.752Z-after-capture",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/standard/craterize-fast",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T09-39-02.026Z-before-measure",
+      "after": "2026-10-01T09-40-20.493Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/high/craterize-fast",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T09-41-44.046Z-before-capture",
+      "after": "2026-10-01T09-44-34.004Z-after-capture",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/high/craterize-fast",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T09-47-17.757Z-before-measure",
+      "after": "2026-10-01T09-48-44.505Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T10-53-57.278Z-before-capture",
+      "after": "2026-10-01T10-55-55.755Z-after-capture",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T10-58-05.195Z-before-measure",
+      "after": "2026-10-01T10-59-01.616Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 2,
+      "before": "2026-10-01T11-00-07.090Z-before-measure",
+      "after": "2026-10-01T11-01-19.151Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 3,
+      "before": "2026-10-01T11-02-23.388Z-before-measure",
+      "after": "2026-10-01T11-03-33.956Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 4,
+      "before": "2026-10-01T11-04-31.457Z-before-measure",
+      "after": "2026-10-01T11-05-35.656Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 5,
+      "before": "2026-10-01T11-06-41.803Z-before-measure",
+      "after": "2026-10-01T11-07-39.813Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T11-08-51.304Z-before-capture",
+      "after": "2026-10-01T11-10-47.575Z-after-capture",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T11-12-20.675Z-before-measure",
+      "after": "2026-10-01T11-13-20.731Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 2,
+      "before": "2026-10-01T11-14-24.044Z-before-measure",
+      "after": "2026-10-01T11-15-33.732Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 3,
+      "before": "2026-10-01T11-16-43.158Z-before-measure",
+      "after": "2026-10-01T11-17-39.090Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 4,
+      "before": "2026-10-01T11-18-41.978Z-before-measure",
+      "after": "2026-10-01T11-19-44.623Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 5,
+      "before": "2026-10-01T11-20-47.524Z-before-measure",
+      "after": "2026-10-01T11-21-58.154Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/standard/brush-large",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T11-33-46.434Z-before-measure",
+      "after": "2026-10-01T11-35-41.343Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/laptop/256/high/brush-large",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T11-47-13.869Z-before-measure",
+      "after": "2026-10-01T11-49-09.290Z-after-measure",
+      "identical": true,
+      "differences": []
+    },
+    {
+      "id": "edge/native/256/standard/abuse",
+      "mode": "capture",
+      "repeat": 1,
+      "before": "2026-10-01T11-50-55.355Z-before-capture",
+      "after": "2026-10-01T11-52-37.844Z-after-capture",
+      "identical": false,
+      "differences": [
+        {
+          "path": "/worker/heights/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 34330
+        },
+        {
+          "path": "/worker/terrain/pre/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 34330
+        },
+        {
+          "path": "/worker/terrain/protect/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 29243
+        },
+        {
+          "path": "/displayed/entities/count",
+          "before": 3679,
+          "after": 3340
+        },
+        {
+          "path": "/displayed/entities/flags/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3340,
+          "differingCommonEntries": 1285
+        },
+        {
+          "path": "/displayed/entities/orientation/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3340,
+          "differingCommonEntries": 228
+        },
+        {
+          "path": "/displayed/entities/owner/bytes",
+          "beforeLength": 7358,
+          "afterLength": 6680,
+          "differingCommonEntries": 2581
+        },
+        {
+          "path": "/displayed/entities/owners",
+          "beforeLength": 108,
+          "afterLength": 101,
+          "differingCommonEntries": 70
+        },
+        {
+          "path": "/displayed/entities/strength/bytes",
+          "beforeLength": 14716,
+          "afterLength": 13360,
+          "differingCommonEntries": 58
+        },
+        {
+          "path": "/displayed/entities/template/bytes",
+          "beforeLength": 7358,
+          "afterLength": 6680,
+          "differingCommonEntries": 2300
+        },
+        {
+          "path": "/displayed/entities/variant/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3340,
+          "differingCommonEntries": 391
+        },
+        {
+          "path": "/displayed/entities/x/bytes",
+          "beforeLength": 7358,
+          "afterLength": 6680,
+          "differingCommonEntries": 3305
+        },
+        {
+          "path": "/displayed/entities/y/bytes",
+          "beforeLength": 7358,
+          "afterLength": 6680,
+          "differingCommonEntries": 3316
+        },
+        {
+          "path": "/displayed/entities/z/bytes",
+          "beforeLength": 7358,
+          "afterLength": 6680,
+          "differingCommonEntries": 2997
+        },
+        {
+          "path": "/displayed/heights/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 34330
+        },
+        {
+          "path": "/displayed/water/contamination/bytes",
+          "beforeLength": 47728,
+          "afterLength": 67680,
+          "differingCommonEntries": 1594
+        },
+        {
+          "path": "/displayed/water/count",
+          "before": 11932,
+          "after": 16920
+        },
+        {
+          "path": "/displayed/water/depth/bytes",
+          "beforeLength": 47728,
+          "afterLength": 67680,
+          "differingCommonEntries": 44439
+        },
+        {
+          "path": "/displayed/water/floor/bytes",
+          "beforeLength": 47728,
+          "afterLength": 67680,
+          "differingCommonEntries": 15267
+        },
+        {
+          "path": "/displayed/water/tile/bytes",
+          "beforeLength": 47728,
+          "afterLength": 67680,
+          "differingCommonEntries": 23000
+        },
+        {
+          "path": "/history",
+          "beforeLength": 1,
+          "afterLength": 2,
+          "differingCommonEntries": 0
+        }
+      ]
+    },
+    {
+      "id": "edge/native/256/standard/abuse",
+      "mode": "measure",
+      "repeat": 1,
+      "before": "2026-10-01T11-55-47.013Z-before-measure",
+      "after": "2026-10-01T11-56-47.926Z-after-measure",
+      "identical": false,
+      "differences": [
+        {
+          "path": "/worker/heights/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 183
+        },
+        {
+          "path": "/worker/terrain/pre/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 183
+        },
+        {
+          "path": "/worker/terrain/protect/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 90
+        },
+        {
+          "path": "/displayed/entities/count",
+          "before": 3679,
+          "after": 3680
+        },
+        {
+          "path": "/displayed/entities/flags/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3680,
+          "differingCommonEntries": 304
+        },
+        {
+          "path": "/displayed/entities/orientation/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3680,
+          "differingCommonEntries": 230
+        },
+        {
+          "path": "/displayed/entities/owner/bytes",
+          "beforeLength": 7358,
+          "afterLength": 7360,
+          "differingCommonEntries": 70
+        },
+        {
+          "path": "/displayed/entities/strength/bytes",
+          "beforeLength": 14716,
+          "afterLength": 14720,
+          "differingCommonEntries": 0
+        },
+        {
+          "path": "/displayed/entities/template/bytes",
+          "beforeLength": 7358,
+          "afterLength": 7360,
+          "differingCommonEntries": 360
+        },
+        {
+          "path": "/displayed/entities/variant/bytes",
+          "beforeLength": 3679,
+          "afterLength": 3680,
+          "differingCommonEntries": 317
+        },
+        {
+          "path": "/displayed/entities/x/bytes",
+          "beforeLength": 7358,
+          "afterLength": 7360,
+          "differingCommonEntries": 2846
+        },
+        {
+          "path": "/displayed/entities/y/bytes",
+          "beforeLength": 7358,
+          "afterLength": 7360,
+          "differingCommonEntries": 664
+        },
+        {
+          "path": "/displayed/entities/z/bytes",
+          "beforeLength": 7358,
+          "afterLength": 7360,
+          "differingCommonEntries": 793
+        },
+        {
+          "path": "/displayed/heights/bytes",
+          "beforeLength": 65536,
+          "afterLength": 65536,
+          "differingCommonEntries": 183
+        },
+        {
+          "path": "/displayed/water/contamination/bytes",
+          "beforeLength": 47836,
+          "afterLength": 47768,
+          "differingCommonEntries": 323
+        },
+        {
+          "path": "/displayed/water/count",
+          "before": 11959,
+          "after": 11942
+        },
+        {
+          "path": "/displayed/water/depth/bytes",
+          "beforeLength": 47836,
+          "afterLength": 47768,
+          "differingCommonEntries": 38107
+        },
+        {
+          "path": "/displayed/water/floor/bytes",
+          "beforeLength": 47836,
+          "afterLength": 47768,
+          "differingCommonEntries": 10432
+        },
+        {
+          "path": "/displayed/water/tile/bytes",
+          "beforeLength": 47836,
+          "afterLength": 47768,
+          "differingCommonEntries": 12893
+        }
+      ]
+    }
+  ],
+  "exportBytes": {
+    "verified": false,
+    "reason": "No complete before/after export files were recorded. Snapshots omit export fields; worker-bundle equality is insufficient."
+  },
+  "audio": {
+    "listening": "unverified: no playback/aural-analysis tool available",
+    "overlaps": "Refuse conversion; never deduplicate or interleave contexts to manufacture clean evidence."
+  }
+}
