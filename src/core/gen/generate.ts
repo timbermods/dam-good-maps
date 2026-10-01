@@ -162,6 +162,11 @@ export interface GenerationInfo {
    *  reading (Canyon 128² seed 16: a lake along a straight trough, its bank broken on the plan by
    *  the channels that join it, which settle shallow). */
   lakeStraight?: { run: number; canal: number };
+  /** Dam walls on the pre-fill's water alone, its water under 0.1, 0.2 and 0.3 deep left out, before
+   *  the land is shown (the plan counts a lake its own river drains as full, and hides the lake's old
+   *  bed standing beside the channel: Any 96² seed 18, Lake Basin 128² seed 5). A land with one at
+   *  0.2 is drawn again; the other two are readings. */
+  fillWalls?: number[];
   /** The share of the map under the planned water or the pre-fill before the land is shown, a
    *  reading (River Valley 96² seed 1: 36% settled, over the cap, on a land already shown). */
   preWet?: number;
@@ -312,6 +317,7 @@ interface LandStage {
   rise?: number;
   lakeStraight?: { run: number; canal: number };
   preWet?: number;
+  fillWalls?: number[];
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
@@ -1527,6 +1533,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (from?.rise !== undefined) info.rise = from.rise;
   if (from?.lakeStraight !== undefined) info.lakeStraight = from.lakeStraight;
   if (from?.preWet !== undefined) info.preWet = from.preWet;
+  if (from?.fillWalls !== undefined) info.fillWalls = from.fillWalls;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
@@ -1786,10 +1793,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           if (both[i] > WET) wetPre++;
         }
         info.preWet = Math.round((wetPre / N) * 1000) / 1000;
+        // (nor on the pre-fill alone, its thin water left out: the plan counts a lake its own river
+        // drains as full, which hides the lake's old bed standing beside the channel as a band of rock
+        // with the river through it, and the pre-fill's films over the floor beside it dry up: Any
+        // 96² seed 18, Lake Basin 128² seed 5. Read at 0.1, 0.2 and 0.3 deep; 0.2 decides)
+        info.fillWalls = [0.1, 0.2, 0.3].map((cut) => {
+          const deep = new Float64Array(N);
+          for (let i = 0; i < N; i++) if (pf![i] >= cut) deep[i] = pf![i];
+          return damWalls(h, W, H, deep).length;
+        });
+        if (info.fillWalls[1] > 0) return fail("terrain.dam_wall", null, true);
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds

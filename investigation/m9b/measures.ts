@@ -74,6 +74,8 @@ export interface MapMeasure {
   lakeStraight?: { run: number; canal: number } | null;
   /** The share of the map under the planned water or the pre-fill, before the land is shown (a reading). */
   preWet?: number | null;
+  /** Dam walls on the pre-fill's water at least 0.1, 0.2, 0.3 deep, before the land is shown (a reading). */
+  fillWalls?: number[] | null;
   /** The share of the map under the settled water. */
   wetShare?: number | null;
   /** The final settle's ticks (D358: up to 6 game days). */
@@ -228,6 +230,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     rise: r.info.rise ?? null,
     lakeStraight: r.info.lakeStraight ?? null,
     preWet: r.info.preWet ?? null,
+    fillWalls: r.info.fillWalls ?? null,
     wetShare: r.built ? Math.round((r.built.water.reduce((a: number, v: number) => a + (v > 0.05 ? 1 : 0), 0) / r.built.water.length) * 1000) / 1000 : null,
     worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width)) } : null,
     settleTicks: b.settle.ticks,

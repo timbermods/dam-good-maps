@@ -767,7 +767,9 @@ spill level of more than 10,000 tiles (it fills for days, D358) or mostly on one
 the map (it stays dry), no
 ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water, its lakes'
 banks read alone as well (the channels that join a lake break its bank on the plan and may settle too
-shallow to count)), and it is
+shallow to count), and no dam wall on the pre-fill alone, the water the settle starts from, its water
+under 0.2 deep left out (the plan counts a lake its own river drains as full, which hides the lake's
+old bed standing beside the channel)), and it is
 never replaced. Before one is shown, a land whose planned water misses the theme's promise or a
 readable water story is drawn again, up to 6 lands at 128² (4 to 192², 3 above: the land stage is
 part of the time to land), so first maps meet all three outcomes more often (D333 (3)). What needs its settled water is fixed on it: with no place for a start on the settled
