@@ -1,0 +1,11 @@
+[
+  {
+    "theme": "delta",
+    "variant": "before",
+    "rep": 2,
+    "phase": "editor-ready",
+    "timeoutMs": 300000,
+    "error": "page.waitForFunction: Timeout 300000ms exceeded at browser.mjs:50",
+    "source": "Recorded from the completed browser process failure output; no editable frame was observed"
+  }
+]

@@ -1,0 +1,63 @@
+{
+  "cases": 7,
+  "browserVisits": 42,
+  "mismatches": 0,
+  "checks": [
+    {
+      "theme": "any",
+      "firstLand": {
+        "heights": "d2159f699a8846356ca6a6b7523adf3496e3df5778587a530c9cc0c61e29b152",
+        "water": "29a95a8b024f9728d7270e18c7be5bf13daf14f05698066bcde389ccae562e89"
+      },
+      "timber": "e02069b8942d48ebeb18a73d2abf27d39e94b1b440d95d3868754f71cd0065f6"
+    },
+    {
+      "theme": "riverValley",
+      "firstLand": {
+        "heights": "3501bec053a16abdca17a942583ab4806676eb546b952420f025e83539b9184a",
+        "water": "2f4714cb0ed9d6793f3c512d180552fad20e39e8b03d614a3778f63c470b12ea"
+      },
+      "timber": "c953406136a99958d6ad178543a2919c3efc4155d5d839ef800fa469eacbdac5"
+    },
+    {
+      "theme": "canyon",
+      "firstLand": {
+        "heights": "b9992d8acbef37ab49f150f21c2e56f53a6e4a6aa4788af1de3a9fc7623ae868",
+        "water": "6e0681543538d4ba962c2aa2c514f43c5172847de53d35846f28c1dd09bf1998"
+      },
+      "timber": "5cc0df3ce37169f0c3d559edeed8b082c9c45e80f7a83ba2ce9758e139abed54"
+    },
+    {
+      "theme": "highlands",
+      "firstLand": {
+        "heights": "5ff71de209c4516597f174c97fb8eddce1048ff3441c319a8f40355a3b516ba4",
+        "water": "cbb1bfcffdc9503a5dd7f2c69a1fb268a94576b5807b14ecce79d3721b77c4b1"
+      },
+      "timber": "777538df9eaf75ce42a4fa863ff35c5c1ac18a910fd66f726f97124dfc6e9a16"
+    },
+    {
+      "theme": "lakeBasin",
+      "firstLand": {
+        "heights": "aaac686bccdb9ed372774f3d7e0affcf3a40af30d36e74edbf515d350e3d4803",
+        "water": "527dd48718e9be64036b237fbc0e2d9d376e170914498c16dde81cd6ed837255"
+      },
+      "timber": "a657206468c4ce3d2a068055da3015b1b62da5c1d892f24cc6dab3b4183cd600"
+    },
+    {
+      "theme": "delta",
+      "firstLand": {
+        "heights": "c9dff0acc9ed790b3a43cf57f90dd51e769fa40c6e33c183ca142ea3f9fdefbe",
+        "water": "c8bc49b5eb5d00085ab539c38e6d3040cc88a1e121ac6486a851fbba2b4972cf"
+      },
+      "timber": "84258acfa77dc772f6a4c797fb753293081ba8ec94a52602286ab9ff448c95c5"
+    },
+    {
+      "theme": "islands",
+      "firstLand": {
+        "heights": "a705ad7ac88873a3523e91625623780323d6181ffb01c9706dfa4c90183c1f19",
+        "water": "2cd530536baa0214294f3c88a1be8a15cb78104db4dcf656f148f671ece1e769"
+      },
+      "timber": "858c738a4d50f2e2c0b514afa7c310f57a25d2a75068a58cf3fea7539f9cb329"
+    }
+  ]
+}
