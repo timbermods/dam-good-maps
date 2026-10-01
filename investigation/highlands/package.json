@@ -1,0 +1,7 @@
+{
+  "name": "highlands-audit",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "typescript": "5.9.3", "fflate": "0.8.3" },
+  "scripts": { "audit": "node audit.cjs" }
+}
