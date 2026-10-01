@@ -8,7 +8,7 @@ import type { Feature, RiverFeature } from '../../src/core/features/schema';
 // Feeding heads follow the directed river graph; wet mouths are counted separately.
 export function composition(m: {size: number; heights: number[]; water: number[]; features: Feature[]}) {
   const W = m.size, N = W * W;
-  const rivers = m.features.filter((f): f is RiverFeature => f.kind === 'river');
+  const rivers = m.features.filter((f): f is RiverFeature => f.kind === 'river' && !f.params.badwater && f.role !== 'river/startSpring' && f.role !== 'river/lakeSpring');
   const lakeMask = new Uint8Array(N);
   const lakes = m.features.filter(f => f.kind === 'lake').map(f => {
     if (f.kind !== 'lake') throw Error('lake');
@@ -30,7 +30,9 @@ export function composition(m: {size: number; heights: number[]; water: number[]
       } return false;
     });
     const systems = wetSystems(W,W,m.water);
-    const label = wet.length ? systems.labels[wet[0]] : -1;
+    const lakeSystems = new Map<number,number>();
+    for(const i of wet)lakeSystems.set(systems.labels[i],(lakeSystems.get(systems.labels[i])??0)+1);
+    const label = [...lakeSystems.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0])[0]?.[0]??-1;
     const linkedHeads = feeders.filter(r => {
       const [x,y]=r.params.path[Math.min(2,r.params.path.length-1)];
       const xx=Math.max(0,Math.min(W-1,Math.round(x))), yy=Math.max(0,Math.min(W-1,Math.round(y)));
@@ -39,9 +41,16 @@ export function composition(m: {size: number; heights: number[]; water: number[]
     const shore = wet.filter(i => [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => {
       const x=i%W+dx,y=Math.floor(i/W)+dy; return x>=0&&x<W&&y>=0&&y<W&&m.water[y*W+x]<0.05;
     }));
+    const beaches = new Set<number>();
+    for(const i of shore)for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const x=i%W+dx,y=Math.floor(i/W)+dy;
+      if(x<0||y<0||x>=W||y>=W)continue;
+      const j=y*W+x,surface=m.heights[i]+m.water[i];
+      if(m.water[j]<.05&&m.heights[j]>=surface&&m.heights[j]<=surface+1.2)beaches.add(j);
+    }
     return { id:f.id, area:wet.length, planned, fill:wet.length/Math.max(1,planned), share:wet.length/N,
       center:[cx/W,cy/W], offset:Math.hypot(cx/W-0.5,cy/W-0.5), feedingHeads:feeders.length, linkedHeads,
-      shallowShore:shore.filter(i=>m.water[i]>=0.1&&m.water[i]<=1.2).length, outlet:f.params.outlet };
+      shallowShore:shore.filter(i=>m.water[i]>=0.1&&m.water[i]<=1.2).length, beachTiles:beaches.size, outlet:f.params.outlet };
   }).sort((a,b)=>b.area-a.area);
   const main=lakes[0];
   let dryCourseInLake=0,dryCourseOutsideLake=0,courseSamples=0;
@@ -78,7 +87,7 @@ export function analyze(out:string):void {
       if(!r.outcomes.water) causes.push(...r.outcomes.story.why.map((x:string)=>'water: '+x));
       if(!r.outcomes.standout) causes.push('drawn intentions did not emerge: '+m.intentions.map((x:any)=>`${x.id}: ${x.note??x.ok}`).join('; '));
     }
-    return {size:r.size,seed:r.seed,ok:r.ok,met:r.outcomes?.met??false,composition:c,causes,failedChecks:r.failedChecks,fixes:r.fixes,settleDays:r.settleTicks/768,lands:r.lands,shown:r.shown,changed:r.changed};
+    return {size:r.size,seed:r.seed,ok:r.ok,met:r.outcomes?.met??false,composition:c,causes,failedChecks:r.failedChecks,fixes:r.fixes,settleDays:r.settleTicks/768,lands:r.lands,shown:r.shown,changed:r.changed,phaseCpu:m.phaseCpu};
   });
   const quant=(a:number[],p:number)=>a.slice().sort((a,b)=>a-b)[Math.min(a.length-1,Math.floor(a.length*p))];
   const summary=[96,128,256].map(size=>{
@@ -91,7 +100,13 @@ export function analyze(out:string):void {
       cpuLandMs:{median:quant(a.map(r=>r.cpu.land),.5),p90:quant(a.map(r=>r.cpu.land),.9)},
       cpuWaterMs:{median:quant(a.filter(r=>r.ms.water>=0).map(r=>r.cpu.water),.5),p90:quant(a.filter(r=>r.ms.water>=0).map(r=>r.cpu.water),.9)},
       finalMs:{median:quant(a.map(r=>r.ms.final),.5),p90:quant(a.map(r=>r.ms.final),.9)},
-      settleDays:{median:quant(d.map(r=>r.settleDays),.5),p90:quant(d.map(r=>r.settleDays),.9),max:Math.max(...d.map(r=>r.settleDays))},shownMoreThanOne:a.filter(r=>r.shown>1).length};
+      settleDays:{median:quant(d.map(r=>r.settleDays),.5),p90:quant(d.map(r=>r.settleDays),.9),max:Math.max(...d.map(r=>r.settleDays))},shownMoreThanOne:a.filter(r=>r.shown>1).length,
+      changedLandMaps:a.filter(r=>r.changed>0).length,
+      shores:{withShallows:d.filter(r=>(r.composition.main?.shallowShore??0)>0).length,withBeaches:d.filter(r=>(r.composition.main?.beachTiles??0)>0).length},
+      practicalStart:{minLogs:Math.min(...a.filter(r=>r.ok&&r.walk).map(r=>r.walk.logs)),minLevelLand:Math.min(...a.filter(r=>r.ok&&r.walk).map(r=>r.walk.level)),minFarmland:Math.min(...a.filter(r=>r.ok&&r.walk).map(r=>r.walk.farmland))},
+      directCpu:{maps:d.filter(r=>r.phaseCpu?.waterCpuMs!==undefined).length,
+        landMedian:quant(d.filter(r=>r.phaseCpu?.landCpuMs!==undefined).map(r=>r.phaseCpu.landCpuMs),.5),landP90:quant(d.filter(r=>r.phaseCpu?.landCpuMs!==undefined).map(r=>r.phaseCpu.landCpuMs),.9),
+        waterMedian:quant(d.filter(r=>r.phaseCpu?.waterCpuMs!==undefined).map(r=>r.phaseCpu.waterCpuMs),.5),waterP90:quant(d.filter(r=>r.phaseCpu?.waterCpuMs!==undefined).map(r=>r.phaseCpu.waterCpuMs),.9)}};
   });
   writeFileSync(join(out,'diagnostics.json'),JSON.stringify(diagnostics,null,2));
   writeFileSync(join(out,'summary.json'),JSON.stringify(summary,null,2));

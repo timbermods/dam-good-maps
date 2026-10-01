@@ -1,0 +1,155 @@
+[
+  {
+    "size": 96,
+    "maps": 20,
+    "all": 12,
+    "promise": 12,
+    "standout": 20,
+    "water": 17,
+    "absoluteFailures": 0,
+    "strongPromise": 6,
+    "firstLandMs": {
+      "median": 743,
+      "p90": 1602,
+      "max": 1752
+    },
+    "timedWaterMaps": 20,
+    "firstWaterMs": {
+      "median": 1430,
+      "p90": 3774
+    },
+    "cpuLandMs": {
+      "median": 741,
+      "p90": 1601
+    },
+    "cpuWaterMs": {
+      "median": 1430,
+      "p90": 3774
+    },
+    "finalMs": {
+      "median": 1893,
+      "p90": 4090
+    },
+    "settleDays": {
+      "median": 1.5,
+      "p90": 3.3333333333333335,
+      "max": 4.666666666666667
+    },
+    "shownMoreThanOne": 0,
+    "changedLandMaps": 0,
+    "shores": {
+      "withShallows": 20,
+      "withBeaches": 20
+    },
+    "practicalStart": {
+      "minLogs": 245,
+      "minLevelLand": 122,
+      "minFarmland": 118
+    },
+    "directCpu": {
+      "maps": 0
+    }
+  },
+  {
+    "size": 128,
+    "maps": 20,
+    "all": 13,
+    "promise": 16,
+    "standout": 20,
+    "water": 14,
+    "absoluteFailures": 0,
+    "strongPromise": 5,
+    "firstLandMs": {
+      "median": 1726,
+      "p90": 4700,
+      "max": 4972
+    },
+    "timedWaterMaps": 20,
+    "firstWaterMs": {
+      "median": 2532,
+      "p90": 8139
+    },
+    "cpuLandMs": {
+      "median": 1725,
+      "p90": 4698
+    },
+    "cpuWaterMs": {
+      "median": 2532,
+      "p90": 8139
+    },
+    "finalMs": {
+      "median": 3375,
+      "p90": 8786
+    },
+    "settleDays": {
+      "median": 1.6666666666666667,
+      "p90": 3.1666666666666665,
+      "max": 3.1666666666666665
+    },
+    "shownMoreThanOne": 0,
+    "changedLandMaps": 0,
+    "shores": {
+      "withShallows": 20,
+      "withBeaches": 20
+    },
+    "practicalStart": {
+      "minLogs": 227,
+      "minLevelLand": 213,
+      "minFarmland": 171
+    },
+    "directCpu": {
+      "maps": 0
+    }
+  },
+  {
+    "size": 256,
+    "maps": 20,
+    "all": 12,
+    "promise": 13,
+    "standout": 20,
+    "water": 16,
+    "absoluteFailures": 0,
+    "strongPromise": 7,
+    "firstLandMs": {
+      "median": 5324,
+      "p90": 10046,
+      "max": 13319
+    },
+    "timedWaterMaps": 20,
+    "firstWaterMs": {
+      "median": 9531,
+      "p90": 16975
+    },
+    "cpuLandMs": {
+      "median": 5324,
+      "p90": 10045
+    },
+    "cpuWaterMs": {
+      "median": 9531,
+      "p90": 16975
+    },
+    "finalMs": {
+      "median": 12640,
+      "p90": 18431
+    },
+    "settleDays": {
+      "median": 3.1666666666666665,
+      "p90": 5.166666666666667,
+      "max": 5.333333333333333
+    },
+    "shownMoreThanOne": 0,
+    "changedLandMaps": 0,
+    "shores": {
+      "withShallows": 20,
+      "withBeaches": 20
+    },
+    "practicalStart": {
+      "minLogs": 241,
+      "minLevelLand": 229,
+      "minFarmland": 236
+    },
+    "directCpu": {
+      "maps": 0
+    }
+  }
+]

@@ -1,0 +1,40 @@
+[
+  {
+    "size": 96,
+    "seed": 37,
+    "repeats": 2,
+    "deterministic": true,
+    "sha256": "bdc89ee567958712601240bfbd3c1109896482fee735dc698c8e4b17c2b85bea",
+    "absolutesPass": true,
+    "settled": true,
+    "changedTiles": 0,
+    "fixes": [],
+    "outletWearTiles": 0
+  },
+  {
+    "size": 128,
+    "seed": 37,
+    "repeats": 2,
+    "deterministic": true,
+    "sha256": "869ee27a5205f7153ad87fd010020f20c0b76cb5b3ab46dbd7ecebc54e034386",
+    "absolutesPass": true,
+    "settled": true,
+    "changedTiles": 143,
+    "fixes": [
+      "way out worn wider"
+    ],
+    "outletWearTiles": 143
+  },
+  {
+    "size": 256,
+    "seed": 37,
+    "repeats": 2,
+    "deterministic": true,
+    "sha256": "27d13b67bb0e4d6ef1fc812131c28930e9506cb4414bb02a309e6b3b6f70b0fe",
+    "absolutesPass": true,
+    "settled": true,
+    "changedTiles": 0,
+    "fixes": [],
+    "outletWearTiles": 0
+  }
+]

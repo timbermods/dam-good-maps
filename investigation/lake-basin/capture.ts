@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import type { GenerateResult } from '../../src/core/gen/generate';
 import { shadeTiles } from '../../src/core/render/shade';
 import { encodePng } from '../../tools/png';
-export function capture(r: GenerateResult, out: string): void {
+export function capture(r: GenerateResult, out: string, phaseCpu?: {landCpuMs?:number;waterCpuMs?:number}): void {
   const b = r.built, W = b.W, H = b.H;
   const id = `${W}-${r.spec.seed}`;
   const rgb = shadeTiles(b.heights, W, H, b.water), img = new Uint8Array(rgb.length);
@@ -19,5 +19,5 @@ export function capture(r: GenerateResult, out: string): void {
     const k = ((H - 1 - y) * W + x) * 3; img[k] = 245; img[k + 1] = 30; img[k + 2] = 50;
   }
   writeFileSync(join(out, id + '.png'), encodePng(img, W, H));
-  writeFileSync(join(out, id + '.json'), JSON.stringify({ seed: r.spec.seed, size: W, sha256:createHash('sha256').update(r.bytes).digest('hex'), outcomes: r.outcomes, info: r.info, checks: r.report.checks, features: r.features, intentions: r.intentions, emitters:b.waterModel.emitters, start: b.start, heights: Array.from(b.heights), water: Array.from(b.water), contamination: Array.from(b.contamination), settled: b.settle.settled, ticks: b.settle.ticks }));
+  writeFileSync(join(out, id + '.json'), JSON.stringify({ seed: r.spec.seed, size: W, sha256:createHash('sha256').update(r.bytes).digest('hex'), phaseCpu, outcomes: r.outcomes, info: r.info, checks: r.report.checks, features: r.features, intentions: r.intentions, emitters:b.waterModel.emitters, start: b.start, heights: Array.from(b.heights), water: Array.from(b.water), contamination: Array.from(b.contamination), settled: b.settle.settled, ticks: b.settle.ticks }));
 }

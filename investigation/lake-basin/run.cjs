@@ -12,6 +12,7 @@ require.extensions['.ts'] = (mod, file) => mod._compile(ts.transpileModule(fs.re
 }).outputText, file);
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1]; };
 const mode = arg('mode', 'baseline');
+const shape = arg('shape', mode === 'round2' ? './round2.ts' : './prototype.ts');
 const out = path.resolve(arg('out', path.join(__dirname, 'local', mode)));
 fs.mkdirSync(out, { recursive: true });
 if (process.argv.includes('--analyze')) {
@@ -20,12 +21,18 @@ if (process.argv.includes('--analyze')) {
   require('./verify.ts').verify();
 } else if (process.argv.includes('--worker')) {
   const gen = require(path.join(root, 'src/core/gen/generate.ts'));
+  if(process.env.LAKE_TIMES) require('./timings.ts').install(process.env.LAKE_TIMES);
   if (process.argv.includes('--trace')) require('./trace.ts').install(out);
-  if (mode !== 'baseline') require('./prototype.ts').install(mode);
+  if (mode !== 'baseline') require(shape).install(mode);
   const original = gen.generate;
   gen.generate = (spec, opts) => {
-    const r = original(spec, opts);
-    require('./capture.ts').capture(r, out);
+    const startCpu=process.cpuUsage();const phases={};
+    const cpuMs=()=>{const c=process.cpuUsage(startCpu);return (c.user+c.system)/1000;};
+    const r = original(spec, { ...opts,
+      onLand:l=>{phases.landCpuMs??=cpuMs();if(process.env.LAKE_TIMES)require('./timings.ts').mark('onLand');opts?.onLand?.(l);},
+      onProgress:p=>{if(p.stage==='objects')phases.waterCpuMs=cpuMs();opts?.onProgress?.(p);},
+    });
+    require('./capture.ts').capture(r, out, phases);
     return r;
   };
   require(path.join(root, 'investigation/m9b/measures.ts'));
@@ -40,7 +47,7 @@ if (process.argv.includes('--analyze')) {
   const next = () => {
     while (active < jobs && queue.length) {
       const [size, seed] = queue.shift(); active++;
-      const p = spawn(process.execPath, [__filename, '--worker', '--mode', mode, '--out', out, '--one', 'lakeBasin:' + seed, '--size', String(size)], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'inherit'] });
+      const p = spawn(process.execPath, [__filename, '--worker', '--mode', mode, '--shape', shape, '--out', out, '--one', 'lakeBasin:' + seed, '--size', String(size)], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'inherit'] });
       let buf = ''; p.stdout.on('data', b => buf += b);
       p.on('close', code => {
         const lines = buf.split('\n').filter(l => l.startsWith('{'));

@@ -1,0 +1,83 @@
+{
+  "core": "e292cefe30469033a922650f0455f87297c051d5",
+  "size": 256,
+  "seed": 7,
+  "observerMatchesCanonicalBytes": true,
+  "phaseCpu": {
+    "landCpuMs": 4937,
+    "waterCpuMs": 9984
+  },
+  "beforeFirstLand": {
+    "buildMap": {
+      "calls": 1,
+      "cpuMs": 172
+    },
+    "carveOutlets": {
+      "calls": 2,
+      "cpuMs": 125
+    },
+    "droughtStorage": {
+      "calls": 12,
+      "cpuMs": 282
+    },
+    "makeField": {
+      "calls": 1,
+      "cpuMs": 422
+    },
+    "minePads": {
+      "calls": 4,
+      "cpuMs": 296
+    },
+    "naturalRamps": {
+      "calls": 1,
+      "cpuMs": 47
+    },
+    "pickStart": {
+      "calls": 4,
+      "cpuMs": 937
+    },
+    "planBadwater": {
+      "calls": 1,
+      "cpuMs": 250
+    },
+    "planHydro": {
+      "calls": 1,
+      "cpuMs": 360
+    },
+    "snapLevels": {
+      "calls": 1,
+      "cpuMs": 172
+    },
+    "widenOutlets": {
+      "calls": 1,
+      "cpuMs": 110
+    }
+  },
+  "droughtStorageBeforeLand": {
+    "calls": 12,
+    "uniqueCompleteInputs": 2,
+    "groups": [
+      {
+        "sha256": "21d1271059186686954c7cf533ef877350039484a93664ba2816f37159410a54",
+        "calls": 8,
+        "cpuMs": 157
+      },
+      {
+        "sha256": "b4fb545e17ac2a9a5610d15ae7644232476b289f4eff4ad355a2793f68718c72",
+        "calls": 4,
+        "cpuMs": 125
+      }
+    ],
+    "inputFields": [
+      "W",
+      "H",
+      "days",
+      "emitters",
+      "floor",
+      "dam",
+      "depth"
+    ]
+  },
+  "interpretation": "Repeated analytic drought inputs are a shared reuse opportunity; measured cost does not explain or resolve the whole speed gap. PickStart calls serve distinct prepared starts and must preserve their results.",
+  "regeneration": "README.md: Shared-cost observation"
+}
