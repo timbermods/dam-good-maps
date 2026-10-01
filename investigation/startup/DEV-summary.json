@@ -1,0 +1,282 @@
+[
+  {
+    "group": "dev,fast,1,cold",
+    "runs": 3,
+    "editable": {
+      "median": 8235,
+      "worst": 14583
+    },
+    "firstFrame": {
+      "median": 8179,
+      "worst": 14527
+    },
+    "fcp": {
+      "median": 312,
+      "worst": 316
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 92,
+      "worst": 93
+    },
+    "compile": {
+      "median": 130,
+      "worst": 135
+    },
+    "evaluate": {
+      "median": 3301,
+      "worst": 8733
+    },
+    "transferred": {
+      "median": 602588,
+      "worst": 602588
+    }
+  },
+  {
+    "group": "dev,fast,1,warm",
+    "runs": 3,
+    "editable": {
+      "median": 8656,
+      "worst": 10183
+    },
+    "firstFrame": {
+      "median": 8610,
+      "worst": 10134
+    },
+    "fcp": {
+      "median": 108,
+      "worst": 112
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 88,
+      "worst": 126
+    },
+    "compile": {
+      "median": 132,
+      "worst": 159
+    },
+    "evaluate": {
+      "median": 4650,
+      "worst": 4859
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "dev,fast,4,cold",
+    "runs": 3,
+    "editable": {
+      "median": 15840,
+      "worst": 17401
+    },
+    "firstFrame": {
+      "median": 15754,
+      "worst": 17200
+    },
+    "fcp": {
+      "median": 556,
+      "worst": 632
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 125,
+      "worst": 146
+    },
+    "compile": {
+      "median": 159,
+      "worst": 175
+    },
+    "evaluate": {
+      "median": 7387,
+      "worst": 8740
+    },
+    "transferred": {
+      "median": 602588,
+      "worst": 602588
+    }
+  },
+  {
+    "group": "dev,fast,4,warm",
+    "runs": 3,
+    "editable": {
+      "median": 7322,
+      "worst": 30093
+    },
+    "firstFrame": {
+      "median": 7240,
+      "worst": 29828
+    },
+    "fcp": {
+      "median": 244,
+      "worst": 308
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 98,
+      "worst": 100
+    },
+    "compile": {
+      "median": 153,
+      "worst": 155
+    },
+    "evaluate": {
+      "median": 3927,
+      "worst": 19912
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "dev,typical,1,cold",
+    "runs": 3,
+    "editable": {
+      "median": 10477,
+      "worst": 18242
+    },
+    "firstFrame": {
+      "median": 10430,
+      "worst": 18117
+    },
+    "fcp": {
+      "median": 552,
+      "worst": 576
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 96,
+      "worst": 114
+    },
+    "compile": {
+      "median": 136,
+      "worst": 137
+    },
+    "evaluate": {
+      "median": 3704,
+      "worst": 7547
+    },
+    "transferred": {
+      "median": 602588,
+      "worst": 602588
+    }
+  },
+  {
+    "group": "dev,typical,1,warm",
+    "runs": 3,
+    "editable": {
+      "median": 8586,
+      "worst": 12203
+    },
+    "firstFrame": {
+      "median": 8531,
+      "worst": 12136
+    },
+    "fcp": {
+      "median": 128,
+      "worst": 128
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 89,
+      "worst": 101
+    },
+    "compile": {
+      "median": 134,
+      "worst": 146
+    },
+    "evaluate": {
+      "median": 5073,
+      "worst": 8703
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "dev,typical,4,cold",
+    "runs": 3,
+    "editable": {
+      "median": 7421,
+      "worst": 11573
+    },
+    "firstFrame": {
+      "median": 7240,
+      "worst": 11361
+    },
+    "fcp": {
+      "median": 860,
+      "worst": 860
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 171,
+      "worst": 180
+    },
+    "compile": {
+      "median": 183,
+      "worst": 193
+    },
+    "evaluate": {
+      "median": 3648,
+      "worst": 6538
+    },
+    "transferred": {
+      "median": 602588,
+      "worst": 602588
+    }
+  },
+  {
+    "group": "dev,typical,4,warm",
+    "runs": 3,
+    "editable": {
+      "median": 5063,
+      "worst": 5388
+    },
+    "firstFrame": {
+      "median": 4863,
+      "worst": 5243
+    },
+    "fcp": {
+      "median": 460,
+      "worst": 516
+    },
+    "response": null,
+    "workerReady": null,
+    "projectOpen": null,
+    "parse": {
+      "median": 163,
+      "worst": 167
+    },
+    "compile": {
+      "median": 183,
+      "worst": 184
+    },
+    "evaluate": {
+      "median": 2792,
+      "worst": 3019
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  }
+]

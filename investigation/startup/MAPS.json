@@ -1,0 +1,50 @@
+[
+  {
+    "map": "river-valley-1",
+    "bytes": 214391,
+    "openMs": {
+      "median": 1049,
+      "worst": 1376
+    }
+  },
+  {
+    "map": "canyon-1",
+    "bytes": 175247,
+    "openMs": {
+      "median": 724,
+      "worst": 1330
+    }
+  },
+  {
+    "map": "highlands-1",
+    "bytes": 180390,
+    "openMs": {
+      "median": 485,
+      "worst": 658
+    }
+  },
+  {
+    "map": "lake-basin-1",
+    "bytes": 196178,
+    "openMs": {
+      "median": 641,
+      "worst": 1018
+    }
+  },
+  {
+    "map": "delta-1",
+    "bytes": 239199,
+    "openMs": {
+      "median": 1168,
+      "worst": 1267
+    }
+  },
+  {
+    "map": "islands-1",
+    "bytes": 218626,
+    "openMs": {
+      "median": 3542,
+      "worst": 4283
+    }
+  }
+]
