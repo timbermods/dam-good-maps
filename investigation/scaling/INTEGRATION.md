@@ -1,6 +1,16 @@
 # Scaling to 512 on a side
 
-This is an adoption proposal, based on `feature/forces` **ea3cc2ad**. Product files were read,
+## Round 2
+
+The combined `adoption.patch` is virtually rebased onto `feature/forces` **75cb5d4c** and keeps
+Round 1's capacity/allocation changes. The branch retains its inherited history; product files
+remain untouched. [Round 2 integration](round2/INTEGRATION.md) describes the gesture controller,
+versioned streaming codec, cache policies, legacy migration, collaboration reuse, required worker/UI
+wiring, determinism dependency and regeneration commands. Adopt in the milestone session.
+
+## Round 1 historical notes
+
+Round 1 was based on `feature/forces` **ea3cc2ad**. Product files were read,
 never edited. The PR's comparison into `dev` also contains its inherited `feature/forces`
 history; the investigation's own commit changes only this directory. Adopt the patch in the
 milestone session, rather than merging that inherited history as part of this investigation.
@@ -23,8 +33,8 @@ milestone session, rather than merging that inherited history as part of this in
 Apply once: the mesh reuse and lazy easing overlap `investigation/performance`'s proposal.
 Do not stack both patches. Its frame scheduling, audio and shore-refresh changes are separate.
 Run `git apply --check investigation/scaling/adoption.patch` against the pinned base, then apply
-in the adopting session. Resolve later drift deliberately. No worker/simulation, map document,
-operation execution or save-format code is changed; operation validation capacities are changed.
+in the adopting session. Resolve later drift deliberately. Round 1 changed operation validation
+capacities; its allocation proposal left simulation, document execution and save formats unchanged.
 The initial allocation-only builds had byte-identical workers. The final capacity proposal changes
 their validation tables, while all 48 simulation/force/format modules remain identical.
 `test.mjs` checks 2,000 blend-buffer comparisons, including duplicate
@@ -167,7 +177,7 @@ above. This PC's parallel investigations are left alone.
    output and fixed DOS timestamps, not merely decoded content. Verify complete `.timber` and
    gzip bytes against the current writer on every fixture and edited/reopened project.
 
-These larger changes are proposed, not represented as completed by this small allocation patch.
+Round 1 proposed these larger changes; Round 2 implements the history/codec prototype above.
 The custom-size milestone must separately update size validation, export messaging, camera fit,
 shape-aware generation and minimum-size rules. Preserve D357 and `docs/PERFECT.md`; input is shown
 within a frame even when total generation, settling or force computation grows with area.

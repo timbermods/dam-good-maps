@@ -1,5 +1,7 @@
 # 512-side scaling investigation
 
+## Round 1 — historical measurements
+
 **Imported maps load; unrestricted editing, smooth input and long-session saving are not ready.**
 Based on `feature/forces` ea3cc2ad; no product files changed. `adoption.patch` is a tested,
 partial adoption proposal. The remaining work below is required by PLAN §20/D357 and PERFECT.
@@ -75,3 +77,47 @@ settle/save sizes, frame intervals and load. Sampled peaks are lower bounds. Ver
 no mesh-byte differences or export/reopen hash differences; 2,000 blend comparisons, capacity
 contracts, compiler checks and 982 quick tests passed (13 skipped). See
 [INTEGRATION.md](INTEGRATION.md) for adoption gates and regeneration; bulk evidence stays ignored.
+
+## Round 2 — history and saving
+
+New force/Select history stores gestures and seeds, with disposable worker OPFS results/water.
+**Payload memory is bounded; journal metadata and disk grow with edit count.** The 2,048-edit core
+sessions include brushes, whole-map sculpts, features, entity properties and all five Power-100
+forces (16 total). Every forward state, cold round trip and fresh-cache export matches bytewise.
+Both variants use the same portable math and canonical force-input water; baseline includes Round 1.
+This fixes derived payload retention, not a fixed total-memory bound for unlimited gestures.
+
+Times: **median/worst**, with whole-machine **CPU median/worst** alongside, three repetitions.
+Steady memory: Node GC heap + ArrayBuffer MiB, not browser-page RAM.
+
+| Case | Steady MiB | Project KiB | Recent undo / redo ms (CPU) | Save ms (CPU) | Reopen s (CPU) |
+|---|---:|---:|---|---|---|
+| 256² before | 57 + 49 | 441 | 449.6/452.5 (100/100%) / 0.09/0.10 (100/100%) | 347.4/356.7 (100/100%) | 1.08/1.22 (100/100%) |
+| 256² after | 122 + 87 | 244 | 0.35/0.45 (74/74%) / 0.12/0.13 (74/74%) | 198.6/216.3 (98/98%) | 434.67/589.40 (100/100%) |
+| 512² before | 112 + 192 | 925 | 930.9/945.6 (99/100%) / 0.10/0.26 (99/100%) | 451.0/513.7 (38/44%) | 1.37/1.55 (48.5/56%) |
+| 512² after | 181 + 108 | 718 | 0.31/0.54 (49/49%) / 0.11/0.21 (49/49%) | 510.4/525.6 (95/96%) | 1580.99/1863.68 (98/100%) |
+
+The mixed 256² trace uses more steady RAM: bounded caches buy recent undo latency. Dense literal
+retention is tested separately below; these scopes must not be compared as total-editor memory.
+
+Choose 128 MiB/16-step snapshots, 32 MiB results and 32 MiB geometry caches: 64 MiB can retain
+only the current 512² state. At 512 edits, 64/128/256 MiB retained 1/4/10 states, with
+113/169/282 MiB heap. Recent undo helps ordinary 256² maps too.
+Cold undo and recomputation remain expensive; [timings](round2/timings.csv) include depth 32,
+and [evidence](round2/measurements.json) includes cache-policy comparisons and peak RSS.
+Cold opening rebuilds terrain/resources at every prefix; validated replay batching is follow-up work.
+The cold 32nd redo at 512² takes 1.49/1.56 s (CPU 95/100%); recent-step caching is not deep-history speed.
+
+Dense-cache stress (1,024 results, **cache only**, not UI forces): heap plateaus at 63/60 MiB
+for 256²/512², with exact cold readback. Streaming saves/reads 553,770,010 JSON bytes above the
+old string limit. Versions 1–3 preserve literal history; their large files do not become gestures
+retroactively. Actual Chromium/Firefox OPFS passes 2,048-edit 512² save/reopen tests. Three-engine
+five-force replay passes; native Safari storage remains a gate because Windows WebKit lacks OPFS.
+The third Firefox storage repeat reaches a sampled OS working-set lower bound of 1.34 GiB,
+summed across owned browser processes (page/worker shared); this is not isolated JS heap or steady RAM.
+Cold redo also requires invalidating resource caches when restoring historical water.
+
+Reuse the versioned gesture/seed/identity/input-hash envelope for collaboration. Canonical input
+water requires an explicit agreement; old live-water inputs are never guessed. Feed cold replay,
+input preparation and cache-accounting cost into investigation/performance for progress,
+cancellation and scheduling. [Integration and regeneration](round2/INTEGRATION.md).

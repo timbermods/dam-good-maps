@@ -1,5 +1,5 @@
 diff --git a/src/editor/waterPlayer.ts b/src/editor/waterPlayer.ts
-index d479466f..4772ed04 100644
+index eedb06ae..961f9954 100644
 --- a/src/editor/waterPlayer.ts
 +++ b/src/editor/waterPlayer.ts
 @@ -46,17 +46,18 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
@@ -46,7 +46,7 @@ index d479466f..4772ed04 100644
 +  return { count, tile, floor, depth, contamination };
  }
 
-@@ -118,5 +116,12 @@ export class WaterPlayer {
+@@ -132,5 +130,12 @@ export class WaterPlayer {
      if (!this.timer && this.at >= this.frames.length - 1) this.restartClock();
      this.finished = false;
 -    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) this.frames.push({ water: blendWater(last.water, f.water, k / (EASE + 1)), done: last.done + ((1 - last.done) * k) / (EASE + 1) });
@@ -145,16 +145,83 @@ index 18f22077..5f66d8ba 100644
      mesh.matrixAutoUpdate = false;
      mesh.renderOrder = 2;
 diff --git a/src/core/doc/ops.ts b/src/core/doc/ops.ts
-index 04764a02..7ae59e59 100644
+index 04764a02..e33b3377 100644
 --- a/src/core/doc/ops.ts
 +++ b/src/core/doc/ops.ts
-@@ -408,5 +408,5 @@ const CARVE_MAX_LEVEL = CEILING;
+@@ -1,2 +1,4 @@
++import {derivedResultKey} from "./resultStore";
++import {forceEntityEdits, expandedEntityEdits} from "./entityForceEdits";
+ // Edit operations (EDITOR_PLAN §3): small, serializable commands in one envelope, `{op, params}`.
+ // The validation report's one-click fixes use the same envelope (report.ts `FixOp`), so a fix is
+@@ -111,5 +113,5 @@ export interface DocState {
+   sculpts: SculptOp[];
+   slopeEdits: SlopeOp[];
+-  entityEdits: EntityOp[];
++  entityEdits: (EntityOp | ForceOp)[];
+ }
+
+@@ -260,5 +262,5 @@ export function applyOp(state: DocState, op: AppliedOp): void {
+       }
+       state.sculpts.push(op);
+-      state.entityEdits.push(...forceEntityEdits(op));
++      state.entityEdits.push(...(derivedResultKey(op.params) ? [op] : forceEntityEdits(op)));
+       return;
+     }
+@@ -281,18 +283,5 @@ export function applyOp(state: DocState, op: AppliedOp): void {
+  *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
+  *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+-function forceEntityEdits(op: ForceOp): EntityOp[] {
+-  const { seq, origin } = op;
+-  const out: EntityOp[] = [];
+-  const p = op.params;
+-  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
+-  if (op.op === "forceResult") {
+-    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
+-    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
+-  }
+-  // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
+-  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
+-    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
+-  return out;
+-}
++
+
+ function removeAllFromList<T extends { seq: number }>(list: T[], seq: number): void {
+@@ -336,5 +325,5 @@ export function invertOp(state: DocState, op: AppliedOp): void {
+       if (r) {
+         state.sculpts.splice(Math.min(r.sculpt, state.sculpts.length), 0, r.op);
+-        const edits = forceEntityEdits(r.op);
++        const edits = derivedResultKey(r.op.params) ? [r.op] : forceEntityEdits(r.op);
+         if (edits.length) state.entityEdits.splice(r.entity >= 0 ? Math.min(r.entity, state.entityEdits.length) : state.entityEdits.length, 0, ...edits);
+       }
+@@ -408,5 +397,5 @@ const CARVE_MAX_LEVEL = CEILING;
 
  /** Largest number of tiles one operation may touch. */
 -export const MAX_OP_TILES = 256 * 256;
 +export const MAX_OP_TILES = 512 * 512;
 
  const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+@@ -557,5 +546,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+-        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
++        if (ctx.entityIds.has(src.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
+       }
+       if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no carve ${p.replaces} to try another path for`];
+@@ -577,5 +566,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+-        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
++        if (ctx.entityIds.has(src.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
+       }
+       if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no force ${p.replaces} to try another for`];
+@@ -585,5 +574,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       const p = op.params;
+       if (!GUID.test(p.id)) return [`${p.id} is not a lowercase GUID`];
+-      if (ctx.entityIds.has(p.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
++      if (ctx.entityIds.has(p.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
+       // (the start too, on a map that has none: its own was deleted, D323 item 44)
+       const noStart = p.template === "StartingLocation" && !state.features.some((f) => f.kind === "start") && (ctx.otherStarts ?? 0) === 0;
 diff --git a/src/core/doc/ops.schema.json b/src/core/doc/ops.schema.json
 index 7e6fa476..5a32e9a6 100644
 --- a/src/core/doc/ops.schema.json
@@ -364,3 +431,937 @@ index 9fd8e830..0e80428c 100644
 +    expect(both([[0, 0], [1024.01, 0], [0, 10]])).toEqual([false, false]);
    });
  });
+diff --git a/src/core/doc/session.ts b/src/core/doc/session.ts
+index bdce16bc..1122bc15 100644
+--- a/src/core/doc/session.ts
++++ b/src/core/doc/session.ts
+@@ -1,2 +1,6 @@
++import {ResultStore} from "./resultStore";
++import {HistorySnapshots} from "./historySnapshots";
++import {writeProject} from "./projectStream";
++import {projectObject} from "./document";
+ // An open map document (EDITOR_PLAN §3): the operations engine, undo and redo, export, and the built map, rebuilt incrementally after every change. The editor (M4)
+ // runs one session in its worker; everything here is headless and runs in Node too.
+@@ -110,4 +114,41 @@ export class MapSession {
+   private gen: Generation;
+   private log: AppliedOp[];
++  /** Already validated legacy input: preserve replay/orphan semantics, page literal payloads. */
++  importAppliedForReplay(input:AppliedOp):AppliedOp {
++    this.setReplaySequence(input.seq);
++    const op=clone(input);
++    if(this.resultStore&&(op.op==="forceResult"||op.op==="carve"||op.op==="deleteEntities"))op.params=this.resultStore.keep(op.seq,op.params);
++    applyOp(this.st,op);this.log.push(op);this.seqNext=op.seq+1;
++    this.pushHistory({kind:"ops",ops:[op]});this.cur=this.rebuilt();this.snapshot();return op;
++  }
++  /** Roll back an execution/storage exception without cloning or materializing derived vectors. */
++  historyTransaction<T>(action:()=>T):T {
++    const saved={log:this.log.slice(),st:{...this.st,features:this.st.features.slice(),sculpts:this.st.sculpts.slice(),slopeEdits:this.st.slopeEdits.slice(),entityEdits:this.st.entityEdits.slice()},
++      cur:this.cur,seqNext:this.seqNext,undoStack:this.undoStack.slice(),redoStack:this.redoStack.slice(),snaps:new Map(this.snaps),waterAt:new Map(this.waterAt)};
++    try{return action();}catch(error){Object.assign(this,{...saved,snaps:new HistorySnapshots(saved.snaps)});throw error;}
++  }
++  private resultStore: ResultStore | null = null;
++  private waterAt = new Map<number,number>();
++  private rememberHistoryWater():void {if(this.resultStore)this.waterAt.set(this.undoStack.length,this.resultStore.keepWater(this.cur.cache.settle));}
++  private restoreHistoryWater(at:number):void {
++    if(!this.resultStore||this.snaps.has(at))return;
++    const key=this.waterAt.get(at);if(key===undefined)throw Error("missing historical water input");
++    this.cur={...this.cur,cache:{...this.cur.cache,settle:this.resultStore.readWater(key),moisture:null,soil:null,occupiedBeforeResources:null,resources:new Map(),resourceOrder:[]}};
++  }
++  private snapshotBudget = Infinity;
++  private snapshotSteps = MAX_SNAPSHOTS;
++  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16): void {
++    if (!Number.isSafeInteger(snapshotBudget) || snapshotBudget<0 || !Number.isSafeInteger(snapshotSteps) || snapshotSteps<1) throw Error("invalid history cache policy");
++    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;this.rememberHistoryWater();
++  }
++  get nextOperationSeq(): number {return this.seqNext;}
++  setReplaySequence(seq:number):void {if(!Number.isSafeInteger(seq)||seq<this.seqNext)throw Error("invalid replay sequence");this.seqNext=seq;}
++  get historyCacheStats() {return {snapshots:this.snaps.size, bytes:this.snaps.bytes, budget:this.snapshotBudget};}
++  /** The immutable generation, without copying/materializing the operation log. */
++  get generationDocument(): MapDocument {
++    return {formatVersion:3,app:"dam-good-maps",generatorVersion:this.gen.generatorVersion,spec:this.gen.spec,
++      base:this.gen.base,...(this.gen.field?{field:this.gen.field}:{}),baseFeatures:this.gen.baseFeatures,
++      kept:this.gen.kept,features:clone(this.gen.baseFeatures),edits:[],nextSeq:1,meta:this.gen.meta};
++  }
+   private st: DocState;
+   private seqNext: number;
+@@ -115,5 +156,5 @@ export class MapSession {
+   private undoStack: HistoryEntry[] = [];
+   private redoStack: HistoryEntry[] = [];
+-  private snaps = new Map<number, BuildResult>();
++  private snaps = new HistorySnapshots<BuildResult>();
+   private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
+@@ -205,4 +246,6 @@ export class MapSession {
+     this.cur = rebuild(this.cur, this.input(), { settleCache: cache });
+     for (const [k, b] of this.snaps) if (b === before) this.snaps.set(k, this.cur);
++    this.rememberHistoryWater();
++    if(this.resultStore)this.snapshot(true);
+     return true;
+   }
+@@ -393,4 +436,10 @@ export class MapSession {
+
+   /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens). */
++  /** Legacy-format streaming save: no clone of literal vectors or whole-document string. */
++  async projectStreaming(sink:(bytes:Uint8Array)=>Promise<void>,level=9):Promise<void> {
++    const doc={...this.generationDocument,features:clone(this.st.features),edits:this.log.slice(),nextSeq:this.seqNext};
++    await writeProject(projectObject(doc),sink,level);
++  }
++
+   project(level?: number): Uint8Array {
+     return encodeProject(this.document, level);
+@@ -508,5 +557,7 @@ export class MapSession {
+   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
+     const text = label ?? (op as { label?: string }).label;
+-    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
++    let params = clone(op.params);
++    if ((op.op === "forceResult" || op.op === "deleteEntities") && this.resultStore) params = this.resultStore.keep(this.seqNext,params);
++    const applied = { op: op.op, params, seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+     applyOp(this.st, applied);
+     if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
+@@ -524,4 +575,5 @@ export class MapSession {
+     }
+     this.redoStack.push(e);
++    this.restoreHistoryWater(this.undoStack.length);
+     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+     return true;
+@@ -536,4 +588,5 @@ export class MapSession {
+     }
+     this.undoStack.push(e);
++    this.restoreHistoryWater(this.undoStack.length);
+     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+     this.snapshot();
+@@ -579,8 +632,9 @@ export class MapSession {
+   private snapshot(force = false): void {
+     const at = this.undoStack.length;
+-    if (!force && at % SNAPSHOT_EVERY !== 0) return;
++    this.rememberHistoryWater();
++    if (!force && !this.resultStore && at % SNAPSHOT_EVERY !== 0) return;
+     this.snaps.set(at, this.cur);
+-    while (this.snaps.size > MAX_SNAPSHOTS) {
+-      const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
++    while (this.snaps.size > 1 && (this.snaps.size > this.snapshotSteps || this.snaps.bytes > this.snapshotBudget)) {
++      const oldest = this.resultStore ? [...this.snaps.keys()].find(k=>k!==at)! : [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
+       this.snaps.delete(oldest);
+     }
+diff --git a/src/core/doc/document.ts b/src/core/doc/document.ts
+index 4d5dec3b..e438aa1e 100644
+--- a/src/core/doc/document.ts
++++ b/src/core/doc/document.ts
+@@ -171,7 +171,11 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
+  *  faster one): the JSON inside is the same either way. */
+ export function encodeProject(doc: MapDocument, level = 9): Uint8Array {
++  return gzipSync(strToU8(JSON.stringify(projectObject(doc))), { level: level as 9, mtime: 0 });
++}
++
++export function projectObject(doc:MapDocument):MapDocument {
+   const out: MapDocument = { ...doc };
+   if (doc.baseFeatures && jsonEqual(doc.baseFeatures, doc.features)) delete out.baseFeatures;
+-  return gzipSync(strToU8(JSON.stringify(out)), { level: level as 9, mtime: 0 });
++  return out;
+ }
+
+@@ -243,4 +247,9 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
+     throw new ProjectError("not a Dam Good Maps project file");
+   }
++  return decodeProjectObject(raw);
++}
++
++/** Shared legacy migrations after incremental JSON decoding. */
++export function decodeProjectObject(raw: {app?:string;formatVersion?:number}): MapDocument {
+   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+   const notes = dropRetired(raw as Record<string, unknown>);
+diff --git a/src/core/features/build.ts b/src/core/features/build.ts
+index fca0e5fd..919d43d5 100644
+--- a/src/core/features/build.ts
++++ b/src/core/features/build.ts
+@@ -1,2 +1,4 @@
++import {derivedResultKey} from "../doc/resultStore";
++import {BoundedFields} from "../doc/boundedFields";
+ // The one build pipeline (PLAN §19.8): features in, terrain and entities out. Generation plans the
+ // features first (gen/riverValley.ts) and then runs this; the editor runs the same code after every
+@@ -121,5 +123,5 @@ export interface BuildInput {
+   sculpts?: readonly SculptEdit[];
+   slopeEdits?: readonly SlopeEdit[];
+-  entityEdits?: readonly EntityEdit[];
++  entityEdits?: readonly (EntityEdit | import("../doc/ops").ForceOp)[];
+   locked?: LockedLayer | null;
+ }
+@@ -368,4 +370,5 @@ function featureKey(f: Feature): string {
+ const paramKeys = new WeakMap<object, string>();
+ function paramsKey(p: object): string {
++  const derived = derivedResultKey(p);if(derived !== undefined)return derived;
+   let k = paramKeys.get(p);
+   if (k === undefined) {
+@@ -545,5 +548,5 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
+   const live = (f: Feature) => !frozen?.has(f.id);
+   const features = input.features;
+-  const fields: FieldCache = prev ? prev.fields : new Map();
++  const fields: FieldCache = prev ? prev.fields : new BoundedFields();
+
+   const { terrain, region } = terrainStage(input, prev, fields);
+diff --git a/src/core/features/edits.ts b/src/core/features/edits.ts
+index a5df2eae..55b0905f 100644
+--- a/src/core/features/edits.ts
++++ b/src/core/features/edits.ts
+@@ -1,2 +1,4 @@
++import {expandedEntityEdits} from "../doc/entityForceEdits";
++import type {ForceOp} from "../doc/ops";
+ // Edit overlays the build pipeline applies on top of the features (PLAN §19.8): sculpt edits
+ // (step 6, raster/terrain.ts), slope overrides (step 8) and entity edits (step 13). They are the
+@@ -213,5 +215,5 @@ export function applySlopeEdits(entities: EntitySpec[], edits: readonly SlopeEdi
+ export function applyEntityEdits(
+   entities: EntitySpec[],
+-  edits: readonly EntityEdit[],
++  edits: readonly (EntityEdit | ForceOp)[],
+   g: EditGround,
+   allowPlace: boolean,
+@@ -233,5 +235,5 @@ export function applyEntityEdits(
+   let occ: Map<number, number> | null = null;
+   const tilesOf = (e: EntitySpec) => entityTiles(e).map(([x, y]) => y * g.W + x);
+-  for (const ed of edits) {
++  for (const ed of expandedEntityEdits(edits)) {
+     switch (ed.op) {
+       case "placeEntity": {
+diff --git a/src/core/doc/boundedFields.ts b/src/core/doc/boundedFields.ts
+new file mode 100644
+index 00000000..05168500
+--- /dev/null
++++ b/src/core/doc/boundedFields.ts
+@@ -0,0 +1,17 @@
++import type {FieldCache} from "../features/target";
++import {retainedBytes} from "./resultStore";
++/** Derived distance/path fields: editing a feature must not retain every old outline forever. */
++export class BoundedFields extends Map<string,FieldCache extends Map<string,infer V>?V:never> {
++  private costs=new Map<string,number>();private bytes=0;
++  revision=0;
++  constructor(readonly budget=32*1024*1024){super();}
++  override get(key:string){const value=super.get(key);if(value!==undefined){super.delete(key);super.set(key,value);}return value;}
++  override set(key:string,value:FieldCache extends Map<string,infer V>?V:never):this {
++    this.delete(key);const cost=retainedBytes(value);
++    while(this.size&&this.bytes+cost>this.budget)this.delete(this.keys().next().value!);
++    if(cost<=this.budget){super.set(key,value);this.costs.set(key,cost);this.bytes+=cost;this.revision++;}return this;
++  }
++  override delete(key:string):boolean {this.bytes-=this.costs.get(key)??0;this.costs.delete(key);const removed=super.delete(key);if(removed)this.revision++;return removed;}
++  override clear():void {super.clear();this.costs.clear();this.bytes=0;this.revision++;}
++  get stats(){return {bytes:this.bytes,budget:this.budget,entries:this.size};}
++}
+diff --git a/src/core/doc/entityForceEdits.ts b/src/core/doc/entityForceEdits.ts
+new file mode 100644
+index 00000000..9d3779c9
+--- /dev/null
++++ b/src/core/doc/entityForceEdits.ts
+@@ -0,0 +1,19 @@
++import type {ForceOp,EntityOp} from "./ops";
++import type {EntityEdit} from "../features/edits";
++export function forceEntityEdits(op: ForceOp): EntityOp[] {
++  const { seq, origin } = op;
++  const out: EntityOp[] = [];
++  const p = op.params;
++  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
++  if (op.op === "forceResult") {
++    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
++    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
++  }
++  // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
++  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
++    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
++  return out;
++}
++export function* expandedEntityEdits(edits: readonly (EntityEdit | ForceOp)[]): Generator<EntityEdit> {
++ for(const e of edits) {if(e.op==="forceResult"||e.op==="carve")yield* forceEntityEdits(e);else yield e;}
++}
+diff --git a/src/core/doc/forceHelpers.ts b/src/core/doc/forceHelpers.ts
+new file mode 100644
+index 00000000..3963207d
+--- /dev/null
++++ b/src/core/doc/forceHelpers.ts
+@@ -0,0 +1,125 @@
++// Pure worker helpers extracted from pinned source; share these at adoption.
++import type {MapSession} from "./session";
++import {geology} from "../forces/random";
++import {trimRock} from "../forces/rock";
++import {plainEntities,type FullForceMap} from "../forces/force";
++import type {ForceResultParams} from "../forces/op";
++import type {TerrainState} from "../features/raster/strokePreview";
++import {integrityAt} from "../features/raster/terrain";
++import type {Finalize} from "../forces/runs";
++const geologies=new WeakMap<MapSession,number[]>(),rocks=new WeakMap<object,Uint32Array|null>();
++const poses=new WeakMap<object,Map<string,{dx:number;dy:number}>>();
++const lifeOf=(c:any)=>({dead:c?.LivingNaturalResource?.IsDead===true});
++export function geologyOf(s: MapSession): number[] {
++  let g = geologies.get(s);
++  if (!g) geologies.set(s, (g = geology(s.openedHeights)));
++  return g;
++}
++
++export function rockOf(s: MapSession): Uint32Array | null {
++  const b = s.built;
++  if (rocks.has(b)) return rocks.get(b)!;
++  let lava: Uint32Array | null = null;
++  for (const op of s.state.sculpts)
++    if (op.op === "forceResult" && op.params.rock) {
++      lava ??= new Uint32Array(b.W * b.H);
++      const { tiles, bits } = op.params.rock;
++      for (let k = 0; k < tiles.length; k++) lava[tiles[k]] = bits[k];
++    }
++  if (lava) trimRock({ heights: b.heights, lava });
++  rocks.set(b, lava);
++  return lava;
++}
++
++export function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
++  const b = s.built;
++  let out = poses.get(b);
++  if (out) return out;
++  out = new Map();
++  for (const op of s.state.sculpts) if (op.op === "forceResult") for (const f of op.params.felled ?? []) out.set(f.id, { dx: f.dx, dy: f.dy });
++  if (out.size) {
++    const dead = new Set(b.entities.filter((e) => lifeOf(e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components }).dead).map((e) => e.id));
++    for (const id of [...out.keys()]) if (!dead.has(id)) out.delete(id);
++  }
++  poses.set(b, out);
++  return out;
++}
++
++export function stagedForceMap(m: FullForceMap): FullForceMap {
++  return { ...m, entities: plainEntities(m.entities.map((e) => (e.raw ? (({ raw: _raw, ...rest }) => rest)(e) : e))) };
++}
++
++export function buildTouches(state: TerrainState, ground: Uint8Array, owned?: () => Uint8Array | null): Finalize {
++  return (m) => {
++    const { W, H } = m;
++    const pre = state.pre.slice();
++    const protect = state.protect.slice();
++    const own = owned?.() ?? null;
++    let x0 = W;
++    let y0 = H;
++    let x1 = -1;
++    let y1 = -1;
++    for (let i = 0; i < m.heights.length; i++)
++      if (m.heights[i] !== ground[i] || own?.[i]) {
++        pre[i] = m.heights[i];
++        protect[i] = 1;
++        const x = i % W;
++        const y = (i - x) / W;
++        if (x < x0) x0 = x;
++        if (x > x1) x1 = x;
++        if (y < y0) y0 = y;
++        if (y > y1) y1 = y;
++      }
++    if (x1 < 0) return;
++    const base = state.base;
++    const locked = state.locked;
++    const candidate = base ? (i: number) => pre[i] !== base[i] : locked ? (i: number) => !locked[i] : () => true;
++    integrityAt(pre, m.heights, W, H, protect, state.channel, candidate, Math.max(0, x0 - 1), Math.max(0, y0 - 1), Math.min(W - 1, x1 + 1), Math.min(H - 1, y1 + 1));
++    trimRock(m);
++  };
++}
++
++export function withOwned(p: ForceResultParams, heights: Uint8Array, owned: Uint8Array | null): ForceResultParams {
++  if (!owned) return p;
++  const at = new Map(p.tiles.map((i, k) => [i, p.heights[k]]));
++  for (let i = 0; i < owned.length; i++) if (owned[i] && !at.has(i)) at.set(i, heights[i]);
++  const tiles = [...at.keys()].sort((a, b) => a - b);
++  return { ...p, tiles, heights: tiles.map((i) => at.get(i)!) };
++}
++
++export function glacierSprings(before: FullForceMap, after: FullForceMap, lake: { tiles: readonly number[]; floor: readonly number[]; depth: readonly number[]; contamination: readonly number[] }): Pick<ForceResultParams, "sources" | "lake"> {
++  const had = new Set(before.entities.map((e) => e.id));
++  const sources = after.entities
++    .filter((e) => !had.has(e.id) && e.template === "WaterSource")
++    .map((e) => {
++      const ws = ({ ...(e.before ?? {}), ...e.components } as { WaterSource?: { SpecifiedStrength?: unknown } }).WaterSource;
++      const raw = ws?.SpecifiedStrength;
++      const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 0);
++      return { id: e.id, x: e.x, y: e.y, strength };
++    })
++    .filter((q) => q.strength > 0);
++  return { ...(sources.length ? { sources } : {}), ...(lake.tiles.length ? { lake: { tiles: [...lake.tiles], floor: [...lake.floor], depth: [...lake.depth], contamination: [...lake.contamination] } } : {}) };
++}
++
++export function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Array): ForceResultParams | null {
++  const tiles: number[] = [];
++  const heights: number[] = [];
++  const now = new Map<number, number>();
++  p.tiles.forEach((i, k) => {
++    const room = inside[i];
++    const h0 = before[i];
++    const h = Math.max(h0 - room, Math.min(h0 + room, p.heights[k]));
++    now.set(i, h);
++    if (h === h0) return;
++    tiles.push(i);
++    heights.push(h);
++  });
++  if (!tiles.length) return null;
++  const rock = p.rock
++    ? { tiles: p.rock.tiles.slice(), bits: p.rock.bits.map((b, k) => {
++        const h = now.get(p.rock!.tiles[k]);
++        return h === undefined || h >= 31 ? b : b & ((1 << h) - 1);
++      }) }
++    : undefined;
++  return { ...p, tiles, heights, ...(rock ? { rock } : {}) };
++}
+diff --git a/src/core/doc/gestureHistory.ts b/src/core/doc/gestureHistory.ts
+new file mode 100644
+index 00000000..b6d4abf6
+--- /dev/null
++++ b/src/core/doc/gestureHistory.ts
+@@ -0,0 +1,197 @@
++import {MapSession} from "./session";
++import {decodeProjectObject,baseFeaturesOf,type MapDocument} from "./document";
++import type {EditOp,OpOrigin,AppliedOp} from "./ops";
++import {ResultStore,type ColdResults} from "./resultStore";
++import {readProject,writeProject} from "./projectStream";
++import {fullMap,forceCeiling} from "../forces/force";
++import {forceMapOf,carveForceParams} from "../forces/carve/result";
++import {CarveRun,type CarveSettings} from "../forces/carve/run";
++import {CraterRun,EruptRun,QuakeRun} from "../forces/runs";
++import type {CraterSettings} from "../forces/craterize";
++import type {EruptSettings,Point} from "../forces/erupt";
++import type {QuakeSettings} from "../forces/quake";
++import {GlaciateRun} from "../forces/glaciate/run";
++import type {GlaciateSettings} from "../forces/glaciate/model";
++import {forceParamsOf,pathRecord} from "../forces/result";
++import {forceSettingsProblems} from "../forces/op";
++import {areaDepth} from "../features/raster/brush";
++import {moveStartNear,startBrokenBy,startMiddle} from "./tools";
++import {geologyOf,rockOf,fallenOf,stagedForceMap,buildTouches,withOwned,glacierSprings,featherForce} from "./forceHelpers";
++import {planRemoveAt} from "./selectionHelpers";
++import {runsToTiles,type Runs} from "../math/grid";
++import type {RemoveKind} from "../features/objects";
++export {rockOf,fallenOf} from "./forceHelpers";
++export {BoundedFields} from "./boundedFields";
++export {HistorySnapshots} from "./historySnapshots";
++
++export const REPLAY_VERSION="portable-forces-v1-canonical";
++type Where={origin?:[number,number];end?:[number,number];via?:[number,number][];path?:Point[];side?:1|-1};
++/** Resolved core request: never screen events, literal result tiles, frame counts or wall time. */
++export type ForceGesture = ({verb:"carve";settings:CarveSettings}|{verb:"craterize";settings:CraterSettings}|{verb:"erupt";settings:EruptSettings}|{verb:"quake";settings:QuakeSettings}|{verb:"glaciate";settings:GlaciateSettings}) & {
++  where:Where;cut:number|null;area?:[number,number,number][];sourceId:string;unleashed?:string;bad?:boolean;
++};
++export type GestureEntry={seq:number;origin:OpOrigin;label?:string} & (
++  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string}
++);
++export type SelectionGesture={action:"remove";area:Runs;kinds:RemoveKind[]};
++export type GestureProject={app:"dam-good-maps";formatVersion:4;replayVersion:typeof REPLAY_VERSION;documentId:string;epoch:number;base:MapDocument;entries:GestureEntry[];nextSeq:number};
++export type Policy={results?:number;snapshots?:number;steps?:number};
++function immutable<T>(value:T):T {if(value&&typeof value==="object"){for(const d of Object.values(Object.getOwnPropertyDescriptors(value)))if("value" in d)immutable(d.value);Object.freeze(value);}return value;}
++function validArea(area:Runs,W:number,H:number):void {
++  if(!Array.isArray(area)||area.some(r=>!Array.isArray(r)||r.length!==3||r.some(n=>!Number.isSafeInteger(n))||r[0]<0||r[0]>=H||r[1]<0||r[2]>=W||r[1]>r[2]))throw Error("working area outside map");
++}
++function validForce(g:ForceGesture,s:MapSession):void {
++  if(!g||!["carve","craterize","erupt","quake","glaciate"].includes(g.verb)||!Number.isSafeInteger(g.settings?.seed)||typeof g.sourceId!=="string"||!g.sourceId||!g.where||g.cut!==null&&(!Number.isSafeInteger(g.cut)||g.cut<0||g.cut>forceCeiling()))throw Error("invalid resolved force gesture");
++  const problems=forceSettingsProblems(g.verb,g.settings as unknown as Record<string,unknown>);
++  if(problems.length)throw Error(problems.join("; "));
++  if(g.area!==undefined)validArea(g.area,s.size.x,s.size.y);
++}
++
++export function canonicalForceMap(s:MapSession) {
++  s.settleCanonical();const b=s.built,m=forceMapOf(b),down=fallenOf(s);
++  return fullMap({...m,rockLayers:geologyOf(s),lava:rockOf(s)??new Uint32Array(m.W*m.H),fallen:m.entities.filter(e=>down.has(e.id)).map(e=>({id:e.id,x:e.x+.5,y:e.y+.5,z:m.heights[e.y*m.W+e.x],...down.get(e.id)!,length:e.template==="Oak"?2.6:2}))});
++}
++export async function forceInputHash(s:MapSession):Promise<string> {
++  const m=s.historyTransaction(()=>canonicalForceMap(s)),parts:Uint8Array[]=[m.heights,new Uint8Array(m.water.depth.buffer),new Uint8Array(m.water.contamination.buffer),new Uint8Array(m.lava.buffer),new TextEncoder().encode(JSON.stringify([m.W,m.H,m.maxHeight,m.entities,m.rockLayers,m.fallen]))];
++  // Hash component digests: bounded working storage, including all inputs that a force reads.
++  const digests=await Promise.all(parts.map(b=>crypto.subtle.digest("SHA-256",b as BufferSource)));
++  const joined=new Uint8Array(digests.length*32);digests.forEach((d,i)=>joined.set(new Uint8Array(d),i*32));
++  return [...new Uint8Array(await crypto.subtle.digest("SHA-256",joined))].map(x=>x.toString(16).padStart(2,"0")).join("");
++}
++export function resolveForce(s:MapSession,g:ForceGesture):EditOp {
++  validForce(g,s);
++  const m=canonicalForceMap(s),{W,H}=m,{where:w}=g,keep=new Uint8Array(W*H);
++  const inside=g.area?areaDepth(g.area,W,H):null;
++  if(g.cut!==null)for(let i=0;i<keep.length;i++)if(m.heights[i]>g.cut)keep[i]=1;
++  for(const i of s.columns.keys())keep[i]=1;
++  if(inside)for(let i=0;i<keep.length;i++)if(!inside[i])keep[i]=1;
++  const at=(p:[number,number])=>{if(!Number.isInteger(p[0])||!Number.isInteger(p[1])||p[0]<0||p[1]<0||p[0]>=W||p[1]>=H)throw Error("force outside map");return p[1]*W+p[0];};
++  const origin=w.origin?at(w.origin):0,end=w.end?at(w.end):undefined;
++  let params:any;
++  if(g.verb==="carve") {
++    const run=new CarveRun(m,g.settings,{origin,...(end!==undefined?{end}:{}),...(w.via?.length?{via:w.via.map(at)}:{})},{keep,sourceId:g.sourceId,...(g.unleashed?{unleashed:g.unleashed,bad:g.bad}: {})});
++    for(let n=0;!run.done;n++){if(n>=10000)throw Error("carve exceeded deterministic step bound");run.step();}
++    params=carveForceParams(m,run,{settings:g.settings,origin:w.origin!,...(w.end?{end:w.end}:{}),cut:g.cut});
++    if(params&&w.via?.length)params.where.path=[w.origin!,...w.via,w.end!];
++    if(params&&g.unleashed)params.where.source=g.unleashed;
++  } else {
++    const before=stagedForceMap(m);
++    const run=g.verb==="craterize"?new CraterRun(before,g.settings,{origin,...(end!==undefined?{end}:{})},keep)
++      :g.verb==="erupt"?new EruptRun(before,g.settings,{origin,...(w.path?{path:w.path}:{})},keep)
++      :g.verb==="quake"?new QuakeRun(before,g.settings,{path:w.path!,side:w.side!},keep)
++      :new GlaciateRun(before,g.settings,{origin,...(end!==undefined?{end}:{}),...(w.via?.length?{via:w.via.map(at)}:{})},keep);
++    run.finalize=buildTouches(s.terrainState(),before.heights,run instanceof GlaciateRun?()=>run.footprint():undefined);
++    run.planAll();const after=run.final();if(!after)throw Error("force has no planned result");
++    const where=g.verb==="quake"?{path:pathRecord(w.path!),side:w.side}:{origin:w.origin!,...(w.end?{end:w.end}:{}),...(w.path?{path:pathRecord(w.path)}:{})};
++    params=forceParamsOf(before,after,{verb:g.verb,settings:g.settings,where,cut:g.cut,steps:run.total,reason:"done"});
++    if(params&&run instanceof GlaciateRun&&run.plan)params={...withOwned(params,after.heights,run.footprint()),...glacierSprings(before,after,run.plan.retained)};
++  }
++  if(params&&inside)params=featherForce(params,m.heights,inside);
++  if(!params)throw Error("force changed nothing");
++  return {op:"forceResult",params};
++}
++
++export function applyResolvedForce(session:MapSession,op:EditOp,origin:OpOrigin="user",label?:string):void {
++    const r=session.apply(op,origin,label);if(!r.ok)throw Error(r.errors.join("; "));
++    // The worker's deterministic start repair remains in the same undo step.
++    if(op.op==="forceResult"&&startBrokenBy(session,new Set(op.params.tiles))){const p=startMiddle(session),moves=p?moveStartNear(session,p[0],p[1],true):null;
++      if(moves?.length){session.undo();const grouped=session.applyAll([op,...moves],origin,label);if(!grouped.ok)throw Error(grouped.errors.join("; "));}}
++}
++
++/** Gestures are authoritative; all literal force data is a disposable execution cache. */
++export class GestureHistory {
++  readonly session:MapSession;readonly results:ResultStore;
++  private entries:GestureEntry[]=[];private cursor=0;
++  private revision=0;
++  private tempKey=2**40;
++  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={}) {
++    if(base.edits.length)throw Error("gesture history needs an immutable generation; legacy literals stay legacy");
++    if(!documentId||!Number.isSafeInteger(epoch)||epoch<0)throw Error("invalid document identity");
++    this.base=immutable(structuredClone(base));this.session=MapSession.open(this.base);this.session.setWaterMode("defer");
++    this.results=new ResultStore(cold,policy.results??32*1024*1024);
++    this.session.useResultStore(this.results,policy.snapshots??128*1024*1024,policy.steps??16);
++  }
++  private record(entry:GestureEntry):void {this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;}
++  private importLegacy(op:AppliedOp):void {
++    const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
++    // Undo metadata is derived, and must stay mutable in the execution log.
++    const {undo:_,orphaned:__,...literal}=applied;
++    this.record({kind:"legacy",seq:op.seq,origin:op.origin,...(op.label?{label:op.label}:{}),op:literal});
++  }
++  apply(ops:EditOp[],origin:OpOrigin="user",label?:string):void {
++    if(!ops.length||ops.some(o=>o.op==="forceResult"||o.op==="carve"))throw Error("new history accepts gestures, never force literals");
++    const seq=this.session.nextOperationSeq,r=this.session.historyTransaction(()=>this.session.applyAll(ops,origin,label));if(!r.ok)throw Error(r.errors.join("; "));
++    this.record({kind:"operations",seq,origin,...(label?{label}:{}),ops:structuredClone(ops)});
++  }
++  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string):Promise<void>{
++    gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
++    validArea(gesture.area,this.session.size.x,this.session.size.y);
++    if(!Array.isArray(gesture.kinds)||!gesture.kinds.length||gesture.kinds.some(k=>!["trees","bushes","ruins","sources","water","badwater","slopes","objects","start"].includes(k)))throw Error("invalid Select kinds");
++    const revision=this.revision,inputHash=await forceInputHash(this.session);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    const seq=this.session.nextOperationSeq,plan=planRemoveAt(this.session,runsToTiles(gesture.area,this.session.size.x),gesture.kinds,label);
++    const r=this.session.historyTransaction(()=>this.session.applyAll(plan.ops,origin,plan.label));if(!r.ok)throw Error(r.errors.join("; "));
++    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash});
++  }
++  private async inputAt(count:number):Promise<MapSession> {
++    const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
++    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1});
++    for(const e of this.entries.slice(0,count)){h.session.setReplaySequence(e.seq);if(e.kind==="operations")h.apply(e.ops,e.origin,e.label);else if(e.kind==="legacy")h.importLegacy(e.op);else if(e.kind==="selection")await h.select(e.gesture,e.origin,e.label);else await h.force(e.gesture,e.origin,e.label,e.replaces);}
++    return h.session;
++  }
++  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number):Promise<EditOp> {
++    gesture=structuredClone(gesture);
++    validForce(gesture,this.session);
++    const revision=this.revision;
++    const previous=this.entries[this.cursor-1];
++    if(replaces!==undefined&&(!previous||previous.kind!=="force"||previous.forceSeq!==replaces||previous.gesture.verb!==gesture.verb))throw Error("Try another needs the latest force in its series");
++    const inputCursor=replaces!==undefined&&previous.kind==="force"?previous.inputCursor:this.cursor;
++    const input=inputCursor===this.cursor?this.session:await this.inputAt(inputCursor);
++    const inputHash=await forceInputHash(input);
++    if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    const seq=this.session.nextOperationSeq,op=this.session.historyTransaction(()=>{
++      const resolved=resolveForce(input,gesture);if(replaces!==undefined&&resolved.op==="forceResult")resolved.params.replaces=replaces;
++      applyResolvedForce(this.session,resolved,origin,label);return resolved;
++    });
++    const forceSeq=this.session.history().filter(e=>e.applied).at(-1)!.seq;
++    if(forceSeq===undefined)throw Error("missing committed force sequence");
++    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
++  }
++  undo():boolean {if(!this.cursor)return false;if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("history mismatch");this.cursor--;this.revision++;return true;}
++  redo():boolean {if(this.cursor===this.entries.length)return false;if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("history mismatch");this.cursor++;this.revision++;return true;}
++  get count():number{return this.cursor;}
++  get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
++  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {await writeProject(this.project,sink);}
++  static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
++    const raw=await readProject(source) as GestureProject;
++    if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
++    if(raw.formatVersion!==4){
++      const doc=decodeProjectObject(raw),features=baseFeaturesOf(doc),base={...doc,baseFeatures:features,features,edits:[],nextSeq:1};
++      const h=new GestureHistory(base,cold,"legacy-"+crypto.randomUUID(),0,policy);
++      // A saved legacy result may lack its historical force/water inputs. Preserve it losslessly;
++      // all NEW edits use gestures. Do not guess a seed recipe or discard old undo depth.
++      for(const op of doc.edits)h.importLegacy(op);
++      h.session.setReplaySequence(doc.nextSeq);h.session.settleCanonical();return h;
++    }
++    if(raw.replayVersion!==REPLAY_VERSION)throw Error("unsupported replay version; original engine required");
++    if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
++    const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy);
++    for(const entry of raw.entries){
++      if(!entry||!["user","claude","fix"].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=="string")throw Error("invalid gesture envelope");
++      h.session.setReplaySequence(entry.seq);
++      if(entry.kind==="operations")h.apply(entry.ops,entry.origin,entry.label);
++      else if(entry.kind==="legacy"){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error("invalid legacy envelope");h.importLegacy(entry.op);}
++      else if(entry.kind==="selection"){if(await forceInputHash(h.session)!==entry.inputHash)throw Error("Select input differs");await h.select(entry.gesture,entry.origin,entry.label);}
++      else if(entry.kind==="force"){
++        const old=h.entries[h.cursor-1],at=entry.replaces!==undefined&&old?.kind==="force"?old.inputCursor:h.cursor;
++        if(entry.inputCursor!==at)throw Error("invalid original force input cursor");
++        const input=at===h.cursor?h.session:await h.inputAt(at);
++        if(await forceInputHash(input)!==entry.inputHash)throw Error("force input does not match recorded epoch/state");
++        await h.force(entry.gesture,entry.origin,entry.label,entry.replaces);
++        if(h.entries.at(-1)?.kind!=="force"||(h.entries.at(-1) as Extract<GestureEntry,{kind:"force"}>).forceSeq!==entry.forceSeq)throw Error("force sequence differs");
++      }
++      else throw Error("unknown gesture kind");
++      await progress?.(h.count,raw.entries.length);
++    }
++    h.session.setReplaySequence(raw.nextSeq);return h;
++  }
++}
+diff --git a/src/core/doc/historySnapshots.ts b/src/core/doc/historySnapshots.ts
+new file mode 100644
+index 00000000..f674e162
+--- /dev/null
++++ b/src/core/doc/historySnapshots.ts
+@@ -0,0 +1,40 @@
++/** Incremental retained-payload accounting. One graph walk per new built state, never one
++ *  walk of the whole snapshot cache or the whole operation journal per edit. */
++function allocationGraph(value:unknown):Map<object|string,number>{
++ const found=new Map<object|string,number>();
++ const visit=(v:unknown):void=>{
++  if(typeof v==='string'){if(!found.has(v))found.set(v,v.length*2);return;}
++  if(!v||typeof v!=='object'||found.has(v))return;
++  found.set(v,32);
++  if(v instanceof ArrayBuffer){found.set(v,32+v.byteLength);return;}
++  if(ArrayBuffer.isView(v)){visit(v.buffer);return;}
++  if(v instanceof Map){for(const [k,x]of v){visit(k);visit(x);}return;}
++  if(v instanceof Set){for(const x of v)visit(x);return;}
++  if(Array.isArray(v)){found.set(v,32+v.length*8);for(const x of v)visit(x);return;}
++  for(const [k,d]of Object.entries(Object.getOwnPropertyDescriptors(v)))if('value'in d){
++   if((k==='sculpts'||k==='sculptEdits')&&Array.isArray(d.value)){found.set(d.value,32+d.value.length*8);continue;}
++   visit(d.value);
++  }
++ };visit(value);return found;
++}
++export class HistorySnapshots<T extends object> extends Map<number,T>{
++ private graphs=new Map<number,Map<object|string,number>>();
++ private refs=new Map<object|string,{refs:number;bytes:number}>();
++ private versions=new Map<number,number|undefined>();
++ bytes=0;
++ constructor(entries?:Iterable<readonly[number,T]>){super();if(entries)for(const [k,v]of entries)this.set(k,v);}
++ override set(key:number,value:T):this {
++  const version=(value as {cache?:{fields?:{revision?:number}}}).cache?.fields?.revision;
++  if(version!==undefined&&super.get(key)===value&&this.versions.get(key)===version)return this;
++  this.release(key);const graph=allocationGraph(value);this.graphs.set(key,graph);
++  this.versions.set(key,version);
++  for(const [object,bytes]of graph){const old=this.refs.get(object);if(old)old.refs++;else{this.refs.set(object,{refs:1,bytes});this.bytes+=bytes;}}
++  super.set(key,value);return this;
++ }
++ private release(key:number):void {
++  const graph=this.graphs.get(key);if(graph){for(const object of graph.keys()){const r=this.refs.get(object)!;if(!--r.refs){this.bytes-=r.bytes;this.refs.delete(object);}}this.graphs.delete(key);}
++  this.versions.delete(key);
++ }
++ override delete(key:number):boolean {this.release(key);return super.delete(key);}
++ override clear():void {super.clear();this.graphs.clear();this.refs.clear();this.versions.clear();this.bytes=0;}
++}
+diff --git a/src/core/doc/projectStream.ts b/src/core/doc/projectStream.ts
+new file mode 100644
+index 00000000..fa4bf372
+--- /dev/null
++++ b/src/core/doc/projectStream.ts
+@@ -0,0 +1,97 @@
++import {Gzip,Gunzip} from "fflate";
++
++const CHUNK=32*1024,encoder=new TextEncoder();
++const crcTable=Uint32Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
++/** JSON's order/spelling, emitted in bounded pieces. No stringify of the document or an array. */
++function* tokens(v: unknown): Generator<string> {
++  if(v===null){yield "null";return;}
++  if(typeof v==="string") {
++    yield '"';
++    for(let at=0;at<v.length;){let end=Math.min(v.length,at+CHUNK);const c=v.charCodeAt(end-1);if(end<v.length&&c>=0xd800&&c<=0xdbff)end--;
++      yield JSON.stringify(v.slice(at,end)).slice(1,-1);at=end;}
++    yield '"';return;
++  }
++  if(typeof v==="number"){if(!Number.isFinite(v))throw Error("nonfinite project number");yield JSON.stringify(v);return;}
++  if(typeof v==="boolean"){yield String(v);return;}
++  if(Array.isArray(v)){yield "[";for(let i=0;i<v.length;i++){if(i)yield ",";yield* tokens(v[i]===undefined?null:v[i]);}yield "]";return;}
++  if(v&&typeof v==="object") {
++    yield "{";let first=true;
++    for(const key of Object.keys(v)){const x=(v as Record<string,unknown>)[key];if(x===undefined)continue;if(!first)yield ",";first=false;yield* tokens(key);yield ":";yield* tokens(x);}yield "}";return;
++  }
++  throw Error("unsupported project value");
++}
++export function* projectJsonChunks(doc: unknown): Generator<Uint8Array> {
++  let pending="";
++  for(const t of tokens(doc)){
++    if(pending.length+t.length>CHUNK&&pending){yield encoder.encode(pending);pending="";}
++    if(t.length>CHUNK){yield encoder.encode(t);}else pending+=t;
++  }
++  if(pending)yield encoder.encode(pending);
++}
++/** Sink can write directly to a file/OPFS; awaiting every write provides backpressure. */
++export async function writeProject(doc: unknown, sink: (b: Uint8Array)=>Promise<void>,level=9): Promise<void> {
++  let output:Uint8Array[]=[];
++  const gzip=new Gzip({level:level as 9,mtime:0},b=>output.push(b));
++  for(const b of projectJsonChunks(doc)){gzip.push(b,false);for(const x of output)await sink(x);output=[];}
++  gzip.push(new Uint8Array(),true);for(const x of output)await sink(x);
++}
++
++type Frame={value:any;kind:"object"|"array";phase:"key"|"colon"|"value"|"comma";key?:string;empty:boolean};
++/** Incremental JSON grammar. Only the current scalar and final data model are retained. */
++export class ProjectJsonParser {
++  private stack:Frame[]=[];private root:unknown;private rootSet=false;
++  private mode:"none"|"string"|"escape"|"unicode"|"number"|"literal"="none";
++  private scalar="";private pieces:string[]=[];private unicode="";private isKey=false;
++  private characters:string[]=[];private characterCount=0;
++  maxInputChars=0;maxScalarPieceChars=0;
++  private bad():never {throw Error("invalid project JSON");}
++  private append(s:string):void {this.characters.push(s);this.characterCount+=s.length;this.maxScalarPieceChars=Math.max(this.maxScalarPieceChars,this.characterCount);if(this.characterCount>=CHUNK){this.pieces.push(this.characters.join(""));this.characters=[];this.characterCount=0;}}
++  private value(v:unknown):void {
++    const f=this.stack.at(-1);
++    if(!f){if(this.rootSet)this.bad();this.root=v;this.rootSet=true;return;}
++    if(f.phase!=="value")this.bad();
++    if(f.kind==="array")f.value.push(v);else Object.defineProperty(f.value,f.key!,{value:v,enumerable:true,writable:true,configurable:true});
++    f.phase="comma";f.empty=false;
++  }
++  push(text:string):void {
++    this.maxInputChars=Math.max(this.maxInputChars,text.length);
++    for(let i=0;i<text.length;i++){
++      const c=text[i];
++      if(this.mode==="string") {if(c==='"') {const end=this.characters.join(""),s=this.pieces.length?[...this.pieces,end].join(""):end;this.characters=[];this.characterCount=0;this.pieces=[];this.scalar="";this.mode="none";if(this.isKey){const f=this.stack.at(-1)!;f.key=s;f.phase="colon";}else this.value(s);}else if(c==='\\')this.mode="escape";else {if(c.charCodeAt(0)<32)this.bad();this.append(c);}continue;}
++      if(this.mode==="escape") {if(c==='u'){this.unicode="";this.mode="unicode";}else {const e:Record<string,string>={'"':'"','\\':'\\','/':'/','b':'\b','f':'\f','n':'\n','r':'\r','t':'\t'};if(!(c in e))this.bad();this.append(e[c]);this.mode="string";}continue;}
++      if(this.mode==="unicode"){if(!/[0-9a-f]/i.test(c))this.bad();this.unicode+=c;if(this.unicode.length===4){this.append(String.fromCharCode(parseInt(this.unicode,16)));this.mode="string";}continue;}
++      if(this.mode==="number"||this.mode==="literal") {
++        if(/[0-9eE+.\-]/.test(c)&&this.mode==="number"||/[a-z]/.test(c)&&this.mode==="literal"){this.scalar+=c;if(this.scalar.length>128)this.bad();continue;}
++        this.finishScalar();i--;continue;
++      }
++      if(/\s/.test(c)){if(!/[\t\r\n ]/.test(c))this.bad();continue;}
++      const f=this.stack.at(-1);
++      if(f?.phase==="colon"){if(c!==':')this.bad();f.phase="value";continue;}
++      if(f?.phase==="comma") {if(c===','){f.phase=f.kind==="object"?"key":"value";continue;}if(c===(f.kind==="object"?'}':']')){this.stack.pop();continue;}this.bad();}
++      if(f&&c===(f.kind==="object"?'}':']')){if(!f.empty)this.bad();this.stack.pop();continue;}
++      if(c==='"'){this.isKey=f?.phase==="key";this.mode="string";this.scalar="";continue;}
++      if(f?.phase==="key")this.bad();
++      if(c==='{'||c==='['){const v=c==='{'?{}:[];this.value(v);this.stack.push({value:v,kind:c==='{'?"object":"array",phase:c==='{'?"key":"value",empty:true});if(this.stack.length>512)this.bad();continue;}
++      if(c==='-'||/[0-9]/.test(c)){this.mode="number";this.scalar=c;continue;}
++      if(/[tfn]/.test(c)){this.mode="literal";this.scalar=c;continue;}
++      this.bad();
++    }
++  }
++  private finishScalar():void {let v:unknown;try{v=JSON.parse(this.scalar);}catch{this.bad();}if(typeof v==='number'&&!Number.isFinite(v))this.bad();this.mode="none";this.scalar="";this.value(v);}
++  finish():unknown {if(this.mode==="number"||this.mode==="literal")this.finishScalar();if(this.mode!=="none"||this.stack.length||!this.rootSet)this.bad();return this.root;}
++}
++/** Streaming decompression and fatal UTF-8 decoding; never gunzipSync/JSON.parse on a whole file. */
++export async function readProject(source:AsyncIterable<Uint8Array>|Iterable<Uint8Array>):Promise<unknown> {
++  const parser=new ProjectJsonParser(),utf8=new TextDecoder("utf-8",{fatal:true});
++  let gunzip:Gunzip|undefined,header=new Uint8Array(),tail=new Uint8Array(),crc=0xffffffff,length=0;
++  const parse=(b:Uint8Array)=>{if(gunzip){for(const x of b)crc=crcTable[(crc^x)&255]^(crc>>>8);length=(length+b.length)>>>0;}for(let at=0;at<b.length;at+=CHUNK)parser.push(utf8.decode(b.subarray(at,at+CHUNK),{stream:true}));};
++  for await(const input of source){ // split compressed inputs too, bounding one inflater callback
++    const t=new Uint8Array(Math.min(8,tail.length+input.length));if(input.length>=8)t.set(input.subarray(input.length-8));else {const old=Math.min(t.length-input.length,tail.length);t.set(tail.subarray(tail.length-old));t.set(input,old);}tail=t;
++    for(let at=0;at<input.length;at+=CHUNK){let b=input.subarray(at,at+CHUNK);
++      if(header.length<2&&!gunzip){const joined=new Uint8Array(header.length+b.length);joined.set(header);joined.set(b,header.length);header=joined;if(header.length<2)continue;
++        if(header[0]===0x1f&&header[1]===0x8b)gunzip=new Gunzip(parse);else gunzip=undefined;b=header;header=new Uint8Array(2);}
++      if(gunzip)gunzip.push(b,false);else parse(b);
++    }
++  }
++  if(header.length<2)parse(header);if(gunzip){gunzip.push(new Uint8Array(),true);if(tail.length!==8)throw Error("truncated project gzip");const v=new DataView(tail.buffer,tail.byteOffset,8);if(v.getUint32(0,true)!==(crc^0xffffffff)>>>0||v.getUint32(4,true)!==length)throw Error("project gzip checksum/length mismatch");}parser.push(utf8.decode());return parser.finish();
++}
+diff --git a/src/core/doc/resultStore.ts b/src/core/doc/resultStore.ts
+new file mode 100644
+index 00000000..e4e34286
+--- /dev/null
++++ b/src/core/doc/resultStore.ts
+@@ -0,0 +1,118 @@
++import {gzipSync,gunzipSync,strToU8,strFromU8} from "fflate";
++import type {ForceResultParams} from "../forces/op";
++import {toBase64,fromBase64} from "../format/base64";
++
++/** Disposable derived data, never the journal or a project. Implemented by OPFS in a worker. */
++export interface ColdResults { put(key: number, value: Uint8Array): void; get(key: number): Uint8Array; }
++const keys = new WeakMap<object,string>();
++export const derivedResultKey = (params: object): string | undefined => keys.get(params);
++const heavy = ["tiles","heights","removed","rock","moved","felled","sources","lake","entities"] as const;
++/** Estimates ordinary-array payload and metadata; the measured process heap is the external oracle. */
++export function retainedBytes(value: unknown, snapshotsOnly=false): number {
++  const seen = new Set<object>(),strings=new Set<string>(); let bytes = 0;
++  const visit = (v: unknown): void => {
++    if (typeof v === "string") {if(!strings.has(v)){strings.add(v);bytes += v.length*2;}return;}
++    if (!v || typeof v !== "object" || seen.has(v)) return;
++    seen.add(v); bytes += 32;
++    if (ArrayBuffer.isView(v)) {visit(v.buffer);return;}
++    if (v instanceof ArrayBuffer) {bytes += v.byteLength;return;}
++    if (v instanceof Map) {for (const [k,x] of v) {visit(k);visit(x);}return;}
++    if (v instanceof Set) {for (const x of v) visit(x);return;}
++    if (Array.isArray(v)) bytes += v.length*8;
++    for (const [k,d] of Object.entries(Object.getOwnPropertyDescriptors(v))) if ("value" in d) {
++      // Operations are owned by the journal/log, not by these derived snapshots. Count the
++      // snapshot's pointer lists without repeatedly walking every old gesture/result.
++      if(snapshotsOnly&&(k==="sculpts"||k==="sculptEdits")&&Array.isArray(d.value)){bytes+=32+8*d.value.length;continue;}
++      visit(d.value);
++    }
++  }; visit(value);return bytes;
++}
++
++export class ResultStore {
++  private hot = new Map<number,{params: object;bytes: number}>();
++  private bytes = 0;
++  private working: {seq:number;params:object;bytes:number}|null=null;
++  private lastRead:{seq:number;params:object}|null=null;
++  private waterKeys = new WeakMap<object,number>();
++  private waterNext = -1;
++  private waterHot: {key:number;value:any} | null = null;
++  hits = 0; misses = 0; writtenBytes = 0;
++  constructor(readonly cold: ColdResults, readonly budget = 32*1024*1024) {
++    if (!Number.isSafeInteger(budget) || budget<0) throw Error("invalid result-cache budget");
++  }
++  private cache<T extends object>(seq: number, params:T):T {
++    const bytes = retainedBytes(params);
++    while (this.hot.size && this.bytes+bytes>this.budget) {
++      const key = this.hot.keys().next().value!;this.bytes -= this.hot.get(key)!.bytes;this.hot.delete(key);
++    }
++    // An oversized result is a one-operation working value, never permanently pinned.
++    this.working=null;
++    if (bytes<=this.budget) {this.hot.set(seq,{params,bytes});this.bytes+=bytes;}
++    else this.working={seq,params,bytes};
++    this.lastRead={seq,params};
++    return params;
++  }
++  read<T extends object=ForceResultParams>(seq: number):T {
++    if(this.lastRead?.seq===seq){this.hits++;return this.lastRead.params as T;}
++    if(this.working?.seq===seq){this.hits++;return this.working.params as T;}
++    const found = this.hot.get(seq);
++    if (found) {this.hits++;this.hot.delete(seq);this.hot.set(seq,found);this.lastRead={seq,params:found.params};return found.params as T;}
++    this.misses++;
++    return this.cache(seq,JSON.parse(strFromU8(gunzipSync(this.cold.get(seq)))) as T);
++  }
++  keep<T extends object>(seq: number, params:T):T {
++    const bytes = gzipSync(strToU8(JSON.stringify(params)),{level:1,mtime:0});
++    this.cold.put(seq,bytes);this.writtenBytes+=bytes.byteLength;
++    const old = this.hot.get(seq);if(old){this.bytes-=old.bytes;this.hot.delete(seq);}
++    this.cache(seq,params);
++    const proxy = {...params};
++    for(const name of heavy) {
++      delete (proxy as Record<string,unknown>)[name];
++      if(name in params) Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
++    }
++    keys.set(proxy,`derived-force-v1:${seq}`);
++    return proxy;
++  }
++  clearHot(): void {this.hot.clear();this.bytes=0;this.working=null;this.waterHot=null;this.lastRead=null;}
++  keepWater(value:object|null):number {
++    if(!value)return 0;
++    const known=this.waterKeys.get(value);if(known!==undefined)return known;
++    const key=this.waterNext--;
++    const text=JSON.stringify(value,(_k,v)=>ArrayBuffer.isView(v)?{__array:v.constructor.name,bytes:toBase64(new Uint8Array(v.buffer,v.byteOffset,v.byteLength))}:v);
++    const b=gzipSync(strToU8(text),{level:1,mtime:0});this.cold.put(key,b);this.writtenBytes+=b.length;this.waterKeys.set(value,key);return key;
++  }
++  readWater(key:number):any {
++    if(!key)return null;if(this.waterHot?.key===key)return this.waterHot.value;
++    const types:Record<string,any>={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++    const value=JSON.parse(strFromU8(gunzipSync(this.cold.get(key))),(_k,v)=>{
++      if(v?.__array){const Type=types[v.__array];if(!Type)throw Error("invalid transient array type");const b=fromBase64(v.bytes);return new Type(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));}return v;
++    });
++    this.waterKeys.set(value,key);this.waterHot={key,value};return value;
++  }
++  get stats() {return {bytes:this.bytes,entries:this.hot.size,budget:this.budget,workingBytes:this.working?.bytes??0,hits:this.hits,misses:this.misses,writtenBytes:this.writtenBytes};}
++}
++
++/** One append-only cache file per session; safe to delete after close. Open only in a dedicated worker. */
++export class OpfsResults implements ColdResults {
++  private offsets = new Map<number,[number,number]>(); private end = 0;
++  private constructor(private handle: FileSystemSyncAccessHandle,private dir:FileSystemDirectoryHandle,private name:string) {}
++  static async open(name: string): Promise<OpfsResults> {
++    if(!navigator.storage?.getDirectory)throw Error("worker OPFS unavailable; an equivalent verified storage adapter is required");
++    const root = await navigator.storage.getDirectory();
++    const dir = await root.getDirectoryHandle("dgm-derived-force-cache",{create:true});
++    const file = await dir.getFileHandle(name,{create:true});
++    const store = new OpfsResults(await file.createSyncAccessHandle(),dir,name);store.handle.truncate(0);return store;
++  }
++  put(key: number,value: Uint8Array): void {
++    const at = this.end;let n = 0;
++    while(n<value.length) {const wrote=this.handle.write(value.subarray(n),{at:at+n});if(!wrote)throw Error("derived cache write failed");n+=wrote;}
++    this.offsets.set(key,[at,n]);this.end+=n;
++  }
++  get(key: number): Uint8Array {
++    const entry=this.offsets.get(key);if(!entry)throw Error("missing derived result");
++    const [at,len]=entry,b=new Uint8Array(len);let n=0;
++    while(n<len){const got=this.handle.read(b.subarray(n),{at:at+n});if(!got)throw Error("truncated derived cache");n+=got;}return b;
++  }
++  close(): void {this.handle.close();}
++  async dispose():Promise<void> {this.close();await this.dir.removeEntry(this.name);}
++}
+diff --git a/src/core/doc/selectionHelpers.ts b/src/core/doc/selectionHelpers.ts
+new file mode 100644
+index 00000000..8feb8161
+--- /dev/null
++++ b/src/core/doc/selectionHelpers.ts
+@@ -0,0 +1,82 @@
++// Pure Select planner extracted from the pinned worker; share at adoption.
++import type {MapSession} from "./session";
++import type {EditOp} from "./ops";
++import {removeKindOf,removeTakes,type RemoveKind} from "../features/objects";
++import {entityTiles} from "../features/edits";
++import {objectsIn,ruinFieldTilesIn,submergedIn} from "./inArea";
++import {rebuiltSlope} from "../features/ids";
++import {placementOf} from "../format/entities";
++import {runsToTiles,tilesToRuns,type Runs} from "../math/grid";
++export function planRemoveAt(s:MapSession, tiles:readonly number[], kinds:readonly RemoveKind[], label?:string):{ops:EditOp[];label:string;removed:number[]} {
++
++  const { x: W, y: H } = s.size;
++  const want = new Set(tiles);
++  const ids: string[] = [];
++  const slopes: { x: number; y: number }[] = [];
++  const startFeatures = new Set<string>();
++  const removed: number[] = [];
++  const counts = new Map<RemoveKind, number>();
++  // (a ruin field the selection reaches gives up the tiles inside it, the columns the water hides too; the
++  // columns outside keep their heights and places, D360 b)
++  const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
++  for (const e of s.built.entities) {
++    if (e.raw && !placementOf(e.raw)) continue;
++    if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
++    const kind = removeKindOf(e.template);
++    if (!kind || !removeTakes(kinds, e.template)) continue;
++    if (kind === "ruins" && fields.has(e.owner)) {
++      removed.push(e.y * W + e.x);
++      counts.set(kind, (counts.get(kind) ?? 0) + 1);
++      continue;
++    }
++    if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
++    else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
++    else ids.push(e.id);
++    removed.push(e.y * W + e.x);
++    counts.set(kind, (counts.get(kind) ?? 0) + 1);
++  }
++  // what the resource features hold under water there is deleted too (D345, B5), and nothing they would
++  // plant on these tiles later stands again as the water drains or the ground dries: the features'
++  // areas give up the tiles where nothing stands now
++  for (const o of submergedIn(s, want)) {
++    if (!removeTakes(kinds, o.template)) continue;
++    removed.push(o.tile);
++    const kind = removeKindOf(o.template)!;
++    counts.set(kind, (counts.get(kind) ?? 0) + 1);
++  }
++  const trims = new Map<string, Set<number>>();
++  for (const f of s.features) {
++    // (not a ruin field: its columns' heights are assigned over its whole area, so giving tiles up would
++    // change the ones that stand)
++    if (f.kind !== "forest" && f.kind !== "berryPatch") continue;
++    if (!removeTakes(kinds, f.kind === "forest" ? "Pine" : "BlueberryBush")) continue;
++    const standing = new Set<number>();
++    for (const e of s.built.entities) if (e.owner === f.id) for (const [tx, ty] of entityTiles(e)) standing.add(ty * W + tx);
++    const gone = new Set<number>();
++    for (const i of runsToTiles(f.params.area as Runs, W)) if (want.has(i) && !standing.has(i)) gone.add(i);
++    if (gone.size) trims.set(f.id, gone);
++  }
++  if (!removed.length) throw Error("nothing to remove there");
++  const ops: EditOp[] = [];
++  if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
++  for (const [id, gone] of trims) {
++    const f = s.features.find((g) => g.id === id);
++    if (!f || !("area" in f.params)) continue;
++    const keep = runsToTiles(f.params.area as Runs, W).filter((i) => !gone.has(i));
++    // (a feature whose whole area was under water has nothing left: it goes)
++    ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
++  }
++  for (const [id, gone] of fields) {
++    const f = s.features.find((g) => g.id === id);
++    if (!f || f.kind !== "ruinField") continue;
++    const cleared = new Set<number>(f.params.cleared ? runsToTiles(f.params.cleared, W) : []);
++    for (const i of gone) cleared.add(i);
++    const left = runsToTiles(f.params.area, W).some((i) => !cleared.has(i));
++    ops.push(left ? { op: "updateFeature", params: { id, patch: { params: { cleared: tilesToRuns([...cleared].sort((a, b) => a - b), W) } } } } : { op: "deleteFeature", params: { id } });
++  }
++  for (const p of slopes) ops.push({ op: "removeSlope", params: p });
++  for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
++  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
++  const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
++  return {ops,label:label??auto,removed};
++}
