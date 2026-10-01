@@ -45,7 +45,9 @@ forces; the deploy and the live check passed. The High look's release is next (D
      `download.path()`, which resolves when the file is complete. The failure never reproduced here (92 runs of the
      old test, up to 12 in parallel, all passed), so it was a CI-timing race; the fixed file passes the same 60-run
      stress. If it ever fails again on `dev`'s CI, reopen D341's trace with that run's log.
-  3. Not done yet: September's Progress log copy, the faster settle's timing, the Wednesday allowance report.
+  3. **September's Progress log is copied** to [progress-log/2026-09.md](progress-log/2026-09.md): 232 comments of #57
+     (2026-09-26 to 2026-09-30 UTC). The 69 from October go into `2026-10.md` at that month's end.
+  4. Not done yet: the faster settle's timing, the Wednesday allowance report.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 

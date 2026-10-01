@@ -73,9 +73,10 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    fold `resources.mine_reach` into M9b's `resources.mine_site`.
 4. **Codex's open investigations** (hold until Kyler says): smoothness (#107, its 2–5 AM trial of 2026-10-01 pending),
    multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
-5. **Still to do from this session** (didn't make it; item 1 of the last-allowance tasks, proving this page's setup
-   command on a fresh clone, is done, see `docs/STATUS.md`): time the faster water settle (D359) on a quiet machine; copy September's Progress
-   log to `docs/progress-log/2026-09.md` (§7); the allowance report Kyler asked for on Wednesday evening wasn't written.
+5. **Still to do from this session** (what didn't make it): time the faster water settle (D359) on a quiet machine; the 
+   allowance report Kyler asked for on Wednesday evening wasn't written. **Done in the last-allowance session 
+   (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed, and 
+   September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7).
 6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
    keep-awake script, stopped with the session.
 6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
