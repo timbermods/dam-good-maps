@@ -38,9 +38,10 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
 
 ## Standing rules
 
-- **Tooltips (PLAN §20, D351):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an
-  accurate one-line tooltip saying what it does, plus its key or shortcut. Whoever changes a control's behaviour
-  updates its tooltip in the same commit; a test checks every interactive control has one.
+- **Tooltips (PLAN §20, D351, D361, D368):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an
+  accurate tooltip: a short phrase that tells its purpose at a glance, with its shortcut at the end as a small key cap
+  ("Carve a river" then a key cap 7); no second sentence, no technical detail, no key in brackets. Whoever changes a
+  control's behaviour updates its tooltip in the same commit; a test checks every interactive control has one.
 - **The editor's architecture (PLAN §20, D342):** every change to a map is an operation in `ops.schema.json`, in plain
   terms, validated and rejected with a one-line reason, never silently clamped; all editing logic lives in `src/core/`
   and runs headless in Node (`src/editor/` turns input into operations and shows results); every question the editor
@@ -122,7 +123,7 @@ text.
 - The site stays noindex and unannounced until launch. Launch needs versioned deploys (moved to Later, PLAN §20
   D285) and Kyler's go-ahead; then set the repository variable `DGM_PUBLIC` to `true`.
 - Steps outside the milestones are released the same way:
-  - the design pass (straight after Kyler's editor UI audit of the combined page, D236) is tagged `design-done` once Kyler has
+  - the design pass (in step 3, polish, after 3D, following Kyler's editor UI audit; D236, D349) is tagged `design-done` once Kyler has
     approved and merged it on `dev`;
   - Map look (after M8, before M9) is tagged `map-look-done` once Kyler approves the look, or ships inside the M9
     release;

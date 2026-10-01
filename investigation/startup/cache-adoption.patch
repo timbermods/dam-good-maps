@@ -1,0 +1,44 @@
+diff --git a/public/isolation-sw.js b/public/isolation-sw.js
+index 908cbf20..4c49b154 100644
+--- a/public/isolation-sw.js
++++ b/public/isolation-sw.js
+@@ -1,6 +1,31 @@
++// Insert into parallel-water's isolation-sw.js, retaining its sole fetch listener.
++// Cache only content-hashed Vite assets. First-map filenames currently are NOT hashes.
++const STARTUP_CACHE = 'dgm-startup-immutable-v1';
++const STARTUP_CACHE_LIMIT = 64;
++async function startupResponse(request) {
++  const url = new URL(request.url);
++  const scope = new URL(self.registration.scope);
++  const immutable = request.method === 'GET' && url.origin === scope.origin &&
++    url.pathname.startsWith(scope.pathname + 'assets/') &&
++    /-[A-Za-z0-9_-]{8,}\.(js|css|wasm)$/.test(url.pathname) && !url.search;
++  if (!immutable) return fetch(request);
++  let cache;
++  try { cache = await caches.open(STARTUP_CACHE); const hit = await cache.match(request); if (hit) return hit; }
++  catch { return fetch(request); }
++  const response = await fetch(request);
++  if (response.ok && !response.redirected && response.type !== 'opaque') {
++    try {
++      await cache.put(request, response.clone());
++      const keys = await cache.keys();
++      for (const key of keys.slice(0, Math.max(0, keys.length - STARTUP_CACHE_LIMIT))) await cache.delete(key);
++    } catch { /* Storage is optional; the network response is still valid. */ }
++  }
++  return response;
++}
++
+ // Adoption candidate: ONE fetch listener shared with any future offline cache.
+ // Bump this version when changing policy. Do not skipWaiting during an active edit.
+-const POLICY_VERSION = 'parallel-water-v1';
++const POLICY_VERSION = 'parallel-water-startup-v1';
+ self.addEventListener('install', () => {});
+ self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+ self.addEventListener('message', event => {
+@@ -22,5 +47,5 @@ self.addEventListener('fetch', event => {
+   if (url.origin!==self.location.origin) return;
+   // Put the startup investigation's network/cache selection HERE; policy must run
+   // after BOTH network and cache hits, including cached navigation and worker scripts.
+-  event.respondWith(fetch(request).then(isolate));
++  event.respondWith(startupResponse(request).then(isolate));
+ });

@@ -1,0 +1,2446 @@
+diff --git a/src/core/analysis/metrics.ts b/src/core/analysis/metrics.ts
+index 5d8c944b..62148749 100644
+--- a/src/core/analysis/metrics.ts
++++ b/src/core/analysis/metrics.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // What a generated map measures against the targets its settings map to (PLAN §5, §6): the
+ // yardstick of the per-setting batch tests (ROADMAP M6) and of `tools/settings-batch.ts`. The
+ // terrain and water measures follow investigation/analyze_maps.py, so a generated map is measured
+@@ -165,13 +166,13 @@ export function measure(m: Measurable): MapMetrics {
+     const p = main.params.path;
+     const [ax, ay] = p[0];
+     const [bx, by] = p[p.length - 1];
+-    const cl = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
++    const cl = __portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
+     let len = 0;
+     let dev = 0;
+     for (let k = 0; k < p.length; k++) {
+       const d = Math.abs((p[k][0] - ax) * (by - ay) - (p[k][1] - ay) * (bx - ax)) / cl;
+       if (d > dev) dev = d;
+-      if (k > 0) len += Math.sqrt((p[k][0] - p[k - 1][0]) ** 2 + (p[k][1] - p[k - 1][1]) ** 2);
++      if (k > 0) len += __portable.sqrt(__portable.pow((p[k][0] - p[k - 1][0]), 2) + __portable.pow((p[k][1] - p[k - 1][1]), 2));
+     }
+     const across = Math.abs(bx - ax) >= Math.abs(by - ay) ? H : W;
+     meander = dev / across;
+diff --git a/src/core/analysis/startPlanting.ts b/src/core/analysis/startPlanting.ts
+index f5cff653..b399cb8e 100644
+--- a/src/core/analysis/startPlanting.ts
++++ b/src/core/analysis/startPlanting.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // How the start's own planting sits round the start (PLAN §20 D252). The start rules plant groves
+ // for Minimum starting wood and berry patches for Minimum starting bushes within 20 tiles' walk of
+ // the start (D85, D164, D227): the forests whose role starts `forest/start/` and the berry patches
+@@ -77,7 +78,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
+       const y = (i - x) / W;
+       const dx = x - start.x;
+       const dy = y - start.y;
+-      const r = Math.sqrt(dx * dx + dy * dy);
++      const r = __portable.sqrt(dx * dx + dy * dy);
+       plants++;
+       dist += r;
+       if (r < nearest) nearest = r;
+@@ -88,7 +89,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
+       if (r < YARD_RADIUS) yard++;
+       if (r <= RING_RADIUS) {
+         inner++;
+-        byOctant[(Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8]++;
++        byOctant[(Math.round(__portable.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8]++;
+       }
+     }
+   }
+@@ -101,7 +102,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
+     innerShare: plants ? inner / plants : 0,
+     octants,
+     ring: octants >= RING_OCTANTS,
+-    lean: plants ? Math.sqrt(sx * sx + sy * sy) / plants : 0,
++    lean: plants ? __portable.sqrt(sx * sx + sy * sy) / plants : 0,
+     meanDistance: plants ? dist / plants : 0,
+     nearest,
+     kinds,
+diff --git a/src/core/analysis/straight.ts b/src/core/analysis/straight.ts
+index 6ffeab65..2ba201b7 100644
+--- a/src/core/analysis/straight.ts
++++ b/src/core/analysis/straight.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Ruler-straight channels (Kyler, 2026-09-26, D209): rivers and badwater streams must never run
+ // ruler-straight. Design version 2 had perfectly straight channels at 45 or 90 degrees with parallel,
+ // canal-like sides. This measures it on any map from its surface water alone, so generated maps,
+@@ -167,7 +168,7 @@ function runEnd(pts: readonly Pt[], i: number, tau: number, cap: number): number
+       end = j;
+       continue;
+     }
+-    const d = Math.sqrt(d2);
++    const d = __portable.sqrt(d2);
+     if (rx === 0 && ry === 0) {
+       rx = vx / d;
+       ry = vy / d;
+@@ -177,7 +178,7 @@ function runEnd(pts: readonly Pt[], i: number, tau: number, cap: number): number
+     const s = (rx * vy - ry * vx) / d;
+     if (c <= 0) break;
+     const sa = tau / d;
+-    const ca = Math.sqrt(1 - sa * sa);
++    const ca = __portable.sqrt(1 - sa * sa);
+     const denLo = c * ca + s * sa;
+     const denHi = c * ca - s * sa;
+     if (denLo <= 0 || denHi <= 0) break;
+@@ -250,7 +251,7 @@ function canalOf(runs: readonly StraightRun[], depth: ArrayLike<number>, W: numb
+   const dir = (r: StraightRun) => {
+     const dx = r.to[0] - r.from[0];
+     const dy = r.to[1] - r.from[1];
+-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
++    const l = __portable.sqrt(dx * dx + dy * dy) || 1;
+     return [dx / l, dy / l] as const;
+   };
+   for (let a = 0; a < runs.length; a++) {
+diff --git a/src/core/doc/placing.ts b/src/core/doc/placing.ts
+index a0e925b4..cd913d1e 100644
+--- a/src/core/doc/placing.ts
++++ b/src/core/doc/placing.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Placing things on the map (EDITOR_PLAN §4, roadmap M7): map objects (mine sites, relics,
+ // geothermal fields, unstable cores; thorn belts, weirs and plugs), resource areas (forests, berry
+ // patches and ruin fields, with what will grow and the ruins' calibrated clustering), and single
+@@ -157,7 +158,7 @@ function distanceNote(s: MapSession, kind: MapObjectKind, tiles: readonly (reado
+   const band = EXTRA_BANDS[kind];
+   if (!ctx.start || !band) return [];
+   let d = Infinity;
+-  for (const [x, y] of tiles) d = Math.min(d, Math.sqrt((x - ctx.start.x) * (x - ctx.start.x) + (y - ctx.start.y) * (y - ctx.start.y)));
++  for (const [x, y] of tiles) d = Math.min(d, __portable.sqrt((x - ctx.start.x) * (x - ctx.start.x) + (y - ctx.start.y) * (y - ctx.start.y)));
+   const sc = band.scaled ? bandScale(ctx.W, ctx.H) : 1;
+   const lo = Math.round(band.lo * sc);
+   const hi = band.hi < Infinity ? Math.round(band.hi * sc) : null;
+diff --git a/src/core/doc/tools.ts b/src/core/doc/tools.ts
+index 28a594d3..30e7a638 100644
+--- a/src/core/doc/tools.ts
++++ b/src/core/doc/tools.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Editing helpers (EDITOR_PLAN §4): what the editor's tools, and later Claude's proposals, turn a
+ // gesture or a request into: planned features and the operations that apply them. Each plans on the
+ // document's current map (the `BuildContext` of PLAN §19.3), so the same request gives the same
+@@ -123,7 +124,7 @@ function snapTo(p: Point, e: Edge, W: number, H: number): Point {
+
+ function arcLength(path: readonly Point[]): number {
+   let l = 0;
+-  for (let i = 0; i + 1 < path.length; i++) l += Math.sqrt((path[i + 1][0] - path[i][0]) ** 2 + (path[i + 1][1] - path[i][1]) ** 2);
++  for (let i = 0; i + 1 < path.length; i++) l += __portable.sqrt(__portable.pow((path[i + 1][0] - path[i][0]), 2) + __portable.pow((path[i + 1][1] - path[i][1]), 2));
+   return l;
+ }
+
+@@ -195,7 +196,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
+         const uy = pts[i + 1][1] - pts[i][1];
+         const vx = pts[j + 1][0] - pts[j][0];
+         const vy = pts[j + 1][1] - pts[j][1];
+-        if (ux * vx + uy * vy < -0.5 * Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
++        if (ux * vx + uy * vy < -0.5 * __portable.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
+         continue;
+       }
+       if (segmentSegment(pts[i], pts[i + 1], pts[j], pts[j + 1]) < clearance) return fail("the river comes back too close to itself: draw it without loops");
+@@ -237,7 +238,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
+       let under = Infinity;
+       for (let y = Math.max(0, Math.floor(p[1] - reach)); y <= Math.min(H - 1, Math.ceil(p[1] + reach)); y++)
+         for (let x = Math.max(0, Math.floor(p[0] - reach)); x <= Math.min(W - 1, Math.ceil(p[0] + reach)); x++) {
+-          if ((x - p[0]) ** 2 + (y - p[1]) ** 2 > reach * reach) continue;
++          if (__portable.pow((x - p[0]), 2) + __portable.pow((y - p[1]), 2) > reach * reach) continue;
+           const i = y * W + x;
+           if (ctx.channel?.[i]) {
+             for (const f of ctx.features) if (f.kind === "river" && f.id !== id && f.id !== exitRiver && !crossed.has(f.id) && nearPath(f.params.path, x, y) < f.params.width / 2 + 0.5) crossed.add(f.id);
+@@ -291,7 +292,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
+     const [ex, ey] = pts[pts.length - 1];
+     const rr = width / 2 + 2;
+     for (let y = Math.max(0, Math.floor(ey - rr)); y <= Math.min(H - 1, Math.ceil(ey + rr)); y++)
+-      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if ((x - ex) ** 2 + (y - ey) ** 2 <= rr * rr) endTiles.push(y * W + x);
++      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if (__portable.pow((x - ex), 2) + __portable.pow((y - ey), 2) <= rr * rr) endTiles.push(y * W + x);
+   }
+   const extra: EditOp[] = [];
+   if (exitRiver) {
+@@ -371,7 +372,7 @@ function pointSegment(p: Point, a: Point, b: Point): number {
+   else if (t > 1) t = 1;
+   const dx = a[0] + t * vx - p[0];
+   const dy = a[1] + t * vy - p[1];
+-  return Math.sqrt(dx * dx + dy * dy);
++  return __portable.sqrt(dx * dx + dy * dy);
+ }
+
+ /** The least distance between two segments (0 when they cross). */
+@@ -399,7 +400,7 @@ function nearPath(path: readonly Point[], x: number, y: number): number {
+     const py = ay + t * vy - y;
+     best = Math.min(best, px * px + py * py);
+   }
+-  return Math.sqrt(best);
++  return __portable.sqrt(best);
+ }
+
+ // -------------------------------------------------------------------------------------- lakes
+@@ -1015,7 +1016,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
+   for (let r = 1; r <= 24; r++) {
+     const ring: [number, number][] = [];
+     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([fromX + dx, fromY + dy]);
+-    ring.sort((a, b2) => (a[0] - fromX) ** 2 + (a[1] - fromY) ** 2 - ((b2[0] - fromX) ** 2 + (b2[1] - fromY) ** 2) || a[1] - b2[1] || a[0] - b2[0]);
++    ring.sort((a, b2) => __portable.pow((a[0] - fromX), 2) + __portable.pow((a[1] - fromY), 2) - (__portable.pow((b2[0] - fromX), 2) + __portable.pow((b2[1] - fromY), 2)) || a[1] - b2[1] || a[0] - b2[0]);
+     for (const [x, y] of ring) {
+       if (x < 2 || y < 2 || x > W - 3 || y > H - 3) continue;
+       if (feat) {
+diff --git a/src/core/features/geometry.ts b/src/core/features/geometry.ts
+index a9982936..a940950d 100644
+--- a/src/core/features/geometry.ts
++++ b/src/core/features/geometry.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Geometry shared by the rasterizers: distance from every tile to a river path, the arc position
+ // of the nearest point, and which side of the path a tile lies on; polygons; bed profiles.
+
+@@ -22,7 +23,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
+   for (let i = 0; i + 1 < n; i++) {
+     const dx = path[i + 1][0] - path[i][0];
+     const dy = path[i + 1][1] - path[i][1];
+-    const l = Math.sqrt(dx * dx + dy * dy);
++    const l = __portable.sqrt(dx * dx + dy * dy);
+     segLen.push(l);
+     cum.push(cum[i] + l);
+   }
+@@ -54,7 +55,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
+         }
+       }
+       const idx = y * W + x;
+-      d[idx] = Math.sqrt(best);
++      d[idx] = __portable.sqrt(best);
+       s[idx] = bestS;
+       side[idx] = bestSide;
+     }
+@@ -68,7 +69,7 @@ export function arcAtX(path: Point[], x: number): number {
+   for (let i = 0; i + 1 < path.length; i++) {
+     const [ax, ay] = path[i];
+     const [bx, by] = path[i + 1];
+-    const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
++    const l = __portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+     if (x <= bx || i + 2 === path.length) {
+       const t = bx !== ax ? Math.max(0, Math.min(1, (x - ax) / (bx - ax))) : 0;
+       return acc + t * l;
+@@ -84,7 +85,7 @@ export function pointAtArc(path: Point[], s: number): { p: Point; normal: Point
+   for (let i = 0; i + 1 < path.length; i++) {
+     const [ax, ay] = path[i];
+     const [bx, by] = path[i + 1];
+-    const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
++    const l = __portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+     if (s <= acc + l || i + 2 === path.length) {
+       const t = l > 0 ? Math.max(0, Math.min(1, (s - acc) / l)) : 0;
+       const nx = l > 0 ? -(by - ay) / l : 0;
+@@ -160,7 +161,7 @@ export function nearestOnPath(path: readonly Point[], x: number, y: number): { p
+     const px = ax + u * vx;
+     const py = ay + u * vy;
+     const d = (px - x) * (px - x) + (py - y) * (py - y);
+-    const len = Math.sqrt(l2);
++    const len = __portable.sqrt(l2);
+     if (d < best) {
+       best = d;
+       bp = [px, py];
+@@ -168,7 +169,7 @@ export function nearestOnPath(path: readonly Point[], x: number, y: number): { p
+     }
+     arc += len;
+   }
+-  return { p: bp, d: Math.sqrt(best), s: bs };
++  return { p: bp, d: __portable.sqrt(best), s: bs };
+ }
+
+ /** Squared distance from (x, y) to the segment a–b. */
+@@ -186,6 +187,6 @@ export function segmentDistance2(x: number, y: number, a: readonly number[], b:
+
+ /** Round to a fixed number of decimals for compact, stable JSON. */
+ export function round(v: number, decimals = 2): number {
+-  const k = decimals === 2 ? 100 : decimals === 3 ? 1000 : 10 ** decimals;
++  const k = decimals === 2 ? 100 : decimals === 3 ? 1000 : __portable.pow(10, decimals);
+   return Math.round(v * k) / k;
+ }
+diff --git a/src/core/features/raster/resources.ts b/src/core/features/raster/resources.ts
+index 32c16e03..65a96b8d 100644
+--- a/src/core/features/raster/resources.ts
++++ b/src/core/features/raster/resources.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Resource rasterizers (PLAN §19.8 step 11): berry patches, forests and ruin fields, placed on the
+ // settled water's soil moisture. Each feature draws from its own streams (PLAN §19.7) and places on
+ // free tiles only, so a feature's entities depend only on its own params and on the ground, water
+@@ -145,7 +146,7 @@ export function assignRuinHeights(tiles: number[], W: number, rng: Rng, mix: num
+   }
+   cx /= n;
+   cy /= n;
+-  const r = xs.map((x, k) => Math.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
++  const r = xs.map((x, k) => __portable.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
+   let rmax = 0;
+   for (const v of r) if (v > rmax) rmax = v;
+   if (rmax === 0) rmax = 1;
+diff --git a/src/core/features/setpieces/badwaterBasin.ts b/src/core/features/setpieces/badwaterBasin.ts
+index f4d4addb..5dc836ca 100644
+--- a/src/core/features/setpieces/badwaterBasin.ts
++++ b/src/core/features/setpieces/badwaterBasin.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Badwater (PLAN §9.5). One builder, two modes.
+ // - `marsh` (River Valley, PLAN §20 D24): a BadwaterSource 3×3 beside the river below the falls, as
+ //   far from the start as the valley allows. The source sits in a pit one level below the
+@@ -101,7 +102,7 @@ function distToPath(path: readonly Point[], x: number, y: number): number {
+     const d = px * px + py * py;
+     if (d < best) best = d;
+   }
+-  return Math.sqrt(best);
++  return __portable.sqrt(best);
+ }
+
+ // -------------------------------------------------------------------------------------- planning
+diff --git a/src/core/features/setpieces/damSite.ts b/src/core/features/setpieces/damSite.ts
+index ce2d0df4..a9bd13e8 100644
+--- a/src/core/features/setpieces/damSite.ts
++++ b/src/core/features/setpieces/damSite.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Dam site (PLAN §9.1): a rock ridge across a river valley, cut by the channel, so one short dam
+ // across the gap holds the basin upstream. The ridge runs well past the valley floor into the
+ // terraces so the reservoir cannot leak round its ends, and its top stays at least two levels
+@@ -113,7 +114,7 @@ export const damSite: SetPieceBuilder = {
+     const c = pointAtArc(path, p.at).p;
+     const ax = path[path.length - 1][0] - path[0][0];
+     const ay = path[path.length - 1][1] - path[0][1];
+-    const al = Math.sqrt(ax * ax + ay * ay) || 1;
++    const al = __portable.sqrt(ax * ax + ay * ay) || 1;
+     const tx = ax / al; // along the valley axis
+     const ty = ay / al;
+     const nx = -ty; // across it
+@@ -187,7 +188,7 @@ export function damBand(feature: SetPieceFeature, t: Pick<BuildTarget, "W" | "H"
+   const c = pointAtArc(path, p.at).p;
+   const ax = path[path.length - 1][0] - path[0][0];
+   const ay = path[path.length - 1][1] - path[0][1];
+-  const al = Math.sqrt(ax * ax + ay * ay) || 1;
++  const al = __portable.sqrt(ax * ax + ay * ay) || 1;
+   const tx = ax / al;
+   const ty = ay / al;
+   const nx = -ty;
+@@ -230,7 +231,7 @@ export function reservoirOf(plan: DamSitePlan, river: RiverFeature, ctx: PlanCon
+   let dir = dirs[0];
+   let least = Infinity;
+   for (const d of dirs) {
+-    const dot = Math.abs(d[1] * ax + d[0] * ay) / Math.sqrt(d[0] * d[0] + d[1] * d[1]);
++    const dot = Math.abs(d[1] * ax + d[0] * ay) / __portable.sqrt(d[0] * d[0] + d[1] * d[1]);
+     if (dot < least) {
+       least = dot;
+       dir = d;
+diff --git a/src/core/features/setpieces/gorge.ts b/src/core/features/setpieces/gorge.ts
+index 87f61e75..1ea0c5a5 100644
+--- a/src/core/features/setpieces/gorge.ts
++++ b/src/core/features/setpieces/gorge.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Gorge (PLAN §9.9): a river's channel 3–9 tiles wide between walls at least 2 levels above the
+ // bed, 6–40 tiles long, with the river's bed profile running through it. The river is narrowed to
+ // the gorge's width along it (the river's rasterizer asks, `narrowsOf`), and the walls rise on both
+@@ -54,7 +55,7 @@ function nearest(path: readonly [number, number][], x: number, y: number): { d:
+     const vx = path[i + 1][0] - ax;
+     const vy = path[i + 1][1] - ay;
+     const l2 = vx * vx + vy * vy;
+-    const l = Math.sqrt(l2);
++    const l = __portable.sqrt(l2);
+     let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
+     if (t < 0) t = 0;
+     else if (t > 1) t = 1;
+@@ -67,7 +68,7 @@ function nearest(path: readonly [number, number][], x: number, y: number): { d:
+     }
+     acc += l;
+   }
+-  return { d: Math.sqrt(best), s: bestS };
++  return { d: __portable.sqrt(best), s: bestS };
+ }
+
+ /** The notch's tiles, from the first tile outside the channel outward, square to the river along
+@@ -156,7 +157,7 @@ export const gorge: SetPieceBuilder = {
+     const report: string[] = [];
+     const path = river.params.path;
+     let total = 0;
+-    for (let i = 0; i + 1 < path.length; i++) total += Math.sqrt((path[i + 1][0] - path[i][0]) ** 2 + (path[i + 1][1] - path[i][1]) ** 2);
++    for (let i = 0; i + 1 < path.length; i++) total += __portable.sqrt(__portable.pow((path[i + 1][0] - path[i][0]), 2) + __portable.pow((path[i + 1][1] - path[i][1]), 2));
+     let length = clampReported("Length", Math.round(Number(req.length)), { min: 6, max: 40 }, report, "a gorge has (PLAN §9.9)");
+     let from = Math.max(1, Number(req.from));
+     if (from + length > total - 1) {
+diff --git a/src/core/features/setpieces/naturalNarrows.ts b/src/core/features/setpieces/naturalNarrows.ts
+index bf2e9506..8faf52f4 100644
+--- a/src/core/features/setpieces/naturalNarrows.ts
++++ b/src/core/features/setpieces/naturalNarrows.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // A natural narrows on a river (#63: no Dam site tool in the editor; D111: dam opportunities are the
+ // land's own): two hillside spurs close in on the river from its two banks (land/narrows.ts, design
+ // version 2's builder), so a short dam across the gap they leave holds the river back. It never
+@@ -59,12 +60,12 @@ function planIt(req: PlanRecord, ctx: PlanContext, id: string | null): PlanOutco
+   let cx = 0;
+   let cy = 0;
+   let best = Infinity;
+-  const L = river.params.path.reduce((s, q, k, a) => (k ? s + Math.hypot(q[0] - a[k - 1][0], q[1] - a[k - 1][1]) : 0), 0);
++  const L = river.params.path.reduce((s, q, k, a) => (k ? s + __portable.hypot(q[0] - a[k - 1][0], q[1] - a[k - 1][1]) : 0), 0);
+   let acc = 0;
+   for (let k = 1; k < river.params.path.length; k++) {
+     const [ax, ay] = river.params.path[k - 1];
+     const [bx, by] = river.params.path[k];
+-    const l = Math.hypot(bx - ax, by - ay);
++    const l = __portable.hypot(bx - ax, by - ay);
+     const want = at * L;
+     if (acc + l >= want && l > 0 && best === Infinity) {
+       const u = (want - acc) / l;
+diff --git a/src/core/features/setpieces/secondDistrict.ts b/src/core/features/setpieces/secondDistrict.ts
+index 0bd64740..b3e1e267 100644
+--- a/src/core/features/setpieces/secondDistrict.ts
++++ b/src/core/features/setpieces/secondDistrict.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // The second district site (PLAN §9.8): a place for a second district, 60–120 tiles from the start
+ // on maps of 128² and up, with its own clean water in pump reach and 600+ tiles of level land. It
+ // changes no terrain: it marks the site, the derived slopes join its ground to the start's network
+@@ -41,7 +42,7 @@ export function pumpableWithin(ctx: Pick<PlanContext, "W" | "H" | "heights" | "w
+       if (!(D[i] >= 0.3) || (C && C[i] >= 0.05)) continue;
+       const s = h[i] + D[i];
+       if (s > level + 0.01 || s < level - 2) continue;
+-      const d = Math.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y));
++      const d = __portable.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y));
+       if (d < best) best = d;
+     }
+   return best <= max ? best : Infinity;
+@@ -62,7 +63,7 @@ function planDistrict(req: PlanRecord, ctx: PlanContext): PlanOutcome {
+   const water = pumpableWithin(ctx, x, y, level, DISTRICT_WATER);
+   if (ctx.water && !Number.isFinite(water)) return { ok: false, errors: [`a district needs clean water a pump can reach within ${DISTRICT_WATER} tiles`] };
+   const s = ctx.start;
+-  const distance = s ? Math.round(Math.sqrt((x - s.x) * (x - s.x) + (y - s.y) * (y - s.y))) : 0;
++  const distance = s ? Math.round(__portable.sqrt((x - s.x) * (x - s.x) + (y - s.y) * (y - s.y))) : 0;
+   const report = [`a second district site on ${fmt(land)} tiles of level ground at level ${level}${s ? `, ${distance} tiles from the start` : ""}${Number.isFinite(water) ? `, with pumpable water ${fmt(Math.round(water))} tiles away` : ""}`];
+   if (s && (distance < 60 || distance > 120)) report.push("second districts usually stand 60–120 tiles from the start");
+   const plan: DistrictPlan = { x, y, level, radius: DISTRICT_RADIUS, land, distance, water: Number.isFinite(water) ? Math.round(water) : -1 };
+diff --git a/src/core/features/setpieces/waterfall.ts b/src/core/features/setpieces/waterfall.ts
+index c62e8eb7..9cdc53bc 100644
+--- a/src/core/features/setpieces/waterfall.ts
++++ b/src/core/features/setpieces/waterfall.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Waterfall (PLAN §9.2): one builder, two modes.
+ // - On a river (what the generator makes): a step in the river's bed profile. The river's own flow
+ //   goes over it, so its terrain is the river's carve; the set piece holds the lip's place and drop
+@@ -172,7 +173,7 @@ function pathLength(path: readonly [number, number][]): number {
+   for (let i = 0; i + 1 < path.length; i++) {
+     const dx = path[i + 1][0] - path[i][0];
+     const dy = path[i + 1][1] - path[i][1];
+-    l += Math.sqrt(dx * dx + dy * dy);
++    l += __portable.sqrt(dx * dx + dy * dy);
+   }
+   return l;
+ }
+diff --git a/src/core/features/slopes.ts b/src/core/features/slopes.ts
+index 0ad522aa..ddf712b7 100644
+--- a/src/core/features/slopes.ts
++++ b/src/core/features/slopes.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Derived slopes (PLAN §7.5, build step 8). Beavers cannot cross even a 1-level step without a
+ // Slope, and player stairs cost 70 science. A slope stands on the low tile, its high side toward the
+ // higher neighbour; the tile behind its low side must be at the same level. Slopes are derived again
+@@ -150,7 +151,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
+       .map((c) => {
+         const x = c[0] % W;
+         const y = (c[0] - x) / W;
+-        const d2 = (x - start.x) ** 2 + (y - start.y) ** 2;
++        const d2 = __portable.pow((x - start.x), 2) + __portable.pow((y - start.y), 2);
+         const toward = towardWater && toWater ? Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) + toWater[c[0]] : 0;
+         return { c, x, y, d2, toward };
+       })
+diff --git a/src/core/forces/carve/character.ts b/src/core/forces/carve/character.ts
+index cdf1ae0b..786779b4 100644
+--- a/src/core/forces/carve/character.ts
++++ b/src/core/forces/carve/character.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // A carve's character (D199): its width, its swings (Wander) and the pools, rapids and falls along
+ // it, from its personality seed; and the map's own hard rock cores, which a wide river splits
+ // round and rejoins. Everything here reads distances along the course, never time, and the rock
+@@ -20,7 +21,7 @@ export const naturalWidth = (power: number) => 2.8 + power * 0.1;
+
+ /** How deep a carve of this Power (and Width) cuts where it starts, in levels below the land,
+  *  when Depth follows Power (D226): its incision; its falls and rapids take it deeper downstream. */
+-export const naturalDepth = (power: number, width?: number | null) => Math.round(Math.min(12, 1 + 6 * (power / 100) * Math.sqrt(naturalWidth(power) / (width ?? naturalWidth(power)))));
++export const naturalDepth = (power: number, width?: number | null) => Math.round(Math.min(12, 1 + 6 * (power / 100) * __portable.sqrt(naturalWidth(power) / (width ?? naturalWidth(power)))));
+
+ /** Stateless integer mixer; sampling order, frame rate and wall time are irrelevant. */
+ export function mixSeed(n: number): number {
+@@ -48,7 +49,7 @@ export class RiverCharacter {
+     this.wander = (s.wander ?? 35) / 100;
+     // The same volume concentrated into a slot cuts deeper; a broad override spreads its work. Auto
+     // width retains the existing power relationship.
+-    this.intensity = Math.sqrt(naturalWidth(s.power) / width);
++    this.intensity = __portable.sqrt(naturalWidth(s.power) / width);
+     this.rock = new Uint8Array(m.W * m.H);
+     if (!s.layers || width < 5) return;
+     // Map-fixed resistant outcrops, not reroll-dependent random rubble. A 2+ tile core remains above
+@@ -65,19 +66,19 @@ export class RiverCharacter {
+         const hard = s.layers ? (m.rockLayers?.[level] ?? ((level + (geology % 4)) % 4 === 0 ? 1 : 0)) : 0;
+         // Broad competent rock masses may retain a core even between hard lips.
+         if ((!hard && h % 3 !== 0) || level < 3 || m.water.depth[i] > 0.1) continue;
+-        if (Math.hypot(x - (origin % m.W), y - Math.floor(origin / m.W)) < this.radius * 2 + radius + 7) continue;
+-        if (end !== undefined && Math.hypot(x - (end % m.W), y - Math.floor(end / m.W)) < this.radius + radius + 5) continue;
++        if (__portable.hypot(x - (origin % m.W), y - Math.floor(origin / m.W)) < this.radius * 2 + radius + 7) continue;
++        if (end !== undefined && __portable.hypot(x - (end % m.W), y - Math.floor(end / m.W)) < this.radius + radius + 5) continue;
+         this.knobs.push({ x, y, radius });
+         for (let yy = Math.ceil(y - radius); yy <= Math.floor(y + radius); yy++)
+           for (let xx = Math.ceil(x - radius); xx <= Math.floor(x + radius); xx++)
+-            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H && Math.hypot(xx - x, yy - y) <= radius) this.rock[yy * m.W + xx] = 1;
++            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H && __portable.hypot(xx - x, yy - y) <= radius) this.rock[yy * m.W + xx] = 1;
+       }
+   }
+
+   width(distance: number): number {
+     // Smooth reaches at two scales, plus a short constriction preceding rapids.
+-    const reach = 0.99 + 0.24 * Math.sin(distance * 0.105 + this.phase) + 0.13 * Math.sin(distance * 0.037 + this.phase2);
+-    const throat = 1 - 0.17 * Math.pow(Math.max(0, Math.sin(distance * 0.19 + this.phase2)), 6);
++    const reach = 0.99 + 0.24 * __portable.sin(distance * 0.105 + this.phase) + 0.13 * __portable.sin(distance * 0.037 + this.phase2);
++    const throat = 1 - 0.17 * __portable.pow(Math.max(0, __portable.sin(distance * 0.19 + this.phase2)), 6);
+     return Math.max(1.05, this.radius * reach * throat);
+   }
+
+@@ -88,7 +89,7 @@ export class RiverCharacter {
+     const wavelength = 95 * (1 - this.wander) + this.wander * (25 + this.radius * 3);
+     const k = (2 * Math.PI) / wavelength;
+     const phase = k * progress + this.phase;
+-    return Math.atan(amplitude * k * (Math.cos(phase) + 0.12 * Math.cos(phase * 0.5 + this.phase2)));
++    return __portable.atan(amplitude * k * (__portable.cos(phase) + 0.12 * __portable.cos(phase * 0.5 + this.phase2)));
+   }
+
+   /** A seeded sequence of pools, single-level rapids and occasional two-level falls. */
+@@ -112,7 +113,7 @@ export class RiverCharacter {
+       const along = vx * dx + vy * dy;
+       const side = -vx * dy + vy * dx;
+       if (Math.abs(along) > length || Math.abs(side) > width + k.radius + 2) continue;
+-      const d = Math.hypot(vx, vy);
++      const d = __portable.hypot(vx, vy);
+       if (d < best) {
+         best = d;
+         selected = k;
+@@ -124,7 +125,7 @@ export class RiverCharacter {
+     const t = Math.max(0, 1 - Math.abs(along) / length);
+     const ease = t * t * (3 - 2 * t);
+     const branchWidth = Math.max(1.05, width * (1 - 0.56 * ease));
+-    const spread = (selected.radius + branchWidth + 0.9) * Math.sin((t * Math.PI) / 2);
++    const spread = (selected.radius + branchWidth + 0.9) * __portable.sin((t * Math.PI) / 2);
+     return {
+       knob: selected,
+       lanes: [-1, 1].map((sign) => {
+diff --git a/src/core/forces/carve/course.ts b/src/core/forces/carve/course.ts
+index b8a137e8..4d0b69ba 100644
+--- a/src/core/forces/carve/course.ts
++++ b/src/core/forces/carve/course.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Where a carve's head goes (D194, D199). Aim steers toward its end point, or along its drawn path
+ // (D321, item 41): along a smooth curve (Catmull-Rom) through the origin, the path's points and the end, toward a
+ // point a few tiles ahead on it, its cost the length of curve still to go; Unleash follows the way
+@@ -33,7 +34,7 @@ export function pathCurve(points: readonly { x: number; y: number }[]): { x: num
+     const p1 = p(k);
+     const p2 = p(k + 1);
+     const p3 = p(k + 2);
+-    const n = Math.max(2, Math.ceil(Math.hypot(p2.x - p1.x, p2.y - p1.y) / CURVE_STEP));
++    const n = Math.max(2, Math.ceil(__portable.hypot(p2.x - p1.x, p2.y - p1.y) / CURVE_STEP));
+     for (let j = 1; j <= n; j++) {
+       const t = j / n;
+       const t2 = t * t;
+@@ -41,14 +42,14 @@ export function pathCurve(points: readonly { x: number; y: number }[]): { x: num
+       const c = (a: number, b: number, c1: number, d: number) => 0.5 * (2 * b + (-a + c1) * t + (2 * a - 5 * b + 4 * c1 - d) * t2 + (-a + 3 * b - 3 * c1 + d) * t3);
+       const x = c(p0.x, p1.x, p2.x, p3.x);
+       const y = c(p0.y, p1.y, p2.y, p3.y);
+-      ss.push(ss[ss.length - 1] + Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]));
++      ss.push(ss[ss.length - 1] + __portable.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]));
+       xs.push(x);
+       ys.push(y);
+     }
+   }
+   return { x: xs, y: ys, s: ss };
+ }
+-export const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
++export const angleDelta = (a: number, b: number) => __portable.atan2(__portable.sin(a - b), __portable.cos(a - b));
+
+ export interface CoursePoint {
+   x: number;
+@@ -86,7 +87,7 @@ export class Course {
+       const distance = new Float64Array(m.W * m.H);
+       for (const i of d.order) {
+         const r = d.rcv[i];
+-        if (r >= 0) distance[i] = distance[r] + Math.hypot((i % m.W) - (r % m.W), Math.floor(i / m.W) - Math.floor(r / m.W));
++        if (r >= 0) distance[i] = distance[r] + __portable.hypot((i % m.W) - (r % m.W), Math.floor(i / m.W) - Math.floor(r / m.W));
+       }
+       this.potential = Float64Array.from(d.filled, (v, i) => v * 16 + distance[i]);
+       this.receivers = d.rcv;
+@@ -103,7 +104,7 @@ export class Course {
+     let best = this.along;
+     let d = Infinity;
+     for (let k = this.along; k < Math.min(c.x.length, this.along + CURVE_WINDOW); k++) {
+-      const e = (c.x[k] - x) ** 2 + (c.y[k] - y) ** 2;
++      const e = __portable.pow((c.x[k] - x), 2) + __portable.pow((c.y[k] - y), 2);
+       if (e < d) {
+         d = e;
+         best = k;
+@@ -122,9 +123,9 @@ export class Course {
+     const c = this.curve;
+     if (c) {
+       const k = this.nearest(x, y);
+-      return c.s[c.s.length - 1] - c.s[k] + Math.hypot(c.x[k] - x, c.y[k] - y);
++      return c.s[c.s.length - 1] - c.s[k] + __portable.hypot(c.x[k] - x, c.y[k] - y);
+     }
+-    if (this.settings.mode === "aim") return Math.hypot((this.intent.end! % this.m.W) - x, Math.floor(this.intent.end! / this.m.W) - y);
++    if (this.settings.mode === "aim") return __portable.hypot((this.intent.end! % this.m.W) - x, Math.floor(this.intent.end! / this.m.W) - y);
+     const { W, H } = this.m;
+     const xx = Math.max(0, Math.min(W - 1, x));
+     const yy = Math.max(0, Math.min(H - 1, y));
+@@ -144,13 +145,13 @@ export class Course {
+       const k = this.nearest(x, y);
+       let j = k;
+       while (j + 1 < c.x.length && c.s[j] - c.s[k] < LOOK_AHEAD) j++;
+-      return Math.atan2(c.y[j] - y, c.x[j] - x);
++      return __portable.atan2(c.y[j] - y, c.x[j] - x);
+     }
+-    if (this.settings.mode === "aim") return Math.atan2(Math.floor(this.intent.end! / this.m.W) - y, (this.intent.end! % this.m.W) - x);
++    if (this.settings.mode === "aim") return __portable.atan2(Math.floor(this.intent.end! / this.m.W) - y, (this.intent.end! % this.m.W) - x);
+     const { W, H } = this.m;
+     let i = Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)));
+     for (let k = 0; k < 10 && this.receivers![i] >= 0; k++) i = this.receivers![i];
+-    return Math.atan2(Math.floor(i / W) - y, (i % W) - x);
++    return __portable.atan2(Math.floor(i / W) - y, (i % W) - x);
+   }
+
+   plan(x: number, y: number) {
+@@ -165,7 +166,7 @@ export class Course {
+
+   accept(x: number, y: number, heading: number, bearing: number, straightening: boolean) {
+     if (this.curve) this.along = this.nearest(x, y);
+-    this.forward += 1.35 * Math.max(0.05, Math.cos(angleDelta(heading, bearing)));
++    this.forward += 1.35 * Math.max(0.05, __portable.cos(angleDelta(heading, bearing)));
+     this.trace.push({ x, y, cost: this.cost(x, y), bearing, heading, straightening });
+   }
+ }
+diff --git a/src/core/forces/carve/edge.ts b/src/core/forces/carve/edge.ts
+index aa6f1844..15f540f4 100644
+--- a/src/core/forces/carve/edge.ts
++++ b/src/core/forces/carve/edge.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Carve clicked at the map's edge (PLAN §20 D360 (1a), from D356's check): a river unleashed where its
+ // water would run straight off the map carved almost nothing. Such a click carves inward instead: the
+ // river is aimed into the map (cutting through rises, as a drawn river does), toward the lowest ground
+@@ -45,17 +46,17 @@ export function edgeAim(heights: ArrayLike<number>, W: number, H: number, origin
+   const near = Math.min(dl, dr, dt, db);
+   let nx = (dl === near ? 1 : 0) - (dr === near ? 1 : 0);
+   let ny = (dt === near ? 1 : 0) - (db === near ? 1 : 0);
+-  const n = Math.hypot(nx, ny) || 1;
++  const n = __portable.hypot(nx, ny) || 1;
+   nx /= n;
+   ny /= n;
+-  const inward = Math.atan2(ny, nx);
++  const inward = __portable.atan2(ny, nx);
+   const reach = Math.min(Math.min(W, H) * 0.45, 18 + 0.5 * power);
+   let best: number | null = null;
+   let score = Infinity;
+   for (let k = -4; k <= 4; k++) {
+     const a = inward + (k * Math.PI) / 12;
+-    const ex = Math.round(x + Math.cos(a) * reach);
+-    const ey = Math.round(y + Math.sin(a) * reach);
++    const ex = Math.round(x + __portable.cos(a) * reach);
++    const ey = Math.round(y + __portable.sin(a) * reach);
+     if (ex < 2 || ey < 2 || ex > W - 3 || ey > H - 3) continue;
+     const s = heights[ey * W + ex] + Math.abs(k) * 0.01;
+     if (s < score) {
+diff --git a/src/core/forces/carve/oxbow.ts b/src/core/forces/carve/oxbow.ts
+index a872f581..8a41e7b8 100644
+--- a/src/core/forces/carve/oxbow.ts
++++ b/src/core/forces/carve/oxbow.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // A cut-off bend (D199, high Wander): a long bend on one side of its shortcut, with a narrow neck
+ // the river can cut through. Only one cutoff per carve. Sediment settles in both old mouths, two
+ // bars across the bend, so the crescent between them holds its water as an oxbow lake (D216).
+@@ -36,7 +37,7 @@ export function findNeck(path: Station[], step: number): Oxbow | null {
+     const A = path[start];
+     const dx = B.x - A.x;
+     const dy = B.y - A.y;
+-    const d = Math.hypot(dx, dy);
++    const d = __portable.hypot(dx, dy);
+     const radius = Math.min(A.width, B.width);
+     const arc = (end - start) * 1.35;
+     if (d < radius * 2 + 3 || d > radius * 4 + 10 || arc < d * 2.2) continue;
+diff --git a/src/core/forces/carve/river.ts b/src/core/forces/carve/river.ts
+index a911cd51..79141085 100644
+--- a/src/core/forces/carve/river.ts
++++ b/src/core/forces/carve/river.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // A carved river's own shape, once the carve has cut its canyon (PLAN §20 D321, items 17 and 18).
+ //
+ // **River depth** (item 17): in Timberborn most rivers are one or two levels deep, which keeps them
+@@ -112,7 +113,7 @@ function shapeBanks(run: CarveRun, banks: number, depth: number, set: (i: number
+         const t = clamp(raw, 0, 1);
+         const px = a.x + ex * t;
+         const py = a.y + ey * t;
+-        const d = Math.hypot(x - px, y - py);
++        const d = __portable.hypot(x - px, y - py);
+         if (d >= dist[i]) continue;
+         dist[i] = d;
+         near[i] = t > 0.5 ? k + 1 : k;
+diff --git a/src/core/forces/carve/run.ts b/src/core/forces/carve/run.ts
+index f440d964..14ac0a3e 100644
+--- a/src/core/forces/carve/run.ts
++++ b/src/core/forces/carve/run.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Carve, a force of nature (PLAN §20 D194, D199): a deliberately exaggerated fluvial force, not the
+ // game's water, which never erodes. A head moves 1.35 tiles every two steps, favouring its
+ // momentum, the way down and the ground it can overcome (Aim steers toward its end point; Defy
+@@ -290,7 +291,7 @@ export class CarveRun implements ForceRun {
+     this.bed = Math.max(Math.min(2, input.heights[intent.origin]), input.heights[intent.origin] - Math.round(Math.min(12, 1 + 6 * p * this.character.intensity)));
+     this.energy = Math.max(input.W, input.H) * (1.2 + 4 * p) * (1 + 0.6 * this.character.wander);
+     this.heading = this.course.guide(x, y);
+-    this.head = { x, y, z: input.heights[intent.origin], dx: Math.cos(this.heading), dy: Math.sin(this.heading), width: this.character.width(0), event: "surge", cut: 0 };
++    this.head = { x, y, z: input.heights[intent.origin], dx: __portable.cos(this.heading), dy: __portable.sin(this.heading), width: this.character.width(0), event: "surge", cut: 0 };
+     if (settings.mode === "aim" && !settings.defyGravity && input.heights[intent.end!] > input.heights[intent.origin]) {
+       throw new Error("The end point is uphill of the start");
+     }
+@@ -375,12 +376,12 @@ export class CarveRun implements ForceRun {
+     const grade = Math.max(0, sourceBed - drop);
+     this.bed = Math.min(this.bed, grade, Math.max(0, Math.max(Math.min(2, raw), raw - incision) - drop));
+     const reachWidth = this.character.width(this.metrics.distance);
+-    const dx = Math.cos(this.heading);
+-    const dy = Math.sin(this.heading);
++    const dx = __portable.cos(this.heading);
++    const dy = __portable.sin(this.heading);
+     // Curvature over a reach, not a single candidate turn: coherent cut banks and inner shelves
+     // survive at maximum Wander without speckled tile noise.
+     const prior = this.path[Math.max(0, this.path.length - 6)];
+-    const bend = prior ? clamp(angleDelta(this.heading, Math.atan2(prior.dy, prior.dx)) / 0.9, -1, 1) : 0;
++    const bend = prior ? clamp(angleDelta(this.heading, __portable.atan2(prior.dy, prior.dx)) / 0.9, -1, 1) : 0;
+     const width = reachWidth * (1 - 0.22 * this.character.wander + 0.5 * Math.abs(bend));
+     const { lanes, knob } = this.character.lanes(x, y, dx, dy, width);
+     let event: ForceHead["event"] = "surge";
+@@ -415,7 +416,7 @@ export class CarveRun implements ForceRun {
+         for (let xx = Math.max(0, Math.floor(lane.x - radius)); xx <= Math.min(W - 1, Math.ceil(lane.x + radius)); xx++) {
+           const i = yy * W + xx;
+           if (this.keep[i] || this.character.rock[i] || this.sign[i] > 0) continue;
+-          const d = Math.hypot(xx - lane.x, yy - lane.y);
++          const d = __portable.hypot(xx - lane.x, yy - lane.y);
+           const slope = this.settings.walls === "wide" ? 1 : 4;
+           const outside = ((xx - x) * dy - (yy - y) * dx) * Math.sign(bend);
+           const innerShelf = Math.abs(bend) > 0.3 && outside < -reachWidth * 0.2 ? Math.min(2, Math.ceil((-outside / reachWidth - 0.2) * Math.abs(bend) * 2)) : 0;
+@@ -446,7 +447,7 @@ export class CarveRun implements ForceRun {
+     for (let yy = Math.max(0, Math.floor(y - radius - 1)); yy <= Math.min(H - 1, Math.ceil(y + radius + 1)); yy++)
+       for (let xx = Math.max(0, Math.floor(x - radius - 1)); xx <= Math.min(W - 1, Math.ceil(x + radius + 1)); xx++) {
+         const i = yy * W + xx;
+-        const d = Math.hypot(xx - x, yy - y);
++        const d = __portable.hypot(xx - x, yy - y);
+         let t = floor + Math.ceil(Math.max(0, d - radius) * 4);
+         if (this.depth !== null) t = Math.max(t, this.original[i] - this.depth);
+         t = Math.max(t, this.floor);
+@@ -509,7 +510,7 @@ export class CarveRun implements ForceRun {
+           if (segmentsCross(a, b, path[k], path[k + 1])) return true;
+         }
+     return this.oxbows.some((o) =>
+-      o.neck.some((c, k, list) => k + 1 < list.length && Math.hypot(a.x - c.x, a.y - c.y) > 1e-6 && Math.hypot(a.x - list[k + 1].x, a.y - list[k + 1].y) > 1e-6 && segmentsCross(a, b, c, list[k + 1])),
++      o.neck.some((c, k, list) => k + 1 < list.length && __portable.hypot(a.x - c.x, a.y - c.y) > 1e-6 && __portable.hypot(a.x - list[k + 1].x, a.y - list[k + 1].y) > 1e-6 && segmentsCross(a, b, c, list[k + 1])),
+     );
+   }
+
+@@ -522,13 +523,13 @@ export class CarveRun implements ForceRun {
+       return;
+     }
+     const goal = this.settings.mode === "aim" ? { x: this.intent.end! % W, y: Math.floor(this.intent.end! / W) } : null;
+-    if (goal && Math.hypot(goal.x - x, goal.y - y) < 1.8 && this.course.nearEnd()) {
++    if (goal && __portable.hypot(goal.x - x, goal.y - y) < 1.8 && this.course.nearEnd()) {
+       if (this.crossesCourse({ x, y }, goal)) {
+         this.end("power spent");
+         return;
+       }
+-      this.heading = Math.atan2(goal.y - y, goal.x - x);
+-      this.metrics.distance += Math.hypot(goal.x - x, goal.y - y);
++      this.heading = __portable.atan2(goal.y - y, goal.x - x);
++      this.metrics.distance += __portable.hypot(goal.x - x, goal.y - y);
+       this.course.accept(goal.x, goal.y, this.heading, this.heading, false);
+       this.stamp(goal.x, goal.y);
+       this.end("destination");
+@@ -543,8 +544,8 @@ export class CarveRun implements ForceRun {
+     for (let k = -11; k <= 11; k++) angles.push(nav.bearing + k * 0.165);
+     for (const a of angles) {
+       if (Math.abs(angleDelta(a, nav.bearing)) > HEADING_LIMIT) continue;
+-      const dx = Math.cos(a);
+-      const dy = Math.sin(a);
++      const dx = __portable.cos(a);
++      const dy = __portable.sin(a);
+       const nx = x + dx * 1.35;
+       const ny = y + dy * 1.35;
+       if (nx < 0 || ny < 0 || nx > W - 1 || ny > H - 1) {
+@@ -562,7 +563,7 @@ export class CarveRun implements ForceRun {
+       const here = this.original[this.at(x, y)];
+       const farTile = this.at(nx + dx * 5, ny + dy * 5);
+       const resistance = Math.max(0, far - here) * (1 + this.hard(far, farTile) * 2) * (1 - p) + (this.settings.layers && hardAt(this.map, farTile, far) ? 12 * (1 - p) : 0);
+-      const score = 12 * Math.cos(angleDelta(a, nav.preferred)) + 3 * Math.cos(angleDelta(a, this.heading)) + (here - far) * 0.35 * (1 - p) - resistance - this.visited[i] * 2;
++      const score = 12 * __portable.cos(angleDelta(a, nav.preferred)) + 3 * __portable.cos(angleDelta(a, this.heading)) + (here - far) * 0.35 * (1 - p) - resistance - this.visited[i] * 2;
+       if (score > best) {
+         best = score;
+         bestA = a;
+@@ -682,7 +683,7 @@ export class CarveRun implements ForceRun {
+           this.metrics.suspended++;
+           this.wear[i] = Math.max(0, this.wear[i] - 1);
+           if (!this.channel[i]) this.metrics.bankCuts++;
+-          if (Math.hypot((i % this.map.W) - this.head.x, Math.floor(i / this.map.W) - this.head.y) < this.head.width + 2) frontCut++;
++          if (__portable.hypot((i % this.map.W) - this.head.x, Math.floor(i / this.map.W) - this.head.y) < this.head.width + 2) frontCut++;
+         } else {
+           this.metrics.deposited++;
+           this.metrics.suspended--;
+diff --git a/src/core/forces/carve/unleash.ts b/src/core/forces/carve/unleash.ts
+index 4365c20b..9500ad5d 100644
+--- a/src/core/forces/carve/unleash.ts
++++ b/src/core/forces/carve/unleash.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Unleash, on a source (PLAN §20 D239): a placed water or badwater source carves its own course with
+ // Carve's engine. The source stays the river's origin (no second source: the carve is a dry one, the
+ // source's own water runs down it); its strength sets the river's width (the width a Carve's Keep
+@@ -93,7 +94,7 @@ export function breakout(W: number, H: number, heights: ArrayLike<number>, depth
+       if (inPool[j] || keep?.[j]) continue;
+       // (aimed: the rim nearest where it is aimed; else the lowest, the nearest of them)
+       const h = toward === null ? heights[j] : 0;
+-      const d = Math.hypot(xx - sx, yy - sy);
++      const d = __portable.hypot(xx - sx, yy - sy);
+       if (h < low || (h === low && d < near)) {
+         low = h;
+         near = d;
+diff --git a/src/core/forces/craterize.ts b/src/core/forces/craterize.ts
+index 849135f8..5431d6d8 100644
+--- a/src/core/forces/craterize.ts
++++ b/src/core/forces/craterize.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Craterize, a force of nature (PLAN §20 D202, D216): a giant impact. Strike (a click) or Aim (a
+ // glancing drag, for an oval crater thrown forward); Power; Size (following Power, or set); Steep or
+ // Terraced walls; a centre (Auto, Bowl, Peak, Ring or Flat); Debris (Light or Heavy) with or without
+@@ -43,7 +44,7 @@ export interface CraterIntent {
+ export const CRATER_DEFAULTS: CraterSettings = { mode: "strike", power: 55, size: null, walls: "terraced", centre: "auto", debris: "heavy", rays: false, seed: 0 };
+
+ /** The diameter Power gives. */
+-export const naturalSize = (power: number) => Math.round(6 + 112 * (power / 100) ** 1.4);
++export const naturalSize = (power: number) => Math.round(6 + 112 * __portable.pow((power / 100), 1.4));
+ export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 68 ? "peak" : "ring");
+
+ export function validateCrater(s: CraterSettings, m: { W: number; H: number }, i: CraterIntent): void {
+@@ -80,11 +81,11 @@ export interface Ray {
+
+ // Low-frequency bends keep the streak radial overall without drawing a straight fence.
+ function rayBend(ray: Ray, t: number): number {
+-  return ray.bend * (Math.sin(t * Math.PI * 1.6 + ray.phase) - Math.sin(ray.phase)) + ray.width * 0.3 * Math.sin(t * Math.PI * 4 + ray.phase) * Math.sin(t * Math.PI);
++  return ray.bend * (__portable.sin(t * Math.PI * 1.6 + ray.phase) - __portable.sin(ray.phase)) + ray.width * 0.3 * __portable.sin(t * Math.PI * 4 + ray.phase) * __portable.sin(t * Math.PI);
+ }
+
+ function rayWidth(ray: Ray, t: number): number {
+-  return ray.width * (0.65 + 0.45 * Math.sin(Math.PI * Math.min(1, t * 1.6))) * (1 - t) ** 0.65 * (0.8 + 0.2 * Math.sin(t * 19 + ray.phase));
++  return ray.width * (0.65 + 0.45 * __portable.sin(Math.PI * Math.min(1, t * 1.6))) * __portable.pow((1 - t), 0.65) * (0.8 + 0.2 * __portable.sin(t * 19 + ray.phase));
+ }
+
+ /** The crater as planned: where, how big and deep, its shape and its rays. */
+@@ -119,19 +120,19 @@ export function craterAnatomy(m: { W: number; H: number; heights: Uint8Array },
+   const radius = diameter / 2;
+   const ex = s.mode === "aim" ? intent.end! % m.W : x;
+   const ey = s.mode === "aim" ? Math.floor(intent.end! / m.W) : y;
+-  const angle = Math.atan2(ey - y, ex - x);
+-  const glance = clamp(Math.hypot(ex - x, ey - y) / Math.max(12, diameter), 0, 1);
++  const angle = __portable.atan2(ey - y, ex - x);
++  const glance = clamp(__portable.hypot(ex - x, ey - y) / Math.max(12, diameter), 0, 1);
+   const a = radius * (1 + 0.65 * glance);
+   const b = radius / (1 + 0.18 * glance);
+-  const depth = clamp((1 + (12 * s.power) / 100) * Math.sqrt(naturalSize(s.power) / diameter) * (1 - 0.28 * glance), 1, 20);
++  const depth = clamp((1 + (12 * s.power) / 100) * __portable.sqrt(naturalSize(s.power) / diameter) * (1 - 0.28 * glance), 1, 20);
+   const rim = clamp(1 + depth * 0.23, 1, 5);
+   const samples: number[] = [];
+   for (let k = 0; k < 48; k++) {
+     const t = (k * Math.PI) / 24;
+-    const u = Math.cos(t) * a;
+-    const v = Math.sin(t) * b;
+-    const xx = Math.round(x + u * Math.cos(angle) - v * Math.sin(angle));
+-    const yy = Math.round(y + u * Math.sin(angle) + v * Math.cos(angle));
++    const u = __portable.cos(t) * a;
++    const v = __portable.sin(t) * b;
++    const xx = Math.round(x + u * __portable.cos(angle) - v * __portable.sin(angle));
++    const yy = Math.round(y + u * __portable.sin(angle) + v * __portable.cos(angle));
+     if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H) samples.push(m.heights[yy * m.W + xx]);
+   }
+   samples.sort((p, q) => p - q);
+@@ -143,12 +144,12 @@ export function craterAnatomy(m: { W: number; H: number; heights: Uint8Array },
+   if (s.rays)
+     for (let k = 0; k < 10; k++) {
+       const t = angle + (k / 10) * Math.PI * 2 + (hash(s.seed, k) - 0.5) * 0.18;
+-      const down = (1 + Math.cos(t - angle)) * 0.5;
+-      const dx = Math.cos(t);
+-      const dy = Math.sin(t);
++      const down = (1 + __portable.cos(t - angle)) * 0.5;
++      const dx = __portable.cos(t);
++      const dy = __portable.sin(t);
+       const baseWidth = 1.7 + radius * 0.11;
+       const width = baseWidth * (heavy ? 1.65 : 1);
+-      const start = 1.12 / Math.hypot(Math.cos(t - angle) / a, Math.sin(t - angle) / b);
++      const start = 1.12 / __portable.hypot(__portable.cos(t - angle) / a, __portable.sin(t - angle) / b);
+       let length = start + radius * (1.15 + hash(s.seed, k + 30) * 1.3) * (1 + glance * down * 0.5);
+       // Leave breathing room at the map boundary, except for map-scale impacts.
+       if (edgeInset) {
+@@ -183,15 +184,15 @@ export interface CraterField {
+ export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: number): CraterField {
+   const dx = x - a.x;
+   const dy = y - a.y;
+-  const c = Math.cos(a.angle);
+-  const sn = Math.sin(a.angle);
++  const c = __portable.cos(a.angle);
++  const sn = __portable.sin(a.angle);
+   const u = (dx * c + dy * sn) / a.a;
+   const v = (-dx * sn + dy * c) / a.b;
+-  const theta = Math.atan2(v, u);
++  const theta = __portable.atan2(v, u);
+   const phase = hash(s.seed, 71) * Math.PI * 2;
+-  const edge = 1 + 0.035 * Math.sin(theta * 3 + phase) + 0.022 * Math.sin(theta * 5 - phase * 0.6);
+-  const r = Math.hypot(u, v) / edge;
+-  const down = (1 + Math.cos(theta)) * 0.5;
++  const edge = 1 + 0.035 * __portable.sin(theta * 3 + phase) + 0.022 * __portable.sin(theta * 5 - phase * 0.6);
++  const r = __portable.hypot(u, v) / edge;
++  const down = (1 + __portable.cos(theta)) * 0.5;
+   const heavy = s.debris === "heavy";
+   const edgeFade = heavy && a.edgeInset ? smooth((Math.min(x, y, a.W - 1 - x, a.H - 1 - y) - a.edgeInset) / 12) : 1;
+   let rayHeight = 0;
+@@ -210,21 +211,21 @@ export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: n
+         const grain = hash(rayInfo.seed, x + Math.imul(y, 65537));
+         if (heavy) {
+           // A coherent raised body remains readable at map scale; gaps and feathered margins stay irregular.
+-          const wave = Math.sin(t * 13 + rayInfo.phase);
++          const wave = __portable.sin(t * 13 + rayInfo.phase);
+           const lobes = smooth((wave + 0.8) / 1.25);
+           const gaps = smooth((wave + 0.96) / 0.28);
+           const fade = 1 - smooth((t - 0.45) / 0.55);
+           const height = (1.2 + (1.25 * s.power) / 100) * feather * (0.7 + 0.3 * lobes) * gaps * fade * edgeFade;
+           rayHeight = Math.max(rayHeight, Math.floor(height + 0.3 + grain * 0.4));
+         } else {
+-          const lobes = smooth((Math.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
++          const lobes = smooth((__portable.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
+           const density = feather * (0.12 + 0.88 * lobes) * (1 - smooth((t - 0.2) / 0.8));
+           if (density > 0.18 + grain * 0.66) rayHeight = 1;
+         }
+       }
+       for (const pit of rayInfo.pits) {
+-        const dist = (x - pit.x) ** 2 + (y - pit.y) ** 2;
+-        if (edgeFade > 0.5 && dist < pit.r ** 2) secondary = Math.max(secondary, dist < pit.r ** 2 * 0.35 ? 2 : 1);
++        const dist = __portable.pow((x - pit.x), 2) + __portable.pow((y - pit.y), 2);
++        if (edgeFade > 0.5 && dist < __portable.pow(pit.r, 2)) secondary = Math.max(secondary, dist < __portable.pow(pit.r, 2) * 0.35 ? 2 : 1);
+       }
+     }
+   return { r, theta, down, ray: rayHeight > 0, rayHeight, secondary };
+@@ -284,10 +285,10 @@ export class ImpactPlan {
+             for (let step = 0; step < 4; step++) wall += smooth((r - (0.48 + step * 0.16 + shift)) / 0.025) / 4;
+           }
+           const curve = s.walls === "steep" ? 0.23 : 0.16;
+-          const t = a.centre === "bowl" ? curve * clamp(r / (s.walls === "steep" ? 0.89 : 0.48), 0, 1) ** 2 + (1 - curve) * wall : wall;
++          const t = a.centre === "bowl" ? curve * __portable.pow(clamp(r / (s.walls === "steep" ? 0.89 : 0.48), 0, 1), 2) + (1 - curve) * wall : wall;
+           let inside = a.floor + (a.datum - a.floor + a.rim) * t;
+-          if (a.centre === "peak") inside += a.depth * 0.69 * Math.max(0, 1 - r / 0.31) ** 1.25;
+-          if (a.centre === "ring") inside += a.depth * 0.55 * Math.exp(-(((r - 0.38) / 0.1) ** 2)) * (1 + 0.18 * Math.sin(theta * 7 + phase));
++          if (a.centre === "peak") inside += a.depth * 0.69 * __portable.pow(Math.max(0, 1 - r / 0.31), 1.25);
++          if (a.centre === "ring") inside += a.depth * 0.55 * __portable.exp(-(__portable.pow(((r - 0.38) / 0.1), 2))) * (1 + 0.18 * __portable.sin(theta * 7 + phase));
+           // The newest bowl replaces prior relief; only the outermost lip rejoins its local ground.
+           target = inside + (h - a.datum) * smooth((r - 0.84) / 0.16);
+           if (s.walls === "terraced" && r > 0.54 && r < 0.93 && this.before.rockLayers[clamp(Math.round(target), 0, 22)] > 0.5) target = Math.ceil(target);
+@@ -296,8 +297,8 @@ export class ImpactPlan {
+           const heavy = s.debris === "heavy";
+           const reach = heavy ? 2.65 : 1.48;
+           const directional = 1 + a.glance * (down * 1.65 - 0.65);
+-          const hummock = 0.8 + 0.18 * Math.sin(theta * 5 + phase + (r - 1) * 3) + 0.13 * Math.sin(theta * 3 - phase);
+-          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * Math.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smooth((reach - r) / 0.4) * directional * hummock;
++          const hummock = 0.8 + 0.18 * __portable.sin(theta * 5 + phase + (r - 1) * 3) + 0.13 * __portable.sin(theta * 3 - phase);
++          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * __portable.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smooth((reach - r) / 0.4) * directional * hummock;
+           target = h + Math.max(rim, skirt);
+           if (f.ray) target = Math.max(h + f.rayHeight, Math.round(target) + f.rayHeight);
+           if (f.secondary) target = h - f.secondary;
+@@ -337,7 +338,7 @@ export class ImpactPlan {
+       }
+       if (plant && (f.r < (s.debris === "heavy" ? 1.85 : 1.4) || f.ray)) {
+         if (e.template !== "BlueberryBush") {
+-          const d = Math.hypot(e.x - a.x, e.y - a.y) || 1;
++          const d = __portable.hypot(e.x - a.x, e.y - a.y) || 1;
+           this.map.fallen = this.map.fallen.filter((g) => g.id !== e.id);
+           this.map.fallen.push({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: this.map.heights[tile], dx: (e.x - a.x) / d, dy: (e.y - a.y) / d, length: e.template === "Oak" ? 2.6 : 2 });
+           e.components = { ...e.components, LivingNaturalResource: { IsDead: true } };
+diff --git a/src/core/forces/erupt.ts b/src/core/forces/erupt.ts
+index 42b1a672..36710049 100644
+--- a/src/core/forces/erupt.ts
++++ b/src/core/forces/erupt.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Erupt, a force of nature (PLAN §20 D206, D216): it raises a volcano. Vent (a click) or Fissure (a
+ // painted line of vents); Power; Steep or Broad; a summit (Auto, Peak, Crater or Caldera); Flows
+ // (Light or Heavy) with or without Ridges; Try another. Low-frequency lobes, terraces, collapse and
+@@ -71,7 +72,7 @@ export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i:
+     throw Error("Draw a fissure on the land");
+ }
+
+-export const naturalSize = (p: number) => 2 * (7 + 36 * (p / 100) ** 1.15);
++export const naturalSize = (p: number) => 2 * (7 + 36 * __portable.pow((p / 100), 1.15));
+ export const autoSummit = (p: number): EruptSettings["summit"] => (p < 32 ? "peak" : p < 80 ? "crater" : "caldera");
+
+ export interface Segment {
+@@ -109,32 +110,32 @@ export function lavaLobes(W: number, H: number, heights: Uint8Array, a: { x: num
+   for (let k = 0; k < count; k++) {
+     let angle = unit(seed, 730 + k) * Math.PI * 2;
+     // Random gaps and occasional neighboring lobes; never a regular angular fan.
+-    for (let attempt = 0; attempt < 20 && angles.some((t) => Math.abs(Math.atan2(Math.sin(t - angle), Math.cos(t - angle))) < 0.29); attempt++) angle = unit(seed, 900 + k * 23 + attempt) * Math.PI * 2;
++    for (let attempt = 0; attempt < 20 && angles.some((t) => Math.abs(__portable.atan2(__portable.sin(t - angle), __portable.cos(t - angle))) < 0.29); attempt++) angle = unit(seed, 900 + k * 23 + attempt) * Math.PI * 2;
+     angles.push(angle);
+     const start = a.summit === "caldera" ? 0.64 : a.summit === "crater" ? 0.19 : 0.12;
+-    const reach = (heavy ? 0.86 : 0.72) + unit(seed, 800 + k) ** 1.4 * (heavy ? 1.5 : 0.7);
++    const reach = (heavy ? 0.86 : 0.72) + __portable.pow(unit(seed, 800 + k), 1.4) * (heavy ? 1.5 : 0.7);
+     const length = a.radius * (reach - start);
+     const steps = Math.max(12, Math.ceil(length / 0.65));
+     const width = (0.85 + unit(seed, 820 + k) * 1.35) * Math.max(0.7, a.radius / 22);
+     const phase = unit(seed, 840 + k) * Math.PI * 2;
+     const points: LobePoint[] = [];
+-    let x = a.x + Math.cos(angle) * a.radius * start;
+-    let y = a.y + Math.sin(angle) * a.radius * start;
++    let x = a.x + __portable.cos(angle) * a.radius * start;
++    let y = a.y + __portable.sin(angle) * a.radius * start;
+     for (let j = 0; j <= steps; j++) {
+       const u = j / steps;
+       const r = a.radius * (start + (reach - start) * u);
+-      const theta = angle + 0.32 * Math.sin(u * 5.8 + phase) + 0.19 * Math.sin(u * 10.2 - phase);
++      const theta = angle + 0.32 * __portable.sin(u * 5.8 + phase) + 0.19 * __portable.sin(u * 10.2 - phase);
+       if (j) {
+-        const desired = Math.atan2(a.y + Math.sin(theta) * r - y, a.x + Math.cos(theta) * r - x);
++        const desired = __portable.atan2(a.y + __portable.sin(theta) * r - y, a.x + __portable.cos(theta) * r - x);
+         const step = length / steps;
+         let best = Infinity;
+         let bx = x;
+         let by = y;
+         for (const turn of [0, -0.25, 0.25, -0.5, 0.5]) {
+-          const nx = x + Math.cos(desired + turn) * step;
+-          const ny = y + Math.sin(desired + turn) * step;
+-          const nr = Math.hypot(nx - a.x, ny - a.y);
+-          if (nr < Math.hypot(x - a.x, y - a.y)) continue;
++          const nx = x + __portable.cos(desired + turn) * step;
++          const ny = y + __portable.sin(desired + turn) * step;
++          const nr = __portable.hypot(nx - a.x, ny - a.y);
++          if (nr < __portable.hypot(x - a.x, y - a.y)) continue;
+           const score = ground(nx, ny) * 0.7 + Math.abs(turn) * 0.65;
+           if (score < best) {
+             best = score;
+@@ -143,11 +144,11 @@ export function lavaLobes(W: number, H: number, heights: Uint8Array, a: { x: num
+           }
+         }
+         // Once beyond the cone, a lobe pools at uphill obstacles instead of climbing them.
+-        if (Math.hypot(x - a.x, y - a.y) > a.radius && ground(bx, by) > ground(x, y)) break;
++        if (__portable.hypot(x - a.x, y - a.y) > a.radius && ground(bx, by) > ground(x, y)) break;
+         x = bx;
+         y = by;
+       }
+-      const tongue = 1 + 1.2 * Math.exp(-(((u - 0.89) / 0.18) ** 2));
++      const tongue = 1 + 1.2 * __portable.exp(-(__portable.pow(((u - 0.89) / 0.18), 2)));
+       points.push({ x, y, width: width * (0.38 + 0.62 * u) * tongue });
+     }
+     if (points.length > 1) out.push({ points, length, strength: 1.1 + unit(seed, 860 + k) * 1.4 });
+@@ -170,9 +171,9 @@ export function lobeField(W: number, H: number, lobes: readonly LavaLobe[]): Flo
+         for (let x = Math.max(0, Math.floor(Math.min(a.x, b.x) - w)); x <= Math.min(W - 1, Math.ceil(Math.max(a.x, b.x) + w)); x++) {
+           const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (l2 || 1)));
+           const width = a.width + (b.width - a.width) * t;
+-          const d = Math.hypot(x - a.x - dx * t, y - a.y - dy * t) / width;
++          const d = __portable.hypot(x - a.x - dx * t, y - a.y - dy * t) / width;
+           if (d < 1) {
+-            const v = (1 - d * d) ** 0.65 * lobe.strength;
++            const v = __portable.pow((1 - d * d), 0.65) * lobe.strength;
+             const i = y * W + x;
+             field[i] = Math.max(field[i], v);
+           }
+@@ -222,7 +223,7 @@ export function shapeSpan(path: readonly Point[]): number {
+   const pts = path.filter((_, k) => k % every === 0 || k === path.length - 1);
+   let far = 0;
+   for (let a = 0; a < pts.length; a++)
+-    for (let b = a + 1; b < pts.length; b++) far = Math.max(far, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y));
++    for (let b = a + 1; b < pts.length; b++) far = Math.max(far, __portable.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y));
+   return far;
+ }
+
+@@ -265,10 +266,10 @@ export function coneProfile(s: Pick<EruptSettings, "shape">, summit: EruptSettin
+   const e = s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65;
+   if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+   if (!fissure && summit === "crater" && r < CRATER_R) {
+-    const rim = (1 - CRATER_R) ** e;
++    const rim = __portable.pow((1 - CRATER_R), e);
+     return rim - CRATER_DEPTH * (1 - smooth(r / CRATER_R));
+   }
+-  return Math.max(0, 1 - r) ** e;
++  return __portable.pow(Math.max(0, 1 - r), e);
+ }
+
+ /** A vent's profile at r (0 at its vent, 1 at its foot), by summit and shape. */
+@@ -316,7 +317,7 @@ export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "su
+     const r = k / 100;
+     const profile = coneProfile(s, a.summit, r, fissure);
+     const { reach, thick } = apronOf(s);
+-    const apron = thick * Math.max(0, 1 - r / reach) ** 1.4;
++    const apron = thick * __portable.pow(Math.max(0, 1 - r / reach), 1.4);
+     const ridge = s.ridges
+       ? fissure
+         ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+@@ -345,7 +346,7 @@ function protoAnatomy(m: { W: number; H: number; heights: Uint8Array }, s: Erupt
+     for (let k = 1; k < intent.path!.length; k++) {
+       const a = intent.path![k - 1];
+       const b = intent.path![k];
+-      const l = Math.hypot(b.x - a.x, b.y - a.y);
++      const l = __portable.hypot(b.x - a.x, b.y - a.y);
+       if (l > 0.01) {
+         segments.push({ a, b, length: l, along: length });
+         length += l;
+@@ -431,9 +432,9 @@ function flankVent(m: { W: number; H: number; heights: Uint8Array }, s: EruptSet
+       if (xx < 2 || yy < 2 || xx > m.W - 3 || yy > m.H - 3) continue;
+       const i = yy * m.W + xx;
+       if (ceiling - m.heights[i] < need || keep?.[i]) continue;
+-      const d = Math.hypot(dx, dy);
++      const d = __portable.hypot(dx, dy);
+       if (d > reach || d * 0.99 > bestScore) continue;
+-      const bucket = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12) % 12;
++      const bucket = Math.floor(((__portable.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12) % 12;
+       const score = d * (1 + 0.3 * hash(s.seed, 940 + bucket));
+       if (score < bestScore) {
+         bestScore = score;
+@@ -485,7 +486,7 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; max
+     // broader rather than taller, but never so broad that its low summit spreads into a plateau (a
+     // volcano already broad may grow a little narrower instead, to keep its summit)
+     const span = topSpan(s, a.summit, a.height);
+-    const broad = Math.max(NARROW_MIN, Math.min(Math.min(BROADEN_MAX, 1 / Math.sqrt(k)), span > 0 ? SUMMIT_TOP / (a.radius * span) : BROADEN_MAX));
++    const broad = Math.max(NARROW_MIN, Math.min(Math.min(BROADEN_MAX, 1 / __portable.sqrt(k)), span > 0 ? SUMMIT_TOP / (a.radius * span) : BROADEN_MAX));
+     a.radius *= broad;
+     a.lobes = lavaLobes(m.W, m.H, m.heights, a, s.seed, s.flows === "heavy");
+   }
+@@ -518,7 +519,7 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
+   const { reach, thick } = apronOf(s);
+   // (a vent's apron is thickest where its lava lobes run: flows down its sides, never a round skirt)
+   const lobed = s.mode === "vent" && a.lobes.length ? 0.7 + 0.3 * Math.min(1, flows[i] / 1.1) : 1;
+-  const apron = thick * Math.max(0, 1 - r / reach) ** 1.4 * (0.86 + 0.14 * Math.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
++  const apron = thick * __portable.pow(Math.max(0, 1 - r / reach), 1.4) * (0.86 + 0.14 * __portable.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
+   const ridge = s.ridges
+     ? (s.mode === "fissure"
+         ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+@@ -543,7 +544,7 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
+     const t = clamp(((x - seg.a.x) * dx + (y - seg.a.y) * dy) / (seg.length * seg.length), 0, 1);
+     const xx = seg.a.x + dx * t;
+     const yy = seg.a.y + dy * t;
+-    const d = Math.hypot(x - xx, y - yy);
++    const d = __portable.hypot(x - xx, y - yy);
+     if (d < distance) {
+       distance = d;
+       cx = xx;
+@@ -551,15 +552,15 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
+       along = seg.along + t * seg.length;
+     }
+   }
+-  const theta = Math.atan2(y - cy, x - cx);
+-  const edge = 1 + 0.07 * Math.sin(theta * 3 + a.phase) + 0.045 * Math.sin(theta * 5 - a.phase);
+-  const r = Math.hypot(x - cx, y - cy) / (a.radius * edge);
++  const theta = __portable.atan2(y - cy, x - cx);
++  const edge = 1 + 0.07 * __portable.sin(theta * 3 + a.phase) + 0.045 * __portable.sin(theta * 5 - a.phase);
++  const r = __portable.hypot(x - cx, y - cy) / (a.radius * edge);
+   const wave = s.mode === "vent" ? theta * (6 + Math.floor(hash(s.seed, 20) * 4)) + a.phase + r * 0.9 : along / (3 + hash(s.seed, 20) * 2) + a.phase + r * 0.8;
+-  const ridge = Math.max(0, Math.cos(wave)) ** 8;
++  const ridge = __portable.pow(Math.max(0, __portable.cos(wave)), 8);
+   let nearest = Infinity;
+   let vent = a.vents[0];
+   for (const v of a.vents) {
+-    const d = Math.hypot(x - v.x, y - v.y);
++    const d = __portable.hypot(x - v.x, y - v.y);
+     if (d < nearest) {
+       nearest = d;
+       vent = v;
+@@ -651,13 +652,13 @@ export class EruptPlan {
+           const i = y * W + x;
+           if (h[i] === b[i] || this.keep[i]) continue;
+           // (the summit is its own: a peak's tip stands above everything round it by design)
+-          if (a.vents.some((v) => Math.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
++          if (a.vents.some((v) => __portable.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
+           const n = [h[i - 1], h[i + 1], h[i - W], h[i + W]];
+           const lo = Math.min(...n);
+           const hi = Math.max(...n);
+           let v = h[i];
+           if (v > hi) v = hi;
+-          else if (v < lo && Math.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
++          else if (v < lo && __portable.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
+           if (v === h[i]) continue;
+           v = Math.max(v, b[i]);
+           h[i] = v;
+@@ -687,7 +688,7 @@ export class EruptPlan {
+           this.stats.erased++;
+           return false;
+         }
+-        const d = Math.hypot(e.x - f.vent.x, e.y - f.vent.y) || 1;
++        const d = __portable.hypot(e.x - f.vent.x, e.y - f.vent.y) || 1;
+         m.fallen = m.fallen.filter((v) => v.id !== e.id);
+         m.fallen.push({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[tile], dx: (e.x - f.vent.x) / d, dy: (e.y - f.vent.y) / d, length: e.template === "Oak" ? 2.6 : 2 });
+         e.components = { ...e.components, LivingNaturalResource: { IsDead: true } };
+diff --git a/src/core/forces/glaciate/floor.ts b/src/core/forces/glaciate/floor.ts
+index fb5b463f..e7eec781 100644
+--- a/src/core/forces/glaciate/floor.ts
++++ b/src/core/forces/glaciate/floor.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // The floor's water as one river (Kyler, 2026-09-27, D292). Round 4's floor still had extra wet
+ // passages beside its main river: pools at the foot of the falls and the side inflows, joined to it by
+ // long channels across the floor or along the walls' feet. Here the river itself swings over to them:
+@@ -87,7 +88,7 @@ const smooth = (v: number) => {
+ export function normalAt(path: readonly Point[], k: number): Point {
+   const a = path[Math.max(0, k - 3)];
+   const b = path[Math.min(path.length - 1, k + 3)];
+-  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
++  const len = __portable.hypot(b.x - a.x, b.y - a.y) || 1;
+   return { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
+ }
+
+@@ -156,7 +157,7 @@ export function riverCourse(
+     const base = a.aim + (b.aim - a.aim) * smooth(t);
+     // round 4's gentle meander, faded out where a visit holds the river
+     const gap = Math.min((q.s - a.s) * length, (b.s - q.s) * length);
+-    const meander = Math.sin(q.s * 8 + phase) * q.r * 0.35 * Math.sin(Math.PI * q.s) * smooth(gap / 14) * 0.6;
++    const meander = __portable.sin(q.s * 8 + phase) * q.r * 0.35 * __portable.sin(Math.PI * q.s) * smooth(gap / 14) * 0.6;
+     const off = within(k, base + meander);
+     const nrm = normalAt(path, k);
+     return { x: q.x + nrm.x * off, y: q.y + nrm.y * off };
+diff --git a/src/core/forces/glaciate/measure.ts b/src/core/forces/glaciate/measure.ts
+index 388d9faa..a0191264 100644
+--- a/src/core/forces/glaciate/measure.ts
++++ b/src/core/forces/glaciate/measure.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Glaciate's measurements (ported from investigation/glaciate `morphology.ts` `measure`, round 4):
+ // information about a planned glacier on its settled water, never a gate on it (D257). The one Kyler
+ // asked to keep reporting (D292): the separate wet passages across the floor, the most disjoint wet
+@@ -104,7 +105,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
+     const pt = p.path[k];
+     const aa = p.path[k - 3];
+     const bb = p.path[k + 3];
+-    const len = Math.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
++    const len = __portable.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
+     const nx = -(bb.y - aa.y) / len;
+     const ny = (bb.x - aa.x) / len;
+     for (const side of [-1, 1])
+@@ -133,7 +134,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
+       }
+   edges.sort((x, y) => y.drop - x.drop || x.lip - y.lip);
+   const falls: typeof edges = [];
+-  for (const e of edges) if (!falls.some((f) => Math.hypot((f.lip % W) - (e.lip % W), Math.floor(f.lip / W) - Math.floor(e.lip / W)) < 5)) falls.push(e);
++  for (const e of edges) if (!falls.some((f) => __portable.hypot((f.lip % W) - (e.lip % W), Math.floor(f.lip / W) - Math.floor(e.lip / W)) < 5)) falls.push(e);
+   const riverWidths: number[] = [];
+   let passages = 0;
+   const sections: GlaciateMeasure["sections"] = [];
+@@ -141,7 +142,7 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
+     const pt = p.streamPath[k];
+     const aa = p.streamPath[k - 3];
+     const bb = p.streamPath[k + 3];
+-    const len = Math.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
++    const len = __portable.hypot(bb.x - aa.x, bb.y - aa.y) || 1;
+     const nx = -(bb.y - aa.y) / len;
+     const ny = (bb.x - aa.x) / len;
+     let run: number[] = [];
+diff --git a/src/core/forces/glaciate/model.ts b/src/core/forces/glaciate/model.ts
+index c334fb0d..0d8d8a69 100644
+--- a/src/core/forces/glaciate/model.ts
++++ b/src/core/forces/glaciate/model.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Glaciate's settings and its way through the land (PLAN §20 D246, D291, D292; ported from
+ // investigation/glaciate `model.ts`, round 4, #69). A glacier follows the valleys already there (Flow:
+ // a click on high ground) or grinds through ridges the way it was dragged (Aim). The map's own
+@@ -110,7 +111,7 @@ export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 10139042
+ /** The trough's width: set, or Auto (30 at Power 60). */
+ export const sizeOf = (s: Pick<GlaciateSettings, "size" | "power">) => s.size ?? Math.round(8 + (36 * s.power) / 100);
+
+-const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
++const distance = (a: Point, b: Point) => __portable.hypot(a.x - b.x, a.y - b.y);
+
+ export function sinuosity(p: Point[]): number {
+   let l = 0;
+@@ -180,7 +181,7 @@ export class Valley {
+         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+         const j = yy * W + xx;
+         // crossing high ground costs much more: this finds the low corridors already there
+-        const nc = Math.max(c, h[j]) + Math.hypot(dx, dy) * 0.001;
++        const nc = Math.max(c, h[j]) + __portable.hypot(dx, dy) * 0.001;
+         if (nc < cost[j]) {
+           cost[j] = nc;
+           this.parent[j] = i;
+@@ -253,7 +254,7 @@ export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSetti
+     const out: Point[] = [];
+     for (let k = 0; k <= Math.ceil(len); k++) {
+       const t = k / Math.ceil(len);
+-      const bend = Math.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
++      const bend = __portable.sin(t * Math.PI) * Math.min(4, len * 0.08) * (noise(s.seed, 319) * 2 - 1);
+       out.push({ x: clamp(start.x + dx * len * t - dy * bend, 0.5, m.W - 0.5), y: clamp(start.y + dy * len * t + dx * bend, 0.5, m.H - 0.5) });
+     }
+     return out;
+@@ -309,7 +310,7 @@ function aimLeg(m: Pick<ForceMap, "W" | "H" | "heights">, from: number, goal: nu
+       if (nx < 1 || ny < 1 || nx >= m.W - 1 || ny >= m.H - 1) continue;
+       const j = ny * m.W + nx;
+       const across = Math.abs((nx - start.x) * dy - (ny - start.y) * dx);
+-      const nc = c + Math.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + (across / Math.max(6, len * 0.22)) ** 2 * 0.7);
++      const nc = c + __portable.hypot(xx, yy) * (1 + m.heights[j] * 0.12 + __portable.pow((across / Math.max(6, len * 0.22)), 2) * 0.7);
+       if (nc < costs[j]) {
+         costs[j] = nc;
+         parent[j] = i;
+diff --git a/src/core/forces/glaciate/plan.ts b/src/core/forces/glaciate/plan.ts
+index 11fd6f62..8760e5a1 100644
+--- a/src/core/forces/glaciate/plan.ts
++++ b/src/core/forces/glaciate/plan.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../../math/portable";
+ // Glaciate's land (PLAN §20 D246, D291, D292; ported from investigation/glaciate `morphology.ts`,
+ // round 4, #69): the trough between steep walls, the level floor stepping down by bars, the main river
+ // on the lowest datum, the cirque's tarn, hanging side valleys with springs and falls, scree, the
+@@ -78,7 +79,7 @@ export interface GlaciatePlan {
+   joins: { kind: "fall" | "spill" | "inflow"; from: number; length: number }[];
+ }
+
+-export const lengthOf = (p: Point[]) => p.reduce((s, q, k) => s + (k ? Math.hypot(q.x - p[k - 1].x, q.y - p[k - 1].y) : 0), 0);
++export const lengthOf = (p: Point[]) => p.reduce((s, q, k) => s + (k ? __portable.hypot(q.x - p[k - 1].x, q.y - p[k - 1].y) : 0), 0);
+ const quantile = (a: number[], q: number) => (a.length ? a.sort((x, y) => x - y)[Math.floor((a.length - 1) * q)] : 0);
+ /** (The investigation's order of the four neighbours.) */
+ export const N4: readonly [number, number][] = [
+@@ -169,21 +170,21 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+   let level = headFloor;
+   let barIndex = 0;
+   const preliminary: Station[] = reference.map((q, k) => {
+-    if (k) arc += Math.hypot(q.x - reference[k - 1].x, q.y - reference[k - 1].y);
++    if (k) arc += __portable.hypot(q.x - reference[k - 1].x, q.y - reference[k - 1].y);
+     if (arc >= bar && level > 0) {
+       level--;
+       bar += (8 + noise(s.seed, 81 + barIndex++) * 17) * stepScale;
+     }
+     const a = reference[Math.max(0, k - 3)];
+     const b = reference[Math.min(reference.length - 1, k + 3)];
+-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
++    const len = __portable.hypot(b.x - a.x, b.y - a.y) || 1;
+     const nx = -(b.y - a.y) / len;
+     const ny = (b.x - a.x) / len;
+     const rim = Math.max(sample(q.x + nx * r * 1.15, q.y + ny * r * 1.15), sample(q.x - nx * r * 1.15, q.y - ny * r * 1.15));
+     const hard = hardAt(m, tile(q), Math.round(rim)) ? 1 : (m.rockLayers[Math.round(rim)] ?? 0);
+-    const confluence = Math.min(0.1, Math.log2(1 + valley!.area[tile(q)]) * 0.011);
+-    const width = clamp(0.94 + 0.14 * Math.sin(arc * 0.11 + phase) + 0.1 * Math.sin(arc * 0.27 - phase) + confluence - hard * 0.1, 0.7, 1.3);
+-    const cirque = 1 + 0.72 * Math.exp(-((arc / (r * 0.95)) ** 2));
++    const confluence = Math.min(0.1, __portable.log2(1 + valley!.area[tile(q)]) * 0.011);
++    const width = clamp(0.94 + 0.14 * __portable.sin(arc * 0.11 + phase) + 0.1 * __portable.sin(arc * 0.27 - phase) + confluence - hard * 0.1, 0.7, 1.3);
++    const cirque = 1 + 0.72 * __portable.exp(-(__portable.pow((arc / (r * 0.95)), 2)));
+     return { ...q, s: arc, r: Math.max(2, Math.min(r * width * cirque, Math.max(2, Math.min(q.x, q.y, W - q.x, H - q.y) - 1) * 0.9)), floor: level, outlet: rim };
+   });
+   let lowRun = 0;
+@@ -208,7 +209,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     for (let y = Math.max(0, Math.floor(q.y - q.r)); y < Math.min(H, q.y + q.r); y++)
+       for (let x = Math.max(0, Math.floor(q.x - q.r)); x < Math.min(W, q.x + q.r); x++) {
+         const i = y * W + x;
+-        if (before.water.depth[i] > 0.05 && Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
++        if (before.water.depth[i] > 0.05 && __portable.hypot(x + 0.5 - q.x, y + 0.5 - q.y) <= q.r) riverClearance = Math.max(riverClearance, q.floor - before.heights[i]);
+       }
+   // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
+   // still sink into the floor without going below the Floor; the plan is held at it below as well)
+@@ -236,9 +237,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+           coarse[i] = 0.1 * texture(s.seed, x, y, 9);
+           fine[i] = 0.045 * texture(s.seed ^ 812, x, y, 3);
+         }
+-        const angle = Math.atan2(y + 0.5 - q.y, x + 0.5 - q.x);
+-        const rim = 1 + 0.045 * Math.sin(angle * 3 + q.s * 11 + phase) + coarse[i] + fine[i];
+-        const physical = Math.hypot(x + 0.5 - q.x, y + 0.5 - q.y);
++        const angle = __portable.atan2(y + 0.5 - q.y, x + 0.5 - q.x);
++        const rim = 1 + 0.045 * __portable.sin(angle * 3 + q.s * 11 + phase) + coarse[i] + fine[i];
++        const physical = __portable.hypot(x + 0.5 - q.x, y + 0.5 - q.y);
+         const d = physical / (q.r * rim);
+         if (d < dist[i]) dist[i] = d;
+         if (physical < closest[i]) {
+@@ -246,7 +247,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+           nearest[i] = k;
+         }
+       }
+-    work += (2 * rr) ** 2;
++    work += __portable.pow((2 * rr), 2);
+     if (work > 60000) {
+       work = 0;
+       yield;
+@@ -265,7 +266,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     const k = nearest[i];
+     const q = path[k];
+     const d = dist[i];
+-    const shift = Math.round(2.2 * Math.sin((i % W) * 0.22 + Math.floor(i / W) * 0.16 + phase));
++    const shift = Math.round(2.2 * __portable.sin((i % W) * 0.22 + Math.floor(i / W) * 0.16 + phase));
+     const f = path[clamp(k + shift, 0, path.length - 1)].floor;
+     floor[i] = f;
+     if (d <= 1) {
+@@ -275,7 +276,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     } else if (d < 1 + 3 / q.r) {
+       const M = before.heights[i];
+       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
+-      if (M - f >= 5 && hard < 0.5 && Math.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
++      if (M - f >= 5 && hard < 0.5 && __portable.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
+         m.heights[i] = Math.min(M, f + Math.round((M - f) * 0.58));
+         mask[i] = 2;
+         arrival[i] = q.s;
+@@ -304,7 +305,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     }
+   incoming.sort((a, b) => (b.oldWet ? 100000 : 0) + b.area - ((a.oldWet ? 100000 : 0) + a.area) || a.lip - b.lip);
+   const mouths: typeof incoming = [];
+-  for (const c of incoming) if (!mouths.some((h) => Math.hypot((h.lip % W) - (c.lip % W), Math.floor(h.lip / W) - Math.floor(c.lip / W)) < 7)) mouths.push(c);
++  for (const c of incoming) if (!mouths.some((h) => __portable.hypot((h.lip % W) - (c.lip % W), Math.floor(h.lip / W) - Math.floor(c.lip / W)) < 7)) mouths.push(c);
+   // swept sources give their clean strength to the new head; badwater gives nothing; outside sources
+   // and forests are never moved
+   let cleanAbsorbed = 0;
+@@ -361,14 +362,14 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     path.map((q, k) => {
+     const a = path[Math.max(0, k - 3)];
+     const b = path[Math.min(path.length - 1, k + 3)];
+-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
++    const len = __portable.hypot(b.x - a.x, b.y - a.y) || 1;
+     const nx = -(b.y - a.y) / len;
+     const ny = (b.x - a.x) / len;
+-    let off = Math.sin(q.s * 8 + phase) * q.r * 0.35 * Math.sin(Math.PI * q.s);
++    let off = __portable.sin(q.s * 8 + phase) * q.r * 0.35 * __portable.sin(Math.PI * q.s);
+     let weight = 0;
+     for (const c of bends) {
+       const d = (q.s - path[c.k].s) * length;
+-      const w = Math.exp(-((d / Math.max(10, r * 0.85)) ** 2));
++      const w = __portable.exp(-(__portable.pow((d / Math.max(10, r * 0.85)), 2)));
+       const target = ((c.landing % W) + 0.5 - q.x) * nx + (Math.floor(c.landing / W) + 0.5 - q.y) * ny;
+       off += clamp(target, -q.r * 0.82, q.r * 0.82) * w;
+       weight += w;
+@@ -425,7 +426,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     for (let k = 0; k < points.length; k++) {
+       const a = points[Math.max(0, k - 1)];
+       const b = points[k];
+-      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 3));
++      const steps = Math.max(1, Math.ceil(__portable.hypot(b.x - a.x, b.y - a.y) * 3));
+       const bed = Math.min(beds[Math.max(0, k - 1)], beds[k]);
+       const paint = (x: number, y: number) => {
+         if (x < 0 || y < 0 || x >= W || y >= H) return;
+@@ -459,7 +460,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+         paint(cx, cy);
+         previous = { x: cx, y: cy };
+         for (let yy = Math.max(0, Math.floor(y - width)); yy < Math.min(H, y + width + 1); yy++)
+-          for (let xx = Math.max(0, Math.floor(x - width)); xx < Math.min(W, x + width + 1); xx++) if (Math.hypot(xx + 0.5 - x, yy + 0.5 - y) <= width) paint(xx, yy);
++          for (let xx = Math.max(0, Math.floor(x - width)); xx < Math.min(W, x + width + 1); xx++) if (__portable.hypot(xx + 0.5 - x, yy + 0.5 - y) <= width) paint(xx, yy);
+       }
+     }
+   };
+@@ -485,7 +486,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+   for (let y = Math.max(0, Math.floor(tarn.y - 3)); y < Math.min(H, tarn.y + 3); y++)
+     for (let x = Math.max(0, Math.floor(tarn.x - 4)); x < Math.min(W, tarn.x + 4); x++) {
+       const i = y * W + x;
+-      if (detail.tarn && ((x + 0.5 - tarn.x) / tarnX) ** 2 + ((y + 0.5 - tarn.y) / tarnY) ** 2 < 1 && mask[i] === 1) {
++      if (detail.tarn && __portable.pow(((x + 0.5 - tarn.x) / tarnX), 2) + __portable.pow(((y + 0.5 - tarn.y) / tarnY), 2) < 1 && mask[i] === 1) {
+         m.heights[i] = Math.max(0, path[0].floor - 1);
+         lakeSeeds.push(i);
+         stream[i] = 2;
+@@ -548,7 +549,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+         const j = yy * W + xx;
+         if (xx < 0 || yy < 0 || xx >= W || yy >= H || mask[j] !== 1) continue;
+         if (dx && dy && mask[y * W + xx] !== 1 && mask[yy * W + x] !== 1) continue;
+-        const next = d + Math.hypot(dx, dy) * (finish ? 1 : 1 + Math.max(0, floor[j] - datum) * 0.25);
++        const next = d + __portable.hypot(dx, dy) * (finish ? 1 : 1 + Math.max(0, floor[j] - datum) * 0.25);
+         if (next < cost[j]) {
+           cost[j] = next;
+           parent[j] = i;
+@@ -567,7 +568,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     if (finish && goal !== origin) {
+       const a = { x: (origin % W) + 0.5, y: Math.floor(origin / W) + 0.5 };
+       const b = join.at(-1)!;
+-      const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)));
++      const count = Math.max(1, Math.ceil(__portable.hypot(b.x - a.x, b.y - a.y)));
+       const line = Array.from({ length: count + 1 }, (_, k) => ({ x: a.x + ((b.x - a.x) * k) / count, y: a.y + ((b.y - a.y) * k) / count }));
+       if (line.every((q) => mask[tile(q)] === 1)) join = line;
+     }
+@@ -670,7 +671,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+       const q = path[k];
+       const a = path[k - 2];
+       const b = path[Math.min(k + 2, path.length - 1)];
+-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
++      const len = __portable.hypot(b.x - a.x, b.y - a.y) || 1;
+       const side = noise(s.seed, k + 900) > 0.5 ? 1 : -1;
+       scree.push(tile({ x: q.x - ((b.y - a.y) / len) * q.r * 0.87 * side, y: q.y + ((b.x - a.x) / len) * q.r * 0.87 * side }));
+     }
+@@ -681,30 +682,30 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     for (let y = Math.max(0, Math.floor(cy - rad)); y < Math.min(H, cy + rad); y++)
+       for (let x = Math.max(0, Math.floor(cx - rad)); x < Math.min(W, cx + rad); x++) {
+         const i = y * W + x;
+-        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
++        const d = __portable.hypot(x + 0.5 - cx, y + 0.5 - cy);
+         if (mask[i] !== 1 || stream[i] || d > rad) continue;
+         m.heights[i] = Math.max(floor[i], Math.min(before.heights[i], floor[i] + Math.floor((1 - d / rad) * 3)));
+       }
+   }
+   const snout = path.at(-1)!;
+   const prior = path[Math.max(0, path.length - 7)];
+-  const dl = Math.hypot(snout.x - prior.x, snout.y - prior.y) || 1;
++  const dl = __portable.hypot(snout.x - prior.x, snout.y - prior.y) || 1;
+   const sdx = (snout.x - prior.x) / dl;
+   const sdy = (snout.y - prior.y) / dl;
+   for (let i = 0; i < n; i++) {
+     const ex = (i % W) + 0.5 - snout.x;
+     const ey = Math.floor(i / W) + 0.5 - snout.y;
+     const along = ex * sdx + ey * sdy;
+-    const rad = Math.hypot(ex, ey);
+-    const angle = Math.atan2(ey, ex);
+-    if (along > 0 && Math.abs(rad - snout.r * 0.92 * (1 + 0.1 * Math.sin(angle * 3 + phase))) < 1.6 && !stream[i]) {
++    const rad = __portable.hypot(ex, ey);
++    const angle = __portable.atan2(ey, ex);
++    if (along > 0 && Math.abs(rad - snout.r * 0.92 * (1 + 0.1 * __portable.sin(angle * 3 + phase))) < 1.6 && !stream[i]) {
+       m.heights[i] = Math.max(m.heights[i], Math.min(top, snout.floor + 1 + (noise(s.seed, i) > 0.73 ? 1 : 0)));
+       mask[i] = 2;
+       arrival[i] = 1;
+     }
+     const across = -ex * sdy + ey * sdx;
+     const width = r * (0.75 + along / (r * 3));
+-    if (along > snout.r && along < snout.r + r * 2.8 && Math.abs(across) < width * (1 + 0.1 * Math.sin(along * 0.2 + phase)) && before.heights[i] < snout.floor && !stream[i]) {
++    if (along > snout.r && along < snout.r + r * 2.8 && Math.abs(across) < width * (1 + 0.1 * __portable.sin(along * 0.2 + phase)) && before.heights[i] < snout.floor && !stream[i]) {
+       const target = Math.max(0, snout.floor - Math.floor((along - snout.r) / (10 + noise(s.seed, 19) * 7)));
+       if (target > before.heights[i]) {
+         m.heights[i] = target;
+@@ -747,7 +748,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+         const j = ny * W + nx;
+         if (nx < 0 || ny < 0 || nx >= W || ny >= H || !allowed(j)) continue;
+         if (xx && yy && !allowed(y * W + nx) && !allowed(ny * W + x)) continue;
+-        const next = d + Math.hypot(xx, yy) * (1 + Math.max(0, before.heights[j] - snout.floor) * 0.35);
++        const next = d + __portable.hypot(xx, yy) * (1 + Math.max(0, before.heights[j] - snout.floor) * 0.35);
+         if (next < cost[j]) {
+           cost[j] = next;
+           parent[j] = i;
+@@ -771,7 +772,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     let bed = outlet;
+     let tailArc = 14;
+     const beds = tail.map((q, k) => {
+-      if (k) tailArc += Math.hypot(q.x - tail[k - 1].x, q.y - tail[k - 1].y);
++      if (k) tailArc += __portable.hypot(q.x - tail[k - 1].x, q.y - tail[k - 1].y);
+       return (bed = Math.max(0, Math.min(bed, before.heights[tile(q)], outlet - Math.floor(tailArc / 14))));
+     });
+     channel([streamPath.at(-1)!, ...tail], [outlet, ...beds], riverRadius, 1, 1);
+@@ -786,7 +787,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
+     // boundary tile; the rest of its old bank stays at the rim
+     const entry = entryOf(list);
+     const centre = { x: (entry.i % W) + 0.5, y: Math.floor(entry.i / W) + 0.5 };
+-    const far = (i: number) => !stream[i] && Math.hypot((i % W) - (entry.i % W), Math.floor(i / W) - Math.floor(entry.i / W)) > 2;
++    const far = (i: number) => !stream[i] && __portable.hypot((i % W) - (entry.i % W), Math.floor(i / W) - Math.floor(entry.i / W)) > 2;
+     for (const { i, outside } of list) if (far(i)) m.heights[i] = Math.max(m.heights[i], Math.min(top, Math.ceil(before.heights[outside] + before.water.depth[outside])));
+     // (D292: its shore too, two tiles out from its water: an outside river backed up by its new
+     // outlet spreads over its shore, and at the floor's level it would run over the floor as a sheet)
+diff --git a/src/core/forces/op.ts b/src/core/forces/op.ts
+index 5787c17c..9d45559f 100644
+--- a/src/core/forces/op.ts
++++ b/src/core/forces/op.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // A force as the document keeps it (PLAN §20 D194, D202, D203, D206, D220): one operation,
+ // `forceResult`, one undo step, its result stored literally (from investigation/forces-core's
+ // `core/operation.ts`, fitted to the document: the build assigns it like the carve before it). The
+@@ -210,7 +211,7 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
+       if (!Number.isInteger(i) || i <= prev || i >= W * H) return ["a force's rock tiles must be on the map, in order, once each"];
+       prev = i;
+       const b = p.rock.bits[k];
+-      if (!Number.isInteger(b) || b < 0 || b >= 2 ** 22) return ["a force's rock is a bit for each of the levels 0 to 21"];
++      if (!Number.isInteger(b) || b < 0 || b >= __portable.pow(2, 22)) return ["a force's rock is a bit for each of the levels 0 to 21"];
+     }
+   }
+   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
+diff --git a/src/core/forces/path.ts b/src/core/forces/path.ts
+index d1ebfe04..6b56a18e 100644
+--- a/src/core/forces/path.ts
++++ b/src/core/forces/path.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // A path drawn freehand on the land (PLAN §20 D321, items 41 and 13; D327): the travelling forces' one
+ // way to steer (Carve, Glaciate; Erode's sweep is the same gesture), and the line Quake's fault and
+ // Erupt's fissure follow. The pen itself (`PathBrush`, the painted fault's brush before it) smooths the
+@@ -13,7 +14,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+ /** A path's length along its points, in tiles. */
+ export function pathLength(points: readonly PathPoint[]): number {
+   let l = 0;
+-  for (let k = 1; k < points.length; k++) l += Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
++  for (let k = 1; k < points.length; k++) l += __portable.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
+   return l;
+ }
+
+@@ -29,7 +30,7 @@ export function resamplePath(points: readonly PathPoint[], spacing = 2, max = 12
+   let from = points[0];
+   for (let next = step; next < length - step * 0.5; next += step) {
+     while (k < points.length) {
+-      const seg = Math.hypot(points[k].x - from.x, points[k].y - from.y);
++      const seg = __portable.hypot(points[k].x - from.x, points[k].y - from.y);
+       if (walked + seg >= next) {
+         const t = seg ? (next - walked) / seg : 0;
+         from = { x: from.x + (points[k].x - from.x) * t, y: from.y + (points[k].y - from.y) * t };
+@@ -88,10 +89,10 @@ export class PathBrush {
+   }
+
+   advance(dt: number, finish = false): void {
+-    const a = finish ? 1 : 1 - Math.exp(-Math.max(0, dt) / 0.018);
++    const a = finish ? 1 : 1 - __portable.exp(-Math.max(0, dt) / 0.018);
+     this.smoothed = { x: this.smoothed.x + (this.target.x - this.smoothed.x) * a, y: this.smoothed.y + (this.target.y - this.smoothed.y) * a };
+     const last = this.points.at(-1)!;
+-    if (Math.hypot(this.smoothed.x - last.x, this.smoothed.y - last.y) > 0.45) this.points.push({ ...this.smoothed });
++    if (__portable.hypot(this.smoothed.x - last.x, this.smoothed.y - last.y) > 0.45) this.points.push({ ...this.smoothed });
+     // Bound both the worker and line buffers, retaining the beginning and end.
+     if (this.points.length > 480) this.points.splice(1, this.points.length - 2, ...this.points.slice(1, -1).filter((_, i) => i % 2 === 0));
+   }
+diff --git a/src/core/forces/quake.ts b/src/core/forces/quake.ts
+index 82fddf2a..37191f35 100644
+--- a/src/core/forces/quake.ts
++++ b/src/core/forces/quake.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Quake, a force of nature (PLAN §20 D203, D219): it splits the land along a fault drawn freehand
+ // (D327). Lift raises the chosen side along it (the other drops a little, with a natural tilt and small
+ // secondary faults); Slide carries the chosen side 3–20 tiles along the fault's own direction where
+@@ -95,7 +96,7 @@ export class Fault {
+     for (let k = 1; k < intent.path.length; k++) {
+       const a = intent.path[k - 1];
+       const b = intent.path[k];
+-      const l = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
++      const l = __portable.sqrt(__portable.pow((b.x - a.x), 2) + __portable.pow((b.y - a.y), 2));
+       if (l < 0.01) continue;
+       raw.push({ a, b, dx: (b.x - a.x) / l, dy: (b.y - a.y) / l, length: l, along: length });
+       length += l;
+@@ -111,8 +112,8 @@ export class Fault {
+     // motions. A closed stroke uses its longest chord.
+     const first = raw[0].a;
+     let end = raw.at(-1)!.b;
+-    if (Math.hypot(end.x - first.x, end.y - first.y) < 0.1) end = raw.reduce((best, s) => (Math.hypot(s.b.x - first.x, s.b.y - first.y) > Math.hypot(best.x - first.x, best.y - first.y) ? s.b : best), end);
+-    const span = Math.hypot(end.x - first.x, end.y - first.y) || 1;
++    if (__portable.hypot(end.x - first.x, end.y - first.y) < 0.1) end = raw.reduce((best, s) => (__portable.hypot(s.b.x - first.x, s.b.y - first.y) > __portable.hypot(best.x - first.x, best.y - first.y) ? s.b : best), end);
++    const span = __portable.hypot(end.x - first.x, end.y - first.y) || 1;
+     this.heading = { x: (end.x - first.x) / span, y: (end.y - first.y) / span };
+     const wavelength = 7 + hash(settings.seed, 9) * 14;
+     const rough = 0.35 + hash(settings.seed, 11) * 1.3;
+@@ -131,7 +132,7 @@ export class Fault {
+     for (let k = 1; k < this.points.length; k++) {
+       const a = this.points[k - 1];
+       const b = this.points[k];
+-      const l = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
++      const l = __portable.sqrt(__portable.pow((b.x - a.x), 2) + __portable.pow((b.y - a.y), 2));
+       this.segments.push({ a, b, dx: (b.x - a.x) / l, dy: (b.y - a.y) / l, length: l, along: this.length });
+       this.length += l;
+     }
+@@ -150,7 +151,7 @@ export class Fault {
+       }
+       const a = pos(t - 6);
+       const b = pos(t + 6);
+-      const l = Math.hypot(b.x - a.x, b.y - a.y);
++      const l = __portable.hypot(b.x - a.x, b.y - a.y);
+       this.directions.push(l > 0.5 ? { x: (b.x - a.x) / l, y: (b.y - a.y) / l } : this.heading);
+     }
+   }
+@@ -202,7 +203,7 @@ export class Fault {
+       let dx = Math.round(direction.x * amount);
+       let dy = Math.round(direction.y * amount);
+       // Rounding a diagonal must not silently subtract a tile from Power.
+-      if (amount === this.slide && Math.hypot(dx, dy) < this.slide) {
++      if (amount === this.slide && __portable.hypot(dx, dy) < this.slide) {
+         if (Math.abs(direction.x) >= Math.abs(direction.y)) dx += Math.sign(direction.x);
+         else dy += Math.sign(direction.y);
+       }
+@@ -285,7 +286,7 @@ export class QuakePlan {
+     if (this.settings.mode === "slide")
+       for (let j = 0; j < W * H; j++) {
+         const i = this.source[j];
+-        const distance = Math.hypot((j % W) - (i % W), Math.floor(j / W) - Math.floor(i / W));
++        const distance = __portable.hypot((j % W) - (i % W), Math.floor(j / W) - Math.floor(i / W));
+         if (distance > 0 && this.map.heights[j] === this.before.heights[i]) this.stats.transported++;
+         if (distance >= this.fault.slide && this.map.heights[j] === this.before.heights[i]) this.stats.fullOffset++;
+       }
+@@ -309,7 +310,7 @@ export class QuakePlan {
+       const y = Math.floor(i / W) + this.dy[i];
+       if (x < 0 || y < 0 || x >= W || y >= H) continue;
+       const j = y * W + x;
+-      const travel = Math.hypot(this.dx[i], this.dy[i]);
++      const travel = __portable.hypot(this.dx[i], this.dy[i]);
+       if (travel < priority[j]) continue;
+       priority[j] = travel;
+       this.source[j] = i;
+@@ -348,13 +349,13 @@ export class QuakePlan {
+         for (let k = 1; k < path.length; k++) {
+           const p0 = path[k - 1];
+           const p1 = path[k];
+-          const n = Math.max(1, Math.ceil(Math.hypot(p1.x - p0.x, p1.y - p0.y) * 2));
++          const n = Math.max(1, Math.ceil(__portable.hypot(p1.x - p0.x, p1.y - p0.y) * 2));
+           for (let t = 0; t <= n; t++) {
+             const px = p0.x + ((p1.x - p0.x) * t) / n;
+             const py = p0.y + ((p1.y - p0.y) * t) / n;
+             for (let yy = Math.floor(py - 1); yy <= Math.ceil(py + 1); yy++)
+               for (let xx = Math.floor(px - 1); xx <= Math.ceil(px + 1); xx++) {
+-                if (xx < 0 || yy < 0 || xx >= W || yy >= H || (xx - px) ** 2 + (yy - py) ** 2 > 1.4) continue;
++                if (xx < 0 || yy < 0 || xx >= W || yy >= H || __portable.pow((xx - px), 2) + __portable.pow((yy - py), 2) > 1.4) continue;
+                 const j = yy * W + xx;
+                 if (this.map.heights[j] > bed) {
+                   this.map.heights[j] = bed;
+@@ -561,15 +562,15 @@ export function clickFault(heights: ArrayLike<number>, W: number, H: number, at:
+       gy += h(cx + o, cy + d) - h(cx + o, cy - d);
+     }
+   const turn = (hash(seed, 31) - 0.5) * 0.9;
+-  const angle = Math.hypot(gx, gy) > 2 ? Math.atan2(gy, gx) + Math.PI / 2 + turn : hash(seed, 37) * Math.PI;
++  const angle = __portable.hypot(gx, gy) > 2 ? __portable.atan2(gy, gx) + Math.PI / 2 + turn : hash(seed, 37) * Math.PI;
+   const half = (10 + Math.round(power * 0.12)) / 2;
+   const bend = (hash(seed, 41) - 0.5) * half * 0.5;
+-  const dx = Math.cos(angle);
+-  const dy = Math.sin(angle);
++  const dx = __portable.cos(angle);
++  const dy = __portable.sin(angle);
+   const out: Point[] = [];
+   for (let k = -2; k <= 2; k++) {
+     const t = (k / 2) * half;
+-    const off = bend * (1 - (k / 2) ** 2);
++    const off = bend * (1 - __portable.pow((k / 2), 2));
+     out.push({ x: Math.max(0, Math.min(W - 1, cx + dx * t - dy * off)), y: Math.max(0, Math.min(H - 1, cy + dy * t + dx * off)) });
+   }
+   return out;
+@@ -578,6 +579,6 @@ export function clickFault(heights: ArrayLike<number>, W: number, H: number, at:
+ /** A stroke's length along its points (tiles). */
+ export function strokeLength(path: readonly Point[]): number {
+   let l = 0;
+-  for (let k = 1; k < path.length; k++) l += Math.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
++  for (let k = 1; k < path.length; k++) l += __portable.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
+   return l;
+ }
+diff --git a/src/core/forces/result.ts b/src/core/forces/result.ts
+index f5a2dbbe..73d1e7c3 100644
+--- a/src/core/forces/result.ts
++++ b/src/core/forces/result.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // What a force left, as the document keeps it (op.ts `forceResult`): the literal difference between
+ // the map it started from and the map it made. The four forces share this; a carve adds its source and
+ // its sealed lake (carve/result.ts).
+@@ -49,7 +50,7 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
+     const e = now.get(f.id);
+     if (!e || kept(e) || wasFallen.has(f.id)) continue;
+     // (which way it lies: a unit direction, whatever length the force gave it)
+-    const l = Math.hypot(f.dx, f.dy) || 1;
++    const l = __portable.hypot(f.dx, f.dy) || 1;
+     felled.push({ id: f.id, dx: round4(f.dx / l), dy: round4(f.dy / l) });
+   }
+   return {
+diff --git a/src/core/forces/runs.ts b/src/core/forces/runs.ts
+index 0afca924..e8567ea4 100644
+--- a/src/core/forces/runs.ts
++++ b/src/core/forces/runs.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Craterize, Erupt and Quake at work (PLAN §20 D202, D203, D206, D220): each is planned on its own copy
+ // of the map, a few rows a step (so the worker never holds the page's other calls for long), then shown
+ // in stages: an impact's bowl at once and its debris flying out, a volcano swelling, a fault's front
+@@ -247,13 +248,13 @@ export class CraterRun extends Staged implements StagedRun {
+     const { W, H } = this.before;
+     const out = new Float32Array(W * H);
+     const reach = (this.settings.debris === "heavy" ? 2.65 : 1.48) + (this.settings.rays ? 1.4 : 0);
+-    const c = Math.cos(a.angle);
+-    const s = Math.sin(a.angle);
++    const c = __portable.cos(a.angle);
++    const s = __portable.sin(a.angle);
+     for (let y = 0; y < H; y++)
+       for (let x = 0; x < W; x++) {
+         const dx = x - a.x;
+         const dy = y - a.y;
+-        const r = Math.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
++        const r = __portable.hypot((dx * c + dy * s) / a.a, (-dx * s + dy * c) / a.b);
+         out[y * W + x] = r < 1.05 ? 0 : clamp(0.125 + ((r - 1.05) / Math.max(0.5, reach - 1.05)) * 0.875, 0.125, 1);
+       }
+     return (this.arrival = out);
+@@ -367,7 +368,7 @@ export class EruptRun extends Staged implements StagedRun {
+     for (let y = 0; y < H; y++)
+       for (let x = 0; x < W; x++) {
+         const i = y * W + x;
+-        let dist = Math.hypot(x - a.x, y - a.y);
++        let dist = __portable.hypot(x - a.x, y - a.y);
+         let along = 0;
+         if (a.segments.length) {
+           dist = Infinity;
+@@ -375,7 +376,7 @@ export class EruptRun extends Staged implements StagedRun {
+             const dx = seg.b.x - seg.a.x;
+             const dy = seg.b.y - seg.a.y;
+             const t = clamp(((x - seg.a.x) * dx + (y - seg.a.y) * dy) / (seg.length * seg.length), 0, 1);
+-            const d = Math.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
++            const d = __portable.hypot(x - seg.a.x - dx * t, y - seg.a.y - dy * t);
+             if (d < dist) {
+               dist = d;
+               along = (seg.along + t * seg.length) / a.length;
+@@ -518,7 +519,7 @@ export class QuakeRun extends Staged implements StagedRun {
+         const y = Math.floor(i / W) + off(p.dy[i]);
+         if (x < 0 || y < 0 || x >= W || y >= H) continue;
+         const j = y * W + x;
+-        const travel = Math.hypot(p.dx[i], p.dy[i]);
++        const travel = __portable.hypot(p.dx[i], p.dy[i]);
+         if (travel < priority[j]) continue;
+         priority[j] = travel;
+         m.heights[j] = this.before.heights[i];
+diff --git a/src/core/gen/extras.ts b/src/core/gen/extras.ts
+index 7c3c04a1..8be81e4e 100644
+--- a/src/core/gen/extras.ts
++++ b/src/core/gen/extras.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The 1.0 map objects a generated map carries (PLAN §5.4–5.5, §7.7 step 5): mine sites
+ // (UndergroundRuins), relics, geothermal fields, thorn belts and, when the Advanced setting asks,
+ // unstable cores. Every theme's planner places them on its built ground, after the water settled
+@@ -273,7 +274,7 @@ function thornBelt(
+     cy = by;
+     const dx = mx - bx;
+     const dy = my - by;
+-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
++    const l = __portable.sqrt(dx * dx + dy * dy) || 1;
+     // across the way: perpendicular to it
+     ux = -dy / l;
+     uy = dx / l;
+@@ -350,7 +351,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
+     for (let x = r; x < W - r; x += 2) {
+       const i = y * W + x;
+       // (60–120 tiles from the start's middle, as the site's plan measures it)
+-      const e = Math.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
++      const e = __portable.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
+       if (e < 60 || e > 120 || b.water[i] > 0.05 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i]) continue;
+       if (regions.size[regions.labels[i]] < DISTRICT_LAND) continue;
+       const p = pumpFor(h[i]);
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index 11eb9265..25c1d85b 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Generation (M9a; docs/m9-design.md): terrain and water from processes, then everything else found
+ // in them, then the one build pipeline, the validators and the writer.
+ //
+@@ -325,7 +326,7 @@ export function plannedWater(h: Uint8Array, hy: Hydro, W: number, H: number): Fl
+         const j = yy * W + xx;
+         if (!hy.water[j]) bank = Math.min(bank, h[j]);
+       }
+-      const byFlow = q[i] > 0 ? 0.44 * Math.sqrt(q[i] / 0.82) : 0.25;
++      const byFlow = q[i] > 0 ? 0.44 * __portable.sqrt(q[i] / 0.82) : 0.25;
+       D[i] = Math.max(0.05, Math.min(byFlow, Number.isFinite(bank) ? bank - h[i] - 0.1 : byFlow));
+     }
+   }
+@@ -892,7 +893,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+       if (!(startWaterServed(b3, rule, droughtDays) <= rule - 2) || wetRing(b3, p3)) return null;
+       // the second district keeps its distance and its walk from the start, the rise its stairs
+       for (const st of sites) {
+-        const d = Math.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
++        const d = __portable.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
+         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
+       }
+       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
+diff --git a/src/core/gen/resources.ts b/src/core/gen/resources.ts
+index 7a88f87a..52fcd3d5 100644
+--- a/src/core/gen/resources.ts
++++ b/src/core/gen/resources.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Resources on the settled water (PLAN §7.7, §9.7): ruin fields on dry flat ground away from the
+ // start, berry patches beside water (the first ones near the start), and single-species groves:
+ // alive on moist soil, stored dead on dry soil. Every theme's planner runs this on its built ground
+@@ -469,7 +470,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
+             }
+           return n >= 8 ? s : 0;
+         });
+-        const weights = LIVING_KINDS.map((k, j) => (room[j] > 0 ? Math.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
++        const weights = LIVING_KINDS.map((k, j) => (room[j] > 0 ? __portable.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
+         if (!weights.some((w) => w > 0)) break;
+         const kind = LIVING_KINDS[lay.rng.weighted(weights)];
+         used.add(kind);
+@@ -618,7 +619,7 @@ function startLayout(rng: Rng, start: { x: number; y: number }, walk: Float64Arr
+       const y = (i - x) / W;
+       const dx = x - start.x;
+       const dy = y - start.y;
+-      const r = Math.sqrt(dx * dx + dy * dy);
++      const r = __portable.sqrt(dx * dx + dy * dy);
+       const c = r > 0 ? (dx * bx + dy * by) / r : 0;
+       const d = walk[i] - reach;
+       const yard = r < YARD ? (r * r * r * r) / (YARD * YARD * YARD * YARD) : 1;
+@@ -788,7 +789,7 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
+         for (let i = 0; i < N; i++) if (kindOf[i] === at(k) && free[i] && (!zone || zone[i])) n++;
+         return n;
+       });
+-      const weights = KINDS.map((k, j) => (room[j] >= 8 ? Math.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
++      const weights = KINDS.map((k, j) => (room[j] >= 8 ? __portable.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
+       if (!weights.some((w) => w > 0)) break;
+       const kind = KINDS[rng.weighted(weights)];
+       used.add(kind);
+diff --git a/src/core/gen/weir.ts b/src/core/gen/weir.ts
+index df3f2b1d..d51631dd 100644
+--- a/src/core/gen/weir.ts
++++ b/src/core/gen/weir.ts
+@@ -36,7 +36,7 @@ export function planWeir(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "r
+     const f = pathField(a.path, W, H);
+     for (let i = 0; i < N; i++) if (f.d[i] < 8) nearArm[i] = 1;
+   }
+-  const rivers = hy.rivers.slice().sort((a, c) => (c.role === "river/main" ? 1 : 0) - (a.role === "river/main" ? 1 : 0) || c.params.flow - a.params.flow || (a.id < c.id ? -1 : 1));
++  const rivers = hy.rivers.slice().sort((a, c) => (c.role === "river/main" ? 1 : 0) - (a.role === "river/main" ? 1 : 0) || c.params.flow - a.params.flow || (a.id < c.id ? -1 : a.id > c.id ? 1 : 0));
+   for (const r of rivers) {
+     const f = pathField(r.params.path, W, H);
+     const joins = tributaries(r, hy.rivers, W, H, f);
+diff --git a/src/core/land/field.ts b/src/core/land/field.ts
+index 659c4a27..81ce42b8 100644
+--- a/src/core/land/field.ts
++++ b/src/core/land/field.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The field (docs/m9-design.md §4): the land's processes, before it is snapped to levels.
+ // - Uplift: a regional slope (toward an edge, or toward a bowl), a slow regional field of broad
+ //   highs and lows beside it (an independent spatial control, playbook #1), domain-warped fractal
+@@ -88,8 +89,8 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
+       const r = stream(s, "basin-shape");
+       const [ux, uy] = unit(p.turn);
+       const aspect = sea ? 1 + 0.4 * r.float() : 1.6 + 1.8 * r.float();
+-      const major = p.size * Math.sqrt(aspect);
+-      const minor = p.size / Math.sqrt(aspect);
++      const major = p.size * __portable.sqrt(aspect);
++      const minor = p.size / __portable.sqrt(aspect);
+       const bend = sea ? 0 : (r.float() * 2 - 1) * 0.6;
+       const cell = Math.max(5, p.size * 0.32);
+       const arms: { ax: number; ay: number; bx: number; by: number; w: number }[] = [];
+@@ -108,7 +109,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
+         const a = dx * ux + dy * uy;
+         const b = -dx * uy + dy * ux - (bend * a * a) / major;
+         const n = 1 + 0.45 * fbm(s, x, y, cell, 3);
+-        let d = Math.sqrt((a / major) * (a / major) + (b / minor) * (b / minor)) / n;
++        let d = __portable.sqrt((a / major) * (a / major) + (b / minor) * (b / minor)) / n;
+         for (const arm of arms) {
+           const vx = arm.bx - arm.ax;
+           const vy = arm.by - arm.ay;
+@@ -155,7 +156,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
+       const n = Math.max(2, Math.round(p.extra));
+       for (let j = 0; j < n; j++) {
+         const a = rng.float();
+-        const r = p.size * Math.sqrt(rng.float());
++        const r = p.size * __portable.sqrt(rng.float());
+         const [ux, uy] = unit(a);
+         const mx = cx + ux * r;
+         const my = cy + uy * r;
+@@ -251,7 +252,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
+       else {
+         const du = x / (W - 1) - g.focus[0];
+         const dv = y / (H - 1) - g.focus[1];
+-        h += g.tilt * (Math.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
++        h += g.tilt * (__portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
+       }
+       // the slow regional field: broad highs and lows that are not one plane
+       h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
+@@ -310,7 +311,7 @@ export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: num
+       const dx = (i % W) - (r % W);
+       const dy = Math.floor(i / W) - Math.floor(r / W);
+       const len = dx !== 0 && dy !== 0 ? Math.SQRT2 : 1;
+-      const F = (k * (1 - 0.85 * hard[i]) * Math.sqrt(d.area[i])) / len;
++      const F = (k * (1 - 0.85 * hard[i]) * __portable.sqrt(d.area[i])) / len;
+       h[i] = (h[i] + F * h[r]) / (1 + F);
+     }
+     if (diffusion > 0) {
+diff --git a/src/core/land/genome.ts b/src/core/land/genome.ts
+index 07795208..fcbfa2ba 100644
+--- a/src/core/land/genome.ts
++++ b/src/core/land/genome.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The genome (docs/m9-design.md §3): every number one map is made from, drawn from its theme's
+ // prior. A theme is not a layout: it is a prior over one parameter space (how likely each landform
+ // part is, how strong the processes run, how much water enters and where). Every part can appear in
+@@ -594,7 +595,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
+   const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * Math.max(1, areaK)));
+   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
+   // extra lakes: basins beyond the parts, so water spans the workshop's range
+-  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, Math.sqrt(areaK))));
++  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, __portable.sqrt(areaK))));
+   for (let k = 0; k < lakes; k++) g.parts.push(randomPart(rng, "basin", W, H, vy, tallK));
+   // a radial slope falls toward the first bowl when there is one
+   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
+@@ -633,7 +634,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+   const isles = Math.round((12 + 10 * rng.float()) * Math.max(1, areaK));
+   for (let k = 0; k < isles; k++) {
+     const [ux, uy] = [rng.float() * 2 - 1, rng.float() * 2 - 1];
+-    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, Math.sqrt(ux * ux + uy * uy));
++    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, __portable.sqrt(ux * ux + uy * uy));
+     g.parts.push({ kind: rng.float() < 0.35 ? "cone" : "mesa", at: [g.focus[0] + (ux * r * R) / W, g.focus[1] + (uy * r * R) / H], size: 3 + 6 * rng.float(), height: depth + (1.5 + 4 * rng.float()) * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
+   }
+   // the land rises from the sea toward every edge: a steep bowl, quiet noise, levels spread by
+@@ -742,8 +743,8 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
+   // colony's need times the reserve, PLAN §5.3, §11.4) against the theme's own, as room for lakes
+   // and as basins more or fewer (the settler then prefers a start near the water they keep)
+   const storeRatio = (reservoirNeeded(designedFor) * RESERVE[s.water.droughtReserve]) / (reservoirNeeded("normal") * RESERVE[p.droughtReserve]);
+-  g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (storeRatio > 1 ? Math.sqrt(storeRatio) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? 0.8 : 1), 0.01, 0.5);
+-  const moreBasins = storeRatio > 1 ? Math.round(1.3 * Math.log2(storeRatio)) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? -1 : 0;
++  g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (storeRatio > 1 ? __portable.sqrt(storeRatio) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? 0.8 : 1), 0.01, 0.5);
++  const moreBasins = storeRatio > 1 ? Math.round(1.3 * __portable.log2(storeRatio)) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? -1 : 0;
+   for (let k = 0; k < moreBasins; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
+   for (let k = 0; k < -moreBasins; k++) {
+     const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
+@@ -775,8 +776,8 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
+       const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
+       if (at >= 0) g.parts.splice(at, 1);
+     }
+-    g.troughs *= 0.5 ** -dl;
+-    g.lakeSprings *= 0.6 ** -dl;
++    g.troughs *= __portable.pow(0.5, -dl);
++    g.lakeSprings *= __portable.pow(0.6, -dl);
+   }
+   // waterfalls
+   const df = FALL_STEP[s.water.waterfalls] - FALL_STEP[p.waterfalls];
+diff --git a/src/core/land/hazards.ts b/src/core/land/hazards.ts
+index 5b0bd424..850e6de4 100644
+--- a/src/core/land/hazards.ts
++++ b/src/core/land/hazards.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Badwater found in the terrain (docs/m9-design.md §4.8; D200: badwater on every map). Badwater
+ // rises in a hollow on high ground (a pit dug two levels into the rock, its outline irregular) and
+ // drains by its own winding ditch down the slope to a river below the start's water, or to the
+@@ -138,7 +139,7 @@ function windOnce(tiles: readonly number[], W: number, H: number, allowed: (i: n
+     const k1 = Math.min(n - 1, k + 2);
+     const tx = sx[k1] - sx[k0];
+     const ty = sy[k1] - sy[k0];
+-    const tl = Math.sqrt(tx * tx + ty * ty) || 1;
++    const tl = __portable.sqrt(tx * tx + ty * ty) || 1;
+     const off = amp * sinDet((PI * k) / (n - 1)) * sinDet((TWO_PI * k) / wave + phase);
+     const x = k === n - 1 ? px[k] : Math.round(sx[k] - (ty / tl) * off);
+     const y = k === n - 1 ? py[k] : Math.round(sy[k] + (tx / tl) * off);
+diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
+index 817f6b51..9c6ab172 100644
+--- a/src/core/land/hydro.ts
++++ b/src/core/land/hydro.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Rivers from the terrain's drainage (docs/m9-design.md §4.6): no river is drawn. Water enters
+ // where the ground lets it (edge inflows at the low points of the upstream edges, springs on high
+ // ground), follows the eroded field's drainage to a map edge, and cuts its channel below the ground
+@@ -123,7 +124,7 @@ function smoothPath(pts0: Point[], iters: number, step: number): Point[] {
+   for (let k = 1; k < pts.length; k++) {
+     const dx = pts[k][0] - pts[k - 1][0];
+     const dy = pts[k][1] - pts[k - 1][1];
+-    acc += Math.sqrt(dx * dx + dy * dy);
++    acc += __portable.sqrt(dx * dx + dy * dy);
+     if (acc >= step || k === pts.length - 1) {
+       res.push(pts[k]);
+       acc = 0;
+@@ -153,7 +154,7 @@ function stamp(path: Point[], W: number, H: number, reach: number): Stamp {
+     const vx = path[k + 1][0] - ax;
+     const vy = path[k + 1][1] - ay;
+     const l2 = vx * vx + vy * vy;
+-    const len = Math.sqrt(l2);
++    const len = __portable.sqrt(l2);
+     const x0 = Math.max(0, Math.floor(Math.min(ax, ax + vx) - reach));
+     const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, ax + vx) + reach));
+     const y0 = Math.max(0, Math.floor(Math.min(ay, ay + vy) - reach));
+@@ -165,7 +166,7 @@ function stamp(path: Point[], W: number, H: number, reach: number): Stamp {
+         else if (t > 1) t = 1;
+         const px = ax + t * vx - x;
+         const py = ay + t * vy - y;
+-        const dd = Math.sqrt(px * px + py * py);
++        const dd = __portable.sqrt(px * px + py * py);
+         const i = y * W + x;
+         if (!seen[i]) {
+           seen[i] = 1;
+@@ -186,7 +187,7 @@ function arcLength(p: Point[]): number {
+   for (let k = 0; k + 1 < p.length; k++) {
+     const dx = p[k + 1][0] - p[k][0];
+     const dy = p[k + 1][1] - p[k][1];
+-    l += Math.sqrt(dx * dx + dy * dy);
++    l += __portable.sqrt(dx * dx + dy * dy);
+   }
+   return l;
+ }
+@@ -196,7 +197,7 @@ function pointAt(p: Point[], s: number): { p: Point; n: Point } {
+   for (let k = 0; k + 1 < p.length; k++) {
+     const dx = p[k + 1][0] - p[k][0];
+     const dy = p[k + 1][1] - p[k][1];
+-    const l = Math.sqrt(dx * dx + dy * dy);
++    const l = __portable.sqrt(dx * dx + dy * dy);
+     if (acc + l >= s && l > 0) {
+       const t = (s - acc) / l;
+       return { p: [p[k][0] + t * dx, p[k][1] + t * dy], n: [-dy / l, dx / l] };
+@@ -205,7 +206,7 @@ function pointAt(p: Point[], s: number): { p: Point; n: Point } {
+   }
+   const a = p[p.length - 2];
+   const b = p[p.length - 1];
+-  const l = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
++  const l = __portable.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
+   return { p: b, n: [-(b[1] - a[1]) / l, (b[0] - a[0]) / l] };
+ }
+
+@@ -260,7 +261,7 @@ function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wan
+     const b = pts[Math.min(n - 1, k + 3)];
+     const dx = b[0] - a[0];
+     const dy = b[1] - a[1];
+-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
++    const l = __portable.sqrt(dx * dx + dy * dy) || 1;
+     nx[k] = -dy / l;
+     ny[k] = dx / l;
+   }
+@@ -683,7 +684,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+               at = k;
+             }
+           }
+-          const d = Math.sqrt(best);
++          const d = __portable.sqrt(best);
+           if (d > reach) continue;
+           const u = at / (pts.length - 1);
+           const depth = Math.round((1 + 2.5 * 4 * u * (1 - u)) * (1 - d / reach) + 0.4);
+diff --git a/src/core/land/intentions.ts b/src/core/land/intentions.ts
+index a3462448..6c7925e1 100644
+--- a/src/core/land/intentions.ts
++++ b/src/core/land/intentions.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Intentions (D138): zero, one or two outcomes a map is steered toward, never built. Each one is
+ // written as what a player finds, never as how to make it (Kyler's first principle). Steering is
+ // only a nudge to the genome's prior and a preference in the settler; the processes decide whether
+@@ -295,7 +296,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
+       return s.lakes.some((lk) => lk.surface >= L + 1 && lk.keep9 >= 0.5 && near(lk.tiles, 40)) ? 1 : 0;
+     case "farmland-past-gorge":
+       return s.farms.some((f) => {
+-        const d = Math.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
++        const d = __portable.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
+         return d <= 70 && crossesGorge(s.gorge, W, x, y, Math.round(f.cx), Math.round(f.cy));
+       })
+         ? 1
+@@ -374,7 +375,7 @@ function resample(path: [number, number][], W: number, H: number): [number, numb
+     const [ax, ay] = path[k];
+     const vx = path[k + 1][0] - ax;
+     const vy = path[k + 1][1] - ay;
+-    const len = Math.sqrt(vx * vx + vy * vy);
++    const len = __portable.sqrt(vx * vx + vy * vy);
+     let t = carry;
+     while (t < len) {
+       const x = ax + (vx * t) / len;
+@@ -398,13 +399,13 @@ function simplify(pts: [number, number][], eps: number): number[] {
+     const [ax, ay] = pts[a];
+     const vx = pts[b][0] - ax;
+     const vy = pts[b][1] - ay;
+-    const len = Math.sqrt(vx * vx + vy * vy);
++    const len = __portable.sqrt(vx * vx + vy * vy);
+     let far = -1;
+     let fd = eps;
+     for (let m = a + 1; m < b; m++) {
+       const wx = pts[m][0] - ax;
+       const wy = pts[m][1] - ay;
+-      const d = len > 0 ? Math.abs(vx * wy - vy * wx) / len : Math.sqrt(wx * wx + wy * wy);
++      const d = len > 0 ? Math.abs(vx * wy - vy * wx) / len : __portable.sqrt(wx * wx + wy * wy);
+       if (d > fd) {
+         fd = d;
+         far = m;
+@@ -525,7 +526,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
+   const eu = (i: number) => {
+     const dx = (i % W) - sx;
+     const dy = Math.floor(i / W) - sy;
+-    return Math.sqrt(dx * dx + dy * dy);
++    return __portable.sqrt(dx * dx + dy * dy);
+   };
+   switch (id) {
+     case "under-cliff": {
+@@ -663,7 +664,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
+       for (let k = 0; k < sizes.length; k++) {
+         if (ownLab.has(k) || sizes[k] < 400) continue;
+         const [px, py] = cent[k];
+-        const d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
++        const d = __portable.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+         if (d > 70) continue;
+         // a gorge on the way: a wet tile on the line whose banks within 3 tiles stand 2+ above it
+         let gorge = false;
+@@ -880,8 +881,8 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
+           const uy = by - ay;
+           const vx = qx - bx;
+           const vy = qy - by;
+-          const lu = Math.sqrt(ux * ux + uy * uy);
+-          const lv = Math.sqrt(vx * vx + vy * vy);
++          const lu = __portable.sqrt(ux * ux + uy * uy);
++          const lv = __portable.sqrt(vx * vx + vy * vy);
+           if (lu < 3 || lv < 3) continue;
+           // turning 30 degrees or more: the cosine at most 0.866
+           if ((ux * vx + uy * vy) / (lu * lv) <= 0.866) bends.push({ k: keep[m], sign: ux * vy - uy * vx > 0 ? 1 : -1 });
+@@ -920,7 +921,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
+       let note = "no large lake";
+       let ok = false;
+       for (const L of lakes) {
+-        const R = Math.sqrt(L.tiles.length / 3.14159);
++        const R = __portable.sqrt(L.tiles.length / 3.14159);
+         let high = 0;
+         let ring = 0;
+         for (const [ux, uy] of RAYS) {
+@@ -1016,14 +1017,14 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
+           sxx += dx * dx;
+           syy += dy * dy;
+           sxy += dx * dy;
+-          rmax = Math.max(rmax, Math.sqrt(dx * dx + dy * dy));
++          rmax = Math.max(rmax, __portable.sqrt(dx * dx + dy * dy));
+         }
+         const a = sxx / open.length;
+         const d = syy / open.length;
+         const b = sxy / open.length;
+         const tr = (a + d) / 2;
+-        const disc = Math.sqrt(((a - d) * (a - d)) / 4 + b * b);
+-        const axes = tr + disc > 0 ? Math.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 0;
++        const disc = __portable.sqrt(((a - d) * (a - d)) / 4 + b * b);
++        const axes = tr + disc > 0 ? __portable.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 0;
+         const fill = open.length / (3.14159 * (rmax + 0.5) * (rmax + 0.5));
+         let fall = 0;
+         for (const f of c.falls) {
+diff --git a/src/core/land/narrows.ts b/src/core/land/narrows.ts
+index f8b35788..36a9ace3 100644
+--- a/src/core/land/narrows.ts
++++ b/src/core/land/narrows.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The natural-narrows builder (design version 2, D111; #63: no Dam site tool, kept as an internal
+ // operation for M12's Claude): two hillside spurs close in on a river from its two banks, each a
+ // tongue of ground of uneven thickness that falls 1–2 levels from its root on the valley side to
+@@ -45,7 +46,7 @@ function arc(p: Point[]): number {
+   for (let k = 0; k + 1 < p.length; k++) {
+     const dx = p[k + 1][0] - p[k][0];
+     const dy = p[k + 1][1] - p[k][1];
+-    l += Math.sqrt(dx * dx + dy * dy);
++    l += __portable.sqrt(dx * dx + dy * dy);
+   }
+   return l;
+ }
+@@ -55,7 +56,7 @@ function pointAt(p: Point[], s: number): { p: Point; t: Point } {
+   for (let k = 0; k + 1 < p.length; k++) {
+     const dx = p[k + 1][0] - p[k][0];
+     const dy = p[k + 1][1] - p[k][1];
+-    const l = Math.sqrt(dx * dx + dy * dy);
++    const l = __portable.sqrt(dx * dx + dy * dy);
+     if (acc + l >= s && l > 0) {
+       const u = (s - acc) / l;
+       return { p: [p[k][0] + u * dx, p[k][1] + u * dy], t: [dx / l, dy / l] };
+@@ -64,7 +65,7 @@ function pointAt(p: Point[], s: number): { p: Point; t: Point } {
+   }
+   const a = p[p.length - 2];
+   const b = p[p.length - 1];
+-  const l = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
++  const l = __portable.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
+   return { p: b, t: [(b[0] - a[0]) / l, (b[1] - a[1]) / l] };
+ }
+
+@@ -120,7 +121,7 @@ export function planNarrows(h: Uint8Array, W: number, H: number, water: ArrayLik
+         for (let yy = Math.floor(cy - r); yy <= Math.ceil(cy + r); yy++)
+           for (let xx = Math.floor(cx - r); xx <= Math.ceil(cx + r); xx++) {
+             if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) continue;
+-            const dd = Math.sqrt((xx - cx) * (xx - cx) + (yy - cy) * (yy - cy));
++            const dd = __portable.sqrt((xx - cx) * (xx - cx) + (yy - cy) * (yy - cy));
+             if (dd > w) continue;
+             const i = yy * W + xx;
+             if (water[i] > 0.05) continue;
+diff --git a/src/core/land/num.ts b/src/core/land/num.ts
+index 1a5c091c..39d8a3d1 100644
+--- a/src/core/land/num.ts
++++ b/src/core/land/num.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Small exact helpers for the land's processes (PLAN §2.1, D15): only + − × ÷, Math.sqrt, floor,
+ // round, abs, min and max touch output. Angles come from the 8 flow directions or from the
+ // deterministic sine in math/detmath.ts. Ported from the M9 design prototype
+@@ -5,7 +6,7 @@
+
+ import { cosDet, PI, sinDet } from "../math/detmath";
+
+-export const SQRT1_2 = Math.sqrt(0.5);
++export const SQRT1_2 = __portable.sqrt(0.5);
+
+ /** The 8 flow directions (PLAN §7.1), as unit vectors (x east, y north), east first, counter-clockwise. */
+ export const DIRS8: readonly (readonly [number, number])[] = [
+@@ -40,7 +41,7 @@ export function unit(turns: number): [number, number] {
+ export function dist(ax: number, ay: number, bx: number, by: number): number {
+   const dx = ax - bx;
+   const dy = ay - by;
+-  return Math.sqrt(dx * dx + dy * dy);
++  return __portable.sqrt(dx * dx + dy * dy);
+ }
+
+ /** Distance from (x, y) to the segment a–b. */
+diff --git a/src/core/resources/baseline.ts b/src/core/resources/baseline.ts
+index 04b89ccc..9371329d 100644
+--- a/src/core/resources/baseline.ts
++++ b/src/core/resources/baseline.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The resource baseline (Kyler's "Resources like the official maps", 2026-09-25): how many trees,
+ // berry bushes and how much scrap a map carries for its size and settings, and where they go, as
+ // the official maps have them (investigation/official-baselines.json). The generator's
+@@ -70,7 +71,7 @@ export function thinCluster(rng: Rng, blob: readonly number[], W: number, keep:
+   const r = blob.map((i) => {
+     const dx = (i % W) - cx;
+     const dy = (i - (i % W)) / W - cy;
+-    return Math.sqrt(dx * dx + dy * dy);
++    return __portable.sqrt(dx * dx + dy * dy);
+   });
+   let rmax = 0;
+   for (const v of r) if (v > rmax) rmax = v;
+@@ -441,8 +442,8 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
+     const aspect = 1 + o.rng.float();
+     const [ax, ay] = AXES[o.rng.int(0, 4)];
+     const areaTiles = size / L.fieldFill / 0.85;
+-    const major = Math.sqrt((areaTiles * aspect) / Math.PI);
+-    const minor = Math.sqrt(areaTiles / (aspect * Math.PI));
++    const major = __portable.sqrt((areaTiles * aspect) / Math.PI);
++    const minor = __portable.sqrt(areaTiles / (aspect * Math.PI));
+     const level = g.heights[s];
+     const allowed = new Uint8Array(N);
+     const r = Math.ceil(major) + 1;
+diff --git a/src/core/resources/measure.ts b/src/core/resources/measure.ts
+index fb62e5c2..752d13ea 100644
+--- a/src/core/resources/measure.ts
++++ b/src/core/resources/measure.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // What a map holds in trees, berry bushes, ruins, mine sites and badwater sources, and how they are laid out
+ // (investigation/official-baselines.json measures the official maps with it; the batch and the
+ // comparison tools measure generated maps the same way). Pure: a map's objects, its surface and its
+@@ -274,7 +275,7 @@ function waterDistance(W: number, H: number, wet: (i: number) => boolean): Int32
+ /** The distance from `p` to an object's footprint's nearest ground tile, to a tenth of a tile. */
+ function nearestTo(o: MapObject, p: { x: number; y: number }): number {
+   let d = Infinity;
+-  for (const b of worldBlocks(FOOTPRINTS[o.template], o)) if (b.localZ === 0) d = Math.min(d, Math.hypot(b.x - p.x, b.y - p.y));
++  for (const b of worldBlocks(FOOTPRINTS[o.template], o)) if (b.localZ === 0) d = Math.min(d, __portable.hypot(b.x - p.x, b.y - p.y));
+   return Math.round(d * 10) / 10;
+ }
+
+@@ -436,7 +437,7 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
+     const hs = f.map((t) => ruinAt.get(t)!.h);
+     const n = hs.length;
+     const mean = hs.reduce((a, b) => a + b, 0) / n;
+-    const sd = Math.sqrt(hs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n);
++    const sd = __portable.sqrt(hs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n);
+     let x0 = W;
+     let x1 = 0;
+     let y0 = H;
+diff --git a/src/core/sim/weather.ts b/src/core/sim/weather.ts
+index 4cd6746b..6556117b 100644
+--- a/src/core/sim/weather.ts
++++ b/src/core/sim/weather.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // The hazardous weather a map meets, for the editor's Drought and Badtide buttons (live editing,
+ // PLAN §20 D180 (8), D181 (3)). A small port of the cycles investigation, which is checked against
+ // the decompiled game (investigation/cycles/FIDELITY.md) and adopted for the Weather view (D133,
+@@ -34,7 +35,7 @@ export function hazardDays(d: Difficulty, hazard: Hazard): number {
+ export function badtideContamination(sinceStart: number, days: number): number {
+   const shape = (t: number) => {
+     const x = 17 * (t - 0.5);
+-    return 1 / (Math.exp(x) + Math.exp(-x)) + 0.5;
++    return 1 / (__portable.exp(x) + __portable.exp(-x)) + 0.5;
+   };
+   if (sinceStart < 0.5) return shape(sinceStart);
+   const toEnd = days - sinceStart;
+diff --git a/src/core/terrain/runs.ts b/src/core/terrain/runs.ts
+index 78b5359c..d674fe75 100644
+--- a/src/core/terrain/runs.ts
++++ b/src/core/terrain/runs.ts
+@@ -1,3 +1,4 @@
++import * as __portable from "../math/portable";
+ // Terrain as solid runs per tile (D119, P3D-1; investigation/terrain3d/DESIGN.md §2.1–2.2): the
+ // game's own form (`ColumnTerrainMap`). A tile's runs are its solid intervals [floor, ceiling),
+ // bottom to top: a heightfield tile is one run [0, h); a cave, an overhang or a tunnel is a tile
+@@ -16,7 +17,7 @@ import { LAYERS } from "../format/world";
+
+ /** The game's 23 layers (22 + 1); layer 22 stays empty. */
+ export const TERRAIN_LAYERS = LAYERS;
+-const FULL = 2 ** TERRAIN_LAYERS - 1;
++const FULL = __portable.pow(2, TERRAIN_LAYERS) - 1;
+
+ /** Format 3's terrain, for the document's `field` and `base` (DESIGN.md §2.2). */
+ export interface TerrainData {
+@@ -88,7 +89,7 @@ export class ColumnTerrain {
+
+   static fromHeights(h: ArrayLike<number>, W: number, H: number): ColumnTerrain {
+     const mask = new Uint32Array(W * H);
+-    for (let i = 0; i < W * H; i++) mask[i] = h[i] >= TERRAIN_LAYERS ? FULL : 2 ** h[i] - 1;
++    for (let i = 0; i < W * H; i++) mask[i] = h[i] >= TERRAIN_LAYERS ? FULL : __portable.pow(2, h[i]) - 1;
+     return new ColumnTerrain(W, H, mask);
+   }
+
+diff --git a/src/worker/session.ts b/src/worker/session.ts
+index 8f0db927..6bc3cf25 100644
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -2466,7 +2466,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
+     if (!r.done && !(r instanceof QuakeRun && r.painting)) r.finishAll();
+     const after = r.final();
+     if (!after) return refused(["Nothing changed"]);
+-    params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.steps, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
++    params = forceParamsOf(f.before, after, { verb: f.verb, ...recordOf(f), cut: f.request.cut, steps: r.total, reason: "done", ...(f.replaces !== undefined ? { replaces: f.replaces } : {}) });
+     if (!params) return refused(["Nothing changed"]);
+     // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
+     // its whole ground, the levels it left as they were included (the build keeps its banks whole)
+diff --git a/src/core/math/portable.ts b/src/core/math/portable.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/math/portable.ts
+@@ -0,0 +1,70 @@
++// Adoption candidate. Restricted to finite map arguments, rather than a general libm.
++// All polynomial evaluation and reductions have a fixed order. No native approximate Math calls.
++import { sinDet, cosDet, expDet } from './detmath';
++export { sinDet as sin, cosDet as cos, expDet as exp };
++const PI = 3.141592653589793, HALF_PI = 1.5707963267948966, LN2 = 0.6931471805599453;
++// (module (func (export "sqrt") (param f64) (result f64) local.get 0 f64.sqrt))
++// WebAssembly f64.sqrt is correctly rounded. NaNs are not serialized into map state.
++const sqrtModule = new WebAssembly.Module(new Uint8Array([
++  0,97,115,109,1,0,0,0, 1,6,1,96,1,124,1,124, 3,2,1,0,
++  7,8,1,4,115,113,114,116,0,0, 10,7,1,5,0,32,0,159,11,
++]));
++export const sqrt = new WebAssembly.Instance(sqrtModule).exports.sqrt as (x: number) => number;
++export function hypot(...args: number[]): number {
++  let scale = 0;
++  for (const x of args) scale = Math.max(scale, Math.abs(x));
++  if (scale === Infinity || scale === 0) return scale;
++  let sum = 0;
++  for (const x of args) { const r = x / scale; sum += r * r; }
++  return scale * sqrt(sum);
++}
++export function atan(x: number): number {
++  if (!Number.isFinite(x)) return Number.isNaN(x) ? NaN : (x < 0 ? -HALF_PI : HALF_PI);
++  if (x === 0) return x;
++  const sign = x < 0 ? -1 : 1;
++  let a = Math.abs(x), offset = 0, invert = false;
++  if (a > 1) { a = 1 / a; invert = true; }
++  if (a > 0.41421356237309503) { a = (a - 1) / (a + 1); offset = PI / 4; }
++  const a2 = a * a;
++  let term = a, sum = a;
++  for (let k = 1; k <= 24; k++) { term *= -a2; sum += term / (2 * k + 1); }
++  const value = offset + sum;
++  return sign * (invert ? HALF_PI - value : value);
++}
++export function atan2(y: number, x: number): number {
++  if (Number.isNaN(x) || Number.isNaN(y)) return NaN;
++  const negativeY = y < 0 || Object.is(y, -0), negativeX = x < 0 || Object.is(x, -0);
++  if (y === 0) return negativeX ? (negativeY ? -PI : PI) : y;
++  if (x === 0) return y < 0 ? -HALF_PI : HALF_PI;
++  if (!Number.isFinite(x) && !Number.isFinite(y)) return (negativeY ? -1 : 1) * (negativeX ? 3 * PI / 4 : PI / 4);
++  const a = atan(Math.abs(y / x));
++  const b = x < 0 ? PI - a : a;
++  return y < 0 ? -b : b;
++}
++export function log(x: number): number {
++  if (x === 0) return -Infinity;
++  if (!(x > 0)) return NaN;
++  if (x === Infinity) return Infinity;
++  let m = x, exponent = 0;
++  while (m >= 2) { m *= 0.5; exponent++; }
++  while (m < 1) { m *= 2; exponent--; }
++  const z = (m - 1) / (m + 1), z2 = z * z;
++  let term = z, sum = z;
++  for (let k = 1; k <= 24; k++) { term *= z2; sum += term / (2 * k + 1); }
++  return exponent * LN2 + 2 * sum;
++}
++export function log2(x: number): number { return log(x) / LN2; }
++export function pow(x: number, y: number): number {
++  if (y === 0) return 1;
++  if (Number.isInteger(y) && Math.abs(y) <= 1024) {
++    let n = Math.abs(y), b = x, result = 1;
++    while (n > 0) { if (n % 2 === 1) result *= b; n = Math.floor(n / 2); if (n) b *= b; }
++    return y < 0 ? 1 / result : result;
++  }
++  if (x === 0 && y > 0) return 0;
++  if (!(x > 0) || !Number.isFinite(x) || !Number.isFinite(y)) throw Error('pow outside finite map domain');
++  const v = y * log(x);
++  if (Math.abs(v) >= 700) throw Error('pow outside expDet map domain');
++  return expDet(v);
++}
++export function tanh(x: number): number { const a = expDet(-2 * Math.abs(x)); return (x < 0 ? -1 : 1) * ((1 - a) / (1 + a)); }

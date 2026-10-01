@@ -11,6 +11,7 @@ The generator's land processes (`docs/m9-design.md`): a genome drawn from the th
 **Start from**
 - `genome.ts` (the parameter space; `LEANINGS`, `DEFAULT_VARIETY`); `field.ts` `uplift`, `caprock`, `erodeHard`, `weather`; `levels.ts` `snapLevels`.
 - `hydro.ts` `planHydro` (rivers, lakes, falls); `hazards.ts` `planBadwater`; `drainage.ts` `drainage`.
+- `minePads.ts` `minePads` (the mine sites' level ground, made as the land is shaped, D363) and `roomMap` (where a start's walk has it on the settled water).
 - `intentions.ts` (the set, the nudges, the checks); `narrows.ts` `planNarrows` (an internal operation, no editor tool).
 
 **Tests**: `tests/unit/genome.test.ts`, plus the `gen/` tests, which build whole maps. Run `npx vitest run tests/unit/genome.test.ts`.

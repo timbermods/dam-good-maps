@@ -13,6 +13,7 @@ const HEAVY = [
   "tests/contract/rivers.test.ts", // rivers drawn at random on three sizes
   "tests/contract/reshape.test.ts", // set pieces, lakes and landforms beside every kind of object
   "tests/contract/settings.test.ts", // each setting's batch experiment (M6)
+  "tests/contract/firstLand256.test.ts", // the first land shown is the map at 256² (D348)
 ];
 
 export default defineConfig({
