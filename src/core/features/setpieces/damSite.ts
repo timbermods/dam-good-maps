@@ -13,6 +13,7 @@
 // at most). On a map that exists (the editor), it also measures the reservoir a dam across the gap
 // would hold, and says so in the report.
 
+import * as portable from "../../math/portable";
 import { damCandidate } from "../../analysis/damsites";
 import { fbm } from "../../math/noise";
 import { hash32 } from "../../math/hash";
@@ -113,7 +114,7 @@ export const damSite: SetPieceBuilder = {
     const c = pointAtArc(path, p.at).p;
     const ax = path[path.length - 1][0] - path[0][0];
     const ay = path[path.length - 1][1] - path[0][1];
-    const al = Math.sqrt(ax * ax + ay * ay) || 1;
+    const al = portable.sqrt(ax * ax + ay * ay) || 1;
     const tx = ax / al; // along the valley axis
     const ty = ay / al;
     const nx = -ty; // across it
@@ -187,7 +188,7 @@ export function damBand(feature: SetPieceFeature, t: Pick<BuildTarget, "W" | "H"
   const c = pointAtArc(path, p.at).p;
   const ax = path[path.length - 1][0] - path[0][0];
   const ay = path[path.length - 1][1] - path[0][1];
-  const al = Math.sqrt(ax * ax + ay * ay) || 1;
+  const al = portable.sqrt(ax * ax + ay * ay) || 1;
   const tx = ax / al;
   const ty = ay / al;
   const nx = -ty;
@@ -230,7 +231,7 @@ export function reservoirOf(plan: DamSitePlan, river: RiverFeature, ctx: PlanCon
   let dir = dirs[0];
   let least = Infinity;
   for (const d of dirs) {
-    const dot = Math.abs(d[1] * ax + d[0] * ay) / Math.sqrt(d[0] * d[0] + d[1] * d[1]);
+    const dot = Math.abs(d[1] * ax + d[0] * ay) / portable.sqrt(d[0] * d[0] + d[1] * d[1]);
     if (dot < least) {
       least = dot;
       dir = d;

@@ -77,6 +77,7 @@ export interface StraightOptions {
   channelWidth?: number;
 }
 
+import * as portable from "../math/portable";
 import { distanceFrom } from "../math/grid";
 
 type Pt = [number, number];
@@ -167,7 +168,7 @@ function runEnd(pts: readonly Pt[], i: number, tau: number, cap: number): number
       end = j;
       continue;
     }
-    const d = Math.sqrt(d2);
+    const d = portable.sqrt(d2);
     if (rx === 0 && ry === 0) {
       rx = vx / d;
       ry = vy / d;
@@ -177,7 +178,7 @@ function runEnd(pts: readonly Pt[], i: number, tau: number, cap: number): number
     const s = (rx * vy - ry * vx) / d;
     if (c <= 0) break;
     const sa = tau / d;
-    const ca = Math.sqrt(1 - sa * sa);
+    const ca = portable.sqrt(1 - sa * sa);
     const denLo = c * ca + s * sa;
     const denHi = c * ca - s * sa;
     if (denLo <= 0 || denHi <= 0) break;
@@ -250,7 +251,7 @@ function canalOf(runs: readonly StraightRun[], depth: ArrayLike<number>, W: numb
   const dir = (r: StraightRun) => {
     const dx = r.to[0] - r.from[0];
     const dy = r.to[1] - r.from[1];
-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
     return [dx / l, dy / l] as const;
   };
   for (let a = 0; a < runs.length; a++) {

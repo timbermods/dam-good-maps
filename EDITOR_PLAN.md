@@ -1133,7 +1133,9 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   slice a call, then shows as many steps a frame as the page asks (`forceStart`, `forceAdvance`, `forcePaint`,
   `forceStop`, `forceCancel`, `forceAgain`; no second history or water owner); its frames carry the ground and the
   objects, never water (D321, item 30), and say once it is worked out (`planned`) how many steps show it (`total`) and
-  how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
+  how many have (`shown`). A staged force's operation keeps that `total` as its `steps` (`stagedParamsOf`, D366),
+  never how many slices its planning took, so the same gesture is the same operation on a quick or a busy machine;
+  the forces' maths is the portable maths (`PLAN.md` §2.1), so it is the same in every browser. The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
   `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Slow forces, `WATCH_FACTOR` (four) times
   Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as undo
   would. **Undo at any moment leaves the map exactly as it was before the gesture, and nothing lands afterwards**
@@ -1221,7 +1223,7 @@ The generator (`PLAN.md`) and the editor are one app. The shared foundations are
 | Stable ids | `PLAN.md` §19.4 | Generated features hashed from seed, kind and role; user features get stored UUIDs; entities are hashed from their owning feature. |
 | Validation | `PLAN.md` §19.5 | One set of modules with check classes (load, playability, design) and profiles (generate, export, import). |
 | Format I/O | `PLAN.md` §19.6 | One reader and writer, import normalization, project files. |
-| Determinism | `PLAN.md` §19.7 | `build(document)` is pure; per-feature RNG streams; incremental equals full; the canonical water settle for files. |
+| Determinism | `PLAN.md` §2.1, §19.7 | `build(document)` is pure; per-feature RNG streams; incremental equals full; the canonical water settle for files; the portable maths in `src/core/` and the cross-engine check (`tools/determinism/`, D366). |
 | Build order | `PLAN.md` §19.8 | One pipeline for generation and editing. |
 | Platform adapters | `PLAN.md` §19.9 | Files, storage, workers, Claude and download naming: the only differences between the website and the artifact edition. |
 

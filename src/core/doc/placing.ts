@@ -5,6 +5,7 @@
 // that apply it, or why it does not fit: an invalid placement is shown and refused, never placed
 // (the game would delete it on load, or it would die).
 
+import * as portable from "../math/portable";
 import { BUILDERS } from "../features/setpieces";
 import { badwaterMouth } from "../features/build";
 import { mouthTiles } from "../features/raster/terrain";
@@ -157,7 +158,7 @@ function distanceNote(s: MapSession, kind: MapObjectKind, tiles: readonly (reado
   const band = EXTRA_BANDS[kind];
   if (!ctx.start || !band) return [];
   let d = Infinity;
-  for (const [x, y] of tiles) d = Math.min(d, Math.sqrt((x - ctx.start.x) * (x - ctx.start.x) + (y - ctx.start.y) * (y - ctx.start.y)));
+  for (const [x, y] of tiles) d = Math.min(d, portable.sqrt((x - ctx.start.x) * (x - ctx.start.x) + (y - ctx.start.y) * (y - ctx.start.y)));
   const sc = band.scaled ? bandScale(ctx.W, ctx.H) : 1;
   const lo = Math.round(band.lo * sc);
   const hi = band.hi < Infinity ? Math.round(band.hi * sc) : null;

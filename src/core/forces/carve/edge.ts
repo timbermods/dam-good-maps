@@ -5,6 +5,7 @@
 // A plain function of the ground; the editor's worker turns the click into that aimed carve, and the
 // operation keeps it, so projects replay exactly.
 
+import * as portable from "../../math/portable";
 import { drainage } from "../drainage";
 
 /** How near the edge (tiles) a click is looked at. */
@@ -45,17 +46,17 @@ export function edgeAim(heights: ArrayLike<number>, W: number, H: number, origin
   const near = Math.min(dl, dr, dt, db);
   let nx = (dl === near ? 1 : 0) - (dr === near ? 1 : 0);
   let ny = (dt === near ? 1 : 0) - (db === near ? 1 : 0);
-  const n = Math.hypot(nx, ny) || 1;
+  const n = portable.hypot(nx, ny) || 1;
   nx /= n;
   ny /= n;
-  const inward = Math.atan2(ny, nx);
+  const inward = portable.atan2(ny, nx);
   const reach = Math.min(Math.min(W, H) * 0.45, 18 + 0.5 * power);
   let best: number | null = null;
   let score = Infinity;
   for (let k = -4; k <= 4; k++) {
     const a = inward + (k * Math.PI) / 12;
-    const ex = Math.round(x + Math.cos(a) * reach);
-    const ey = Math.round(y + Math.sin(a) * reach);
+    const ex = Math.round(x + portable.cos(a) * reach);
+    const ey = Math.round(y + portable.sin(a) * reach);
     if (ex < 2 || ey < 2 || ex > W - 3 || ey > H - 3) continue;
     const s = heights[ey * W + ex] + Math.abs(k) * 0.01;
     if (s < score) {

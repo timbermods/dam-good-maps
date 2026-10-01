@@ -6,19 +6,21 @@
 // Glaciate also scales below Power 60 (`glacierStrength`), so its Power makes a clear difference at any
 // size. One rule for every force that has a Size; Quake has none (its Power sets its lift and slide).
 
+import * as portable from "../math/portable";
+
 /** How strongly a force acts at `power` when its Size is `size` and Power alone would give `natural`
  *  (0 to 1; 1 when the Size is Power's own or smaller). */
 export function strength(power: number, size: number | null, natural: number): number {
   if (size === null || !(size > natural) || natural <= 0) return 1;
-  const floor = Math.sqrt(natural / size);
-  return floor + (1 - floor) * (Math.max(0, Math.min(100, power)) / 100) ** 1.2;
+  const floor = portable.sqrt(natural / size);
+  return floor + (1 - floor) * portable.pow(Math.max(0, Math.min(100, power)) / 100, 1.2);
 }
 
 /** Glaciate's: its depth also follows Power below 60 (Power 60, the default, and above as before;
  *  Power 0 about a sixth as deep), and never more than `strength` for its Size. */
 export function glacierStrength(power: number, size: number | null, natural: number): number {
   const p = Math.max(0, Math.min(100, power));
-  const own = p >= 60 ? 1 : 0.15 + 0.85 * (p / 60) ** 1.2;
+  const own = p >= 60 ? 1 : 0.15 + 0.85 * portable.pow(p / 60, 1.2);
   return Math.min(own, strength(power, size, natural));
 }
 
