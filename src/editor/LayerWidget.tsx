@@ -4,6 +4,7 @@
 // the view buttons, quiet at ∞ until used. Alt+scroll and Alt+middle-click do the same on the map.
 
 import { useRef } from "preact/hooks";
+import { tip } from "../ui/Tooltip";
 
 export interface LayerWidgetProps {
   /** The layer the world is cut at, or null (the whole world). */
@@ -20,12 +21,12 @@ export function LayerWidget(p: LayerWidgetProps) {
   const at = p.level === null;
   return (
     <span class={`layer-widget${at ? " quiet" : ""}`} role="group" aria-label="Visible layers">
-      <button type="button" aria-label="Lower the visible layer" title="Cut the world a layer lower (Alt+scroll down)" onClick={() => p.onStep(-1)} disabled={p.level === 0}>
+      <button type="button" aria-label="Lower the visible layer" {...tip("Cut the world a layer lower", "Alt+scroll down")} onClick={() => p.onStep(-1)} disabled={p.level === 0}>
         ▾
       </button>
       <output
         aria-label="Visible layer"
-        title="The layer showing (drag up or down)"
+        title="The layer showing: drag it up or down"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
           drag.current = { y: e.clientY, acc: 0 };
@@ -46,7 +47,7 @@ export function LayerWidget(p: LayerWidgetProps) {
       >
         {at ? "∞" : p.level}
       </output>
-      <button type="button" aria-label="Raise the visible layer" title="Show a layer more (Alt+scroll up)" onClick={() => p.onStep(1)} disabled={at}>
+      <button type="button" aria-label="Raise the visible layer" {...tip("Show a layer more", "Alt+scroll up")} onClick={() => p.onStep(1)} disabled={at}>
         ▴
       </button>
       {at ? null : (

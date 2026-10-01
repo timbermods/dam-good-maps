@@ -359,16 +359,19 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice() };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice() };
 }
 
+/** The page has these objects already: every field it reads the same, a source's strength and a ruin's
+ *  model among them (D368 (4): a strength changed alone was once not sent, and the source's label and
+ *  row stayed on the old number). */
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
   if (!b || a.count !== b.count || a.templates.join() !== b.templates.join() || a.owners.join() !== b.owners.join()) return false;
   const eq = (p: ArrayLike<number>, q: ArrayLike<number>) => {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
 }
 
 function markSent(s: MapSession): void {

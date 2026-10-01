@@ -37,8 +37,8 @@ The editor:
   zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
 - Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
-- [ and ] size the brush, or hold F and move the mouse. Shift while painting swaps Raise and Lower.
-  Esc cancels a stroke.
+- { and } size the brush, or hold F and move the mouse. [ and ] set **Smooth** and **Naturalize**'s
+  strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
 - **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
   shown beside the pointer, with hard edges.
 - Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past

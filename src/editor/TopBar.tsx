@@ -1,11 +1,11 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
 // Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
 // row beneath with only the picked tool's options (the sources are on the left shelf). The brush's
-// size is its ring on the land ([ and ], hold F), and first in its row, a number and a slider up to
+// size is its ring on the land ({ and }, hold F: D368 (1)), and first in its row, a number and a slider up to
 // half the map (D226, D322 item 42). Raise, Lower and Flatten have a target level (D322, item 37),
 // shown beside the pointer and in the row, as the game's editor: Shift+scroll or Ctrl+click sets it,
 // Free (Raise and Lower) sculpts softly; Smooth and Naturalize's strength shows only while it changes
-// (Shift+scroll, { and }). Every brush has its mode, Ground, Water or Both (item 2), and what it does
+// (Shift+scroll, [ and ]). Every brush has its mode, Ground, Water or Both (item 2), and what it does
 // to the sources it passes, Ride, Keep or Clear (item 31), each remembered per brush. The kit's
 // toggles are off by default: square and straight lines; Flatten has "in steps". A walkable edge is
 // the shelf's Slope (D247, D322). Level lines are a view switch (D248). The forces (D194, D202, D203, D206, D246: Carve, Craterize,
@@ -22,6 +22,7 @@ import { CEILING } from "../core/format/world";
 import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice } from "./brushes";
 import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
+import { tip } from "../ui/Tooltip";
 import type { Verb } from "../core/forces/op";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
@@ -157,11 +158,23 @@ export const FORCE_CLUSTERS: readonly (readonly Force[])[] = FORCE_GROUPS.map((g
 /** This build shows the force `id`. */
 export const forceShown = (id: string) => SHOWN_FORCES.some((f) => f.id === id);
 
-/** What a force's mode switch does, one line each (D351). */
+/** What a force's mode switch does, one line each (D351), V's flip at its end (D368 (6)). */
 const MODE_TITLES: Record<string, string> = {
-  Lift: "Lift one side of the fault (V flips it)",
-  Slide: "Slide one side along the fault (V flips it)",
+  Lift: "Lift one side of the fault",
+  Slide: "Slide one side along the fault",
 };
+
+/** A phrase as a tooltip starts it. */
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** A size's keys (D368 (1)): hold F and move the mouse, or { and }. */
+export const SIZE_KEYS = ["F", "{", "}"] as const;
+/** A strength's or a Power's keys (D368 (1)). */
+export const STRENGTH_KEYS = ["[", "]"] as const;
+
+/** The tooltips of the tools, the forces and Select (D368 (6)): what it is for, then its key as a key cap. */
+export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint), b.key);
+export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
+export const SELECT_TIP = tip("Mark an area to change", "M");
 
 /** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
  *  Size and Try another (D289). */
@@ -171,7 +184,7 @@ export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: str
       {p.force.modes ? (
         <div class="segmented" role="group" aria-label="Mode">
           {p.force.modes.map((m) => (
-            <button type="button" key={m} aria-pressed={p.mode === m} title={MODE_TITLES[m] ?? m} onClick={() => p.onMode?.(m)}>
+            <button type="button" key={m} aria-pressed={p.mode === m} {...tip(MODE_TITLES[m] ?? m, "V flips it")} onClick={() => p.onMode?.(m)}>
               {m}
             </button>
           ))}
@@ -224,7 +237,7 @@ export function ForceKeys() {
 /** A toggle in the options row: a checkbox and its word. */
 export function Toggle(p: { label: string; title: string; on: boolean; onChange(on: boolean): void }) {
   return (
-    <label class="check" title={p.title}>
+    <label class="check" {...tip(p.title)}>
       <input type="checkbox" checked={p.on} onChange={() => p.onChange(!p.on)} />
       {p.label}
     </label>
@@ -236,6 +249,8 @@ export function Toggle(p: { label: string; title: string; on: boolean; onChange(
 export function SizeControl(p: {
   label: string;
   title: string;
+  /** Its keys, as key caps at the end of its tooltip (D368 (6)). */
+  keys?: readonly string[];
   value: number;
   min: number;
   max: number;
@@ -251,7 +266,7 @@ export function SizeControl(p: {
   const words = p.auto?.on ? `Auto (${number})` : number;
   return (
     <span class="size-control">
-      <label class="slider-field" title={p.title}>
+      <label class="slider-field" {...tip(p.title, ...(p.keys ?? []))}>
         {p.label}
         <input
           type="range"
@@ -351,9 +366,9 @@ export function MoreRow(p: { force: Force; children: ComponentChildren }) {
 
 /** The target's words for players coming from the game's editor (D322, item 37). */
 const TARGET_TITLE: Record<"raise" | "lower" | "flatten", string> = {
-  raise: "Raise to this level (Shift+scroll, Ctrl+click)",
-  lower: "Lower to this level (Shift+scroll, Ctrl+click)",
-  flatten: "Set to this level (Shift+scroll, Ctrl+click)",
+  raise: "Raise to this level",
+  lower: "Lower to this level",
+  flatten: "Set to this level",
 };
 
 export function TopBar(p: TopBarProps) {
@@ -362,7 +377,7 @@ export function TopBar(p: TopBarProps) {
   const t = p.active;
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
-  const why = p.loading ? "The map is still loading" : "A force is at work (Esc skips it)";
+  const why = p.loading ? tip("The map is still loading") : tip("A force is at work", "Esc skips it");
   return (
     <div class="brush-bar-wrap">
       <div class="map-bar" role="toolbar" aria-label="Tools">
@@ -373,7 +388,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={p.active === b.tool}
             aria-label={`${b.name} brush (${b.key})`}
-            title={off ? why : `${b.name} (${b.key}): ${b.hint}`}
+            {...(off ? why : brushTip(b))}
             disabled={off}
             onClick={() => p.onPick(p.active === b.tool ? null : b.tool)}
           >
@@ -387,7 +402,7 @@ export function TopBar(p: TopBarProps) {
             class="icon-button"
             aria-pressed={!!p.selecting}
             aria-label="Select (M)"
-            title={off ? why : "Select (M): mark an area to change"}
+            {...(off ? why : SELECT_TIP)}
             disabled={off}
             onClick={p.onSelect}
           >
@@ -407,7 +422,7 @@ export function TopBar(p: TopBarProps) {
                   class="icon-button"
                   aria-pressed={p.force === f.id}
                   aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-                  title={p.loading ? "The map is still loading" : `${f.name}${f.key ? ` (${f.key})` : ""}: ${f.hint ?? ""}`}
+                  {...(p.loading ? tip("The map is still loading") : forceTip(f))}
                   disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
                   onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
                 >
@@ -422,9 +437,9 @@ export function TopBar(p: TopBarProps) {
       {t ? (
         <div class="map-bar options-row two-lines" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
           <div class="bar-group">
-            <SizeControl label="Size" title="The brush's size (F, [ and ])" value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
+            <SizeControl label="Size" title="The brush's size" keys={SIZE_KEYS} value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
             {hasTarget(t) ? (
-              <label title={TARGET_TITLE[t]}>
+              <label {...tip(TARGET_TITLE[t], "Shift+scroll", "Ctrl+click")}>
                 Level
                 <select
                   aria-label="Target level"

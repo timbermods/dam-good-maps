@@ -1,5 +1,5 @@
 // Kyler's forces sitting, batch A (PLAN §20 D344), through the page. A1: F and the mouse size a force's
-// ring on the map, [ and ] step its Size and { and } its Power, exactly as a brush's, the number
+// ring on the map, { and } step its Size and [ and ] its Power (D368 (1) swapped them), exactly as a brush's, the number
 // beside the pointer, a Size set by hand off Auto. A2: Power and Size always read as numbers, "Auto
 // (68)" on Auto. A3 (amended by D361 (2)): a drawn gesture shows as its stroke along the line, with no
 // ring: Carve's and Glaciate's band their width, a fault's or a fissure's a narrow line. A4:
@@ -55,7 +55,7 @@ async function spot(page: Page): Promise<[number, number]> {
   );
 }
 
-test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), [ ] and { } step Size and Power, the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
+test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
@@ -95,15 +95,15 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   expect(await status(page)).toBeNull();
   expect((await info(page)).history.filter((h) => h.applied).at(-1)?.label ?? "").not.toBe("Craterize");
 
-  // ] and [: the Size a step up and down; } and {: Power by five; each beside the pointer
-  await page.keyboard.press("]");
+  // } and {: the Size a step up and down; ] and [: Power by five; each beside the pointer (D368 (1))
+  await page.keyboard.press("}");
   await expect(note(page)).toHaveText(`size ${set + 2}`);
   await expect(size).toHaveText(String(set + 2));
   const p0 = Number(await power.textContent());
-  await page.keyboard.press("}");
+  await page.keyboard.press("]");
   await expect(note(page)).toHaveText(`power ${Math.min(100, p0 + 5)}`);
   await expect(power).toHaveText(String(Math.min(100, p0 + 5)));
-  await page.keyboard.press("{");
+  await page.keyboard.press("[");
   await expect(power).toHaveText(String(p0));
   // back to Auto: "Auto (n)"
   await row.getByRole("button", { name: "Size follows Power" }).click();
@@ -195,7 +195,7 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
   expect((await labels(page)).length).toBe(n0 + 1);
 });
 
-test("D361 (1): Power acts on every mode: } while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
+test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
   await refine(page);
   const at = await spot(page);
   const before = await heights(page);
@@ -216,7 +216,7 @@ test("D361 (1): Power acts on every mode: } while a Lift is painted lifts it hig
   };
   await expect.poll(rise).toBeGreaterThan(0);
   const low = await rise();
-  for (let k = 0; k < 20; k++) await page.keyboard.press("}");
+  for (let k = 0; k < 20; k++) await page.keyboard.press("]");
   await expect.poll(rise, { timeout: 10_000 }).toBeGreaterThan(low + 3);
   await page.mouse.up();
   await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
@@ -242,4 +242,118 @@ test("D361 (1): Power acts on every mode: } while a Lift is painted lifts it hig
   await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
   await idle(page);
   expect(await moved()).toBeGreaterThan(weak * 3);
+});
+
+test("D368 (1): one key habit for every tool: F with the mouse and { } set Size; [ ] set Power on every force, strength on Smooth and Naturalize, and nothing on Raise, Lower and Flatten", async ({ page }) => {
+  test.setTimeout(240_000);
+  await refine(page);
+  const at = await spot(page);
+  const p = await client(page, at[0], at[1]);
+  const far = await client(page, at[0] + 7, at[1]);
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
+  /** The pointer on the map, the tool's ring under it (a slider just set lets go of the keys first). */
+  const point = async (brush: boolean) => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(p.x + 3, p.y);
+    await page.mouse.move(p.x, p.y);
+    if (brush) await expect.poll(() => page.evaluate(() => { const c = window.dgm3d!.renderer.brushCursorState; return c ? [Math.floor(c.x), Math.floor(c.y)] : null; })).toEqual(at);
+    else await expect.poll(async () => { const g = await gesture(page); return g.ring !== null || g.cursor !== null; }).toBe(true);
+  };
+  /** F held while the mouse moves away: the size follows the pointer; let go keeps it. */
+  const fSize = async (brush: boolean) => {
+    await point(brush);
+    await page.keyboard.down("f");
+    await page.mouse.move(far.x, far.y, { steps: 8 });
+    await page.keyboard.up("f");
+  };
+
+  // the brushes
+  for (const [key, name, strength] of [
+    ["1", "Raise", false],
+    ["2", "Lower", false],
+    ["3", "Flatten", false],
+    ["4", "Smooth", true],
+    ["5", "Naturalize", true],
+  ] as const) {
+    await page.keyboard.press(key);
+    const row = page.getByRole("group", { name: `${name} options` });
+    const size = row.getByRole("slider", { name: "Size" });
+    await size.fill("4");
+    // F with the mouse: the size follows the pointer, 7 tiles out
+    await fSize(true);
+    await expect(size, `${name}: F sizes it`).not.toHaveValue("4");
+    await size.fill("4");
+    await point(true);
+    // { }: Size a step down and up, beside the pointer
+    await page.keyboard.press("}");
+    await expect(note(page), `${name}: } steps its size`).toHaveText(/^size [\d.]+$/);
+    expect(Number(await size.inputValue()), `${name}: } makes it larger`).toBeGreaterThan(4);
+    await page.keyboard.press("{");
+    await expect(size).toHaveValue("4");
+    // [ ]: the strength on Smooth and Naturalize; nothing on the height brushes (their target level is theirs)
+    const s0 = (await saved()).strength!;
+    // (the size's word gone: the brush's own words are back)
+    const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+    await expect.poll(words, { timeout: 5_000 }).not.toMatch(/^(size|strength|power) /);
+    await page.keyboard.press(s0 >= 10 ? "[" : "]");
+    if (strength) {
+      await expect(note(page), `${name}: ] sets its strength`).toHaveText(/^strength \d+$/);
+      await expect.poll(async () => (await saved()).strength, `${name}: its strength changed`).not.toBe(s0);
+      await page.keyboard.press(s0 >= 10 ? "]" : "[");
+      await expect.poll(async () => (await saved()).strength).toBe(s0);
+    } else {
+      await page.waitForTimeout(300);
+      expect(await words(), `${name}: ] does nothing`).not.toMatch(/strength|size|power/);
+      expect((await saved()).strength, `${name}: its strength is untouched`).toBe(s0);
+    }
+    await expect(size, `${name}: [ ] leave its size`).toHaveValue("4");
+  }
+  await page.keyboard.press("x");
+
+  // the forces
+  for (const [key, name] of [
+    ["7", "Carve"],
+    ["8", "Craterize"],
+    ["0", "Erupt"],
+    ["9", "Quake"],
+    ["-", "Glaciate"],
+  ] as const) {
+    await page.keyboard.press(key);
+    const row = page.getByRole("group", { name: `${name} options` });
+    const power = row.getByRole("slider", { name: "Power" });
+    await power.fill("50");
+    const hasSize = name !== "Quake";
+    const size = row.locator(".size-control output");
+    await point(false);
+    if (hasSize) {
+      // F with the mouse: its Size, off Auto
+      await expect(size).toHaveText(/^Auto/);
+      await fSize(false);
+      await expect(size, `${name}: F sizes it`).toHaveText(/^[\d.]+$/);
+      const s0 = Number(await size.textContent());
+      // { }: its Size a step down and up
+      await page.keyboard.press("}");
+      await expect(note(page), `${name}: } steps its Size`).toHaveText(/^size \d+$/);
+      await expect.poll(async () => Number(await size.textContent()), `${name}: } makes it larger`).toBeGreaterThan(s0);
+      await page.keyboard.press("{");
+      await expect.poll(async () => Number(await size.textContent())).toBe(s0);
+      await expect(power, `${name}: { } leave its Power`).toHaveValue("50");
+      await row.getByRole("button", { name: "Size follows Power" }).click();
+    } else {
+      // (Quake has no Size: F and { } leave it as it is)
+      await page.keyboard.press("}");
+      await page.waitForTimeout(300);
+      expect((await note(page).count()) ? await note(page).textContent() : "").not.toMatch(/size|power/);
+      await expect(power).toHaveValue("50");
+    }
+    // [ ]: its Power by five
+    await page.keyboard.press("]");
+    await expect(note(page), `${name}: ] steps its Power`).toHaveText("power 55");
+    await expect(power).toHaveValue("55");
+    await page.keyboard.press("[");
+    await page.keyboard.press("[");
+    await expect(power).toHaveValue("45");
+    if (hasSize) await expect(size, `${name}: [ ] leave its Size`).toHaveText(/^Auto/);
+    await page.keyboard.press(key);
+  }
 });

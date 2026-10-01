@@ -1,9 +1,11 @@
-// One strength number everywhere (PLAN §20 D361, item 6): the settings row, the scroll's note and the
+// One strength number everywhere (PLAN §20 D361, item 6; D368 (4)): the settings row, the scroll's note and the
 // marker's label say the same thing about the source being pointed at, and in a row say whether the
-// scroll changes this source or the whole row, with both numbers.
+// scroll changes this source or the whole row, with both numbers. They all read one value: the page's copy of
+// the objects, with the strengths set on it and still on their way to the worker on top.
 
 import { describe, expect, it } from "vitest";
-import { sourceStrengths, sourceStrengthWords, withOwnStrength, type SourceGroup } from "../../src/editor/features";
+import { sourceGroups, sourceStrengths, sourceStrengthWords, strengthKey, strengthReader, type SourceGroup } from "../../src/editor/features";
+import { entityView } from "../../src/render3d/model";
 
 const row: SourceGroup = { members: [4, 5, 6, 7], tiles: [], x: 10, y: 10, z: 3, strength: 1, bad: false };
 const strengths: Record<number, number> = { 4: 0.25, 5: 0.25, 6: 0.25, 7: 0.25, 9: 8 };
@@ -21,10 +23,32 @@ describe("a source's strength in words", () => {
     expect(sourceStrengthWords(s)).toBe("8 badwater/s");
   });
 
-  it("scrolling one source moves its number and the row's total, live", () => {
-    const s = sourceStrengths([row], (k) => strengths[k], 6)!;
-    expect(sourceStrengthWords(withOwnStrength(s, 0.5))).toBe("this source 0.5 · row 1.25 water/s");
-    expect(sourceStrengthWords(withOwnStrength(s, 1))).toBe("this source 1 · row 1.75 water/s");
+  it("scrolling one source moves its number and the row's total at once, notch by notch, from the one value", () => {
+    const W = 32;
+    const heights = new Uint8Array(W * W).fill(4);
+    const src = (x: number, strength: number) => ({ template: "WaterSource", x, y: 10, z: 4, orientation: "Cw0", owner: "", strength });
+    const v = entityView([src(5, 1), src(6, 1), src(7, 1), src(20, 1)]);
+    const pending = new Map<string, number>();
+    const read = strengthReader(v, pending);
+    for (const [own, k] of [
+      [1.5, 1],
+      [2, 1],
+      [3, 1],
+      [8, 3],
+    ] as const) {
+      // (a notch: the page sets it at once, before the worker answers)
+      pending.set(strengthKey(v.x[k], v.y[k]), own);
+      const groups = sourceGroups(v, W, heights, read);
+      const s = sourceStrengths(groups, read, k)!;
+      const label = groups.find((g) => g.members.includes(k))!.strength;
+      expect(s.own).toBe(own);
+      expect(s.row).toBe(label);
+    }
+    expect(sourceStrengthWords(sourceStrengths(sourceGroups(v, W, heights, read), read, 1)!)).toBe("this source 3 · row 5 water/s");
+    expect(sourceStrengthWords(sourceStrengths(sourceGroups(v, W, heights, read), read, 3)!)).toBe("8 water/s");
+    // the worker answered: its own number stands
+    pending.clear();
+    expect(sourceStrengths(sourceGroups(v, W, heights, read), read, 1)!.row).toBe(3);
   });
 
   it("a thing that is no source has none", () => {

@@ -13,6 +13,7 @@ import { LOG_FLOOR, LOG_FLOOR_WALK } from "../core/data/logFloor";
 import { woodDetail } from "../core/analysis/wood";
 import { startStatus, type StartCheck } from "./features";
 import { plain } from "./words";
+import { tip } from "../ui/Tooltip";
 
 // ------------------------------------------------------------------------------ the water layers
 
@@ -182,7 +183,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
           {actions && c.fix?.length ? (
             <>
               {" "}
-              <button type="button" class="linkish" title={`${c.fix[0].label || "Fix it"} (Ctrl+Z undoes it)`} onClick={() => actions.onFix(c.fix!)}>
+              <button type="button" class="linkish" {...tip(c.fix[0].label || "Fix it", "Ctrl+Z undoes it")} onClick={() => actions.onFix(c.fix!)}>
                 {c.fix[0].label || "Fix it"}
               </button>
             </>
