@@ -83,6 +83,14 @@ forces; the deploy and the live check passed. The High look's release is next (D
      The look's menu tooltips are in the D351 form. Locally: typecheck, 1,078 unit and contract tests, 117 browser
      tests, all passing. Left: Kyler's final look on the preview (the eruption's glow in High is the place the two
      meet visibly), then #75 into `dev`, `map-look-2-done` and `tools/release.sh`.
+  9. **CI skips its heavy suites for changes that only touch documents, LICENSE or descriptive `package.json` fields**
+     (not dependencies, devDependencies, scripts, version or anything else; `package-lock.json` likewise): a `changes` job
+     (`tools/ci-changes.mjs`, tested in `tests/unit/ci-changes.test.ts`) gates `browser`, `oracle`, `generation` and
+     `engines`; `test` (typecheck, the quick suite, the build) always runs, and a skipped job counts as passed for merge and
+     release. Why: the licence release's CI took about 25 minutes a run (the longest job: `engines` 26 min, `test` 22 min,
+     each browser shard 7–12 min), twice (push, then the release PR); jobs waited in the queue only 2–400 s, mostly when the
+     push and PR runs competed for runners, so the time was running, not waiting. A code change keeps the full suite: the
+     change itself ran it in full (all green).
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
