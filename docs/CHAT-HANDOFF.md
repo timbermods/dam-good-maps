@@ -60,7 +60,7 @@ Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `
 ## The milestone order (D349, as amended) and where each step stands
 
 1. **Finish the editor as players will know it.**
-   - **The forces release:** built on `feature/forces` (#77); waits only for Kyler's yes on the checklist below.
+   - **The forces: released** on 2026-10-01 (`forces-done`, #149; Kyler's yes, D375).
    - **Right after it** (not blocking): Carve's river born as it cuts (D371), Glaciate's 3.5 s timing (D374),
      startup part 1 (D367), the smoothness fixes (#107), Carve's Maturity (D355).
    - **M9b's release** (`feature/m9b`, #70): in progress, see below.
@@ -76,20 +76,11 @@ Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `
 
 ## Open items, with owner and next step
 
-### The forces release (owner: the milestone session; waits for Kyler)
+### The forces: released (2026-10-01)
 
-Everything is merged into `feature/forces` and green. **Next:** Kyler checks the preview
-(<https://timbermods.github.io/dam-good-maps/preview/>) against the checklist in `docs/STATUS.md`; on his yes the
-session releases (`tools/release.sh`, CLAUDE.md "Deploying"). The checklist covers D361's ten fixes as re-checked,
-plus D368's eleven:
-
-- one key habit (F or `{ }` Size; `[ ]` or F+scroll strength), sources' one live number, the top-right cluster,
-  tooltip key caps;
-- Quake's hover a dot, Craterize click-only, Glaciate's Power as depth and Size as width (lower Powers a shallower
-  clean glacier; default Power 60, for Kyler to confirm), Carve's banks forming behind the cut (no pop at the end);
-- Naturalize weathering what the player paints, no Slopes or other objects ever placed by an edit.
-- Also in: cross-browser determinism (D366) with its three-engine CI check, and three bug fixes found on the way
-  (a re-imported tall map's bytes, two water-journey races).
+Released as `forces-done` (#149) on Kyler's yes after all eleven D368 fixes passed on the preview (D375): the five
+forces, one key habit, tooltips with key caps, cross-browser determinism (D366), only the player placing objects.
+The public site shows them. **Next: the High look's release** (the milestone session's first task).
 
 ### After the forces release (owner: the milestone session, `build` agents)
 

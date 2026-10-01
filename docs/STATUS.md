@@ -11,18 +11,18 @@ The session on your main PC ended at 07:00 PDT on 2026-10-01, with your allowanc
 agent or background task is running, and a new milestone session resumes from [HANDOFF.md §0](HANDOFF.md) by running
 `npm run setup:machine` first. The planning chat's handoff is [CHAT-HANDOFF.md](CHAT-HANDOFF.md).
 
+**Released this morning: the forces** (`forces-done`, [#149](https://github.com/timbermods/dam-good-maps/pull/149), on your yes, D375). The public site shows all five
+forces; the deploy and the live check passed. The High look's release is next (D284, D346).
+
 **Waiting for you**
 
-1. **The forces release: your yes on the checklist below.** Everything is merged into `feature/forces` and green, and
-   the preview is built from it: <https://timbermods.github.io/dam-good-maps/preview/>.
-2. **Glaciate, two things for your eye:** its default Power is 60 again (the agent's call once the lower Powers passed
-   its test; say if it should stay 100), and Power 0 leaves a thin sheet on up to 5% of the floor where a river crosses.
-3. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
-4. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
+1. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
+2. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
+3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
 
 **Where things stand**
 
-- **The forces** (`feature/forces`, #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
+- **The forces** (released; `feature/forces` merged by #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
   three-engine check in CI, and three bugs fixed on the way (a re-imported tall map's bytes, two water-journey races).
 - **M9b** (`feature/m9b`, #70; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted on the
   strict D348 base. Over 840 maps: failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps meeting all three
@@ -35,7 +35,7 @@ agent or background task is running, and a new milestone session resumes from [H
 - **Not done:** the faster water settle's speed isn't timed (the machine was never quiet); September's Progress log
   isn't copied to `docs/progress-log/`; the Wednesday allowance report wasn't written.
 
-### Your checklist: the eleven fixes since your re-check (the preview from `feature/forces`, 2026-10-01)
+### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
 1. **Keys:** F with the mouse (or `{ }`) sets Size; `[ ]` or F+scroll sets Power on every force and strength on Smooth
    and Naturalize, nothing on Raise, Lower and Flatten. The number shows beside the pointer. The first F+scroll notch
@@ -53,7 +53,7 @@ agent or background task is running, and a new milestone session resumes from [H
 10. **No Slopes** or other objects appear after any force or brush; a mine site an edit cuts off shows in the checks.
 11. **F+scroll** for strength (with item 1).
 
-On your yes, the forces are released.
+All eleven passed; the forces are released.
 
 ## Earlier summary (2026-09-27 to 2026-10-01; history, superseded above where they differ)
 
@@ -206,6 +206,7 @@ places (parked, D319).
 
 ### 2. Released or merged
 
+- **Released: `forces-done`** ([#149](https://github.com/timbermods/dam-good-maps/pull/149), `main` e5a6bf35; tagged at 99ac168a, after #77 merged `feature/forces` into `dev`; Kyler's yes, D375). The forces (Carve, Craterize, Erupt, Quake, Glaciate) and the editor around them: Power and Size on every force, one key habit, the brushes' target level, modes and sources options, Select, Delete and the shelf, tooltips with key caps, sounds, cross-browser determinism with a three-engine CI check, only the player placing objects. `FORCES_RELEASED` is true, so the public site shows them (checked live: the Forces group with all five). Generated maps unchanged (generator 0.7.0). The deploy and the live check passed; the preview is republished.
 - **Released: `m9a-done`** ([#80](https://github.com/timbermods/dam-good-maps/pull/80), `main` a4af2bb0; tagged at c31a77e, the merge of
   #56). Generator 0.7.0: maps grown from design version 2's processes, Any (Surprise me) as the default, starts that don't look alike,
   the starting-logs floor, start water fed or lasting (D302), the settled water's flows stored in the file. Also carried: #63, #69

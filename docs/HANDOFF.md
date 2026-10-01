@@ -51,10 +51,14 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
 
 **State at the end (everything is pushed; no agent or background task is running):**
 
-1. **The forces release waits only for Kyler's yes.** `feature/forces` (#77) holds D361's ten fixes, D368's eleven, D366's
-   cross-browser determinism and three bug fixes, all merged green. The preview is built from it; Kyler's checklist is at
-   the top of `docs/STATUS.md`. On his yes: release with `tools/release.sh` (§7, "Releases"), tag `forces-done`.
-   **Glaciate's default Power (60) and its Power 0 are for his eye.**
+1. **The forces are released** (`forces-done`, #149, `main` e5a6bf35, 2026-10-01; Kyler's yes, D375). `FORCES_RELEASED`
+   is true and the public site shows all five. **The first task is the High look's release** (D284, D346): merge
+   `dev` into `feature/high-look` (#75; expect conflicts in the editor and the docs), wait for green, merge #75 into
+   `dev`, tag `map-look-2-done`, and release with `tools/release.sh` (§7, "Releases"); it is approved, so no new
+   sitting is needed unless the merge changes how something looks. One test to trace (D341): on dev's CI after the
+   forces merge, `tests/e2e/save-to-timberborn.spec.ts:65` failed once with "browserContext.close: Test ended" and
+   passed on re-run (likely the test ending before its download finishes). Item 34 (WORK.md, hand-back notes, one
+   file per decision) was due at this release boundary and is not done.
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
    the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
