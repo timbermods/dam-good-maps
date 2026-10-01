@@ -9,6 +9,12 @@
 //
 //   npx tsx tools/capture-glaciate.ts [--out docs/progress/glaciate] [--port 4291] [--only canyon]
 //
+// With --power-size (D368 (3): Power is how deep, Size how wide), the Highlands case alone, on the site
+// as it is: Power 0, 50 and 100 at Size 24, and Size 12 and 40 at Power 100, each beside the land
+// before (glaciate-power.png and glaciate-size.png, oblique above, top-down below).
+//
+//   npx tsx tools/capture-glaciate.ts --power-size --out docs/progress/forces --port 4227
+//
 // The site is built twice from this checkout as the preview builds it (the forces show): as it is,
 // and with VITE_GLACIATE_ROUND4=1 (the floor's water left as round 4 left it: the "before" of D292).
 // The installed Chrome draws on the GPU; the water is let settle (Skip) before each picture.
@@ -27,6 +33,7 @@ const arg = (name: string) => {
 const OUT = arg("out") ?? "docs/progress/glaciate";
 const PORT = Number(arg("port") ?? 4291);
 const ONLY = arg("only");
+const POWER_SIZE = process.argv.includes("--power-size");
 /** Also write each glacier's land and settled water as the view has them (JSON), for a close look. */
 const DUMP = arg("dump");
 const VIEWPORT = { width: 1280, height: 820 };
@@ -148,8 +155,65 @@ async function glaciate(page: Page, c: Case): Promise<void> {
   await page.keyboard.press("-");
 }
 
+/** Glaciate's row set to `power` and `size` (D368 (3)). */
+async function settings(page: Page, power: number, size: number): Promise<void> {
+  await page.keyboard.press("-");
+  const row = page.getByRole("group", { name: "Glaciate options" });
+  await row.getByRole("slider", { name: "Power" }).fill(String(power));
+  await row.getByRole("slider", { name: "Size" }).fill(String(size));
+  await page.keyboard.press("-");
+}
+
+/** Power alone and Size alone, on the Highlands case (D368 (3)). */
+async function powerSize(): Promise<void> {
+  const c = CASES.find((k) => k.id === "highlands")!;
+  const outDir = resolve(".scratch/capture-glaciate-site");
+  process.env.DGM_BASE = "/";
+  console.log("building the site…");
+  await build({ mode: "e2e", base: "/", logLevel: "warn", build: { outDir, emptyOutDir: true } });
+  const server = await preview({ base: "/", build: { outDir }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
+  const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
+  try {
+    const page = await browser.newPage({ viewport: VIEWPORT });
+    await open(page, `http://localhost:${PORT}/`, c.fragment);
+    await settle(page);
+    const pictures = async () => {
+      await view(page, c, false);
+      const oblique = half(await shot(page));
+      await view(page, c, true);
+      return { oblique, top: half(await shot(page)) };
+    };
+    const before = await pictures();
+    const one = async (power: number, size: number) => {
+      await settings(page, power, size);
+      await glaciate(page, c);
+      await settle(page);
+      const p = await pictures();
+      await page.keyboard.press("Control+z");
+      await settle(page);
+      console.log(`Power ${power}, Size ${size}`);
+      return p;
+    };
+    for (const [name, runs] of [
+      ["glaciate-power", [[0, 24], [50, 24], [100, 24]]],
+      ["glaciate-size", [[100, 12], [100, 40]]],
+    ] as const) {
+      const shots = [];
+      for (const [power, size] of runs) shots.push(await one(power, size));
+      const g = grid([[before.oblique, ...shots.map((q) => q.oblique)], [before.top, ...shots.map((q) => q.top)]]);
+      const file = join(OUT, `${name}.png`);
+      writeFileSync(file, encodePng(g.rgb, g.width, g.height));
+      console.log(`${file}: ${(statSync(file).size / 1024).toFixed(0)} KB (before · ${runs.map(([p, s]) => `Power ${p} Size ${s}`).join(" · ")}; oblique above, top-down below)`);
+    }
+  } finally {
+    await browser.close();
+    await new Promise<void>((r) => server.httpServer.close(() => r()));
+  }
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true });
+  if (POWER_SIZE) return powerSize();
   const sites: { name: string; outDir: string; port: number }[] = [
     { name: "round4", outDir: resolve(".scratch/capture-glaciate-round4"), port: PORT + 1 },
     { name: "finished", outDir: resolve(".scratch/capture-glaciate-site"), port: PORT },

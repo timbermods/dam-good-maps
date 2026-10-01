@@ -190,3 +190,76 @@ export function measureGlaciate(p: GlaciatePlan, water: Pick<WaterState, "depth"
     sections,
   };
 }
+
+/** One cross-section of the land a glacier left (D368 (3)): at `arc` tiles down its path, the span of
+ *  ground it changed through its middle (`width`); on the third of that span round its centreline, how
+ *  far it lowered the ground (`floor`, the median) and the level it left (`level`, the median); the
+ *  most it lowered any tile on the section (`deepest`: its walls' height) and the levels it took out
+ *  across it (`area`). */
+export interface GlacierSection {
+  arc: number;
+  width: number;
+  floor: number;
+  level: number;
+  deepest: number;
+  area: number;
+}
+
+/** The cross-sections of a glacier's result along its path (the stations' middles, tiles + 0.5), one
+ *  a station from `fromArc` tiles down it to `toArc`: information for the tests and the captures of
+ *  Power and Size (D368 (3)), never a gate. A section runs square to the path, out from its middle
+ *  until three tiles in a row are unchanged. */
+export function glacierSections(before: ArrayLike<number>, after: ArrayLike<number>, W: number, H: number, path: readonly { x: number; y: number }[], fromArc = 0, toArc = Infinity): GlacierSection[] {
+  const out: GlacierSection[] = [];
+  let arc = 0;
+  for (let k = 0; k < path.length; k++) {
+    if (k) arc += portable.hypot(path[k].x - path[k - 1].x, path[k].y - path[k - 1].y);
+    if (arc < fromArc || arc > toArc || k < 3 || k > path.length - 4) continue;
+    const q = path[k];
+    const a = path[k - 3];
+    const b = path[k + 3];
+    const len = portable.hypot(b.x - a.x, b.y - a.y) || 1;
+    const nx = -(b.y - a.y) / len;
+    const ny = (b.x - a.x) / len;
+    const cut = (t: number): number | null => {
+      const x = Math.floor(q.x + nx * t);
+      const y = Math.floor(q.y + ny * t);
+      if (x < 0 || y < 0 || x >= W || y >= H) return null;
+      return before[y * W + x] - after[y * W + x];
+    };
+    const reach = (dir: 1 | -1) => {
+      let last = 0;
+      for (let t = dir, quiet = 0; Math.abs(t) <= 80 && quiet < 3; t += dir) {
+        const c = cut(t);
+        if (c === null) break;
+        if (c !== 0) {
+          last = t;
+          quiet = 0;
+        } else quiet++;
+      }
+      return last;
+    };
+    if (!cut(0)) continue;
+    const lo = reach(-1);
+    const hi = reach(1);
+    const width = hi - lo + 1;
+    const third = Math.max(1, Math.round(width / 6));
+    const middle: number[] = [];
+    const levels: number[] = [];
+    for (let t = Math.max(lo, -third); t <= Math.min(hi, third); t++) {
+      middle.push(Math.max(0, cut(t) ?? 0));
+      levels.push(after[Math.floor(q.y + ny * t) * W + Math.floor(q.x + nx * t)]);
+    }
+    middle.sort((x, y) => x - y);
+    levels.sort((x, y) => x - y);
+    let deepest = 0;
+    let area = 0;
+    for (let t = lo; t <= hi; t++) {
+      const c = cut(t) ?? 0;
+      deepest = Math.max(deepest, c);
+      area += Math.max(0, c);
+    }
+    out.push({ arc, width, floor: middle[middle.length >> 1], level: levels[levels.length >> 1], deepest, area });
+  }
+  return out;
+}

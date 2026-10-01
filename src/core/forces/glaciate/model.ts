@@ -14,7 +14,7 @@ import type { ForceMap } from "../force";
 export interface GlaciateSettings {
   mode: "flow" | "aim";
   power: number;
-  /** The trough's width in tiles, or null: it follows Power (Auto). */
+  /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */
   size: number | null;
   meltwater: boolean;
   seed: number;
@@ -89,8 +89,13 @@ export interface Hanging {
   joinLength: number;
 }
 
-/** The demo's defaults (Power 60, Auto size, Meltwater on) and its first personality. */
-export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 60, size: null, meltwater: true, seed: 891 };
+/** Its defaults: Power 100 (round 4's glacier in full, the deep U-shaped valley Kyler approved; lower
+ *  Powers carve shallower, D368 (3)), Auto size, Meltwater on, and the demo's first personality. */
+export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 100, size: null, meltwater: true, seed: 891 };
+
+/** The Power round 4's glacier was designed at (the investigation's default): the plan is always round
+ *  4's, as deep as it was there, and Glaciate's Power scales it afterwards (`glacierStrength`). */
+export const ROUND4_POWER = 60;
 
 /** Size's range in tiles (the row's slider). */
 export const GLACIATE_SIZE_MIN = 4;
@@ -108,8 +113,20 @@ export const noise = (seed: number, i: number) => {
 /** Try another's next personality (the investigation's series). */
 export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 1013904223) >>> 0;
 
-/** The trough's width: set, or Auto (30 at Power 60). */
-export const sizeOf = (s: Pick<GlaciateSettings, "size" | "power">) => s.size ?? Math.round(8 + (36 * s.power) / 100);
+/** The most a click's glacier flows down its valley, as a share of the map's width (round 4's at its
+ *  default Power): how far it flows is the valley's, never Power's (D368 (3)). */
+export const FLOW_REACH = 0.22 + (0.85 * ROUND4_POWER) / 100;
+
+/** The trough's width on Auto: round 4's at its default Power (D368 (3): Size is how wide, Power how
+ *  deep, and neither drives the other, so Auto no longer follows Power). */
+export const GLACIATE_AUTO_SIZE = 30;
+
+/** The width at which a glacier's head measures the land's relief round it (round 4's at its default
+ *  Size): its depth is never its Size's (D368 (3)). */
+export const RELIEF_SPAN = GLACIATE_AUTO_SIZE;
+
+/** The trough's width: set, or Auto (30, whatever the Power). */
+export const sizeOf = (s: Pick<GlaciateSettings, "size">) => s.size ?? GLACIATE_AUTO_SIZE;
 
 const distance = (a: Point, b: Point) => portable.hypot(a.x - b.x, a.y - b.y);
 
@@ -236,7 +253,9 @@ export function flatHead(m: Pick<ForceMap, "W" | "H" | "heights">, origin: numbe
  *  edge); Aim along a direction-biased least-cost pass to the dragged end, ridges and all. */
 export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSettings, intent: GlaciateIntent, v = new Valley(m)): Point[] {
   const start = { x: (intent.origin % m.W) + 0.5, y: Math.floor(intent.origin / m.W) + 0.5 };
-  const reach = m.W * (0.22 + (0.85 * s.power) / 100);
+  // (how far it flows is the valley's, never Power's: Power is how deep it carves, D368 (3); round 4's
+  // reach at its default Power)
+  const reach = m.W * FLOW_REACH;
   if (s.mode === "flow") {
     const ordinary = v.path(intent.origin, reach);
     if (!flatHead(m, intent.origin) && ordinary.length >= 8) return ordinary;

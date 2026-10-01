@@ -2,9 +2,10 @@
 // that. A force set larger than the size its Power gives keeps all of its reach, but acts in proportion:
 // every level it changes is scaled by `strength`, 1 at Power 100 (the full force) and at the size Power
 // gives (Auto, unchanged), and at Power 0 the square root of how much smaller the natural size is, so
-// the gentlest effect still shows (D356) however large the Size. Craterize and Erupt use it as it is;
-// Glaciate also scales below Power 60 (`glacierStrength`), so its Power makes a clear difference at any
-// size. One rule for every force that has a Size; Quake has none (its Power sets its lift and slide).
+// the gentlest effect still shows (D356) however large the Size. Craterize and Erupt use it as it is.
+// Glaciate's Size is its width and its Power how deep it carves, neither driving the other (D368 (3)):
+// `glacierStrength` follows Power alone. Quake has no Size (its Power sets its
+// lift and slide).
 
 import * as portable from "../math/portable";
 
@@ -16,12 +17,12 @@ export function strength(power: number, size: number | null, natural: number): n
   return floor + (1 - floor) * portable.pow(Math.max(0, Math.min(100, power)) / 100, 1.2);
 }
 
-/** Glaciate's: its depth also follows Power below 60 (Power 60, the default, and above as before;
- *  Power 0 about a sixth as deep), and never more than `strength` for its Size. */
-export function glacierStrength(power: number, size: number | null, natural: number): number {
-  const p = Math.max(0, Math.min(100, power));
-  const own = p >= 60 ? 1 : 0.15 + 0.85 * portable.pow(p / 60, 1.2);
-  return Math.min(own, strength(power, size, natural));
+/** Glaciate's Power (D368 (3)): how deep the ice carves. Every level its glacier (round 4's, always
+ *  planned as deep as round 4 made it) changes is scaled by this (`tempered`): about an eighth at Power
+ *  0, a light scour that still shows over all of its ground, rising evenly to 1 at Power 100, its
+ *  default, round 4's deep U-shaped valley in full. Power alone: its Size (its width) never changes it. */
+export function glacierStrength(power: number): number {
+  return 0.12 + 0.88 * (Math.max(0, Math.min(100, power)) / 100);
 }
 
 /** A level changed by `strength`: the ground before, moved `k` of the way to the force's level, and at

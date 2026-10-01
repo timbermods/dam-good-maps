@@ -27,7 +27,7 @@ import { isPlant } from "../objects";
 import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, ROUND4_DETAILS, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -144,7 +144,8 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const W = m.W;
   const H = m.H;
   const n = W * H;
-  const p = s.power / 100;
+  // (round 4's depth, as it was designed: Power scales the finished glacier, D368 (3))
+  const p = ROUND4_POWER / 100;
   const r = sizeOf(s) / 2;
   const phase = noise(s.seed, 7) * Math.PI * 2;
   const detail: GlaciateDetails = { benches: s.benches ?? ROUND4_DETAILS.benches, steps: s.steps ?? ROUND4_DETAILS.steps, tarn: s.tarn ?? ROUND4_DETAILS.tarn, scree: s.scree ?? ROUND4_DETAILS.scree };
@@ -156,7 +157,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   let reference = route(m, s, intent, valley);
   const head = reference[0];
   const regional: number[] = [];
-  const radius = Math.max(16, Math.min(W * 0.2, r * 2));
+  const radius = Math.max(16, Math.min(W * 0.2, RELIEF_SPAN));
   for (let y = Math.max(0, Math.floor(head.y - radius)); y < Math.min(H, head.y + radius); y += 2)
     for (let x = Math.max(0, Math.floor(head.x - radius)); x < Math.min(W, head.x + radius); x += 2) regional.push(sample(x, y));
   const base = quantile(Array.from(m.heights), 0.08);

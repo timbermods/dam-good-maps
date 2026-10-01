@@ -10,6 +10,7 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applyBrush, brushProblems, BrushStroke, type BrushParams, type BrushTool } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { padTile } from "../../src/core/features/raster/terrain";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
@@ -457,7 +458,7 @@ describe("undo and redo of strokes", () => {
   });
 });
 
-describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)", () => {
+describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))", () => {
   const THEMES: [ThemeId, number][] = [
     ["riverValley", 1],
     ["riverValley", 2],
@@ -482,7 +483,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
       py = Math.min(H - 1, Math.max(0, py + (rand() - 0.5) * 3));
       dabs.push(Math.min(4 * W - 1, Math.round(px * 4)), Math.min(4 * H - 1, Math.round(py * 4)));
     }
-    return { tool: "naturalize", size, strength: 1 + Math.floor(rand() * 10), seed: Math.floor(rand() * 1e6), dabs };
+    return { tool: "naturalize", size, strength: 1 + Math.floor(rand() * 10), seed: Math.floor(rand() * 1e6), weathers: true, dabs };
   }
 
   it("a Naturalize stroke over or beside a slope never breaks slopes.connect", () => {
@@ -514,7 +515,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
     }
   });
 
-  it("a Naturalize stroke over or beside a set piece never changes its protected tiles", () => {
+  it("a Naturalize stroke over or beside the start's pad never changes it (D368 (8))", () => {
     for (const [theme, seed] of THEMES) {
       const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
       const s = MapSession.fromGenerated(r, r.file);
@@ -522,7 +523,9 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
       const protect = s.terrainState().protect;
       const protectedTiles: number[] = [];
       for (let i = 0; i < protect.length; i++) if (protect[i]) protectedTiles.push(i);
-      expect(protectedTiles.length, `${theme} ${seed}: has a set piece's protected tiles`).toBeGreaterThan(0);
+      expect(protectedTiles.length, `${theme} ${seed}: has a start pad`).toBeGreaterThan(0);
+      const starts = s.terrainState().starts ?? [];
+      const onPad = (i: number) => padTile(starts, i % 96, Math.floor(i / 96));
       const before = s.built.heights.slice();
       const rand = mulberry(seed * 53);
       const targets: { x: number; y: number }[] = [];
@@ -539,9 +542,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
         expect(u.errors, `${theme} ${seed} at (${t.x}, ${t.y})`).toEqual([]);
       }
       const after = s.built.heights;
-      for (const i of protectedTiles) {
-        expect(after[i], `${theme} ${seed}: protected tile (${i % 96}, ${Math.floor(i / 96)}) changed (strokes at ${JSON.stringify(targets)})`).toBe(before[i]);
-      }
+      for (let i = 0; i < after.length; i++) if (onPad(i)) expect(after[i], `${theme} ${seed}: pad tile (${i % 96}, ${Math.floor(i / 96)}) changed`).toBe(before[i]);
       expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     }
   });
@@ -560,8 +561,8 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
           const s = MapSession.fromGenerated(r, r.file);
           s.setWaterMode("defer");
           const p = strokeAt(rand, 96, 96, foot.x + Math.floor((rand() - 0.5) * 4), foot.y + Math.floor((rand() - 0.5) * 4));
-          const { seed: noise, ...rest } = p;
-          const params: BrushParams = { ...rest, tool, ...(tool === "flatten" ? { level: Math.floor(rand() * 17) } : {}), ...(tool === "naturalize" ? { seed: noise } : {}) };
+          const { seed: noise, weathers, ...rest } = p;
+          const params: BrushParams = { ...rest, tool, ...(tool === "flatten" ? { level: Math.floor(rand() * 17) } : {}), ...(tool === "naturalize" ? { seed: noise, weathers } : {}) };
           expect(s.apply({ op: "brush", params }, "user", tool).errors, `canyon ${seed} ${tool}`).toEqual([]);
           const c = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
           expect(c.ok, `canyon ${seed} ${tool} at the stair's foot (${foot.x}, ${foot.y}): ${c.message}`).toBe(true);

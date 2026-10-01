@@ -84,8 +84,8 @@ export class FreehandPath {
 }
 
 /** A drawn gesture as it shows on the land (D344, A3): a band `radius` tiles either side of the line
- *  (the force's own width: Carve's and Glaciate's, Quake's reach from its fault, a fissure's breadth),
- *  never a circle; the tiles whose middle is within `radius` of it (at least the line's own). */
+ *  (Carve's and Glaciate's width, their Size; a fault's or a fissure's narrow line, D361 (2)), never a
+ *  circle; the tiles whose middle is within `radius` of it (at least the line's own). */
 export function bandTiles(points: readonly PathPoint[], radius: number, W: number, H: number): number[] {
   if (!points.length) return [];
   const r = Math.max(0.5, radius);

@@ -10,6 +10,11 @@
 // decides where its water goes), but it is shown the way it was drawn: `fromEnd` plays its course from
 // its end back to its origin, each tile taking its final level as the head reaches it and each object
 // going as it does. Only the showing changes: the land kept is the same.
+//
+// Nothing pops in after the cut (D368 (9)): the river's own shape, its depth and its Banks, is worked
+// out once the canyon is cut (river.ts), all in the run's last step. Shown, each of those tiles takes
+// its level a few stations behind the head as it passes, the banks settling just behind the cut, and
+// what stood on them goes then; the last frame adds nothing the head didn't just reach.
 
 import type { EntitySpec } from "../../format/entities";
 import type { ForceHead, ForceMap } from "../force";
@@ -35,6 +40,9 @@ export class CarvePlay {
   /** Shown from its end (A5): each step's changes, the latest step first, each tile once at its final
    *  level; made once it is worked out. */
   private backward: Int32Array[] | null = null;
+  /** Objects whose ground the run's last step changed: the step they go at as shown, once the last
+   *  step's changes are spread behind the head (D368 (9)). */
+  private readonly goneSpread = new Map<string, number>();
 
   constructor(
     readonly run: CarveRun,
@@ -78,8 +86,69 @@ export class CarvePlay {
   }
 
   /** The step an object goes at, as shown (from the end: when the head reaches it coming back). */
-  private goneAt(s: number): number {
-    return this.fromEnd ? this.forward(s) : s;
+  private goneAt(s: number, id?: string): number {
+    const at = id !== undefined ? (this.goneSpread.get(id) ?? s) : s;
+    return this.fromEnd ? this.forward(at) : at;
+  }
+
+  /** How far behind the head (stations) the river's shape settles. */
+  private static readonly SETTLE = 6;
+
+  /** The run's last step, its river's shape among it, spread back along the course (D368 (9)): each of
+   *  its tiles shown at the step the head passed its nearest station, SETTLE stations on, and never
+   *  before the last earlier step that changed it; what stood there goes at that step too. */
+  private spread(): void {
+    const last = this.total;
+    const c = this.changes[last];
+    const path = this.run.path;
+    if (last < 2 || !c.length || path.length < 2) return;
+    const N = this.map.heights.length;
+    const W = this.map.W;
+    const earlier = new Int32Array(N);
+    for (let s = 1; s < last; s++) {
+      const d = this.changes[s];
+      for (let j = 0; j < d.length; j += 2) earlier[d[j]] = s;
+    }
+    // (the step the head reached each station at)
+    const reached = new Int32Array(path.length).fill(last);
+    for (let s = 1, k = 0; s <= last; s++) for (const n = Math.min(this.lengths[s], path.length); k < n; k++) reached[k] = s;
+    const at = new Int32Array(N).fill(-1);
+    const by: number[][] = Array.from({ length: last + 1 }, () => []);
+    for (let j = 0; j < c.length; j += 2) {
+      const i = c[j];
+      const x = (i % W) + 0.5;
+      const y = Math.floor(i / W) + 0.5;
+      let near = 0;
+      let best = Infinity;
+      for (let k = 0; k < path.length; k++) {
+        const d = (path[k].x - x) * (path[k].x - x) + (path[k].y - y) * (path[k].y - y);
+        if (d < best) {
+          best = d;
+          near = k;
+        }
+      }
+      const s = Math.min(last, Math.max(reached[Math.min(path.length - 1, near + CarvePlay.SETTLE)], earlier[i] + 1));
+      at[i] = s;
+      by[s].push(i, c[j + 1]);
+    }
+    for (let s = 1; s <= last; s++) {
+      if (!by[s].length) continue;
+      if (s === last) {
+        this.changes[s] = Int32Array.from(by[s]);
+        continue;
+      }
+      const merged = new Int32Array(this.changes[s].length + by[s].length);
+      merged.set(this.changes[s]);
+      merged.set(by[s], this.changes[s].length);
+      this.changes[s] = merged;
+    }
+    if (!by[last].length) this.changes[last] = new Int32Array(0);
+    for (const [id, s] of this.run.removedAt) {
+      if (s !== last) continue;
+      const e = this.objects.find((o) => o.id === id);
+      const t = e ? at[e.y * W + e.x] : -1;
+      if (t > 0) this.goneSpread.set(id, t);
+    }
   }
 
   private record(changed: readonly number[]): void {
@@ -105,6 +174,7 @@ export class CarvePlay {
     const t0 = performance.now();
     while (!this.run.done) {
       this.record(this.run.step());
+      if (this.run.done) this.spread();
       if (performance.now() - t0 > budgetMs) break;
     }
     return this.run.done;
@@ -137,11 +207,11 @@ export class CarvePlay {
     const removed = this.run.removedAt;
     const W = this.map.W;
     let gone = 0;
-    for (const s of removed.values()) if (this.goneAt(s) <= k) gone++;
+    for (const [id, s] of removed) if (this.goneAt(s, id) <= k) gone++;
     if (gone !== this.removedShown || this.riders) {
       this.removedShown = gone;
       this.map.entities = this.objects
-        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!) <= k))
+        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k))
         .map((e) => {
           const own = this.run.group.find((g) => g.id === e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };

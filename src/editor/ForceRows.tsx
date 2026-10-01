@@ -1,7 +1,7 @@
 // The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226, D289, D309):
 // every force's row is Power, Size, at most one signature choice, Try another and a small More button
 // for its other settings. Craterize: Power, Size (following Power, or set by hand), Try another; a
-// click strikes, a drag aims a glancing blow. Erupt: Power, Size (its breadth), Try another; a click
+// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: Power, Size (its breadth), Try another; a click
 // vents, a drag opens a fissure. Quake: its one choice, Lift or Slide, and Power (its drawn line sets
 // its length); V flips the side that moves. More opens the rest of each force's character (Craterize's
 // walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
@@ -75,8 +75,9 @@ export const glaciateDetails = (u: GlaciateUi): Record<string, unknown> => ({ be
 
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
- *  force starts; the gesture sets the mode: `aimed` a dragged, glancing impact; `fissure` a painted
- *  fissure. */
+ *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
+ *  makes one since D368 (7); the engine keeps it for the operations already saved); `fissure` a
+ *  painted fissure. */
 export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ mode: aimed ? "aim" : "strike", power: u.power, size: u.size, walls: u.walls, centre: u.centre, debris: u.debris, rays: u.rays, seed: CRATER_DEFAULTS.seed }) as CraterSettings;
 export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges, seed: ERUPT_DEFAULTS.seed }) as EruptSettings;
 export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed }) as QuakeSettings;
@@ -329,10 +330,10 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How much ice" />
+        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How deep the ice carves" />
         <SizeControl
           label="Size"
-          title="The valley's width"
+          title="How wide the valley is"
           keys={SIZE_KEYS}
           value={Math.round(size / 2) * 2}
           min={GLACIATE_SIZE_MIN}
