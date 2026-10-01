@@ -47,6 +47,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
 import { enableIslandPrototype, islandPrototypeEnabled, islandStage, islandStartAvoid } from "../land/archipelago";
+import { deltaBadwaterKeep, deltaField, deltaHydro } from "../land/delta";
 import { shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
@@ -398,7 +399,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       replans = 0;
       // (Islands, Codex's sea-first prototype, D370: default Normal Islands draws its sea and islands
       // first, land/archipelago.ts; the general field is not needed then)
-      const F = !opts.context && enableIslandPrototype(g, specIn) ? { E: new Float64Array(W * H), hard: new Float64Array(W * H) } : makeField(g, seed, W, H);
+      // (Delta, Codex's alluvial plain and connected braids, D370: its own field)
+      const F = !opts.context && enableIslandPrototype(g, specIn) ? { E: new Float64Array(W * H), hard: new Float64Array(W * H) } : specIn.theme === "delta" && !opts.context ? deltaField(g, seed, W, H) : makeField(g, seed, W, H);
       // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
       // way with it; everything after is found on the turned land
       const o = orientationOf(seed, genomes - 1, W, H);
@@ -1133,7 +1135,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  const hy = planHydro(land.E, h, g, seed, W, H, attempt, { protect });
+  // (Delta's network: a feeder splitting round two islands, rejoining, and three mouths, D370)
+  const hy = g.theme === "delta" && !ctx ? deltaHydro(h, g, seed, W, H) : planHydro(land.E, h, g, seed, W, H, attempt, { protect });
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   relaxEdges(h, W, H, mouthBanks(hy, W, H));
@@ -1495,6 +1498,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
     keepOff: weir ? orMask(protect, pool) : protect,
   };
+  // (Delta's hollows on the outer catchment's shoulders, off its plain, D370)
+  if (shown.theme === "delta" && !ctx) badAsk.keepOff = deltaBadwaterKeep(h, hy.water, W, H, badAsk.keepOff);
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
   const mineWay = from ? from.mineWay : new Uint8Array(N);
