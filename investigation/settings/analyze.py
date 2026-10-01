@@ -8,7 +8,7 @@ PREFIX=os.environ.get('SETTINGS_SWEEP_PREFIX','sweep')
 THEMES=['any','riverValley','canyon','highlands','lakeBasin','delta','islands']
 VALUES=[0,25,50,75,100]
 def standing(m):
- h=m['heights']; wet=m['water']; c=m['contamination']; n=128
+ h=m['heights']; wet=m['water']; c=m['contamination']; n=math.isqrt(len(h))
  spill=[math.inf]*len(h); heap=[]
  for y in range(n):
   for x in range(n):
@@ -31,9 +31,9 @@ def standing(m):
    basins.append({'area':len(q),'wet':w,'fill':w/len(q),'volume':sum(wet[j] for j in q if c[j]<.3)})
  return sorted(basins,key=lambda b:-b['area'])
 def pct(a,p):return sorted(a)[min(len(a)-1,math.ceil(p*len(a))-1)]
-data=[]
+data=[];step_rows=[]
 for control in ['verticality','lakes']:
- folder=ROOT/'local'/f'{PREFIX}-{control}'
+ folder=ROOT/'local'/os.environ.get(f'SETTINGS_{control.upper()}_FOLDER',f'{PREFIX}-{control}')
  rows=[]
  for theme in THEMES:
   for seed in range(1,6):
@@ -46,7 +46,12 @@ for control in ['verticality','lakes']:
     rows.append(r)
  data+=rows
  if len(rows)!=175 and '--partial' not in sys.argv:raise RuntimeError(f'{control}: {len(rows)}/175 maps')
- table=[];reversals=[]
+ builds={json.dumps(r.get('build'),sort_keys=True) for r in rows}
+ if len(builds)>1:raise RuntimeError(f'{control}: mixed generator builds')
+ if '--partial' not in sys.argv:
+  expected=json.loads((ROOT/'local'/f'{control}-build.json').read_text())
+  if any(r.get('build')!=expected for r in rows):raise RuntimeError(f'{control}: stale generator build')
+ table=[];reversals=[];gains=[]
  for theme in THEMES:
   block=[]
   for value in VALUES:
@@ -59,9 +64,13 @@ for control in ['verticality','lakes']:
   for seed in range(1,6):
    rs=sorted((r for r in rows if r['theme']==theme and r['seed']==seed),key=lambda r:r['value'])
    for a,b in zip(rs,rs[1:]):
+    gain=b[key]-a[key];gains.append(gain)
+    step_rows.append([control,theme,seed,a['value'],b['value'],key,a[key],b[key],gain])
     if b[key]<=a[key]:reversals.append({'theme':theme,'seed':seed,'from':a['value'],'to':b['value'],'before':a[key],'after':b[key]})
  summary={'maps':len(rows),'valid':sum(r['passed'] for r in rows),'settled':sum(r['settled'] for r in rows),'bedFloor':min((r['min'] for r in rows),default=0),'cap':max((r['max'] for r in rows),default=0),'allThree':sum(bool(r.get('outcomes',{}).get('met')) for r in rows),'medianMs':pct([r['ms'] for r in rows],.5) if rows else 0,'p90Ms':pct([r['ms'] for r in rows],.9) if rows else 0,'landMedianMs':pct([r['landMs'] for r in rows],.5) if rows else 0,'landP90Ms':pct([r['landMs'] for r in rows],.9) if rows else 0,'table':table,'nonIncreasingPairs':reversals,'failures':[{'id':r['id'],'checks':r['checks'],'stage':r.get('stage')} for r in rows if not r['passed']]}
- (ROOT/'local'/f'{control}-analysis.json').write_text(json.dumps(summary,indent=2))
+ summary.update({'build':rows[0]['build'] if rows else None,'landChangedMaps':sum(bool(r.get('landChanged')) for r in rows),'landCallsNotOne':sum(r.get('landCalls')!=1 for r in rows),'capFailures':sum(r['max']>(22 if control=='verticality' and r['value']>=70 else 16) for r in rows),'waterReadable':sum(bool((r.get('outcomes')or{}).get('story',{}).get('readable')) for r in rows),'promise':sum(bool((r.get('outcomes')or{}).get('promise')) for r in rows),'standout':sum(bool((r.get('outcomes')or{}).get('standout')) for r in rows),'cpuMedianMs':pct([r['cpu']['final'] for r in rows],.5) if rows else 0,'cpuP90Ms':pct([r['cpu']['final'] for r in rows],.9) if rows else 0})
+ summary.update({'adjacentPairs':len(gains),'minimumStepGain':min(gains,default=0),'medianStepGain':statistics.median(gains) if gains else 0})
+ (ROOT/'local'/f'{PREFIX}-{control}-analysis.json').write_text(json.dumps(summary,indent=2))
  print(json.dumps({k:v for k,v in summary.items() if k not in ['table','nonIncreasingPairs','failures']}))
  if '--partial' in sys.argv:continue
  font=ImageFont.truetype('C:/Windows/Fonts/arial.ttf',12)
@@ -82,15 +91,31 @@ for control in ['verticality','lakes']:
     draw.text((x,y+149),f'water {r["water"]*100:.1f}% | {r["standingTiles"]} held',font=font,fill='#17352c')
  sheet=sheet.crop((0,0,880,6020)).quantize(colors=80)
  sheet.save(ROOT/f'{control}-contact.png',optimize=True)
+ if control=='verticality' and all((folder/f'{r["id"]}.iso.png').exists() for r in rows):
+  iso=sheet.convert('RGB');pen=ImageDraw.Draw(iso)
+  pen.rectangle((0,0,880,55),fill='#f7f6f1')
+  pen.text((12,10),'VERTICALITY | isometric | constant world scale | 128 x 128 | seeds 1-5',font=bold,fill='#17352c')
+  pen.text((12,32),'Same maps and validation as the top-down sheet. Height is not normalized between views.',font=font,fill='#17352c')
+  for ti,theme in enumerate(THEMES):
+   for seed in range(1,6):
+    y=66+(ti*5+seed-1)*170
+    for vi,value in enumerate(VALUES):
+     r=next(r for r in rows if r['theme']==theme and r['seed']==seed and r['value']==value);x=136+vi*148
+     im=Image.open(folder/f'{r["id"]}.iso.png').convert('RGB');im=im.resize((128,round(im.height*128/im.width)),Image.Resampling.LANCZOS)
+     pen.rectangle((x,y+18,x+127,y+145),fill='#f7f6f1');iso.paste(im,(x,y+18+(128-im.height)//2))
+  iso.quantize(colors=80).save(ROOT/'verticality-3d-contact.png',optimize=True)
  sheet.crop((0,60,880,66+5*170)).save(ROOT/'local'/f'{control}-detail.png')
 (ROOT/'local'/'sweep-measures.json').write_text(json.dumps(data))
 if '--partial' not in sys.argv:
+ with (ROOT/'STEP_GAINS.csv').open('w',newline='') as f:
+  writer=csv.writer(f);writer.writerow(['setting','theme','seed','from','to','measure','before','after','gain']);writer.writerows(step_rows)
  with (ROOT/'MEASURES.csv').open('w',newline='') as f:
-  writer=csv.writer(f);writer.writerow(['setting','theme','value','maps','valid','all_three','mean_relief_levels','mean_cliff_share','mean_wet_share','mean_clean_held_tiles','mean_basins20','max_height','bed_floor','median_land_ms','median_first_water_ms','p90_first_water_ms'])
+  writer=csv.writer(f);writer.writerow(['setting','theme','value','maps','valid','settled','water_readable','promise','standout','all_three','mean_relief_levels','mean_cliff_share','mean_wet_share','mean_clean_held_tiles','mean_basins20','mean_filled_basins','max_height','bed_floor','land_changed_maps','land_calls_not_one','median_land_ms','median_first_water_ms','p90_first_water_ms','median_final_ms','p90_final_ms','median_cpu_estimated_final_ms','p90_cpu_estimated_final_ms'])
   for control in ['verticality','lakes']:
    for theme in THEMES:
     for value in VALUES:
      rs=[r for r in data if r['control']==control and r['theme']==theme and r['value']==value]
      avg=lambda k:round(statistics.mean(r[k] for r in rs),4)
      water_times=[r.get('timings',{}).get('firstWater',-1) for r in rs];water_times=[v for v in water_times if v>=0]
-     writer.writerow([control,theme,value,len(rs),sum(r['passed'] for r in rs),sum(bool(r.get('outcomes',{}).get('met')) for r in rs),avg('relief'),avg('cliffs'),avg('water'),avg('standingTiles'),avg('basins'),max(r['max'] for r in rs),min(r['min'] for r in rs),round(pct([r['landMs'] for r in rs],.5)),round(pct(water_times,.5)) if water_times else '',round(pct(water_times,.9)) if water_times else ''])
+     outcome=lambda key:sum(bool((r.get('outcomes')or{}).get(key)) for r in rs)
+     writer.writerow([control,theme,value,len(rs),sum(r['passed'] for r in rs),sum(r['settled'] for r in rs),sum(bool((r.get('outcomes')or{}).get('story',{}).get('readable')) for r in rs),outcome('promise'),outcome('standout'),outcome('met'),avg('relief'),avg('cliffs'),avg('water'),avg('standingTiles'),avg('basins'),avg('standingBasins'),max(r['max'] for r in rs),min(r['min'] for r in rs),sum(bool(r.get('landChanged')) for r in rs),sum(r.get('landCalls')!=1 for r in rs),round(pct([r['landMs'] for r in rs],.5)),round(pct(water_times,.5)) if water_times else '',round(pct(water_times,.9)) if water_times else '',round(pct([r['ms'] for r in rs],.5)),round(pct([r['ms'] for r in rs],.9)),round(pct([r['cpu']['final'] for r in rs],.5)),round(pct([r['cpu']['final'] for r in rs],.9))])

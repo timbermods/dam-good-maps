@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { drawGenome, leanGenome, BED_FLOOR } from '../../src/core/land/genome';
-import { lakeRange, connectedLakes } from '../../src/core/land/lakes';
+import { lakeRange, connectedLakes, protectedLand } from '../../src/core/land/lakes';
+import { edgeSpill } from '../../src/core/land/levels';
+import { settingsShapeSpec } from '../../src/core/land/settingsShape';
 import { makeSpec, THEMES, highestTerrainDefault } from '../../src/core/spec/mapspec';
 import { validateSpec } from '../../src/core/spec/schema';
 import { encodeSpecFragment, decodeSpecFragment } from '../../src/core/spec/codec';
 import { sinDet } from '../../src/core/math/detmath';
 import type { Hydro } from '../../src/core/land/hydro';
 let checked=0;
+const previous=new Map<number,Uint8Array>();
 for (const theme of THEMES) for (let vt=0;vt<=100;vt++) {
  const s=makeSpec({seed:3,theme,size:{x:128,y:128}});
  s.settings.terrain.verticality=vt;s.settings.terrain.highestTerrain=highestTerrainDefault(vt);
@@ -41,8 +44,27 @@ for(let amount=0;amount<=100;amount++){
    if(protect[i]||waterBefore[i]===1)assert.equal(h[i],before[i]);
   }
   if(amount===0)assert.deepEqual(h,before);
+  const spill=edgeSpill(h,64,64);
+  for(const lake of hy.lakes){
+   assert.ok(lake.tiles.length>=20);
+   for(const i of lake.tiles)assert.ok(spill[i]>h[i],'Added basin drains instead of holding');
+  }
+  const prior=previous.get(seed);
+  if(prior)for(let i=0;i<h.length;i++)assert.ok(h[i]<=prior[i],'Increasing lake budget removed an earlier basin tile');
+  previous.set(seed,h.slice());
   checked++;
  }
+}
+const protectedA=Uint8Array.of(0,1,0),lockedA=Uint8Array.of(1,0,0);
+assert.deepEqual(protectedLand(protectedA,lockedA),Uint8Array.of(1,1,0));
+assert.deepEqual(protectedA,Uint8Array.of(0,1,0));assert.deepEqual(lockedA,Uint8Array.of(1,0,0));
+for(const flags of [1,2,3]){
+ const s=makeSpec({seed:1,theme:'islands'}),preset=structuredClone(s);
+ s.settings.terrain.verticality=100;s.settings.terrain.highestTerrain=22;s.settings.water.lakeAmount=75;
+ const compat=settingsShapeSpec(s,flags);
+ assert.equal(compat.settings.terrain.verticality,flags&1?preset.settings.terrain.verticality:100);
+ assert.equal(compat.settings.water.lakeAmount,flags&2?undefined:75);
+ assert.equal(s.settings.terrain.verticality,100);assert.equal(s.settings.water.lakeAmount,75);
 }
 for(const amount of [-1,101,12.5]){const s=makeSpec({seed:1});s.settings.water.lakeAmount=amount;assert.ok(validateSpec(s).length);}
 console.log(`Passed ${checked} height/connected-lake cases, signature preservation, codec range and invalid-value checks.`);

@@ -1,48 +1,61 @@
 # Settings prototype: adoption notes
 
-Base: `feature/m9b` at `6c29b7e524eea5739d49b6f0df2eae3b0856f4bd`.
-Only this investigation's commit is for cherry-picking. Product files have not been edited.
-The patches are proposals, not an adoption recommendation: the complete sweep's remaining
-validation failures and step reversals are recorded in REPORT.md.
+Round 2 base: feature/m9b at `e292cefe30469033a922650f0455f87297c051d5`,
+merged first into investigation/settings. Product code matches `13d1f1a2`; later
+commits add the hand-over and matching baseline. Product source was never edited.
+Adoption gates and remaining failures: [REPORT.md](REPORT.md).
+**Held for adoption:** measured direction passes; validation at 96², theme outcomes,
+uniformly conspicuous lake steps and speed still need the work described in the report.
 
 ## Adopt independently
 
-- `verticality.patch`: adds `src/core/land/verticality.ts` and one `leanGenome` hook after the
-  bed-floor raise, before Terracing. The displayed Verticality owns the span above the raised
-  base, uses the actual height cap, retains Relief's relative influence, scales incision and
-  hanging valleys down at the gentle end, and keeps more natural ramps at the tall end.
-  Readability, cleanups, sources, outcomes and validators remain the product's.
-- `lakes.patch`: adds `src/core/land/lakes.ts`, replaces the preset-relative lake adjustments,
-  and adds one hook at `planHydro`'s return, before the existing land-stage repairs. It excavates
-  connected side basins along existing rivers, reserves the full potential basin, and grows
-  its connected area with the setting. Existing river channels and sources stay at their levels;
-  protected tiles, existing lakes and the bed floor are respected. No new sources or dams.
-  Zero retains signature lakes and seas. Theme priors, sea layouts, Delta's fan and River Valley's
-  shaping are unchanged. Use this hook after any separately adopted theme shaping too.
-- `prototype.patch`: both together. Use it **instead of**, not after, the independent patches.
-  The independent patches also pass `git apply --check verticality.patch lakes.patch` together
-  on the stated base. On a newer M9b, place the two hooks manually if their context moved.
+- **verticality.patch**: a post-floor height budget, before Terracing, rising to 22 when allowed.
+  Relief remains relative; Highest terrain stays a hard cap. Each value uses the same seeded
+  geological recipe: the theme's default, except Any uses the balanced value 60. Any and
+  Highlands anchor the lower contour before spreading ranked heights. Canyon retains minimum incision;
+  Highlands retains benches/incision; Lake Basin limits cuts that drain its signature lakes.
+  These are controller parameters. Delta retains its original field/network geometry budget
+  and spreads only its higher dry catchment; Islands spreads dry contours above its existing
+  coast, preserving inlet lips and its small landmark. Both use the newly adopted shapers.
+- **lakes.patch**: fixed substrate plus an absolute additional-water budget, replacing
+  preset-relative optional water. Signature lakes/seas remain at zero. Canyon reserves channel
+  substrate above the bed floor for holding basins, retaining cliff separation. At 96² it
+  retains native water so starts have viable banks. Delta reserves one height level before
+  starts/water preparation, keeping its channel layout and plain; its floor-running channels
+  otherwise offer no lake excavation depth. The reserve is skipped for regeneration contexts.
+  Connected basins have varied sizes,
+  noisy shores and broad feeder connections; Highlands prefers lower feeders.
+  Their full potential area is reserved across amounts.
+  The hook runs **after** outlet widening, starts, mine room/access and badwater hollows,
+  **before** the sole land snapshot/notification. It protects prepared play space, locks,
+  existing water and high landforms, refreshes planned hydrology/lake features and invalidates
+  the pre-fill before the existing dam-wall screen. No new sources or dams.
+- **prototype.patch**: both together, instead of either independent patch.
 
-Apply with `git apply --check <patch>` first, then `git apply <patch>` in the adopting agent's
-checkout. Keep the investigation commit separate from its adoption commit.
+Each patch passes git apply --check separately on the stated base. Independent diffs share
+settingsShape.ts and generation/genome contexts: **do not apply them consecutively as blind
+patches**. Adopt either alone; when adding the second, keep the helper once, combine hooks/imports
+and use control flags 3. The combined patch shows that result. Transfer hooks manually if a newer
+M9b moved their contexts. Do not cherry-pick the base-merge commit. To transport the investigation
+by commits, take Round 1 `dc0dd101` and its Round 2 follow-up in order; neither edits production.
+The compatibility helper substitutes only these controls in the adopted Islands shaper's
+eligibility spec; the actual settings still reach their controllers. Other scope restrictions stay.
 
-## Settings contract choice
+## Contract choices
 
-The current Lakes control has four categorical values. This prototype retains them, mapping
-None/Few/Some/Many to 0/25/50/100, and adds an optional integer `water.lakeAmount` (0–100) to
-measure the requested intermediate 75. The schema accepts it; `la=75` round-trips through the
-codec. When present it overrides the categorical value. The UI is unchanged. Adoption must
-either wire a numeric control and its accurate tooltip, or retain the four choices and omit
-the optional field in user input; a categorical edit must clear `lakeAmount`.
+None/Few/Some/Many map to **0/25/50/100**. Optional integer water.lakeAmount (0–100) overrides
+the category, allowing the requested 75; schema and la codec support it. The UI is unchanged.
+Categorical edits must clear lakeAmount. Adoption may expose a numeric control or retain categories.
+Suggested tooltips: “Grow lakes along the rivers”; “Shape rolling land and dramatic cliffs”.
+The gentle end retains each theme's minimum signature relief. The sweep follows the UI/codec
+height default: 16 below Verticality 70, 22 from 70.
 
-Variety still changes landforms; it cannot move the explicit post-floor Verticality budget
-away from the player's value. Highest terrain remains the hard cap. At each sweep point its
-default follows Verticality (16 below 70; 22 from 70), as the UI/codec do.
+## Reproduce
 
-## Reproduce (Node 24, repository dependencies; Python with Pillow)
-
-Run from the repository root. Every output goes under this investigation; the existing
-`.gitignore` ignores `investigation/*/local/`.
+Node 24, repository dependencies, Python with Pillow; run from the repository root.
+Bulk maps, JSON, bundles, logs and unsuccessful pilots stay in gitignored investigation/settings/local/.
+Only compact contact sheets and CSVs are committed, including a constant-scale isometric
+Verticality sheet so height changes can be judged separately from top-down colours.
 
 ```powershell
 node investigation/settings/build.mjs baseline
@@ -51,36 +64,47 @@ node investigation/settings/build.mjs lakes
 node investigation/settings/build.mjs prototype
 node investigation/settings/check.mjs
 node investigation/settings/local/guards.mjs
-node investigation/settings/local/baseline.mjs experiments investigation/settings/local/baseline-nightly
-node investigation/settings/local/prototype.mjs experiments investigation/settings/local/nightly-candidate
-node investigation/settings/local/prototype.mjs adjacent investigation/settings/local/adjacent
-$env:SETTINGS_CONTROLS='verticality'
-node investigation/settings/local/verticality.mjs sweep investigation/settings/local/final-verticality
-$env:SETTINGS_CONTROLS='lakes'
-node investigation/settings/local/lakes.mjs sweep investigation/settings/local/final-lakes
-Remove-Item Env:SETTINGS_CONTROLS
-node investigation/settings/local/render.mjs investigation/settings/local/final-verticality
-node investigation/settings/local/render.mjs investigation/settings/local/final-lakes
-$env:SETTINGS_SWEEP_PREFIX='final'
+node investigation/settings/queue.mjs '[{"bundle":"baseline","command":"experiments","out":"r2-release-nightly-baseline"}]'
+node investigation/settings/queue.mjs '[{"bundle":"prototype","command":"experiments","out":"r2-release-nightly-combined"}]'
+node investigation/settings/queue.mjs '[{"bundle":"prototype","command":"adjacent","out":"r2-release-adjacent-fixed"}]'
+node investigation/settings/queue.mjs '[{"bundle":"verticality","command":"experiments","out":"r2-release-nightly-verticality","experiments":"Verticality"},{"bundle":"lakes","command":"experiments","out":"r2-release-nightly-lakes","experiments":"Lakes and basins"}]'
+node investigation/settings/queue.mjs '[{"bundle":"verticality","out":"r2-release-verticality"},{"bundle":"lakes","out":"r2-release-lakes"},{"bundle":"verticality","command":"smoke","out":"r2-repeat-verticality","seeds":"1","values":"0,100"},{"bundle":"lakes","command":"smoke","out":"r2-repeat-lakes","seeds":"1","values":"0,100"}]'
+node investigation/settings/queue.mjs '[{"bundle":"verticality","command":"default","size":96,"out":"r2-default-verticality-96"},{"bundle":"verticality","command":"default","size":128,"out":"r2-default-verticality-128"},{"bundle":"verticality","command":"default","size":256,"out":"r2-default-verticality-256"},{"bundle":"lakes","command":"default","size":96,"out":"r2-default-lakes-96"},{"bundle":"lakes","command":"default","size":128,"out":"r2-default-lakes-128"},{"bundle":"lakes","command":"default","size":256,"out":"r2-default-lakes-256"}]'
+node investigation/settings/queue.mjs '[{"bundle":"prototype","out":"r2-tall-256","size":256,"seeds":"1","values":"100"}]'
+node investigation/settings/queue.mjs '[{"bundle":"lakes","out":"r2-small-canyon-range","size":96,"themes":"canyon"}]'
+node investigation/settings/local/render.mjs investigation/settings/local/r2-release-verticality
+node investigation/settings/local/render.mjs investigation/settings/local/r2-release-verticality iso
+node investigation/settings/local/render.mjs investigation/settings/local/r2-release-lakes
+$env:SETTINGS_SWEEP_PREFIX='r2-release'
 python investigation/settings/analyze.py
+python investigation/settings/compare.py
+node investigation/settings/verify.mjs verticality r2-release r2-repeat
+node investigation/settings/verify.mjs lakes r2-release r2-repeat
+git apply --check investigation/settings/verticality.patch
+git apply --check investigation/settings/lakes.patch
+git apply --check investigation/settings/prototype.patch
+git diff --check
 ```
 
-`build.mjs` overlays sources in memory through esbuild and emits genuine adoption diffs;
-it never writes `src/` or `tools/`. `check.mjs` type-checks the same overlay. The guards
-exercise caps, floors, protected tiles, unchanged feeding channels, signature preservation,
-schema limits and deterministic connected basins across all 101 values. `run.ts` calls the
-unchanged nightly experiments and normal production `generate`, including its validators and
-six-day canonical settle. Failures remain in the sweep; no map is silently replaced in reporting.
+build.mjs overlays sources in memory and emits genuine diffs; it never writes src/ or tools/.
+An optional third argument tags pilot bundles/patches under local/. check.mjs checks the overlay's
+types; guards cover all 101 values, floors, caps, schema/codec, protected tiles, unchanged channels,
+deterministic nested basins and closed spill rims. run.ts uses production validators and six-day
+canonical settling. Rows record base/overlay hash, land notifications and post-show changes
+excluding permitted D350 wear. Failed maps stay in the sweep; empty exports are not determinism evidence.
 
-Each independent sweep is all seven themes, 128², five values, seeds 1–5: 175 maps.
-`analyze.py` independently priority-floods the final terrain to find natural basins of 20+
-tiles, then counts their clean wet tiles (depth >=0.1, contamination <0.3). "Held" in the
-sheets means those tiles; it includes signature water and excludes flowing reaches without a
-natural depression. Basins need not all be fed: canonical settling alone is not proof every
-depression is a holding lake. Per-basin filling and every adjacent-step reversal are in local
-analysis JSON. The compact CSV is per-theme/per-step; all maps, bulk JSON, logs and pilot
-iterations remain local. No Timberborn probe was run.
+Each independent sweep has 175 maps: seven themes, 128², five values, seeds 1–5.
+analyze.py priority-floods terrain for natural basins of 20+ tiles. “Held” counts their clean wet
+tiles (depth >=0.1, contamination <0.3), including signature water. It retains basin filling and
+every adjacent comparison in STEP_GAINS.csv, and rejects mixed builds. A positive measurement
+alone does not certify visibility. Settling does not prove every basin is full.
+compare.py pairs 210 default-setting maps with the committed matching baseline: both patches,
+seven themes, 96²/128²/256², seeds 1–5. OUTCOMES.csv keeps each outcome, validity, gains/losses
+and speed per theme/size.
 
-After adoption: update PLAN's setting semantics, the generator version and accurate tooltips,
-then run M9b's full release checks and re-pin only under its existing rules. Resolve the named
-failed maps and make adjacent steps visibly reliable before adopting either proposal as complete.
+D333's 128² target is **final settled map** median/p90 2/5 s, not first water.
+At 256² targets are land 3/6 s and first water 8/20 s. Raw times and M9b's process-CPU-share
+estimates are separate; shared-machine estimates are diagnostic, not idle-host certification.
+Bring costs within the targets, then confirm speed alone on an idle host. No Timberborn probe.
+After resolving the held gates and adopting, update semantics,
+tooltips and generator version, then run M9b's release gates and re-pin under its existing rules.

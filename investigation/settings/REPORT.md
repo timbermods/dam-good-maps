@@ -1,50 +1,40 @@
-# Weak settings: prototype findings
+# Generator settings prototype
 
-**Nightly checks fixed; not ready for adoption.** Base: `feature/m9b` `6c29b7e5`.
-Product code is unchanged. Independent patches, combined patch and reproduction: [INTEGRATION.md](INTEGRATION.md).
+## Round 1
 
-Verticality's pre-floor span was normalized under an almost fixed ceiling; river cuts added cliffs
-at every value. It now owns the post-floor budget, scales incision and benches, retains Relief,
-and provides more natural ramps. At 100, 27/35 maps reach 22; every theme reaches it. Lakes was
-preset-relative, so Many added nothing on Lake Basin, while extra hollows overlapped, flattened
-or lacked a feeding river. The prototype grows connected side basins on existing rivers, in
-varied sizes, preserving signature lakes/seas at zero. No new sources, dams or theme priors.
+Held: 7/350 maps failed validation; 8/140 relief and 26/140 water comparisons did not increase; speed missed the targets.
 
-Unchanged nightly checks, 96², seeds 1–8 / 1–12: cliff-share movement **−0.014 → +0.148**
-(required +0.03); basin-count movement **+1.92 → +3.58** (required +3). All 40 prototype maps
-pass validation. Relief, Highest terrain, Terracing and Buildable land also pass their checks.
+## Round 2
 
-Each patch alone: every theme, 128², seeds 1–5, values **0 / 25 / 50 / 75 / 100**. Means below;
-held water is clean wet tiles in natural basins, including signature water. Complete per-step
-validation, outcomes, cliffs, water and timings: [MEASURES.csv](MEASURES.csv).
+**Direction fixed; still held.** Merged `feature/m9b` `e292cefe` first (product `13d1f1a2`). Product source is unchanged.
+
+The floor/cap compressed Verticality; preset-relative Lakes competed with native water. Verticality now owns the post-floor span, anchors Any/Highlands contours and keeps a stable geological recipe. Lakes grows connected basins, protects prepared play space and retains signature water. Canyon/Delta reserve excavation depth; small Canyons retain native water. Theme shapers are unchanged.
+
+**128², every theme, seeds 1–5, 0/25/50/75/100:** 350/350 validate and settle; 280/280 comparisons increase. Floors, caps and D348 hold; 33/35 at Verticality 100 reach 22. Means below include signature water.
 
 | Theme | Relief, levels | Held water, tiles |
 |---|---|---|
-| Any | 3.4 / 5.8 / 7.8 / 12.2 / 12.4 | 12 / 552 / 630 / 737 / 878 |
-| River Valley | 4.0 / 5.8 / 7.8 / 12.8 / 16.2 | 0 / 189 / 248 / 243 / 265 |
-| Canyon | 3.8 / 6.2 / 7.2 / 12.8 / 16.8 | 28 / 50 / 142 / 311 / 337 |
-| Highlands | 4.0 / 5.4 / 7.6 / 12.6 / 16.4 | 0 / 219 / 351 / 447 / 419 |
-| Lake Basin | 3.8 / 6.0 / 7.4 / 13.6 / 15.4 | 907 / 1498 / 1446 / 1531 / 1520 |
-| Delta | 3.4 / 5.8 / 7.6 / 13.2 / 16.2 | 80 / 933 / 1046 / 1151 / 1156 |
-| Islands | 2.2 / 4.2 / 6.2 / 10.0 / 12.4 | 3990 / 4396 / 4421 / 4182 / 4203 |
+| any | 3.8/7.0/10.2/14.2/18.8 | 12/136/359/546/720 |
+| riverValley | 3.6/7.0/10.4/14.2/17.6 | 6/129/271/385/500 |
+| canyon | 5.6/8.8/11.4/14.0/17.2 | 143/261/544/834/1162 |
+| highlands | 8.8/11.0/12.4/15.2/18.4 | 5/98/300/532/715 |
+| lakeBasin | 6.2/8.8/11.4/13.8/16.8 | 1377/1475/1640/1809/1981 |
+| delta | 7.0/10.0/12.8/16.0/19.0 | 0/144/450/751/972 |
+| islands | 3.8/6.6/10.6/14.6/18.6 | 8494/8540/8608/8744/8876 |
 
-**Remaining gates:** 172/175 Verticality maps and 171/175 Lakes maps pass production validation;
-349/350 settle within D358's six days. Verticality fails Canyon seeds 2/5 at 100 (start) and
-Islands seed 2 at 25 (settle). Lakes fails Any seed 1 at 100 and seed 3 at 50/75/100 (start);
-the latter three regress passing categorical baseline cases. Failed maps remain in the sheets.
-First maps meet all three outcomes on 100/175 and 119/175, unevenly by theme. Of 140 adjacent
-seed/value pairs, relief fails to increase on 8 and held water on 26. Candidate changes can undo
-the control's local gain; upper lake steps still compete with signature water. Settling a map
-does not prove every basin is filled: per-basin wet fractions are retained locally.
+Nightly gains: **+0.156 cliffs/+4.58 basins**, exceeding +0.03/+3; 40/40 valid. Base gains −0.017/+1.33 fail. Combined checks and four neighboring controls pass.
 
-Speed targets are missed in these shared-machine runs. At 128², median/p90 to first settled water:
-Verticality **3.8/11.8 s**, Lakes **3.4/7.3 s** (target 2/5). A small combined-patch 256² sample
-(each theme, seed 1, each control at 100): 14/14 valid, 7/14 meet all three; land **8.3/20.2 s**,
-water **25.9/56.4 s** (targets 3/6 and 8/20). This is a diagnostic sample, not a speed certification.
+**Remaining gates:** 96²/128²/256² defaults validate on 209/210. Lakes/Islands 96² seed 4 retains the baseline’s mine-site/start failure; no new absolute failures. All three outcomes: Verticality **81/105**, Lakes **79/105**, baseline **84/105 each**. All-three counts regress in 14/42 theme/size groups; individual outcomes in 18/42. Verticality/Canyon 256² falls 4→1; Lakes/Lake Basin 256² falls 2→0.
 
-Type-check, 1,010 range/protection/codec cases, three patch apply checks and 27 repeated valid-map
-SHA-256 comparisons pass. Floors stay at 3, caps hold. No game probe. The sheets are generated
-with the product renderer and visually checked: [Verticality](verticality-contact.png),
-[Lakes](lakes-contact.png). Both are under 1 MB. Bulk maps, JSON and logs stay in gitignored
-`local/`; INTEGRATION.md regenerates them. Adoption needs the failed starts/settle resolved,
-reliable adjacent steps and speed brought within the targets; no thresholds were lowered.
+Visibility remains uneven: River Valley seed 3 gains just **13 held tiles** on 50→75 (0.08% of the map), reaching 61 at 100. Positive direction does not prove conspicuous steps or fully filled basins.
+
+| 128² final map, median/p90 seconds | Raw | CPU estimate |
+|---|---|---|
+| Verticality | 3.67/9.17 | 2.84/5.03 |
+| Lakes | 4.72/9.59 | 2.94/5.50 |
+
+Target **2/5 s is final map**, correcting Round 1’s label. The 256² high-setting sample passes 14/14: land raw 6.73/40.06 s, CPU 4.37/26.17; water raw 14.40/70.45 s, CPU 10.18/43.09 (targets 3/6 and 8/20). Shared-host estimates are diagnostic; speed misses.
+
+Type-check, 1,010 guards, three patch checks, 28 hash repeats and the extra 96² Canyon range (25/25) pass. No game probe or lowered thresholds. Adoption remains held on the gates above.
+
+Details: [measures](MEASURES.csv), [every step](STEP_GAINS.csv), [paired outcomes](OUTCOMES.csv). Checked sheets: [Verticality](verticality-contact.png), [3D](verticality-3d-contact.png), [Lakes](lakes-contact.png), each under 1 MB. Patches/regeneration: [INTEGRATION.md](INTEGRATION.md). Bulk results are gitignored in `local/`.
