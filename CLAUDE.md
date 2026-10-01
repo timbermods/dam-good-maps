@@ -128,6 +128,8 @@ text.
   - Map look (after M8, before M9) is tagged `map-look-done` once Kyler approves the look, or ships inside the M9
     release;
   - Real places (right after Map look) is tagged `real-places-done`;
+  - the forces (Carve, Craterize, Erupt, Quake, Glaciate and the editor around them) are tagged `forces-done` on
+    Kyler's yes after his sitting (PLAN §20 D375);
   - Live editing is tagged `live-editing-done` once Kyler says it feels right; its preview is built from its
     branch into `/preview/` (noindex) by the deploy workflow;
   - Save to Timberborn is tagged `save-to-timberborn-done`, and Pick a place `pick-a-place-done`;

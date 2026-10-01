@@ -1,7 +1,7 @@
 # Chat handoff: how Kyler and his planning chat work
 
 Written 2026-10-01 for a new planning chat in claude.ai. Read this first, then `docs/PERFECT.md` (the yardstick),
-`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D374) and
+`docs/STATUS.md` (its summary for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (every decision, D1–D375) and
 `docs/HANDOFF.md`, all from github.com/timbermods/dam-good-maps (public). The previous version is
 `docs/chats/2026-09-27.md`. Past planning chats are searchable: use them for detail on any decision.
 
@@ -152,4 +152,4 @@ Approved on real maps (D346), one dry-earth tune done on its branch (#75). Relea
 recent commits and open PRs, and view captures with `git show`. Prefer git over the GitHub REST API, which
 rate-limits quickly from shared addresses.
 
-**The next free decision number is D375.**
+**The next free decision number is D376.**

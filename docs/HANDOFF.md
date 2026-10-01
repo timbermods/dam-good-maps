@@ -8,7 +8,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D374) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
+editor work), `PLAN.md` §20 (every decision, D1–D375) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
 ## 0. Resume here (2026-10-01, 07:00 PDT: the session ended on Kyler's main PC; the next one runs on another machine)
@@ -176,7 +176,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D375**.
+number on `dev` is **#94**. The next decision is **D376**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -290,7 +290,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D375), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D376), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
