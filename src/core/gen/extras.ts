@@ -18,13 +18,13 @@ import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
 import type { Feature, MapObjectFeature, MapObjectKind } from "../features/schema";
 import { polygonMask } from "../features/geometry";
-import { ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
 import { landRegions, walkRegions } from "../analysis/regions";
 import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, WALK_BLOCKERS, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
 import { pickMineSite } from "../resources/baseline";
 import { entityTiles } from "../features/edits";
 
@@ -59,6 +59,22 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   }
   if (s.hazards.thornBelts === "some") out.thornBelt = 1 + rng.int(0, 3);
   if (s.hazards.unstableCores === "on") out.unstableCore = 1 + rng.int(0, 4);
+  return out;
+}
+
+/** The lakes' beds: the tiles inside a lake's outline under its sill, which no object takes. Land
+ *  inside the outline at the sill or above, an island or its shore, is land like any other (D369 (2):
+ *  it may hold a mine site or another object, every placement rule holding there; its water's margin
+ *  is kept off as every water's is). */
+export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number>, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  for (const f of features) {
+    if (f.kind !== "lake") continue;
+    const m = polygonMask(f.params.outline, W, H);
+    const level = f.params.outlet.sill;
+    for (let i = 0; i < N; i++) if (m[i] && heights[i] < level) out[i] = 1;
+  }
   return out;
 }
 
@@ -98,11 +114,8 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
           if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
         }
   }
-  for (const f of inp.features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) blocked[i] = 1;
-  }
+  const beds = lakeBeds(inp.features, h, W, H);
+  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 
@@ -155,8 +168,8 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const hy = e.y + dy;
     if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
   }
-  const regions = walkRegions(h, W, H, walkBlocked, links);
-  const root = regions[sy * W + sx];
+  let regions = walkRegions(h, W, H, walkBlocked, links);
+  let root = regions[sy * W + sx];
   // (and the land it reaches with a flight of stairs, never across water or up a cliff, item 47)
   const wetNow = new Uint8Array(N);
   for (let i = 0; i < N; i++) wetNow[i] = b.water[i] > WET ? 1 : 0;
@@ -170,8 +183,58 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const lo = (band.scaled ? band.lo * scale : band.lo) + 1;
     const hi = (band.scaled ? band.hi * scale : band.hi) - 1;
     if (kind === "mineSite") {
+      // (the sites the colony must reach are a pair, item 47: a site is placed only where it leaves
+      // the start's land room for the ones still to come, so the first never takes the ground the
+      // second needs, D370's mine pair)
+      const reachWant = Math.min(want, minesWanted(W, H));
+      const side = FOOTPRINTS.UndergroundRuins.size[0] + 2;
+      // (level squares of the site's side, free of `b2`, on the start's land, far enough out, apart
+      // from each other: whether there are `still` of them)
+      const roomFor = (b2: Uint8Array, still: number): boolean => {
+        const sq = new Int32Array(N);
+        for (let y = H - 1; y >= 0; y--)
+          for (let x = W - 1; x >= 0; x--) {
+            const i = y * W + x;
+            if (b2[i]) continue;
+            if (x === W - 1 || y === H - 1) {
+              sq[i] = 1;
+              continue;
+            }
+            const a = i + 1;
+            const c = i + W;
+            const d = i + W + 1;
+            sq[i] = h[a] !== h[i] || h[c] !== h[i] || h[d] !== h[i] ? 1 : 1 + Math.min(sq[a], sq[c], sq[d]);
+          }
+        let found = 0;
+        const spots: number[] = [];
+        for (let i = 0; i < N && found < still; i++) {
+          if (sq[i] < side || land[i] !== landRoot || sd[i] < lo) continue;
+          if (spots.some((t) => Math.max(Math.abs((t % W) - (i % W)), Math.abs(Math.floor(t / W) - Math.floor(i / W))) < side + 3)) continue;
+          spots.push(i);
+          found++;
+        }
+        return found >= still;
+      };
+      let roomNow: { k: number; ok: boolean } | null = null;
+      const leavesRoom = (tiles: [number, number][], k: number): boolean => {
+        const still = reachWant - 1 - k;
+        if (still <= 0 || !land || landRoot < 0) return true;
+        // (only where the start's land has room for this site and the ones to come now: where it has
+        // not, no choice here keeps it)
+        if (!roomNow || roomNow.k !== k) roomNow = { k, ok: roomFor(blocked, still + 1) };
+        if (!roomNow.ok) return true;
+        const b2 = blocked.slice();
+        for (const [x, y] of tiles)
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H) b2[yy * W + xx] = 1;
+            }
+        return roomFor(b2, still);
+      };
       for (let k = 0; k < want; k++) {
-        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length;
+        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, k);
         // (60+ tiles out, a third of that beyond where there is room; one the colony reaches from 30)
         const mineLo = MINE_LO * scale + 1;
         const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot }, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits);
@@ -180,6 +243,10 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x: spot.x, y: spot.y, orientation: spot.orientation } } });
         placed.push({ kind, tiles: spot.tiles });
         take(spot.tiles, 3);
+        // (a site blocks walking: the colony's walk to the next one goes round it)
+        for (const [x, y] of spot.tiles) if (x >= 0 && y >= 0 && x < W && y < H) walkBlocked[y * W + x] = 1;
+        regions = walkRegions(h, W, H, walkBlocked, links);
+        root = regions[sy * W + sx];
       }
       continue;
     }
@@ -362,12 +429,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
     pump[lv] = any ? distanceFrom(m, W, H) : null;
     return pump[lv];
   };
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const moist = new Uint8Array(N);
   for (let i = 0; i < N; i++) moist[i] = b.moisture[i] > 0 && !(b.water[i] > 0) && !b.occupied[i] ? 1 : 0;
   const scored: [number, number][] = [];
@@ -421,12 +483,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
   }
   const labels = walkRegions(b.heights, W, H, null, links);
   const root = labels[b.start.y * W + b.start.x];
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const h = b.heights;
   const bad = (i: number) => labels[i] === root || b.water[i] > 0 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i];
   const R = radius;

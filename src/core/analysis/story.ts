@@ -87,6 +87,50 @@ export function wetSystems(W: number, H: number, depth: ArrayLike<number>, min =
   return { labels, tiles, volume };
 }
 
+/** The water systems with those along each plugged river's course joined into one (the water above
+ *  the plug and below it, which the course joins once the plug is opened). */
+function joinedOverPlugs(W: number, H: number, sys: ReturnType<typeof wetSystems>, plugged: readonly RiverFeature[]): ReturnType<typeof wetSystems> {
+  if (!plugged.length) return sys;
+  const root = sys.tiles.map((_, k) => k);
+  const find = (k: number): number => (root[k] === k ? k : (root[k] = find(root[k])));
+  for (const r of plugged) {
+    let first = -1;
+    for (const i of courseTiles(r, W, H)) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of [[0, 0], ...D4]) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const l = sys.labels[yy * W + xx];
+        if (l < 0) continue;
+        if (first < 0) first = find(l);
+        else {
+          const a = find(l);
+          if (a !== first) root[a] = first;
+        }
+      }
+    }
+  }
+  const ids = new Map<number, number>();
+  const tiles: number[] = [];
+  const volume: number[] = [];
+  sys.tiles.forEach((t, k) => {
+    const r = find(k);
+    let id = ids.get(r);
+    if (id === undefined) {
+      id = tiles.length;
+      ids.set(r, id);
+      tiles.push(0);
+      volume.push(0);
+    }
+    tiles[id] += t;
+    volume[id] += sys.volume[k];
+  });
+  const labels = sys.labels.map((l) => (l < 0 ? -1 : ids.get(find(l))!));
+  return { labels, tiles, volume };
+}
+
 /** A river's course, a tile at a time inside the map (the first and last two tiles left out). */
 function courseTiles(r: RiverFeature, W: number, H: number): number[] {
   const out: number[] = [];
@@ -121,7 +165,25 @@ function wetNear(i: number, W: number, H: number, depth: ArrayLike<number>): boo
 }
 
 export function waterStory(W: number, H: number, depth: ArrayLike<number>, features: readonly Feature[], contamination: ArrayLike<number> | null = null): WaterStory {
-  const sys = wetSystems(W, H, depth);
+  // a plug's river runs dry below it until the plug is opened (the plug-lake intention, D274): its
+  // course's water is not asked for, and the water along its course, above the plug and below it,
+  // is one system once the plug is opened (Highlands 256² seed 12: the plug's lake and the rivers
+  // below it read as two systems, "5 rivers never join it"; Codex's Highlands audit, D370)
+  const plugTiles = new Set<number>();
+  for (const f of features) {
+    if (f.kind !== "mapObject" || (f.params as { kind: string }).kind !== "plug") continue;
+    const area = (f.params as { placement: { area?: [number, number, number][] } }).placement.area ?? [];
+    for (const [y, x0, x1] of area) for (let x = x0; x <= x1; x++) plugTiles.add(y * W + x);
+  }
+  const pluggedAt = (tiles: readonly number[]) =>
+    plugTiles.size > 0 &&
+    tiles.some((i) => {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (plugTiles.has((y + dy) * W + x + dx)) return true;
+      return false;
+    });
+  const sys = joinedOverPlugs(W, H, wetSystems(W, H, depth), plugTiles.size ? features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && pluggedAt(courseTiles(f, W, H))) : []);
   // the land within reach of clean water
   const clean = new Uint8Array(W * H);
   let dry = 0;
@@ -167,14 +229,6 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   });
   // (a spring by the start, D330's fix on a shown land, D348, is no river of the map's story)
   const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring" && f.role !== "river/lakeSpring");
-  // a plug's river runs dry below it until the plug is opened (the plug-lake intention, D274): its
-  // course's water is not asked for
-  const plugTiles = new Set<number>();
-  for (const f of features) {
-    if (f.kind !== "mapObject" || (f.params as { kind: string }).kind !== "plug") continue;
-    const area = (f.params as { placement: { area?: [number, number, number][] } }).placement.area ?? [];
-    for (const [y, x0, x1] of area) for (let x = x0; x <= x1; x++) plugTiles.add(y * W + x);
-  }
   let heads = 0;
   let separate = 0;
   let mainWet = 1;
@@ -188,12 +242,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       const l = sys.labels[i];
       if (l >= 0) count.set(l, (count.get(l) ?? 0) + 1);
     }
-    const plugged = plugTiles.size > 0 && tiles.some((i) => {
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (plugTiles.has((y + dy) * W + x + dx)) return true;
-      return false;
-    });
+    const plugged = pluggedAt(tiles);
     const share = tiles.length && !plugged ? w / tiles.length : 1;
     if (r.role === "river/main") mainWet = share;
     if (share < leastWet) leastWet = share;

@@ -349,6 +349,8 @@ interface Head {
 
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
   const N = W * H;
+  // River Valley has one default trunk; an explicit Rivers count stays the player's.
+  if (g.theme === "riverValley" && !g.hydro.exactInflows) g.hydro.inflows = 1;
   const natural = opts.meander !== false;
   const rng = stream(seed, "hydro", attempt);
   const down = downstreamEdges(g.flowDir);
@@ -392,11 +394,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // must join the water already traced, as a tributary long enough to read as one, so the map's
   // water is one system a player follows from where it starts to where it leaves. Only a Rivers
   // count the player set may enter as a river of its own when no inflow can join. A few heads, never
-  // a tangle: at most `maxHeads` (4 at 96², 5 at 128², 6 at 256²).
+  // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
   const owner = new Int32Array(N).fill(-1);
   const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
   const areaK = N / (128 * 128);
-  const maxHeads = natural ? Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75)) : Infinity;
+  // A few fed tributaries read better than many shallow fragments at large sizes.
+  // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
+  const headCap = g.theme === "riverValley" && !g.hydro.exactInflows ? (side >= 256 ? 5 : 4) : Infinity;
+  const maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75))) : Infinity;
   const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
@@ -563,7 +568,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       }
       // (where no spring there joins them, one river of its own: a story reads with one river that
       // never joins the main one, D273 (1))
-      if (!added && !separateOne)
+      if (!added && !separateOne && g.theme !== "riverValley")
         for (const [, i] of apart.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
           added = true;
           separateOne = true;
@@ -998,13 +1003,21 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     }
   const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number): void => {
     for (const i of st.tiles) {
-      if (water[i] === 2 || protect?.[i] || mouthBank[i]) continue;
+      if (protect?.[i] || mouthBank[i]) continue;
       const d = st.d[i];
       const x = i % W;
       const y = (i - x) / W;
       const j = Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n)));
       const b = prof[j];
       const r = half(st.s[i], L);
+      // (a planned lake's tile on the course keeps the lake's floor where it is lower, but never
+      // stands above the course's bed: where the lake settles smaller than planned, the river runs
+      // on across its dry part in a channel, never spreading or standing over it; Codex's River
+      // Valley prototype, River Valley 96² seed 5)
+      if (water[i] === 2) {
+        if (d < r && h[i] > b) h[i] = b;
+        continue;
+      }
       if (d < r) {
         if (h[i] > b) h[i] = b;
         water[i] = 1;
@@ -1040,6 +1053,52 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     for (const t of traced) if (t.joins === k) v = Math.min(v, upSpill(t.k, seen));
     return v;
   };
+  // (D373 (1), D350 (d): a channel is as wide as the water it carries, its own and every river's
+  // that has joined it by then: a channel cut for its own head's flow alone, below a confluence, runs
+  // over its banks and spreads over the flat beside them, filling for days (Canyon 256² seed 22: six
+  // rivers of 2.28 through channels three tiles wide). Each river's joins: where on its course a
+  // tributary meets it, and all the water that tributary brings)
+  const totalOf = (k: number, seen = new Set<number>()): number => {
+    if (seen.has(k)) return 0;
+    seen.add(k);
+    let q = traced.find((t) => t.k === k)?.head.flow ?? 0;
+    for (const t of traced) if (t.joins === k) q += totalOf(t.k, seen);
+    return q;
+  };
+  const joinsOf = new Map<number, { s: number; q: number }[]>();
+  if (natural)
+    for (const t of traced) {
+      if (t.joins < 0) continue;
+      const onto = courses[t.joins];
+      const end = t.cells[t.cells.length - 1];
+      const ex = end % W;
+      const ey = (end - ex) / W;
+      // (the arc position on the river joined nearest the tributary's end)
+      let best = Infinity;
+      let at = 0;
+      let acc = 0;
+      for (let k = 0; k + 1 < onto.length; k++) {
+        const [ax, ay] = onto[k];
+        const [bx, by] = onto[k + 1];
+        const vx = bx - ax;
+        const vy = by - ay;
+        const l2 = vx * vx + vy * vy;
+        const l = Math.sqrt(l2);
+        let u = l2 > 0 ? ((ex - ax) * vx + (ey - ay) * vy) / l2 : 0;
+        u = u < 0 ? 0 : u > 1 ? 1 : u;
+        const dx = ax + u * vx - ex;
+        const dy = ay + u * vy - ey;
+        const d = dx * dx + dy * dy;
+        if (d < best) {
+          best = d;
+          at = acc + u * l;
+        }
+        acc += l;
+      }
+      const list = joinsOf.get(t.joins) ?? [];
+      list.push({ s: at, q: totalOf(t.k) });
+      joinsOf.set(t.joins, list);
+    }
   for (const tr of traced) {
     const hd = tr.head;
     const role = roleOf(tr.k);
@@ -1052,7 +1111,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const width = widthFor(hd.flow);
     const ws = hash32(seed, "width", attempt, tr.k);
     const wv = wanders[tr.k];
-    const half = (s: number, L: number) => halfWidthAt(width, wv, ws, s, L);
+    // (wider below each river that joins it, as wide as the water it then carries)
+    const joined = (joinsOf.get(tr.k) ?? []).slice().sort((a, b) => a.s - b.s);
+    const widthAt = (s: number): number => {
+      let q = hd.flow;
+      for (const j of joined) if (j.s <= s) q += j.q;
+      return q === hd.flow ? width : widthFor(q);
+    };
+    const half = (s: number, L: number) => halfWidthAt(widthAt(s), wv, ws, s, L);
     // canyons: the bigger rivers cut deeper and clear wider floors
     const big = hd.flow >= 1.2;
     const cut = 1 + (big ? Math.round(g.hydro.incise) : 0) + (tr.k === mainK ? hanging : 0);
@@ -1262,7 +1328,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
 
   // ---- a river splits round an island: a second arm leaves it and rejoins it downstream
   const main = rivers[0];
-  if (main && rng.float() < g.hydro.split) {
+  if (main && rng.float() < g.hydro.split && (g.theme !== "riverValley" || g.hydro.bigSplit || g.hydro.splitAtFall)) {
     const m = exits.get(main.id)!;
     for (let tries = 0; tries < 6; tries++) {
       // (M9b, "the river splits around a big island", D274: wider and longer)
@@ -1317,7 +1383,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   }
 
   // ---- a delta: near its mouth, the main river fans into two or three more mouths on its edge
-  if (main && "edge" in main.params.exit && rng.float() < g.hydro.delta) {
+  if (main && "edge" in main.params.exit && rng.float() < g.hydro.delta && (g.theme !== "riverValley" || g.hydro.braided)) {
     const m = exits.get(main.id)!;
     const e = main.params.exit.edge;
     const s0 = Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));

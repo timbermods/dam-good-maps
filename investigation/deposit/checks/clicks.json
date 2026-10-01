@@ -1,0 +1,53 @@
+{
+  "randomClicks": 768,
+  "boundaryAndPeakClicks": 27,
+  "noops": 0,
+  "floor": 1,
+  "powers": [
+    0,
+    1,
+    35,
+    100
+  ],
+  "sizes": [
+    "Auto",
+    4,
+    22,
+    64
+  ],
+  "channels": [
+    "Auto",
+    "Few",
+    "Many"
+  ],
+  "minimumChanged": 70,
+  "minimumVolume": 52,
+  "minimumRaised": 18,
+  "waterSettlements": 75,
+  "placements": {
+    "hollow": 159,
+    "slope": 174,
+    "fan": 319,
+    "sheet": 59,
+    "delta": 84
+  },
+  "cases": [
+    {
+      "case": "canyon",
+      "clicks": 265,
+      "minimumChanged": 73
+    },
+    {
+      "case": "dry",
+      "clicks": 265,
+      "minimumChanged": 70
+    },
+    {
+      "case": "lake",
+      "clicks": 265,
+      "minimumChanged": 71
+    }
+  ],
+  "worstPlanMs": 66,
+  "totalSeconds": 111.44
+}

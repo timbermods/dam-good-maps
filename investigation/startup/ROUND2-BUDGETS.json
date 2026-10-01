@@ -1,0 +1,16 @@
+{
+  "initialJsKiB": 20,
+  "startupJsKiB": 600,
+  "mapKiB": 540,
+  "coldTransferKiB": 1152,
+  "repeats": 5,
+  "coldNativeMs": 2000,
+  "coldNativeWorstMs": 2500,
+  "coldPage4xMs": 3000,
+  "coldPage4xWorstMs": 4000,
+  "warmNativeMs": 750,
+  "warmNativeWorstMs": 1000,
+  "warmPage4xMs": 2000,
+  "warmPage4xWorstMs": 3000,
+  "worstFactor": 1.5
+}

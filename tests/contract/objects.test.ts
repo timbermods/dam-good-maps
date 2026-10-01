@@ -324,9 +324,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes", () => {
     let sites = 0;
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
-    // maps, for batch 5's, and for D333's, whose check walks round the objects that block the way,
-    // D148)
-    for (const [theme, seed] of [["islands", 2], ["riverValley", 3], ["canyon", 2], ["riverValley", 4]] as [ThemeId, number][]) {
+    // maps, for batch 5's, for D333's, whose check walks round the objects that block the way, and
+    // for D348–D360's, D148)
+    for (const [theme, seed] of [["islands", 2], ["riverValley", 3], ["canyon", 3], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -358,9 +358,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
 
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
-    // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's and for D333's, D148)
+    // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
+    // D348–D360's, D148)
     let seen = 0;
-    for (const [theme, seed] of [["islands", 1], ["islands", 4], ["highlands", 13], ["any", 6]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["islands", 1], ["islands", 4], ["highlands", 4], ["any", 6]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

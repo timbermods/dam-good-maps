@@ -325,7 +325,7 @@ export function minePads(h: Uint8Array, W: number, H: number, opts: SiteOptions 
 
 /** The start's land, before the water settles, is what stays joined this far from the planned
  *  water (a neck of land narrower than this beside the water may be cut once it settles). */
-const FIRM = 2;
+export const FIRM = 2;
 
 let lastSquares: number[] = [];
 let lastWays: number[][] = [];
@@ -365,11 +365,25 @@ function steepBy(h: Uint8Array, W: number, H: number, x: number, y: number, top:
  * `keep` (what the objects' placement keeps off: the hollows' ground, channels, objects, protected
  * set pieces). A start chosen on it has ground in its walk for its sites, nothing changed.
  */
-export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayLike<number>; keep: Uint8Array; want: number; lo: number }): Uint8Array {
+export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayLike<number>; keep: Uint8Array; want: number; lo: number; firm?: number }): Uint8Array {
   const N = W * H;
-  const water = new Uint8Array(N);
-  for (let i = 0; i < N; i++) water[i] = opts.wet[i] > 0.05 ? 1 : 0;
+  const water = opts.firm ? nearWater(opts.wet, W, H, opts.firm) : new Uint8Array(N);
+  if (!opts.firm) for (let i = 0; i < N; i++) water[i] = opts.wet[i] > 0.05 ? 1 : 0;
   const land = landRegions(h, W, H, water);
+  // (with `firm`, a dry tile by the water, where a start stands, belongs to the firm land nearest it)
+  if (opts.firm)
+    for (let i = 0; i < N; i++) {
+      if (land[i] >= 0 || opts.wet[i] > 0.05) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let r = 1; r <= opts.firm + 1 && land[i] < 0; r++)
+        for (let dy = -r; dy <= r && land[i] < 0; dy++)
+          for (let dx = -r; dx <= r && land[i] < 0; dx++) {
+            const u = x + dx;
+            const v = y + dy;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) === r && u >= 0 && v >= 0 && u < W && v < H && !water[v * W + u] && land[v * W + u] >= 0) land[i] = land[v * W + u];
+          }
+    }
   const near = nearWater(opts.wet, W, H, WATER_MARGIN);
   const blocked = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (near[i] || opts.keep[i]) blocked[i] = 1;

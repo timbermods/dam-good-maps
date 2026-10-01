@@ -1,0 +1,9 @@
+variant,connection,cpu,visit,runs,editable_median,editable_worst,firstFrame_median,firstFrame_worst,fcp_median,fcp_worst,response_median,response_worst,workerReady_median,workerReady_worst,projectOpen_median,projectOpen_worst,parse_median,parse_worst,compile_median,compile_worst,evaluate_median,evaluate_worst,transferred_median,transferred_worst
+dev,fast,1,cold,3,8235,14583,8179,14527,312,316,,,,,,,92,93,130,135,3301,8733,602588,602588
+dev,fast,1,warm,3,8656,10183,8610,10134,108,112,,,,,,,88,126,132,159,4650,4859,0,0
+dev,fast,4,cold,3,15840,17401,15754,17200,556,632,,,,,,,125,146,159,175,7387,8740,602588,602588
+dev,fast,4,warm,3,7322,30093,7240,29828,244,308,,,,,,,98,100,153,155,3927,19912,0,0
+dev,typical,1,cold,3,10477,18242,10430,18117,552,576,,,,,,,96,114,136,137,3704,7547,602588,602588
+dev,typical,1,warm,3,8586,12203,8531,12136,128,128,,,,,,,89,101,134,146,5073,8703,0,0
+dev,typical,4,cold,3,7421,11573,7240,11361,860,860,,,,,,,171,180,183,193,3648,6538,602588,602588
+dev,typical,4,warm,3,5063,5388,4863,5243,460,516,,,,,,,163,167,183,184,2792,3019,0,0

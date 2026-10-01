@@ -96,6 +96,44 @@ export function sealedMouths(rivers: readonly RiverFeature[], W: number, H: numb
   return sealed;
 }
 
+/** Levels of standing water over an inflow's mouth at which its head is drowned. */
+const DROWNED = 2;
+
+/** The inflows whose heads stand under water held downstream (the land's spill level, mouths
+ *  sealed, two levels or more over the mouth's bed): a lake whose rim stands above the head backs
+ *  up the course to the edge, its water stands over the head's sources and runs off the map beside
+ *  them, and it never settles (Canyon 256² seed 14: a head at 4 under a lake held at 7). */
+export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[]): string[] {
+  const sealed = sealedMouths(rivers, W, H);
+  const filled = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] }).filled;
+  const out: string[] = [];
+  for (const r of rivers) {
+    if (!("edge" in r.params.entry)) continue;
+    const mouth = mouthTilesOf(r, W, H);
+    if (!mouth.length) continue;
+    let bed = Infinity;
+    for (const i of mouth) bed = Math.min(bed, h[i]);
+    let top = -Infinity;
+    for (const i of mouth) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const u = x + dx;
+        const v = y + dy;
+        if (u <= 0 || v <= 0 || u >= W - 1 || v >= H - 1) continue;
+        top = Math.max(top, filled[v * W + u]);
+      }
+    }
+    if (top - bed >= DROWNED) out.push(r.id);
+  }
+  return out;
+}
+
 /** The rivers whose water leaves the map somewhere other than where their system does: some way
  *  out is strictly lower (a level or more) than the best way out by the stretch of edge the system
  *  leaves by. A way out at the same level is a tie, not a leak (the water leaves the lower way); the

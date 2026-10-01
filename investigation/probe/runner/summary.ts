@@ -27,6 +27,22 @@ export function writeSummary(file: string, runId: string, prepared: Prepared[], 
       for (const x of v.checks) out.push(`| ${esc(v.title)} | ${x.id} | ${x.verdict} | ${esc(x.detail)} |`);
     out.push('');
   }
+  // the maps with frame times (the Sizes group): one row each, to read the practical limits from
+  const perf = prepared.filter((p) => loaded.get(p.game.id)?.result?.perf?.phases?.length);
+  if (perf.length) {
+    const ids = [...new Set(perf.flatMap((p) => loaded.get(p.game.id)!.result!.perf!.phases.map((x) => x.id)))];
+    out.push('## Frame times and load', '', 'Median / 95th percentile frame time in ms, and the game speed reached, with a camera pan over the whole map.', '');
+    out.push(`| Map | Size | Load s | MB at load | ${ids.map((i) => `${i}: median / p95 ms (speed)`).join(' | ')} | MB at the end |`, `|---|---|---|---|${ids.map(() => '---|').join('')}---|`);
+    for (const p of perf) {
+      const r = loaded.get(p.game.id)!.result!;
+      const ph = r.perf!.phases;
+      const cell = (id: string) => ((x) => (x ? `${x.medianMs.toFixed(1)} / ${x.p95Ms.toFixed(1)} (${x.speedReached.toFixed(1)}×)` : ''))(ph.find((x) => x.id === id));
+      out.push(`| ${esc(p.game.title)} | ${p.info.W}×${p.info.H} | ${(r.loadSeconds ?? 0).toFixed(1)} | ${(r.workingSetAtLoadMb ?? 0).toFixed(0)} | ${ids.map(cell).join(' | ')} | ${ph.at(-1)!.workingSetMb.toFixed(0)} |`);
+    }
+    const env = perf.map((p) => loaded.get(p.game.id)!.result!.perf!.environment).find(Boolean);
+    if (env) out.push('', `The game's own graphics: ${env.screen}, vsync ${env.vSync}, target ${env.targetFrameRate} fps, quality ${env.qualityLevel}; ${env.gpu}; ${env.cpu}; ${env.memoryMb} MB.`);
+    out.push('');
+  }
   out.push('## Runs', '', '| Map | Status | Ticks | Real s | Speed | Shots | Loading issues | Log errors | Warnings | Notes |', '|---|---|---|---|---|---|---|---|---|---|');
   for (const p of prepared) {
     const r = loaded.get(p.game.id)?.result;

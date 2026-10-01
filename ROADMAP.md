@@ -1093,6 +1093,15 @@ terrain steps extend the same brushes to caves and tunnels.
 
 After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
 
+## Startup: maps open fast (D367)
+
+Codex's startup investigation (`investigation/startup`, #127), approved by Kyler on 2026-10-01: first-visit maps editable in 1.30–1.44 s median (1.59 s worst), cold on a typical connection, with byte identity and Save and export still gated.
+
+1. **Right after the forces release** (`build`, Opus 5.5, high): a stored map opens from its stored state without rebuilding (legacy files and files with water still pending keep the rebuild fallback); the renderer warms its shaders and GPU state while the map loads; the checks start after the first editable frame, every gate unchanged.
+2. **With "The page is the editor"**: the ready-made first-visit map picker and parallel loading, and the caching, merged into one service worker with the multi-core water investigation's isolation worker.
+
+Both add the investigation's budgets and its CI check. Open: a whole-laptop measurement, which Kyler makes on a real modest laptop once it's adopted.
+
 ## The page is the editor (D232–D234)
 
 **The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), approved by Kyler on 2026-09-29, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
@@ -2084,6 +2093,14 @@ player feels stays at the standard (the smoothness harness at every size). The c
 refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
 loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
 reported. PLAN §20 D357 has the whole decision.
+
+- **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
+  references. Our file writer and both validators' other load checks handle every size and shape already.
+- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
+  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
+  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
+  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
+  "4–256 per axis".
 
 ## Collaborative editing (D349)
 

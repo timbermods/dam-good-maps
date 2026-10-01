@@ -481,7 +481,8 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // nudges the continuous values; its land comes from its own noise seeds (field.ts)
   const rng = stream(seed, "genome2", theme, attempt);
   const nudge = variation ? stream(seed, "variation", theme, attempt, variation) : null;
-  const p = PRIORS[theme];
+  // Broaden River Valley's floors without changing Any's combined prior or its seed draws.
+  const p = theme === "riverValley" ? { ...PRIORS[theme], floor: { lo: 12, hi: 16 } } : PRIORS[theme];
   const vy = clamp(o.variety ?? DEFAULT_VARIETY, 0, 100);
   const areaK = (W * H) / (128 * 128);
   const vtSetting = clamp(o.vt ?? VT_DEFAULT[theme], 0, 100);

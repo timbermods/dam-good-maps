@@ -1,0 +1,72 @@
+{
+  "browser": "headless Microsoft Edge",
+  "viewport": "1280×854",
+  "captures": "960×640, downscaled",
+  "timings": [
+    {
+      "case": "canyon",
+      "plannedMs": 122.4,
+      "finalMs": 2026.2,
+      "frames": 93
+    },
+    {
+      "case": "dry",
+      "plannedMs": 109.3,
+      "finalMs": 2011.7,
+      "frames": 89
+    },
+    {
+      "case": "lake",
+      "plannedMs": 99.8,
+      "finalMs": 2008.4,
+      "frames": 92
+    }
+  ],
+  "longest": {
+    "points": 20,
+    "strokeLength": 2152.7,
+    "reachCap": 112,
+    "plannedMs": 96.4,
+    "finalMs": 2022.9
+  },
+  "waterContinuation": [
+    {
+      "seed": 209495,
+      "ticks": 5376,
+      "finalMs": 2018.6
+    },
+    {
+      "seed": 209508,
+      "ticks": 3328,
+      "finalMs": 2017
+    },
+    {
+      "seed": 209575,
+      "ticks": 4032,
+      "finalMs": 2028
+    },
+    {
+      "seed": 209644,
+      "ticks": 4224,
+      "finalMs": 2021.5
+    }
+  ],
+  "checks": [
+    "real pointer band",
+    "Esc drawing",
+    "undo mid-force",
+    "Esc Fast and Watch finish",
+    "one undo step",
+    "byte-exact undo",
+    "Try another replacement",
+    "F size",
+    "brace power",
+    "Floor / Channels controls",
+    "water convergence",
+    "fixed camera",
+    "water continuation in actual worker",
+    "source strength / riding",
+    "start after continued water"
+  ],
+  "errors": []
+}
