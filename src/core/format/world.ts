@@ -28,8 +28,24 @@ export function isTall(heights: ArrayLike<number>): boolean {
  *  in-game editor does with it (run ceiling-20260927). */
 export const TALL_NOTE = "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16.";
 
-/** The description with the tall note when the map is tall, and without it when it isn't. */
-export function withTallNote(description: string, tall: boolean): string {
+/** A generated map's own words for its tall land, a sentence of its description (pack.ts). They are
+ *  its tall note: a generated map, exported and opened again as a file, carries one note, never
+ *  two, and exports the same bytes (D244, D341). */
+export function generatedTallSentence(top: number): string {
+  return `The land rises to level ${top}: the game's map editor edits only up to level ${EDITOR_MAX_HEIGHT}.`;
+}
+const GENERATED_TALL = new RegExp(` ?The land rises to level (\\d+): the game's map editor edits only up to level ${EDITOR_MAX_HEIGHT}\\.`);
+
+/** The description with the tall note when the map is tall, and without it when it isn't. A
+ *  generated map's own words count as the note: kept while it is tall (their level following `top`
+ *  when given), taken out when it is standard again. */
+export function withTallNote(description: string, tall: boolean, top?: number): string {
+  const own = GENERATED_TALL.exec(description);
+  if (own) {
+    if (!tall) return withTallNote(description.replace(GENERATED_TALL, ""), false);
+    if (top === undefined || Number(own[1]) === top) return description;
+    return description.replace(GENERATED_TALL, (m) => m.replace(`level ${own[1]}:`, `level ${top}:`));
+  }
   const has = description.split("\n\n").some((p) => p.trim() === TALL_NOTE);
   // (a description that has it and should, or hasn't and shouldn't, stays exactly as it is)
   if (has === tall) return description;

@@ -427,7 +427,10 @@ editor is desktop-first (D185).
   goes above 16 is a tall map: its description ends with the plain note "Timberborn's map editor opens and saves this
   map as it is, but can't raise land above level 16." (what the probe found), and it is exported and validated as tall
   (up to 22 loads; the check says the in-game editor edits only up to 16). Back at 16 or below (an edit or an undo), it
-  is a standard map again and the note goes; a map that needs no change keeps its description byte for byte.
+  is a standard map again and the note goes; a map that needs no change keeps its description byte for byte. A
+  generated map's description notes tall land in its own words ("The land rises to level N: the game's map editor
+  edits only up to level 16."); they are its note, never doubled: exported and opened again as a file, it exports the
+  same bytes, and edited there its sentence follows the land's top level, or goes back at 16 or below (D341).
   Generation is unchanged: the generator's Verticality and Real places' standard or tall option decide how tall a
   generated map starts.
 - **Select** (D259; on `feature/forces`, for Kyler's forces sitting): a small button on the bar beside the brushes; M
