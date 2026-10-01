@@ -1,0 +1,24 @@
+{
+  "name": "dgm-short-codes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node check.mjs",
+    "matrix": "node matrix.mjs",
+    "codec-check": "node codec-check.mjs",
+    "typecheck": "tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --lib es2022,dom codes.ts long-codes.ts",
+    "patch": "node adoption.mjs"
+  },
+  "dependencies": {
+    "esbuild": "0.25.12",
+    "fflate": "0.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.58.0",
+    "typescript": "5.9.3"
+  }
+}
