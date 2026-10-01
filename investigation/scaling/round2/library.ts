@@ -3,6 +3,8 @@ export * from 'product-session';
 export * from 'product-document';
 export * from 'product-stream';
 export * from 'product-cache';
+export * from 'product-state';
+export * from 'product-archive';
 export * from 'product-defaults';
 
 export {CRATER_DEFAULTS} from 'product-crater';

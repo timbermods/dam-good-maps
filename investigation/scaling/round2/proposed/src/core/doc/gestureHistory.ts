@@ -1,8 +1,11 @@
 import {MapSession} from "./session";
-import {decodeProjectObject,baseFeaturesOf,type MapDocument} from "./document";
+import {decodeProjectObject,baseFeaturesOf,checkDocument,type MapDocument} from "./document";
 import type {EditOp,OpOrigin,AppliedOp} from "./ops";
 import {ResultStore,type ColdResults} from "./resultStore";
 import {readProject,writeProject} from "./projectStream";
+import {packState,unpackState,StateBank} from "./stateGraph";
+import {archiveSource,readArchive,writeArchive,CHECKPOINT_KEY,STATE_ABI,type CheckpointIndex} from "./projectArchive";
+import {HistorySnapshots as RecentStates} from "./historySnapshots";
 import {fullMap,forceCeiling} from "../forces/force";
 import {forceMapOf,carveForceParams} from "../forces/carve/result";
 import {CarveRun,type CarveSettings} from "../forces/carve/run";
@@ -31,11 +34,11 @@ export type ForceGesture = ({verb:"carve";settings:CarveSettings}|{verb:"crateri
   where:Where;cut:number|null;area?:[number,number,number][];sourceId:string;unleashed?:string;bad?:boolean;
 };
 export type GestureEntry={seq:number;origin:OpOrigin;label?:string} & (
-  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string}
+  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputHashVersion?:1|2;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string;inputHashVersion?:1|2}
 );
 export type SelectionGesture={action:"remove";area:Runs;kinds:RemoveKind[]};
 export type GestureProject={app:"dam-good-maps";formatVersion:4;replayVersion:typeof REPLAY_VERSION;documentId:string;epoch:number;base:MapDocument;entries:GestureEntry[];nextSeq:number};
-export type Policy={results?:number;snapshots?:number;steps?:number};
+export type Policy={results?:number;snapshots?:number;steps?:number;checkpointEvery?:number;checkpointBytes?:number;checkpointCount?:number};
 function immutable<T>(value:T):T {if(value&&typeof value==="object"){for(const d of Object.values(Object.getOwnPropertyDescriptors(value)))if("value" in d)immutable(d.value);Object.freeze(value);}return value;}
 function validArea(area:Runs,W:number,H:number):void {
   if(!Array.isArray(area)||area.some(r=>!Array.isArray(r)||r.length!==3||r.some(n=>!Number.isSafeInteger(n))||r[0]<0||r[0]>=H||r[1]<0||r[2]>=W||r[1]>r[2]))throw Error("working area outside map");
@@ -51,8 +54,10 @@ export function canonicalForceMap(s:MapSession) {
   s.settleCanonical();const b=s.built,m=forceMapOf(b),down=fallenOf(s);
   return fullMap({...m,rockLayers:geologyOf(s),lava:rockOf(s)??new Uint32Array(m.W*m.H),fallen:m.entities.filter(e=>down.has(e.id)).map(e=>({id:e.id,x:e.x+.5,y:e.y+.5,z:m.heights[e.y*m.W+e.x],...down.get(e.id)!,length:e.template==="Oak"?2.6:2}))});
 }
-export async function forceInputHash(s:MapSession):Promise<string> {
+export async function forceInputHash(s:MapSession,version:1|2=2):Promise<string> {
   const m=s.historyTransaction(()=>canonicalForceMap(s)),parts:Uint8Array[]=[m.heights,new Uint8Array(m.water.depth.buffer),new Uint8Array(m.water.contamination.buffer),new Uint8Array(m.lava.buffer),new TextEncoder().encode(JSON.stringify([m.W,m.H,m.maxHeight,m.entities,m.rockLayers,m.fallen]))];
+  if(version!==1&&version!==2)throw Error('unsupported force input hash version');
+  if(version===2){const t=s.terrainState();for(const v of [t.pre,t.protect,t.channel,t.base,t.field,t.locked,t.columns])parts.push(v?new Uint8Array(v.buffer,v.byteOffset,v.byteLength):new Uint8Array());parts.push(new TextEncoder().encode(JSON.stringify([t.top,!!t.base,!!t.field,!!t.locked,s.features])));}
   // Hash component digests: bounded working storage, including all inputs that a force reads.
   const digests=await Promise.all(parts.map(b=>crypto.subtle.digest("SHA-256",b as BufferSource)));
   const joined=new Uint8Array(digests.length*32);digests.forEach((d,i)=>joined.set(new Uint8Array(d),i*32));
@@ -104,14 +109,46 @@ export class GestureHistory {
   private entries:GestureEntry[]=[];private cursor=0;
   private revision=0;
   private tempKey=2**40;
-  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={}) {
+  private checkpoints:CheckpointIndex[]=[];
+  private recent=new RecentStates<object>();
+  private spacing:number;
+  private bank:StateBank;
+  checkpointFailure:string|null=null;
+  lastSeek={replayed:0,checkpoint:0,cache:false};
+  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={},execution?:object,executionStore?:ResultStore) {
     if(base.edits.length)throw Error("gesture history needs an immutable generation; legacy literals stay legacy");
     if(!documentId||!Number.isSafeInteger(epoch)||epoch<0)throw Error("invalid document identity");
-    this.base=immutable(structuredClone(base));this.session=MapSession.open(this.base);this.session.setWaterMode("defer");
-    this.results=new ResultStore(cold,policy.results??32*1024*1024);
-    this.session.useResultStore(this.results,policy.snapshots??128*1024*1024,policy.steps??16);
+    this.bank=new StateBank(cold);this.spacing=policy.checkpointEvery??32;if(!Number.isSafeInteger(this.spacing)||this.spacing<0)throw Error('invalid checkpoint spacing');
+    this.base=immutable(structuredClone(base));this.session=execution?MapSession.restoreExecution(this.base,execution):MapSession.open(this.base);this.session.setWaterMode("defer");
+    if(execution)checkDocument(this.base);
+    this.results=executionStore??new ResultStore(cold,policy.results??32*1024*1024);
+    this.session.useResultStore(this.results,0,1,!execution);
+    this.remember();if(!execution&&this.spacing)this.persistCheckpoint();
   }
-  private record(entry:GestureEntry):void {this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;}
+  private remember():void {
+    const known=this.recent.get(this.cursor) as any,b=this.session.built;
+    if(known?.cur.heights===b.heights&&known.cur.water===b.water&&known.cur.entities===b.entities&&known.cur.cache.keys===b.cache.keys&&known.gen.meta===this.session.meta){known.seqNext=this.session.nextOperationSeq;return;}
+    this.recent.set(this.cursor,this.session.checkpointExecution());
+    const budget=this.policy.snapshots??128*1024*1024,steps=this.policy.steps??16;
+    while(this.recent.size>1&&(this.recent.size>steps||this.recent.bytes>budget)){const key=[...this.recent.keys()].find(k=>k!==this.cursor)!;this.recent.delete(key);}
+  }
+  private persistCheckpoint():void {
+    const execution=this.session.checkpointExecution() as any;
+    for(const v of [execution.gen,execution.baseCache,execution.st,execution.cur.entities,execution.cur.cache.resources])if(v)this.bank.share(v);
+    const packed=packState(execution,this.bank);this.results.cold.put(CHECKPOINT_KEY+this.cursor,packed.bytes);
+    this.checkpoints=this.checkpoints.filter(x=>x.at!==this.cursor);this.checkpoints.push({at:this.cursor,bytes:packed.bytes.length,results:packed.results,blobs:packed.blobs});this.checkpoints.sort((a,b)=>a.at-b.at);
+    const budget=this.policy.checkpointBytes??128*1024*1024,max=this.policy.checkpointCount??128;
+    while(this.checkpoints.length>2&&(this.checkpoints.length>max||this.checkpointBytes()>budget)){
+      this.spacing*=2;this.checkpoints=this.checkpoints.filter(c=>c.at===0||c.at===this.cursor||c.at%this.spacing===0);
+    }
+  }
+  private record(entry:GestureEntry):void {
+    this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;
+    for(const at of this.recent.keys())if(at>this.cursor)this.recent.delete(at);
+    this.checkpoints=this.checkpoints.filter(c=>c.at<this.cursor);
+    for(const at of this.canonicalBoundaries)if(at>=this.cursor)this.canonicalBoundaries.delete(at);
+    this.remember();if(this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
+  }
   private importLegacy(op:AppliedOp):void {
     const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
     // Undo metadata is derived, and must stay mutable in the execution log.
@@ -120,49 +157,120 @@ export class GestureHistory {
   }
   apply(ops:EditOp[],origin:OpOrigin="user",label?:string):void {
     if(!ops.length||ops.some(o=>o.op==="forceResult"||o.op==="carve"))throw Error("new history accepts gestures, never force literals");
+    this.remember();
     const seq=this.session.nextOperationSeq,r=this.session.historyTransaction(()=>this.session.applyAll(ops,origin,label));if(!r.ok)throw Error(r.errors.join("; "));
     this.record({kind:"operations",seq,origin,...(label?{label}:{}),ops:structuredClone(ops)});
   }
-  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string):Promise<void>{
+  private canonicalBoundaries=new Set<number>();
+  adoptWater(...args:Parameters<MapSession['adoptWater']>):boolean {
+    const before=this.session.built,ok=this.session.adoptWater(...args);
+    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}return ok;
+  }
+  settleCanonical():void {
+    const before=this.session.built;this.session.settleCanonical();
+    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}
+  }
+  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<void>{
     gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
     validArea(gesture.area,this.session.size.x,this.session.size.y);
     if(!Array.isArray(gesture.kinds)||!gesture.kinds.length||gesture.kinds.some(k=>!["trees","bushes","ruins","sources","water","badwater","slopes","objects","start"].includes(k)))throw Error("invalid Select kinds");
-    const revision=this.revision,inputHash=await forceInputHash(this.session);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
+    this.remember();
+    const revision=this.revision,rollback=this.session.checkpointExecution();try {
+    const inputHash=await forceInputHash(this.session,inputHashVersion);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
+    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('Select input differs');
     const seq=this.session.nextOperationSeq,plan=planRemoveAt(this.session,runsToTiles(gesture.area,this.session.size.x),gesture.kinds,label);
     const r=this.session.historyTransaction(()=>this.session.applyAll(plan.ops,origin,plan.label));if(!r.ok)throw Error(r.errors.join("; "));
-    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash});
+    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash,inputHashVersion});
+    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
   }
   private async inputAt(count:number):Promise<MapSession> {
     const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
-    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1});
-    for(const e of this.entries.slice(0,count)){h.session.setReplaySequence(e.seq);if(e.kind==="operations")h.apply(e.ops,e.origin,e.label);else if(e.kind==="legacy")h.importLegacy(e.op);else if(e.kind==="selection")await h.select(e.gesture,e.origin,e.label);else await h.force(e.gesture,e.origin,e.label,e.replaces);}
+    const cp=this.checkpoints.filter(c=>c.at<=count).at(-1);
+    const execution=cp?unpackState(this.results.cold.get(CHECKPOINT_KEY+cp.at),this.results,this.bank):undefined;
+    if(execution&&this.entries[cp!.at])execution.seqNext=this.entries[cp!.at].seq;
+    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1,checkpointEvery:0},execution);
+    h.entries=this.entries.slice(0,cp?.at??0);h.cursor=cp?.at??0;h.checkpoints=this.checkpoints.filter(c=>c.at<=h.cursor);
+    // Nested original-prefix replacements borrow this controller's checkpoint/result store.
+    h.inputAt=(at)=>this.inputAt(at);
+    if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
+    for(const e of this.entries.slice(h.cursor,count)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();}
     return h.session;
   }
-  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number):Promise<EditOp> {
+  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<EditOp> {
     gesture=structuredClone(gesture);
     validForce(gesture,this.session);
-    const revision=this.revision;
+    this.remember();const revision=this.revision,rollback=this.session.checkpointExecution();
+    try {
     const previous=this.entries[this.cursor-1];
     if(replaces!==undefined&&(!previous||previous.kind!=="force"||previous.forceSeq!==replaces||previous.gesture.verb!==gesture.verb))throw Error("Try another needs the latest force in its series");
     const inputCursor=replaces!==undefined&&previous.kind==="force"?previous.inputCursor:this.cursor;
     const input=inputCursor===this.cursor?this.session:await this.inputAt(inputCursor);
-    const inputHash=await forceInputHash(input);
+    const inputHash=await forceInputHash(input,inputHashVersion);
     if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
+    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('force input differs');
     const seq=this.session.nextOperationSeq,op=this.session.historyTransaction(()=>{
       const resolved=resolveForce(input,gesture);if(replaces!==undefined&&resolved.op==="forceResult")resolved.params.replaces=replaces;
       applyResolvedForce(this.session,resolved,origin,label);return resolved;
     });
     const forceSeq=this.session.history().filter(e=>e.applied).at(-1)!.seq;
     if(forceSeq===undefined)throw Error("missing committed force sequence");
-    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
+    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputHashVersion,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
+    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
   }
-  undo():boolean {if(!this.cursor)return false;if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("history mismatch");this.cursor--;this.revision++;return true;}
-  redo():boolean {if(this.cursor===this.entries.length)return false;if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("history mismatch");this.cursor++;this.revision++;return true;}
+  undo():boolean {if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
+    if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("cold undo requires await seek(count-1)");this.cursor--;this.revision++;this.remember();return true;}
+  redo():boolean {if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
+    if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("cold redo requires await seek(count+1)");this.cursor++;this.revision++;this.remember();return true;}
+  private async replayEntry(entry:GestureEntry):Promise<void> {
+    if(!entry||!['user','claude','fix'].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=='string')throw Error('invalid gesture envelope');
+    this.session.setReplaySequence(entry.seq);
+    if(entry.kind==='operations')this.apply(entry.ops,entry.origin,entry.label);
+    else if(entry.kind==='legacy'){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error('invalid legacy envelope');this.importLegacy(entry.op);}
+    else if(entry.kind==='selection')await this.select(entry.gesture,entry.origin,entry.label,entry.inputHash,entry.inputHashVersion??1);
+    else if(entry.kind==='force'){await this.force(entry.gesture,entry.origin,entry.label,entry.replaces,entry.inputHash,entry.inputHashVersion??1);const actual=this.entries.at(-1) as Extract<GestureEntry,{kind:'force'}>;if(actual.forceSeq!==entry.forceSeq||actual.inputCursor!==entry.inputCursor)throw Error('force cursor/sequence differs');}
+    else throw Error('unknown gesture kind');
+  }
+  /** Cold history movement is asynchronous; callers retain the current visible map until it succeeds. */
+  async seek(target:number,progress?:(at:number,session:MapSession)=>Promise<void>):Promise<void> {
+    if(!Number.isSafeInteger(target)||target<0||target>this.entries.length)throw Error('invalid history cursor');
+    if(target===this.cursor)return;
+    const nextSeq=this.session.nextOperationSeq,revision=this.revision,cached=this.recent.get(target);
+    let execution:object,replayed=0,at=target;
+    if(cached)execution=cached;
+    else {
+      const cp=this.checkpoints.filter(c=>c.at<=target).at(-1);if(!cp)throw Error('missing history checkpoint');at=cp.at;
+      const state=unpackState(this.results.cold.get(CHECKPOINT_KEY+at),this.results,this.bank);
+      if(this.entries[at])state.seqNext=this.entries[at].seq;
+      const h=new GestureHistory(this.base,this.results.cold,this.documentId,this.epoch,{...this.policy,checkpointEvery:0},state,this.results);
+      h.entries=this.entries.slice(0,at);h.cursor=at;h.checkpoints=this.checkpoints.filter(c=>c.at<=at);h.inputAt=n=>this.inputAt(n);
+      if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
+      for(const e of this.entries.slice(at,target)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();replayed++;await progress?.(h.cursor,h.session);}
+      execution=h.session.checkpointExecution();
+    }
+    if(this.revision!==revision)throw Error('history seek superseded');
+    this.remember();this.session.installExecution(execution);this.session.setReplaySequence(Math.max(nextSeq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.remember();this.lastSeek={replayed,checkpoint:at,cache:!!cached};
+  }
+  private checkpointBytes():number{return this.checkpoints.reduce((n,c)=>n+c.bytes,0)+this.bank.index(this.checkpoints.flatMap(c=>c.blobs)).reduce((n,c)=>n+c.bytes,0);}
+  get checkpointStats(){return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
   get count():number{return this.cursor;}
   get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
-  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {await writeProject(this.project,sink);}
+  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {
+    this.remember();this.persistCheckpoint();
+    const index=this.checkpoints.filter(c=>c.at<=this.entries.length),current=this.session.checkpointExecution();
+    const manifest={...this.project,formatVersion:5,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:this.spacing,checkpoints:index,canonicalBoundaries:[...this.canonicalBoundaries]};
+    await writeArchive(manifest,current,index,this.results,this.bank,sink);
+  }
   static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
-    const raw=await readProject(source) as GestureProject;
+    const input=await archiveSource(source);
+    if(input.archive){const store=new ResultStore(cold,policy.results??32*1024*1024),archive=await readArchive(input.source,store);if(!archive)throw Error('missing archive');const raw=archive.manifest;
+      if(raw.app!=='dam-good-maps'||raw.formatVersion!==5||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
+      if(!Array.isArray(raw.entries)||!Number.isSafeInteger(raw.cursor)||raw.cursor<0||raw.cursor>raw.entries.length||!Number.isSafeInteger(raw.spacing)||raw.spacing<1||archive.current.undoStack.length!==raw.cursor||archive.current.seqNext!==raw.nextSeq)throw Error('invalid saved history');
+      let prior=0;for(const e of raw.entries){if(!Number.isSafeInteger(e.seq)||e.seq<=prior||!['operations','selection','force','legacy'].includes(e.kind)||!['user','claude','fix'].includes(e.origin)||e.label!==undefined&&typeof e.label!=='string')throw Error('invalid gesture envelope');
+        if((e.kind==='force'||e.kind==='selection')&&((e.inputHashVersion!==undefined&&e.inputHashVersion!==1&&e.inputHashVersion!==2)||typeof e.inputHash!=='string'||!/^[0-9a-f]{64}$/.test(e.inputHash)))throw Error('unsupported or invalid input hash');prior=e.seq;}
+      const boundaries=raw.canonicalBoundaries??[];if(!Array.isArray(boundaries)||boundaries.some((n:any)=>!Number.isSafeInteger(n)||n<0||n>raw.entries.length)||new Set(boundaries).size!==boundaries.length)throw Error('invalid canonical water boundaries');
+      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();h.remember();return h;
+    }
+    const raw=await readProject(input.source) as GestureProject;
     if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
     if(raw.formatVersion!==4){
       const doc=decodeProjectObject(raw),features=baseFeaturesOf(doc),base={...doc,baseFeatures:features,features,edits:[],nextSeq:1};
@@ -176,20 +284,7 @@ export class GestureHistory {
     if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
     const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy);
     for(const entry of raw.entries){
-      if(!entry||!["user","claude","fix"].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=="string")throw Error("invalid gesture envelope");
-      h.session.setReplaySequence(entry.seq);
-      if(entry.kind==="operations")h.apply(entry.ops,entry.origin,entry.label);
-      else if(entry.kind==="legacy"){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error("invalid legacy envelope");h.importLegacy(entry.op);}
-      else if(entry.kind==="selection"){if(await forceInputHash(h.session)!==entry.inputHash)throw Error("Select input differs");await h.select(entry.gesture,entry.origin,entry.label);}
-      else if(entry.kind==="force"){
-        const old=h.entries[h.cursor-1],at=entry.replaces!==undefined&&old?.kind==="force"?old.inputCursor:h.cursor;
-        if(entry.inputCursor!==at)throw Error("invalid original force input cursor");
-        const input=at===h.cursor?h.session:await h.inputAt(at);
-        if(await forceInputHash(input)!==entry.inputHash)throw Error("force input does not match recorded epoch/state");
-        await h.force(entry.gesture,entry.origin,entry.label,entry.replaces);
-        if(h.entries.at(-1)?.kind!=="force"||(h.entries.at(-1) as Extract<GestureEntry,{kind:"force"}>).forceSeq!==entry.forceSeq)throw Error("force sequence differs");
-      }
-      else throw Error("unknown gesture kind");
+      await h.replayEntry(entry);
       await progress?.(h.count,raw.entries.length);
     }
     h.session.setReplaySequence(raw.nextSeq);return h;

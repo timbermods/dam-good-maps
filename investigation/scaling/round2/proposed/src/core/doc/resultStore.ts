@@ -65,10 +65,14 @@ export class ResultStore {
     this.cold.put(seq,bytes);this.writtenBytes+=bytes.byteLength;
     const old = this.hot.get(seq);if(old){this.bytes-=old.bytes;this.hot.delete(seq);}
     this.cache(seq,params);
+    return this.attach(seq,params,heavy.filter(name=>name in params));
+  }
+  /** Rebind an exact saved execution cache without decoding its heavy vectors. */
+  attach<T extends object>(seq:number,params:T,names:readonly string[]):T {
     const proxy = {...params};
-    for(const name of heavy) {
+    for(const name of names) {
       delete (proxy as Record<string,unknown>)[name];
-      if(name in params) Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
+      Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
     }
     keys.set(proxy,`derived-force-v1:${seq}`);
     return proxy;

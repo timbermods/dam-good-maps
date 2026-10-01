@@ -1,5 +1,12 @@
 # Scaling to 512 on a side
 
+## Round 3
+
+Use [Round 3 integration](round3/INTEGRATION.md) for the current combined patch: direct editable
+opening from versioned current state, shared disk checkpoints, bounded recent caches and async
+deep undo. [The force replay recipe](round3/REPLAY.md) is reusable by collaboration. The source and
+determinism pins are unchanged. Round 1 and Round 2 notes below are historical.
+
 ## Round 2
 
 The combined `adoption.patch` is virtually rebased onto `feature/forces` **75cb5d4c** and keeps

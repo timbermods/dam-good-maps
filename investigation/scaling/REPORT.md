@@ -121,3 +121,62 @@ Reuse the versioned gesture/seed/identity/input-hash envelope for collaboration.
 water requires an explicit agreement; old live-water inputs are never guessed. Feed cold replay,
 input preparation and cache-accounting cost into investigation/performance for progress,
 cancellation and scheduling. [Integration and regeneration](round2/INTEGRATION.md).
+
+## Round 3 — stored state and checkpoints
+
+Format 5 stores the exact current terrain/water/objects and execution caches, plus gestures and
+shared compressed checkpoints. Opening calls no generation, replay or settle; the first edit
+uses the stored build. Streaming reads/writes use bounded records and 32 KiB writes. Formats 1–4
+still open; their first migration retains the earlier cost. Round 1 patches remain included.
+
+Three repetitions, **median/worst seconds (whole-machine CPU median/worst %)**. Core timings
+include disk; “editable” adds the actual first brush build to opening, excluding UI/mesh upload.
+
+| Size | Round 2 open | Round 3 open | Editable | Cold undo, 31 steps | Save |
+|---|---|---|---|---|---|
+| 256² | 434.67/589.40 (100/100) | 0.75/0.75 (52/57) | 1.09/1.16 (52/57) | 8.60/8.63 (42/67) | 0.45/0.47 (49/59) |
+| 512² | 1580.99/1863.68 (98/100) | 2.41/2.44 (38/52) | 4.00/4.06 (39/52) | 31.58/32.11 (39/60) | 1.12/1.13 (41/56) |
+
+| Browser / storage | 256² editable s (CPU) | 512² editable s (CPU) |
+|---|---|---|
+| Chromium / OPFS | 1.00/1.05 (29/33) | 2.82/2.85 (18.5/22) |
+| Firefox / OPFS | 1.05/1.10 (25/29) | 3.07/3.13 (24/37) |
+| WebKit / host disk IPC | 1.85/1.86 (30/32) | 4.81/6.38 (25/41) |
+
+WebKit's tested deep undo is 10.94/14.08 s (CPU 20/41%) at 256² and 20.77/30.02 s (22/39%)
+at 512². These are varied-depth observations, not a universal latency bound. Its IPC cost is
+separate from native Safari; all engine details are in the linked evidence.
+
+Recent undo/redo remain below 0.25 ms in these repeats. Choose checkpoints every **32 steps**:
+the measured 8/32/128 pilot and cap tradeoff are in [integration](round3/INTEGRATION.md).
+Both full sessions retain 65 checkpoints, at most 31 ordinary replay steps. On overflow spacing
+doubles; undo depth is preserved. Historical payload is capped at 128 MiB, recent states at
+128 MiB/16 steps, results/fields at 32 MiB each. Cold undo still needs progress/cancellation.
+
+| 2,048 mixed edits | Literal baseline MiB | Round 2 gesture MiB | Round 3 MiB | Checkpoints MiB |
+|---|---:|---:|---:|---:|
+| 256² | 0.43 | 0.24 | 29.89 | 28.96 |
+| 512² | 0.90 | 0.70 | 104.27 | 102.64 |
+
+The literal baseline includes Round 1's allocation patch and the same portable/canonical forces.
+Files grow substantially to buy reopening and historical access. This mixed workload differs
+from Round 1's **dense** 256-edit stress (421 MiB heap/29 MB file at 256²; 512² string crash).
+At edits 512→2,048, GC heap/buffers are 121+115→161+105 MiB (256²), 188+97→223+89 (512²).
+Decoded histories stay on disk; dropping the final controller returns both to about 10+0.2 MiB.
+Journal/current force-program metadata and disposable disk indexes still grow: the checkpoint
+cap is not a constant total-file or unlimited-session memory guarantee. Owned cache compaction
+belongs in adoption.
+
+Every forward state/export matches Round 2. Chromium, Firefox and WebKit verify all **2,049
+positions** per size through descending checkpoints and every cold-seek prefix, then final redo.
+Separate tests cover saved-past redo, all five new finalizer-input hashes, canonical background
+water boundaries, alias/code-unit preservation, legacy golden and damaged files. Windows WebKit
+uses verified host disk IPC; native Safari storage remains a gate. [Measurements and load](round3/measurements.json),
+[individual timings](round3/timings.csv) and [regeneration](round3/INTEGRATION.md) preserve scope.
+
+[The canonical force/water recipe](round3/REPLAY.md) supplies collaboration's gesture/seed/hash
+envelope and compatible joining snapshot. Feed graph collection, codec/hash work, replay and
+water/mesh preparation to `investigation/performance` for scheduling; startup can hydrate this
+stored build directly. Stress page-timer gaps reach 8.1 s in Chromium and 23.2 s in the
+WebKit adapter; Firefox reaches 33 ms. Cause needs its main-thread/IPC/GC profiling gate;
+these core timings establish no UI smoothness claim. No product files were changed.

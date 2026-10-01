@@ -1,5 +1,9 @@
 # Round 2 adoption
 
+Historical Round 2 behavior/evidence at **40e5d6ca**. The proposed controller in this directory
+now includes [Round 3](../round3/INTEGRATION.md); use that document to adopt/regenerate the current
+combined patch. Reproduce this round's gesture-only measurements from its recorded commit.
+
 The combined `../adoption.patch` targets `feature/forces`
 **75cb5d4c4a168eb17113bd0dd19576bb43b3ffc9**, including Round 1 capacity, mesh reuse and water
 allocation changes. It applies cleanly to that source snapshot. The branch itself retains its

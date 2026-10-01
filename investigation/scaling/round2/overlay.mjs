@@ -12,6 +12,12 @@ export function overlay(file,code){let s=adopt(file,code);
  if(file==='src/core/doc/session.ts') {
   s='import {ResultStore} from "./resultStore";\nimport {HistorySnapshots} from "./historySnapshots";\nimport {writeProject} from "./projectStream";\nimport {projectObject} from "./document";\n'+s;
   s=change(s,'  private snaps = new Map<number, BuildResult>();','  private snaps = new HistorySnapshots<BuildResult>();');
+  s=change(s,'  private constructor(doc: MapDocument, built?: BuildResult) {',`  private constructor(doc: MapDocument, built?: BuildResult, execution?:any) {
+    if(execution){this.gen=execution.gen;this.log=execution.log;this.st=execution.st;this.seqNext=execution.seqNext;this.cur=execution.cur;
+      Object.assign(this,execution);this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
+      this.snaps.set(this.undoStack.length,this.cur);return;}
+`);
+  s='import {BoundedFields} from "./boundedFields";\n'+s;
   s=change(s,'  private log: AppliedOp[];',`  private log: AppliedOp[];
   /** Already validated legacy input: preserve replay/orphan semantics, page literal payloads. */
   importAppliedForReplay(input:AppliedOp):AppliedOp {
@@ -28,6 +34,23 @@ export function overlay(file,code){let s=adopt(file,code);
     try{return action();}catch(error){Object.assign(this,{...saved,snaps:new HistorySnapshots(saved.snaps)});throw error;}
   }
   private resultStore: ResultStore | null = null;
+  /** Exact current execution state, not a regeneration or a flattened replacement base. */
+  checkpointExecution():object {
+    return {gen:this.gen,log:this.log.slice(),st:{...this.st,features:this.st.features.slice(),sculpts:this.st.sculpts.slice(),slopeEdits:this.st.slopeEdits.slice(),entityEdits:this.st.entityEdits.slice()},
+      seqNext:this.seqNext,cur:{...this.cur,dirty:null,cache:{...this.cur.cache,fields:new Map()}},undoStack:this.undoStack.slice(),redoStack:[],
+      baseCache:this.baseCache,fieldCache:this.fieldCache,keptCache:this.keptCache,storedWaterCache:this.storedWaterCache,waterMode:this.waterMode,notices:this.notices.slice()};
+  }
+  static restoreExecution(doc:MapDocument,execution:any):MapSession {
+    const b=execution?.cur,N=doc.base.sizeX*doc.base.sizeY;
+    if(!b||b.W!==doc.base.sizeX||b.H!==doc.base.sizeY||!Array.isArray(execution.log)||!Array.isArray(execution.undoStack)||!execution.st||!execution.gen||!Number.isSafeInteger(execution.seqNext))throw Error("invalid execution checkpoint");
+    for(const k of ["heights","water","contamination","moisture","soilContamination","occupied","channel"])if(!ArrayBuffer.isView(b[k])||(b[k] as any).length!==N)throw Error("invalid checkpoint field");
+    if(!(b.cache?.keys instanceof Map)||!(b.cache.resources instanceof Map)||!Array.isArray(b.entities))throw Error("invalid checkpoint caches");
+    return new MapSession(doc,undefined,execution);
+  }
+  installExecution(execution:any):void {
+    const meta=this.gen.meta;Object.assign(this,execution);this.gen={...this.gen,meta};this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
+    this.snaps.clear();this.waterAt.clear();
+  }
   private waterAt = new Map<number,number>();
   private rememberHistoryWater():void {if(this.resultStore)this.waterAt.set(this.undoStack.length,this.resultStore.keepWater(this.cur.cache.settle));}
   private restoreHistoryWater(at:number):void {
@@ -37,9 +60,9 @@ export function overlay(file,code){let s=adopt(file,code);
   }
   private snapshotBudget = Infinity;
   private snapshotSteps = MAX_SNAPSHOTS;
-  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16): void {
+  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16, remember=true): void {
     if (!Number.isSafeInteger(snapshotBudget) || snapshotBudget<0 || !Number.isSafeInteger(snapshotSteps) || snapshotSteps<1) throw Error("invalid history cache policy");
-    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;this.rememberHistoryWater();
+    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;if(remember)this.rememberHistoryWater();
   }
   get nextOperationSeq(): number {return this.seqNext;}
   setReplaySequence(seq:number):void {if(!Number.isSafeInteger(seq)||seq<this.seqNext)throw Error("invalid replay sequence");this.seqNext=seq;}
@@ -144,7 +167,7 @@ import {runsToTiles,tilesToRuns,type Runs} from "../math/grid";
 export async function plugin(phase='after') {
  prepareDeterminism();const {transform}=await import(pathToFileURL(resolve(local,'det-transform.mjs')).href);
  return {name:'scaling-round2',setup(b){
-  b.onResolve({filter:/^product-(history|stream|cache)$/},args=>({path:resolve(root,'src/core/doc',{'product-history':'gestureHistory.ts','product-stream':'projectStream.ts','product-cache':'resultStore.ts'}[args.path])}));
+  b.onResolve({filter:/^product-(history|stream|cache|state|archive)$/},args=>({path:resolve(root,'src/core/doc',{'product-history':'gestureHistory.ts','product-stream':'projectStream.ts','product-cache':'resultStore.ts','product-state':'stateGraph.ts','product-archive':'projectArchive.ts'}[args.path])}));
   b.onResolve({filter:/.*/},args=>{if(!args.importer)return;const path=resolve(args.resolveDir,args.path);if(!path.startsWith(root))return;
     for(const p of [path,path+'.ts'])if(p.startsWith(root)&&p.endsWith('.ts')){const rel=p.slice(root.length+1),candidate=resolve(proposed,rel);try{readFileSync(candidate);return {path:p};}catch{}}});
   b.onLoad({filter:/\.(ts|json)$/},args=>{

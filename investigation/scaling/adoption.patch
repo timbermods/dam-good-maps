@@ -432,17 +432,18 @@ index 9fd8e830..0e80428c 100644
    });
  });
 diff --git a/src/core/doc/session.ts b/src/core/doc/session.ts
-index bdce16bc..1122bc15 100644
+index bdce16bc..d2041fde 100644
 --- a/src/core/doc/session.ts
 +++ b/src/core/doc/session.ts
-@@ -1,2 +1,6 @@
+@@ -1,2 +1,7 @@
++import {BoundedFields} from "./boundedFields";
 +import {ResultStore} from "./resultStore";
 +import {HistorySnapshots} from "./historySnapshots";
 +import {writeProject} from "./projectStream";
 +import {projectObject} from "./document";
  // An open map document (EDITOR_PLAN §3): the operations engine, undo and redo, export, and the built map, rebuilt incrementally after every change. The editor (M4)
  // runs one session in its worker; everything here is headless and runs in Node too.
-@@ -110,4 +114,41 @@ export class MapSession {
+@@ -110,4 +115,58 @@ export class MapSession {
    private gen: Generation;
    private log: AppliedOp[];
 +  /** Already validated legacy input: preserve replay/orphan semantics, page literal payloads. */
@@ -460,6 +461,23 @@ index bdce16bc..1122bc15 100644
 +    try{return action();}catch(error){Object.assign(this,{...saved,snaps:new HistorySnapshots(saved.snaps)});throw error;}
 +  }
 +  private resultStore: ResultStore | null = null;
++  /** Exact current execution state, not a regeneration or a flattened replacement base. */
++  checkpointExecution():object {
++    return {gen:this.gen,log:this.log.slice(),st:{...this.st,features:this.st.features.slice(),sculpts:this.st.sculpts.slice(),slopeEdits:this.st.slopeEdits.slice(),entityEdits:this.st.entityEdits.slice()},
++      seqNext:this.seqNext,cur:{...this.cur,dirty:null,cache:{...this.cur.cache,fields:new Map()}},undoStack:this.undoStack.slice(),redoStack:[],
++      baseCache:this.baseCache,fieldCache:this.fieldCache,keptCache:this.keptCache,storedWaterCache:this.storedWaterCache,waterMode:this.waterMode,notices:this.notices.slice()};
++  }
++  static restoreExecution(doc:MapDocument,execution:any):MapSession {
++    const b=execution?.cur,N=doc.base.sizeX*doc.base.sizeY;
++    if(!b||b.W!==doc.base.sizeX||b.H!==doc.base.sizeY||!Array.isArray(execution.log)||!Array.isArray(execution.undoStack)||!execution.st||!execution.gen||!Number.isSafeInteger(execution.seqNext))throw Error("invalid execution checkpoint");
++    for(const k of ["heights","water","contamination","moisture","soilContamination","occupied","channel"])if(!ArrayBuffer.isView(b[k])||(b[k] as any).length!==N)throw Error("invalid checkpoint field");
++    if(!(b.cache?.keys instanceof Map)||!(b.cache.resources instanceof Map)||!Array.isArray(b.entities))throw Error("invalid checkpoint caches");
++    return new MapSession(doc,undefined,execution);
++  }
++  installExecution(execution:any):void {
++    const meta=this.gen.meta;Object.assign(this,execution);this.gen={...this.gen,meta};this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
++    this.snaps.clear();this.waterAt.clear();
++  }
 +  private waterAt = new Map<number,number>();
 +  private rememberHistoryWater():void {if(this.resultStore)this.waterAt.set(this.undoStack.length,this.resultStore.keepWater(this.cur.cache.settle));}
 +  private restoreHistoryWater(at:number):void {
@@ -469,9 +487,9 @@ index bdce16bc..1122bc15 100644
 +  }
 +  private snapshotBudget = Infinity;
 +  private snapshotSteps = MAX_SNAPSHOTS;
-+  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16): void {
++  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16, remember=true): void {
 +    if (!Number.isSafeInteger(snapshotBudget) || snapshotBudget<0 || !Number.isSafeInteger(snapshotSteps) || snapshotSteps<1) throw Error("invalid history cache policy");
-+    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;this.rememberHistoryWater();
++    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;if(remember)this.rememberHistoryWater();
 +  }
 +  get nextOperationSeq(): number {return this.seqNext;}
 +  setReplaySequence(seq:number):void {if(!Number.isSafeInteger(seq)||seq<this.seqNext)throw Error("invalid replay sequence");this.seqNext=seq;}
@@ -484,21 +502,32 @@ index bdce16bc..1122bc15 100644
 +  }
    private st: DocState;
    private seqNext: number;
-@@ -115,5 +156,5 @@ export class MapSession {
+@@ -115,5 +174,5 @@ export class MapSession {
    private undoStack: HistoryEntry[] = [];
    private redoStack: HistoryEntry[] = [];
 -  private snaps = new Map<number, BuildResult>();
 +  private snaps = new HistorySnapshots<BuildResult>();
    private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
    private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
-@@ -205,4 +246,6 @@ export class MapSession {
+@@ -129,5 +188,9 @@ export class MapSession {
+   private waterMode: WaterMode = "canonical";
+
+-  private constructor(doc: MapDocument, built?: BuildResult) {
++  private constructor(doc: MapDocument, built?: BuildResult, execution?:any) {
++    if(execution){this.gen=execution.gen;this.log=execution.log;this.st=execution.st;this.seqNext=execution.seqNext;this.cur=execution.cur;
++      Object.assign(this,execution);this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
++      this.snaps.set(this.undoStack.length,this.cur);return;}
++
+     this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+     const r = replay(this.gen.baseFeatures, doc.edits);
+@@ -205,4 +268,6 @@ export class MapSession {
      this.cur = rebuild(this.cur, this.input(), { settleCache: cache });
      for (const [k, b] of this.snaps) if (b === before) this.snaps.set(k, this.cur);
 +    this.rememberHistoryWater();
 +    if(this.resultStore)this.snapshot(true);
      return true;
    }
-@@ -393,4 +436,10 @@ export class MapSession {
+@@ -393,4 +458,10 @@ export class MapSession {
 
    /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens). */
 +  /** Legacy-format streaming save: no clone of literal vectors or whole-document string. */
@@ -509,7 +538,7 @@ index bdce16bc..1122bc15 100644
 +
    project(level?: number): Uint8Array {
      return encodeProject(this.document, level);
-@@ -508,5 +557,7 @@ export class MapSession {
+@@ -508,5 +579,7 @@ export class MapSession {
    private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
      const text = label ?? (op as { label?: string }).label;
 -    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
@@ -518,19 +547,19 @@ index bdce16bc..1122bc15 100644
 +    const applied = { op: op.op, params, seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
      applyOp(this.st, applied);
      if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
-@@ -524,4 +575,5 @@ export class MapSession {
+@@ -524,4 +597,5 @@ export class MapSession {
      }
      this.redoStack.push(e);
 +    this.restoreHistoryWater(this.undoStack.length);
      this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
      return true;
-@@ -536,4 +588,5 @@ export class MapSession {
+@@ -536,4 +610,5 @@ export class MapSession {
      }
      this.undoStack.push(e);
 +    this.restoreHistoryWater(this.undoStack.length);
      this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
      this.snapshot();
-@@ -579,8 +632,9 @@ export class MapSession {
+@@ -579,8 +654,9 @@ export class MapSession {
    private snapshot(force = false): void {
      const at = this.undoStack.length;
 -    if (!force && at % SNAPSHOT_EVERY !== 0) return;
@@ -803,15 +832,18 @@ index 00000000..3963207d
 +}
 diff --git a/src/core/doc/gestureHistory.ts b/src/core/doc/gestureHistory.ts
 new file mode 100644
-index 00000000..b6d4abf6
+index 00000000..bcf5f43f
 --- /dev/null
 +++ b/src/core/doc/gestureHistory.ts
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,292 @@
 +import {MapSession} from "./session";
-+import {decodeProjectObject,baseFeaturesOf,type MapDocument} from "./document";
++import {decodeProjectObject,baseFeaturesOf,checkDocument,type MapDocument} from "./document";
 +import type {EditOp,OpOrigin,AppliedOp} from "./ops";
 +import {ResultStore,type ColdResults} from "./resultStore";
 +import {readProject,writeProject} from "./projectStream";
++import {packState,unpackState,StateBank} from "./stateGraph";
++import {archiveSource,readArchive,writeArchive,CHECKPOINT_KEY,STATE_ABI,type CheckpointIndex} from "./projectArchive";
++import {HistorySnapshots as RecentStates} from "./historySnapshots";
 +import {fullMap,forceCeiling} from "../forces/force";
 +import {forceMapOf,carveForceParams} from "../forces/carve/result";
 +import {CarveRun,type CarveSettings} from "../forces/carve/run";
@@ -840,11 +872,11 @@ index 00000000..b6d4abf6
 +  where:Where;cut:number|null;area?:[number,number,number][];sourceId:string;unleashed?:string;bad?:boolean;
 +};
 +export type GestureEntry={seq:number;origin:OpOrigin;label?:string} & (
-+  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string}
++  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputHashVersion?:1|2;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string;inputHashVersion?:1|2}
 +);
 +export type SelectionGesture={action:"remove";area:Runs;kinds:RemoveKind[]};
 +export type GestureProject={app:"dam-good-maps";formatVersion:4;replayVersion:typeof REPLAY_VERSION;documentId:string;epoch:number;base:MapDocument;entries:GestureEntry[];nextSeq:number};
-+export type Policy={results?:number;snapshots?:number;steps?:number};
++export type Policy={results?:number;snapshots?:number;steps?:number;checkpointEvery?:number;checkpointBytes?:number;checkpointCount?:number};
 +function immutable<T>(value:T):T {if(value&&typeof value==="object"){for(const d of Object.values(Object.getOwnPropertyDescriptors(value)))if("value" in d)immutable(d.value);Object.freeze(value);}return value;}
 +function validArea(area:Runs,W:number,H:number):void {
 +  if(!Array.isArray(area)||area.some(r=>!Array.isArray(r)||r.length!==3||r.some(n=>!Number.isSafeInteger(n))||r[0]<0||r[0]>=H||r[1]<0||r[2]>=W||r[1]>r[2]))throw Error("working area outside map");
@@ -860,8 +892,10 @@ index 00000000..b6d4abf6
 +  s.settleCanonical();const b=s.built,m=forceMapOf(b),down=fallenOf(s);
 +  return fullMap({...m,rockLayers:geologyOf(s),lava:rockOf(s)??new Uint32Array(m.W*m.H),fallen:m.entities.filter(e=>down.has(e.id)).map(e=>({id:e.id,x:e.x+.5,y:e.y+.5,z:m.heights[e.y*m.W+e.x],...down.get(e.id)!,length:e.template==="Oak"?2.6:2}))});
 +}
-+export async function forceInputHash(s:MapSession):Promise<string> {
++export async function forceInputHash(s:MapSession,version:1|2=2):Promise<string> {
 +  const m=s.historyTransaction(()=>canonicalForceMap(s)),parts:Uint8Array[]=[m.heights,new Uint8Array(m.water.depth.buffer),new Uint8Array(m.water.contamination.buffer),new Uint8Array(m.lava.buffer),new TextEncoder().encode(JSON.stringify([m.W,m.H,m.maxHeight,m.entities,m.rockLayers,m.fallen]))];
++  if(version!==1&&version!==2)throw Error('unsupported force input hash version');
++  if(version===2){const t=s.terrainState();for(const v of [t.pre,t.protect,t.channel,t.base,t.field,t.locked,t.columns])parts.push(v?new Uint8Array(v.buffer,v.byteOffset,v.byteLength):new Uint8Array());parts.push(new TextEncoder().encode(JSON.stringify([t.top,!!t.base,!!t.field,!!t.locked,s.features])));}
 +  // Hash component digests: bounded working storage, including all inputs that a force reads.
 +  const digests=await Promise.all(parts.map(b=>crypto.subtle.digest("SHA-256",b as BufferSource)));
 +  const joined=new Uint8Array(digests.length*32);digests.forEach((d,i)=>joined.set(new Uint8Array(d),i*32));
@@ -913,14 +947,46 @@ index 00000000..b6d4abf6
 +  private entries:GestureEntry[]=[];private cursor=0;
 +  private revision=0;
 +  private tempKey=2**40;
-+  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={}) {
++  private checkpoints:CheckpointIndex[]=[];
++  private recent=new RecentStates<object>();
++  private spacing:number;
++  private bank:StateBank;
++  checkpointFailure:string|null=null;
++  lastSeek={replayed:0,checkpoint:0,cache:false};
++  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={},execution?:object,executionStore?:ResultStore) {
 +    if(base.edits.length)throw Error("gesture history needs an immutable generation; legacy literals stay legacy");
 +    if(!documentId||!Number.isSafeInteger(epoch)||epoch<0)throw Error("invalid document identity");
-+    this.base=immutable(structuredClone(base));this.session=MapSession.open(this.base);this.session.setWaterMode("defer");
-+    this.results=new ResultStore(cold,policy.results??32*1024*1024);
-+    this.session.useResultStore(this.results,policy.snapshots??128*1024*1024,policy.steps??16);
++    this.bank=new StateBank(cold);this.spacing=policy.checkpointEvery??32;if(!Number.isSafeInteger(this.spacing)||this.spacing<0)throw Error('invalid checkpoint spacing');
++    this.base=immutable(structuredClone(base));this.session=execution?MapSession.restoreExecution(this.base,execution):MapSession.open(this.base);this.session.setWaterMode("defer");
++    if(execution)checkDocument(this.base);
++    this.results=executionStore??new ResultStore(cold,policy.results??32*1024*1024);
++    this.session.useResultStore(this.results,0,1,!execution);
++    this.remember();if(!execution&&this.spacing)this.persistCheckpoint();
 +  }
-+  private record(entry:GestureEntry):void {this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;}
++  private remember():void {
++    const known=this.recent.get(this.cursor) as any,b=this.session.built;
++    if(known?.cur.heights===b.heights&&known.cur.water===b.water&&known.cur.entities===b.entities&&known.cur.cache.keys===b.cache.keys&&known.gen.meta===this.session.meta){known.seqNext=this.session.nextOperationSeq;return;}
++    this.recent.set(this.cursor,this.session.checkpointExecution());
++    const budget=this.policy.snapshots??128*1024*1024,steps=this.policy.steps??16;
++    while(this.recent.size>1&&(this.recent.size>steps||this.recent.bytes>budget)){const key=[...this.recent.keys()].find(k=>k!==this.cursor)!;this.recent.delete(key);}
++  }
++  private persistCheckpoint():void {
++    const execution=this.session.checkpointExecution() as any;
++    for(const v of [execution.gen,execution.baseCache,execution.st,execution.cur.entities,execution.cur.cache.resources])if(v)this.bank.share(v);
++    const packed=packState(execution,this.bank);this.results.cold.put(CHECKPOINT_KEY+this.cursor,packed.bytes);
++    this.checkpoints=this.checkpoints.filter(x=>x.at!==this.cursor);this.checkpoints.push({at:this.cursor,bytes:packed.bytes.length,results:packed.results,blobs:packed.blobs});this.checkpoints.sort((a,b)=>a.at-b.at);
++    const budget=this.policy.checkpointBytes??128*1024*1024,max=this.policy.checkpointCount??128;
++    while(this.checkpoints.length>2&&(this.checkpoints.length>max||this.checkpointBytes()>budget)){
++      this.spacing*=2;this.checkpoints=this.checkpoints.filter(c=>c.at===0||c.at===this.cursor||c.at%this.spacing===0);
++    }
++  }
++  private record(entry:GestureEntry):void {
++    this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;
++    for(const at of this.recent.keys())if(at>this.cursor)this.recent.delete(at);
++    this.checkpoints=this.checkpoints.filter(c=>c.at<this.cursor);
++    for(const at of this.canonicalBoundaries)if(at>=this.cursor)this.canonicalBoundaries.delete(at);
++    this.remember();if(this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
++  }
 +  private importLegacy(op:AppliedOp):void {
 +    const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
 +    // Undo metadata is derived, and must stay mutable in the execution log.
@@ -929,49 +995,120 @@ index 00000000..b6d4abf6
 +  }
 +  apply(ops:EditOp[],origin:OpOrigin="user",label?:string):void {
 +    if(!ops.length||ops.some(o=>o.op==="forceResult"||o.op==="carve"))throw Error("new history accepts gestures, never force literals");
++    this.remember();
 +    const seq=this.session.nextOperationSeq,r=this.session.historyTransaction(()=>this.session.applyAll(ops,origin,label));if(!r.ok)throw Error(r.errors.join("; "));
 +    this.record({kind:"operations",seq,origin,...(label?{label}:{}),ops:structuredClone(ops)});
 +  }
-+  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string):Promise<void>{
++  private canonicalBoundaries=new Set<number>();
++  adoptWater(...args:Parameters<MapSession['adoptWater']>):boolean {
++    const before=this.session.built,ok=this.session.adoptWater(...args);
++    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}return ok;
++  }
++  settleCanonical():void {
++    const before=this.session.built;this.session.settleCanonical();
++    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.remember();}
++  }
++  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<void>{
 +    gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
 +    validArea(gesture.area,this.session.size.x,this.session.size.y);
 +    if(!Array.isArray(gesture.kinds)||!gesture.kinds.length||gesture.kinds.some(k=>!["trees","bushes","ruins","sources","water","badwater","slopes","objects","start"].includes(k)))throw Error("invalid Select kinds");
-+    const revision=this.revision,inputHash=await forceInputHash(this.session);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    this.remember();
++    const revision=this.revision,rollback=this.session.checkpointExecution();try {
++    const inputHash=await forceInputHash(this.session,inputHashVersion);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('Select input differs');
 +    const seq=this.session.nextOperationSeq,plan=planRemoveAt(this.session,runsToTiles(gesture.area,this.session.size.x),gesture.kinds,label);
 +    const r=this.session.historyTransaction(()=>this.session.applyAll(plan.ops,origin,plan.label));if(!r.ok)throw Error(r.errors.join("; "));
-+    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash});
++    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash,inputHashVersion});
++    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
 +  }
 +  private async inputAt(count:number):Promise<MapSession> {
 +    const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
-+    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1});
-+    for(const e of this.entries.slice(0,count)){h.session.setReplaySequence(e.seq);if(e.kind==="operations")h.apply(e.ops,e.origin,e.label);else if(e.kind==="legacy")h.importLegacy(e.op);else if(e.kind==="selection")await h.select(e.gesture,e.origin,e.label);else await h.force(e.gesture,e.origin,e.label,e.replaces);}
++    const cp=this.checkpoints.filter(c=>c.at<=count).at(-1);
++    const execution=cp?unpackState(this.results.cold.get(CHECKPOINT_KEY+cp.at),this.results,this.bank):undefined;
++    if(execution&&this.entries[cp!.at])execution.seqNext=this.entries[cp!.at].seq;
++    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1,checkpointEvery:0},execution);
++    h.entries=this.entries.slice(0,cp?.at??0);h.cursor=cp?.at??0;h.checkpoints=this.checkpoints.filter(c=>c.at<=h.cursor);
++    // Nested original-prefix replacements borrow this controller's checkpoint/result store.
++    h.inputAt=(at)=>this.inputAt(at);
++    if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
++    for(const e of this.entries.slice(h.cursor,count)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();}
 +    return h.session;
 +  }
-+  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number):Promise<EditOp> {
++  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<EditOp> {
 +    gesture=structuredClone(gesture);
 +    validForce(gesture,this.session);
-+    const revision=this.revision;
++    this.remember();const revision=this.revision,rollback=this.session.checkpointExecution();
++    try {
 +    const previous=this.entries[this.cursor-1];
 +    if(replaces!==undefined&&(!previous||previous.kind!=="force"||previous.forceSeq!==replaces||previous.gesture.verb!==gesture.verb))throw Error("Try another needs the latest force in its series");
 +    const inputCursor=replaces!==undefined&&previous.kind==="force"?previous.inputCursor:this.cursor;
 +    const input=inputCursor===this.cursor?this.session:await this.inputAt(inputCursor);
-+    const inputHash=await forceInputHash(input);
++    const inputHash=await forceInputHash(input,inputHashVersion);
 +    if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('force input differs');
 +    const seq=this.session.nextOperationSeq,op=this.session.historyTransaction(()=>{
 +      const resolved=resolveForce(input,gesture);if(replaces!==undefined&&resolved.op==="forceResult")resolved.params.replaces=replaces;
 +      applyResolvedForce(this.session,resolved,origin,label);return resolved;
 +    });
 +    const forceSeq=this.session.history().filter(e=>e.applied).at(-1)!.seq;
 +    if(forceSeq===undefined)throw Error("missing committed force sequence");
-+    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
++    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputHashVersion,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
++    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
 +  }
-+  undo():boolean {if(!this.cursor)return false;if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("history mismatch");this.cursor--;this.revision++;return true;}
-+  redo():boolean {if(this.cursor===this.entries.length)return false;if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("history mismatch");this.cursor++;this.revision++;return true;}
++  undo():boolean {if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
++    if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("cold undo requires await seek(count-1)");this.cursor--;this.revision++;this.remember();return true;}
++  redo():boolean {if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
++    if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("cold redo requires await seek(count+1)");this.cursor++;this.revision++;this.remember();return true;}
++  private async replayEntry(entry:GestureEntry):Promise<void> {
++    if(!entry||!['user','claude','fix'].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=='string')throw Error('invalid gesture envelope');
++    this.session.setReplaySequence(entry.seq);
++    if(entry.kind==='operations')this.apply(entry.ops,entry.origin,entry.label);
++    else if(entry.kind==='legacy'){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error('invalid legacy envelope');this.importLegacy(entry.op);}
++    else if(entry.kind==='selection')await this.select(entry.gesture,entry.origin,entry.label,entry.inputHash,entry.inputHashVersion??1);
++    else if(entry.kind==='force'){await this.force(entry.gesture,entry.origin,entry.label,entry.replaces,entry.inputHash,entry.inputHashVersion??1);const actual=this.entries.at(-1) as Extract<GestureEntry,{kind:'force'}>;if(actual.forceSeq!==entry.forceSeq||actual.inputCursor!==entry.inputCursor)throw Error('force cursor/sequence differs');}
++    else throw Error('unknown gesture kind');
++  }
++  /** Cold history movement is asynchronous; callers retain the current visible map until it succeeds. */
++  async seek(target:number,progress?:(at:number,session:MapSession)=>Promise<void>):Promise<void> {
++    if(!Number.isSafeInteger(target)||target<0||target>this.entries.length)throw Error('invalid history cursor');
++    if(target===this.cursor)return;
++    const nextSeq=this.session.nextOperationSeq,revision=this.revision,cached=this.recent.get(target);
++    let execution:object,replayed=0,at=target;
++    if(cached)execution=cached;
++    else {
++      const cp=this.checkpoints.filter(c=>c.at<=target).at(-1);if(!cp)throw Error('missing history checkpoint');at=cp.at;
++      const state=unpackState(this.results.cold.get(CHECKPOINT_KEY+at),this.results,this.bank);
++      if(this.entries[at])state.seqNext=this.entries[at].seq;
++      const h=new GestureHistory(this.base,this.results.cold,this.documentId,this.epoch,{...this.policy,checkpointEvery:0},state,this.results);
++      h.entries=this.entries.slice(0,at);h.cursor=at;h.checkpoints=this.checkpoints.filter(c=>c.at<=at);h.inputAt=n=>this.inputAt(n);
++      if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
++      for(const e of this.entries.slice(at,target)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();replayed++;await progress?.(h.cursor,h.session);}
++      execution=h.session.checkpointExecution();
++    }
++    if(this.revision!==revision)throw Error('history seek superseded');
++    this.remember();this.session.installExecution(execution);this.session.setReplaySequence(Math.max(nextSeq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.remember();this.lastSeek={replayed,checkpoint:at,cache:!!cached};
++  }
++  private checkpointBytes():number{return this.checkpoints.reduce((n,c)=>n+c.bytes,0)+this.bank.index(this.checkpoints.flatMap(c=>c.blobs)).reduce((n,c)=>n+c.bytes,0);}
++  get checkpointStats(){return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
 +  get count():number{return this.cursor;}
 +  get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
-+  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {await writeProject(this.project,sink);}
++  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {
++    this.remember();this.persistCheckpoint();
++    const index=this.checkpoints.filter(c=>c.at<=this.entries.length),current=this.session.checkpointExecution();
++    const manifest={...this.project,formatVersion:5,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:this.spacing,checkpoints:index,canonicalBoundaries:[...this.canonicalBoundaries]};
++    await writeArchive(manifest,current,index,this.results,this.bank,sink);
++  }
 +  static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
-+    const raw=await readProject(source) as GestureProject;
++    const input=await archiveSource(source);
++    if(input.archive){const store=new ResultStore(cold,policy.results??32*1024*1024),archive=await readArchive(input.source,store);if(!archive)throw Error('missing archive');const raw=archive.manifest;
++      if(raw.app!=='dam-good-maps'||raw.formatVersion!==5||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
++      if(!Array.isArray(raw.entries)||!Number.isSafeInteger(raw.cursor)||raw.cursor<0||raw.cursor>raw.entries.length||!Number.isSafeInteger(raw.spacing)||raw.spacing<1||archive.current.undoStack.length!==raw.cursor||archive.current.seqNext!==raw.nextSeq)throw Error('invalid saved history');
++      let prior=0;for(const e of raw.entries){if(!Number.isSafeInteger(e.seq)||e.seq<=prior||!['operations','selection','force','legacy'].includes(e.kind)||!['user','claude','fix'].includes(e.origin)||e.label!==undefined&&typeof e.label!=='string')throw Error('invalid gesture envelope');
++        if((e.kind==='force'||e.kind==='selection')&&((e.inputHashVersion!==undefined&&e.inputHashVersion!==1&&e.inputHashVersion!==2)||typeof e.inputHash!=='string'||!/^[0-9a-f]{64}$/.test(e.inputHash)))throw Error('unsupported or invalid input hash');prior=e.seq;}
++      const boundaries=raw.canonicalBoundaries??[];if(!Array.isArray(boundaries)||boundaries.some((n:any)=>!Number.isSafeInteger(n)||n<0||n>raw.entries.length)||new Set(boundaries).size!==boundaries.length)throw Error('invalid canonical water boundaries');
++      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();h.remember();return h;
++    }
++    const raw=await readProject(input.source) as GestureProject;
 +    if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
 +    if(raw.formatVersion!==4){
 +      const doc=decodeProjectObject(raw),features=baseFeaturesOf(doc),base={...doc,baseFeatures:features,features,edits:[],nextSeq:1};
@@ -985,20 +1122,7 @@ index 00000000..b6d4abf6
 +    if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
 +    const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy);
 +    for(const entry of raw.entries){
-+      if(!entry||!["user","claude","fix"].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=="string")throw Error("invalid gesture envelope");
-+      h.session.setReplaySequence(entry.seq);
-+      if(entry.kind==="operations")h.apply(entry.ops,entry.origin,entry.label);
-+      else if(entry.kind==="legacy"){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error("invalid legacy envelope");h.importLegacy(entry.op);}
-+      else if(entry.kind==="selection"){if(await forceInputHash(h.session)!==entry.inputHash)throw Error("Select input differs");await h.select(entry.gesture,entry.origin,entry.label);}
-+      else if(entry.kind==="force"){
-+        const old=h.entries[h.cursor-1],at=entry.replaces!==undefined&&old?.kind==="force"?old.inputCursor:h.cursor;
-+        if(entry.inputCursor!==at)throw Error("invalid original force input cursor");
-+        const input=at===h.cursor?h.session:await h.inputAt(at);
-+        if(await forceInputHash(input)!==entry.inputHash)throw Error("force input does not match recorded epoch/state");
-+        await h.force(entry.gesture,entry.origin,entry.label,entry.replaces);
-+        if(h.entries.at(-1)?.kind!=="force"||(h.entries.at(-1) as Extract<GestureEntry,{kind:"force"}>).forceSeq!==entry.forceSeq)throw Error("force sequence differs");
-+      }
-+      else throw Error("unknown gesture kind");
++      await h.replayEntry(entry);
 +      await progress?.(h.count,raw.entries.length);
 +    }
 +    h.session.setReplaySequence(raw.nextSeq);return h;
@@ -1049,6 +1173,66 @@ index 00000000..f674e162
 + }
 + override delete(key:number):boolean {this.release(key);return super.delete(key);}
 + override clear():void {super.clear();this.graphs.clear();this.refs.clear();this.versions.clear();this.bytes=0;}
++}
+diff --git a/src/core/doc/projectArchive.ts b/src/core/doc/projectArchive.ts
+new file mode 100644
+index 00000000..16ede5d9
+--- /dev/null
++++ b/src/core/doc/projectArchive.ts
+@@ -0,0 +1,54 @@
++import type {ColdResults,ResultStore} from "./resultStore";
++import {packState,unpackState,StateBank,BLOB_KEY,type BlobIndex} from "./stateGraph";
++export const STATE_ABI='scaling-execution-1/portable-forces-v1-canonical';
++export const CHECKPOINT_KEY=2**42;
++const MAGIC=new TextEncoder().encode('DGM5\r\n\x1a\n'),LIMIT=128*1024*1024;
++export type CheckpointIndex={at:number;bytes:number;results:number[];blobs:number[]};
++export type Archive={manifest:any;current:any;checkpoints:CheckpointIndex[];currentAt:number;bank:StateBank};
++const hex=(b:ArrayBuffer)=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
++const digest=async(b:Uint8Array)=>hex(await crypto.subtle.digest('SHA-256',b as BufferSource));
++/** Binary length frames carry separately compressed, bounded-record graphs. Old gzip JSON is
++ * decoded by the old migration path. There is never a whole-project JSON string or inflater. */
++export async function writeArchive(manifest:unknown,current:object,index:CheckpointIndex[],store:ResultStore,bank:StateBank,sink:(b:Uint8Array)=>Promise<void>):Promise<void>{
++ const c=packState(current,bank),blobs=new Set(c.blobs);for(const item of index)for(const key of item.blobs)blobs.add(key);
++ const blobIndex=bank.index(blobs),m=packState({...manifest as object,blobs:blobIndex,bankNextInstance:bank.nextInstance}),binding=await digest(m.bytes),results=new Set(c.results);
++ for(const item of index)for(const key of item.results)results.add(key);
++ await sink(MAGIC);
++ const frame=async(kind:string,key:number,bytes:Uint8Array)=>{if(bytes.length>LIMIT)throw Error('project frame exceeds capacity');
++  const header=new TextEncoder().encode(JSON.stringify({kind,key,bytes:bytes.length,sha:await digest(bytes),abi:STATE_ABI,binding}));const len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,header.length,true);await sink(len);await sink(header);for(let at=0;at<bytes.length;at+=32768)await sink(bytes.subarray(at,at+32768));};
++ await frame('manifest',0,m.bytes);await frame('current',0,c.bytes);
++ for(const key of results)await frame('result',key,store.cold.get(key));
++ for(const item of blobIndex)await frame('blob',item.key,bank.cold.get(item.key));
++ for(const item of index)await frame('checkpoint',item.at,store.cold.get(CHECKPOINT_KEY+item.at));
++ await frame('end',0,new Uint8Array());
++}
++export async function readArchive(source:AsyncIterable<Uint8Array>|Iterable<Uint8Array>,store:ResultStore):Promise<Archive|null>{
++ const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();let pending:Uint8Array=new Uint8Array(),offset=0,done=false;
++ const take=async(n:number,optional=false)=>{const out=new Uint8Array(n);let at=0;while(at<n){if(offset===pending.length){const r=await iterator.next();if(r.done){done=true;if(optional&&at===0)return null;throw Error('truncated project archive');}pending=r.value;offset=0;}
++   const count=Math.min(n-at,pending.length-offset);out.set(pending.subarray(offset,offset+count),at);offset+=count;at+=count;}return out;};
++ const magic=await take(MAGIC.length);if(!magic!.every((v,i)=>v===MAGIC[i]))throw Error('not format-5 archive');
++ let manifest:any,currentBytes:Uint8Array|undefined,binding:string|undefined;const checkpoints:CheckpointIndex[]=[],seen=new Set<string>();
++ for(;;){const len=await take(4);const n=new DataView(len!.buffer).getUint32(0,true);if(!n||n>4096)throw Error('invalid project header');const h=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode((await take(n))!));
++  if(h.abi!==STATE_ABI)throw Error('unsupported execution ABI; original engine required');if(!Number.isSafeInteger(h.bytes)||h.bytes<0||h.bytes>LIMIT||!Number.isSafeInteger(h.key))throw Error('invalid project frame');
++  if(binding!==undefined&&h.binding!==binding)throw Error('project binding mismatch');
++  const unique=h.kind+':'+h.key;if(seen.has(unique))throw Error('duplicate project frame');seen.add(unique);
++  const bytes=(await take(h.bytes))!;if(await digest(bytes)!==h.sha)throw Error('project checksum mismatch');
++  if(h.kind==='manifest'){if(binding!==undefined||h.key!==0||h.binding!==h.sha)throw Error('invalid project manifest');binding=h.sha;manifest=unpackState(bytes,store);}
++  else if(binding===undefined)throw Error('missing project manifest');
++  else if(h.kind==='current'){if(h.key!==0)throw Error('invalid current state');currentBytes=bytes;}
++  else if(h.kind==='result'){if(h.key<1||h.key>=CHECKPOINT_KEY)throw Error('invalid result key');store.cold.put(h.key,bytes);}
++  else if(h.kind==='blob'){if(!manifest?.blobs?.some((x:BlobIndex)=>x.key===h.key&&x.bytes===bytes.length)||h.key<BLOB_KEY)throw Error('invalid state blob');store.cold.put(h.key,bytes);}
++  else if(h.kind==='checkpoint'){const item=manifest?.checkpoints?.find((x:CheckpointIndex)=>x.at===h.key);if(!item||item.bytes!==bytes.length)throw Error('checkpoint index differs');store.cold.put(CHECKPOINT_KEY+h.key,bytes);checkpoints.push(item);}
++  else if(h.kind==='end'){if(h.bytes||h.key)throw Error('invalid project end');break;}
++  else throw Error('unknown project frame');
++ }
++ if(offset!==pending.length||await take(1,true)!==null||!done)throw Error('trailing project data');
++ if(!manifest||!currentBytes||checkpoints.length!==manifest.checkpoints.length)throw Error('incomplete project archive');
++ const bank=new StateBank(store.cold,manifest.blobs,manifest.bankNextInstance??1);return {manifest,current:unpackState(currentBytes,store,bank),checkpoints,currentAt:manifest.cursor,bank};
++}
++export async function archiveSource(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>):Promise<{archive:boolean;source:AsyncIterable<Uint8Array>}>{
++ const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();const prefix:Uint8Array[]=[];let length=0;
++ while(length<MAGIC.length){const r=await iterator.next();if(r.done)break;prefix.push(r.value);length+=r.value.length;}
++ const first=new Uint8Array(Math.min(length,MAGIC.length));let at=0;for(const b of prefix){const n=Math.min(first.length-at,b.length);first.set(b.subarray(0,n),at);at+=n;if(at===first.length)break;}
++ return {archive:first.length===MAGIC.length&&first.every((v,i)=>v===MAGIC[i]),source:(async function*(){yield*prefix;for(;;){const r=await iterator.next();if(r.done)break;yield r.value;}})()};
 +}
 diff --git a/src/core/doc/projectStream.ts b/src/core/doc/projectStream.ts
 new file mode 100644
@@ -1155,10 +1339,10 @@ index 00000000..fa4bf372
 +}
 diff --git a/src/core/doc/resultStore.ts b/src/core/doc/resultStore.ts
 new file mode 100644
-index 00000000..e4e34286
+index 00000000..3318643b
 --- /dev/null
 +++ b/src/core/doc/resultStore.ts
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,122 @@
 +import {gzipSync,gunzipSync,strToU8,strFromU8} from "fflate";
 +import type {ForceResultParams} from "../forces/op";
 +import {toBase64,fromBase64} from "../format/base64";
@@ -1226,10 +1410,14 @@ index 00000000..e4e34286
 +    this.cold.put(seq,bytes);this.writtenBytes+=bytes.byteLength;
 +    const old = this.hot.get(seq);if(old){this.bytes-=old.bytes;this.hot.delete(seq);}
 +    this.cache(seq,params);
++    return this.attach(seq,params,heavy.filter(name=>name in params));
++  }
++  /** Rebind an exact saved execution cache without decoding its heavy vectors. */
++  attach<T extends object>(seq:number,params:T,names:readonly string[]):T {
 +    const proxy = {...params};
-+    for(const name of heavy) {
++    for(const name of names) {
 +      delete (proxy as Record<string,unknown>)[name];
-+      if(name in params) Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
++      Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
 +    }
 +    keys.set(proxy,`derived-force-v1:${seq}`);
 +    return proxy;
@@ -1364,4 +1552,112 @@ index 00000000..8feb8161
 +  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
 +  const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
 +  return {ops,label:label??auto,removed};
++}
+diff --git a/src/core/doc/stateGraph.ts b/src/core/doc/stateGraph.ts
+new file mode 100644
+index 00000000..ec286544
+--- /dev/null
++++ b/src/core/doc/stateGraph.ts
+@@ -0,0 +1,102 @@
++// Exact execution checkpoints. Based on startup's stored-build graph, with bounded records,
++// shared ArrayBuffer/view identity, and external (disposable) force-result references.
++import {Gzip,Gunzip,gzipSync,gunzipSync} from "fflate";
++import {JsonFloat} from "../format/json";
++import {toBase64,fromBase64} from "../format/base64";
++import {derivedResultKey,ResultStore,type ColdResults} from "./resultStore";
++
++const types={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++const utf8=new TextEncoder(),MAX=16384,TEXT=8192;
++export const BLOB_KEY=2**43;
++const table=Uint32Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
++export type BlobIndex={key:number;bytes:number;rawBytes:number;crc:number;dependencies?:number[];results?:number[]};
++/** Exact deduplication: CRC is only an index; matching bytes are compared before sharing.
++ * Objects are weakly indexed, so this dictionary does not retain historical map buffers. */
++export class StateBank {
++ private objects=new WeakMap<object,number>();private buckets=new Map<string,number[]>();private items=new Map<number,BlobIndex>();private next=BLOB_KEY;
++ readonly external=new WeakMap<object,{key:number;node:number;instance:string}>();
++ nextInstance:number;
++ constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1){this.nextInstance=nextInstance;for(const item of index){this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
++ keep(bytes:Uint8Array,owner?:object):number {
++  const known=owner&&this.objects.get(owner);if(known!==undefined)return known;let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
++  const id=bytes.length+':'+crc;for(const key of this.buckets.get(id)??[]){const old=this.read(key);if(old.length===bytes.length&&old.every((v,i)=>v===bytes[i])){if(owner)this.objects.set(owner,key);return key;}}
++  const key=this.next++,compressed=gzipSync(bytes,{level:1,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
++ }
++ read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=gunzipSync(this.cold.get(key));if(bytes.length!==item.rawBytes)throw Error('state blob length differs');return bytes;}
++ share(root:object):void {
++  if(this.external.has(root))return;let nodes:Map<object,number>|undefined;
++  const packed=packState(root,this,seen=>nodes=seen),key=this.keep(packed.bytes),item=this.items.get(key)!;
++  item.dependencies=packed.blobs;item.results=packed.results;
++  const instance='g1:'+this.nextInstance++;
++  for(const [object,node]of nodes!)if(!this.external.has(object))this.external.set(object,{key,node,instance});
++ }
++ index(keys:Iterable<number>):BlobIndex[]{const seen=new Set<number>();const visit=(key:number)=>{if(seen.has(key))return;seen.add(key);const item=this.items.get(key);if(!item)throw Error('missing state blob index');for(const dep of item.dependencies??[])visit(dep);};for(const key of keys)visit(key);return [...seen].map(key=>this.items.get(key)!);}
++ results(key:number):number[]{return this.items.get(key)?.results??[];}
++}
++export type PackedState={bytes:Uint8Array;results:number[];blobs:number[]};
++/** Each JSON record is bounded; neither the execution graph nor a large array is stringified. */
++export function packState(root:object,bank?:StateBank,register?:(seen:Map<object,number>)=>void):PackedState {
++ const seen=new Map<object,number>(),queue:object[]=[],strings=new Map<string,number>(),textNodes=new Set<object>(),resultKeys=new Set<number>(),blobKeys=new Set<number>(),out:Uint8Array[]=[];
++ const gzip=new Gzip({level:1,mtime:0},b=>out.push(b));let pending='';
++ const emit=(r:unknown)=>{const text=JSON.stringify(r);if(text.length>65536)throw Error("checkpoint record exceeds bound");if(pending.length+text.length>32768){gzip.push(utf8.encode(pending),false);pending='';}pending+=text+'\n';};
++ const value=(v:any):any=>{
++  if(v===undefined)return {u:1};if(typeof v==='number'&&(!Number.isFinite(v)||Object.is(v,-0)))return {n:Object.is(v,-0)?'-0':String(v)};
++  if(typeof v==='string'&&v.length>TEXT){let id=strings.get(v);if(id===undefined){id=queue.length;strings.set(v,id);const box={text:v};textNodes.add(box);queue.push(box);}return {r:id};}
++  if(!v||typeof v!=='object')return v;
++  let id=seen.get(v);if(id===undefined){id=queue.length;seen.set(v,id);queue.push(v);}return {r:id};
++ };
++ value(root);
++ for(let id=0;id<queue.length;id++){
++  const v:any=queue[id],key=derivedResultKey(v);
++  const external=bank?.external.get(v);if(external){blobKeys.add(external.key);for(const result of bank!.results(external.key))resultKeys.add(result);emit([id,'ExternalObject',external.key,external.node,external.instance]);continue;}
++  if(textNodes.has(v)){if(bank){const units=Uint16Array.from({length:v.text.length},(_,i)=>v.text.charCodeAt(i)),key=bank.keep(new Uint8Array(units.buffer));blobKeys.add(key);emit([id,'ExternalString',key,'u16']);}else{emit([id,'String']);for(let at=0;at<v.text.length;at+=TEXT)emit([id,'Entries',[v.text.slice(at,at+TEXT)]]);}continue;}
++  if(key!==undefined){const seq=Number(key.split(':').at(-1));resultKeys.add(seq);
++   const entries=Object.entries(Object.getOwnPropertyDescriptors(v)).filter(([,d])=>'value'in d).map(([k,d])=>[k,value(d.value)]);
++   const heavy=Object.entries(Object.getOwnPropertyDescriptors(v)).filter(([,d])=>d.get).map(([k])=>k);
++   emit([id,'Derived',seq,entries,heavy]);continue;
++  }
++  if(v instanceof JsonFloat){emit([id,'Float',value(v.value),value(v.raw)]);continue;}
++  if(v instanceof ArrayBuffer){if(bank){const key=bank.keep(new Uint8Array(v),v);blobKeys.add(key);emit([id,'ExternalBuffer',key]);}else{emit([id,'Buffer',v.byteLength]);const raw=new Uint8Array(v);for(let at=0;at<raw.length;at+=MAX)emit([id,'Bytes',at,toBase64(raw.subarray(at,at+MAX))]);}continue;}
++  if(ArrayBuffer.isView(v)){if(!(v.constructor.name in types))throw Error('unsupported checkpoint view');emit([id,'View',v.constructor.name,value(v.buffer),v.byteOffset,(v as any).length]);continue;}
++  const kind=v instanceof Map?'Map':v instanceof Set?'Set':Array.isArray(v)?'Array':'Object';
++  if(kind==='Object'&&Object.getPrototypeOf(v)!==Object.prototype&&Object.getPrototypeOf(v)!==null)throw Error('unsupported checkpoint class: '+v.constructor.name);
++  emit([id,kind]);
++  const entries=kind==='Map'?[...v].map(([k,x])=>[value(k),value(x)]):kind==='Set'?[...v].map(value):kind==='Array'?v.map(value):Object.entries(v).map(([k,x])=>[k,value(x)]);
++  for(let at=0;at<entries.length;at+=64){let batch=entries.slice(at,at+64);
++   // Split records containing long scalar strings as independent string nodes.
++   for(let i=0;i<batch.length;i++)if(JSON.stringify(batch[i]).length>48000)throw Error('oversized checkpoint scalar');
++   while(batch.length&&JSON.stringify([id,'Entries',batch]).length>60000){emit([id,'Entries',[batch.shift()]]);}
++   if(batch.length)emit([id,'Entries',batch]);
++  }
++ }
++ gzip.push(utf8.encode(pending),true);const size=out.reduce((n,b)=>n+b.length,0),bytes=new Uint8Array(size);let at=0;for(const b of out){bytes.set(b,at);at+=b.length;}register?.(seen);return {bytes,results:[...resultKeys],blobs:[...blobKeys]};
++}
++
++export function unpackState(bytes:Uint8Array,store:ResultStore,bank?:StateBank,components=new Map<string,any[]>(),allNodes=false):any {
++ const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='';
++ const record=(r:any[])=>{const [id,type,...args]=r;if(!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('bad checkpoint node');
++  if(type==='Entries'){if(!nodes[id])throw Error('checkpoint entries precede node');nodes[id].entries.push(...args[0]);return;}
++  if(type==='Bytes'){const b=fromBase64(args[1]),v=values[id];if(!(v instanceof ArrayBuffer)||args[0]<0||args[0]+b.length>v.byteLength)throw Error('bad checkpoint bytes');new Uint8Array(v).set(b,args[0]);return;}
++  if(nodes[id])throw Error('duplicate checkpoint node');nodes[id]={type,args,entries:[]};
++  if(type==='Buffer'){if(!Number.isSafeInteger(args[0])||args[0]<0||args[0]>128*1024*1024)throw Error('checkpoint buffer bound');values[id]=new ArrayBuffer(args[0]);}
++  else if(type==='Map')values[id]=new Map();else if(type==='Set')values[id]=new Set();else if(type==='Array')values[id]=[];else if(type==='Object')values[id]={};
++  else if(!['View','Float','Derived','String','ExternalBuffer','ExternalString','ExternalObject'].includes(type))throw Error('unknown checkpoint node');
++ };
++ const parse=(b:Uint8Array)=>{for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
++ const gunzip=new Gunzip(parse);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);pending+=decoder.decode();if(pending)throw Error('truncated checkpoint record');
++ const val=(v:any):any=>{if(!v||typeof v!=='object')return v;if('r'in v){if(!nodes[v.r])throw Error('bad checkpoint reference');return get(v.r);}if(v.u)return undefined;if(v.s)return v.s.join('');if(v.n)return v.n==='-0'?-0:Number(v.n);throw Error('bad checkpoint value');};
++ const get=(id:number):any=>{if(values[id]!==undefined)return values[id];const {type,args}=nodes[id];
++  if(type==='View'){const C=types[args[0] as keyof typeof types];if(!C)throw Error('bad checkpoint view');return values[id]=new C(val(args[1]),args[2],args[3]);}
++  if(type==='Float')return values[id]=new JsonFloat(val(args[0]),val(args[1]));
++  if(type==='String')return values[id]=nodes[id].entries.join('');
++  if(type==='ExternalObject'){if(!bank)throw Error('missing checkpoint bank');const instance=args[2]??'blob:'+args[0];let graph=components.get(instance);if(!graph){graph=unpackState(bank.read(args[0]),store,bank,components,true);components.set(instance,graph!);for(let node=0;node<graph!.length;node++){const v=graph![node];if(v&&typeof v==='object'&&!bank.external.has(v))bank.external.set(v,{key:args[0],node,instance});}}if(args[1]<0||args[1]>=graph!.length)throw Error('bad component reference');return values[id]=graph![args[1]];}
++  if(type==='ExternalBuffer'||type==='ExternalString'){if(!bank)throw Error('missing checkpoint bank');const b=bank.read(args[0]);if(type==='ExternalBuffer')return values[id]=b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);
++   if(args[1]!=='u16')return values[id]=new TextDecoder('utf-8',{fatal:true}).decode(b);if(b.byteLength%2)throw Error('bad string code units');const units=new Uint16Array(b.buffer,b.byteOffset,b.byteLength/2),pieces:string[]=[];for(let at=0;at<units.length;at+=TEXT)pieces.push(String.fromCharCode(...units.subarray(at,at+TEXT)));return values[id]=pieces.join('');}
++  if(type==='Derived'){const meta:any={};for(const [k,v]of args[1])put(meta,k,val(v));return values[id]=store.attach(args[0],meta,args[2]);}
++  throw Error('bad checkpoint allocation');
++ };
++ const put=(object:any,key:string,v:any)=>{if(key==='__proto__')Object.defineProperty(object,key,{value:v,enumerable:true,writable:true,configurable:true});else object[key]=v;};
++ for(let i=0;i<nodes.length;i++)get(i);
++ for(let i=0;i<nodes.length;i++){const {type,entries}=nodes[i],v=values[i];for(const e of entries){if(type==='Map')v.set(val(e[0]),val(e[1]));else if(type==='Set')v.add(val(e));else if(type==='Array')v.push(val(e));else if(type==='Object')put(v,e[0],val(e[1]));}}
++ return allNodes?values:values[0];
 +}
