@@ -8,9 +8,9 @@ the state and the next steps.
 
 ### The tip, and what is in it
 
-The code is at `cc161b3a` (later commits are documents, tools and, if it landed, the dam-wall fix
-P; `git log` says which). In it, newest first:
+The code is at `13d1f1a2` (later commits are documents and tools). In it, newest first:
 
+- a dam wall on the pre-fill's water 0.2 deep or more redraws the land before it is shown (13d1f1a2);
 - "reached" as one function (`colonyReach`, `minesReached`, D342), the debris before a second
   district kept off the way to the mine sites, a land's planned lakes read alone for straight banks;
 - D373 (3): every start a shown land may use has its pad and its mine sites' room ready (62858d54);
@@ -27,46 +27,39 @@ D372's sheet rule and D373 (2)'s fill time are readings only (`info.sheet`, `inf
 rejects anything. Other readings: `info.lakeStraight`, `info.preWet` (a poor predictor of the
 settled share, off by −0.21 to +0.41: don't build a flood check on it).
 
-### The last measure (cc161b3a, 840 maps: seeds 1–40, seven themes, three sizes)
+### The last measure (13d1f1a2, 840 maps: seeds 1–40, seven themes, three sizes)
 
-Failing an absolute: **3 at 96², 1 at 128², 0 at 256²** (D350: zero before release). First maps
-meeting all three outcomes, of 280: 212, 227, 229. Per theme, seeds 1–20 (the target is two-thirds,
+Failing an absolute: **2 at 96², 0 at 128², 0 at 256²** (D350: zero before release). First maps
+meeting all three outcomes, of 280: 213, 228, 229. Per theme, seeds 1–20 (the target is two-thirds,
 14 of 20), with the outcome missed most:
 
 | Theme | 96² | 128² | 256² |
 |---|---|---|---|
-| Any | 18, water (1) | 18, water (2) | 17, water (3) |
+| Any | 19, water (1) | 18, water (2) | 17, water (3) |
 | River Valley | 19, water (1) | 18, promise (1) | 16, water (3) |
 | Canyon | 11, promise (5) | 15, water (4) | 15, water (3) |
 | Highlands | 9, promise (8) | 15, promise (5) | 17, promise (3) |
-| Lake Basin | 12, promise (8) | 12, water (6) | 12, promise (7) |
+| Lake Basin | 12, promise (8) | 13, water (6) | 12, promise (7) |
 | Delta | 19, standout (1) | 18, standout (2) | 17, standout (2) |
 | Islands | 19, absolute (1) | 20 | 20 |
 
 Under the target: Canyon 96², Highlands 96², Lake Basin at every size. Median time to the map
-2.2 s, 3.1 s, 8.9 s. The rows are committed: `investigation/m9b/baseline/cc161b3a-*.jsonl.gz`.
+2.2 s, 2.8 s, 9.0 s. The rows are committed: `investigation/m9b/baseline/13d1f1a2-*.jsonl.gz`.
 
 ### The failing maps, their causes, the planned fixes (in the order agreed with Kyler's planning chat)
 
-1. **Any 96² seed 18, Lake Basin 128² seed 5: a dam wall on the settled water only.** The river
-   arrives lower than a planned lake's bed (its bed 3, the lake's tiles 6–8); 8750c300 cuts its
-   channel through the lake's tiles; the floor the river clears beside its channel (a level over its
-   bed) skips lake tiles, so the lake's old bed stands between the channel and the floor as a band
-   of rock with the river through it. The plan (`plannedWater`) still counts the lake full, so the
-   dam-wall check before the land is shown reads those tiles as water and passes; on the settled
-   water it fails every attempt, and a shown land is never replaced.
-   - **P, agreed, next:** make the plan true, so the existing check sees the wall before the land is
-     shown and the land is drawn again. Started, not working yet:
-     `investigation/m9b/patches/held-plan-wip.patch` (apply on cc161b3a). It gives a planned lake's
-     tile the land holds no water on the river's depth where the river's course crosses it at its
-     bed (`plannedWater` with `held`), and records `info.heldWalls` (dam walls on that water). What
-     is wrong in it: "at its bed" is tested against the feature's `bedProfile`, which keeps the
-     outlet's level through a lake (8 on Any 18), so the old bed beside the channel reads as wet and
-     no wall is found. Test it against the land instead: the lowest ground across the course there.
-     Check on the two maps (`heldWalls` ≥ 1), then **count the false positives before the rule
-     rejects anything** (maps with `heldWalls` > 0 that pass today, over a full measure), report the
-     count, and only then add `damWalls(h, W, H, held)` to the checks before a land is shown.
-   - **L, a trial after P, with a full measure against the P-only tip** (absolutes, all three per
+1. **Fixed (13d1f1a2): Any 96² seed 18, Lake Basin 128² seed 5, a dam wall on the settled water
+   only.** The river arrives lower than a planned lake's bed (its bed 3, the lake's tiles 6–8);
+   8750c300 cuts its channel through the lake's tiles; the floor the river clears beside its
+   channel (a level over its bed) skips lake tiles, so the lake's old bed stands between the channel
+   and the floor as a band of rock with the river through it. The plan (`plannedWater`) counts the
+   lake full, so the check before the land is shown read those tiles as water and passed.
+   - **P, as built:** the check also reads the pre-fill alone, the water the settle starts from,
+     with its water under 0.2 deep left out; a wall there redraws the land
+     (`tests/contract/drainedLakeWall.test.ts`). Counted before it rejected anything: it flags those
+     two maps and no other of the 840. Making the plan's own estimate true, tried first, does not
+     work: a tributary across the old lake bed reads as wet on any plan and settles dry.
+   - **L, a trial still to run, with a full measure against this tip** (absolutes, all three per
      theme, which maps moved; keep it if clearly better, P stays as the net): the feature's bed
      profile shows the bed rising again at the lake's outlet (3 through the lake, 8 at its outlet
      on Any 18), so the lake should hold. It drains because the floor along the lake stretch, and
@@ -93,7 +86,7 @@ Under the target: Canyon 96², Highlands 96², Lake Basin at every size. Median 
    - Then, the planning chat's suggestion: plan the start only where its land can hold the pair
      24 tiles out (on Islands, an island big enough), or draw the land again before it is shown;
      **measure the cost before it rejects anything.**
-3. **Highlands 96² seed 14** passes at cc161b3a by the order of its attempts only: three of its
+3. **Highlands 96² seed 14** passes by the order of its attempts only: three of its
    starts in turn lose their water once it settles. Same class as 2; unaddressed.
 
 ### Open from D370 (2), not started
@@ -107,23 +100,24 @@ Under the target: Canyon 96², Highlands 96², Lake Basin at every size. Median 
 
 ### Tests red on the branch, and why
 
-CI at cc161b3a (the push run): `oracle` and browser shards 2 and 3 pass; red:
+CI at cc161b3a (the last finished run when this was written; check 13d1f1a2's): `oracle` and browser
+shards 2 and 3 pass; red:
 
-- **`generation`**: Lake Basin 128² seed 5 fails (the dam wall above); the job wants final ≥ 98%.
+- **`generation`**: Lake Basin 128² seed 5 failed (the dam wall, fixed since); the job wants final ≥ 98%.
 - **`test`**, 16 tests in 11 files, all pins or seeds of maps that moved this round (D148: re-pin or
   re-seed each to what its name says, once the counts settle, and note it under "Tests updated
   because a decision changed what they tested" below; never weaken one): `brush` (a one-tile pit;
   a ramped Flatten on a map), `carve` (an oxbow lake's water kept), `look-mine-ruins` (the map's
   bytes), `look-waterfalls` (Highlands 5, Lake Basin 3), `narrows`, `objects` (ruins on a rise, a
   second district's site, a generated weir, a plugged spillway), `parity` (Lake Basin 128² seed 5:
-  the failing map itself), `projects` (an outline past the edge), `resources` (the official
+  the map that failed, fixed since), `projects` (an outline past the edge), `resources` (the official
   amounts), `startPlanting` (no two starts alike), `versions` (the background search's sibling).
 - **browser shards 1 and 4**: `tests/e2e/editor.spec.ts:20` and `tests/e2e/waterView.spec.ts:18`,
   seeds whose maps moved.
 
 Green and new this round: `tests/unit/colonyReach.test.ts`, `minePads`, `plannedWater`,
 `drownedHeads`, `riverSheet`, `waterCap`, `canyonSignature`, `storyPlug`; `tests/contract/`
-`districtDebris`, `lakeBanks`, `lakeCourse`, `firstLand`, `lakeIsland`, `minePair`
+`districtDebris`, `lakeBanks`, `drainedLakeWall`, `lakeCourse`, `firstLand`, `lakeIsland`, `minePair`
 (`firstLand256` is in the heavy suite). The contact sheet (`docs/sheets/`, D144) is due again once
 the maps settle.
 
@@ -136,7 +130,7 @@ Once per machine: `npm ci && npm --prefix investigation/probe ci`.
   (gitignored, D195). About 27 minutes with 6 jobs on the machine this was built on: 5, 7 and 15
   for 96², 128², 256². One heavy run at a time.
 - `python investigation/m9b/share.py <name>`: the table above. `python
-  investigation/m9b/compare.py cc161b3a <name>`: failing maps, lands changed, all three gained and
+  investigation/m9b/compare.py 13d1f1a2 <name>`: failing maps, lands changed, all three gained and
   lost, against the committed baseline. `python investigation/m9b/summary.py <file>…`: failures
   with their last attempts, fixes used, times, pads, worn ways out.
 - `npx tsx investigation/m9b/tools/trace.ts <theme> <seed> <size>`: one map, attempt by attempt.
@@ -145,15 +139,18 @@ Once per machine: `npm ci && npm --prefix investigation/probe ci`.
 ### Only on the machine it was built on
 
 Everything needed is committed. Left behind in `investigation/m9b/local/` (gitignored): the runs
-p1–p23 (p23 is the committed baseline; regenerate any with `measure.sh` at its commit), and
+p1–p25 (p25 is the committed baseline; regenerate any with `measure.sh` at its commit), and
 throwaway probes of single maps, each a few lines round `generate` with a temporary hook. Nothing
 there is needed to resume.
 
-### Later, when the forces release reaches `dev` and is merged in
+### First, on resuming: merge `dev`
 
-Fold `resources.mine_reach` (the forces' editor-only advisory, #146, D368 (10)) into
-`resources.mine_site`, so there is one check, read with `colonyReach`; it keeps its editor-only
-advisory behaviour for edits.
+The forces were released (`forces-done`), so `dev` now holds all of `feature/forces`. This branch
+has not merged it (it would have moved the measure's base at the session's end). Merge `dev` into
+`feature/m9b`, run the measure and `compare.py 13d1f1a2 <name>` (the generator's maps should not
+move; say which do), then fold `resources.mine_reach` (the forces' editor-only advisory, #146,
+D368 (10)) into `resources.mine_site`, so there is one check, read with `colonyReach`; it keeps
+its editor-only advisory behaviour for edits.
 
 ### Waiting on Kyler
 
@@ -700,18 +697,20 @@ left nothing.
     11 gains all three.
     Capping a joined channel's width at twice its swing, tried first, changed about 240 lands and
     not this one: taken out again.
-  - *A wall on the settled water only* (Any 96² seed 18, Lake Basin 128² seed 5), **cause found, not
-    yet fixed.** Where a river arrives lower than a planned lake's bed and leaves no higher, its
-    channel (8750c300) drains the lake. The floor the river clears round the lake skips the lake's
-    tiles, so the lake's old bed stands between the channel and the floor as a band of rock with the
-    river through it, and the plan still counts the lake full, so the dam-wall check before the land
-    is shown reads those tiles as water and passes. Two things tried and dropped: a reading of dam
-    walls from the land alone (it flagged 2, 5 and 26 lands that settle fine at 96², 128² and 256²,
-    and missed Any 18); clearing the floor through the lake's tiles (it fixed both maps, but that old
-    bed also keeps a river off its floodplain: River Valley 256² seed 37 then never settled, River
-    Valley 96² seed 1 flooded to 36%, and Lake Basin's first maps meeting all three fell 12 → 8 of
-    20 at 256²; the patch is kept in `investigation/m9b/local/`). Next: the plan's water without the
-    lakes their own river drains, so the dam-wall check sees the wall before the land is shown.
+  - *A wall on the settled water only* (Any 96² seed 18, Lake Basin 128² seed 5). Where a river
+    arrives lower than a planned lake's bed, its channel (8750c300) is cut through the lake's tiles,
+    and the floor the river clears round the lake skips them, so the lake's old bed stands between
+    the channel and the floor as a band of rock with the river through it. The plan counts the lake
+    full, so the dam-wall check before the land is shown read those tiles as water and passed. The
+    check now also reads the pre-fill alone, with its water under 0.2 deep left out (13d1f1a2;
+    `tests/contract/drainedLakeWall.test.ts`): over 840 maps it flags those two and no other.
+    Fixed. Tried and dropped on the way: a reading of dam walls from the land alone (it flagged 2,
+    5 and 26 lands that settle fine at 96², 128² and 256², and missed Any 18); clearing the floor
+    through the lake's tiles (both maps pass, but that old bed also keeps a river off its
+    floodplain: River Valley 256² seed 37 then never settled, River Valley 96² seed 1 flooded to
+    36%, and Lake Basin's first maps meeting all three fell 12 → 8 of 20 at 256²;
+    `investigation/m9b/patches/lake-floor.patch`); the plan's own estimate made true (a tributary
+    across the old bed reads as wet on any plan and settles dry).
   - *Still failing, with their causes:* Any 96² seed 31 and Islands 96² seed 4 (the settled water
     moves the start off the plan's, and no other start's land holds two level squares 24 tiles out:
     Islands 4's island is about 20 tiles across). Highlands 96² seed 14 passes at cc161b3a, by the
@@ -719,12 +718,12 @@ left nothing.
   - *A reading for later:* `info.preWet`, the share of the map under the planned water or the
     pre-fill before the land is shown (nothing reads the water cap before then; on one land tried it
     read 39% where the settled water covered 36%).
-- **Measured at cc161b3a** (840 maps, seeds 1–40; in brackets the measure before this round):
-  failing an absolute 3 (4) at 96² (Any 18, Any 31, Islands 4), 1 (3) at 128² (Lake Basin 5), 0 (0) at
-  256²; first maps meeting all three outcomes 212 (211), 227 (225), 229 (228) of 280. Per theme,
-  seeds 1–20, at 96², 128², 256²: Any 18, 18, 17; River Valley 19, 18, 16; Canyon 11, 15, 15;
-  Highlands 9, 15, 17; Lake Basin 12, 12, 12; Delta 19, 18, 17; Islands 19, 20, 20 of 20. Median time
-  to the map 2.2 s, 3.1 s and 8.9 s (the faster settle, D359).
+- **Measured at 13d1f1a2** (840 maps, seeds 1–40; in brackets the measure before this round):
+  failing an absolute 2 (4) at 96² (Any 31, Islands 4), 0 (3) at 128², 0 (0) at 256²; first maps
+  meeting all three outcomes 213 (211), 228 (225), 229 (228) of 280. Per theme, seeds 1–20, at 96²,
+  128², 256²: Any 19, 18, 17; River Valley 19, 18, 16; Canyon 11, 15, 15; Highlands 9, 15, 17; Lake
+  Basin 12, 13, 12; Delta 19, 18, 17; Islands 19, 20, 20 of 20. Median time to the map 2.2 s, 2.8 s
+  and 9.0 s (the faster settle, D359).
 
 ## Handoff (2026-09-27, evening)
 
