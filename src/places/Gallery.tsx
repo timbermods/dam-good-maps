@@ -272,7 +272,7 @@ export function Gallery() {
       </section>
 
       <footer class="foot">
-        Dam Good Maps. Not affiliated with Mechanistry. <a href="https://github.com/timbermods/dam-good-maps">Source</a>
+        Dam Good Maps. Not affiliated with Mechanistry. <a href="https://github.com/timbermods/dam-good-maps" title="The source code, on GitHub">Source</a>
       </footer>
     </div>
   );

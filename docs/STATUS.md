@@ -3,13 +3,16 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D378), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D379), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 > **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
 > smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
 > works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
 > skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
 > every force); tests for an eruption in High and for the highlight on High's basin sources.
+
+> **The licence is now the AGPL v3 or later (D379, Kyler's decision, 2026-10-01):** `LICENSE` (official text), `package.json`, the
+> README's licence section; both pages' footers already link **Source**. Versions before 2026-10-01 stay MIT.
 
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
@@ -65,7 +68,7 @@ forces; the deploy and the live check passed. The High look's release is next (D
      exists; about 25 old worktree folders beside the clone (`-brushes`, `-esc`, `-forces`, ...) point at branches
      whose remote is gone, and are Kyler's to remove if he wants the space.
   6. **Consistency sweep** of PLAN §20, ROADMAP, STATUS, HANDOFF and CHAT-HANDOFF: they were all rewritten the same
-     morning and agree on the forces' release, the next decision (D379), the order of work and the held items. Fixed: HANDOFF
+     morning and agree on the forces' release, the next decision (D380), the order of work and the held items. Fixed: HANDOFF
      said the forces release still had to reach `dev` (it has) and still listed the flake as to-trace. No retired term
      is in a living document ("Watch" survives only in the marked checklist record and in HANDOFF's earlier-handoffs
      history; ROADMAP's "Watch a 20-second tour" is a different thing).
