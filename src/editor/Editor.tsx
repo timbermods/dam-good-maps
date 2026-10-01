@@ -439,6 +439,7 @@ export default function Editor(props: EditorProps) {
   function toggleWeather(hazard: Hazard) {
     if (weatherRef.current !== hazard) {
       setWeather(hazard);
+      journey.current?.flush();
       player.current?.begin(null, true);
       void api.startWeather(hazard);
     } else {
@@ -456,7 +457,7 @@ export default function Editor(props: EditorProps) {
   }
 
   function applyUpdate(u: SessionUpdate): void {
-    applyView(u.view);
+    // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
     if (u.ok) {
       if (weatherRef.current) setWeather(null);
@@ -740,7 +741,10 @@ export default function Editor(props: EditorProps) {
           // the water on a stroke being painted: shown as it comes (D197), the latest once a frame at
           // most (each is a whole map's water: frames that come faster than the page draws are
           // dropped, never queued behind the stroke)
-          if (player.current?.hasJourney) player.current.clear();
+          if (player.current?.hasJourney) {
+            journey.current?.flush();
+            player.current.clear();
+          }
           const first = !draftWater.current;
           draftWater.current = e.water;
           if (first)
@@ -2070,6 +2074,7 @@ export default function Editor(props: EditorProps) {
 
   /** The water's journey and a weather run give way to the force's own water. */
   function clearForForce() {
+    journey.current?.flush();
     player.current?.clear();
     if (weatherRef.current) setWeather(null);
     setPicked(null);
