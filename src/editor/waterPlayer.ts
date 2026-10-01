@@ -92,6 +92,20 @@ export class WaterPlayer {
 
   constructor(private readonly host: PlayerHost) {}
 
+  /** Apply what the settled frames still waiting to be shown carry (the plants, the soil, the water), once and in
+   *  order, without showing any frame. A new journey or a cleared one drops those frames, and the worker does not
+   *  send their parts again (each view is a difference from the last it sent), so whoever drops them first calls this
+   *  (`WaterJourney.flush`), before the next view is applied on top. A weather run's frames are only for show. */
+  flushFinals(): void {
+    if (this.weather) return;
+    for (let k = this.at + 1; k < this.frames.length; k++) {
+      const done = this.frames[k].final;
+      if (!done) continue;
+      this.frames[k].final = undefined;
+      done();
+    }
+  }
+
   /** A new journey (an edit): its first frame is the water right after the edit. */
   begin(first: WaterFrame | null, weather = false): void {
     this.stopTimer();
@@ -142,6 +156,15 @@ export class WaterPlayer {
   /** Whether there is a journey to end (an edit's water shown or on its way). */
   get hasJourney(): boolean {
     return this.frames.length > 0 && !this.weather;
+  }
+
+  /** The water of the last settled frame this journey has (shown or still waiting to be), or null: the water the
+   *  worker's later news, which carries none because the page was sent it, means. The page's own copy of the
+   *  map's water changes only when that frame is shown, so it is behind while the journey is. */
+  get settledWater(): WaterView | null {
+    if (this.weather) return null;
+    for (let k = this.frames.length - 1; k >= 0; k--) if (this.frames[k].final) return this.frames[k].water;
+    return null;
   }
 
   get canReplay(): boolean {
