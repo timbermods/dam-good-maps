@@ -173,7 +173,7 @@ try {
             loadSession.invalidate('load spike or telemetry gap during '+name);
             const raw = await page.evaluate(() => window.performanceHarness.end()).catch(() => null);
             if (raw) writeFileSync(join(output, `${name}-aborted-raw.json`), JSON.stringify(raw));
-            console.log('CPU spike or telemetry gap; discarding this attempt and releasing the browser.');
+            console.log('Other-process CPU spike or telemetry gap; discarding this attempt. Top outside processes: '+JSON.stringify(sample.topOtherProcesses??[]));
             await browser.close().catch(() => {});
           }, 1000);
           draining = true;
@@ -272,6 +272,7 @@ try {
             item.measurementUntil=Date.now();
             const checked=await loadSession.finish(item.measurementFrom,item.measurementUntil);
             item.loadDuring=checked.rows;
+            if(!checked.valid){const issues=checked.rows.filter(s=>loadSpiked([s],budgets.quiet));item.discardTopProcesses=(issues.length?issues:checked.rows.slice(-1)).map(s=>({at:s.at,otherCpu:s.unrelatedCpuPercent,totalCpu:s.cpuPercent,processes:s.topOtherProcesses??[]}));}
             item.loadAfter={quiet:checked.valid,samples:checked.rows.slice(-1)};
             writeFileSync(join(output,`${name}-load-during.jsonl`),checked.rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
             if (!checked.valid) { item.qualified = false; item.status = 'invalid-busy'; busy = true;loadSession.invalidate('load spike or missing bracketing telemetry during '+name); }
@@ -284,7 +285,11 @@ try {
           item.capture = capture ? captures : undefined;
           console.log(`${name}: ${item.status}; redo bytes ${item.redoExact ? 'equal' : 'DIFFERENT'}`);
         } catch (error) {
-          if(loadSession&&item.measurementFrom){item.loadDuring=segment(loadSession.rows(),item.measurementFrom,Date.now());writeFileSync(join(output,`${name}-load-during.jsonl`),item.loadDuring.map(r=>JSON.stringify(r)).join('\n')+'\n');}
+          if(loadSession){
+            if(item.measurementFrom){item.measurementUntil=Date.now();item.loadDuring=segment(loadSession.rows(),item.measurementFrom,item.measurementUntil);writeFileSync(join(output,`${name}-load-during.jsonl`),item.loadDuring.map(r=>JSON.stringify(r)).join('\n')+'\n');}
+            const issues=(item.loadDuring??[]).filter(s=>loadSpiked([s],budgets.quiet));
+            item.discardTopProcesses=(issues.length?issues:loadSession.rows().slice(-1)).map(s=>({at:s.at,otherCpu:s.unrelatedCpuPercent,totalCpu:s.cpuPercent,processes:s.topOtherProcesses??[]}));
+          }
           item.status = item.status === 'invalid-busy' ? item.status : 'error'; item.qualified = false; item.error = String(error.stack ?? error);
           if (page) {
             const raw = await page.evaluate(() => window.performanceHarness?.end()).catch(() => null);

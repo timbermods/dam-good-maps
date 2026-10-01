@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import {existsSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {isQuiet,loadSpiked} from './coverage.mjs';
+import {isQuiet,loadSpiked,validLoad} from './coverage.mjs';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 export function samples(path){
   if(!existsSync(path))return [];
@@ -14,7 +14,7 @@ export function quietSuffix(rows,quiet,earliest=0){
     const at=Date.parse(row.at),previous=suffix.at(-1);
     if(at<earliest)continue;
     if(previous&&(at<=Date.parse(previous.at)||at-Date.parse(previous.at)>quiet.maxSampleGapMs))suffix=[];
-    if(!Number.isFinite(row.cpuPercent)||row.cpuPercent<0||row.cpuPercent>quiet.cpuPercentMax||!Number.isFinite(at)){suffix=[];continue}
+    if(!validLoad(row,quiet)){suffix=[];continue}
     suffix.push(row);
   }
   return suffix;

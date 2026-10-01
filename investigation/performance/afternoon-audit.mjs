@@ -16,10 +16,12 @@ const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const stats=a=>({samples:a.length,min:a.length?Math.min(...a):null,median:median(a),max:a.length?Math.max(...a):null});
 const cpu=rows=>stats(rows.map(r=>r.cpuPercent).filter(Number.isFinite));
-const budget=read(resolve(dir,'budgets.json'));
+// Preserve the completed window's measurement protocol after later authorized method changes.
+const protocolDir=existsSync(resolve(archive,'protocol/budgets.json'))?resolve(archive,'protocol'):dir;
+const budget=read(resolve(protocolDir,'budgets.json'));
 const fingerprint=createHash('sha256');
 const protocolFiles=['probe.js','audio-worklet.js','scenarios.mjs','coverage.mjs','budgets.json','metrics.mjs','load.ps1','laptop-profile.ps1','run.mjs','drain.mjs','continuous-load.mjs'];
-for(const f of protocolFiles)fingerprint.update(f).update(readFileSync(resolve(dir,f)));
+for(const f of protocolFiles)fingerprint.update(f).update(readFileSync(resolve(protocolDir,f)));
 const currentHarnessHash=fingerprint.digest('hex');
 const buildChecks={};
 for(const phase of ['before','after']){
@@ -54,7 +56,7 @@ function index(path){for(const e of readdirSync(path,{withFileTypes:true})){
   const p=resolve(path,e.name);if(e.isDirectory())index(p);else evidence.push({path:relative(dir,p).replaceAll('\\','/'),sha256:hash(p)});
 }}
 index(archive);
-for(const f of protocolFiles)evidence.push({path:f,sha256:hash(resolve(dir,f))});
+if(protocolDir===dir)for(const f of protocolFiles)evidence.push({path:f,sha256:hash(resolve(dir,f))});
 for(const phase of ['before','after'])evidence.push({path:`local/build/${phase}/provenance.json`,sha256:hash(resolve(local,'build',phase,'provenance.json'))});
 mkdirSync(resolve(local,'afternoon-hitches'),{recursive:true});
 function qualification(load,generation,qualifiedAt){

@@ -1,5 +1,15 @@
 # September 30 quiet window
 
+**Next authorized window: October 1, 02:00–05:00 America/Los_Angeles (09:00–12:00 UTC).**
+One serial `window.mjs --trial-first=true` starts inside those bounds. Trial: Craterize Power 100
+Fast, 256², Standard/High, five before/after repeats on Edge/native. Qualify using **outside-process
+CPU**, exclude the measured tree, sample continuously, and retain top outside processes.
+Any unqualified trial run stops the session and waits for Kyler; do not launch the scaled set.
+If all 20 executions qualify, count them toward core, start the full proxy/High hour immediately,
+then other cases. Native core requires five timing pairs per case/look; proxy one. Firefox is
+deferred. Deadline cleanup stays within 05:00; the full hour is never shortened.
+No October browser measurement has started. Prior sections are frozen history.
+
 **Afternoon complete: 10:30–13:30 PDT (17:30–20:30 UTC).** Controller and continuous sampler
 finished at 13:29:45; neither remains active. No late or duplicate measurements. The single
 Edge/CPU-proxy/High hour went first and was retried twice while sufficient time remained;

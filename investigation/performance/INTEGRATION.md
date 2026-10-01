@@ -35,7 +35,7 @@ node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
 node build.mjs before
 node build.mjs after
 node test.mjs
-node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs continuous-load.test.mjs
+node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs continuous-load.test.mjs trial-plan.test.mjs
 python audio.test.py
 node typecheck.mjs
 node run.mjs --mode=smoke --phase=after --sizes=128 --looks=standard --cases=craterize-fast,brush-large --repeats=1
@@ -76,8 +76,11 @@ machine's cached Firefox is revision 1509; this is separate from the product dep
 The default **core** gate uses 256², Standard and High: every force at Power 100 using its
 natural Auto size in Fast and Watch, the largest Raise stroke, and seeded abuse (interruptions,
 ten rapid undos and successive forces). Undo/redo accompanies each case. Edge/native needs
-three before/after timing repeats; Firefox/native and Edge/CPU proxy each need one. These are
-12 cases × six configurations: **72 requirements, 120 paired timing repetitions**. There is
+five before/after timing repeats; Edge/CPU proxy needs one pass. Firefox is deferred from the
+core gate: 13 afternoon setups stalled waiting for a stable Top-down button; probe timeout and
+WebGL context loss were logged, but their cause is unproved. It stays in optional full mode
+until setup is reliable. Core is 12 cases × four configurations: **48 requirements, 144 paired
+timing repetitions**. There is
 one paired visual/audio capture per case/configuration, separate from pacing so capture overhead
 cannot masquerade as a frame-time result. The only required hour session is Edge/CPU-proxy/High,
 256², after-build, with matched start/end references and the existing mixed-edit sequence.
@@ -101,13 +104,22 @@ the job between cases. No other process or machine power settings are changed.
 
 ## Evidence and budgets
 
-`load.ps1` qualifies **once at CPU ≤25% for 60 consecutive sampled seconds**, then records
+`load.ps1` qualifies **once at other-process CPU ≤25% for 60 consecutive sampled seconds**, then records
 continuously while cases run back to back. Only a load-discarded run invalidates that lease;
 window.mjs requeues that individual phase/repeat and requalifies while time remains. Missing
-samples, gaps over 30 seconds, unbracketed active intervals, or total/unrelated CPU above 25%
+samples, missing process-tree ownership, gaps over 30 seconds, unbracketed active intervals,
+or other-process CPU above 25%
 discard a run. Warm-up and initial byte extraction precede its active interval. GPU load is
 diagnostic, including unavailable readings. Do not terminate other agents to obtain quiet
-numbers. Smoke checks supply no timing certification.
+numbers. The harness/controller, its sampler, measured browser/workers and inherited children
+are excluded by the sampled process tree. Total CPU is diagnostic only. Every sample retains
+the top 15 outside processes by CPU; load discards bind those lists to the run manifest and full
+trace. Smoke checks and the sampler's two-sample functional check are not performance evidence.
+
+Native pacing judgments use fixed repeats 1–5, reporting the median and worst of their p99,
+maximum frame time, hitches and long tasks. Never choose the fastest five or discard a slow
+measured run. Worst-run hitch/visual/byte budgets still hold; median numbers cannot hide an
+outlier. The single CPU-proxy pass is explicitly reported as one pass, without five-run certainty.
 
 Pacing runs record every display-frame delta, every renderer method interval and available long
 tasks; captures separately copy **every actual rendered frame** and diagnose stale terrain tops,
@@ -142,9 +154,9 @@ drain failures during intentional abort, and record visibility/focus and PCM con
 These changes have regression/syntax checks but no new qualified browser validation.
 All recorded morning attempts remain invalid; source hashes are not recertified.
 The superseding continuous lease removes the historical 384 minutes of per-case waiting.
-Total CPU still includes the tested application: that rule was preserved, not silently relaxed.
-Afternoon total/process CPU discrepancies and Firefox setup stalls need diagnosis before
-another window. Do not infer smoothness improvements from discarded observations.
+Kyler subsequently changed rejection to outside-process CPU only: the old total-CPU policy
+could disqualify the tested workload itself. Historical measurements remain invalid under their
+original protocol; they are never recertified. Firefox setup stalls still need diagnosis.
 
 For each scenario, retain final typed-array bytes, object data and feature snapshots before and
 after, plus undo/redo snapshots. Add export-file byte comparison before adoption; current snapshots
@@ -167,7 +179,10 @@ before it merges.** Register its actual gestures; unknown/missing force coverage
 
 ## Superseding continuous qualification (September 30, 10:30–13:30 PDT)
 
-Kyler authorized qualification once at CPU <=25% for 60 seconds, then cases back to back under one continuous sampler. Only a load-discarded case invalidates that qualification and triggers another minute. This replaces per-case quiet waits; coverage, repetitions and other budgets are unchanged. window.mjs shares its session with children; standalone/CI runs qualify once per invocation. Each active interval retains bracketing CPU samples and its original qualification generation. Fixture generation and initial byte extraction precede the active interval, while continuous raw telemetry remains recorded. Missing or stale telemetry still fails. The hour is attempted first, with retry opportunities between shorter cases while at least 65 minutes remain; it is never shortened. Private-memory start evidence comes from the current browser sample, rather than an old qualification prefix.
+Historical afternoon policy qualified once on total CPU, retained continuous samples, and
+requalified only after discards. Its frozen protocol files now live beside its archived session;
+the offline afternoon audit reads those bytes, not the superseding policy. Private-memory start
+evidence comes from the current browser sample, rather than an old qualification prefix.
 
 Afternoon completion: `node afternoon-audit.mjs` freezes finished controller status/log and the
 actual continuous session into `local/windows/2026-09-30-1030/`. It audits **every** manifest,
@@ -185,3 +200,18 @@ and every unverified oracle. No qualified pair exists, so `python gifs.py` refus
 These commands launch no browser or measurement. Keep budgets.json unchanged: its provisional
 status is part of the measured protocol hash. Calibration needs three actual quiet baselines
 and a migration preserving that fingerprint; editing status alone would stale all observations.
+
+## October 1 trial and conditional continuation
+
+Authorized **02:00–05:00 PDT (09:00–12:00 UTC)**, following September 30 evening's instruction:
+`node window.mjs --suite=core --trial-first=true --start=2026-10-01T09:00:00Z --end=2026-10-01T12:00:00Z`.
+Trial choice: Craterize Power 100 Fast on 256² in Standard/High, Edge/native, five paired
+before/after timing repeats (20 executions). It uses a fresh protocol hash. No capture overhead
+is included in this qualification trial; core captures follow separately if it passes.
+These repeat IDs count toward core coverage. One failed/missing trial run stops the controller
+without starting the core or hour; retain the top outside processes and wait for Kyler.
+Initial qualification may wait up to ten minutes; failure also stops. A qualified but slow run
+counts and remains in the five-run median/worst, with budget violations reported.
+After all 20 qualify, the full proxy/High hour goes immediately next, then remaining core work.
+The existing 65-minute reservation prevents shortening or starting an hour too late.
+Continue short work only inside the authorized bounds; missing coverage keeps the PR draft.

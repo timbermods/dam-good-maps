@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cases, forces } from './scenarios.mjs';
 import { root } from './adoption.mjs';
-import { median } from './metrics.mjs';
+import { median,repeatedStats } from './metrics.mjs';
 import { createHash } from 'node:crypto';
 import { requirements, isQuiet, loadSpiked } from './coverage.mjs';
 const dir = resolve(root, 'investigation/performance'), path = resolve(dir, 'local/runs');
@@ -35,7 +35,7 @@ for (const requirement of requirements(budget,suite)) {
   const match = row => row.browser === browser && row.profile === profile && row.size === size && row.look === look && row.case === requirement.case;
   const before = manifests.filter(m => m.mode === 'measure' && m.phase === 'before' && !m.flags.hour).flatMap(m => m.results).filter(row => match(row) && eligible(row,'before'));
   const after = manifests.filter(m => m.mode === 'measure' && m.phase === 'after' && !m.flags.hour).flatMap(m => m.results).filter(row => match(row) && eligible(row,'after'));
-  const paired = [...new Set(after.map(r => r.repeat))].filter(repeat => before.some(r=>r.repeat===repeat));
+  const paired = Array.from({length:repeats},(_,i)=>i+1).filter(repeat=>after.some(r=>r.repeat===repeat)&&before.some(r=>r.repeat===repeat));
   if (paired.length < repeats) failures.push({ id, reason: `missing ${repeats} qualified paired runs`, before: before.length, after: after.length });
   for (const a of after) {
     if (!expectedHash || a.provenance?.sourceHash !== expectedHash) failures.push({ id, repeat: a.repeat, reason: 'measurement was not made against current proposal build' });
@@ -64,7 +64,12 @@ for (const requirement of requirements(budget,suite)) {
     if (!(oracle.heldTextureReleaseMsMax <= budget.audio.heldTextureReleaseMsMax)) failures.push({ id, reason: 'sound release/motion timing evidence unavailable or over budget' });
     if (!budget.requiredManualOracles.every(n => oracle.checked?.includes(n)) || oracle.glitches !== 0 || oracle.dropouts !== 0 || oracle.crackles !== 0) failures.push({ id, reason: 'incomplete or failed visual/audio oracle' });
   }
-  totals.push({ id, required:repeats, before: before.length, after: after.length, capturePairs:capturePairs.length,
+  // Fixed repeat IDs, earliest qualified record per ID: do not select the fastest five.
+  const fixed=rows=>Array.from({length:repeats},(_,i)=>rows.find(r=>r.repeat===i+1)).filter(Boolean);
+  const repeated={before:repeatedStats(fixed(before)),after:repeatedStats(fixed(after))};
+  if(repeated.after.runs===repeats&&!(Number.isFinite(repeated.after.p99Ms.median)&&Number.isFinite(repeated.after.p99Ms.worst)&&repeated.after.p99Ms.median<=budget.frame.p99Ms&&repeated.after.p99Ms.worst<=budget.frame.p99Ms&&
+    repeated.after.hitches.worst===0&&repeated.after.longTasks.worst===0))failures.push({id,reason:'median/worst repeated pacing budget exceeded',repeated});
+  totals.push({ id, required:repeats, before: before.length, after: after.length, capturePairs:capturePairs.length,repeated,
     longTasks: browser==='firefox' ? 'API may be unavailable; frame-pacing and visual/audio compatibility checks still required' : 'required' });
 }
 {

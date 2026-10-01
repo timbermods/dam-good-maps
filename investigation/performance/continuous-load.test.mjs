@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {quietSuffix,segment} from './continuous-load.mjs';
 import {isQuiet,loadSpiked} from './coverage.mjs';
-const quiet={cpuPercentMax:25,durationMs:60000,maxSampleGapMs:30000};
-const row=(t,cpu=10)=>({at:new Date(t).toISOString(),cpuPercent:cpu,unrelatedCpuPercent:1});
+const quiet={metric:'unrelatedCpuPercent',requireOwnership:true,cpuPercentMax:25,durationMs:60000,maxSampleGapMs:30000};
+const row=(t,cpu=10)=>({at:new Date(t).toISOString(),cpuPercent:90,unrelatedCpuPercent:cpu,ownershipComplete:true});
 test('one qualifying prefix can accompany successive cases without a fresh minute',()=>{
  const prefix=Array.from({length:13},(_,i)=>row(i*5000));
  assert(isQuiet({quiet:true,samples:quietSuffix(prefix,quiet)},quiet));

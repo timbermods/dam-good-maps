@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize } from './metrics.mjs';
+import { summarize,repeatedStats } from './metrics.mjs';
 import { readFileSync } from 'node:fs';
 const budgets = JSON.parse(readFileSync(new URL('./budgets.json', import.meta.url)));
 test('reports every local and absolute hitch, including unattributed pauses', () => {
@@ -12,6 +12,13 @@ test('reports every local and absolute hitch, including unattributed pauses', ()
   assert.equal(result.hitches[0].sources[0].name, 'meshWater');
   assert.equal(result.hitches[0].unattributed, true); // A temporal overlap is not causal proof.
   assert.equal(result.hitches[1].unattributed, true);
+});
+test('five-run median and worst retain an outlier, with missing evidence represented as null',()=>{
+  const rows=[16,17,18,19,100].map((p99,i)=>({repeat:i+1,summary:{p99,max:p99,hitches:i===4?[{}]:[],longTasks:[],glitches:[]}}));
+  const stats=repeatedStats(rows);
+  assert.deepEqual(stats.p99Ms,{median:18,worst:100});
+  assert.deepEqual(stats.hitches,{median:0,worst:1});
+  assert.equal(repeatedStats([]).p99Ms.worst,null);
 });
 test('retains snapshot overhead separately while counting real interaction stalls', () => {
   const result = summarize({ frames: [{ at: 200, dt: 200, instrumentation: 'byte-snapshot-after-idle' }, { at: 216, dt: 16 },

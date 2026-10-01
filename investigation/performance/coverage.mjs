@@ -10,15 +10,20 @@ export function requirements(budget, suite = 'core') {
   const selected = suite === 'core' ? coreCases : cases;
   return configurations(budget, suite).flatMap(config => selected.map(c => ({...config,case:c.id,id:`${config.browser}/${config.profile}/${config.size}/${config.look}/${c.id}`})));
 }
+export function loadCpu(sample, quiet) { return sample?.[quiet.metric ?? 'cpuPercent']; }
+export function validLoad(sample, quiet) {
+  const cpu=loadCpu(sample,quiet);
+  return Number.isFinite(cpu)&&cpu>=0&&cpu<=quiet.cpuPercentMax&&Number.isFinite(Date.parse(sample.at))&&
+    (!quiet.requireOwnership||sample.ownershipComplete===true);
+}
 export function isQuiet(load, quiet) {
   const rows = load?.samples ?? [];
   const duration = rows.length > 1 ? Date.parse(rows.at(-1).at) - Date.parse(rows[0].at) : 0;
   return load?.quiet === true && duration >= quiet.durationMs && rows.every((s,i) =>
-    Number.isFinite(s.cpuPercent) && s.cpuPercent >= 0 && s.cpuPercent <= quiet.cpuPercentMax &&
+    validLoad(s,quiet) &&
     (!i || (Date.parse(s.at) > Date.parse(rows[i-1].at) && Date.parse(s.at)-Date.parse(rows[i-1].at) <= quiet.maxSampleGapMs)));
 }
 export function loadSpiked(samples, quiet) {
-  return !samples?.length || samples.some((s,i) => !Number.isFinite(s.cpuPercent) || s.cpuPercent < 0 || s.cpuPercent > quiet.cpuPercentMax ||
-    !Number.isFinite(s.unrelatedCpuPercent) || s.unrelatedCpuPercent < 0 || s.unrelatedCpuPercent > quiet.cpuPercentMax ||
-    !Number.isFinite(Date.parse(s.at)) || (i && (Date.parse(s.at)<=Date.parse(samples[i-1].at) || Date.parse(s.at)-Date.parse(samples[i-1].at)>quiet.maxSampleGapMs)));
+  return !samples?.length || samples.some((s,i) => !validLoad(s,quiet) ||
+    (i && (Date.parse(s.at)<=Date.parse(samples[i-1].at) || Date.parse(s.at)-Date.parse(samples[i-1].at)>quiet.maxSampleGapMs)));
 }

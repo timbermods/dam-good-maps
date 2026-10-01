@@ -210,7 +210,7 @@
   },
   "evidenceIndex": {
     "path": "local/afternoon-evidence.json",
-    "sha256": "4141b10904d34cf325393de17509ea8ffaaa788fbf2804c25fe1a86df0ea0b52"
+    "sha256": "6c1db9eda6fbed2007bb10d35dbeaf0594b76649d0c3bed977490fce39812256"
   },
   "qualification": "Aborted intervals lacking end timestamps/bracketing remain incomplete, never qualified. Capture pacing is diagnostic only.",
   "rows": [

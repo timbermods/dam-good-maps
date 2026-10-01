@@ -1,5 +1,17 @@
 # Terrain in motion
 
+**Method revised September 30 evening; no new qualified browser measurements yet.**
+Gate on outside-process CPU only (≤25% for 60 seconds once, then continuous sampling), excluding
+the harness/browser tree; retain top outside processes on discards. Native comparisons now use
+median and worst of five fixed repeats. Firefox leaves the core gate until its Top-down setup
+works reliably; timeout/WebGL loss are observed, root cause unproved. New core: **144 timing
+pairs, 48 capture pairs, one hour**; none yet collected with this protocol. **42 tests pass**;
+sampler ownership exclusion passes a two-sample functional check (not performance evidence).
+The revised core gate reports **146 failures/missing evidence**.
+October 1 **02:00–05:00 PDT**: Craterize Power 100 Fast, 256², both looks, five paired repeats.
+Stop on any unqualified trial run; otherwise start the full proxy/High hour immediately,
+then remaining core work. Historical evidence below keeps its original policy and invalid status.
+
 **September 30 afternoon complete; PR #107 stays draft. No qualified comparison exists.**
 Product source is untouched; adoption is based on `feature/forces` `9e14f189`.
 

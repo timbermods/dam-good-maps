@@ -1,5 +1,11 @@
 export function median(a) { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; }
 export function percentile(a, p) { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)] : null; }
+export function repeatedStats(rows) {
+  const metric=fn=>{const values=rows.map(fn);return values.length&&values.every(Number.isFinite)?{median:median(values),worst:Math.max(...values)}:{median:null,worst:null}};
+  return {runs:rows.length,repeats:rows.map(r=>r.repeat),p99Ms:metric(r=>r.summary?.p99),
+    maxFrameMs:metric(r=>r.summary?.max),hitches:metric(r=>r.summary?.hitches?.length),
+    longTasks:metric(r=>r.summary?.longTasks?.length),geometryCandidates:metric(r=>r.summary?.glitches?.length)};
+}
 export function summarize(raw, budgets) {
   const frames = raw.frames.filter(f => !f.instrumentation), hitches = [];
   for (let i = 0; i < frames.length; i++) {

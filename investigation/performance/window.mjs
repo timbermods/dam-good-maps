@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {cases} from './scenarios.mjs';
 import {configurations,coreCases} from './coverage.mjs';
 import {ContinuousLoad} from './continuous-load.mjs';
+import {trialTasks,alreadyInTrial,runOutcome} from './trial-plan.mjs';
 const dir=fileURLToPath(new URL('.',import.meta.url)),local=resolve(dir,'local');
 mkdirSync(local,{recursive:true});
 const flags=Object.fromEntries(process.argv.slice(2).map(arg=>{const [k,...v]=arg.replace(/^--/,'').split('=');return [k,v.join('=')||true]}));
@@ -28,7 +29,13 @@ for(const id of priority)for(const config of configurations(budget,suite))for(co
  for(let repeat=1;repeat<=repeats;repeat++)for(const phase of ['before','after'])queue.push({...config,id,mode,repeat,repeats:1,phase});
 }
 const hourTask={...budget.longSession,id:'brush-large',mode:'measure',phase:'after',repeat:1,repeats:1,hour:true};
-queue.unshift(hourTask);status.pending=queue;save();
+if(flags['trial-first']){
+  const core=queue.filter(task=>!alreadyInTrial(task));
+  queue.splice(0,queue.length,...trialTasks(),hourTask,...core);
+  status.trial={case:'craterize-fast',power:100,required:20,passed:0,state:'pending',stopOnFirstInvalid:true};
+  status.hourChoice='full proxy/High hour immediately after successful trial, before remaining short work';
+}else queue.unshift(hourTask);
+status.pending=queue;save();
 async function run(task){
  const args=['run.mjs','--suite='+suite,'--mode='+task.mode,'--phase='+task.phase,'--cases='+task.id,'--sizes='+task.size,
  '--profiles='+task.profile,'--browsers='+task.browser,'--looks='+task.look,'--repeats=1','--repeat-start='+task.repeat,
@@ -44,7 +51,7 @@ async function run(task){
  const folders=readdirSync(resolve(local,'runs')).filter(n=>!previous.has(n));
  const rows=folders.flatMap(n=>{const p=resolve(local,'runs',n,'manifest.json');return existsSync(p)?JSON.parse(readFileSync(p)).results:[]});
  status.attempts.push({task,phase:task.phase,hour:!!task.hour,code,folders,qualified:rows.filter(r=>r.qualified&&r.status==='complete').length,discarded:rows.filter(r=>!r.qualified).length});save();
- return rows.some(r=>['invalid-busy','blocked-busy'].includes(r.status))?'busy':code===0&&rows.length?'complete':'error';
+ return runOutcome(code,rows);
 }
 try{
  while(queue.length&&Date.now()<end-15000){
@@ -52,12 +59,21 @@ try{
   if(task.hour&&Date.now()>end-65*60000){status.hourOutcome='No full-hour slot remains; not shortened';status.missingHour=true;save();continue}
   if(!session.state().valid){
    status.state='qualifying-once-or-after-discard';save();
-   if(!await session.qualify(task.hour?end-65*60000:end-15000)){
+   if(!await session.qualify(task.trial?Math.min(end-65*60000,Date.now()+10*60000):task.hour?end-65*60000:end-15000)){
+    if(task.trial){status.trial.state='failed-qualification';status.trial.reason='Other-process quiet gate did not qualify within ten minutes';status.trial.lastLoad=session.rows().at(-1);queue.unshift(task);break}
     if(task.hour){status.missingHour=true;continue}
     queue.unshift(task);break;
    }
   }
   const outcome=await run(task);
+  if(task.trial){
+   if(outcome!=='complete'){
+    status.trial.state='failed';status.trial.reason=outcome;status.trial.lastLoad=session.rows().at(-1);
+    status.trial.topOtherProcesses=session.rows().at(-1)?.topOtherProcesses??[];
+    status.stopReason='Trial did not qualify every repeat; scaled set and hour not started';save();break;
+   }
+   status.trial.passed++;status.trial.state=status.trial.passed===status.trial.required?'passed':'running';save();
+  }
   if(task.hour)status.hourOutcome=outcome;
   if(outcome==='busy'){
    session.invalidate('discarded '+task.id+' '+task.phase);
