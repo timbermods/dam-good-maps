@@ -1,0 +1,31 @@
+import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { generate } from '../../src/core/gen/generate';
+import { makeSpec } from '../../src/core/spec/mapspec';
+import { generatedDocument, encodeProject, decodeProject } from '../../src/core/doc/document';
+import { generatedField } from '../../src/core/doc/session';
+import { buildMap } from '../../src/core/features/build';
+import { readMapBytes } from '../probe/runner/mapfile';
+const sha=(b:Uint8Array)=>createHash('sha256').update(b).digest('hex');
+const results=[];
+for(const [size,seed] of [[96,1],[96,20],[128,1],[256,1],[256,20]]) {
+  const expected=sha(readFileSync(join(__dirname,`local/after/${size}-${seed}.timber`)));
+  let shown=0;
+  const r=generate(makeSpec({theme:'islands',seed,size:{x:size,y:size}}),{onLand:()=>shown++});
+  assert(r.report.passed);assert.equal(shown,1);assert.equal(sha(r.bytes),expected,'seed changed');
+  const file=readMapBytes(r.bytes);
+  assert.deepEqual(file.heights,r.built.heights,'exported terrain differs');
+  let maxDepthError=0;
+  for(let i=0;i<size*size;i++)maxDepthError=Math.max(maxDepthError,Math.abs(file.depth[i]-r.built.water[i]));
+  assert(maxDepthError<0.00001,'water serialization differs');
+  const doc=decodeProject(encodeProject(generatedDocument(r)));
+  assert(doc.field);
+  const rebuilt=buildMap({W:size,H:size,seed,features:doc.features,field:generatedField(doc.field,size,size)});
+  assert.deepEqual(rebuilt.heights,r.built.heights,'stored-field rebuild changes land');
+  assert.deepEqual(rebuilt.water,r.built.water,'stored-field rebuild changes water');
+  results.push({size,seed,deterministic:true,shown,exportMatches:true,rebuildMatches:true,maxDepthError,sha256:expected});
+  console.log(`${size}/${seed}: deterministic, export and project rebuild match`);
+}
+writeFileSync(join(__dirname,'verification.json'),JSON.stringify(results,null,2)+'\n');
