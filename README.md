@@ -53,6 +53,11 @@ The editor:
   from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
+- The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
+  a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
+- Each force has **Power** and **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
+  Power. **Try another** gives a different result; **More** holds the details.
+- **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
