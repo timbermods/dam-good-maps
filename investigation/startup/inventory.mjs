@@ -13,6 +13,7 @@ function walk(dir,path='') {
     }
   }
 }
-for(const v of ['dev','before','after'])walk(join(here,'local',`dist-${v}`));
-writeFileSync(join(here,'FILES.csv'),'variant,file,raw_bytes,gzip_bytes,brotli_bytes\n'+rows.map(r=>Object.values(r).join(',')).join('\n')+'\n');
+const round2=process.argv.includes('--round2');
+for(const v of round2?['round2-before','round2-after']:['dev','before','after'])walk(join(here,'local',`dist-${v}`));
+writeFileSync(join(here,round2?'ROUND2-FILES.csv':'FILES.csv'),'variant,file,raw_bytes,gzip_bytes,brotli_bytes\n'+rows.map(r=>Object.values(r).join(',')).join('\n')+'\n');
 console.log(`Wrote ${rows.length} rows to FILES.csv`);
