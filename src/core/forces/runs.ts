@@ -506,32 +506,14 @@ export class QuakeRun extends Staged implements StagedRun {
       src.set(p.source);
     } else {
       m = snapshotMap(this.before);
-      const off = (v: number) => Math.round(v * f);
-      for (let j = 0; j < N; j++) {
-        const x = j % W;
-        const y = (j - x) / W;
-        const s = clamp(y - off(p.dy[j]), 0, H - 1) * W + clamp(x - off(p.dx[j]), 0, W - 1);
-        m.heights[j] = this.before.heights[s];
-        m.lava[j] = this.before.lava[s];
-        src[j] = s;
-      }
-      const priority = new Float32Array(N).fill(-1);
-      for (let i = 0; i < N; i++) {
-        if (!p.dx[i] && !p.dy[i]) continue;
-        const x = (i % W) + off(p.dx[i]);
-        const y = Math.floor(i / W) + off(p.dy[i]);
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        const j = y * W + x;
-        const travel = portable.hypot(p.dx[i], p.dy[i]);
-        if (travel < priority[j]) continue;
-        priority[j] = travel;
-        m.heights[j] = this.before.heights[i];
-        m.lava[j] = this.before.lava[i];
-        src[j] = i;
-      }
+      this.shift(f, m.heights, m.lava, src);
+      // (what the fault does besides moving the block, its rivers joined again across it and its
+      // tear, D368 (9): each part shown as the slide passes it, never all at the end)
+      for (const e of this.extras()) if (e.at <= stage) m.heights[e.i] = p.map.heights[e.i];
       trimRock(m);
       // the objects move with their ground (the view's: the kept result is the plan's)
       const final = new Map(p.map.entities.map((e) => [e.id, e]));
+      const off = (v: number) => Math.round(v * f);
       m.entities = this.before.entities.map((e) => {
         const to = final.get(e.id) ?? e;
         const x = e.x + off(to.x - e.x);
@@ -558,6 +540,70 @@ export class QuakeRun extends Staged implements StagedRun {
     } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
     this.sim = null;
+  }
+
+  /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
+   *  from (of `this.before`). */
+  private shift(f: number, heights: Uint8Array, lava: Uint32Array | null, src: Uint32Array | null): void {
+    const p = this.plan0;
+    const { W, H } = this.before;
+    const N = W * H;
+    const off = (v: number) => Math.round(v * f);
+    for (let j = 0; j < N; j++) {
+      const x = j % W;
+      const y = (j - x) / W;
+      const s = clamp(y - off(p.dy[j]), 0, H - 1) * W + clamp(x - off(p.dx[j]), 0, W - 1);
+      heights[j] = this.before.heights[s];
+      if (lava) lava[j] = this.before.lava[s];
+      if (src) src[j] = s;
+    }
+    const priority = new Float32Array(N).fill(-1);
+    for (let i = 0; i < N; i++) {
+      if (!p.dx[i] && !p.dy[i]) continue;
+      const x = (i % W) + off(p.dx[i]);
+      const y = Math.floor(i / W) + off(p.dy[i]);
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const j = y * W + x;
+      const travel = portable.hypot(p.dx[i], p.dy[i]);
+      if (travel < priority[j]) continue;
+      priority[j] = travel;
+      heights[j] = this.before.heights[i];
+      if (lava) lava[j] = this.before.lava[i];
+      if (src) src[j] = i;
+    }
+  }
+
+  private extras0: { i: number; at: number }[] | null = null;
+
+  /** A Slide's land where its plan differs from its block moved all the way (its rivers joined again,
+   *  its tear, the Floor held): each tile with the stage it shows at, through the slide's second half
+   *  in the order the fault runs, so the last stage adds only the block's last move (D368 (9)). */
+  private extras(): { i: number; at: number }[] {
+    if (this.extras0) return this.extras0;
+    const p = this.plan0;
+    const { W } = this.before;
+    const moved = new Uint8Array(p.map.heights.length);
+    this.shift(1, moved, null, null);
+    const pts = p.fault.points;
+    const first = Math.ceil(this.stages / 2);
+    const span = Math.max(1, this.stages - 1 - first);
+    const out: { i: number; at: number }[] = [];
+    for (let i = 0; i < moved.length; i++) {
+      if (moved[i] === p.map.heights[i]) continue;
+      const x = (i % W) + 0.5;
+      const y = Math.floor(i / W) + 0.5;
+      let near = 0;
+      let best = Infinity;
+      for (let k = 0; k < pts.length; k++) {
+        const d = (pts[k].x - x) * (pts[k].x - x) + (pts[k].y - y) * (pts[k].y - y);
+        if (d < best) {
+          best = d;
+          near = k;
+        }
+      }
+      out.push({ i, at: first + Math.round((span * near) / Math.max(1, pts.length - 1)) });
+    }
+    return (this.extras0 = out);
   }
 
   cue(): ForceCue {

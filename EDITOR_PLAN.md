@@ -87,8 +87,12 @@ editor is desktop-first (D185).
   **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once at its moment; under a quake they ride
   the ground. The water, the water of swept sources included, stays as it was until the land is final, then flows on
-  from there as after any edit (the glacier's meltwater river takes over at the end). The result and what is saved
-  never depend on the pace.
+  from there as after any edit (the glacier's meltwater river takes over at the end). **Nothing pops in after the
+  animation** (D368 (9)): the last frame shown is the land kept and adds no more than the force's own frames do.
+  Carve's river shape (its Banks and River depth, worked out once the canyon is cut) settles a few stations behind
+  the head as it passes (`spread` in `carve/play.ts`); a Slide's rivers joined again and its tear show through the
+  slide's second half along the fault (`extras` in `runs.ts`); `tests/contract/forcePop.test.ts` holds every force
+  and mode to it in Fast and Slow forces. The result and what is saved never depend on the pace.
   **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling; one setting shared by all the forces (set in any force's More, it holds for every
   force), kept with the player's editor preferences, never Auto (it is a rule, not a flavour), with **Default** back to
