@@ -5,6 +5,21 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D377), the order of work in [ROADMAP.md](../ROADMAP.md).
 
+> **Your final look at the High look (2026-10-01):** the preview at <https://timbermods.github.io/dam-good-maps/preview/>
+> is `feature/high-look` (#75) with the released forces merged in (tip 682e2f2b, CI green; the live site's check passed
+> too). Switch **Look** to **High** and check only what the merge could have changed:
+>
+> 1. **Erupt in High.** The eruption's glow now goes through High's lighting, so it looks a little different from
+>    Standard. Switch the look in the middle of an eruption: the glow should stay.
+> 2. **Remove and Clear sources on High's stone-basin sources:** Remove's red and Clear sources' glow should reach them.
+> 3. **The forces in High:** Carve, Craterize, Quake and Glaciate look and feel as they did in Standard; the High look
+>    itself is as you approved it (D346).
+> 4. **The editor's header:** the look menu sits between Save to Timberborn and ⋯ beside the new view bar; its tooltips
+>    read as the rest do ("Choose how the map is drawn").
+>
+> **Your yes** releases it: merge #75 into `dev`, tag `map-look-2-done`, `tools/release.sh`. Anything wrong, and it is
+> fixed on `feature/high-look` first.
+
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
 The session on your main PC ended at 07:00 PDT on 2026-10-01, with your allowance at about 90%. Everything is pushed, no

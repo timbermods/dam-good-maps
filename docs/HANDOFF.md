@@ -6,6 +6,21 @@
 > where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
 > (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
 
+> **Your final look at the High look (2026-10-01):** the preview at <https://timbermods.github.io/dam-good-maps/preview/>
+> is `feature/high-look` (#75) with the released forces merged in (tip 682e2f2b, CI green; the live site's check passed
+> too). Switch **Look** to **High** and check only what the merge could have changed:
+>
+> 1. **Erupt in High.** The eruption's glow now goes through High's lighting, so it looks a little different from
+>    Standard. Switch the look in the middle of an eruption: the glow should stay.
+> 2. **Remove and Clear sources on High's stone-basin sources:** Remove's red and Clear sources' glow should reach them.
+> 3. **The forces in High:** Carve, Craterize, Quake and Glaciate look and feel as they did in Standard; the High look
+>    itself is as you approved it (D346).
+> 4. **The editor's header:** the look menu sits between Save to Timberborn and ⋯ beside the new view bar; its tooltips
+>    read as the rest do ("Choose how the map is drawn").
+>
+> **Your yes** releases it: merge #75 into `dev`, tag `map-look-2-done`, `tools/release.sh`. Anything wrong, and it is
+> fixed on `feature/high-look` first.
+
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
 editor work), `PLAN.md` §20 (every decision, D1–D377) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
