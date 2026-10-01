@@ -6,7 +6,7 @@
 // A force is bound only by nature (D257): through the start it goes on, and the start is carried to
 // level ground in the same step. Its gestures are clean (D258): no footprint, route or fit on the
 // land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
-// glancing blow's way, a fault, a fissure, a travelling force's path). Keys 7, 8, 9, 0 pick them, V flips a quake's side, Esc puts a
+// fault, a fissure, a travelling force's path; Craterize is click-only, D368 (7)). Keys 7, 8, 9, 0 pick them, V flips a quake's side, Esc puts a
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -353,24 +353,52 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
   expect(await worker(page)).toEqual(await heights(page));
 });
 
-test("Craterize's drag aims it (D258, D289; D321 item 41): only the line drawn, no crater's outline; let go, a glancing blow", async ({ page }) => {
+test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
-  await row.getByRole("slider", { name: "Power" }).fill("30");
+  await row.getByRole("slider", { name: "Power" }).fill("50");
+  await row.getByRole("slider", { name: "Size" }).fill("16");
   const { far } = await places(page);
-  const a = await client(page, far[0], far[1]);
-  const b = await client(page, far[0] + 10, far[1]);
+  const before = await heights(page);
+  const n0 = (await labels(page)).length;
+  const a = await client(page, far[0] - 8, far[1]);
+  const b = await client(page, far[0] + 8, far[1]);
+  await page.mouse.move(a.x + 3, a.y);
   await page.mouse.move(a.x, a.y);
+  await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
   await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 6 });
-  await expect.poll(async () => (await gesture(page)).stroke ?? 0).toBeGreaterThan(5);
-  expect((await gesture(page)).cursor).toBeNull();
-  await expect(page.locator(".shape-note")).toHaveCount(0);
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await page.waitForTimeout(150);
+  // no line, no outline: a crater is one impact
+  expect((await gesture(page)).stroke).toBeNull();
   await page.mouse.up();
-  await expect.poll(async () => (await gesture(page)).stroke).toBeNull();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Craterize");
+  expect((await labels(page)).slice(n0)).toEqual(["Craterize"]);
+  // one crater, round and centred where the press began (a glancing blow would run east along the drag)
+  const after = await heights(page);
+  const W = Math.round(Math.sqrt(after.length));
+  let n = 0;
+  let sx = 0;
+  let x0 = W;
+  let x1 = 0;
+  let y0 = W;
+  let y1 = 0;
+  for (let i = 0; i < after.length; i++) {
+    if (before[i] - after[i] < 1) continue;
+    const x = i % W;
+    const y = Math.floor(i / W);
+    n++;
+    sx += x;
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  const where = JSON.stringify({ n, x: sx / n, x0, x1, y0, y1, from: far[0] - 8 });
+  expect(n, where).toBeGreaterThan(9);
+  expect(Math.abs(sx / n - (far[0] - 8)), where).toBeLessThanOrEqual(2);
+  expect(x1 - x0, where).toBeLessThanOrEqual((y1 - y0) * 1.3 + 2);
 });
 
 test("the forces with reduced motion: the same land, no camera moving", async ({ page }) => {
@@ -453,7 +481,7 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
 });
 
 // Kyler's forces sitting, part 1 (PLAN §20 D312)
-test("a force's size at the cursor (D312): a faint ring whose radius follows Power and Size, for every force", async ({ page }) => {
+test("a force's size at the cursor (D312): a faint ring whose radius follows Power and Size, for every force with a Size; Quake only a small marker (D368 (2))", async ({ page }) => {
   await refine(page);
   const { far } = await places(page);
   const hover = async () => {
@@ -484,15 +512,18 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
     // no footprint or outline of the result: only the ring and the small cursor
     expect((await gesture(page)).stroke).toBeNull();
   }
-  // Quake: its reach round the pointer, no cursor (the fault is painted)
+  // Quake (D368 (2)): only a small marker at the pointer, never a circle of how far it could reach
+  // (the force's own decision, never drawn in advance), at any Power
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
-  await row.getByRole("slider", { name: "Power" }).fill("20");
-  await hover();
-  const q = await ring();
-  await row.getByRole("slider", { name: "Power" }).fill("90");
-  await expect.poll(async () => (await gesture(page)).ring).toBeGreaterThan(q);
-  expect((await gesture(page)).cursor).toBeNull();
+  const drawn = () => page.evaluate(() => window.dgm3d!.renderer.forceRingState);
+  for (const power of ["20", "90"]) {
+    await row.getByRole("slider", { name: "Power" }).fill(power);
+    await hover();
+    await expect.poll(async () => (await gesture(page)).cursor, power).toEqual(far);
+    expect((await gesture(page)).ring, power).toBeNull();
+    await expect.poll(drawn, power).toMatchObject({ x: far[0] + 0.5, y: far[1] + 0.5, marker: true });
+  }
 });
 
 test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc drops it; let go, the river carves along it as one step", async ({ page }) => {

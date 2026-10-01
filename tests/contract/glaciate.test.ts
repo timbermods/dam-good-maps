@@ -124,8 +124,10 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
 
   it("is sliced without changing its result, and never goes past the ceiling", () => {
     const m = fixture("canyon-128");
-    const whole = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
-    const r = new GlaciateRun(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
+    // (at Power 100 the run keeps its plan in full: below it, Power scales every level, D368 (3))
+    const full = { ...GLACIATE_DEFAULTS, power: 100 };
+    const whole = makePlan(snapshotMap(m), full, { origin: 22 * m.W + 22 });
+    const r = new GlaciateRun(snapshotMap(m), full, { origin: 22 * m.W + 22 });
     let planning = 0;
     while (!r.planned) {
       r.step();

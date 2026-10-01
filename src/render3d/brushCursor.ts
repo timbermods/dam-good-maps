@@ -180,7 +180,9 @@ const RING_DASHES = 720;
 
 /** A force's size at the cursor (D312; one ring, never two, D321 item 13): one calm ring, white with
  *  the brush ring's thin dark edge, drawn once where the cursor is: on the water's surface over water,
- *  on the ground elsewhere. How big, never what shape (D258). */
+ *  on the ground elsewhere. How big, never what shape (D258). A force with no size of its own to show
+ *  (Quake: its reach is its own decision, never drawn in advance, D368 (2)) shows only a small marker
+ *  there, a white dot with the same dark edge, never a circle. */
 export class ForceRing {
   readonly mesh: Mesh;
   private readonly pos = new Float32Array(RING_DASHES * 2 * 12);
@@ -205,16 +207,13 @@ export class ForceRing {
   }
 
   /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's
-   *  surface where there is water, else the ground); null hides it. */
-  set(s: { x: number; y: number; r: number } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
+   *  surface where there is water, else the ground), or, with `marker`, only the small dot at (x, y);
+   *  null hides it. */
+  set(s: { x: number; y: number; r: number; marker?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
     if (!s) {
       this.mesh.visible = false;
       return;
     }
-    const r = Math.max(0.75, s.r);
-    const n = Math.max(24, Math.min(RING_DASHES, Math.round(r * 8)));
-    const w = 0.08 + Math.min(r, 40) * 0.003;
-    const o = w + 0.035;
     const edge: [number, number, number] = [...WATER_UI.ringEdge];
     let q = 0;
     const quad = (px: number, py: number, h: number, half: number, a: number, c: readonly number[]) => {
@@ -222,6 +221,27 @@ export class ForceRing {
       for (let v = 0; v < 4; v++) this.col.set([c[0], c[1], c[2], a], q * 16 + v * 4);
       q++;
     };
+    if (s.marker) {
+      // (a filled dot about two thirds of a tile across: its middle and a ring of squares round it)
+      const tx = Math.floor(s.x);
+      const ty = Math.floor(s.y);
+      if (tx >= 0 && ty >= 0 && tx < W && ty < H) {
+        const h = level(tx, ty) + 0.06;
+        const spots: [number, number][] = [[s.x, s.y]];
+        for (let k = 0; k < 8; k++) spots.push([s.x + Math.cos((k / 8) * Math.PI * 2) * 0.17, s.y + Math.sin((k / 8) * Math.PI * 2) * 0.17]);
+        for (const [px, py] of spots) quad(px, py, h - 0.005, 0.2, 0.7, edge);
+        for (const [px, py] of spots) quad(px, py, h, 0.15, 0.9, [1, 1, 1]);
+      }
+      this.geo.setDrawRange(0, q * 6);
+      (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
+      (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;
+      this.mesh.visible = q > 0;
+      return;
+    }
+    const r = Math.max(0.75, s.r);
+    const n = Math.max(24, Math.min(RING_DASHES, Math.round(r * 8)));
+    const w = 0.08 + Math.min(r, 40) * 0.003;
+    const o = w + 0.035;
     for (let pass = 0; pass < 2; pass++)
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2;

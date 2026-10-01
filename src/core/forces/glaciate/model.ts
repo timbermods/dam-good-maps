@@ -107,6 +107,14 @@ export const noise = (seed: number, i: number) => {
 /** Try another's next personality (the investigation's series). */
 export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 1013904223) >>> 0;
 
+/** The most a click's glacier flows down its valley, as a share of the map's width (round 4's at its
+ *  default Power, 60). */
+export const FLOW_REACH = 0.22 + (0.85 * 60) / 100;
+
+/** The width at which a glacier's head measures the land's relief round it (round 4's at its default
+ *  Size): its depth is Power's, never its Size's (D368 (3)). */
+export const RELIEF_SPAN = 30;
+
 /** The trough's width: set, or Auto (30 at Power 60). */
 export const sizeOf = (s: Pick<GlaciateSettings, "size" | "power">) => s.size ?? Math.round(8 + (36 * s.power) / 100);
 
@@ -235,7 +243,9 @@ export function flatHead(m: Pick<ForceMap, "W" | "H" | "heights">, origin: numbe
  *  edge); Aim along a direction-biased least-cost pass to the dragged end, ridges and all. */
 export function route(m: Pick<ForceMap, "W" | "H" | "heights">, s: GlaciateSettings, intent: GlaciateIntent, v = new Valley(m)): Point[] {
   const start = { x: (intent.origin % m.W) + 0.5, y: Math.floor(intent.origin / m.W) + 0.5 };
-  const reach = m.W * (0.22 + (0.85 * s.power) / 100);
+  // (how far it flows is the valley's, never Power's: Power is how deep it carves, D368 (3); round 4's
+  // reach at its default Power)
+  const reach = m.W * FLOW_REACH;
   if (s.mode === "flow") {
     const ordinary = v.path(intent.origin, reach);
     if (!flatHead(m, intent.origin) && ordinary.length >= 8) return ordinary;

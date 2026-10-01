@@ -114,20 +114,22 @@ editor is desktop-first (D185).
   **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
   (Carve unleashed, Craterize's strike, Erupt's vent, Unleash on a source) starts the force at once, finding its own
   way; **one ring at the cursor shows the force's size** at its Power and Size (D312; one ring, never two, D321 item
-  13): the crater's radius, the volcano's, Quake's reach from its fault, Carve's width (where a carve goes depends on
-  the land), like a brush's ring: how big, never what shape. It is drawn once, in one calm colour, where the cursor
+  13): the crater's radius, the volcano's, Carve's width (where a carve goes depends on the land), like a brush's
+  ring: how big, never what shape. **Quake shows only a small marker** at the cursor, a dot, never a circle (D368
+  (2)): how far it reaches is its own decision, and no force draws its reach in advance. It is drawn once, in one calm colour, where the cursor
   actually is: on the water's surface over water (the force's pointer meets the water there, not the bed below), on
   the ground elsewhere; a force's small reach still shows a small ring round the cursor. **A drag draws a line
   freehand** (D321, item 41; D327): the one way to steer, a shared piece lifted from Erode's sweep
   (`src/editor/freehand.ts`, its pen `core/forces/path.ts`): a press becomes a drawn line once the pointer moves six
   pixels, the line shows on the land as it is drawn (the player's own gesture, D258), and on release the force goes:
-  Carve and Glaciate along it, Craterize's impactor the way it runs (a glancing blow), Quake's fault and Erupt's
-  fissure are it. Anything less than a drag is the force's own click. **The preview is the stroke** (D361 (2),
+  Carve and Glaciate along it, Quake's fault and Erupt's fissure are it. Anything less than a drag is the force's own
+  click. **Craterize is click-only** (D368 (7): a crater is one impact): a press and drag strikes once, where the
+  press began, at its Size, drawing no line. **The preview is the stroke** (D361 (2),
   amending D344 A3; `bandTiles` in `freehand.ts`): a drawn gesture shows as a band along the line the player draws,
   never an area and never a ring: Carve's and Glaciate's band their width (their Size, the player's own); a fault or a
   fissure a narrow band about as wide as a fault's crack, a loop traced as its outline, nothing filled. What the force
-  decides (its reach, its extent) is never drawn in advance; the ring shows only for a click. Craterize's aim, and a line dragged from a
-  source's Unleash, stay thin lines. **A drawn shape sets the force's extent, and Size is for clicks** (D344, A6): Carve
+  decides (its reach, its extent) is never drawn in advance; the ring shows only for a click. A line dragged from a
+  source's Unleash stays a thin line. **A drawn shape sets the force's extent, and Size is for clicks** (D344, A6): Carve
   and Glaciate run the line drawn, end to end (their Size is their width, the band's); Quake's line is its length; an
   Erupt fissure's breadth is the breadth Power gives, never more than the shape's own span (`fissureBreadth` in
   `core/forces/erupt.ts`, the worker giving it as the fissure's `size`, which its operation keeps), so a small loop
@@ -146,8 +148,8 @@ editor is desktop-first (D185).
   row's Power and Size as they are now. A force set larger than the size its Power gives keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power 0):
   Craterize's and Erupt's every level scaled by it, Carve no deeper than its share of 12 levels (at least 2, its
-  banks included); Glaciate's depth also follows Power below 60 (`glacierStrength`: Power 0 about a sixth as deep);
-  Quake's Slide travels 2 tiles at Power 0 to 20 at 100. A tempered force still moves every tile it reaches by at
+  banks included); Glaciate's Power is how deep it carves and its Size how wide, neither driving the other (D368
+  (3); below, under Glaciate); Quake's Slide travels 2 tiles at Power 0 to 20 at 100. A tempered force still moves every tile it reaches by at
   least a level (`tempered`): Power scales how deep, never whether (D356). At the largest Size, Power 0 is the gentlest effect that
   still shows: `tests/contract/forcePower.test.ts` holds each force to at least 9 tiles changed, at most a quarter of
   Power 100's change in all (a Slide 30%), at most 4 levels deep (60% of Power 100's deepest; Slide, which moves land sideways,
@@ -302,11 +304,12 @@ editor is desktop-first (D185).
   there; trees and objects ride the ground (a piece whose footprint the edge would split keeps its ground).
 - **Hills, plateaus, ridges and valleys come from the brushes,** not buttons.
 - **Craterize, a force of nature** (D202): its own top-bar button next to Carve (key 8), simulating a
-  giant impact. A click strikes; a drag from the impact the way the impactor travels aims it (a glancing blow, an
-  oval crater thrown forward); **Power** (a pebble to a cataclysm); **Size** (following Power, or set: D226); **Try
+  giant impact. A click strikes; so does a press and drag, once, where the press began (D368 (7): a crater is one
+  impact, never a line or a second crater; the engine's glancing blow stays only for operations already saved);
+  **Power** (a pebble to a cataclysm); **Size** (following Power, or set: D226); **Try
   another**. Its walls (steep or terraced), centre (bowl, peak, ring or flat), debris (light or heavy) and rays come
   from the land and the seed (D289). Its ring
-  at the cursor, and the line drawn while dragging (D258, D321 item 41). The impact moment: a streak falls, a flash, a shock
+  at the cursor, its Size (D258, D312). The impact moment: a streak falls, a flash, a shock
   ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the debris landing ring
   by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing upright where their
   ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones; heavy debris can dam a river; it strikes wherever it is
@@ -360,7 +363,14 @@ editor is desktop-first (D185).
   more draws the line, which shows as it is drawn, and on release the glacier grinds along it through the ridges, the
   way it was drawn (the line resampled every two tiles, smoothed into one curve); nothing predicts the valley on the
   land (D258); its operation keeps the line (`where.path`). Its ring at the cursor shows its width at the current Power
-  and Size (D312; how big, never what shape). Its row is **Power**, **Size** (Auto: 30 at Power 60)
+  and Size (D312; how big, never what shape). **Power is how deep the ice carves, Size how wide** (D368 (3);
+  `core/forces/strength.ts`): Power scales every level it changes (`glacierStrength`), from a light scour at Power 0
+  (about an eighth as deep, every tile it reaches still a level down) evenly to round 4's deep U-shaped valley in
+  full at Power 100 (the default, 60, about two thirds as deep), and above 60 lets its whole floor down by up to six
+  more levels where the land has room (`glacierDeepening`); Size is its width alone. Neither drives the other: how
+  far it flows and the relief its depth is measured from are round 4's at its defaults, whatever the Power and Size
+  (`FLOW_REACH`, `RELIEF_SPAN`); `tests/contract/glaciatePowerSize.test.ts` measures it across its valley
+  (`glacierSections`). Its row is **Power**, **Size** (Auto: 30 at Power 60)
   and **Meltwater** (on by default), with **Try another** once one is kept (D289), and **More** (D309): its **Benches**
   (sheer walls, some benches on the soft rock as round 4 had them, or many), its **Steps** (the floor drops by few, some
   or many), a **Tarn** in its cirque and **Scree** at its walls' feet, each on Auto (drawn from the land and the seed,

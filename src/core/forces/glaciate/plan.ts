@@ -25,8 +25,9 @@ import { entityTiles as tilesOf, plainEntities, snapshotMap, type FullForceMap }
 import { isPlant } from "../objects";
 import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
+import { glacierDeepening } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, ROUND4_DETAILS, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -155,7 +156,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   let reference = route(m, s, intent, valley);
   const head = reference[0];
   const regional: number[] = [];
-  const radius = Math.max(16, Math.min(W * 0.2, r * 2));
+  const radius = Math.max(16, Math.min(W * 0.2, RELIEF_SPAN));
   for (let y = Math.max(0, Math.floor(head.y - radius)); y < Math.min(H, head.y + radius); y += 2)
     for (let x = Math.max(0, Math.floor(head.x - radius)); x < Math.min(W, head.x + radius); x += 2) regional.push(sample(x, y));
   const base = quantile(Array.from(m.heights), 0.08);
@@ -212,7 +213,9 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       }
   // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
   // still sink into the floor without going below the Floor; the plan is held at it below as well)
-  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance);
+  // (Power above 60 lets the whole floor down together, D368 (3): a deeper U-shaped valley)
+  const deepen = glacierDeepening(s.power);
+  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance - deepen);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);

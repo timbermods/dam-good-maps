@@ -187,7 +187,7 @@ export default function Editor(props: EditorProps) {
   const repaintRef = useRef<(() => void) | null>(null);
   const forceEscRef = useRef<(() => boolean) | null>(null);
   /** What a force draws (D258: clean gestures, never a prediction): the line the player draws (a
-   *  travelling force's path, Craterize's aim, Quake's fault, Erupt's fissure: the gesture itself,
+   *  travelling force's path, Quake's fault, Erupt's fissure: the gesture itself,
    *  D321 item 41), and where the cursor is (its tile), round which one calm ring shows the force's
    *  size (D312, item 13), on the water's surface over water. */
   const [forceStroke, setForceStroke] = useState<number[] | null>(null);
@@ -919,10 +919,11 @@ export default function Editor(props: EditorProps) {
     r.commitOverlay();
   }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
-  // is (the water's surface over water); a click's small reach still shows a ring round the cursor
+  // is (the water's surface over water); a click's small reach still shows a ring round the cursor. A
+  // force with no size to show (Quake) shows only a small marker, never a circle (D368 (2))
   useEffect(() => {
-    const at = forceRing ?? (forceCursor ? { x: forceCursor[0] + 0.5, y: forceCursor[1] + 0.5, r: 0 } : null);
-    renderer.current?.setForceRing(at ? { ...at, r: Math.max(1.5, at.r) } : null);
+    if (forceRing) renderer.current?.setForceRing({ ...forceRing, r: Math.max(1.5, forceRing.r) });
+    else renderer.current?.setForceRing(forceCursor ? { x: forceCursor[0] + 0.5, y: forceCursor[1] + 0.5, r: 0, marker: true } : null);
   }, [forceRing, forceCursor, ready]);
 
   // ------------------------------------------------------------------------------ the pointer
@@ -2127,7 +2128,7 @@ export default function Editor(props: EditorProps) {
   }
 
   /** A drawn gesture on the land (D344, A3): a band of the force's width along the line (`radius`
-   *  tiles either side), never a circle; a thin line where it has no width (Craterize's aim, an
+   *  tiles either side), never a circle; a thin line where it has no width (an
    *  unleashed source's line). */
   const strokeRadius = useRef(0);
   /** A drawn fault's or fissure's band: its line, about as wide as a fault's crack (D361 (2)). */
@@ -2144,7 +2145,6 @@ export default function Editor(props: EditorProps) {
   function bandRadius(): number {
     const verb = toolRef.current;
     if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
-    if (verb === "craterize") return 0;
     return reachNow() ?? 0;
   }
 
@@ -2161,7 +2161,8 @@ export default function Editor(props: EditorProps) {
     void forcer.current.start(true);
   }
 
-  /** The radius of the picked force's reach at its Power and Size (D312), or null. */
+  /** The radius of the picked force's size at its Power and Size (D312), or null: Quake has none to
+   *  show (its reach is its own decision, never drawn in advance, D368 (2)). */
   function reachNow(): number | null {
     switch (toolRef.current) {
       case "carve":
@@ -2170,8 +2171,6 @@ export default function Editor(props: EditorProps) {
         return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) });
       case "erupt":
         return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
-      case "quake":
-        return forceReach({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current) });
       case "glaciate":
         // (its width: where it goes depends on the land)
         return glacierSize(glaciateUiRef.current) / 2;
@@ -2181,8 +2180,7 @@ export default function Editor(props: EditorProps) {
   }
 
   /** The small cursor where a force's click would act (D258: the cursor, never a footprint), and the
-   *  faint ring of its reach round it (D312; `dot` false: the ring alone, for a painted fault), at
-   *  most once a frame. */
+   *  faint ring of its size round it (D312; `dot` false: the ring alone), at most once a frame. */
   const cursorFrame = useRef(0);
   function showForceCursor(at: [number, number] | null, dot = true) {
     // (F held: the ring stays where it was, its size following the pointer)
@@ -2393,8 +2391,8 @@ export default function Editor(props: EditorProps) {
   }
 
   // Craterize, Erupt and Quake take the map's clicks and drags while picked (D258: clean gestures):
-  // a click strikes or erupts at once, where the cursor is; Craterize's Aim is a drag the way the
-  // impactor travels, its line drawn as it goes (D321 item 41: the drawn line, never an arrow); a
+  // a click strikes or erupts at once, where the cursor is; Craterize is click-only (D368 (7): a crater
+  // is one impact), a press and drag striking once where the press began, no line drawn; a
   // fissure or a fault is drawn freehand with the same pen (D327), its line showing as it is drawn (the
   // gesture itself), and letting go starts it (a Lift shows its result as it is drawn, and is kept when
   // let go). Nothing predicts the result on the land; the only word is Erupt's when a vent can't rise
@@ -2418,7 +2416,7 @@ export default function Editor(props: EditorProps) {
     let dragged = false;
     const showStroke = (path: readonly QuakePoint[] | null) => {
       cancelAnimationFrame(strokeFrame);
-      // (a fault's or a fissure's band; Craterize's aim is a line)
+      // (a fault's or a fissure's band)
       strokeFrame = requestAnimationFrame(() => setForceStroke(path ? gestureTiles(path, bandRadius()) : null));
     };
     /** Erupt's one word, once a frame at most (it reads the ground round the vent). */
@@ -2461,11 +2459,7 @@ export default function Editor(props: EditorProps) {
         notePointer(ev);
         showForceCursor(null);
         setShapeNote(null);
-        // (Craterize's aim is drawn with the same pen; its line shows once it is a drag)
-        if (!painted()) {
-          brush = new FaultBrush(point(hit), W, H, 1);
-          lastMove = performance.now();
-        }
+        // (Craterize draws nothing: it strikes where the press began, D368 (7))
         if (painted()) {
           const p = point(hit);
           // Shift: a straight line on from where the last stroke ended
@@ -2498,10 +2492,6 @@ export default function Editor(props: EditorProps) {
         down = null;
         if (!d) return;
         const p = hit ? point(hit) : null;
-        if (brush && verb === "craterize") {
-          brush = null;
-          showStroke(null);
-        }
         if (brush) {
           const b = brush;
           brush = null;
@@ -2531,11 +2521,8 @@ export default function Editor(props: EditorProps) {
           } else startForce({ verb: "quake", settings: quakeSettingsOf(quakeUiRef.current), path: intent.path, side: intent.side, cut: cut() });
           return;
         }
-        if (!p) return;
-        // Craterize: a drag is a glancing blow the way its line runs; a click strikes where it began
-        const glancing = dragged && Math.hypot(p.x - d.x, p.y - d.y) > 1;
-        if (!glancing && Math.max(Math.abs(p.x - d.x), Math.abs(p.y - d.y)) > 1) return;
-        startForce({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current, glancing), origin: [d.x, d.y], ...(glancing ? { end: [p.x, p.y] as [number, number] } : {}), cut: cut() });
+        // Craterize: one impact where the press began, a click or a drag alike (D368 (7))
+        startForce({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current), origin: [d.x, d.y], cut: cut() });
       },
       hover: (hit, ev) => {
         notePointer(ev);
@@ -2544,12 +2531,7 @@ export default function Editor(props: EditorProps) {
           if (!hit) showForceCursor(null);
           return;
         }
-        // a painted fault has no cursor, only its reach's ring: the stroke is the gesture (Erupt's click
-        // vents: it has one)
-        if (verb === "quake") {
-          showForceCursor([hit.x, hit.y], false);
-          return;
-        }
+        // (Quake: only the small marker, never its reach, D368 (2))
         showForceCursor([hit.x, hit.y]);
         if (verb === "erupt") eruptWord(hit.x, hit.y);
       },
