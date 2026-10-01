@@ -145,4 +145,38 @@ ${TALL_NOTE}`);
     expect(withTallNote("", true)).toBe(TALL_NOTE);
     expect(TALL_NOTE).toBe("Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16.");
   });
+
+  it("a tall generated map, exported and opened as a file, exports the same bytes: its own words are its note, never twice (D244, D341)", () => {
+    const r = generate(makeSpec({ seed: 7, theme: "riverValley", size: { x: 64, y: 64 } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    expect(isTall(s.built.heights)).toBe(false);
+    const st = s.built.start!;
+    const x0 = st.x < 32 ? 50 : 8;
+    const y0 = st.y < 32 ? 50 : 8;
+    const cells: [number, number, number][] = [];
+    for (let y = y0; y < y0 + 4; y++) cells.push([y, x0, x0 + 3]);
+    const level = (l: number, on: MapSession) => expect(on.apply({ op: "sculpt", params: { mode: "flatten", cells, level: l } }, "user", "Set level").errors).toEqual([]);
+    level(18, s);
+    const exported = s.exportTimber().bytes;
+    expect(described(exported)).toContain("The land rises to level 18: the game's map editor edits only up to level 16.");
+    expect(described(exported)).not.toContain(TALL_NOTE);
+    // opened as a file: unedited, the same bytes
+    const again = MapSession.importMap(exported, "tall.timber");
+    again.setWaterMode("defer");
+    expect(described(again.exportTimber().bytes)).toBe(described(exported));
+    expect(Buffer.from(again.exportTimber().bytes).equals(Buffer.from(exported))).toBe(true);
+    // raised higher, its own words follow the land; back at 16 or below, they go
+    level(CEILING, again);
+    expect(described(again.exportTimber().bytes)).toBe(described(exported).replace("level 18:", `level ${CEILING}:`));
+    level(12, again);
+    const standard = described(again.exportTimber().bytes);
+    expect(noted(standard)).toBe(false);
+    expect(standard).toBe(described(exported).replace(" The land rises to level 18: the game's map editor edits only up to level 16.", ""));
+    // the note on its own
+    const own = "A river. The land rises to level 19: the game's map editor edits only up to level 16. Made with Dam Good Maps.";
+    expect(withTallNote(own, true)).toBe(own);
+    expect(withTallNote(own, true, 21)).toBe(own.replace("level 19:", "level 21:"));
+    expect(withTallNote(own, false)).toBe("A river. Made with Dam Good Maps.");
+  });
 });
