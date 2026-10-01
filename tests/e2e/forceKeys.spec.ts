@@ -1,7 +1,8 @@
 // Kyler's forces sitting, batch A (PLAN §20 D344), through the page. A1: F and the mouse size a force's
 // ring on the map, [ and ] step its Size and { and } its Power, exactly as a brush's, the number
 // beside the pointer, a Size set by hand off Auto. A2: Power and Size always read as numbers, "Auto
-// (68)" on Auto. A3: a drawn gesture shows as a band of its width along the line, with no ring. A4:
+// (68)" on Auto. A3 (amended by D361 (2)): a drawn gesture shows as its stroke along the line, with no
+// ring: Carve's and Glaciate's band their width, a fault's or a fissure's a narrow line. A4:
 // Esc while a line is still being drawn cancels it and nothing starts; a painted Lift being drawn goes
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
 
@@ -154,7 +155,10 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
     await draw();
     await expect.poll(async () => (await gesture(page)).stroke ?? 0, { message: name }).toBeGreaterThan(20);
     const g = await gesture(page);
-    expect(g.band, name).toBeGreaterThan(1);
+    // (the preview is the stroke, D361 (2): Carve's and Glaciate's width, their Size; a fault or a
+    // fissure its own narrow line, never its reach or the ground inside it)
+    if (name === "Quake" || name === "Erupt") expect(g.band, name).toBe(1);
+    else expect(g.band, name).toBeGreaterThan(1);
     expect(g.ring, name).toBeNull();
     expect(await status(page), name).toBeNull();
     await page.keyboard.press("Escape");
@@ -189,4 +193,53 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
   await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
   await idle(page);
   expect((await labels(page)).length).toBe(n0 + 1);
+});
+
+test("D361 (1): Power acts on every mode: } while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
+  await refine(page);
+  const at = await spot(page);
+  const before = await heights(page);
+  await page.keyboard.press("9");
+  const row = page.getByRole("group", { name: "Quake options" });
+  await row.getByRole("slider", { name: "Power" }).fill("0");
+  const a = await client(page, at[0] - 12, at[1]);
+  const b = await client(page, at[0] + 12, at[1] + 2);
+  await page.mouse.move(a.x + 3, a.y);
+  await page.mouse.move(a.x, a.y);
+  await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 16 });
+  await expect.poll(() => status(page)).not.toBeNull();
+  const rise = async () => {
+    const h = await heights(page);
+    return h.reduce((m, v, i) => Math.max(m, v - before[i]), 0);
+  };
+  await expect.poll(rise).toBeGreaterThan(0);
+  const low = await rise();
+  for (let k = 0; k < 20; k++) await page.keyboard.press("}");
+  await expect.poll(rise, { timeout: 10_000 }).toBeGreaterThan(low + 3);
+  await page.mouse.up();
+  await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+  await idle(page);
+  expect(await rise()).toBeGreaterThan(low + 3);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(before);
+
+  // Craterize at Power 10, then Try another at Power 90: a stronger impact
+  await page.keyboard.press("8");
+  const crater = page.getByRole("group", { name: "Craterize options" });
+  await crater.getByRole("slider", { name: "Power" }).fill("10");
+  const p = await client(page, at[0], at[1]);
+  await page.mouse.move(p.x + 3, p.y);
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+  await idle(page);
+  const moved = async () => (await heights(page)).reduce((n, v, i) => n + Math.abs(v - before[i]), 0);
+  const weak = await moved();
+  await crater.getByRole("slider", { name: "Power" }).fill("90");
+  await crater.getByRole("button", { name: "Try another" }).click();
+  await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+  await idle(page);
+  expect(await moved()).toBeGreaterThan(weak * 3);
 });

@@ -16,6 +16,7 @@ import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
+import { strength, tempered } from "./strength";
 
 export interface Point {
   x: number;
@@ -582,6 +583,8 @@ export class EruptPlan {
 
   /** A fissure's bound on its rise, when its line needs its share of it (D226; 0: all of it). */
   private readonly bound: number;
+  /** How strongly it rises (D361 (3): 1 unless its Size outgrows its Power). */
+  readonly strength: number;
 
   constructor(
     readonly before: FullForceMap,
@@ -599,6 +602,7 @@ export class EruptPlan {
     // (a fissure that fits keeps all of its rise everywhere, as the prototype's)
     const a = this.anatomy;
     this.bound = settings.mode === "fissure" && !fits(before, settings, a, this.keep) ? riseBound(settings, a) : 0;
+    this.strength = strength(settings.power, settings.size ?? null, naturalBreadth(settings));
   }
 
   get planned(): boolean {
@@ -621,6 +625,8 @@ export class EruptPlan {
         if (f.r > 2.6) continue;
         const k = this.bound ? fissureScale(a, this.bound, this.before.heights[Math.round(f.cy) * W + Math.round(f.cx)]) : a.scale;
         let target = raiseAt(this.before, s, a, this.flows, f, i, h, k);
+        // Size and Power (D361 (3)): broader than Power's own volcano, it rises in proportion
+        target = tempered(h, target, this.strength);
         target = clamp(Math.round(Math.round(target * 4096) / 4096), 0, Math.min(22, this.map.maxHeight));
         this.map.heights[i] = target;
         if (target !== h) {
