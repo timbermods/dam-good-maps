@@ -1,5 +1,8 @@
 # Weak settings: prototype findings
 
+> **Held (Kyler, 2026-10-01, D370):** it fixes both nightly checks (Verticality's relief spans about 3–4 to 12–17 levels on every theme; Lakes adds connected side basins), but 7 of 350 maps fail (starts, one settle), some steps don't increase (relief 8 of 140, water 26 of 140), and speed misses the targets. It was built before the theme adoptions and the D348 fix, which reshape the same land; it stays last, and Codex gets a round 2 on the new base once Islands, Delta and River Valley are adopted and the shared fixes are in.
+
+
 **Nightly checks fixed; not ready for adoption.** Base: `feature/m9b` `6c29b7e5`.
 Product code is unchanged. Independent patches, combined patch and reproduction: [INTEGRATION.md](INTEGRATION.md).
 
