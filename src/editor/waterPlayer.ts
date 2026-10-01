@@ -144,6 +144,15 @@ export class WaterPlayer {
     return this.frames.length > 0 && !this.weather;
   }
 
+  /** The water of the last settled frame this journey has (shown or still waiting to be), or null: the water the
+   *  worker's later news, which carries none because the page was sent it, means. The page's own copy of the
+   *  map's water changes only when that frame is shown, so it is behind while the journey is. */
+  get settledWater(): WaterView | null {
+    if (this.weather) return null;
+    for (let k = this.frames.length - 1; k >= 0; k--) if (this.frames[k].final) return this.frames[k].water;
+    return null;
+  }
+
   get canReplay(): boolean {
     return this.frames.length > 1 && !this.playing;
   }
