@@ -151,8 +151,8 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.keyboard.up("Shift");
   await expect(note).toHaveText(`down to ${h0 - 2}`);
   await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue(String(h0 - 2));
-  // a small brush: 3 × 3 tiles ([ steps the size down: 5, 4, 3, 2)
-  for (let k = 0; k < 3; k++) await page.keyboard.press("[");
+  // a small brush: 3 × 3 tiles ({ steps the size down: 5, 4, 3, 2)
+  for (let k = 0; k < 3; k++) await page.keyboard.press("{");
   await page.waitForTimeout(100);
   await page.mouse.down();
   await page.waitForTimeout(1200);
@@ -178,7 +178,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.mouse.move(pp.x + 2, pp.y);
   await expect(note).toHaveText("Free");
   await page.keyboard.press("Escape");
-  for (let k = 0; k < 3; k++) await page.keyboard.press("]");
+  for (let k = 0; k < 3; k++) await page.keyboard.press("}");
   await lowerRow.getByLabel("Square").uncheck();
 
   // straight lines: the stroke is one straight line, its length beside the pointer (D183)
@@ -223,7 +223,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const pf = await client(page, ...f);
   await page.mouse.move(pf.x, pf.y);
-  for (let k = 0; k < 2; k++) await page.keyboard.press("]");
+  for (let k = 0; k < 2; k++) await page.keyboard.press("}");
   await page.mouse.down();
   await page.waitForTimeout(1500);
   await page.mouse.up();
@@ -240,7 +240,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await page.locator(".start-hint").click();
   await idle(page);
   await expect.poll(async () => ((await info(page)).features.find((g) => g.kind === "start")!.params as { position: [number, number] }).position).toEqual([hint.x, hint.y]);
-  for (let k = 0; k < 2; k++) await page.keyboard.press("[");
+  for (let k = 0; k < 2; k++) await page.keyboard.press("{");
   await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
 
   // hold F and move the mouse: the ring's size follows, a click sets it (D205)

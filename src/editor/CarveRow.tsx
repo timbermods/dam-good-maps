@@ -15,7 +15,8 @@ import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN } from "../core/forces/carve/run";
 import { CEILING } from "../core/format/world";
 
 import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, SizeControl, type Force } from "./TopBar";
+import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, SIZE_KEYS, SizeControl, STRENGTH_KEYS, type Force } from "./TopBar";
+import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next carve (the page keeps it for the visit). Its details (wander,
  *  walls, depth), behind More, start on Auto (null) until the player pins one (D309). */
@@ -98,11 +99,11 @@ export function CarveRow(p: CarveRowProps) {
           <span class="bar-status" role="status">
             {st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}
           </span>
-          <button type="button" disabled={st.stopping} onClick={p.onPause} title={st.paused ? "Carry on (Space)" : "Hold it here (Space)"}>
+          <button type="button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
             {st.paused ? "Resume" : "Pause"}
           </button>
           <ForceKeys />
-          <button type="button" onClick={p.onRevert} title="Take all of it back (Ctrl+Z)">
+          <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
             Revert
           </button>
         </div>
@@ -118,14 +119,15 @@ export function CarveRow(p: CarveRowProps) {
   return (
     <>
       <ForceOptions force={p.force}>
-        <label class="slider-field" title="How hard it cuts ({ and })">
+        <label class="slider-field" {...tip("How hard it cuts", ...STRENGTH_KEYS)}>
           Power
           <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
           <output title={powerWord(u.power)}>{u.power}</output>
         </label>
         <SizeControl
           label="Size"
-          title="How wide it cuts (F, [ and ])"
+          title="How wide it cuts"
+          keys={SIZE_KEYS}
           value={Math.round(width)}
           words={u.width === null ? width.toFixed(1) : String(u.width)}
           min={2}

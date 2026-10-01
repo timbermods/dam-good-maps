@@ -1595,3 +1595,27 @@ its rule lives (D342), written before the fix.
   the hints where the tools, forces and shelf carry them. What the long tooltips said (Auto's value, the force details,
   what Delete takes) now lives in EDITOR_PLAN and the rows themselves.
 - **10, More / Less:** an accent outline and a chevron.
+
+## Kyler's re-check, the editor half (D368 (1), (4)–(6); `fix/recheck-editor`)
+
+Items 2 and 3 (Quake's hover, Glaciate's depth and width) are another branch's. Each behaviour has a test written first and
+seen failing.
+
+- **(1) One key habit:** F with the mouse and { } set Size; [ ] set Power on every force, strength on Smooth and Naturalize,
+  nothing on Raise, Lower and Flatten (`keyHabit` in `forceSize.ts`, the one handler in `Editor.tsx`). The A1, D361 (1), brush
+  and brush kit specs moved to the new keys. `tests/e2e/forceKeys.spec.ts` "D368 (1)" (failed first on the old keys).
+- **(4) Sources' one number:** the cause was two-fold. The worker sent the objects to the page only when it judged them
+  changed, and its comparison (`sameEntityView`) ignored a source's strength, so a strength change alone never reached the
+  page's copy and the marker's label kept the old number until something else moved. And the row read its own record of the
+  source, fetched after each answer, while the label read the page's copy (through a memo keyed on the map's version that
+  could hold an older copy): two values. Now the worker compares strength and a ruin's model too, and the label, the row and
+  the note read one value, the page's copy with each notch's strength set on it at once (`strengthReader`), cleared when the
+  worker's answer is in. `tests/contract/sourceNumber.test.ts` and `tests/e2e/sources.spec.ts` (both failed first; the e2e
+  saw the label at 1 while the note said 1.5).
+- **(5) The top right:** one grid: the compass in the corner, the level control centred on its line, Slow forces and the
+  speaker beneath on the cluster's edges, 44 px and an 8 px gap throughout; the volume opens beneath the speaker.
+  `tests/e2e/viewAndHeader.spec.ts` "D368 (5)" measures the boxes to a pixel, at rest and with a layer cut.
+- **(6) Key caps:** one shared tooltip (`src/ui/Tooltip.tsx`, mounted once at the page's root): a control's `title` is the
+  phrase, its `data-keys` the caps shown at the end; the browser's own tooltip is held back while ours shows. Every bracketed
+  key moved to caps. The tooltip spec fails on a key in brackets and on a control named with a key its tooltip doesn't end
+  with; a new spec hovers Carve (7), Smooth (4) and others and reads the caps.

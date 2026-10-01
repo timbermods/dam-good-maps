@@ -29,7 +29,7 @@
 // Controls: left-drag paints; right- or middle-drag and the wheel move the camera; Shift inverts
 // (raise ↔ lower); Shift+scroll sets the target (Smooth and Naturalize: the strength); Ctrl+click
 // takes the land's level as the target (on water, its bed); Ctrl+drag selects (the Select tool);
-// [ and ] change the size; hold F and move the mouse to size the ring, its size beside it, and let go
+// { and } change the size (D368 (1)); hold F and move the mouse to size the ring, its size beside it, and let go
 // (a click sets it too, D205, from Blender); 1–5 pick a brush; Esc cancels a stroke in progress or a
 // resize, then lets a set target follow the ground again.
 
@@ -90,7 +90,7 @@ export function sizeMax(W: number, H: number): number {
   return Math.max(24, Math.ceil(Math.max(W, H) / 2));
 }
 
-/** Brush sizes the [ and ] keys step through (up to the map's largest). */
+/** Brush sizes the { and } keys step through (up to the map's largest). */
 const SIZES = [1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24, 32, 40, 48, 64, 80, 96, 112, 128];
 
 export function nextSize(size: number, dir: 1 | -1, max = 24): number {

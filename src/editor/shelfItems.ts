@@ -6,6 +6,7 @@
 // Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
 import { hash32 } from "../core/math/hash";
+import { tip } from "../ui/Tooltip";
 
 export interface ShelfItem {
   id: string;
@@ -41,6 +42,11 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel" },
   { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a spot for free power" },
 ];
+
+/** An item's tooltip (D368 (6)): what it is for, then its key and R's turn as key caps. */
+export function shelfTip(it: ShelfItem) {
+  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1), it.key, it.turns && "R turns it");
+}
 
 export interface ShelfOptions {
   /** A ruin's height, 1–8 levels. */

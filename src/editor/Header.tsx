@@ -8,6 +8,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import { Items, type ItemActions } from "./panels";
+import { tip } from "../ui/Tooltip";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -156,12 +157,12 @@ export function Header(p: HeaderProps) {
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
-        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Z or Ctrl+Z)">
+        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
           </svg>
         </button>
-        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (C or Ctrl+Y)">
+        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" {...tip("Redo", "C", "Ctrl+Y")}>
           <svg {...ICON}>
             <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
           </svg>
