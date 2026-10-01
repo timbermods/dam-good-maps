@@ -188,17 +188,9 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
       // second needs, D370's mine pair)
       const reachWant = Math.min(want, minesWanted(W, H));
       const side = FOOTPRINTS.UndergroundRuins.size[0] + 2;
-      const leavesRoom = (tiles: [number, number][], still: number): boolean => {
-        if (still <= 0 || !land || landRoot < 0) return true;
-        const b2 = blocked.slice();
-        for (const [x, y] of tiles)
-          for (let dy = -3; dy <= 3; dy++)
-            for (let dx = -3; dx <= 3; dx++) {
-              const xx = x + dx;
-              const yy = y + dy;
-              if (xx >= 0 && yy >= 0 && xx < W && yy < H) b2[yy * W + xx] = 1;
-            }
-        // (a level square of the site's side, free, on the start's land, far enough out)
+      // (level squares of the site's side, free of `b2`, on the start's land, far enough out, apart
+      // from each other: whether there are `still` of them)
+      const roomFor = (b2: Uint8Array, still: number): boolean => {
         const sq = new Int32Array(N);
         for (let y = H - 1; y >= 0; y--)
           for (let x = W - 1; x >= 0; x--) {
@@ -223,8 +215,26 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         }
         return found >= still;
       };
+      let roomNow: { k: number; ok: boolean } | null = null;
+      const leavesRoom = (tiles: [number, number][], k: number): boolean => {
+        const still = reachWant - 1 - k;
+        if (still <= 0 || !land || landRoot < 0) return true;
+        // (only where the start's land has room for this site and the ones to come now: where it has
+        // not, no choice here keeps it)
+        if (!roomNow || roomNow.k !== k) roomNow = { k, ok: roomFor(blocked, still + 1) };
+        if (!roomNow.ok) return true;
+        const b2 = blocked.slice();
+        for (const [x, y] of tiles)
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H) b2[yy * W + xx] = 1;
+            }
+        return roomFor(b2, still);
+      };
       for (let k = 0; k < want; k++) {
-        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, reachWant - 1 - k);
+        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, k);
         // (60+ tiles out, a third of that beyond where there is room; one the colony reaches from 30)
         const mineLo = MINE_LO * scale + 1;
         const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot }, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits);
