@@ -2,7 +2,7 @@
 // Firefox, WebKit and Node, compared checkpoint by checkpoint. Any mismatch, error, or force record
 // that depends on how fast it was planned fails.
 //
-//   npx tsx tools/determinism/run.ts [--smoke] [--only <regex>] [--out <name>] [--engines chromium,firefox,webkit,node]
+//   npx tsx tools/determinism/run.ts [--smoke] [--only <text,text>] [--out <name>] [--engines chromium,firefox,webkit,node]
 //
 // Pull requests run --smoke (every theme, brush and force setting; one generation seed, short
 // sequences); the nightly runs the full list on each CPU of the matrix, and compare.ts compares
@@ -26,7 +26,8 @@ function arg(name: string): string | null {
   return i >= 0 ? (process.argv[i + 1] ?? null) : null;
 }
 const smoke = process.argv.includes("--smoke");
-const only = arg("only") ? new RegExp(arg("only")!) : null;
+// --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
+const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
 const outName = arg("out") ?? (smoke ? "smoke" : "full");
 if (!/^[a-z0-9-]+$/.test(outName)) throw Error("--out: lowercase letters, digits and dashes");
 const engineNames = (arg("engines") ?? "chromium,firefox,webkit,node").split(",");
@@ -96,7 +97,7 @@ try {
     engines[name] = { version: b.version(), userAgent: await p.evaluate(() => navigator.userAgent), run, rows: [], errors: [] };
   }
   let list = caseList(smoke);
-  if (only) list = list.filter((c) => only.test(c.id));
+  if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
   const t0 = performance.now();
   const slowest: { case: string; seconds: number }[] = [];
@@ -138,7 +139,7 @@ try {
   const summary = {
     schema: 1,
     smoke,
-    only: only?.source ?? null,
+    only: only?.join(",") ?? null,
     base: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
     platform: { os: os.platform(), release: os.release(), arch: os.arch(), cpu: os.cpus()[0]?.model ?? "", node: process.version },
     cases: list.length,

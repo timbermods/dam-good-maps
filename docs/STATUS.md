@@ -142,7 +142,7 @@ On <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refin
 
 **The editor** (D345, D347, D351, D352, D360 (2))
 7. Every camera view frames the map centred; long settings rows wrap to a second line; More opens as a grid.
-8. The level control sits top right beside the compass, with Watch and Sound under it.
+<!-- retired-terms:allow -->8. The level control sits top right beside the compass, with Watch and Sound under it.<!-- /retired-terms:allow -->
 9. Ctrl+scroll over a source changes its strength at once; clicking a source never places a second one.
 10. Delete counts and removes submerged objects, and everything inside a selection.
 11. Placing an object never spills water.
@@ -160,9 +160,9 @@ One sitting on <https://timbermods.github.io/dam-good-maps/preview/>: Generate, 
 one thing to try; say what feels wrong.
 
 **The forces** (batch 1, D321, D327)
-1. **Fast and Watch** (item 29): every force's land is final in about two seconds; **Watch** (beside Sound) plays it
+<!-- retired-terms:allow -->1. **Fast and Watch** (item 29): every force's land is final in about two seconds; **Watch** (beside Sound) plays it<!-- /retired-terms:allow -->
    about four times slower, and a click, a new gesture or Esc jumps to the end.
-2. **Nothing changes before the force reaches it** (item 30): watch a Glaciate or Carve in Watch; trees, sources and
+<!-- retired-terms:allow -->2. **Nothing changes before the force reaches it** (item 30): watch a Glaciate or Carve in Watch; trees, sources and<!-- /retired-terms:allow -->
    water go only as it passes.
 3. **Esc and undo, at any moment** (D341): press Esc mid-force, right after release, while it settles: the map is
    exactly as before, and nothing lands afterwards.
