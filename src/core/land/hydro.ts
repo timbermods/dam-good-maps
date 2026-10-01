@@ -1053,6 +1053,52 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     for (const t of traced) if (t.joins === k) v = Math.min(v, upSpill(t.k, seen));
     return v;
   };
+  // (D373 (1), D350 (d): a channel is as wide as the water it carries, its own and every river's
+  // that has joined it by then: a channel cut for its own head's flow alone, below a confluence, runs
+  // over its banks and spreads over the flat beside them, filling for days (Canyon 256² seed 22: six
+  // rivers of 2.28 through channels three tiles wide). Each river's joins: where on its course a
+  // tributary meets it, and all the water that tributary brings)
+  const totalOf = (k: number, seen = new Set<number>()): number => {
+    if (seen.has(k)) return 0;
+    seen.add(k);
+    let q = traced.find((t) => t.k === k)?.head.flow ?? 0;
+    for (const t of traced) if (t.joins === k) q += totalOf(t.k, seen);
+    return q;
+  };
+  const joinsOf = new Map<number, { s: number; q: number }[]>();
+  if (natural)
+    for (const t of traced) {
+      if (t.joins < 0) continue;
+      const onto = courses[t.joins];
+      const end = t.cells[t.cells.length - 1];
+      const ex = end % W;
+      const ey = (end - ex) / W;
+      // (the arc position on the river joined nearest the tributary's end)
+      let best = Infinity;
+      let at = 0;
+      let acc = 0;
+      for (let k = 0; k + 1 < onto.length; k++) {
+        const [ax, ay] = onto[k];
+        const [bx, by] = onto[k + 1];
+        const vx = bx - ax;
+        const vy = by - ay;
+        const l2 = vx * vx + vy * vy;
+        const l = Math.sqrt(l2);
+        let u = l2 > 0 ? ((ex - ax) * vx + (ey - ay) * vy) / l2 : 0;
+        u = u < 0 ? 0 : u > 1 ? 1 : u;
+        const dx = ax + u * vx - ex;
+        const dy = ay + u * vy - ey;
+        const d = dx * dx + dy * dy;
+        if (d < best) {
+          best = d;
+          at = acc + u * l;
+        }
+        acc += l;
+      }
+      const list = joinsOf.get(t.joins) ?? [];
+      list.push({ s: at, q: totalOf(t.k) });
+      joinsOf.set(t.joins, list);
+    }
   for (const tr of traced) {
     const hd = tr.head;
     const role = roleOf(tr.k);
@@ -1065,7 +1111,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const width = widthFor(hd.flow);
     const ws = hash32(seed, "width", attempt, tr.k);
     const wv = wanders[tr.k];
-    const half = (s: number, L: number) => halfWidthAt(width, wv, ws, s, L);
+    // (wider below each river that joins it, as wide as the water it then carries)
+    const joined = (joinsOf.get(tr.k) ?? []).slice().sort((a, b) => a.s - b.s);
+    const widthAt = (s: number): number => {
+      let q = hd.flow;
+      for (const j of joined) if (j.s <= s) q += j.q;
+      return q === hd.flow ? width : widthFor(q);
+    };
+    const half = (s: number, L: number) => halfWidthAt(widthAt(s), wv, ws, s, L);
     // canyons: the bigger rivers cut deeper and clear wider floors
     const big = hd.flow >= 1.2;
     const cut = 1 + (big ? Math.round(g.hydro.incise) : 0) + (tr.k === mainK ? hanging : 0);

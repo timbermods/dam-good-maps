@@ -48,7 +48,7 @@ import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
 import { enableIslandPrototype, islandPrototypeEnabled, islandStage, islandStartAvoid } from "../land/archipelago";
 import { deltaBadwaterKeep, deltaField, deltaHydro } from "../land/delta";
-import { shallowSheet, SHEET_MOST } from "../land/sheets";
+import { lakeRise, shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
@@ -150,9 +150,11 @@ export interface GenerationInfo {
   /** Mine-site pads levelled as the land was shaped (D363): each pad's middle, level and the tiles
    *  taken down a level. */
   pads?: MinePad[];
-  /** The largest flat a river of the shown land would spread over as a sheet, as a share of the
-   *  map (D372: a land over 5% is drawn again). */
+  /** The largest shallow sheet the shown land's planned lakes would stand as, a share of the map
+   *  (D372's reading; its rule is off). */
   sheet?: number;
+  /** The planned lakes' longest rise to their outlets' level (D373 (2)), a reading. */
+  rise?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -293,6 +295,8 @@ interface LandStage {
   pads?: MinePad[];
   /** Its rivers' largest sheet over a flat, a share of the map (D372). */
   sheet?: number;
+  /** Its planned lakes' longest rise to their outlets' level (D373 (2)). */
+  rise?: number;
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
@@ -1505,6 +1509,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const mineWay = from ? from.mineWay : new Uint8Array(N);
   if (from?.pads) info.pads = from.pads;
   if (from?.sheet !== undefined) info.sheet = from.sheet;
+  if (from?.rise !== undefined) info.rise = from.rise;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
@@ -1579,6 +1584,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       {
         const sheet = shallowSheet(hLand, W, H, hy);
         info.sheet = Math.round(sheet.share * 1000) / 1000;
+        info.rise = lakeRise(hy);
         if (!lastAttempt && SHEET_REJECT && sheet.share > SHEET_MOST) return fail("a river over a flat", null, true);
       }
       {
@@ -1714,7 +1720,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, sheet: info.sheet, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, sheet: info.sheet, rise: info.rise, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds

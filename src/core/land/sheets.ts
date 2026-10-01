@@ -69,3 +69,33 @@ export function shallowSheet(h: ArrayLike<number>, W: number, H: number, hy: Pic
   });
   return { tiles: best, share: N ? best / N : 0, at };
 }
+
+/**
+ * How long the planned lakes take to rise to the level their outlets pass their water at, the largest
+ * over the map, as a reading (D373 (2)): a lake's area at its level times the depth over its outlet
+ * that passes all the water joining it (0.44 deep at 0.82 blocks/s per tile of width, D26, the outlet
+ * as wide as its river's channel), over that water. A lake whose rise takes longer than the settle has
+ * is one the settle leaves still rising (Canyon 256² seed 14: 5,564 tiles rising 0.4 over its spill).
+ * Recorded to calibrate before any rule uses it; it rejects nothing.
+ */
+export function lakeRise(hy: Pick<Hydro, "lakes" | "rivers">): number {
+  const total = (id: string, seen = new Set<string>()): number => {
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const r = hy.rivers.find((x) => x.id === id);
+    if (!r) return 0;
+    let q = r.params.flow;
+    for (const o of hy.rivers) if ("river" in o.params.exit && o.params.exit.river === id) q += total(o.id, seen);
+    return q;
+  };
+  let most = 0;
+  for (const lk of hy.lakes) {
+    const r = hy.rivers.find((x) => x.id === lk.river);
+    const q = total(lk.river);
+    if (!r || !(q > 0)) continue;
+    const d = 0.44 * Math.sqrt(q / Math.max(1, r.params.width) / 0.82);
+    const t = (lk.tiles.length * d) / q;
+    if (t > most) most = t;
+  }
+  return Math.round(most * 10) / 10;
+}
