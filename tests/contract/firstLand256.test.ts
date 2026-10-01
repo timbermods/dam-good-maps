@@ -8,7 +8,8 @@ import { changedSinceShown } from "./firstLandShown";
 describe("the first land shown is the map (D348), at 256²", () => {
   it("every theme: the land at the end is the land shown, but for the worn way out", () => {
     for (const theme of AVAILABLE_THEMES) {
-      const { changed, levelled, worn } = changedSinceShown(theme as ThemeId, 1, 256);
+      const { changed, levelled, worn, mainKept } = changedSinceShown(theme as ThemeId, 1, 256);
+      expect(mainKept, `${theme} 1 256²: the main river kept`).toBe(true);
       expect(levelled, `${theme} 1 256²: a levelled start`).toBe(false);
       expect(worn, `${theme} 1 256²: the worn way out within its cap`).toBeLessThanOrEqual(WEAR_MOST);
       expect(changed.length, `${theme} 1 256²: tiles changed since the land was shown`).toBe(0);

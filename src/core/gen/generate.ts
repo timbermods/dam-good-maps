@@ -1346,6 +1346,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     rivers = rivers.filter((f) => !dropped.has(f.id));
   };
   if (from?.dropped.length) dropRivers(from.dropped);
+  // (rivers that leave before the land is shown, their sources reached on the pre-fill)
+  const droppedPre: string[] = [];
   // (and the sources fed stronger on an earlier attempt, D350)
   if (from && Object.keys(from.fed).length) {
     for (const f of rivers) {
@@ -1426,8 +1428,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return a;
   };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
-  // (whether a start may need its ground levelled: before the land is shown, as the plan; on a shown
-  // land, only as a last resort, when no start that needs none is left, D348)
+  // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
+  // levelling is part of shaping the land; never on a shown land, D348)
   let allowLevel = true;
   const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null): StartPick | null => {
     const model = waterModel(W, H, h, []);
@@ -1558,7 +1560,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         }
       }
     }
+    let second: StartPick | null = null;
+    // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
+    allowLevel = !from;
     guess = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 0, avoidOf(null));
+    allowLevel = true;
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
       // (and a second place, away from the first: a land with one place for a start has nothing to
@@ -1567,11 +1573,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (guess && !lastAttempt && opts.secondStart !== false) {
         const off = avoidOf(null);
         markTried(off, guess, W, H);
-        if (!settlerOn(held, zero, moisture(h, held, zero, W, H, null), 5, off)) return fail("one place for a start", null, true);
+        second = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 5, off);
+        if (!second) return fail("one place for a start", null, true);
       }
       // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
       // is shown rather than failing every attempt on it)
       if (!lastAttempt && edgeRuleApplies(W, H) && edgeWalls(h, W, H).some((e) => e.share >= EDGE_SHARE)) return fail("an edge wall", null, true);
+      // (a plan's start that needs its ground levelled has it levelled now, as the land is shaped:
+      // no start is levelled after the land is shown, D348)
+      if (guess?.levelled) {
+        levelStart(guess);
+        guess = { ...guess, levelled: false, shore: undefined };
+      }
+      // (and so has the second place, the start to fall back on once the land is shown)
+      if (second?.levelled) levelStart(second);
       // (D363: level ground for the mine sites the colony must reach, made as the land is shaped:
       // where the start's walk holds too few level squares, the ground nearest to level becomes a
       // pad, taken down a level at most, clear of the water)
@@ -1613,40 +1628,61 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       // (D348: the badwater hollows are dug as the land is shaped, before it is shown, from the plan's
       // start on the planned water; the land shown holds them, and every attempt on it keeps them)
-      if (guess && badAsk.count > 0) {
-        const bare = h.slice();
-        bad = badAt(est, guess, 0);
-        // (and never where another's water reaches a hollow's source, read on the pre-fill, the water
-        // the settle starts from: the hollows are not dug again once the land is shown)
-        let keepOff = badAsk.keepOff ?? null;
-        for (let round = 0; round < HOLLOW_TRIES && bad.features.length; round++) {
-          const bw = build([...rivers, ...bad.features], "water");
-          const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
-          const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: prefill(model).depth } as BuildResult);
-          if (!bad.features.some((f) => reached.has(f.id))) break;
+      const bare = h.slice();
+      if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
+      // (and the sources are read on the pre-fill, the water the settle starts from, before the land
+      // is shown: a spring river, or an inflow other than the main river, whose source another's water
+      // reaches leaves now; hollows another's water reaches are planned again, off where they were;
+      // a main river whose head is reached draws the land again. Nothing of it changes after the land
+      // is shown, D348)
+      let keepOffH = badAsk.keepOff ?? null;
+      let hollowTries = 0;
+      // (the pre-fill of the land as it will be shown, for the dam-wall check below)
+      let shownFill: Float64Array | null = null;
+      for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
+        const bw = build([...rivers, ...bad.features], "water");
+        const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+        const fill = prefill(model).depth;
+        const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
+        shownFill = Float64Array.from(fill);
+        if (!reached.size) break;
+        shownFill = null;
+        const leave = hy.rivers.filter((r) => reached.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
+        if (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length) {
+          if (!lastAttempt) return fail("source in a flow", null, true);
+          break;
+        }
+        if (leave.length) {
+          dropRivers(leave.map((r) => r.id));
+          droppedPre.push(...leave.map((r) => r.id));
+        }
+        if (bad.features.some((f) => reached.has(f.id))) {
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
-          keepOff = orMask(keepOff, bad.avoid);
-          bad = round + 1 < HOLLOW_TRIES ? planBad(est, { ...badAsk, keepOff }, attempt * 4 + 5 + round, guess) : noBad;
+          keepOffH = orMask(keepOffH, bad.avoid);
+          bad = ++hollowTries < HOLLOW_TRIES && guess ? planBad(est, { ...badAsk, keepOff: keepOffH }, attempt * 4 + 5 + hollowTries, guess) : noBad;
           if (bad.features.length) {
             h.set(bad.heights);
             for (const f of bad.features) contains.add(f.id);
           }
-        }
-        if (!bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
-        hLand.set(h);
+        } else if (!leave.length) break;
       }
+      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
+      hLand.set(h);
       // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the
       // planned water missed fails every attempt on the land once it is shown)
       if (!lastAttempt) {
-        const bw = build([...rivers, ...bad.features], "water");
-        const pf = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
+        let pf: ArrayLike<number> | null = shownFill;
+        if (!pf) {
+          const bw = build([...rivers, ...bad.features], "water");
+          pf = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
+        }
         const both = new Float64Array(N);
         for (let i = 0; i < N; i++) both[i] = Math.max(est[i], pf[i]);
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: [], fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
@@ -1849,7 +1885,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   for (let round = 0; round < 2 && !lastAttempt; round++) {
     const owners = sourcesInFlowOwners(b1);
     if (!owners.size) break;
-    let springs = hy.rivers.filter((r) => owners.has(r.id) && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
+    // (never the main river: the map shown keeps it, D348)
+    let springs = hy.rivers.filter((r) => owners.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
     if (springs.length >= hy.rivers.length) springs = [];
     // (a reached river that must stay, the Rivers count's or the only one: a spring-fed river whose
     // water reaches it leaves instead, D348)
@@ -1930,8 +1967,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (!mineRoomAt[i]) a[i] = 1;
     return a;
   };
-  // the start on the shown land: one that needs no levelling first, so the land stays as it was
-  // shown (D348); a levelled one only when no other start is left, a repair the settled water needs
+  // the start on the shown land: one that needs no levelling, so the land stays as it was shown
+  // (D348; the plan's start had its ground levelled as the land was shaped)
   const chooseStart = (): StartPick | null => {
     let p = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
@@ -1962,11 +1999,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   allowLevel = false;
   let pick = chooseStart();
-  if (!pick) {
-    allowLevel = true;
-    pick = chooseStart();
-    if (pick?.levelled) fixes.push("levelled start");
-  }
   // (no start on the settled water or the plan: the shown land has no place left for one, D348)
   if (!pick) return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
   // (a start that fails here, its ground under the settled water or its water gone, gives way to

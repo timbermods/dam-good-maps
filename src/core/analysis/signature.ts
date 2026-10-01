@@ -122,10 +122,12 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       widths.push(width);
     }
   }
-  // ---- canyons: the longest stretch of any river whose ground 3–5 tiles out rises 3+ levels over
-  //      its water on both sides
+  // ---- canyons: the longest stretch of any river whose ground rises 3+ levels over its water on
+  //      both sides within a few tiles of its banks (from the first dry tile out, as wide as the
+  //      water is: a wide river's walls stand beyond a narrow one's; Codex's Canyon audit, D370)
   let canyon = 0;
   let canyonShare = 0;
+  const reach = Math.round(0.3 * side);
   for (const r of rivers) {
     const S = samples(r, W, H);
     let run = 0;
@@ -135,7 +137,16 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       let sides = 0;
       for (const sgn of [-1, 1]) {
         let top = -Infinity;
-        for (let t = 2; t <= 6; t++) {
+        // (out past the water to its bank, then the ground within five tiles of it)
+        let bank = -1;
+        for (let t = 2; t <= reach && bank < 0; t++) {
+          const xx = Math.round(x - sgn * dy * t);
+          const yy = Math.round(y + sgn * dx * t);
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+          if (!wet(yy * W + xx)) bank = t;
+        }
+        if (bank < 0) continue;
+        for (let t = bank; t <= bank + 4; t++) {
           const xx = Math.round(x - sgn * dy * t);
           const yy = Math.round(y + sgn * dx * t);
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;

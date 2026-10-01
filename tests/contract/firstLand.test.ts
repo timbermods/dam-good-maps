@@ -14,8 +14,10 @@ describe("the first land shown is the map (D348)", () => {
     it(`at ${size}², every theme: the land at the end is the land shown, but for the worn way out`, () => {
       for (const theme of AVAILABLE_THEMES)
         for (const seed of [1, 2]) {
-          const { changed, levelled, worn } = changedSinceShown(theme as ThemeId, seed, size);
-          expect(levelled, `${theme} ${seed} ${size}²: a levelled start`).toBe(false);
+          const { changed, levelled, worn, mainKept } = changedSinceShown(theme as ThemeId, seed, size);
+          expect(mainKept, `${theme} ${seed} ${size}²: the main river kept`).toBe(true);
+          expect(mainKept, `${theme} 1 256²: the main river kept`).toBe(true);
+      expect(levelled, `${theme} ${seed} ${size}²: a levelled start`).toBe(false);
           expect(worn, `${theme} ${seed} ${size}²: the worn way out within its cap`).toBeLessThanOrEqual(WEAR_MOST);
           expect(worn, `${theme} 1 256²: the worn way out within its cap`).toBeLessThanOrEqual(WEAR_MOST);
       expect(changed.length, `${theme} ${seed} ${size}²: tiles changed since the land was shown`).toBe(0);
