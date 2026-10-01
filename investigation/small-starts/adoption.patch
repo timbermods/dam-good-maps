@@ -1,0 +1,379 @@
+diff --git a/src/core/gen/extras.ts b/src/core/gen/extras.ts
+index babbd6b0..a47ac3fd 100644
+--- a/src/core/gen/extras.ts
++++ b/src/core/gen/extras.ts
+@@ -25,6 +25,7 @@ import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setp
+ import { stream, type Rng } from "../math/rng";
+ import type { MapSpec } from "../spec/mapspec";
+ import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
++import { mineFootDistance } from "../resources/mineGround";
+ import { pickMineSite } from "../resources/baseline";
+ import { entityTiles } from "../features/edits";
+
+@@ -81,6 +82,29 @@ export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number
+ /** Placing order: the biggest footprints first, so they find room. */
+ const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMedium", "relicSmall", "unstableCore"];
+
++/** One keep-off mask for mine room and object placement, before adding a start's margin. */
++export function objectKeepOff(b: BuildResult, features: readonly Feature[], protect?: Uint8Array | null, avoid?: Uint8Array | null): Uint8Array {
++  const { W, H } = b;
++  const N = W * H;
++  const blocked = new Uint8Array(N);
++  const margin = FLOOD_MARGIN + 1;
++  for (let i = 0; i < N; i++) {
++    const x = i % W;
++    const y = (i - x) / W;
++    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || protect?.[i] || avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
++    if (b.water[i] > WET)
++      for (let dy = -margin; dy <= margin; dy++)
++        for (let dx = -margin; dx <= margin; dx++) {
++          const xx = x + dx;
++          const yy = y + dy;
++          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
++        }
++  }
++  const beds = lakeBeds(features, b.heights, W, H);
++  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
++  return blocked;
++}
++
+ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
+   const { spec, base: b } = inp;
+   const { W, H } = b;
+@@ -100,22 +124,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
+   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
+   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
+   // player's tiles and the map's border
+-  const blocked = new Uint8Array(N);
+-  const margin = FLOOD_MARGIN + 1;
+-  for (let i = 0; i < N; i++) {
+-    const x = i % W;
+-    const y = (i - x) / W;
+-    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || inp.protect?.[i] || inp.avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
+-    if (b.water[i] > WET)
+-      for (let dy = -margin; dy <= margin; dy++)
+-        for (let dx = -margin; dx <= margin; dx++) {
+-          const xx = x + dx;
+-          const yy = y + dy;
+-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
+-        }
+-  }
+-  const beds = lakeBeds(inp.features, h, W, H);
+-  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
++  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
+   // start's zone and a margin: nothing of this within 8 tiles
+   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
+
+@@ -208,7 +217,9 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
+         let found = 0;
+         const spots: number[] = [];
+         for (let i = 0; i < N && found < still; i++) {
+-          if (sq[i] < side || land[i] !== landRoot || sd[i] < lo) continue;
++          const x = i % W;
++          const y = Math.floor(i / W);
++          if (sq[i] < side || land[i] !== landRoot || mineFootDistance(sd, W, x + 1, y + 1) < lo) continue;
+           if (spots.some((t) => Math.max(Math.abs((t % W) - (i % W)), Math.abs(Math.floor(t / W) - Math.floor(i / W))) < side + 3)) continue;
+           spots.push(i);
+           found++;
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index de1c467b..957b144b 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -74,7 +74,7 @@ import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWant
+ import { blocks, type ValidationReport } from "../validate/report";
+ import { walkRegions } from "../analysis/regions";
+ import { planSetPiece } from "../features/setpieces";
+-import { BEHIND_CUT, CLOSE_DISTRICT, districtCandidates, neckCut, planExtras, riseSpots, riseStands } from "./extras";
++import { BEHIND_CUT, CLOSE_DISTRICT, districtCandidates, neckCut, objectKeepOff, planExtras, riseSpots, riseStands } from "./extras";
+ import { DISTRICT_RADIUS } from "../features/setpieces/secondDistrict";
+ import { lakeFeatures } from "./readback";
+ import { planWeir } from "./weir";
+@@ -221,8 +221,8 @@ export interface GenerateOptions {
+   maxAttempts?: number;
+   /** Progress: the attempt and its stage (land, water, start, objects, resources, check). */
+   onProgress?: (p: { attempt: number; stage: string }) => void;
+-  /** The first look: each attempt's land and its planned water (channels 1, lakes 2, floors 3), as
+-   *  soon as they exist. */
++  /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
++   *  the actual settled start reaches its required mine pair. Fires once per map. */
+   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
+   /** Regeneration constraints (PLAN §7.0). */
+   context?: PlanContext | null;
+@@ -290,10 +290,11 @@ interface StageBundle {
+   plug: ReturnType<typeof planPlug>;
+ }
+
+-/** A land that passed the land stage (D333 (2), D348): the map from here on, shown at once as
+- *  editable land and never replaced. Its water, start, badwater and objects are planned again on it
+- *  until an attempt passes; new land is never drawn after it is shown. */
++/** Prepared land retained across attempts. It becomes the fixed, editable map only after its
++ *  actual settled start reaches the required mine pair; new land is never drawn after display. */
+ interface LandStage {
++  /** The actual settled start and mine pair have been proved, and onLand fired. */
++  shown: boolean;
+   hLand: Uint8Array;
+   bundle: StageBundle;
+   keep: Uint8Array;
+@@ -398,19 +399,27 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
+   // theme's promise, a standout intention; gen/outcomes.ts) are measured for the page: a miss that
+   // matters starts a background search for a version that meets all three (gen/versions.ts), never
+   // held before the map is shown. Water storage near the start stays a preference of the settler.
+-  // D333 (2), D348: the first land that passes the land stage (every check the land alone can judge)
+-  // is shown at once (the first look, editable land) and is the map: never replaced. What needs its
+-  // settled water is fixed on it (the start where the plan put it, a spring by the start) or planned
+-  // again on it (the start, the badwater, the objects), never by drawing new land.
++  // D348/D373: prepared land stays private until the actual settled start reaches its mine pair.
++  // Once shown (the first look, editable land), it is the map and is never replaced. Later water,
++  // start and object fixes retain that land under the existing retry rules.
+   let committed: LandStage | null = null;
+   let lands = 0;
+   // (lands drawn again before one is shown because their planned water misses an outcome)
+   const screened = { count: 0 };
+   for (let attempt = 0; attempt < max; attempt++) {
+     if (committed && land) {
+-      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, committed, screened);
++      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, committed, screened);
+       const r = attemptDone(a, attempt);
+       if (r) return r;
++      // Until the actual start reaches its mine pair, this land is still hidden.
++      // Its exhausted starts or an unrepairable water plan may therefore draw another land.
++      // Once onLand fired, the original D348 retry rules apply unchanged.
++      if (!committed.shown && (a.stuck || a.result.info.stage === "no start")) {
++        committed = null;
++        land = null;
++        if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
++        continue;
++      }
+       if (a.stuck) break;
+       continue;
+     }
+@@ -434,10 +443,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
+       const E = orientField(F.E, W, H, o);
+       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
+     } else replans++;
+-    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, null, screened);
++    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+     if (a.stage) {
+       committed = a.stage;
+-      lands++;
+     }
+     const r = attemptDone(a, attempt);
+     if (r) return r;
+@@ -1805,9 +1813,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+         if (info.fillWalls[1] > 0) return fail("terrain.dam_wall", null, true);
+         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
+       }
+-      firstLook = Math.round(performance.now() - t0);
+-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+-      opts.onLand?.({ attempt, heights: hLand, water: hy.water });
++      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+     }
+     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
+     // them already)
+@@ -2078,8 +2084,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+   // (what the objects' placement keeps off, gen/extras.ts: the hollows' ground and what the start
+   // keeps off, channels, objects, lakes, protected set pieces)
+   const roomKeepOf = (b: typeof b1) => {
+-    const k = avoidOf(bad, false);
+-    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || b.channel[i] || b.occupied[i] || b.cache.terrain.protect[i] || hy.water[i] === 2) k[i] = 1;
++    const k = objectKeepOff(b, [...rivers, ...bad.features], protect, avoidOf(bad, false));
++    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i]) k[i] = 1;
+     return k;
+   };
+   const scale = bandScale(W, H);
+@@ -2289,6 +2295,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+     layout.push(...kept);
+     base = b2;
+   }
++  // D348/D373: show the shaped land only once the actual settled start and pair
++  // have been proved by the placement and reach functions. A failed hidden attempt
++  // retains its prepared pads and cached settle; exhausted hidden land may redraw.
++  if (landStage && !landStage.shown && minesReachedOn(base) >= wantMines) {
++    landStage.shown = true;
++    landStage.hLand.set(h);
++    firstLook = Math.round(performance.now() - t0);
++    landStage.firstLook = firstLook;
++    opts.onLand?.({ attempt, heights: landStage.hLand, water: hy.water });
++  }
+   // ---- a second district's site (PLAN §9.8, maps of 128² and up): level land 60–120 tiles out
+   //      with its own water, found on the land (it changes no terrain), joined to the start's
+   //      ground by the derived slopes; groves and bushes grow round it
+diff --git a/src/core/gen/README.md b/src/core/gen/README.md
+index 7d0c217f..6ac02525 100644
+--- a/src/core/gen/README.md
++++ b/src/core/gen/README.md
+@@ -7,7 +7,7 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
+ - A change that alters a default map needs one deliberate re-pin of the tests and golden fixtures (D308) and a new `GENERATOR_VERSION` (`spec/mapspec.ts`).
+ - Themes lean the generator; they are not templates (D208).
+ - A candidate that fails a check is retried, up to `MAX_ATTEMPTS`; the first that passes is the map, never swapped (D329). `versions.ts` looks for a sibling that meets all three outcomes, in the background.
+-- The first land shown is the map (D348): a land passes the land stage (`planLandStage`: its rivers planned, its courses checked) and every check the land alone can judge (no inflow's head under a lake, `land/courses.ts` `drownedHeads`; no wall along an edge; a start on the planned water as its land holds it, `plannedWater` with `held` (lakes no higher than their rim, rivers spread over their floodplain), and a second place for one away from it; room for the mine sites, D363; no sea over a shelf of more than 10,000 tiles at its spill level or mostly on one over a quarter of the map, no ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water, its lakes' banks read alone too, no dam wall on the pre-fill's water 0.2 deep or more), then `onLand` fires, once per map (editable land), and it is never replaced. After its water settles: no start on the settled water takes the plan's start or level dry ground (`dryStart`), a start without water gets a spring by it (`springByStart`, D330's fix; `info.fixes` says which), a start that still fails gives way to another on the same settled water (`START_TRIES`), and what fails is planned again on the same land, keeping off the starts that failed. The badwater hollows are dug before the land is shown and kept on every attempt; a start on the shown land needs no levelling but as a last resort; so the land shown is the land at the end, byte for byte, but for the worn way out (`tests/contract/firstLand.test.ts`). Water that doesn't settle has a plug holding its lake opened, then its way out worn wider (`water/outletWear.ts`, D350 (b)); only when that fails too do the attempts stop (`stuck`).
++- The first land shown is the map (D348): a land passes the land stage (`planLandStage`: its rivers planned, its courses checked) and every check the land alone can judge (no inflow's head under a lake, `land/courses.ts` `drownedHeads`; no wall along an edge; a start on the planned water as its land holds it, `plannedWater` with `held` (lakes no higher than their rim, rivers spread over their floodplain), and a second place for one away from it; room for the mine sites, D363; no sea over a shelf of more than 10,000 tiles at its spill level or mostly on one over a quarter of the map, no ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water, its lakes' banks read alone too, no dam wall on the pre-fill's water 0.2 deep or more), then the prepared land is kept privately while its water, start and mine pair are proved; `onLand` fires once the actual settled start reaches the required pair, and it is never replaced. After its water settles: no start on the settled water takes the plan's start or level dry ground (`dryStart`), a start without water gets a spring by it (`springByStart`, D330's fix; `info.fixes` says which), a start that still fails gives way to another on the same settled water (`START_TRIES`), and what fails is planned again on the same land, keeping off the starts that failed. The badwater hollows are dug before the land is shown and kept on every attempt; a start on the shown land needs no levelling but as a last resort; so the land shown is the land at the end, byte for byte, but for the worn way out (`tests/contract/firstLand.test.ts`). Water that doesn't settle has a plug holding its lake opened, then its way out worn wider (`water/outletWear.ts`, D350 (b)); only when that fails too do the attempts stop (`stuck`).
+ - Thin sheets (D333, the pooled probe): a lake's shelf at its spill level is cut a level lower at the land stage (`lowerShelves`, not round a sea), and a tributary runs a level under a floor a bigger river cleared (`land/hydro.ts`), so no flat stands level with the water beside it.
+ - Mine sites' ground (D363): as the land is shaped, before it is shown, `land/minePads.ts` `minePads` makes sure the planned start's walk holds level squares for its mine sites 24 tiles or more out, levelling a pad (a level down at most, about 49 tiles, its edge eased into the land) where it has too few; the hollows keep off those squares and the ways to them, and on the settled water the start goes where its walk has that room (`roomMap`).
+ - Sources: None (D330): `withoutSources` makes the map as usual, then removes its sources and their water (the field's `dry`).
+@@ -20,3 +20,5 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
+ - `riverValley.ts` and `valley.ts` are remnants kept for `PlanConflict` and `startWalkable`.
+
+ **Tests**: `tests/contract/` (calibrated, parity, regenerate, share, resources, badwater, outflows, start) and `tests/e2e/determinism.spec.ts`. Batches: `tools/batch.ts`, `tools/batches.ts`. Run `npx vitest run tests/contract/calibrated.test.ts`.
++
++The small-start investigation keeps the field, prepared pads and cached settles across hidden attempts. Exhausted hidden starts or unrepairable hidden water may draw another land; after `onLand`, the original fixed-land retry rules apply. No extra settle is introduced on an ordinary passing map. Room and placement share `objectKeepOff` and the nearest-footprint distance (`resources/mineGround.ts`); item 47's bands and requirements are unchanged.
+diff --git a/src/core/land/minePads.ts b/src/core/land/minePads.ts
+index 9b0deed8..c20a21f6 100644
+--- a/src/core/land/minePads.ts
++++ b/src/core/land/minePads.ts
+@@ -1,3 +1,4 @@
++import { mineDistance } from "../resources/mineGround";
+ // Mine-site pads (PLAN §20 D363, with D328 and item 47): while the land is shaped, before it is ever
+ // shown, the generator makes sure a start's walk holds level ground for the mine sites it must reach.
+ // Where the land already has a level square for a site (the footprint and the ring its entrance
+@@ -31,9 +32,6 @@ export const PAD_MOST = 49;
+  *  spreads further, over flats and into ponds. */
+ const WATER_MARGIN = 3;
+ const PAD_WATER_MARGIN = 5;
+-/** How much farther a square's middle stands from the start's than the site's nearest tile from
+- *  the start's zone, at most (the footprint's corner, the zone's corner). */
+-const REACH_SLACK = 4.5;
+
+ const N4 = [
+   [1, 0],
+@@ -140,7 +138,7 @@ function ownSquares(h: Uint8Array, W: number, H: number, opts: SiteOptions & { f
+   const startMask = new Uint8Array(N);
+   for (let y = start.y - 1; y <= start.y + 1; y++) for (let x = start.x - 1; x <= start.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) startMask[y * W + x] = 1;
+   const sd = distanceFrom(startMask, W, H);
+-  const far = (c: number) => sd[c] >= opts.lo + REACH_SLACK;
++  const far = (c: number) => mineDistance(start.x, start.y, c % W, Math.floor(c / W)) >= opts.lo;
+   const taken: number[] = [];
+   if (root < 0) return { land, root, sd, far, taken };
+   // (clear of the water as the objects' placement keeps it, of the kept tiles and the start's zone)
+@@ -396,8 +394,6 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
+     byLand.set(land[c], list);
+   }
+   const out = new Uint8Array(N);
+-  const reach = opts.lo + REACH_SLACK;
+-  const reach2 = reach * reach;
+   for (let i = 0; i < N; i++) {
+     const list = land[i] >= 0 ? byLand.get(land[i]) : undefined;
+     if (!list) continue;
+@@ -414,7 +410,7 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
+     for (const c of list) {
+       const cx = c % W;
+       const cy = (c - cx) / W;
+-      if ((cx - x) * (cx - x) + (cy - y) * (cy - y) < reach2) continue;
++      if (mineDistance(x, y, cx, cy) < opts.lo) continue;
+       n++;
+       if (opts.want > 2) farOnes.push(c);
+       if (cx < x0) x0 = cx;
+diff --git a/src/core/land/README.md b/src/core/land/README.md
+index 679c84da..bf6cc99c 100644
+--- a/src/core/land/README.md
++++ b/src/core/land/README.md
+@@ -15,3 +15,5 @@ The generator's land processes (`docs/m9-design.md`): a genome drawn from the th
+ - `intentions.ts` (the set, the nudges, the checks); `narrows.ts` `planNarrows` (an internal operation, no editor tool).
+
+ **Tests**: `tests/unit/genome.test.ts`, plus the `gen/` tests, which build whole maps. Run `npx vitest run tests/unit/genome.test.ts`.
++
++Mine room uses the placement's nearest-footprint distance, from the start's 3×3 to the site's 5×5, rather than a square's corner or a centre-distance allowance. The generator supplies the same keep-off mask as object placement, including lake beds, the border and the square water margin.
+diff --git a/src/core/resources/baseline.ts b/src/core/resources/baseline.ts
+index 3be5f85d..4c4546f6 100644
+--- a/src/core/resources/baseline.ts
++++ b/src/core/resources/baseline.ts
+@@ -1,3 +1,4 @@
++import { mineFootDistance } from "./mineGround";
+ // The resource baseline (Kyler's "Resources like the official maps", 2026-09-25): how many trees,
+ // berry bushes and how much scrap a map carries for its size and settings, and where they go, as
+ // the official maps have them (investigation/official-baselines.json). The generator's
+@@ -595,8 +596,7 @@ export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: nu
+       const y = (pick - x) / W;
+       const [cx, cy] = coordinatesForMinCorner(size[0], size[1], x, y, orientation);
+       const tiles = footprintTiles("UndergroundRuins", { template: "UndergroundRuins", x: cx, y: cy, z: 0, orientation, flipped: false });
+-      let d = Infinity;
+-      for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) d = Math.min(d, sd[ty * W + tx]);
++      const d = mineFootDistance(sd, W, x, y);
+       if (d < least || d > band.hi) continue;
+       if (!fits(tiles)) continue;
+       return { x, y, orientation, tiles, reachable };
+diff --git a/src/core/resources/mineGround.ts b/src/core/resources/mineGround.ts
+new file mode 100644
+index 00000000..3bc7c6bb
+--- /dev/null
++++ b/src/core/resources/mineGround.ts
+@@ -0,0 +1,14 @@
++// Mine distance uses the same octile transform as distanceFrom, from the start's 3×3
++// to the nearest tile of the site's 5×5 footprint, never the corner of its 7×7 ring.
++export function mineDistance(sx: number, sy: number, cx: number, cy: number): number {
++  const dx = Math.max(0, Math.abs(cx - sx) - 3);
++  const dy = Math.max(0, Math.abs(cy - sy) - 3);
++  return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
++}
++
++/** Nearest footprint tile, given its minimum corner and the start distance field. */
++export function mineFootDistance(sd: ArrayLike<number>, W: number, x: number, y: number): number {
++  let d = Infinity;
++  for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) d = Math.min(d, sd[(y + dy) * W + x + dx]);
++  return d;
++}
+diff --git a/tests/unit/mineGround.test.ts b/tests/unit/mineGround.test.ts
+new file mode 100644
+index 00000000..fbb0a06a
+--- /dev/null
++++ b/tests/unit/mineGround.test.ts
+@@ -0,0 +1,34 @@
++import { describe, expect, it } from "vitest";
++import { distanceFrom } from "../../src/core/math/grid";
++import { mineDistance, mineFootDistance } from "../../src/core/resources/mineGround";
++import { objectKeepOff } from "../../src/core/gen/extras";
++import { strip } from "../contract/minePairGround";
++
++describe("one mine ground rule for reservation and placement", () => {
++  it("measures the nearest footprint tile in every direction, exactly as placement's distance field", () => {
++    const W = 96, H = 96, sx = 24, sy = 35;
++    const start = new Uint8Array(W * H);
++    for (let y = sy - 1; y <= sy + 1; y++) for (let x = sx - 1; x <= sx + 1; x++) start[y * W + x] = 1;
++    const sd = distanceFrom(start, W, H);
++    for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++)
++      expect(mineDistance(sx, sy, x, y)).toBeCloseTo(mineFootDistance(sd, W, x - 2, y - 2), 11);
++  });
++
++  it("keeps the map border, the square water margin, channels, occupied and protected ground", () => {
++    const b = strip();
++    b.water[40 * b.W + 40] = 1;
++    b.channel[50 * b.W + 50] = 1;
++    b.occupied[51 * b.W + 50] = 1;
++    b.cache.terrain.protect[52 * b.W + 50] = 1;
++    const avoid = new Uint8Array(b.W * b.H);
++    const protect = avoid.slice();
++    avoid[53 * b.W + 50] = 1;
++    protect[54 * b.W + 50] = 1;
++    const mask = objectKeepOff(b, [], protect, avoid);
++    expect(mask[2 * b.W + 1]).toBe(1);
++    expect(mask[2 * b.W + 2]).toBe(0);
++    expect(mask[43 * b.W + 43]).toBe(1);
++    expect(mask[44 * b.W + 44]).toBe(0);
++    for (let y = 50; y <= 54; y++) expect(mask[y * b.W + 50]).toBe(1);
++  });
++});
+diff --git a/tests/contract/smallStarts.test.ts b/tests/contract/smallStarts.test.ts
+new file mode 100644
+index 00000000..deb9caa4
+--- /dev/null
++++ b/tests/contract/smallStarts.test.ts
+@@ -0,0 +1,19 @@
++import { describe, expect, it } from "vitest";
++import { generate } from "../../src/core/gen/generate";
++import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
++
++describe("small starts prepared before the land is shown (D348, D363, D373)", () => {
++  for (const [theme, seed, size] of [["any", 31, 96], ["islands", 4, 96], ["highlands", 14, 96], ["canyon", 17, 96], ["canyon", 9, 128]] as const)
++    it(`${theme} ${size}² seed ${seed} passes without changing the shown land`, () => {
++      const shown: Uint8Array[] = [];
++      const r = generate(makeSpec({ theme: theme as ThemeId, seed, size: { x: size, y: size } }), {
++        onLand: l => shown.push(l.heights.slice()),
++      });
++      expect(r.report.passed, r.report.checks.filter(c => !c.ok).map(c => c.message).join("; ")).toBe(true);
++      expect(shown).toHaveLength(1);
++      expect(r.built.heights).toEqual(shown[0]);
++      expect(r.info.start?.levelled).toBe(false);
++      expect(r.report.checks.find(c => c.id === "resources.mine_site")?.ok).toBe(true);
++      expect(r.outcomes?.met).toBe(true);
++    });
++});

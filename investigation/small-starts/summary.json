@@ -1,0 +1,1011 @@
+{
+  "source": "e292cefe",
+  "sizes": {
+    "96": {
+      "failures": {
+        "before": [
+          {
+            "map": "any:31",
+            "checks": [
+              "start.count",
+              "resources.mine_site",
+              "no start"
+            ]
+          },
+          {
+            "map": "islands:4",
+            "checks": [
+              "start.count",
+              "resources.mine_site",
+              "no start"
+            ]
+          }
+        ],
+        "after": []
+      },
+      "met": {
+        "before": 213,
+        "after": 215
+      },
+      "themes": {
+        "any": {
+          "20": {
+            "before": 19,
+            "after": 19,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 1,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 1,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 35,
+            "after": 36,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 4,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 4,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "riverValley": {
+          "20": {
+            "before": 19,
+            "after": 19,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 1,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 1,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 34,
+            "after": 34,
+            "misses": {
+              "before": {
+                "promise": 3,
+                "water": 4,
+                "standout": 0
+              },
+              "after": {
+                "promise": 3,
+                "water": 4,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "canyon": {
+          "20": {
+            "before": 11,
+            "after": 11,
+            "misses": {
+              "before": {
+                "promise": 5,
+                "water": 5,
+                "standout": 0
+              },
+              "after": {
+                "promise": 5,
+                "water": 5,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 26,
+            "after": 26,
+            "misses": {
+              "before": {
+                "promise": 8,
+                "water": 7,
+                "standout": 0
+              },
+              "after": {
+                "promise": 8,
+                "water": 7,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "highlands": {
+          "20": {
+            "before": 9,
+            "after": 9,
+            "misses": {
+              "before": {
+                "promise": 8,
+                "water": 6,
+                "standout": 0
+              },
+              "after": {
+                "promise": 8,
+                "water": 6,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 21,
+            "after": 21,
+            "misses": {
+              "before": {
+                "promise": 15,
+                "water": 9,
+                "standout": 0
+              },
+              "after": {
+                "promise": 15,
+                "water": 9,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "lakeBasin": {
+          "20": {
+            "before": 12,
+            "after": 12,
+            "misses": {
+              "before": {
+                "promise": 8,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 8,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 23,
+            "after": 23,
+            "misses": {
+              "before": {
+                "promise": 14,
+                "water": 7,
+                "standout": 0
+              },
+              "after": {
+                "promise": 14,
+                "water": 7,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "delta": {
+          "20": {
+            "before": 19,
+            "after": 19,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 1
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 1
+              }
+            }
+          },
+          "40": {
+            "before": 35,
+            "after": 35,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 5
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 5
+              }
+            }
+          }
+        },
+        "islands": {
+          "20": {
+            "before": 19,
+            "after": 20,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 39,
+            "after": 40,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          }
+        }
+      },
+      "hiddenMineRetries": [
+        {
+          "map": "any:31",
+          "attempts": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "map": "canyon:23",
+          "attempts": [
+            2
+          ]
+        },
+        {
+          "map": "canyon:17",
+          "attempts": [
+            15,
+            16
+          ]
+        },
+        {
+          "map": "lakeBasin:6",
+          "attempts": [
+            1
+          ]
+        },
+        {
+          "map": "islands:38",
+          "attempts": [
+            0
+          ]
+        }
+      ],
+      "bytesChanged": [
+        "any:25",
+        "any:13",
+        "any:16",
+        "any:18",
+        "any:24",
+        "any:31",
+        "any:34",
+        "riverValley:3",
+        "riverValley:4",
+        "riverValley:6",
+        "riverValley:23",
+        "riverValley:25",
+        "riverValley:30",
+        "riverValley:19",
+        "riverValley:34",
+        "canyon:1",
+        "canyon:4",
+        "canyon:11",
+        "canyon:14",
+        "canyon:23",
+        "canyon:27",
+        "canyon:21",
+        "canyon:30",
+        "highlands:8",
+        "highlands:20",
+        "highlands:16",
+        "highlands:17",
+        "highlands:29",
+        "highlands:31",
+        "highlands:35",
+        "highlands:38",
+        "highlands:39",
+        "lakeBasin:7",
+        "lakeBasin:16",
+        "lakeBasin:39",
+        "delta:3",
+        "lakeBasin:33",
+        "lakeBasin:28",
+        "delta:6",
+        "delta:7",
+        "delta:32",
+        "islands:1",
+        "islands:2",
+        "islands:3",
+        "islands:4",
+        "islands:5",
+        "islands:6",
+        "islands:7",
+        "islands:8",
+        "islands:9",
+        "islands:10",
+        "islands:11",
+        "islands:12",
+        "islands:13",
+        "islands:14",
+        "islands:15",
+        "islands:16",
+        "islands:17",
+        "islands:18",
+        "islands:19",
+        "islands:20",
+        "islands:21",
+        "islands:22",
+        "islands:23",
+        "islands:24",
+        "islands:25",
+        "islands:27",
+        "islands:28",
+        "islands:29",
+        "islands:30",
+        "islands:31",
+        "islands:32",
+        "islands:33",
+        "islands:34",
+        "islands:35",
+        "islands:36",
+        "islands:37",
+        "islands:38",
+        "islands:40"
+      ],
+      "gained": [
+        "any:31",
+        "islands:4"
+      ],
+      "lost": [],
+      "terrainChangedAfterDisplay": []
+    },
+    "128": {
+      "failures": {
+        "before": [],
+        "after": []
+      },
+      "met": {
+        "before": 228,
+        "after": 229
+      },
+      "themes": {
+        "any": {
+          "20": {
+            "before": 18,
+            "after": 18,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 2,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 2,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 33,
+            "after": 33,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 7,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 7,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "riverValley": {
+          "20": {
+            "before": 18,
+            "after": 18,
+            "misses": {
+              "before": {
+                "promise": 1,
+                "water": 1,
+                "standout": 0
+              },
+              "after": {
+                "promise": 1,
+                "water": 1,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 35,
+            "after": 35,
+            "misses": {
+              "before": {
+                "promise": 2,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 2,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "canyon": {
+          "20": {
+            "before": 15,
+            "after": 16,
+            "misses": {
+              "before": {
+                "promise": 2,
+                "water": 4,
+                "standout": 0
+              },
+              "after": {
+                "promise": 2,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 31,
+            "after": 32,
+            "misses": {
+              "before": {
+                "promise": 4,
+                "water": 8,
+                "standout": 0
+              },
+              "after": {
+                "promise": 4,
+                "water": 7,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "highlands": {
+          "20": {
+            "before": 15,
+            "after": 15,
+            "misses": {
+              "before": {
+                "promise": 5,
+                "water": 2,
+                "standout": 0
+              },
+              "after": {
+                "promise": 5,
+                "water": 2,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 30,
+            "after": 30,
+            "misses": {
+              "before": {
+                "promise": 9,
+                "water": 5,
+                "standout": 0
+              },
+              "after": {
+                "promise": 9,
+                "water": 5,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "lakeBasin": {
+          "20": {
+            "before": 13,
+            "after": 13,
+            "misses": {
+              "before": {
+                "promise": 4,
+                "water": 6,
+                "standout": 0
+              },
+              "after": {
+                "promise": 4,
+                "water": 6,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 26,
+            "after": 26,
+            "misses": {
+              "before": {
+                "promise": 7,
+                "water": 11,
+                "standout": 0
+              },
+              "after": {
+                "promise": 7,
+                "water": 11,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "delta": {
+          "20": {
+            "before": 18,
+            "after": 18,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 2
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 2
+              }
+            }
+          },
+          "40": {
+            "before": 33,
+            "after": 33,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 7
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 7
+              }
+            }
+          }
+        },
+        "islands": {
+          "20": {
+            "before": 20,
+            "after": 20,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 40,
+            "after": 40,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          }
+        }
+      },
+      "hiddenMineRetries": [
+        {
+          "map": "canyon:9",
+          "attempts": [
+            8
+          ]
+        },
+        {
+          "map": "canyon:38",
+          "attempts": [
+            6
+          ]
+        }
+      ],
+      "bytesChanged": [
+        "any:8",
+        "any:33",
+        "any:28",
+        "riverValley:8",
+        "riverValley:29",
+        "riverValley:23",
+        "riverValley:36",
+        "canyon:24",
+        "canyon:27",
+        "canyon:5",
+        "canyon:18",
+        "canyon:22",
+        "highlands:12",
+        "highlands:23",
+        "highlands:13",
+        "highlands:16",
+        "highlands:18",
+        "highlands:1",
+        "highlands:27",
+        "highlands:28",
+        "highlands:30",
+        "highlands:35",
+        "lakeBasin:9",
+        "lakeBasin:10",
+        "lakeBasin:13",
+        "lakeBasin:14",
+        "highlands:37",
+        "highlands:40",
+        "lakeBasin:16",
+        "lakeBasin:20",
+        "lakeBasin:27",
+        "lakeBasin:28",
+        "lakeBasin:30",
+        "lakeBasin:21",
+        "delta:10",
+        "islands:1",
+        "islands:2",
+        "islands:3",
+        "islands:4",
+        "islands:5",
+        "islands:6",
+        "islands:7",
+        "islands:8",
+        "islands:9",
+        "islands:10",
+        "islands:11",
+        "islands:12",
+        "islands:13",
+        "islands:14",
+        "islands:15",
+        "islands:16",
+        "islands:17",
+        "islands:19",
+        "islands:20",
+        "islands:21",
+        "islands:22",
+        "islands:23",
+        "islands:24",
+        "islands:37",
+        "islands:38",
+        "islands:39",
+        "islands:40",
+        "islands:31",
+        "islands:32",
+        "islands:33",
+        "islands:34",
+        "islands:35",
+        "islands:36",
+        "islands:25",
+        "islands:26",
+        "islands:27",
+        "islands:28",
+        "islands:29",
+        "islands:30"
+      ],
+      "gained": [
+        "canyon:5"
+      ],
+      "lost": [],
+      "terrainChangedAfterDisplay": []
+    },
+    "256": {
+      "failures": {
+        "before": [],
+        "after": []
+      },
+      "met": {
+        "before": 229,
+        "after": 229
+      },
+      "themes": {
+        "any": {
+          "20": {
+            "before": 17,
+            "after": 17,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 34,
+            "after": 34,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 6,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 6,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "riverValley": {
+          "20": {
+            "before": 16,
+            "after": 16,
+            "misses": {
+              "before": {
+                "promise": 1,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 1,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 32,
+            "after": 32,
+            "misses": {
+              "before": {
+                "promise": 2,
+                "water": 6,
+                "standout": 0
+              },
+              "after": {
+                "promise": 2,
+                "water": 6,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "canyon": {
+          "20": {
+            "before": 15,
+            "after": 15,
+            "misses": {
+              "before": {
+                "promise": 2,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 2,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 32,
+            "after": 32,
+            "misses": {
+              "before": {
+                "promise": 4,
+                "water": 4,
+                "standout": 0
+              },
+              "after": {
+                "promise": 4,
+                "water": 4,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "highlands": {
+          "20": {
+            "before": 17,
+            "after": 17,
+            "misses": {
+              "before": {
+                "promise": 3,
+                "water": 1,
+                "standout": 0
+              },
+              "after": {
+                "promise": 3,
+                "water": 1,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 34,
+            "after": 34,
+            "misses": {
+              "before": {
+                "promise": 5,
+                "water": 3,
+                "standout": 0
+              },
+              "after": {
+                "promise": 5,
+                "water": 3,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "lakeBasin": {
+          "20": {
+            "before": 12,
+            "after": 12,
+            "misses": {
+              "before": {
+                "promise": 7,
+                "water": 4,
+                "standout": 0
+              },
+              "after": {
+                "promise": 7,
+                "water": 4,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 23,
+            "after": 23,
+            "misses": {
+              "before": {
+                "promise": 14,
+                "water": 8,
+                "standout": 0
+              },
+              "after": {
+                "promise": 14,
+                "water": 8,
+                "standout": 0
+              }
+            }
+          }
+        },
+        "delta": {
+          "20": {
+            "before": 17,
+            "after": 17,
+            "misses": {
+              "before": {
+                "promise": 1,
+                "water": 0,
+                "standout": 2
+              },
+              "after": {
+                "promise": 1,
+                "water": 0,
+                "standout": 2
+              }
+            }
+          },
+          "40": {
+            "before": 34,
+            "after": 34,
+            "misses": {
+              "before": {
+                "promise": 1,
+                "water": 0,
+                "standout": 5
+              },
+              "after": {
+                "promise": 1,
+                "water": 0,
+                "standout": 5
+              }
+            }
+          }
+        },
+        "islands": {
+          "20": {
+            "before": 20,
+            "after": 20,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          },
+          "40": {
+            "before": 40,
+            "after": 40,
+            "misses": {
+              "before": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              },
+              "after": {
+                "promise": 0,
+                "water": 0,
+                "standout": 0
+              }
+            }
+          }
+        }
+      },
+      "hiddenMineRetries": [],
+      "bytesChanged": [
+        "any:38",
+        "riverValley:5",
+        "riverValley:20",
+        "canyon:2",
+        "canyon:20",
+        "canyon:22",
+        "canyon:23",
+        "canyon:38",
+        "highlands:13",
+        "highlands:22",
+        "highlands:24"
+      ],
+      "gained": [],
+      "lost": [],
+      "terrainChangedAfterDisplay": []
+    }
+  }
+}
