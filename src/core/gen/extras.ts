@@ -62,9 +62,10 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   return out;
 }
 
-/** The lakes' beds: the tiles inside a lake's outline at or under its water (its sill), which no
- *  object takes. Dry land inside the outline standing above the water, an island, is land like any
- *  other (D369 (2): it may hold a mine site or another object, every placement rule holding there). */
+/** The lakes' beds: the tiles inside a lake's outline under its sill, which no object takes. Land
+ *  inside the outline at the sill or above, an island or its shore, is land like any other (D369 (2):
+ *  it may hold a mine site or another object, every placement rule holding there; its water's margin
+ *  is kept off as every water's is). */
 export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number>, W: number, H: number): Uint8Array {
   const N = W * H;
   const out = new Uint8Array(N);
@@ -72,7 +73,7 @@ export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number
     if (f.kind !== "lake") continue;
     const m = polygonMask(f.params.outline, W, H);
     const level = f.params.outlet.sill;
-    for (let i = 0; i < N; i++) if (m[i] && heights[i] <= level) out[i] = 1;
+    for (let i = 0; i < N; i++) if (m[i] && heights[i] < level) out[i] = 1;
   }
   return out;
 }

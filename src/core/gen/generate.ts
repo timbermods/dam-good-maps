@@ -46,6 +46,7 @@ import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
+import { enableIslandPrototype, islandPrototypeEnabled, islandStage, islandStartAvoid } from "../land/archipelago";
 import { shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
@@ -395,7 +396,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
       genomes++;
       replans = 0;
-      const F = makeField(g, seed, W, H);
+      // (Islands, Codex's sea-first prototype, D370: default Normal Islands draws its sea and islands
+      // first, land/archipelago.ts; the general field is not needed then)
+      const F = !opts.context && enableIslandPrototype(g, specIn) ? { E: new Float64Array(W * H), hard: new Float64Array(W * H) } : makeField(g, seed, W, H);
       // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
       // way with it; everything after is found on the turned land
       const o = orientationOf(seed, genomes - 1, W, H);
@@ -1121,6 +1124,7 @@ function wetRing(b: BuildResult, p: StartPick): boolean {
  *  this land and never changes it but locally (the start's pad, the badwater hollows). */
 function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, ctx: PlanContext | null, protect: Uint8Array | null, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
   const g = land.g;
+  if (islandPrototypeEnabled(g) && !ctx) return islandStage(g, seed, W, H, attempt);
   const N = W * H;
   const h = land.h0.slice();
   // what a regeneration keeps under locks stands as it was; the water finds its way round it
@@ -1444,6 +1448,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // levelling is part of shaping the land; never on a shown land, D348)
   let allowLevel = true;
   const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null): StartPick | null => {
+    // (Islands' start on its main island, D370)
+    avoid = islandStartAvoid(g, avoid);
     const model = waterModel(W, H, h, []);
     const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
     const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
