@@ -18,13 +18,13 @@ import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
 import type { Feature, MapObjectFeature, MapObjectKind } from "../features/schema";
 import { polygonMask } from "../features/geometry";
-import { ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
 import { landRegions, walkRegions } from "../analysis/regions";
 import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, WALK_BLOCKERS, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
 import { pickMineSite } from "../resources/baseline";
 import { entityTiles } from "../features/edits";
 
@@ -183,8 +183,48 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const lo = (band.scaled ? band.lo * scale : band.lo) + 1;
     const hi = (band.scaled ? band.hi * scale : band.hi) - 1;
     if (kind === "mineSite") {
+      // (the sites the colony must reach are a pair, item 47: a site is placed only where it leaves
+      // the start's land room for the ones still to come, so the first never takes the ground the
+      // second needs, D370's mine pair)
+      const reachWant = Math.min(want, minesWanted(W, H));
+      const side = FOOTPRINTS.UndergroundRuins.size[0] + 2;
+      const leavesRoom = (tiles: [number, number][], still: number): boolean => {
+        if (still <= 0 || !land || landRoot < 0) return true;
+        const b2 = blocked.slice();
+        for (const [x, y] of tiles)
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H) b2[yy * W + xx] = 1;
+            }
+        // (a level square of the site's side, free, on the start's land, far enough out)
+        const sq = new Int32Array(N);
+        for (let y = H - 1; y >= 0; y--)
+          for (let x = W - 1; x >= 0; x--) {
+            const i = y * W + x;
+            if (b2[i]) continue;
+            if (x === W - 1 || y === H - 1) {
+              sq[i] = 1;
+              continue;
+            }
+            const a = i + 1;
+            const c = i + W;
+            const d = i + W + 1;
+            sq[i] = h[a] !== h[i] || h[c] !== h[i] || h[d] !== h[i] ? 1 : 1 + Math.min(sq[a], sq[c], sq[d]);
+          }
+        let found = 0;
+        const spots: number[] = [];
+        for (let i = 0; i < N && found < still; i++) {
+          if (sq[i] < side || land[i] !== landRoot || sd[i] < lo) continue;
+          if (spots.some((t) => Math.max(Math.abs((t % W) - (i % W)), Math.abs(Math.floor(t / W) - Math.floor(i / W))) < side + 3)) continue;
+          spots.push(i);
+          found++;
+        }
+        return found >= still;
+      };
       for (let k = 0; k < want; k++) {
-        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length;
+        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, reachWant - 1 - k);
         // (60+ tiles out, a third of that beyond where there is room; one the colony reaches from 30)
         const mineLo = MINE_LO * scale + 1;
         const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot }, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits);
