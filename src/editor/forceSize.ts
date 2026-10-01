@@ -1,7 +1,8 @@
 // A force's Size and Power set from the keyboard and the pointer (PLAN §20 D344, A1), exactly as a
-// brush's: hold F and move the mouse to size its ring on the map (a click or letting go keeps it, Esc
-// or a right click puts it back), [ and ] step its Size, { and } its Power. Setting the Size by hand
-// takes it off Auto. Pure logic: the page holds the state and shows the words beside the pointer
+// brush's, one key habit for every tool (D368 (1)): hold F and move the mouse to size its ring on the
+// map (a click or letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and
+// ] its Power (a brush's: its strength, on Smooth and Naturalize). Setting the Size by hand takes it off
+// Auto. Pure logic: the page holds the state and shows the words beside the pointer
 // (pointerWords.ts); tests/unit/forceSize.test.ts checks it.
 
 import { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN } from "../core/forces/erupt";
@@ -32,7 +33,16 @@ export function sizeForReach(verb: SizedForce, d: number): number {
   return snapSize(verb, 2 * d);
 }
 
-/** [ or ]: the Size a step smaller or larger, from the size it has now (on Auto: the one Power gives). */
+/** What a key steps, the same for every tool (D368 (1)): { and } the Size, [ and ] the strength (a
+ *  force's Power, Smooth and Naturalize's strength; Raise, Lower and Flatten have none: their target
+ *  level is theirs). Null for any other key. */
+export function keyHabit(key: string): { what: "size" | "strength"; dir: 1 | -1 } | null {
+  if (key === "{" || key === "}") return { what: "size", dir: key === "}" ? 1 : -1 };
+  if (key === "[" || key === "]") return { what: "strength", dir: key === "]" ? 1 : -1 };
+  return null;
+}
+
+/** { or }: the Size a step smaller or larger, from the size it has now (on Auto: the one Power gives). */
 export function stepSize(verb: SizedForce, now: number, dir: 1 | -1): number {
   const { step } = FORCE_SIZES[verb];
   const from = snapSize(verb, now);
@@ -41,7 +51,7 @@ export function stepSize(verb: SizedForce, now: number, dir: 1 | -1): number {
   return snapSize(verb, next);
 }
 
-/** { or }: Power a slider's step (5) down or up, 0 to 100. */
+/** [ or ]: Power a slider's step (5) down or up, 0 to 100. */
 export function stepPower(power: number, dir: 1 | -1): number {
   return Math.max(0, Math.min(100, Math.round(power / 5) * 5 + dir * 5));
 }

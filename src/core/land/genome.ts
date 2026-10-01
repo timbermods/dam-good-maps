@@ -17,6 +17,7 @@
 // 1's types from proto/genome.ts). The draws are the prototype's, in its order, so a theme's genome
 // is the prototype's for the same seed; `leanGenome` then applies the map's settings.
 
+import * as portable from "../math/portable";
 import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { THEME_PRESETS, VT_DEFAULT, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
@@ -594,7 +595,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * Math.max(1, areaK)));
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // extra lakes: basins beyond the parts, so water spans the workshop's range
-  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, Math.sqrt(areaK))));
+  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, portable.sqrt(areaK))));
   for (let k = 0; k < lakes; k++) g.parts.push(randomPart(rng, "basin", W, H, vy, tallK));
   // a radial slope falls toward the first bowl when there is one
   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
@@ -633,7 +634,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const isles = Math.round((12 + 10 * rng.float()) * Math.max(1, areaK));
   for (let k = 0; k < isles; k++) {
     const [ux, uy] = [rng.float() * 2 - 1, rng.float() * 2 - 1];
-    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, Math.sqrt(ux * ux + uy * uy));
+    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, portable.sqrt(ux * ux + uy * uy));
     g.parts.push({ kind: rng.float() < 0.35 ? "cone" : "mesa", at: [g.focus[0] + (ux * r * R) / W, g.focus[1] + (uy * r * R) / H], size: 3 + 6 * rng.float(), height: depth + (1.5 + 4 * rng.float()) * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
   }
   // the land rises from the sea toward every edge: a steep bowl, quiet noise, levels spread by
@@ -742,8 +743,8 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // colony's need times the reserve, PLAN §5.3, §11.4) against the theme's own, as room for lakes
   // and as basins more or fewer (the settler then prefers a start near the water they keep)
   const storeRatio = (reservoirNeeded(designedFor) * RESERVE[s.water.droughtReserve]) / (reservoirNeeded("normal") * RESERVE[p.droughtReserve]);
-  g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (storeRatio > 1 ? Math.sqrt(storeRatio) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? 0.8 : 1), 0.01, 0.5);
-  const moreBasins = storeRatio > 1 ? Math.round(1.3 * Math.log2(storeRatio)) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? -1 : 0;
+  g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (storeRatio > 1 ? portable.sqrt(storeRatio) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? 0.8 : 1), 0.01, 0.5);
+  const moreBasins = storeRatio > 1 ? Math.round(1.3 * portable.log2(storeRatio)) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? -1 : 0;
   for (let k = 0; k < moreBasins; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
   for (let k = 0; k < -moreBasins; k++) {
     const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
@@ -775,8 +776,8 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
       const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
       if (at >= 0) g.parts.splice(at, 1);
     }
-    g.troughs *= 0.5 ** -dl;
-    g.lakeSprings *= 0.6 ** -dl;
+    g.troughs *= portable.pow(0.5, -dl);
+    g.lakeSprings *= portable.pow(0.6, -dl);
   }
   // waterfalls
   const df = FALL_STEP[s.water.waterfalls] - FALL_STEP[p.waterfalls];

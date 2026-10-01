@@ -2,10 +2,12 @@
 // the map it started from and the map it made. The four forces share this; a carve adds its source and
 // its sealed lake (carve/result.ts).
 
+import * as portable from "../math/portable";
 import { rebuiltSlope } from "../features/ids";
 import type { EntitySpec } from "../format/entities";
 import type { ForceMap, FullForceMap } from "./force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "./op";
+import type { StagedRun } from "./runs";
 
 type Literal = Pick<ForceResultParams, "tiles" | "heights" | "rock" | "removed" | "moved" | "felled">;
 
@@ -49,7 +51,7 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
     const e = now.get(f.id);
     if (!e || kept(e) || wasFallen.has(f.id)) continue;
     // (which way it lies: a unit direction, whatever length the force gave it)
-    const l = Math.hypot(f.dx, f.dy) || 1;
+    const l = portable.hypot(f.dx, f.dy) || 1;
     felled.push({ id: f.id, dx: round4(f.dx / l), dy: round4(f.dy / l) });
   }
   return {
@@ -90,6 +92,14 @@ export function forceParamsOf(before: ForceMap, after: FullForceMap | ForceMap, 
     ...lit,
     ...(rec.replaces !== undefined ? { replaces: rec.replaces } : {}),
   };
+}
+
+/** A staged force's operation (Craterize, Erupt, Quake, Glaciate), once planned: its `steps` are the
+ *  steps that show it (`total`), never how many slices its planning took, which follows the machine's
+ *  speed; so the same gesture is the same operation on any machine (D366). Null: it changed nothing. */
+export function stagedParamsOf(before: ForceMap, run: StagedRun, rec: Omit<ForceRecord, "steps" | "reason">): ForceResultParams | null {
+  const after = run.final();
+  return after ? forceParamsOf(before, after, { ...rec, steps: run.total, reason: "done" }) : null;
 }
 
 /** A painted line as the operation keeps it (to a hundredth of a tile). */

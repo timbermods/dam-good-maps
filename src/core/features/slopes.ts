@@ -20,6 +20,7 @@
 // every step that still stands, before anything else, wherever they are: a ramp is a staircase the
 // land made, not a boundary the spacing rule may skip.
 
+import * as portable from "../math/portable";
 import { levelRegions } from "../math/grid";
 import type { Orientation } from "../format/footprints";
 import { orientationForHigh } from "./setpieces";
@@ -150,7 +151,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       .map((c) => {
         const x = c[0] % W;
         const y = (c[0] - x) / W;
-        const d2 = (x - start.x) ** 2 + (y - start.y) ** 2;
+        const d2 = portable.pow(x - start.x, 2) + portable.pow(y - start.y, 2);
         const toward = towardWater && toWater ? Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) + toWater[c[0]] : 0;
         return { c, x, y, d2, toward };
       })

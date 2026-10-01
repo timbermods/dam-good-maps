@@ -6,6 +6,7 @@
 //
 // The plan stores the ground the spurs raise, tile by tile, so a rebuild never plans again.
 
+import * as portable from "../../math/portable";
 import { hash32 } from "../../math/hash";
 import { polygonMask } from "../geometry";
 import { planNarrows } from "../../land/narrows";
@@ -59,12 +60,12 @@ function planIt(req: PlanRecord, ctx: PlanContext, id: string | null): PlanOutco
   let cx = 0;
   let cy = 0;
   let best = Infinity;
-  const L = river.params.path.reduce((s, q, k, a) => (k ? s + Math.hypot(q[0] - a[k - 1][0], q[1] - a[k - 1][1]) : 0), 0);
+  const L = river.params.path.reduce((s, q, k, a) => (k ? s + portable.hypot(q[0] - a[k - 1][0], q[1] - a[k - 1][1]) : 0), 0);
   let acc = 0;
   for (let k = 1; k < river.params.path.length; k++) {
     const [ax, ay] = river.params.path[k - 1];
     const [bx, by] = river.params.path[k];
-    const l = Math.hypot(bx - ax, by - ay);
+    const l = portable.hypot(bx - ax, by - ay);
     const want = at * L;
     if (acc + l >= want && l > 0 && best === Infinity) {
       const u = (want - acc) / l;

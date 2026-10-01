@@ -6,6 +6,7 @@
 // over the walk the way the land offers it. This measures the arrangement, so the tests and the
 // batch tools can tell a ring from a planting that leans to one side or reaches farther out.
 
+import * as portable from "../math/portable";
 import type { Feature } from "../features/schema";
 import { runsToTiles } from "../math/grid";
 
@@ -77,7 +78,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
       const y = (i - x) / W;
       const dx = x - start.x;
       const dy = y - start.y;
-      const r = Math.sqrt(dx * dx + dy * dy);
+      const r = portable.sqrt(dx * dx + dy * dy);
       plants++;
       dist += r;
       if (r < nearest) nearest = r;
@@ -88,7 +89,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
       if (r < YARD_RADIUS) yard++;
       if (r <= RING_RADIUS) {
         inner++;
-        byOctant[(Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8]++;
+        byOctant[(Math.round(portable.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8]++;
       }
     }
   }
@@ -101,7 +102,7 @@ export function startPlantingSpread(features: readonly Feature[], W: number, sta
     innerShare: plants ? inner / plants : 0,
     octants,
     ring: octants >= RING_OCTANTS,
-    lean: plants ? Math.sqrt(sx * sx + sy * sy) / plants : 0,
+    lean: plants ? portable.sqrt(sx * sx + sy * sy) / plants : 0,
     meanDistance: plants ? dist / plants : 0,
     nearest,
     kinds,

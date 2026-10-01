@@ -12,6 +12,7 @@
 // - Landforms are drawn by their outline, with a height and an edge style.
 // - Set pieces are planned by their shared builders; moving one plans it again at its new place.
 
+import * as portable from "../math/portable";
 import { buildMap, START_CLEAR_RADIUS, type BuildResult } from "../features/build";
 import { bedAt, pathField, pointAtArc, polygonMask } from "../features/geometry";
 import { edgeStep, landformLevel } from "../features/raster/terrain";
@@ -123,7 +124,7 @@ function snapTo(p: Point, e: Edge, W: number, H: number): Point {
 
 function arcLength(path: readonly Point[]): number {
   let l = 0;
-  for (let i = 0; i + 1 < path.length; i++) l += Math.sqrt((path[i + 1][0] - path[i][0]) ** 2 + (path[i + 1][1] - path[i][1]) ** 2);
+  for (let i = 0; i + 1 < path.length; i++) l += portable.sqrt(portable.pow(path[i + 1][0] - path[i][0], 2) + portable.pow(path[i + 1][1] - path[i][1], 2));
   return l;
 }
 
@@ -195,7 +196,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
         const uy = pts[i + 1][1] - pts[i][1];
         const vx = pts[j + 1][0] - pts[j][0];
         const vy = pts[j + 1][1] - pts[j][1];
-        if (ux * vx + uy * vy < -0.5 * Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
+        if (ux * vx + uy * vy < -0.5 * portable.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
         continue;
       }
       if (segmentSegment(pts[i], pts[i + 1], pts[j], pts[j + 1]) < clearance) return fail("the river comes back too close to itself: draw it without loops");
@@ -237,7 +238,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
       let under = Infinity;
       for (let y = Math.max(0, Math.floor(p[1] - reach)); y <= Math.min(H - 1, Math.ceil(p[1] + reach)); y++)
         for (let x = Math.max(0, Math.floor(p[0] - reach)); x <= Math.min(W - 1, Math.ceil(p[0] + reach)); x++) {
-          if ((x - p[0]) ** 2 + (y - p[1]) ** 2 > reach * reach) continue;
+          if (portable.pow(x - p[0], 2) + portable.pow(y - p[1], 2) > reach * reach) continue;
           const i = y * W + x;
           if (ctx.channel?.[i]) {
             for (const f of ctx.features) if (f.kind === "river" && f.id !== id && f.id !== exitRiver && !crossed.has(f.id) && nearPath(f.params.path, x, y) < f.params.width / 2 + 0.5) crossed.add(f.id);
@@ -291,7 +292,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
     const [ex, ey] = pts[pts.length - 1];
     const rr = width / 2 + 2;
     for (let y = Math.max(0, Math.floor(ey - rr)); y <= Math.min(H - 1, Math.ceil(ey + rr)); y++)
-      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if ((x - ex) ** 2 + (y - ey) ** 2 <= rr * rr) endTiles.push(y * W + x);
+      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if (portable.pow(x - ex, 2) + portable.pow(y - ey, 2) <= rr * rr) endTiles.push(y * W + x);
   }
   const extra: EditOp[] = [];
   if (exitRiver) {
@@ -371,7 +372,7 @@ function pointSegment(p: Point, a: Point, b: Point): number {
   else if (t > 1) t = 1;
   const dx = a[0] + t * vx - p[0];
   const dy = a[1] + t * vy - p[1];
-  return Math.sqrt(dx * dx + dy * dy);
+  return portable.sqrt(dx * dx + dy * dy);
 }
 
 /** The least distance between two segments (0 when they cross). */
@@ -399,7 +400,7 @@ function nearPath(path: readonly Point[], x: number, y: number): number {
     const py = ay + t * vy - y;
     best = Math.min(best, px * px + py * py);
   }
-  return Math.sqrt(best);
+  return portable.sqrt(best);
 }
 
 // -------------------------------------------------------------------------------------- lakes
@@ -1015,7 +1016,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
   for (let r = 1; r <= 24; r++) {
     const ring: [number, number][] = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([fromX + dx, fromY + dy]);
-    ring.sort((a, b2) => (a[0] - fromX) ** 2 + (a[1] - fromY) ** 2 - ((b2[0] - fromX) ** 2 + (b2[1] - fromY) ** 2) || a[1] - b2[1] || a[0] - b2[0]);
+    ring.sort((a, b2) => portable.pow(a[0] - fromX, 2) + portable.pow(a[1] - fromY, 2) - (portable.pow(b2[0] - fromX, 2) + portable.pow(b2[1] - fromY, 2)) || a[1] - b2[1] || a[0] - b2[0]);
     for (const [x, y] of ring) {
       if (x < 2 || y < 2 || x > W - 3 || y > H - 3) continue;
       if (feat) {

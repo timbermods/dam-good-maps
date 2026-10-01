@@ -8,7 +8,8 @@
 // image and offered to open it).
 
 import { useRef } from "preact/hooks";
-import { SHELF, type ShelfItem } from "./shelfItems";
+import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
+import { tip } from "../ui/Tooltip";
 
 /** How far a press must move before it is a drag and not a click, in pixels. */
 const DRAG_PX = 6;
@@ -80,7 +81,7 @@ export function Shelf(p: ShelfProps) {
               class="shelf-item"
               aria-pressed={p.picked === it.id}
               aria-label={it.key ? `${it.name} (${it.key})` : it.name}
-              title={p.loading ? "The map is still loading" : `${it.name}${it.key ? ` (${it.key})` : ""}: ${it.hint}${it.turns ? " (R turns it)" : ""}`}
+              {...(p.loading ? tip("The map is still loading") : shelfTip(it))}
               disabled={p.loading}
               onPointerDown={(e) => down(e, it)}
               onDragStart={(e) => e.preventDefault()}

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 # Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in four shards, the
-# Python oracle, and generation. They fail only on
+# Python oracle, generation, and the cross-engine determinism check. They fail only on
 # breakage. Timings are information, not gates: each job's summary lists them against their
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
 # (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
@@ -140,3 +140,29 @@ jobs:
           path: .scratch/timings/
           if-no-files-found: ignore
           retention-days: 30
+
+  # The same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node, compared
+  # bit for bit (PLAN §2.1, §20 D366; tools/determinism/). The short list: every theme, brush and force
+  # setting, one generation seed, short sequences. The full list runs nightly on the CPU matrix
+  # (nightly.yml). The guard against native approximate maths in the core is in the quick suite
+  # (tests/unit/portable.test.ts).
+  engines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium, Firefox and WebKit for Playwright
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: The same results in every engine (the short list)
+        run: npx tsx tools/determinism/run.ts --smoke
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: determinism-smoke
+          path: .scratch/determinism/smoke/*.json
+          retention-days: 7

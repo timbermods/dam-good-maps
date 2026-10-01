@@ -287,6 +287,13 @@ export function View3D(props: View3DProps) {
     </>
   );
 
+  const compassDial = (
+    <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
+      <div ref={compass} class="needle">
+        <span>N</span>
+      </div>
+    </div>
+  );
   return (
     <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
       <div class="view3d">
@@ -303,16 +310,16 @@ export function View3D(props: View3DProps) {
         {props.viewButtons}
       </div>
       {props.cornerLevel || props.cornerBelow ? (
+        // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the
+        // switches beneath, lined up with the cluster's edges; one height and one gap throughout
         <div class="view3d-corner" role="group" aria-label="Layers and switches">
-          {props.cornerLevel}
+          <div class="corner-level">{props.cornerLevel}</div>
+          {compassDial}
           {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
         </div>
-      ) : null}
-      <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
-        <div ref={compass} class="needle">
-          <span>N</span>
-        </div>
-      </div>
+      ) : (
+        compassDial
+      )}
       {props.hoverText ? (
         <div class="readout" role="status">
           {props.hoverText}

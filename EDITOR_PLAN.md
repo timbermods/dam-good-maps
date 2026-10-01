@@ -30,12 +30,16 @@ editor is desktop-first (D185).
   make: smart Lower, a target level that follows the ground until set (D322), clear water round a brush over
   water, sampling a riverbed on water. Whenever a player would hesitate, switch tools or do
   something twice, look for a way the tool could have known what they meant (D204).
-- **Every control says what it does** (D351, amended by D361): each tool, force, option, view toggle, shelf item and
-  button has a tooltip: a short phrase that says what it is for at a glance, then its key where it has one ("Raise the
-  ground (1)"). No second sentence, no technical detail, about 60 characters at most. Whoever changes a control
-  updates its tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one
-  and on any tooltip with a second sentence or past that length (`tests/unit/tooltipForm.test.ts` checks the tools',
-  forces' and shelf's hints where they are written).
+- **Every control says what it does** (D351, amended by D361 and D368 (6)): each tool, force, option, view toggle,
+  shelf item and button has a tooltip: a short phrase that says what it is for at a glance, then its shortcut at the
+  end as a small key cap, never in brackets in the middle ("Carve a river" then a cap 7). No second sentence, no
+  technical detail, about 60 characters at most. **One shared tooltip** shows them all (`src/ui/Tooltip.tsx`): a
+  control carries its phrase as its `title` and its keys in `data-keys` (`tip("Carve a river", "7")`), and the one
+  layer shows them when it is hovered, the browser's own tooltip kept back. Whoever changes a control updates its
+  tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one, on any
+  tooltip with a second sentence, past that length or with a key in brackets, and on a control named with a key its
+  tooltip doesn't end with (`tests/unit/tooltipForm.test.ts` checks the tools', forces' and shelf's where they are
+  written).
 - **Things just work, and are fast.** Full frame rate on 256² maps; painting never waits on water;
   water reacts around the edit first, then the rest of the map; nothing ever freezes.
 
@@ -136,13 +140,14 @@ editor is desktop-first (D185).
   **Power and size are separate in every force** (D226): each size control follows Power by default, or is
   set by hand: Carve's **Size** (how wide it cuts; its depth follows Power and the width), Craterize's **Size**,
   Erupt's **Size** (breadth); Quake's drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
-  resize (D226, D322). **A force's Size and Power work as a brush's** (D344, A1, A2; `src/editor/forceSize.ts`): hold F
-  and move the mouse to size its ring on the map (a click or letting go keeps it, Esc or a right click puts it back),
-  [ and ] step its Size, { and } its Power by five, the number beside the pointer while it changes; a Size set by hand
+  resize (D226, D322). **A force's Size and Power work as a brush's** (D344, A1, A2; one key habit for every tool, D368
+  (1); `keyHabit` in `src/editor/forceSize.ts`): hold F and move the mouse to size its ring on the map (a click or
+  letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and ] its Power by five, the number
+  beside the pointer while it changes; a Size set by hand
   is off Auto. Power and Size always read as numbers in the row, a Size on Auto as **Auto (68)** (Power's word, a
   creek to a catastrophe, is its tooltip). Quake has no Size: F does nothing there.
   **Size sets how far a force reaches; Power how strong it is within that** (D361 (1), (3); `core/forces/strength.ts`).
-  Power acts on every force and mode: a painted Lift answers { and } while it is painted, and Try another takes the
+  Power acts on every force and mode: a painted Lift answers [ and ] while it is painted, and Try another takes the
   row's Power and Size as they are now. A force set larger than the size its Power gives keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power 0):
   Craterize's and Erupt's every level scaled by it, Carve no deeper than its share of 12 levels (at least 2, its
@@ -183,7 +188,7 @@ editor is desktop-first (D185).
   (D323, item 46: 1 water/s for a water source and 3 for a badwater source, the `DefaultStrength` of the game's
   blueprints, both among the official maps' strengths); the strength can still be changed.
   **Scatter-type items place like a brush** (D235, as in Cities: Skylines; scheduled after the forces round 2): trees,
-  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or [ and ] to resize, the
+  bushes, ruins, thorns and the like show a brush circle with the terrain brushes' grammar (F or { and } to resize, [ and ] its density, the
   size in the options row, strength as density from a sparse scatter to a dense grove); dragging scatters that exact item
   naturally inside the circle, random, never overlapping, only where the game allows it (a ruin stroke paints a ruin
   field with varied heights and mixed models); painting over objects fills gaps up to the density, never stacking;
@@ -199,9 +204,12 @@ editor is desktop-first (D185).
   heuristic of straight lines; the analysis stays internal (the generator's measures, the checks). The land shows
   moisture itself, and the water bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
   **Slow forces** (D321, item 29), beside Sound: the forces played out slowly; off, Fast. **The level control** (▾ ∞ ▴, D345
-  B3, as in Timberborn's own editor) sits at the top right on the compass's line, the same height and a gap of 10 px
-  from it, larger and easy to see; **Slow forces** (D361, item 8: it was Watch) and **Sound**, a speaker icon crossed
-  out when muted, sit in a row under them, flush with the compass's right edge; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
+  B3, as in Timberborn's own editor) and the compass are **one tidy cluster** at the top right (D368 (5)): the compass
+  in the corner, the level control beside it on its line, centred with it and the same height, larger and easy to
+  see; **Slow forces** (D361, item 8: it was Watch) and **Sound**, a speaker icon crossed out when muted, directly
+  beneath, Slow forces from the level control's left edge and Sound square under the compass to its right edge; one
+  height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts` measures it to a pixel), the volume opening
+  beneath the speaker; the view bar keeps the rest. **Every camera view frames the whole map, centred in the
   map area** (D345, B1): the default view, Top-down and Reset view fit the map's corners inside the canvas with a margin
   and put its middle at the canvas's middle, whatever the window's size.
 - **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
@@ -267,8 +275,8 @@ editor is desktop-first (D185).
   D368 (8) has no `weathers` flag and replays as it did, leaving protected tiles alone. Pen pressure on drawing tablets (a soft stroke's strength).
   Every brush's options row starts with its **Size**, a number and a slider up to half the map's width, so the largest
   brush paints the whole map in one stroke (D322, item 42); hold F and move the mouse to size the ring on the map, its
-  size beside the pointer, and let go to keep it (a click sets it too; Esc or a right click puts it back); [ and ] step
-  it (D205, D226).
+  size beside the pointer, and let go to keep it (a click sets it too; Esc or a right click puts it back); { and } step
+  it (D205, D226; D368 (1)).
 - **The height brushes work as the game's editor does** (D322, item 37; replaces item 8's stop levels and D193's
   held digging): Raise, Lower and Flatten each have a **target level**, shown beside the pointer at all times ("up to 8",
   "down to 5", "level 7") and as a plane over the ring. Raise lifts every tile under the brush below the target to it
@@ -279,7 +287,8 @@ editor is desktop-first (D185).
   changes it (0 to the height ceiling; plain scroll still zooms), **Ctrl+click** on the land takes its level (on water,
   the bed's), and the row's **Level** list sets it; once set it stays until the tool changes or Esc (the next Esc puts
   the brush away). Past either end of the range Raise and Lower are **Free**: they sculpt softly, building up as the
-  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll sets their strength. The tooltips
+  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll, or [ and ], sets their strength (Raise, Lower and Flatten take
+  nothing from [ and ]: their target level is theirs, D368 (1)). The tooltips
   name the game editor's terms. Under a layer cut (D207) Raise stops at the cut. An exact stroke's tiles stay as it
   leaves them (the build's integrity pass leaves them out, so a one-tile pit stays a pit).
 - **Ground, Water and Both** (D322, item 2): every brush's row has its mode. **Ground** changes only dry tiles and
@@ -487,7 +496,10 @@ Make a valley, drop a source, and there's a river.
   shows the strength of the source being pointed at or selected, the same as its marker's label, and updates live while
   scrolling; that source is highlighted; in a row of sources it says which the scroll changes, this source and not the
   row, and shows both ("this source 0.25 · row 1 water/s"); with nothing pointed at, the slider is the next source's
-  (`sourceStrengths`, `sourceStrengthWords` in `features.ts`). A click on a placed source selects it and shows its
+  (`sourceStrengths`, `sourceStrengthWords` in `features.ts`). **One value behind it** (D368 (4)): the label, the row
+  (its Strength and its words) and the scroll's note all read the page's copy of the objects with the strengths just
+  set on top (`strengthReader`), so they change together at every Ctrl+scroll notch, and the worker sends the objects
+  again whenever a strength changed, so its real strength follows within one answer (`tests/e2e/sources.spec.ts`). A click on a placed source selects it and shows its
   strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
@@ -671,7 +683,7 @@ toggle with no key. **When the window loses focus** (a screenshot tool, Alt+Tab;
 everything held: every camera key and Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a
 released mouse button would end it, at the pointer's last place (`render3d/focusLost.ts`), so nothing behaves as if a
 key or the mouse were still held.
-Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, { and } a brush's strength, Ctrl+scroll a hovered source's strength, [ and ] set size, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush live, its size beside the pointer; let go (or click) to set it. With a force picked, F, [ and ] size it and { and } set its Power, the same way (D344, A1). U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+**One key habit for every tool** (D368 (1)): F with the mouse, and { and }, set the Size; [ and ] set the strength: a force's Power, Smooth and Naturalize's strength, and nothing on Raise, Lower and Flatten (they have a target level instead). Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush or the force live, its size beside the pointer; let go (or click) to set it (D344, A1). Quake has no Size: F and { } do nothing there. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
@@ -1136,7 +1148,9 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   slice a call, then shows as many steps a frame as the page asks (`forceStart`, `forceAdvance`, `forcePaint`,
   `forceStop`, `forceCancel`, `forceAgain`; no second history or water owner); its frames carry the ground and the
   objects, never water (D321, item 30), and say once it is worked out (`planned`) how many steps show it (`total`) and
-  how many have (`shown`). The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
+  how many have (`shown`). A staged force's operation keeps that `total` as its `steps` (`stagedParamsOf`, D366),
+  never how many slices its planning took, so the same gesture is the same operation on a quick or a busy machine;
+  the forces' maths is the portable maths (`PLAN.md` §2.1), so it is the same in every browser. The page paces them (`forceDriver.ts`, D321, item 29): Fast, its land final within
   `FAST_MS` (two seconds) of the gesture, or its own pace where that is quicker; Slow forces, `WATCH_FACTOR` (four) times
   Fast's own; a frame that fails to show never stops a force, and a worker that fails takes all of it back, as undo
   would. **Undo at any moment leaves the map exactly as it was before the gesture, and nothing lands afterwards**
@@ -1224,7 +1238,7 @@ The generator (`PLAN.md`) and the editor are one app. The shared foundations are
 | Stable ids | `PLAN.md` §19.4 | Generated features hashed from seed, kind and role; user features get stored UUIDs; entities are hashed from their owning feature. |
 | Validation | `PLAN.md` §19.5 | One set of modules with check classes (load, playability, design) and profiles (generate, export, import). |
 | Format I/O | `PLAN.md` §19.6 | One reader and writer, import normalization, project files. |
-| Determinism | `PLAN.md` §19.7 | `build(document)` is pure; per-feature RNG streams; incremental equals full; the canonical water settle for files. |
+| Determinism | `PLAN.md` §2.1, §19.7 | `build(document)` is pure; per-feature RNG streams; incremental equals full; the canonical water settle for files; the portable maths in `src/core/` and the cross-engine check (`tools/determinism/`, D366). |
 | Build order | `PLAN.md` §19.8 | One pipeline for generation and editing. |
 | Platform adapters | `PLAN.md` §19.9 | Files, storage, workers, Claude and download naming: the only differences between the website and the artifact edition. |
 
