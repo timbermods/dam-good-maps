@@ -2236,6 +2236,54 @@ export default function Editor(props: EditorProps) {
   // it, Esc or a right click puts it back); { and } step its Size, [ and ] its Power (D368 (1)). A Size set by hand
   // is off Auto.
   const forceSizing = useRef<{ verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null>(null);
+  /** F is held (D368 (11): the wheel then sets the strength). */
+  const fHeld = useRef(false);
+
+  /** One key habit for every tool (D368 (1), (11)): a step of the Size or the strength of the tool
+   *  out, beside the pointer (a force's Power; Smooth and Naturalize's strength; nothing on Raise,
+   *  Lower and Flatten, whose target level is theirs); a force's Size set so is off Auto. False when no
+   *  tool takes it. */
+  function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
+    const forcePicked = toolRef.current;
+    const brushTool = brushToolRef.current;
+    if (forcePicked && !brushTool) {
+      if (habit.what === "strength") {
+        const power = stepPower(forcePowerOf(forcePicked), habit.dir);
+        setForcePower(forcePicked, power);
+        if (forcePicked === "quake") repaintRef.current?.();
+        flashNote(`power ${power}`, ev);
+      } else if (sized(forcePicked)) {
+        const now = forceSizeField(forcePicked) ?? 2 * (reachNow() ?? 0);
+        const size = stepSize(forcePicked, now, habit.dir);
+        setForceSize(forcePicked, size);
+        flashNote(`size ${size}`, ev);
+      }
+      return true;
+    }
+    if (!brushTool) return false;
+    if (habit.what === "size") {
+      const size = nextSize(brushRef.current.size, habit.dir, sizeMax(infoRef.current.W, infoRef.current.H));
+      setBrush({ ...brushRef.current, size });
+      flashNote(`size ${size}`, ev);
+    } else if (!hasTarget(brushTool)) {
+      // (as Shift+scroll)
+      const strength = Math.max(1, Math.min(10, brushRef.current.strength + habit.dir));
+      setBrush({ ...brushRef.current, strength });
+      flashNote(`strength ${strength}`, ev);
+    }
+    return true;
+  }
+
+  /** F held and the wheel (D368 (11)): the strength, never the zoom; F's sizing so far is kept. */
+  function wheelHabit(ev: WheelEvent): boolean {
+    const habit = keyHabit({ delta: ev.deltaY || ev.deltaX, f: fHeld.current, shift: ev.shiftKey, ctrl: ev.ctrlKey || ev.metaKey, alt: ev.altKey });
+    if (!habit || (!toolRef.current && !brushToolRef.current)) return false;
+    // (the wheel's number, not the size, beside the pointer from here)
+    painter.current?.endResize(true);
+    endForceSize(true);
+    stepHabit(habit, ev);
+    return true;
+  }
 
   /** The Size field of a force's row: a number, or null on Auto. */
   function forceSizeField(verb: SizedForce): number | null {
@@ -3067,7 +3115,7 @@ export default function Editor(props: EditorProps) {
     r.onMarkers = (on) => setMarkersOn(on);
     setMarkersOn(r.markers);
     r.grab = (hit, ev) => grabSource(hit, ev) ?? startCalls.current.grabStart(hit) ?? grabObjectRef.current(hit);
-    r.onWheel = (ev, hit) => wheelSource(ev, hit);
+    r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down
     r.onClick = (hit) => {
@@ -3587,7 +3635,7 @@ export default function Editor(props: EditorProps) {
       const bank = moved ? undefined : f.params.bank;
       bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
     }
-    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs, moved) };
+    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs) };
   }
 
   /** The start's reach (D184): its three requirements where it stands, shown while the pointer is on
@@ -3614,7 +3662,7 @@ export default function Editor(props: EditorProps) {
       const door = startEntranceTile(cx, cy, s.orientation);
       const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
       const bench = f && f.kind === "start" ? { level: f.params.benchLevel, radius: f.params.benchRadius, ...(f.params.bank ? { bank: f.params.bank } : {}) } : null;
-      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs, moved: false }) };
+      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs }) };
     }
     const v = info.version;
     void reachCache.current.check.then((check) => {
@@ -3696,6 +3744,8 @@ export default function Editor(props: EditorProps) {
       const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);
       if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
       const mod = ev.ctrlKey || ev.metaKey;
+      // (F held: the wheel sets the strength, D368 (11), even while a painted Lift is drawn)
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") fHeld.current = true;
       // a force at work (D199, D202, D203, D206): Ctrl+Z (or Z) takes all of it back at any moment;
       // Esc cancels a painted Lift still being drawn, and skips a playing force to its end, kept as one
       // step (D344, A4; amends D341 (2)); Space holds a carve, V flips a painted Lift's side as it goes;
@@ -3788,38 +3838,13 @@ export default function Editor(props: EditorProps) {
       // one key habit for every tool (D368 (1), swapping D344 A1's): { and } step the Size, [ and ] the
       // strength (a force's Power; Smooth and Naturalize's strength; nothing on Raise, Lower and Flatten,
       // whose target level is theirs), each beside the pointer; a force's Size set so is off Auto
-      const forcePicked = toolRef.current;
       const habit = !mod && !ev.altKey ? keyHabit(ev.key) : null;
-      if (habit && forcePicked && !brushToolRef.current) {
+      if (habit && stepHabit(habit)) {
         ev.preventDefault();
-        if (habit.what === "strength") {
-          const power = stepPower(forcePowerOf(forcePicked), habit.dir);
-          setForcePower(forcePicked, power);
-          if (forcePicked === "quake") repaintRef.current?.();
-          flashNote(`power ${power}`);
-        } else if (sized(forcePicked)) {
-          const now = forceSizeField(forcePicked) ?? 2 * (reachNow() ?? 0);
-          const size = stepSize(forcePicked, now, habit.dir);
-          setForceSize(forcePicked, size);
-          flashNote(`size ${size}`);
-        }
         return;
       }
-      if (habit && brushToolRef.current) {
-        ev.preventDefault();
-        if (habit.what === "size") {
-          const size = nextSize(brushRef.current.size, habit.dir, sizeMax(infoRef.current.W, infoRef.current.H));
-          setBrush({ ...brushRef.current, size });
-          flashNote(`size ${size}`);
-        } else if (!hasTarget(brushToolRef.current)) {
-          // (as Shift+scroll)
-          const strength = Math.max(1, Math.min(10, brushRef.current.strength + habit.dir));
-          setBrush({ ...brushRef.current, strength });
-          flashNote(`strength ${strength}`);
-        }
-        return;
-      }
-      // F: hold and move the mouse to size the brush, a click sets it (D205; F does nothing else)
+      // F: hold and move the mouse to size the brush, a click sets it (D205); held, the wheel sets the
+      // strength (D368 (11))
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") {
         ev.preventDefault();
         if (!ev.repeat && brushToolRef.current) painter.current?.startResize();
@@ -3953,6 +3978,7 @@ export default function Editor(props: EditorProps) {
     // F let go: the size is set
     const onKeyUp = (ev: KeyboardEvent) => {
       if (ev.key.toLowerCase() === "f") {
+        fHeld.current = false;
         painter.current?.endResize(true);
         endForceSize(true);
       }

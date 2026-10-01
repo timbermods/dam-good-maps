@@ -357,3 +357,89 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     await page.keyboard.press(key);
   }
 });
+
+test("D368 (11): F held and the wheel set the strength: Power on every force, strength on Smooth and Naturalize, nothing on Raise, Lower and Flatten; the number beside the pointer; plain scroll still zooms", async ({ page }) => {
+  test.setTimeout(240_000);
+  await refine(page);
+  const at = await spot(page);
+  const p = await client(page, at[0], at[1]);
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
+  const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
+  const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+  /** The pointer on the map (a slider just set lets go of the keys first). */
+  const point = async () => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(p.x + 3, p.y);
+    await page.mouse.move(p.x, p.y);
+    await page.waitForTimeout(150);
+  };
+  /** F held, a notch of the wheel up (or down), F let go. */
+  const fWheel = async (up: boolean) => {
+    await page.keyboard.down("f");
+    await page.mouse.wheel(0, up ? -120 : 120);
+    await page.waitForTimeout(150);
+  };
+  /** The words beside the pointer: near it. */
+  const besidePointer = async () => {
+    const b = (await note(page).boundingBox())!;
+    expect(Math.hypot(b.x - p.x, b.y - p.y), "the number beside the pointer").toBeLessThan(120);
+  };
+
+  // the brushes
+  for (const [key, name, strength] of [
+    ["1", "Raise", false],
+    ["2", "Lower", false],
+    ["3", "Flatten", false],
+    ["4", "Smooth", true],
+    ["5", "Naturalize", true],
+  ] as const) {
+    await page.keyboard.press(key);
+    await point();
+    const s0 = (await saved()).strength ?? 5;
+    const v0 = await view();
+    await fWheel(s0 < 10);
+    if (strength) {
+      await expect(note(page), `${name}: F+scroll sets its strength`).toHaveText(/^strength \d+$/);
+      await expect.poll(async () => (await saved()).strength, `${name}: its strength changed`).toBe(s0 < 10 ? s0 + 1 : s0 - 1);
+      await besidePointer();
+      await page.mouse.wheel(0, s0 < 10 ? 120 : -120);
+      await expect.poll(async () => (await saved()).strength).toBe(s0);
+    } else {
+      expect(await words(), `${name}: F+scroll does nothing`).not.toMatch(/strength|power/);
+      expect((await saved()).strength ?? 5, `${name}: its strength is untouched`).toBe(s0);
+    }
+    expect(await view(), `${name}: F+scroll never zooms`).toBe(v0);
+    await page.keyboard.up("f");
+  }
+  await page.keyboard.press("x");
+
+  // the forces
+  for (const [key, name] of [
+    ["7", "Carve"],
+    ["8", "Craterize"],
+    ["0", "Erupt"],
+    ["9", "Quake"],
+    ["-", "Glaciate"],
+  ] as const) {
+    await page.keyboard.press(key);
+    const row = page.getByRole("group", { name: `${name} options` });
+    const power = row.getByRole("slider", { name: "Power" });
+    await power.fill("50");
+    await point();
+    const v0 = await view();
+    await fWheel(true);
+    await expect(note(page), `${name}: F+scroll sets its Power`).toHaveText("power 55");
+    await expect(power).toHaveValue("55");
+    await besidePointer();
+    await page.mouse.wheel(0, 120);
+    await page.mouse.wheel(0, 120);
+    await expect(power).toHaveValue("45");
+    expect(await view(), `${name}: F+scroll never zooms`).toBe(v0);
+    await page.keyboard.up("f");
+    // plain scroll still zooms, Power as it was
+    await page.mouse.wheel(0, -240);
+    await expect.poll(view, `${name}: plain scroll zooms`).not.toBe(v0);
+    await expect(power).toHaveValue("45");
+    await page.keyboard.press(key);
+  }
+});

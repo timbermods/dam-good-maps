@@ -33,6 +33,13 @@ describe("a force's Size and Power from the keys (A1)", () => {
     expect(keyHabit("[")).toEqual({ what: "strength", dir: -1 });
     expect(keyHabit("]")).toEqual({ what: "strength", dir: 1 });
     expect(keyHabit("f")).toBeNull();
+    // F held and the wheel: the strength, up stronger (D368 (11)); plain, Shift, Ctrl or Alt scroll: not the habit's
+    expect(keyHabit({ delta: -120, f: true })).toEqual({ what: "strength", dir: 1 });
+    expect(keyHabit({ delta: 100, f: true })).toEqual({ what: "strength", dir: -1 });
+    expect(keyHabit({ delta: -120, f: false })).toBeNull();
+    expect(keyHabit({ delta: -120, f: true, shift: true })).toBeNull();
+    expect(keyHabit({ delta: -120, f: true, ctrl: true })).toBeNull();
+    expect(keyHabit({ delta: -120, f: true, alt: true })).toBeNull();
   });
 
   it("{ and } step the Size from where it is (an Auto size between steps goes to the next one that way); [ and ] step Power by five", () => {

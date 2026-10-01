@@ -14,9 +14,7 @@ import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
-import { DERIVED_SLOPES } from "../core/features/ids";
 import { inBench } from "../core/features/raster/terrain";
-import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS } from "../core/features/slopes";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../core/data/logFloor";
 import { FOOTPRINTS, footprintTiles, slopeHighSide, type Orientation } from "../core/format/footprints";
 import { WALK_BLOCKERS } from "../core/validate/playability";
@@ -586,50 +584,21 @@ export interface StartNeeds {
  *  away. */
 const PLACED_AFTER_SLOPES = /^(Pine|Birch|Oak|Succulent|BlueberryBush|RuinColumnH\d|StartingLocation)$/;
 
-/** The slopes the colony walks on from a start at (x, y) on the ground `h`, as (low tile, high
- *  tile) links. A generated map's start that moves gets its slopes derived again by the build
- *  (PLAN §7.5), so `derive` predicts them: the standing slopes that are not derived (a set piece's
- *  stairs), and the derived ones placed round the new start, clear of the objects and sources that
- *  stand. Otherwise the map's slopes as they stand. */
-function startLinks(c: TileContext, h: Uint8Array, x: number, y: number, door: [number, number], derive: boolean): [number, number][] {
+/** The slopes the colony walks on from a start, as (low tile, high tile) links: the map's slopes as
+ *  they stand. Moving the start places no slope (D368 (10): only the player places objects), so
+ *  nothing is predicted here; a start that lands where no slope joins it to the rest of the map
+ *  shows in its checks. */
+function startLinks(c: TileContext): [number, number][] {
   const { W, H } = c;
   const e = c.entities;
-  const own: [number, number][] = [];
-  const occupied = derive ? new Uint8Array(W * H) : null;
+  const links: [number, number][] = [];
   for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
+    if (e.templates[e.template[k]] !== "Slope") continue;
     const inMap = e.x[k] >= 0 && e.y[k] >= 0 && e.x[k] < W && e.y[k] < H;
-    if (t === "Slope") {
-      if (occupied && e.owners[e.owner[k]] === DERIVED_SLOPES) continue;
-      const [dx, dy] = slopeHighSide(ORIENTATION_NAMES[e.orientation[k]] as Orientation);
-      const hx = e.x[k] + dx;
-      const hy = e.y[k] + dy;
-      if (inMap && hx >= 0 && hy >= 0 && hx < W && hy < H) own.push([e.y[k] * W + e.x[k], hy * W + hx]);
-      if (occupied && inMap) occupied[e.y[k] * W + e.x[k]] = 1;
-      continue;
-    }
-    if (!occupied || PLACED_AFTER_SLOPES.test(t)) continue;
-    const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
-    const tiles: [number, number][] = FOOTPRINTS[t] ? footprintTiles(t, p) : [[e.x[k], e.y[k]]];
-    for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) occupied[ty * W + tx] = 1;
-  }
-  if (!occupied) return own;
-  // the start's clear zone, and the tiles in front of its door (features/build.ts)
-  const mark = (cx: number, cy: number, r: number) => {
-    for (let yy = cy - r; yy <= cy + r; yy++) for (let xx = cx - r; xx <= cx + r; xx++) if (xx >= 0 && yy >= 0 && xx < W && yy < H) occupied[yy * W + xx] = 1;
-  };
-  mark(x, y, START_CLEAR_RADIUS);
-  mark(Math.round(x + 1.5 * (door[0] - x)), Math.round(y + 1.5 * (door[1] - y)), 1);
-  const links = own.slice();
-  // the rivers' channels: the slopes out of the start's region go toward them, as the build's do
-  let water: Uint8Array | null = null;
-  if (c.index) {
-    water = new Uint8Array(W * H);
-    for (let i = 0; i < W * H; i++) if (c.index.river[i] >= 0) water[i] = 1;
-  }
-  for (const sl of placeSlopes(h, W, H, { x, y }, occupied, { ...SLOPE_RULES, links: own, water })) {
-    const [dx, dy] = slopeHighSide(sl.orientation);
-    links.push([sl.y * W + sl.x, (sl.y + dy) * W + (sl.x + dx)]);
+    const [dx, dy] = slopeHighSide(ORIENTATION_NAMES[e.orientation[k]] as Orientation);
+    const hx = e.x[k] + dx;
+    const hy = e.y[k] + dy;
+    if (inMap && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y[k] * W + e.x[k], hy * W + hx]);
   }
   return links;
 }
@@ -657,8 +626,7 @@ export function startProblemAt(c: TileContext, x: number, y: number, door: [numb
 /** The start's footprint and the three start requirements at (x, y), from what the page shows
  *  (EDITOR_PLAN §4: the footprint preview, green or red, and simple indicators). `bench` is the
  *  bench a start that levels its ground (a generated map) would make there, or null for an
- *  imported start that stands on the ground as it is; `moved` says the start is away from where it
- *  stands, so a generated map's slopes are predicted there (`startLinks`). The walks are the
+ *  imported start that stands on the ground as it is. The walks are the
  *  validator's (analysis/walk.ts) on the ground as it would be; which plants live is the page's
  *  guess from their dead flags (the validator, after the move, also checks their soil). */
 export function checkStartAt(
@@ -669,7 +637,6 @@ export function checkStartAt(
   bench: { level: number; radius: number; bank?: Point } | null,
   self: string | null,
   needs: StartNeeds,
-  moved = true,
 ): StartCheck {
   const { W, H } = c;
   const tiles: number[] = [];
@@ -708,7 +675,7 @@ export function checkStartAt(
     const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
     for (const [tx, ty] of footprintTiles(t, p)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
   }
-  const links = startLinks(c, h, x, y, door, !!bench && moved);
+  const links = startLinks(c);
   const walk = walkDistance(h, W, H, blocked, links, { x, y });
   // 1. water: a shore the walk reaches, touching clean water a pump there reaches
   let nearestBad = Infinity;

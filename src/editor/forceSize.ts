@@ -1,7 +1,7 @@
 // A force's Size and Power set from the keyboard and the pointer (PLAN §20 D344, A1), exactly as a
 // brush's, one key habit for every tool (D368 (1)): hold F and move the mouse to size its ring on the
 // map (a click or letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and
-// ] its Power (a brush's: its strength, on Smooth and Naturalize). Setting the Size by hand takes it off
+// ] its Power, as F held with the wheel does (D368 (11)) (a brush's: its strength, on Smooth and Naturalize). Setting the Size by hand takes it off
 // Auto. Pure logic: the page holds the state and shows the words beside the pointer
 // (pointerWords.ts); tests/unit/forceSize.test.ts checks it.
 
@@ -33,12 +33,28 @@ export function sizeForReach(verb: SizedForce, d: number): number {
   return snapSize(verb, 2 * d);
 }
 
-/** What a key steps, the same for every tool (D368 (1)): { and } the Size, [ and ] the strength (a
- *  force's Power, Smooth and Naturalize's strength; Raise, Lower and Flatten have none: their target
- *  level is theirs). Null for any other key. */
-export function keyHabit(key: string): { what: "size" | "strength"; dir: 1 | -1 } | null {
-  if (key === "{" || key === "}") return { what: "size", dir: key === "}" ? 1 : -1 };
-  if (key === "[" || key === "]") return { what: "strength", dir: key === "]" ? 1 : -1 };
+/** A notch of the wheel, with F held or not and the modifier keys down. */
+export interface WheelInput {
+  /** The wheel's delta (negative: up, away from the player). */
+  delta: number;
+  f: boolean;
+  shift?: boolean;
+  ctrl?: boolean;
+  alt?: boolean;
+}
+
+/** What a key or a notch of the wheel steps, the same for every tool (D368 (1), (11)): { and } the
+ *  Size, [ and ] the strength, and F held with the wheel the strength too (up: stronger), alongside F
+ *  with the mouse for the Size. The strength is a force's Power, Smooth and Naturalize's strength;
+ *  Raise, Lower and Flatten have none (their target level, Shift+scroll, is theirs). Null for anything
+ *  else: plain scroll zooms, Shift+scroll and Ctrl+scroll keep their meanings. */
+export function keyHabit(input: string | WheelInput): { what: "size" | "strength"; dir: 1 | -1 } | null {
+  if (typeof input !== "string") {
+    if (!input.f || input.shift || input.ctrl || input.alt || !input.delta) return null;
+    return { what: "strength", dir: input.delta < 0 ? 1 : -1 };
+  }
+  if (input === "{" || input === "}") return { what: "size", dir: input === "}" ? 1 : -1 };
+  if (input === "[" || input === "]") return { what: "strength", dir: input === "]" ? 1 : -1 };
   return null;
 }
 

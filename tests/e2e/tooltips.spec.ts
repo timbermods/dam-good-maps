@@ -249,7 +249,7 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   const size = page.getByRole("group", { name: "Carve options" }).locator(".size-control .slider-field");
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
   const power = page.getByRole("group", { name: "Carve options" }).locator(".slider-field").filter({ hasText: "Power" });
-  expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["[", "]"] });
+  expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });
   // the pointer gone: no tooltip, and the control's own title back

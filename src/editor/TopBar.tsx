@@ -169,7 +169,7 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** A size's keys (D368 (1)): hold F and move the mouse, or { and }. */
 export const SIZE_KEYS = ["F", "{", "}"] as const;
 /** A strength's or a Power's keys (D368 (1)). */
-export const STRENGTH_KEYS = ["[", "]"] as const;
+export const STRENGTH_KEYS = ["F+scroll", "[", "]"] as const;
 
 /** The tooltips of the tools, the forces and Select (D368 (6)): what it is for, then its key as a key cap. */
 export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint), b.key);

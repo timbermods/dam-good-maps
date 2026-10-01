@@ -149,7 +149,8 @@ editor is desktop-first (D185).
   drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
   resize (D226, D322). **A force's Size and Power work as a brush's** (D344, A1, A2; one key habit for every tool, D368
   (1); `keyHabit` in `src/editor/forceSize.ts`): hold F and move the mouse to size its ring on the map (a click or
-  letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and ] its Power by five, the number
+  letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and ] its Power by five (or F held
+  and the wheel, D368 (11)), the number
   beside the pointer while it changes; a Size set by hand
   is off Auto. Power and Size always read as numbers in the row, a Size on Auto as **Auto (68)** (Power's word, a
   creek to a catastrophe, is its tooltip). Quake has no Size: F does nothing there.
@@ -294,8 +295,8 @@ editor is desktop-first (D185).
   changes it (0 to the height ceiling; plain scroll still zooms), **Ctrl+click** on the land takes its level (on water,
   the bed's), and the row's **Level** list sets it; once set it stays until the tool changes or Esc (the next Esc puts
   the brush away). Past either end of the range Raise and Lower are **Free**: they sculpt softly, building up as the
-  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll, or [ and ], sets their strength (Raise, Lower and Flatten take
-  nothing from [ and ]: their target level is theirs, D368 (1)). The tooltips
+  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll, F held and the wheel, or [ and ], sets their strength (Raise, Lower and Flatten take
+  nothing from [ and ] or F with the wheel: their target level is theirs, D368 (1), (11)). The tooltips
   name the game editor's terms. Under a layer cut (D207) Raise stops at the cut. An exact stroke's tiles stay as it
   leaves them (the build's integrity pass leaves them out, so a one-tile pit stays a pit).
 - **Ground, Water and Both** (D322, item 2): every brush's row has its mode. **Ground** changes only dry tiles and
@@ -703,7 +704,7 @@ toggle with no key. **When the window loses focus** (a screenshot tool, Alt+Tab;
 everything held: every camera key and Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a
 released mouse button would end it, at the pointer's last place (`render3d/focusLost.ts`), so nothing behaves as if a
 key or the mouse were still held.
-**One key habit for every tool** (D368 (1)): F with the mouse, and { and }, set the Size; [ and ] set the strength: a force's Power, Smooth and Naturalize's strength, and nothing on Raise, Lower and Flatten (they have a target level instead). Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush or the force live, its size beside the pointer; let go (or click) to set it (D344, A1). Quake has no Size: F and { } do nothing there. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+**One key habit for every tool** (D368 (1), (11); `keyHabit` in `forceSize.ts` decides): F with the mouse, and { and }, set the Size; F held with the wheel, and [ and ], set the strength: a force's Power, Smooth and Naturalize's strength, and nothing on Raise, Lower and Flatten (they have a target level instead); the number shows beside the pointer. Plain scroll still zooms; Shift+scroll and Ctrl+scroll keep their meanings. Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush or the force live, its size beside the pointer; let go (or click) to set it (D344, A1). Quake has no Size: F and { } do nothing there. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)
@@ -813,7 +814,7 @@ the player shapes the land with the brushes and places things from the shelf. Se
 stay shared with the generator (`PLAN.md` §19.3). Saved projects that hold landform features from
 before D182 open with their land exactly as it was, as plain terrain.
 
-**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, derived slopes, water, resources, the start and entity edits, in that order. A generated map starts from its stored field (M9a): the rivers, natural lakes, badwater hollows and rises read back out of it are the field's own, so the build marks their channels and leaves their ground; one the player has changed is built as it now says. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
+**Building the final map:** the one build pipeline in `PLAN.md` §19.8. It runs landforms, then set pieces, rivers and lakes, pads, sculpt edits, slopes (derived at generation, then kept as they stand: D368 (10)), water, resources, the start and entity edits, in that order. A generated map starts from its stored field (M9a): the rivers, natural lakes, badwater hollows and rises read back out of it are the field's own, so the build marks their channels and leaves their ground; one the player has changed is built as it now says. Every step is deterministic, so the same document always produces a byte-identical `.timber` file. Changing a feature's parameter rebuilds only the area it affects. That incremental rebuild must equal a full rebuild (`PLAN.md` §19.7).
 
 **Edit operations** are small, serializable commands with undo data, in one envelope `{op, params}`
 (`core/doc/ops.ts`, `ops.schema.json`; the validation report's fixes use the same envelope, D35):
@@ -900,6 +901,22 @@ Edits referencing them therefore survive other edits wherever the referenced obj
   one-click fix **Lower the wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in
   `core/validate/checks.ts`). The session's checks run with `editing: true`; generated maps (`generate` profile) and the
   Real places conversions do not, so they still guarantee no walls.
+- **Only the player places objects** (D368 (10)): no force, brush or editor action, and nothing one of them triggers,
+  ever adds a Slope or any other shelf object; the editor repairs nothing by placing. Slopes are derived once, at
+  generation (`placeSlopes`, before the land is shown); an opened map's document keeps the generation's slopes in its
+  stored map (`BuildInput.generatedSlopes`, `features/slopes.ts` `keptSlopes`), and every rebuild after an edit keeps
+  those that still stand (the high side one level up, the tile behind at their own level) and loses those an edit took
+  away; it never derives again. (An eruption used to make Slopes appear across the map, far from the cone, because
+  the build re-derived the whole network after every edit.) The same holds for an edited import (no new slopes joining
+  its changed ground) and for the start: moving it places nothing, and the start's checks predict only the slopes that
+  stand. What an edit leaves out of reach is reported, never repaired: the start's walk by `start.reach`,
+  `start.water` and the rest, a mine site the colony can no longer walk to by `resources.mine_reach` (advisory, on
+  the quiet dot, only once the map has been edited), each for the player to fix with a Slope from the shelf or the
+  land. Two forces place the water they make, by design: Carve's river its source group (D314) and Glaciate its
+  meltwater springs (D246). A stroke from before D247 or D270 that asked the planner for slopes (a walkable Smooth, a
+  ramped Flatten with none recorded) still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
+  `newRampedStroke`). A test (`tests/contract/editsPlaceNothing.test.ts`) runs every force and brush and compares
+  the objects before and after.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal edit operation, applied live and undoable.
 - **Water preview:** the settled water of the prototype's port of the game's rules (`PLAN.md` §10).
   - **Exact on heightfield terrain**, which covers every generated map and most edited ones. The port reproduced the game's own save to 0.001 depth, and matched Diorama and Waterfalls exactly.
