@@ -55,7 +55,7 @@ The editor:
   blue.
 - The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
   a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
-- Each force has **Power** and **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
+- Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
   Power. **Try another** gives a different result; **More** holds the details.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
