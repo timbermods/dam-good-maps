@@ -55,6 +55,7 @@ import { columnMap, NO_VARIANT, surfaceWater, type EntityView, type MapView, typ
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
+import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 
 ColorManagement.enabled = false;
 
@@ -224,7 +225,7 @@ export class MapRenderer {
    *  and the camera's speed now: it moves every frame while they are held, easing in and gliding to
    *  a stop. */
   private held = new Set<string>();
-  private glide = { x: 0, y: 0, yaw: 0, fast: false };
+  private glide: Glide = { ...STILL };
   private glideFrame = 0;
   private glideAt = 0;
   private cpuTimes: number[] = [];
@@ -1637,6 +1638,12 @@ export class MapRenderer {
     this.on(window, "blur", () => this.held.clear());
   }
 
+  /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still
+   *  moving (a frame is waiting). */
+  cameraGlide(): Glide & { gliding: boolean } {
+    return { ...this.glide, gliding: this.glideFrame !== 0 };
+  }
+
   /** Move the camera every frame while its keys are held: a quick ease-in to full speed, a short
    *  glide to a stop; the speed follows the zoom (slower up close), and Shift is faster. */
   private startGlide(): void {
@@ -1646,30 +1653,18 @@ export class MapRenderer {
       this.glideFrame = 0;
       if (this.disposed) return;
       const now = performance.now();
-      const dt = Math.min(0.05, (now - this.glideAt) / 1000);
-      this.glideAt = now;
       const h = this.held;
-      const want = {
-        x: (h.has("d") || h.has("arrowright") ? 1 : 0) - (h.has("a") || h.has("arrowleft") ? 1 : 0),
-        y: (h.has("w") || h.has("arrowup") ? 1 : 0) - (h.has("s") || h.has("arrowdown") ? 1 : 0),
-        yaw: this.view.mode === "orbit" ? (h.has("q") ? 1 : 0) - (h.has("e") ? 1 : 0) : 0,
-      };
-      // ease toward the speed wanted: in about 0.12 s, out in about 0.18 s
-      const g = this.glide;
-      for (const k of ["x", "y", "yaw"] as const) {
-        const rate = want[k] ? 1 / 0.12 : 1 / 0.18;
-        const d = want[k] - g[k];
-        g[k] += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
+      // (cameraGlide.ts: eased in and out, a screen's height in about 1.4 s, Shift 2.5 times that)
+      const s = glideStep(this.glide, wanted(h, this.view.mode === "orbit"), (now - this.glideAt) / 1000);
+      this.glideAt = now;
+      this.glide = s.glide;
+      if (s.moving) {
+        const screen = this.canvas.clientHeight || 600;
+        this.panPixels(s.pan.x * screen, s.pan.y * screen);
+        if (s.yaw) this.setView({ yaw: this.view.yaw + s.yaw });
       }
-      const moving = Math.abs(g.x) > 1e-3 || Math.abs(g.y) > 1e-3 || Math.abs(g.yaw) > 1e-3;
-      if (moving) {
-        // a screen's height in about 1.4 s at full speed, whatever the zoom; Shift 2.5 times that
-        const px = (this.canvas.clientHeight || 600) * 0.7 * (g.fast ? 2.5 : 1) * dt;
-        this.panPixels(-g.x * px, g.y * px);
-        if (g.yaw) this.setView({ yaw: this.view.yaw + g.yaw * 1.6 * (g.fast ? 1.8 : 1) * dt });
-      }
-      if (moving || h.size) this.glideFrame = requestAnimationFrame(step);
-      else this.glide = { x: 0, y: 0, yaw: 0, fast: false };
+      if (s.moving || h.size) this.glideFrame = requestAnimationFrame(step);
+      else this.glide = { ...STILL };
     };
     this.glideFrame = requestAnimationFrame(step);
   }

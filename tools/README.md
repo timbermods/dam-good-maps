@@ -11,7 +11,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
-- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` makes the probe's tall test maps; `ingame-files.ts` makes the files for the in-game checks.
+- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, and the probe's runner calls them itself before a batch); `ingame-files.ts` makes the files for the in-game checks.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 
 **Batches and measures**

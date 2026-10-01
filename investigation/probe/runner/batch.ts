@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { buildMod } from './build-mod';
-import { catalog, type GameDef } from './catalog';
+import { catalog, type GameDef, gameIdsFor } from './catalog';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
 import type { MapResult } from './job';
@@ -30,6 +30,7 @@ import { waitQuiet } from './quiet';
 import { backupSettings, compareWithBackup, handRestore, hasPendingRestore, isGameRunning, leftovers, marker, parseRegFile, registryValues, restore, type SettingsDiff, takeSnapshot } from './safety';
 import { writeSheet } from './sheet';
 import { writeSummary } from './summary';
+import { groupsToWrite, writeGroups, writtenForPlan } from './writers';
 
 const argv = process.argv.slice(2);
 const flag = (n: string) => argv.includes(`--${n}`);
@@ -48,6 +49,8 @@ interface Plan {
   smokeDays?: number;
   /** Play with the installed mods (Kyler, 2026-09-25): no settings are changed or restored. */
   keepMods?: boolean;
+  /** The maps the runner wrote for this plan with their groups' writers (writers.ts). */
+  written?: ReturnType<typeof writtenForPlan>;
 }
 
 function selectGames(plan: Plan): GameDef[] {
@@ -66,14 +69,15 @@ function planFromArgs(): Plan {
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
   const smoke = flag('smoke');
+  // (a named group or list that matches nothing refuses: never the whole catalog in its place)
+  const valueOf = (n: string) => (argv.includes(`--${n}`) ? ((v) => (v === undefined || v.startsWith('--') ? '' : v))(opt(n)) : undefined);
+  // a group made outside the repository gets its maps written first, by its own writer: never a stale map planned
+  const written = writeGroups(groupsToWrite(valueOf('only'), valueOf('group')), log);
   const all = catalog(extraMaps);
-  let ids = opt('only')?.split(',') ?? [];
-  if (opt('group')) ids = all.filter((g) => g.group === opt('group')).map((g) => g.id);
+  let ids = gameIdsFor(all, valueOf('only'), valueOf('group'));
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
-  const unknown = ids.filter((id) => !all.some((g) => g.id === id));
-  if (unknown.length) throw new Error(`unknown games: ${unknown.join(', ')} (known: ${all.map((g) => g.id).join(', ')})`);
-  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods') };
+  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
 }
 
 /**
@@ -132,7 +136,9 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
       log(`mods for the run: on ${mods.on.join(', ')}; off ${mods.off.length}`);
     }
     const job = makeJob(plan.runId, prepared, plan.speed);
-    const launches = await runJob(job, { hangSeconds: 240, startSeconds: 300, mapSeconds: Math.max(...job.maps.map((m) => m.timeoutSeconds)) + 300, maxLaunches: Math.max(3, Math.ceil(prepared.length / 3) + 2), log });
+    // a large map loads for longer without a heartbeat (the scene loads in one go): 240 s at 256², more above it
+    const largest = Math.max(...prepared.map((x) => x.info.W * x.info.H));
+    const launches = await runJob(job, { hangSeconds: Math.max(240, Math.round((240 * largest) / (256 * 256))), startSeconds: 300, mapSeconds: Math.max(...job.maps.map((m) => m.timeoutSeconds)) + 300, maxLaunches: Math.max(3, Math.ceil(prepared.length / 3) + 2), log });
     writeFileSync(join(dir, 'launches.json'), JSON.stringify(launches, null, 1));
     const others = [...new Set(launches.flatMap((l) => l.otherMods ?? []))];
     if (keepMods) log(`run with the installed mods: ${others.join(', ') || 'none besides DGM Probe'}`);
@@ -315,7 +321,7 @@ async function main(): Promise<void> {
   const launchOnly = flag('launch-only');
   const plan = launchOnly ? (JSON.parse(readFileSync(join(resultsDir(opt('run-id') ?? ''), 'plan.json'), 'utf8')) as Plan) : planFromArgs();
   const prepared = prepare(selectGames(plan), plan.runId);
-  const s = summary(prepared, plan.kind, !!plan.keepMods);
+  const s = summary(prepared, plan.kind, !!plan.keepMods, plan.written);
   if (flag('prepare-only')) {
     // everything before the launch that needs no real game settings: the maps, the plan and the mod
     mkdirSync(resultsDir(plan.runId), { recursive: true });

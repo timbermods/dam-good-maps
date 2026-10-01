@@ -1,0 +1,470 @@
+diff --git a/src/core/doc/checkpoint.ts b/src/core/doc/checkpoint.ts
+new file mode 100644
+index 00000000..d409f649
+--- /dev/null
++++ b/src/core/doc/checkpoint.ts
+@@ -0,0 +1,124 @@
++// Optional format-3 acceleration data. This ABI must change whenever build semantics change.
++import type { BuildResult } from "../features/build";
++import type { MapDocument } from "./document";
++import { GENERATOR_VERSION } from "../spec/mapspec";
++import { fromBase64, toBase64 } from "../format/base64";
++import { JsonFloat } from "../format/json";
++
++export interface BuildCheckpoint { abi: string; binding: string; digest: string; graph: unknown[]; blobs: string[] }
++const ABI = "startup-build-4/" + GENERATOR_VERSION;
++const constructors = { Uint8Array, Int8Array, Uint16Array, Int16Array, Uint32Array, Int32Array, Float32Array, Float64Array };
++
++// SHA-256, synchronous so the core's open/save interface remains synchronous. Tested against
++// node:crypto, including Unicode, padding boundaries and all checkpoint payloads.
++export function sha256(text: string): string {
++  const bytes = new TextEncoder().encode(text), size = Math.ceil((bytes.length + 9) / 64) * 64;
++  const data = new Uint8Array(size); data.set(bytes); data[bytes.length] = 128;
++  const view = new DataView(data.buffer); view.setUint32(size - 8, Math.floor(bytes.length / 0x20000000)); view.setUint32(size - 4, bytes.length * 8);
++  const primes: number[] = [];
++  for (let n = 2; primes.length < 64; n++) if (!primes.some(p => p * p <= n && n % p === 0)) primes.push(n);
++  const k = primes.map(p => (Math.cbrt(p) % 1 * 0x100000000) >>> 0);
++  const h = primes.slice(0, 8).map(p => (Math.sqrt(p) % 1 * 0x100000000) >>> 0), w = new Uint32Array(64);
++  const rr = (v: number, n: number) => (v >>> n) | (v << (32 - n));
++  for (let offset = 0; offset < size; offset += 64) {
++    for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4);
++    for (let i = 16; i < 64; i++) { const a = w[i-15], b = w[i-2]; w[i] = w[i-16] + (rr(a,7)^rr(a,18)^(a>>>3)) + w[i-7] + (rr(b,17)^rr(b,19)^(b>>>10)); }
++    let [a,b,c,d,e,f,g,j] = h;
++    for (let i = 0; i < 64; i++) { const t = (j + (rr(e,6)^rr(e,11)^rr(e,25)) + ((e&f)^(~e&g)) + k[i] + w[i]) | 0;
++      const u = ((rr(a,2)^rr(a,13)^rr(a,22)) + ((a&b)^(a&c)^(b&c))) | 0;
++      j=g;g=f;f=e;e=(d+t)|0;d=c;c=b;b=a;a=(t+u)|0;
++    }
++    [a,b,c,d,e,f,g,j].forEach((v,i) => h[i] = (h[i]+v)>>>0);
++  }
++  return h.map(v => v.toString(16).padStart(8,"0")).join("");
++}
++
++function binding(doc: MapDocument): string {
++  // Exclude camera/name/time metadata, include every input to replay and build. Normalize the
++  // compact-file omission of baseFeatures. Upgraded documents consequently invalidate old caches.
++  return sha256(JSON.stringify([doc.formatVersion,doc.generatorVersion,doc.spec,doc.base,doc.field??null,doc.baseFeatures??doc.features,doc.kept,doc.features,doc.edits,doc.nextSeq]));
++}
++
++export function checkpoint(doc: MapDocument, built: BuildResult): BuildCheckpoint {
++  // Per-feature distance/noise fields are memoization, not saved state. The next feature tool
++  // computes them on demand through the existing BuildTarget path. Keep every actual build,
++  // water, brush and resource cache needed by the opened map. Opening is not a dirty edit.
++  built = { ...built, dirty:null, cache:{...built.cache,fields:new Map()} };
++  const graph: unknown[] = [], seen = new Map<object, number>(), counts=new Map<object,number>();
++  const blobs:string[]=[], blobIds=new Map<string,number>();
++  const count=(v:any)=>{if(!v||typeof v!=="object")return;const n=counts.get(v)??0;counts.set(v,n+1);if(n)return;
++    if(ArrayBuffer.isView(v)||v instanceof JsonFloat)return;
++    if(v instanceof Map)for(const [k,x] of v){count(k);count(x);}
++    else for(const x of v instanceof Set?v:Object.values(v))count(x);
++  };count(built);counts.set(built,2);
++  const byteBlob=(v:any)=>{
++    const raw=new Uint8Array(v.buffer,v.byteOffset,v.byteLength),width=v.BYTES_PER_ELEMENT,n=raw.length/width,bytes=new Uint8Array(raw.length);
++    // Lossless byte transposition groups exponents/zero bytes before gzip. Equal buffers share
++    // storage, but decoding creates distinct arrays, retaining the original alias relationships.
++    for(let b=0;b<width;b++)for(let i=0;i<n;i++)bytes[b*n+i]=raw[i*width+b];
++    const text=toBase64(bytes);if(!blobIds.has(text)){blobIds.set(text,blobs.length);blobs.push(text);}return blobIds.get(text)!;
++  };
++  function encode(v: any): any {
++    if (v === undefined) return { special:"undefined" };
++    if (typeof v === "number" && (!Number.isFinite(v) || Object.is(v,-0))) return { special:String(v), negativeZero:Object.is(v,-0) };
++    if (v === null || typeof v !== "object") { if (typeof v === "function") throw Error("unsupported cache value"); return v; }
++    if((counts.get(v)??0)===1 && !(v instanceof Map) && !(v instanceof Set) && !ArrayBuffer.isView(v)) {
++      if(v instanceof JsonFloat)return {inlineFloat:[encode(v.value),encode(v.raw)]};
++      if(Array.isArray(v))return {inlineArray:v.map(encode)};
++      if(Object.getPrototypeOf(v)!==Object.prototype && Object.getPrototypeOf(v)!==null)throw Error("unsupported cache class");
++      return {inlineObject:Object.entries(v).map(([k,x])=>[k,encode(x)])};
++    }
++    if (seen.has(v)) return { ref:seen.get(v) };
++    const id = graph.length; seen.set(v,id); graph.push(null);
++    const node = v instanceof JsonFloat ? { type:"JsonFloat", value:encode(v.value), raw:encode(v.raw) }
++      : ArrayBuffer.isView(v) ? { type:v.constructor.name, blob:byteBlob(v) }
++      : v instanceof Map ? { type:"Map", entries:[...v].map(([k,x])=>[encode(k),encode(x)]) }
++      : v instanceof Set ? { type:"Set", entries:[...v].map(encode) }
++      : Array.isArray(v) ? { type:"Array", entries:v.map(encode) }
++      : { type:"Object", entries:Object.entries(v).map(([k,x])=>[k,encode(x)]) };
++    graph[id] = node; return { ref:id };
++  }
++  encode(built);
++  return { abi:ABI, binding:binding(doc), digest:sha256(JSON.stringify([graph,blobs])), graph, blobs };
++}
++
++export function restoreCheckpoint(doc: MapDocument): BuildResult | null {
++  const c = doc.checkpoint;
++  if (!c || c.abi !== ABI || c.binding !== binding(doc)) return null;
++  try {
++    if (!Array.isArray(c.graph) || !Array.isArray(c.blobs) || c.graph.length > 1000000 || c.digest !== sha256(JSON.stringify([c.graph,c.blobs]))) return null;
++    const nodes = c.graph as any[], values = new Array(nodes.length);
++    const decode = (v: any): any => {
++      if (v === null || typeof v !== "object") return v;
++      if ("ref" in v) { if (!Number.isInteger(v.ref) || v.ref<0 || v.ref>=nodes.length) throw Error("bad reference"); return values[v.ref]; }
++      if("inlineFloat" in v)return new JsonFloat(decode(v.inlineFloat[0]),decode(v.inlineFloat[1]));
++      if("inlineArray" in v)return v.inlineArray.map(decode);
++      if("inlineObject" in v){const object={};for(const [k,x] of v.inlineObject)Object.defineProperty(object,k,{value:decode(x),enumerable:true,writable:true,configurable:true});return object;}
++      if (v.special === "undefined") return undefined;
++      if (v.negativeZero) return -0;
++      if (["NaN","Infinity","-Infinity"].includes(v.special)) return Number(v.special);
++      throw Error("bad value");
++    };
++    for (let i=0;i<nodes.length;i++) {
++      const n=nodes[i];
++      if (Object.hasOwn(constructors,n.type)) { const C=constructors[n.type as keyof typeof constructors], bytes=fromBase64(c.blobs[n.blob]), width=C.BYTES_PER_ELEMENT, count=bytes.length/width, buffer=new ArrayBuffer(bytes.length), raw=new Uint8Array(buffer);
++        if(!Number.isInteger(count))throw Error("bad buffer");for(let b=0;b<width;b++)for(let k=0;k<count;k++)raw[k*width+b]=bytes[b*count+k];values[i]=new C(buffer); }
++      else if (n.type==="JsonFloat") values[i]=new JsonFloat(decode(n.value),decode(n.raw));
++      else if (n.type==="Map") values[i]=new Map();
++      else if (n.type==="Set") values[i]=new Set();
++      else if (n.type==="Array") values[i]=[];
++      else if (n.type==="Object") values[i]={};
++      else throw Error("bad node");
++    }
++    nodes.forEach((n,i)=> {
++      if(n.type==="Map") for(const [k,v] of n.entries) values[i].set(decode(k),decode(v));
++      if(n.type==="Set" || n.type==="Array") for(const v of n.entries) n.type==="Set" ? values[i].add(decode(v)) : values[i].push(decode(v));
++      if(n.type==="Object") for(const [k,v] of n.entries) Object.defineProperty(values[i],k,{value:decode(v),writable:true,enumerable:true,configurable:true});
++    });
++    const b=values[0] as BuildResult, size=doc.base.sizeX*doc.base.sizeY;
++    if (b.W!==doc.base.sizeX || b.H!==doc.base.sizeY || b.seed!==(doc.spec?.seed??0) || !b.cache || !(b.cache.keys instanceof Map) || !(b.cache.fields instanceof Map) || !(b.cache.resources instanceof Map)) return null;
++    for(const v of [b.heights,b.water,b.contamination,b.moisture,b.soilContamination,b.occupied,b.channel,b.cache.terrain.pre2,b.cache.terrain.pre7,b.cache.terrain.heights,b.cache.terrain.protect,b.cache.terrain.channel]) if(!ArrayBuffer.isView(v) || v.length!==size) return null;
++    if(!Array.isArray(b.entities) || !b.waterModel || !b.settle || !Array.isArray(b.slopes) || !Array.isArray(b.sources)) return null;
++    return b;
++  } catch { return null; } // optional acceleration data never prevents opening an old/damaged cache
++}
+diff --git a/src/render3d/prepared.ts b/src/render3d/prepared.ts
+new file mode 100644
+index 00000000..14678011
+--- /dev/null
++++ b/src/render3d/prepared.ts
+@@ -0,0 +1,19 @@
++import { MapRenderer } from "./renderer";
++
++let prepared: { renderer:MapRenderer; host:HTMLElement } | null = null;
++/** Start while the project fetch is in flight. Keep this WebGL context for the displayed map. */
++export async function prepareFirstRenderer(): Promise<void> {
++  if (prepared) return;
++  const host=document.createElement("div"), canvas=document.createElement("canvas");
++  host.style.cssText="position:fixed;left:0;top:0;width:64px;height:64px;opacity:0;pointer-events:none";
++  host.append(canvas);document.body.append(host);
++  try { const renderer=new MapRenderer(canvas); prepared={renderer,host}; await renderer.prepareFirstFrame(); }
++  catch { prepared?.renderer.dispose(); prepared=null;host.remove(); } // View3D keeps its normal WebGL error path
++}
++export function takePreparedRenderer(container:HTMLElement): MapRenderer | null {
++  if(!prepared)return null;
++  const {renderer,host}=prepared;prepared=null;
++  container.append(renderer.canvas);host.remove();renderer.fitPreparedCanvas();return renderer;
++}
++/** The loader calls this on cancellation, navigation or project-open failure. */
++export function discardPreparedRenderer(): void { prepared?.renderer.dispose();prepared?.host.remove();prepared=null; }
+diff --git a/src/core/doc/document.ts b/src/core/doc/document.ts
+index 94559e7a..0d85c1d8 100644
+--- a/src/core/doc/document.ts
++++ b/src/core/doc/document.ts
+@@ -88,7 +88,11 @@ export interface FieldData extends TerrainData {
+   top?: number;
+ }
+
++import type { BuildCheckpoint } from "./checkpoint";
++
+ export interface MapDocument {
++  /** Exact optional current build; old readers ignore it and rebuild the document. */
++  checkpoint?: BuildCheckpoint;
+   formatVersion: 3;
+   app: "dam-good-maps";
+   /** The generator that built `base` (for an import: the app version that normalized it). */
+diff --git a/src/core/doc/session.ts b/src/core/doc/session.ts
+index ecce79d5..1fb94f67 100644
+--- a/src/core/doc/session.ts
++++ b/src/core/doc/session.ts
+@@ -10,6 +10,7 @@
+ //   reopening a project, share links).
+ // - Documents made by another generator open from their stored base, exactly (PLAN §19.7).
+
++import { checkpoint, restoreCheckpoint } from "./checkpoint";
+ import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
+ import type { TerrainState } from "../features/raster/strokePreview";
+ import { MAX_TERRAIN } from "../features/raster/terrain";
+@@ -139,7 +140,14 @@ export class MapSession {
+     if (this.mode === "frozen") {
+       this.notices.push(`This map was made with generator ${this.gen.generatorVersion}. It opens exactly as it was saved.`);
+     }
+-    this.cur = built ?? buildMap(this.input());
++    const stored = built ? null : restoreCheckpoint(doc);
++    this.cur = built ?? stored ?? buildMap(this.input());
++    if (stored) {
++      // Incremental build keys compare immutable input layers by identity. Rebind the decoded
++      // cache to this session's equivalent layers; do not treat opening as a changed terrain.
++      const input = this.input();
++      this.cur.cache = { ...this.cur.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null };
++    }
+     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
+       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. Show → Water under roofs marks them.");
+     }
+@@ -376,7 +384,11 @@ export class MapSession {
+
+   /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens). */
+   project(level?: number): Uint8Array {
+-    return encodeProject(this.document, level);
++    const doc = this.document;
++    // A pending preview has no built canonical state to store. Keep the existing fast save
++    // and canonical reopen path; never make autosave settle water on the editing worker.
++    if (this.waterPending) return encodeProject(doc, level);
++    return encodeProject({ ...doc, checkpoint: checkpoint(doc, this.cur) }, level);
+   }
+
+   /** Operations that have no effect now, and why. */
+diff --git a/src/core/library/firstVisit.ts b/src/core/library/firstVisit.ts
+index a18cc865..ab740074 100644
+--- a/src/core/library/firstVisit.ts
++++ b/src/core/library/firstVisit.ts
+@@ -77,7 +77,7 @@ export function makeFirstVisit(theme: ThemeId, maxSeeds = 24): { made: FirstVisi
+       passedOver.push({ seed, why });
+       continue;
+     }
+-    const project = encodeProject(generatedDocument(r));
++    const project = MapSession.open(generatedDocument(r)).project();
+     const back = reopensAs(r, project);
+     if (!back.same) {
+       passedOver.push({ seed, why: ["its project file reopens as a different map"] });
+diff --git a/src/worker/session.ts b/src/worker/session.ts
+index 09942f99..b60224e2 100644
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -10,6 +10,7 @@
+
+ import { damSites as findDamSites } from "../core/analysis/damsites";
+ import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
++import { checkpoint } from "../core/doc/checkpoint";
+ import { MapSession, type DocOrphan, type HistoryItem, type SessionMode } from "../core/doc/session";
+ import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
+ import {
+@@ -459,7 +460,11 @@ function syncChecks(): void {
+   const seqs = log.map((o) => o.seq);
+   let p: FollowPayload;
+   if (!followed || followed.gen !== s.generationKey) {
+-    p = { version, doc: s.document, keep: 0, add: [] };
++    const doc = s.document;
++    // The canonical initial replica can use the same exact state. A pending preview keeps the
++    // normal replay/rebuild route: never settle on the editing worker merely to start checks.
++    if (!s.waterPending) doc.checkpoint = checkpoint(doc, s.built);
++    p = { version, doc, keep: 0, add: [] };
+   } else {
+     let keep = 0;
+     while (keep < seqs.length && keep < followed.seqs.length && seqs[keep] === followed.seqs[keep]) keep++;
+diff --git a/src/platform/index.ts b/src/platform/index.ts
+index 37eadf37..dd6573e6 100644
+--- a/src/platform/index.ts
++++ b/src/platform/index.ts
+@@ -7,9 +7,10 @@ import type { GeneratorApi } from "../worker/generator.worker";
+ /** workers: module URLs on the website (the artifact build will inline them as blobs). The
+  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
+  *  a replica of the open map, and the two talk over a port of their own. */
+-export function createGenerator(): Remote<GeneratorApi> {
++export function createGenerator(options: { checksAfter?: Promise<void> } = {}): Remote<GeneratorApi> {
+   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
+   const api = wrap<GeneratorApi>(worker);
++  const startChecks = () => {
+   try {
+     const checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
+     const ch = new MessageChannel();
+@@ -18,6 +19,9 @@ export function createGenerator(): Remote<GeneratorApi> {
+   } catch {
+     // no second worker: the checks run in the first one
+   }
++  };
++  if (options.checksAfter) void options.checksAfter.then(startChecks);
++  else startChecks();
+   return api;
+ }
+
+diff --git a/src/render3d/renderer.ts b/src/render3d/renderer.ts
+index 6f90cf2f..d35d229f 100644
+--- a/src/render3d/renderer.ts
++++ b/src/render3d/renderer.ts
+@@ -303,6 +303,21 @@ export class MapRenderer {
+     this.bindInput();
+   }
+
++  /** Warm the same terrain/water/fall/instanced-object programs and GPU state used on first visit. */
++  async prepareFirstFrame(): Promise<void> {
++    const W=4, H=4, heights=new Uint8Array([3,3,1,1,3,3,1,1,1,1,1,1,1,1,1,1]);
++    this.setMap({W,H,heights,columns:{tiles:new Int32Array(0),voxels:new Uint8Array(0)},
++      water:{count:3,tile:new Int32Array([1,2,6]),floor:new Float32Array([3,1,1]),depth:new Float32Array([1,1,1]),contamination:new Float32Array(3)},
++      entities:{count:1,templates:["Oak"],owners:["warm"],template:new Uint16Array(1),x:new Int16Array([0]),y:new Int16Array([0]),z:new Int16Array([3]),orientation:new Uint8Array(1),flags:new Uint8Array(1),owner:new Uint16Array(1),variant:new Uint8Array([255]),strength:new Float32Array(1)}}, false, true);
++    this.placeCamera();
++    await this.gl.compileAsync(this.scene,this.camera());
++    this.renderNow();
++    const ctx=this.gl.getContext();ctx.readPixels(0,0,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,new Uint8Array(4));
++  }
++
++  /** The loader reparents this canvas into View3D; its ResizeObserver follows the same canvas. */
++  fitPreparedCanvas(): void { this.fit(); }
++
+   /** WebGL context info: the GPU the browser uses (for the benchmark report). */
+   gpu(): { renderer: string; vendor: string } {
+     const ctx = this.gl.getContext();
+@@ -474,7 +489,7 @@ export class MapRenderer {
+   // ------------------------------------------------------------------------------ map building
+
+   /** Build everything for a new map and draw the first frame. */
+-  setMap(v: MapView, keepView = false): BuildStats {
++  setMap(v: MapView, keepView = false, prepare = false): BuildStats {
+     const t0 = performance.now();
+     this.clearMap();
+     const { W, H, heights } = v;
+@@ -522,10 +537,10 @@ export class MapRenderer {
+     const instances = this.setEntitiesInner(v.entities);
+     const meshMs = performance.now() - t0;
+     if (!keepView) this.resetView();
+-    this.renderNow();
++    if (!prepare) this.renderNow();
+     // wait for the GPU to finish the first frame
+     const ctx = this.gl.getContext();
+-    ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
++    if (!prepare) ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+     const ms = performance.now() - t0;
+     this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
+     this.highlight = null;
+diff --git a/src/ui/View3D.tsx b/src/ui/View3D.tsx
+index 8102176f..2435330e 100644
+--- a/src/ui/View3D.tsx
++++ b/src/ui/View3D.tsx
+@@ -7,6 +7,7 @@
+ // arrows, level lines, small far-off objects drawn larger), and so does a tool that needs it. The
+ // generator's 3D preview and the editor both use it; the editor puts its handles on top.
+
++import { takePreparedRenderer } from "../render3d/prepared";
+ import type { ComponentChildren } from "preact";
+ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+ import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
+@@ -24,6 +25,7 @@ export interface View3DProps {
+   view: MapView;
+   label: string;
+   onReady?(r: MapRenderer, stats: BuildStats): void;
++  onError?(): void;
+   onHover?(hit: TileHit | null): void;
+   hoverText?: string | null;
+   /** More legend lines for what the page draws on the map (a dam site, say; `markers` for the
+@@ -104,6 +106,7 @@ function saveMarkers(on: boolean): void {
+
+ export function View3D(props: View3DProps) {
+   const canvas = useRef<HTMLCanvasElement>(null);
++  const canvasHost = useRef<HTMLDivElement>(null);
+   const compass = useRef<HTMLDivElement>(null);
+   const renderer = useRef<MapRenderer | null>(null);
+   const [mode, setMode] = useState<ViewMode>("orbit");
+@@ -120,9 +123,14 @@ export function View3D(props: View3DProps) {
+   useEffect(() => {
+     let r: MapRenderer;
+     try {
+-      r = new MapRenderer(canvas.current!);
++      r = takePreparedRenderer(canvasHost.current!) ?? (() => {
++        const c = document.createElement("canvas"); canvasHost.current!.append(c); return new MapRenderer(c);
++      })();
++      canvas.current = r.canvas;
++      r.canvas.setAttribute("aria-label", props.label);
+     } catch (e) {
+       setError("The 3D view needs WebGL, which this browser has turned off. The 2D view still works.");
++      props.onError?.();
+       console.warn(e);
+       return;
+     }
+@@ -149,6 +157,7 @@ export function View3D(props: View3DProps) {
+       renderer.current = null;
+       if (window.dgm3d?.renderer === r) delete window.dgm3d;
+       r.dispose();
++      r.canvas.remove();
+     };
+   }, []);
+
+@@ -164,6 +173,8 @@ export function View3D(props: View3DProps) {
+     props.onReady?.(r, stats);
+   }, [props.view]);
+
++  useEffect(() => { canvas.current?.setAttribute("aria-label", props.label); }, [props.label]);
++
+   const pick = (m: ViewMode) => {
+     setMode(m);
+     renderer.current?.setMode(m);
+@@ -269,7 +280,7 @@ export function View3D(props: View3DProps) {
+   return (
+     <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
+       <div class="view3d">
+-      <canvas ref={canvas} aria-label={props.label} />
++      <div ref={canvasHost} style={{ width:"100%", height:"100%" }} />
+       {error ? <p class="view3d-error">{error}</p> : null}
+       <div class="view3d-controls" role="group" aria-label="View">
+         <button type="button" aria-pressed={mode === "orbit"} onClick={() => pick("orbit")} title="Drag to turn, right-drag to move, wheel to zoom">
+diff --git a/src/editor/Editor.tsx b/src/editor/Editor.tsx
+index 98ad8a82..4be58689 100644
+--- a/src/editor/Editor.tsx
++++ b/src/editor/Editor.tsx
+@@ -53,6 +53,8 @@ import type { BrushParams } from "../core/features/raster/brush";
+ import { BAD, BADWATER_STRENGTHS, coordinatesAt, DAM, DEFAULT_OPTIONS, DRAWING, GOOD, MOVING, paintOverlay, PROBLEM, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type ToolOptions } from "./tools";
+
+ export interface EditorProps {
++  /** Called after a painted frame with the editor's input handlers attached. */
++  onEditable?(): void;
+   api: Remote<GeneratorApi>;
+   opened: SessionOpen;
+   /** "Back to settings" (generated maps) or "New map" (imported ones). */
+@@ -131,6 +133,7 @@ export default function Editor(props: EditorProps) {
+   const view = props.opened.view;
+   const mirror = useRef<Mirror>(mirrorOf(view));
+   const renderer = useRef<MapRenderer | null>(null);
++  const [viewFailed, setViewFailed] = useState(false);
+   const [ready, setReady] = useState<MapRenderer | null>(null);
+   /** Carve, picked in the top bar (the brushes have their own state; the sources are on the shelf). */
+   const [tool, setTool] = useState<"carve" | null>(null);
+@@ -613,6 +616,7 @@ export default function Editor(props: EditorProps) {
+   useEffect(() => {
+     setCheck((c) => (c && c.version === info.version ? c : null));
+     setProgress(null);
++    if (!ready && !viewFailed) return;
+     let live = true;
+     const t = setTimeout(() => {
+       void api
+@@ -641,7 +645,7 @@ export default function Editor(props: EditorProps) {
+       live = false;
+       clearTimeout(t);
+     };
+-  }, [info.version]);
++  }, [info.version, ready, viewFailed]);
+
+   // the water layer on show: fetched again after every change of the map or its water
+   useEffect(() => {
+@@ -1694,6 +1698,7 @@ export default function Editor(props: EditorProps) {
+   function onReady(r: MapRenderer) {
+     renderer.current = r;
+     setReady(r);
++    requestAnimationFrame(() => requestAnimationFrame(() => { if (mounted.current) props.onEditable?.(); }));
+     juice.current ??= new Juice(() => renderer.current, sound);
+     juice.current.register("carve", carveTouch, 380);
+     painter.current = new BrushPainter({
+@@ -2411,6 +2416,7 @@ export default function Editor(props: EditorProps) {
+             class="editor-view"
+             label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
+             onReady={onReady}
++            onError={() => { setViewFailed(true); props.onEditable?.(); }}
+             legendExtra={legendExtra}
+             markersWanted={damSites !== null || shelf?.id === "Slope"}
+             togglesInButtons
+diff --git a/src/page/firstVisit/start.ts b/src/page/firstVisit/start.ts
+index f2971599..2f5f01df 100644
+--- a/src/page/firstVisit/start.ts
++++ b/src/page/firstVisit/start.ts
+@@ -7,9 +7,16 @@ export async function startFirstVisit<T, U>(
+   openProject: (bytes: Uint8Array) => Promise<U>,
+   random: () => number = Math.random,
+ ): Promise<{ editor: T; opened: U; map: NonNullable<Awaited<ReturnType<typeof loadFirstVisit>>>["map"] } | null> {
++  const loading = loadFirstVisit(random); // dispatch fetch before any GPU work
++  const gpu = import("../../render3d/prepared"); // preserve the small static entry
++  const preparing = gpu.then(m => m.prepareFirstRenderer());
++  try {
+   const [editor, first] = await Promise.all([
+     loadEditor(),
+-    loadFirstVisit(random).then(async (first) => first ? { opened: await openProject(first.project), map: first.map } : null),
++    loading.then(async (first) => first ? { opened: await openProject(first.project), map: first.map } : null),
+   ]);
++  await preparing;
++  if (!first) (await gpu).discardPreparedRenderer();
+   return first ? { editor, ...first } : null;
++  } catch (e) { await preparing; (await gpu).discardPreparedRenderer(); throw e; }
+ }

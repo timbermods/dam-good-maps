@@ -1,0 +1,37 @@
+{
+  "initialPreviewCaps": 4,
+  "results": [
+    {
+      "case": "lake",
+      "seed": 209495,
+      "ticks": 4544,
+      "settled": true,
+      "steady": false,
+      "ms": 6346.9
+    },
+    {
+      "case": "lake",
+      "seed": 209508,
+      "ticks": 2496,
+      "settled": true,
+      "steady": false,
+      "ms": 3534.6
+    },
+    {
+      "case": "lake",
+      "seed": 209575,
+      "ticks": 384,
+      "settled": true,
+      "steady": false,
+      "ms": 810.4
+    },
+    {
+      "case": "lake",
+      "seed": 209644,
+      "ticks": 4096,
+      "settled": true,
+      "steady": false,
+      "ms": 5965.2
+    }
+  ]
+}

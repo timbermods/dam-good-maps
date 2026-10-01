@@ -1,0 +1,115 @@
+{
+  "browser": "headless Microsoft Edge",
+  "viewport": "1280×854",
+  "captures": "960×640, downscaled",
+  "timings": [
+    {
+      "case": "canyon",
+      "plannedMs": 125.5,
+      "finalMs": 2046,
+      "frames": 89
+    },
+    {
+      "case": "dry",
+      "plannedMs": 112.6,
+      "finalMs": 2059.5,
+      "frames": 76
+    },
+    {
+      "case": "lake",
+      "plannedMs": 119.2,
+      "finalMs": 2041.1,
+      "frames": 76
+    },
+    {
+      "case": "slope",
+      "plannedMs": 113,
+      "finalMs": 2042.5,
+      "frames": 71
+    },
+    {
+      "case": "flat",
+      "plannedMs": 107,
+      "finalMs": 2045.8,
+      "frames": 68
+    },
+    {
+      "case": "peak",
+      "plannedMs": 109.5,
+      "finalMs": 2038.5,
+      "frames": 68
+    }
+  ],
+  "longest": {
+    "points": 20,
+    "strokeLength": 2152.7,
+    "reachCap": 112,
+    "plannedMs": 139.2,
+    "finalMs": 2055.5
+  },
+  "waterContinuation": [
+    {
+      "seed": 209495,
+      "ticks": 4544,
+      "finalMs": 2049.4
+    },
+    {
+      "seed": 209508,
+      "ticks": 2496,
+      "finalMs": 2028.5
+    },
+    {
+      "seed": 209575,
+      "ticks": 384,
+      "finalMs": 2042.2
+    },
+    {
+      "seed": 209644,
+      "ticks": 4096,
+      "finalMs": 2035.5
+    }
+  ],
+  "watch": {
+    "stages": 3,
+    "waterFrames": 594,
+    "captureClock": "24 evenly spaced Watch poses"
+  },
+  "sound": [
+    {
+      "loop": false,
+      "rate": 0.8199999928474426,
+      "seconds": 3,
+      "stopped": true
+    },
+    {
+      "loop": true,
+      "rate": 0.8500000238418579,
+      "seconds": 6,
+      "stopped": true
+    },
+    {
+      "loop": false,
+      "rate": 0.6499999761581421,
+      "seconds": 0.40141666666666664,
+      "stopped": false
+    }
+  ],
+  "checks": [
+    "real pointer band",
+    "Esc drawing",
+    "undo mid-force",
+    "Esc Fast and Watch finish",
+    "one undo step",
+    "byte-exact undo",
+    "Try another replacement",
+    "F size",
+    "brace power",
+    "Floor / Channels controls",
+    "water convergence",
+    "fixed camera",
+    "water continuation in actual worker",
+    "source strength / riding",
+    "start after continued water"
+  ],
+  "errors": []
+}

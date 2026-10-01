@@ -52,6 +52,10 @@ export function probeHome(): string {
 export function tallDir(): string {
   return resolve(process.env.DGM_PROBE_TALL ?? join(DEFAULT_PROBE_HOME, 'tall'));
 }
+/** The size maps tools/probe-maps/sizes.ts writes (PLAN §20 D357 (9)), with their manifest sizes.json. */
+export function sizesDir(): string {
+  return resolve(process.env.DGM_PROBE_SIZES ?? join(DEFAULT_PROBE_HOME, 'sizes'));
+}
 export const probePaths = () => {
   const home = probeHome();
   return {

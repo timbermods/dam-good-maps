@@ -1,0 +1,74 @@
+[
+  {
+    "map": "river-valley-1",
+    "pixelSha256": "449026273b38df032726b187b019e3acf82cf0af310ac2c82e5340a9b577f559",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  },
+  {
+    "map": "canyon-1",
+    "pixelSha256": "cd4a8550727435b892cb808a0652f2ecd3f904dd383fa0bb134b32c7f37300bf",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  },
+  {
+    "map": "highlands-1",
+    "pixelSha256": "4f6f20f07a853a256df03b759ae4373946414749a5c7122b273003b3a3f80ca9",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  },
+  {
+    "map": "lake-basin-1",
+    "pixelSha256": "4b506f6287956547472085f0fb18a743b67c33fff20bf9e9d7ea55e8ad21a1f6",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  },
+  {
+    "map": "delta-1",
+    "pixelSha256": "8e243255999727db2c3319e66b1133b496f607b7a49fc38fa84eb218e27f1b1e",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  },
+  {
+    "map": "islands-1",
+    "pixelSha256": "1900385e29a8332ab0fbd392b41878b423b9640ec68aec608130427c33965f3c",
+    "width": 765,
+    "height": 653,
+    "pixelsIdentical": true,
+    "newProgramsInFirstMap": 0,
+    "gpu": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)"
+    }
+  }
+]

@@ -12,6 +12,8 @@ import { probePaths } from './paths';
 
 export interface PlanSummary {
   maps: { id: string; title: string; checks: string[]; days: number }[];
+  /** The maps the runner wrote for this plan with their groups' writers (writers.ts): the code covers these bytes. */
+  written?: { group: string; dir: string; files: { file: string; size: [number, number]; bytes: number; sha256: string; status: 'written' | 'current' }[] }[];
   estimateMinutes: number;
   kind: 'smoke' | 'batch';
   /** Played with the installed mods (no settings changed). */
@@ -21,7 +23,9 @@ export interface PlanSummary {
 const pendingFile = () => join(probePaths().runner, 'pending-consent.json');
 
 export function planHash(plan: PlanSummary): string {
-  return createHash('sha256').update(JSON.stringify(plan.maps)).update(plan.kind).update(plan.keepMods ? 'keep-mods' : 'probe-only').digest('hex').slice(0, 16);
+  // (the maps written count by their bytes, not by whether this run or an earlier one wrote them)
+  const written = (plan.written ?? []).map((g) => ({ group: g.group, files: g.files.map((f) => [f.file, f.size, f.sha256]) }));
+  return createHash('sha256').update(JSON.stringify(plan.maps)).update(written.length ? JSON.stringify(written) : '').update(plan.kind).update(plan.keepMods ? 'keep-mods' : 'probe-only').digest('hex').slice(0, 16);
 }
 
 export function describe(plan: PlanSummary): string {
@@ -32,6 +36,11 @@ export function describe(plan: PlanSummary): string {
     `${plan.kind === 'smoke' ? 'Smoke run' : 'Full batch'}: ${plan.maps.length} map${plan.maps.length === 1 ? '' : 's'}, about ${plan.estimateMinutes} minutes.`,
   ];
   for (const m of plan.maps) lines.push(`  - ${m.title} (${m.days} game days): ${m.checks.join(', ') || 'screenshots and records only'}`);
+  for (const g of plan.written ?? []) {
+    const n = g.files.filter((f) => f.status === 'written').length;
+    lines.push(`Maps written for this plan by the ${g.group} writer, in ${g.dir} (${n ? `${n} written now, the rest already current` : 'all already current'}):`);
+    for (const f of g.files) lines.push(`  - ${f.file}  ${f.size[0]}×${f.size[1]}  ${(f.bytes / 1024).toFixed(0)} KB  sha256 ${f.sha256}`);
+  }
   lines.push(plan.keepMods ? `It never runs if Timberborn is already open, and cleans up its logs and saves afterwards.` : `It never runs if Timberborn is already open, and puts back your settings, logs and saves afterwards.`);
   return lines.join('\n');
 }
