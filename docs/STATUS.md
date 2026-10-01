@@ -47,7 +47,10 @@ forces; the deploy and the live check passed. The High look's release is next (D
      stress. If it ever fails again on `dev`'s CI, reopen D341's trace with that run's log.
   3. **September's Progress log is copied** to [progress-log/2026-09.md](progress-log/2026-09.md): 232 comments of #57
      (2026-09-26 to 2026-09-30 UTC). The 69 from October go into `2026-10.md` at that month's end.
-  4. Not done yet: the faster settle's timing, the Wednesday allowance report.
+  4. Not done: **the faster settle's timing (D359)**. This PC wasn't quiet (Codex, OpenCode and Chrome running, CPU at
+     15–40%), so a timing would have been noise; Codex's own figure stands (about 1.25× at the median, 1.4× on 256²
+     lakes and seas; `investigation/water-speed`, `bench.mjs --workers 1 --reps 5`, `local/` inputs regenerated per its
+     INTEGRATION.md). Also not done: the Wednesday allowance report.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 
