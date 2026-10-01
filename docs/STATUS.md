@@ -50,7 +50,19 @@ forces; the deploy and the live check passed. The High look's release is next (D
   4. Not done: **the faster settle's timing (D359)**. This PC wasn't quiet (Codex, OpenCode and Chrome running, CPU at
      15–40%), so a timing would have been noise; Codex's own figure stands (about 1.25× at the median, 1.4× on 256²
      lakes and seas; `investigation/water-speed`, `bench.mjs --workers 1 --reps 5`, `local/` inputs regenerated per its
-     INTEGRATION.md). Also not done: the Wednesday allowance report.
+     INTEGRATION.md).
+  5. **Branches and PRs, listed but not deleted.** 108 remote branches are fully merged into `dev` or `main` and are
+     listed in [merged-branches.md](merged-branches.md) with the one command that deletes them: the automatic
+     permission check blocked the deletion here, so it waits for you. No open PR is superseded (all eleven are live or
+     held). **#95's base is `feature/forces`**, now released: retarget it to `dev` (`gh pr edit 95 --base dev`), then
+     `feature/forces` can go too. Local worktrees were not pruned (they follow the branches).
+  6. **Consistency sweep** of PLAN §20, ROADMAP, STATUS, HANDOFF and CHAT-HANDOFF: they were all rewritten the same
+     morning and agree on the forces' release, the next decision (D378), the order of work and the held items. Fixed: HANDOFF
+     said the forces release still had to reach `dev` (it has) and still listed the flake as to-trace. No retired term
+     is in a living document ("Watch" survives only in the marked checklist record and in HANDOFF's earlier-handoffs
+     history; ROADMAP's "Watch a 20-second tour" is a different thing).
+  7. The "didn't make it" list: the Wednesday allowance report is dropped (not needed); left: the faster settle's timing
+     and item 34.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 

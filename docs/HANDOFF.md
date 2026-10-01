@@ -55,10 +55,10 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    is true and the public site shows all five. **The first task is the High look's release** (D284, D346): merge
    `dev` into `feature/high-look` (#75; expect conflicts in the editor and the docs), wait for green, merge #75 into
    `dev`, tag `map-look-2-done`, and release with `tools/release.sh` (§7, "Releases"); it is approved, so no new
-   sitting is needed unless the merge changes how something looks. One test to trace (D341): on dev's CI after the
-   forces merge, `tests/e2e/save-to-timberborn.spec.ts:65` failed once with "browserContext.close: Test ended" and
-   passed on re-run (the test ended before its download finished; fixed in the test on 2026-10-01, see `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one
-   file per decision) was due at this release boundary and is not done.
+   sitting is needed unless the merge changes how something looks. The D341 flake (`tests/e2e/save-to-timberborn.spec.ts:65`,
+   "browserContext.close: Test ended") is fixed in the test (the test ended before its download finished; see
+   `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one file per decision) was due at this release boundary and
+   is not done.
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
    the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
@@ -69,14 +69,17 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    baseline; then a trial keeping planned lakes at their level, the 96² start class (Any 31, Islands 4, Highlands 14),
    the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), then the
    review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
-   settings are held; Codex's settings round 2 starts from a69c9f11 or later. When the forces release reaches `dev`,
-   fold `resources.mine_reach` into M9b's `resources.mine_site`.
+   settings are held; Codex's settings round 2 starts from a69c9f11 or later. The forces release is on `dev` now:
+   when `dev` is merged into `feature/m9b`, fold `resources.mine_reach` into M9b's `resources.mine_site`.
 4. **Codex's open investigations** (hold until Kyler says): smoothness (#107, its 2–5 AM trial of 2026-10-01 pending),
    multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
-5. **Still to do from this session** (what didn't make it): time the faster water settle (D359) on a quiet machine; the 
-   allowance report Kyler asked for on Wednesday evening wasn't written. **Done in the last-allowance session 
-   (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed, and 
-   September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7).
+5. **What didn't make it** (the faster water settle, D359, still has to be timed on a quiet machine; item 34, the
+   document reorganisation, is the next session's first small task). **Done in the last-allowance session
+   (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed,
+   September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7),
+   and a consistency sweep of these documents. Waiting for Kyler: the 108 remote branches already merged into `dev` or
+   `main` are listed in `docs/merged-branches.md` (deleting them was blocked here as unverifiable scope; one command
+   deletes them), and PR #95 still targets `feature/forces`: retarget it to `dev`.
 6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
    keep-awake script, stopped with the session.
 6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
