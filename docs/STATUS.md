@@ -12,7 +12,8 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 > every force); tests for an eruption in High and for the highlight on High's basin sources.
 
 > **The licence is now the AGPL v3 or later (D379, Kyler's decision, 2026-10-01):** `LICENSE` (official text), `package.json`, the
-> README's licence section; both pages' footers already link **Source**. Versions before 2026-10-01 stay MIT.
+> README's licence section; both pages' footers link **Source**. Versions before 2026-10-01 stay MIT. Released as
+> `licence-agpl-done` (commit 2ac8b654, release PR #154, `main` at 87c73a0; the deploy and the live check passed).
 
 ## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
 
