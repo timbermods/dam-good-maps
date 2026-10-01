@@ -1,0 +1,44 @@
+{
+  "browser": "headless Microsoft Edge",
+  "viewport": "960×640",
+  "timings": [
+    {
+      "case": "plateau",
+      "plannedMs": 164.4,
+      "finalMs": 1981.2,
+      "frames": 120
+    },
+    {
+      "case": "river",
+      "plannedMs": 160.5,
+      "finalMs": 1971,
+      "frames": 97
+    },
+    {
+      "case": "curved",
+      "plannedMs": 166.4,
+      "finalMs": 1980.9,
+      "frames": 97
+    }
+  ],
+  "longest": {
+    "points": 20,
+    "lengthTiles": 2152.7,
+    "plannedMs": 223,
+    "finalMs": 2021.1
+  },
+  "checks": [
+    "real pointer band",
+    "Esc drawing",
+    "undo mid-force",
+    "Esc Watch finish",
+    "one undo step",
+    "byte-exact undo",
+    "Try another replacement",
+    "F size",
+    "brace power",
+    "Floor / Walls controls",
+    "water settled"
+  ],
+  "errors": []
+}

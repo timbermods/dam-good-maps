@@ -13,6 +13,7 @@
 // springs (PLAN §20, D6): beyond it, it builds the thinner sheet and says so; an exact flow set by
 // hand may exceed it, with a warning.
 
+import * as portable from "../../math/portable";
 import { bedAt } from "../geometry";
 import { carveChannel, channelBounds, channelTiles, channelWidth, checkChannel, routeChannel, type ChannelPlan } from "../route";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
@@ -172,7 +173,7 @@ function pathLength(path: readonly [number, number][]): number {
   for (let i = 0; i + 1 < path.length; i++) {
     const dx = path[i + 1][0] - path[i][0];
     const dy = path[i + 1][1] - path[i][1];
-    l += Math.sqrt(dx * dx + dy * dy);
+    l += portable.sqrt(dx * dx + dy * dy);
   }
   return l;
 }

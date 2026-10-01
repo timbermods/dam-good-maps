@@ -1,0 +1,13 @@
+{
+  "name": "dgm-determinism-investigation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.mjs",
+    "browsers": "node local/runtime/node_modules/playwright/cli.js install chromium firefox webkit",
+    "audit": "node audit.mjs",
+    "guard": "node guard.mjs",
+    "check": "node run.mjs",
+    "check:adoption": "node run.mjs --adoption"
+  }
+}

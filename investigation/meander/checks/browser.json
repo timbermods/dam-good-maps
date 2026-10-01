@@ -1,0 +1,80 @@
+{
+  "browser": "headless Microsoft Edge",
+  "viewport": "960×640",
+  "timings": [
+    {
+      "case": "young",
+      "plannedMs": 305.6,
+      "finalMs": 2014,
+      "frames": 169,
+      "stats": {
+        "changed": 656,
+        "eroded": 495,
+        "deposited": 495,
+        "balance": 0,
+        "oxbows": 0,
+        "held": 0,
+        "startCarried": false,
+        "bends": "broad",
+        "riverWidth": 3,
+        "bluffLimited": 1380
+      }
+    },
+    {
+      "case": "narrow",
+      "plannedMs": 264.1,
+      "finalMs": 2012.2,
+      "frames": 184,
+      "stats": {
+        "changed": 1209,
+        "eroded": 1272,
+        "deposited": 1272,
+        "balance": 0,
+        "oxbows": 0,
+        "held": 0,
+        "startCarried": false,
+        "bends": "broad",
+        "riverWidth": 3,
+        "bluffLimited": 2861
+      }
+    },
+    {
+      "case": "long",
+      "plannedMs": 425.2,
+      "finalMs": 2007.2,
+      "frames": 157,
+      "stats": {
+        "changed": 1610,
+        "eroded": 1514,
+        "deposited": 1514,
+        "balance": 0,
+        "oxbows": 1,
+        "held": 0,
+        "startCarried": false,
+        "bends": "broad",
+        "riverWidth": 5,
+        "bluffLimited": 2748
+      }
+    }
+  ],
+  "longest": {
+    "points": 55,
+    "lengthTiles": 89.2,
+    "plannedMs": 420.6,
+    "finalMs": 2010.4
+  },
+  "checks": [
+    "real pointer band",
+    "Esc drawing",
+    "undo mid-force",
+    "Esc Watch finish",
+    "one undo step",
+    "byte-exact undo",
+    "Try another replacement",
+    "F size",
+    "brace power",
+    "Floor / Bends controls",
+    "water settled"
+  ],
+  "errors": []
+}

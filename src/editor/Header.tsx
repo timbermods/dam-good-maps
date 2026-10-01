@@ -8,6 +8,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import { Items, type ItemActions } from "./panels";
+import { tip } from "../ui/Tooltip";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -113,6 +114,8 @@ export interface HeaderProps {
   onSave(kind: "timberborn" | "download"): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
+  onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
   onBack(): void;
@@ -156,51 +159,56 @@ export function Header(p: HeaderProps) {
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
-        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" title="Undo (Ctrl+Z)">
+        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
           </svg>
         </button>
-        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" title="Redo (Ctrl+Y)">
+        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" {...tip("Redo", "C", "Ctrl+Y")}>
           <svg {...ICON}>
             <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
           </svg>
         </button>
         {p.dot}
-        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save the map into Timberborn's Maps folder" : "Download the map as a .timber file for Timberborn's Maps folder"}>
+        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
           {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
         </button>
         {p.look}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="Open, save the project, download, history" onClick={() => setMenu(!menu)}>
+          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
             ⋯
           </button>
           {menu ? (
             <ul class="menu" role="menu" aria-label="More">
               <li role="none">
-                <button type="button" role="menuitem" onClick={pick(() => file.current?.click())}>
+                <button type="button" role="menuitem" title="Open a map or project file" onClick={pick(() => file.current?.click())}>
                   Open…
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" onClick={pick(p.onSaveProject)}>
+                <button type="button" role="menuitem" title="Save the map and its edits as a project" onClick={pick(p.onSaveProject)}>
                   Save project
                 </button>
               </li>
               {p.canFolder ? (
                 <li role="none">
-                  <button type="button" role="menuitem" disabled={!!saving} onClick={pick(() => p.onSave("download"))}>
+                  <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
                     {saving?.kind === "download" ? savingWords : "Download .timber"}
                   </button>
                 </li>
               ) : null}
               <li role="none">
-                <button type="button" role="menuitem" aria-pressed={p.historyOpen} onClick={pick(p.onHistory)}>
+                <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
+                  Clear everything
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" aria-pressed={p.historyOpen} title="Every step of the map's history" onClick={pick(p.onHistory)}>
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" onClick={pick(p.onBack)}>
+                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
                   {p.info.kind === "generated" ? "Back to settings" : "New map"}
                 </button>
               </li>

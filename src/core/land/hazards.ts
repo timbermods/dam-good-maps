@@ -13,6 +13,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
+import * as portable from "../math/portable";
 import { featureId } from "../features/ids";
 import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
@@ -138,7 +139,7 @@ function windOnce(tiles: readonly number[], W: number, H: number, allowed: (i: n
     const k1 = Math.min(n - 1, k + 2);
     const tx = sx[k1] - sx[k0];
     const ty = sy[k1] - sy[k0];
-    const tl = Math.sqrt(tx * tx + ty * ty) || 1;
+    const tl = portable.sqrt(tx * tx + ty * ty) || 1;
     const off = amp * sinDet((PI * k) / (n - 1)) * sinDet((TWO_PI * k) / wave + phase);
     const x = k === n - 1 ? px[k] : Math.round(sx[k] - (ty / tl) * off);
     const y = k === n - 1 ? py[k] : Math.round(sy[k] + (tx / tl) * off);

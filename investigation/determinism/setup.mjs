@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+const here = path.dirname(fileURLToPath(import.meta.url));
+await fs.mkdir(path.join(here, 'local/runtime'), { recursive: true });
+await fs.copyFile(path.join(here, 'runtime.package.json'), path.join(here, 'local/runtime/package.json'));
+await fs.copyFile(path.join(here, 'runtime.package-lock.json'), path.join(here, 'local/runtime/package-lock.json'));
+const windows = process.platform === 'win32';
+const result = spawnSync(windows ? 'cmd.exe' : 'npm', windows ? ['/d', '/s', '/c', 'npm ci --prefix local/runtime --no-audit --no-fund'] : ['ci', '--prefix', 'local/runtime', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
+if (result.error) throw result.error;
+process.exitCode = result.status ?? 1;

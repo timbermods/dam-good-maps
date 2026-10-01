@@ -3,6 +3,7 @@
 // free tiles only, so a feature's entities depend only on its own params and on the ground, water
 // and occupancy under its area: an unchanged feature on unchanged ground is reused by a rebuild.
 
+import * as portable from "../../math/portable";
 import { ORIENTATIONS } from "../../format/footprints";
 import { bush, RUIN_VARIANTS, ruin, tree, type EntitySpec, type TreeSpecies } from "../../format/entities";
 import { hash32, tileHash01 } from "../../math/hash";
@@ -145,7 +146,7 @@ export function assignRuinHeights(tiles: number[], W: number, rng: Rng, mix: num
   }
   cx /= n;
   cy /= n;
-  const r = xs.map((x, k) => Math.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
+  const r = xs.map((x, k) => portable.sqrt((x - cx) * (x - cx) + (ys[k] - cy) * (ys[k] - cy)));
   let rmax = 0;
   for (const v of r) if (v > rmax) rmax = v;
   if (rmax === 0) rmax = 1;
@@ -178,11 +179,13 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
   const { W } = g;
   const out: Placed = { entities: [], tiles: [] };
   const tiles = runsToTiles(f.params.area, W).filter((i) => i >= 0 && i < g.heights.length);
+  // (tiles the player deleted stand empty, the heights still assigned over the whole area: D360 b)
+  const cleared = f.params.cleared ? new Set(runsToTiles(f.params.cleared, W)) : null;
   if (f.params.layout) {
     // the official maps' look (resources/baseline.ts)
     const c = ruinColumns(tiles, W, stream(g.seed, f.id, "heights"), f.params.layout.tallness);
     tiles.forEach((i, k) => {
-      if (!take(g, f, i, out)) return;
+      if (cleared?.has(i) || !take(g, f, i, out)) return;
       const h = c.storeys[k];
       out.entities.push(ruin({ id: entityId(f.id, `RuinColumnH${h}`, i), owner: f.id, x: i % W, y: (i - (i % W)) / W, z: g.heights[i], height: h, variant: c.variants[k], orientation: c.orientations[k] }));
     });
@@ -192,7 +195,7 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
   const sVariant = hash32(g.seed, f.id, "variant");
   const sOrient = hash32(g.seed, f.id, "orientation");
   tiles.forEach((i, k) => {
-    if (!take(g, f, i, out)) return;
+    if (cleared?.has(i) || !take(g, f, i, out)) return;
     const x = i % W;
     const y = (i - x) / W;
     const variant = RUIN_VARIANTS[Math.floor(tileHash01(sVariant, x, y) * RUIN_VARIANTS.length)];

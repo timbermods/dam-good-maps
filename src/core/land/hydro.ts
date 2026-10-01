@@ -29,6 +29,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hydro.ts).
 
+import * as portable from "../math/portable";
 import { featureId } from "../features/ids";
 import type { BedStep, Edge, Point, RiverFeature } from "../features/schema";
 import { density } from "../gen/calibrated";
@@ -123,7 +124,7 @@ function smoothPath(pts0: Point[], iters: number, step: number): Point[] {
   for (let k = 1; k < pts.length; k++) {
     const dx = pts[k][0] - pts[k - 1][0];
     const dy = pts[k][1] - pts[k - 1][1];
-    acc += Math.sqrt(dx * dx + dy * dy);
+    acc += portable.sqrt(dx * dx + dy * dy);
     if (acc >= step || k === pts.length - 1) {
       res.push(pts[k]);
       acc = 0;
@@ -153,7 +154,7 @@ function stamp(path: Point[], W: number, H: number, reach: number): Stamp {
     const vx = path[k + 1][0] - ax;
     const vy = path[k + 1][1] - ay;
     const l2 = vx * vx + vy * vy;
-    const len = Math.sqrt(l2);
+    const len = portable.sqrt(l2);
     const x0 = Math.max(0, Math.floor(Math.min(ax, ax + vx) - reach));
     const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, ax + vx) + reach));
     const y0 = Math.max(0, Math.floor(Math.min(ay, ay + vy) - reach));
@@ -165,7 +166,7 @@ function stamp(path: Point[], W: number, H: number, reach: number): Stamp {
         else if (t > 1) t = 1;
         const px = ax + t * vx - x;
         const py = ay + t * vy - y;
-        const dd = Math.sqrt(px * px + py * py);
+        const dd = portable.sqrt(px * px + py * py);
         const i = y * W + x;
         if (!seen[i]) {
           seen[i] = 1;
@@ -186,7 +187,7 @@ function arcLength(p: Point[]): number {
   for (let k = 0; k + 1 < p.length; k++) {
     const dx = p[k + 1][0] - p[k][0];
     const dy = p[k + 1][1] - p[k][1];
-    l += Math.sqrt(dx * dx + dy * dy);
+    l += portable.sqrt(dx * dx + dy * dy);
   }
   return l;
 }
@@ -196,7 +197,7 @@ function pointAt(p: Point[], s: number): { p: Point; n: Point } {
   for (let k = 0; k + 1 < p.length; k++) {
     const dx = p[k + 1][0] - p[k][0];
     const dy = p[k + 1][1] - p[k][1];
-    const l = Math.sqrt(dx * dx + dy * dy);
+    const l = portable.sqrt(dx * dx + dy * dy);
     if (acc + l >= s && l > 0) {
       const t = (s - acc) / l;
       return { p: [p[k][0] + t * dx, p[k][1] + t * dy], n: [-dy / l, dx / l] };
@@ -205,7 +206,7 @@ function pointAt(p: Point[], s: number): { p: Point; n: Point } {
   }
   const a = p[p.length - 2];
   const b = p[p.length - 1];
-  const l = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
+  const l = portable.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) || 1;
   return { p: b, n: [-(b[1] - a[1]) / l, (b[0] - a[0]) / l] };
 }
 
@@ -260,7 +261,7 @@ function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wan
     const b = pts[Math.min(n - 1, k + 3)];
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
     nx[k] = -dy / l;
     ny[k] = dx / l;
   }
@@ -683,7 +684,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
               at = k;
             }
           }
-          const d = Math.sqrt(best);
+          const d = portable.sqrt(best);
           if (d > reach) continue;
           const u = at / (pts.length - 1);
           const depth = Math.round((1 + 2.5 * 4 * u * (1 - u)) * (1 - d / reach) + 0.4);

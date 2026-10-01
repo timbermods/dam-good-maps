@@ -2,17 +2,16 @@
 // the game, by the game's own look and cues (D334 (2): no lightness gap or pattern beyond the game's;
 // the colour-blindness simulations are information). Grass and dry earth keep their own colours,
 // contamination reads by its orange-red veins over either soil, badwater by its crimson, dullness and
-// bubbles; dam sites are hatched with a dark rim; dead trees, slope arrows and the start keep a
+// bubbles; a hatched overlay (alpha 255) has a dark rim; dead trees, slope arrows and the start keep a
 // minimum size from afar; the legend names every meaning the view draws.
 
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
-import { DAM } from "../../src/editor/tools";
 import { buildEntities } from "../../src/render3d/entities3d";
 import { fallMaterial, hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
 import { CLEAR_WATER, badwaterBody } from "../../src/render3d/waterPalette";
-import { CONTAMINATION, contaminationVein, contaminationVeins, DAM_OVERLAY, DAM_SITE, damLegendSwatch, DEAD_TREE, GROUND, groundColor, HATCH, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -28,7 +27,7 @@ describe("the meanings", () => {
     return h < 0 ? h + 360 : h;
   };
 
-  it("keep the game's own cues (D334): green grass, warm earth, teal water, crimson badwater, pale dead trees, striped dam sites", () => {
+  it("keep the game's own cues (D334): green grass, warm earth, teal water, crimson badwater, pale dead trees", () => {
     // grass is green, dry earth warm brown to mauve, clean water teal-blue, badwater crimson: each
     // meaning its own hue, as in the game, with no lightness order asked between them (D334 (2))
     for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 70 && hue(g) < 110, cssColor(g)).toBe(true);
@@ -39,8 +38,6 @@ describe("the meanings", () => {
     // dead trees stand out pale against grass, living trees dark, dead trees nearly white
     expect(lum(DEAD_TREE)).toBeGreaterThan(lum(GROUND.moistLow) + 0.1);
     expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.55);
-    // a dam site's stripes: light and dark
-    expect(lum(DAM_SITE) - lum(HATCH.dark)).toBeGreaterThan(0.7);
   });
 });
 
@@ -177,13 +174,8 @@ describe("contamination", () => {
   });
 });
 
-describe("dam sites", () => {
-  it("are hatched (alpha 255), in the editor and the preview alike", () => {
-    expect(DAM_OVERLAY[3]).toBe(255);
-    expect([...DAM]).toEqual([...DAM_OVERLAY]);
-  });
-
-  it("mark the hatched tiles and their neighbours, for the rim", () => {
+describe("a hatched overlay (alpha 255)", () => {
+  it("marks the hatched tiles and their neighbours, for the rim", () => {
     const W = 5;
     const H = 4;
     const overlay = new Uint8Array(W * H * 4);
@@ -242,9 +234,7 @@ describe("the legend", () => {
     const labels = [...legendEntries("moisture"), ...objectLegend()].map((e) => e.label);
     for (const want of [/Moist/, /Dry/, /Contaminated/, /^Water: darker is deeper/, /^Badwater$/, /mixed with badwater/, /Walls/, /dead/, /Living trees/, /The start/, /Slopes: arrows point uphill/, /Ruins/, /Mine site/, /Geothermal field/, /Water source/, /Badwater source/, /blocks/])
       expect(labels.some((l) => want.test(l)), String(want)).toBe(true);
-    // the dam site's swatch is hatched light and dark
-    const dam = decodeURIComponent(/url\("data:image\/svg\+xml,([^"]*)"\)/.exec(damLegendSwatch())![1]);
-    expect(dam).toContain(cssColor(DAM_SITE));
-    expect(dam).toContain(cssColor(HATCH.dark));
+    // no dam site is drawn (D287)
+    expect(labels.some((l) => /dam site/i.test(l))).toBe(false);
   });
 });

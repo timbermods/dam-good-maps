@@ -1,0 +1,89 @@
+[
+  {
+    "size": 96,
+    "pairs": 190,
+    "near_duplicates": 0,
+    "highest_share": 0.4615,
+    "closest_seeds": [
+      3,
+      7
+    ],
+    "standouts": [
+      "farmland-past-gorge",
+      "hidden-valley",
+      "high-lake",
+      "landmark",
+      "long-view",
+      "meeting-waters",
+      "relic-pinnacle",
+      "snaking-river",
+      "two-ways",
+      "under-cliff",
+      "upper-lower"
+    ],
+    "entry_edges": [
+      "east",
+      "north",
+      "south",
+      "west"
+    ]
+  },
+  {
+    "size": 128,
+    "pairs": 190,
+    "near_duplicates": 0,
+    "highest_share": 0.4473,
+    "closest_seeds": [
+      3,
+      13
+    ],
+    "standouts": [
+      "crater-rivers",
+      "farmland-past-gorge",
+      "hidden-valley",
+      "landmark",
+      "long-view",
+      "meeting-waters",
+      "plug-lake",
+      "relic-pinnacle",
+      "snaking-river",
+      "two-ways",
+      "under-cliff",
+      "upper-lower"
+    ],
+    "entry_edges": [
+      "east",
+      "north",
+      "south",
+      "west"
+    ]
+  },
+  {
+    "size": 256,
+    "pairs": 190,
+    "near_duplicates": 0,
+    "highest_share": 0.4019,
+    "closest_seeds": [
+      3,
+      19
+    ],
+    "standouts": [
+      "cliff-falls-lake",
+      "hidden-valley",
+      "high-lake",
+      "landmark",
+      "meeting-waters",
+      "relic-pinnacle",
+      "snaking-river",
+      "two-ways",
+      "under-cliff",
+      "upper-lower"
+    ],
+    "entry_edges": [
+      "east",
+      "north",
+      "south",
+      "west"
+    ]
+  }
+]

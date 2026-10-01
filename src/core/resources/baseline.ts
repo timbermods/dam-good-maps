@@ -19,6 +19,7 @@
 //
 // Everything is deterministic (PLAN §2.1): basic arithmetic, the seeded streams and literal tables.
 
+import * as portable from "../math/portable";
 import { bush, ruin, tree, TREE_LOGS, type EntitySpec } from "../format/entities";
 import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { entityId } from "../features/ids";
@@ -70,7 +71,7 @@ export function thinCluster(rng: Rng, blob: readonly number[], W: number, keep: 
   const r = blob.map((i) => {
     const dx = (i % W) - cx;
     const dy = (i - (i % W)) / W - cy;
-    return Math.sqrt(dx * dx + dy * dy);
+    return portable.sqrt(dx * dx + dy * dy);
   });
   let rmax = 0;
   for (const v of r) if (v > rmax) rmax = v;
@@ -441,8 +442,8 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
     const aspect = 1 + o.rng.float();
     const [ax, ay] = AXES[o.rng.int(0, 4)];
     const areaTiles = size / L.fieldFill / 0.85;
-    const major = Math.sqrt((areaTiles * aspect) / Math.PI);
-    const minor = Math.sqrt(areaTiles / (aspect * Math.PI));
+    const major = portable.sqrt((areaTiles * aspect) / Math.PI);
+    const minor = portable.sqrt(areaTiles / (aspect * Math.PI));
     const level = g.heights[s];
     const allowed = new Uint8Array(N);
     const r = Math.ceil(major) + 1;

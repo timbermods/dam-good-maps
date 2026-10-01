@@ -1,0 +1,293 @@
+{
+  "base": "32aee5cf7b5d9386e386037f36a5081cdb6dd035",
+  "platform": {
+    "os": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "node": "v24.13.0"
+  },
+  "playwright": "1.58.2",
+  "cases": 358,
+  "engines": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+      "checkpoints": 1758
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0",
+      "checkpoints": 1758
+    },
+    "webkit": {
+      "version": "26.0",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+      "checkpoints": 1758
+    }
+  },
+  "baseline": {
+    "pairwiseCheckpointMismatches": 533,
+    "distinctCases": 28,
+    "byCause": {
+      "native hypot: fallen directions": 504,
+      "native hypot: terrain, then water propagation": 4,
+      "native exp: forcing/contamination": 25
+    },
+    "byCase": {
+      "force/128/craterize/10/null/1": 4,
+      "force/128/craterize/10/48/0": 4,
+      "force/128/craterize/10/48/1": 4,
+      "force/128/craterize/55/null/0": 4,
+      "force/128/craterize/55/null/1": 4,
+      "force/128/craterize/55/48/1": 4,
+      "force/128/craterize/100/null/0": 4,
+      "force/128/craterize/100/null/1": 4,
+      "force/128/glaciate/10/48/0": 4,
+      "mixed/128": 36,
+      "force/256/craterize/10/null/0": 4,
+      "force/256/craterize/10/null/1": 4,
+      "force/256/craterize/10/12/1": 4,
+      "force/256/craterize/10/48/0": 4,
+      "force/256/craterize/10/48/1": 4,
+      "force/256/craterize/55/null/0": 4,
+      "force/256/craterize/55/null/1": 4,
+      "force/256/craterize/55/12/1": 4,
+      "force/256/craterize/55/48/0": 4,
+      "force/256/craterize/55/48/1": 4,
+      "force/256/craterize/100/null/0": 4,
+      "force/256/craterize/100/null/1": 4,
+      "force/256/craterize/100/12/1": 4,
+      "force/256/craterize/100/48/1": 4,
+      "mixed/256": 376,
+      "weather/128": 8,
+      "weather/256": 17,
+      "scheduling/256": 4
+    },
+    "clockRecordFailures": {
+      "chromium": {
+        "baseline": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              27
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              43
+            ]
+          }
+        ],
+        "adoption": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          }
+        ]
+      },
+      "firefox": {
+        "baseline": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              27
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              43
+            ]
+          }
+        ],
+        "adoption": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          }
+        ]
+      },
+      "webkit": {
+        "baseline": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              27
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": false,
+            "steps": [
+              12,
+              43
+            ]
+          }
+        ],
+        "adoption": [
+          {
+            "label": "scheduling/128/fast",
+            "calls": [
+              12,
+              27
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          },
+          {
+            "label": "scheduling/256/fast",
+            "calls": [
+              12,
+              43
+            ],
+            "mapEqual": true,
+            "recordEqual": true,
+            "steps": [
+              11,
+              11
+            ]
+          }
+        ]
+      }
+    },
+    "generationFailures": [],
+    "runtimeErrors": []
+  },
+  "adoption": {
+    "pairwiseCheckpointMismatches": 0,
+    "runtimeErrors": [],
+    "changedChromiumCheckpointsByComponent": {
+      "contamination": 106,
+      "record": 12
+    }
+  },
+  "isolation": {
+    "onlyReplacement": "hypot",
+    "cases": 3,
+    "checkpointsPerEngine": 244,
+    "mismatches": 0,
+    "weather": {
+      "onlyReplacement": "exp",
+      "cases": 2,
+      "checkpointsPerEngine": 180,
+      "mismatches": 0
+    }
+  },
+  "numerical": {
+    "samples": 45117,
+    "nativeMismatches": 3629,
+    "portableMismatches": 0,
+    "nativeByFunction": {
+      "hypot": 1698,
+      "cos": 114,
+      "atan2": 732,
+      "exp": 431,
+      "log": 290,
+      "sin": 128,
+      "log2": 51,
+      "tanh": 182,
+      "pow": 2,
+      "atan": 1
+    }
+  },
+  "verification": [
+    "baseline/adoption headless core: 0 TypeScript diagnostics",
+    "adoption guard: 0 forbidden approximate/random calls",
+    "matching CI manifests accepted; modified hash rejected",
+    "git apply --check adoption.patch",
+    "git diff --check",
+    "documented locked setup command: passed",
+    "final harness sanity: 4 cases, 8 checkpoints per engine, 0 mismatches"
+  ],
+  "provenance": "Unchanged generation/brush/force grid cases retained from the initial same-base sweeps; corrected mixed/session cases and all supplemental cases rerun. CI and normal regeneration always use clean sweeps."
+}

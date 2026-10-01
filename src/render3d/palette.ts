@@ -74,6 +74,18 @@ export const JUICE = {
   foam: [0.92, 0.96, 0.87] as Rgb,
   debris: [0.59, 0.51, 0.41] as Rgb,
   mud: [0.57, 0.5, 0.34] as Rgb,
+  /** A badwater carve's surge (an unleashed badwater source, D239): murky, never the clean mud. */
+  badMud: [0.36, 0.3, 0.2] as Rgb,
+  /** The other forces (D202, D203, D206): an impact's dust, flash and falling streak and the
+   *  blocks it throws; a fault's crack. */
+  impactDust: [0.78, 0.7, 0.58] as Rgb,
+  impactFlash: [1.0, 0.96, 0.84] as Rgb,
+  streak: [1.0, 0.86, 0.53] as Rgb,
+  rock: [0.45, 0.39, 0.3] as Rgb,
+  crack: [0.2, 0.18, 0.16] as Rgb,
+  /** Glaciate's ice (D246, from investigation/glaciate `effects.ts`): its deep blue and its white. */
+  iceDeep: [0.32, 0.66, 0.78] as Rgb,
+  ice: [0.9, 0.97, 1.0] as Rgb,
 } as const;
 
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
@@ -151,16 +163,9 @@ export const DEAD_TREE: Rgb = [0.82, 0.78, 0.72];
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
 export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
 
-/** A hatched overlay (dam sites): light stripes in the overlay's colour, dark stripes, and a
+/** A hatched overlay (alpha 255): light stripes in the overlay's colour, dark stripes, and a
  *  dark rim round the hatched tiles. */
 export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
-
-/** Dam sites on the map (the overlay colour; alpha 255 draws it hatched). */
-export const DAM_SITE: Rgb = [1.0, 0.9, 0.3];
-
-/** The overlay bytes for a dam site (RGBA; the editor's dam-site layer and the preview's best dam
- *  site). */
-export const DAM_OVERLAY: readonly [number, number, number, number] = [255, 230, 77, 255];
 
 /** The start: a timber lodge with pale walls, a dark roof and a yellow banner on a pale deck. */
 export const START = {
@@ -456,9 +461,3 @@ export function objectLegend(): LegendEntry[] {
   ];
 }
 
-/** A dam site's legend swatch: hatched light and dark, rimmed dark. */
-export function damLegendSwatch(): string {
-  const c = cssColor;
-  const stripes = Array.from({ length: 6 }, (_, k) => `<path d="M${k * 6 - 6} 16 L${k * 6 + 2} 0 L${k * 6 + 5} 0 L${k * 6 - 3} 16Z" fill="${c(HATCH.dark)}"/>`).join("");
-  return icon(`<defs><clipPath id="d"><rect x="2" y="2" width="20" height="12"/></clipPath></defs><rect x="2" y="2" width="20" height="12" fill="${c(DAM_SITE)}"/><g clip-path="url(#d)">${stripes}</g><rect x="1" y="1" width="22" height="14" fill="none" stroke="${c(HATCH.dark)}" stroke-width="2"/>`);
-}

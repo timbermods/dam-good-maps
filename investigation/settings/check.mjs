@@ -1,0 +1,18 @@
+import ts from 'typescript';
+import {readFileSync}from'node:fs';
+import {resolve,relative}from'node:path';
+const root=process.cwd();
+const overlay=JSON.parse(readFileSync('investigation/settings/local/prototype-overlay.json','utf8'));
+const config=ts.readConfigFile('tsconfig.json',ts.sys.readFile).config;
+config.include=['src','investigation/settings/run.ts','investigation/settings/guards.ts'];config.exclude=[];
+const parsed=ts.parseJsonConfigFileContent(config,ts.sys,root);
+const host=ts.createCompilerHost(parsed.options);
+const path=p=>relative(root,p).replaceAll('\\','/');
+const read=host.readFile.bind(host),exists=host.fileExists.bind(host);
+host.readFile=p=>overlay[path(p)]?.after??read(p);
+host.fileExists=p=>!!overlay[path(p)]||exists(p);
+host.getSourceFile=(p,lang)=>{const s=host.readFile(p);return s===undefined?undefined:ts.createSourceFile(p,s,lang);};
+const program=ts.createProgram([...parsed.fileNames,...Object.keys(overlay).filter(p=>p.endsWith('.ts')).map(p=>resolve(root,p))],parsed.options,host);
+const diagnostics=ts.getPreEmitDiagnostics(program);
+console.log(ts.formatDiagnosticsWithColorAndContext(diagnostics,{getCurrentDirectory:()=>root,getCanonicalFileName:p=>p,getNewLine:()=> '\n'}));
+console.log(diagnostics.length+' diagnostics');process.exitCode=diagnostics.length?1:0;

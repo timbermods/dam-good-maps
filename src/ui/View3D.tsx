@@ -39,9 +39,15 @@ export interface View3DProps {
   class?: string;
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
+  /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
+   *  switches (Slow forces, Sound). */
+  cornerLevel?: ComponentChildren;
+  cornerBelow?: ComponentChildren;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
+  /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
+  besideHeight?: ComponentChildren;
   /** Whether the legend shows (the editor: only while an overlay is on, D184). */
   showLegend?: boolean;
   /** The look's menu among the view's buttons (the editor has it in its header instead). */
@@ -108,6 +114,7 @@ function saveMarkers(on: boolean): void {
 export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const compass = useRef<HTMLDivElement>(null);
+  const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
   /** The renderer, for the look's menu (High or Standard, D284). */
   const [made, setMade] = useState<MapRenderer | null>(null);
@@ -121,6 +128,19 @@ export function View3D(props: View3DProps) {
   const [mapTick, setMapTick] = useState(0);
   const onHover = useRef(props.onHover);
   onHover.current = props.onHover;
+
+  // the view bar wraps before the compass; what sits under it (the editor's brush bar) reads its
+  // height from --view-controls-h
+  useEffect(() => {
+    const el = controls.current;
+    const frame = el?.parentElement;
+    if (!el || !frame || typeof ResizeObserver === "undefined") return;
+    const note = () => frame.style.setProperty("--view-controls-h", `${el.offsetHeight}px`);
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
 
   useEffect(() => {
     let r: MapRenderer;
@@ -267,36 +287,47 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={ground === "height"} onClick={toggleGround} title="Colour the ground by height instead of by soil">
         Height colours
       </button>
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show dam sites, slope arrows and a line at every level, and draw small far-off objects larger">
+      {props.besideHeight}
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
     </>
   );
 
+  const compassDial = (
+    <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
+      <div ref={compass} class="needle">
+        <span>N</span>
+      </div>
+    </div>
+  );
   return (
     <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
-      <div class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "orbit"} onClick={() => pick("orbit")} title="Drag to turn, right-drag to move, wheel to zoom">
-          Orbit
-        </button>
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick("top")} title="North up. Drag to move, wheel to zoom">
+      <div ref={controls} class="view3d-controls" role="group" aria-label="View">
+        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
           Top-down
         </button>
-        <button type="button" onClick={() => renderer.current?.resetView()}>
+        <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
           Reset view
         </button>
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
         {props.lookMenu === false ? null : <LookMenu renderer={made} />}
       </div>
-      <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
-        <div ref={compass} class="needle">
-          <span>N</span>
+      {props.cornerLevel || props.cornerBelow ? (
+        // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the
+        // switches beneath, lined up with the cluster's edges; one height and one gap throughout
+        <div class="view3d-corner" role="group" aria-label="Layers and switches">
+          <div class="corner-level">{props.cornerLevel}</div>
+          {compassDial}
+          {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
         </div>
-      </div>
+      ) : (
+        compassDial
+      )}
       {props.hoverText ? (
         <div class="readout" role="status">
           {props.hoverText}
@@ -323,7 +354,7 @@ export function View3D(props: View3DProps) {
                     With <b>Markers</b> on:
                   </p>
                   <ul class="pick-list">{marked.map(item)}</ul>
-                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger, and dam sites wider.</p>
+                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger.</p>
                 </>
               ) : null}
               <p class="note">Click a line to show it on the map.</p>

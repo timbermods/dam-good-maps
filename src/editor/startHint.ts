@@ -12,7 +12,7 @@ import { startEntranceTile, type Orientation } from "../core/format/footprints";
  *  the tile at its door at that level too. At most `max`, none within `away` tiles of `not` (where
  *  the start stands already). */
 export function startSpots(
-  p: Pick<BrushParams, "size" | "dabs" | "shape" | "precise" | "level">,
+  p: Pick<BrushParams, "size" | "dabs" | "shape" | "precise" | "level" | "target">,
   heights: Uint8Array,
   depth: Float32Array,
   W: number,
@@ -22,7 +22,7 @@ export function startSpots(
   max = 3,
   away = 4,
 ): { x: number; y: number }[] {
-  const level = p.level;
+  const level = p.level ?? p.target;
   if (level === undefined) return [];
   const mask = new Uint8Array(W * H);
   markBrushTiles(p, W, H, mask);

@@ -11,6 +11,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytesOf = async (path: string | null) => new Uint8Array(readFileSync(path!));
+// A "download" event fires when the download starts. A test that ends right after it can close the browser
+// context while the file is still being written ("browserContext.close: Test ended"), so tests wait for `path()`.
 
 /** No folder access at all (Firefox, Safari in real life): `showDirectoryPicker` doesn't exist. */
 async function noFolderAccess(page: Page) {
@@ -56,7 +58,7 @@ test.describe("the generator page", () => {
 
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Save to Timberborn" }).click();
-    await download;
+    await (await download).path();
     await expect(page.getByText(/Move the file to/)).toBeVisible();
   });
 });
@@ -73,7 +75,7 @@ test.describe("the editor's header", () => {
     await expect(timberborn).toHaveClass(/primary/);
     const download = page.waitForEvent("download", { timeout: 120_000 });
     await timberborn.click();
-    await download;
+    await (await download).path();
     await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
   });
 
@@ -87,7 +89,7 @@ test.describe("the editor's header", () => {
     await expect(primary).toHaveClass(/primary/);
     const download = page.waitForEvent("download", { timeout: 120_000 });
     await primary.click();
-    await download;
+    await (await download).path();
   });
 });
 
@@ -103,7 +105,7 @@ test.describe("Real places", () => {
 
     const download = page.waitForEvent("download");
     await timberborn.click();
-    await download;
+    await (await download).path();
     await expect(first.getByText(/Move the file to/)).toBeVisible();
   });
 });

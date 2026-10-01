@@ -10,10 +10,9 @@ test("the map card shows the water facts, the layers toggle, and both water vari
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("./#s=4242&z=128&d=n&t=riverValley");
   // (water storage near the start is information since generator 0.7.0, #67: the map may pass with
-  // warnings, and with no dam site near its start)
+  // warnings; and no dam site on the card or the map, D287)
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText("Best dam site", { exact: true })).toBeVisible();
-  await expect(page.getByText(/water behind a \d+-tile dam|none near the start/)).toBeVisible();
+  await expect(page.getByText("Best dam site", { exact: true })).toHaveCount(0);
   for (const layer of ["Moist soil", "Contaminated soil", "Walkable from start", "Feature outlines"]) await page.getByLabel(layer, { exact: true }).check();
   await page.getByLabel("Water", { exact: true }).uncheck();
   await page.getByText(/checks passed/).click();
@@ -21,7 +20,7 @@ test("the map card shows the water facts, the layers toggle, and both water vari
   await expect(page.getByText(/plants\.drought/)).toBeVisible();
   const empty = page.waitForEvent("download");
   await page.getByRole("button", { name: "Without pre-filled water" }).click();
-  expect((await empty).suggestedFilename()).toBe("River Valley (4242) (empty water).timber");
+  expect((await empty).suggestedFilename()).toBe("dgm-river-valley-4242-empty-water.timber");
   expect(errors).toEqual([]);
 });
 

@@ -50,7 +50,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("water: smart Lower carves a bed the water follows; sources placed, strengthened with Shift+scroll, moved", async ({ page }) => {
+test("water: smart Lower carves a bed the water follows; sources placed, strengthened with Ctrl+scroll, moved", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -83,10 +83,25 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.mouse.move(p0.x, p0.y, { steps: 4 });
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.brushCursorState?.water ?? false)).toBe(true);
 
-  // a stroke from the river out over dry ground: a bed no higher than the river's, and the water in it
+  // a stroke from the river out over dry ground (D263): its bed a level below the river's surface
+  // (never below the river's own bed), and the water in it; holding never digs it deeper
   const dryBefore = line.slice(6);
   expect(await wetAt(page, dryBefore)).toBe(0);
-  const bed = (await heights(page))[from[1] * W + from[0]];
+  const before = await heights(page);
+  const wetLine = await page.evaluate((tiles) => tiles.map(([x, y]) => (window.dgm3d!.renderer.mapState()!.surface.depth[y * window.dgm3d!.renderer.mapState()!.W + x] ?? 0) > 0.05), line);
+  const start3 = await page.evaluate(([fx, fy]) => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    let low = 255;
+    let surface = -1;
+    for (let y = fy - 1; y <= fy + 1; y++)
+      for (let x = fx - 1; x <= fx + 1; x++) {
+        const i = y * m.W + x;
+        low = Math.min(low, m.heights[i]);
+        if (m.surface.depth[i] > 0.05) surface = Math.max(surface, m.heights[i] + m.surface.depth[i]);
+      }
+    return { low, surface };
+  }, from);
+  const bed = Math.max(start3.low, Math.round(start3.surface) - 1);
   await page.mouse.down();
   for (let k = 1; k < line.length; k++) {
     const q = await client(page, ...line[k]);
@@ -96,10 +111,20 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.mouse.up();
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await idle(page);
-  expect(await page.evaluate(() => window.dgmEditor!.lastStroke()?.channel)).toBe(true);
-  // nowhere along it above the river's bed (where the brush lingered it may press deeper)
+  const last = await page.evaluate(() => window.dgmEditor!.lastStroke());
+  expect(last?.channel).toBe(true);
+  expect(last?.bed).toBe(bed);
+  // along it: never above its bed, and never below what the bed rule allows (a level below the land
+  // it crossed, where that is lower), however long the brush lingered; the river keeps its ground
   const after = await heights(page);
-  for (const [tx, ty] of line.slice(1, 13)) expect(after[ty * W + tx], `(${tx}, ${ty})`).toBeLessThanOrEqual(bed);
+  let floor = bed;
+  for (let k = 1; k < 13; k++) {
+    const [tx, ty] = line[k];
+    const i = ty * W + tx;
+    if (!wetLine[k]) floor = Math.min(floor, before[i] - 1);
+    expect(after[i], `(${tx}, ${ty})`).toBeLessThanOrEqual(Math.max(bed, wetLine[k] ? before[i] : bed));
+    expect(after[i], `(${tx}, ${ty})`).toBeGreaterThanOrEqual(Math.min(floor, before[i]));
+  }
   await expect.poll(() => wetAt(page, dryBefore), { timeout: 120_000, intervals: [1000] }).toBeGreaterThanOrEqual(4);
   expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower/);
   await page.keyboard.press("Escape");
@@ -118,17 +143,18 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   expect(await sources(page, sx, sy)).toEqual([{ template: "WaterSource", x: sx, y: sy }]);
   await expect.poll(() => wet(page), { timeout: 30_000 }).toBeGreaterThan(wet1);
 
-  // Shift+scroll over it (D196): stronger, the new strength beside the pointer, one undo step
+  // Ctrl+scroll over it (D196; D322 moved it off Shift+scroll): stronger, the new strength beside
+  // the pointer, one undo step
   const steps = (await info(page)).history.length;
   await page.mouse.move(sp.x, sp.y);
-  await page.keyboard.down("Shift");
+  await page.keyboard.down("Control");
   for (let k = 0; k < 3; k++) {
     await page.mouse.wheel(0, -120);
     await page.waitForTimeout(120);
   }
-  await page.keyboard.up("Shift");
-  await expect(page.locator(".shape-note")).toHaveText("4 water/s");
-  await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 4 water/s");
+  await page.keyboard.up("Control");
+  await expect(page.locator(".shape-note")).toHaveText("3 water/s");
+  await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 3 water/s");
   await idle(page);
   expect((await info(page)).history.length).toBe(steps + 1);
 

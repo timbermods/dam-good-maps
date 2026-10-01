@@ -58,19 +58,42 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
 
   // a strong water source on high ground away from the start: its water spreads over seconds
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
-  const at: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
+  const want: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
+  // (up from there if a bar over the map, the water bar's, covers it)
+  const at = await page.evaluate(([x, y]) => {
+    let yy = y;
+    while (yy > 4) {
+      const c = window.dgmEditor!.tileToClient(x, yy);
+      if (document.elementFromPoint(c.x, c.y)?.tagName === "CANVAS") break;
+      yy--;
+    }
+    return [x, yy] as [number, number];
+  }, want);
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), at);
   const w0 = await wet(page);
+  // every water the renderer is given, as its wet-tile count: the journey's own frames, not a count by the clock
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer as unknown as Record<string, (w: unknown) => unknown>;
+    const shown: number[] = [];
+    (window as unknown as { dgmShown: number[] }).dgmShown = shown;
+    for (const name of ["updateWater", "updateWaterSoon"]) {
+      const original = r[name].bind(r);
+      r[name] = (w) => {
+        const out = original(w);
+        const d = window.dgm3d!.renderer.mapState()!.surface.depth;
+        let n = 0;
+        for (let i = 0; i < d.length; i++) if (d[i] > 0.05) n++;
+        shown.push(n);
+        return out;
+      };
+    }
+  });
+  const frames = () => page.evaluate(() => (window as unknown as { dgmShown: number[] }).dgmShown);
   await page.mouse.click(p.x, p.y);
   await idle(page);
-  const seen: number[] = [];
-  for (let k = 0; k < 8; k++) {
-    await page.waitForTimeout(250);
-    seen.push(await wet(page));
-  }
-  // it grows over the frames, not in one step
-  expect(new Set(seen).size).toBeGreaterThanOrEqual(4);
-  expect(Math.max(...seen)).toBeGreaterThan(w0);
+  // it grows over the frames, not in one step: the page shows at least four different waters on its way
+  await expect.poll(async () => new Set(await frames()).size, { timeout: 60_000 }).toBeGreaterThanOrEqual(4);
+  expect(Math.max(...(await frames()))).toBeGreaterThan(w0);
   await expect(bar.getByRole("status")).toContainText(/Water flowing|Water settled/);
 
   // pause holds it

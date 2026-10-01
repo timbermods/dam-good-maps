@@ -1,0 +1,185 @@
+{
+  "sample": "Six original ready maps; six saved generated and six saved imported projects made from the same terrain. These are reproducible synthetic saves, not personal user files.",
+  "rows": [
+    {
+      "map": "river-valley-1",
+      "kind": "first-visit",
+      "originalBytes": 214391,
+      "checkpointBytes": 453763,
+      "outputSha256": "ce62bc471b74fe21a296e5f179e2312aad5ad8e4e60f1e58cbfd0afb8715cbb8",
+      "directOpenMs": {
+        "median": 151,
+        "worst": 312
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "river-valley-1",
+      "kind": "saved-generated",
+      "outputSha256": "c4b4788bbbe19dd0ba6bdd86d3f55e25caa674035c71496005605027a9fc9424",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "river-valley-1",
+      "kind": "saved-import",
+      "outputSha256": "add27562dd52dfa09be7b9d494844765d9b91f3589109ef6ce52bcf8c6ad4d69",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "canyon-1",
+      "kind": "first-visit",
+      "originalBytes": 175247,
+      "checkpointBytes": 377525,
+      "outputSha256": "df807d01c908208fb8282f2ec57d1137a25138fd0db93d2e63e2222b98bc7ae2",
+      "directOpenMs": {
+        "median": 114,
+        "worst": 133
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "canyon-1",
+      "kind": "saved-generated",
+      "outputSha256": "8cb33c1e1a25e692372e1936d528ef394665a289382414cb35660d858141dee2",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "canyon-1",
+      "kind": "saved-import",
+      "outputSha256": "565806f2143669b6967fc1352190bfe405c145d6fde04551a629df3d900d7d14",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "highlands-1",
+      "kind": "first-visit",
+      "originalBytes": 180390,
+      "checkpointBytes": 375135,
+      "outputSha256": "7397e2549e51affa0d81efe26a42932cdab66e11bee84265522f4d64153fd1b0",
+      "directOpenMs": {
+        "median": 121,
+        "worst": 139
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "highlands-1",
+      "kind": "saved-generated",
+      "outputSha256": "41fb30df06a0fa29c01efe816afdabb7ef3511dffd76919f917b288a1e7d6077",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "highlands-1",
+      "kind": "saved-import",
+      "outputSha256": "d41b26d36cbec156cc2330d901c5d015867a5ec8f01b2daf727b010f9f303a8a",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "lake-basin-1",
+      "kind": "first-visit",
+      "originalBytes": 196178,
+      "checkpointBytes": 408115,
+      "outputSha256": "b3cdbafca042025a7b1b09d947f7358b5e280da76788a5e778cd0bd2b82e8ec9",
+      "directOpenMs": {
+        "median": 125,
+        "worst": 159
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "lake-basin-1",
+      "kind": "saved-generated",
+      "outputSha256": "2c5c7b098d2908df2c9053170cb9ef722424243d05d651ae8a7beade47abf0d9",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "lake-basin-1",
+      "kind": "saved-import",
+      "outputSha256": "ff57e69ac260f487805d439750b617c3b41270b53f9a50134ff6a2125b695886",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "delta-1",
+      "kind": "first-visit",
+      "originalBytes": 239199,
+      "checkpointBytes": 529450,
+      "outputSha256": "62ce9e0e924a67153e5757477a7cba65d71832e918a3e05f3a625746548f64be",
+      "directOpenMs": {
+        "median": 142,
+        "worst": 159
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "delta-1",
+      "kind": "saved-generated",
+      "outputSha256": "5b6b102356d6bb24b2efe5a45574899c2823c916f4efd4c351467d3196bd0a79",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "delta-1",
+      "kind": "saved-import",
+      "outputSha256": "e344562434e722ffed6e69de4daae05d812adfcfa685f63cc59c606f6d2b4710",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "islands-1",
+      "kind": "first-visit",
+      "originalBytes": 218626,
+      "checkpointBytes": 490113,
+      "outputSha256": "5b83c0a448ed974f8f20cd3374dd183cb38b71b08d2a62967c306f1b59f37f9e",
+      "directOpenMs": {
+        "median": 139,
+        "worst": 158
+      },
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "islands-1",
+      "kind": "saved-generated",
+      "outputSha256": "91f3cb1f38470538e1cf05800082c3b2b06434bd45c1210cbedf795705939ce8",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    },
+    {
+      "map": "islands-1",
+      "kind": "saved-import",
+      "outputSha256": "9c5ae0339c7818525313c63fff55858fc145d161971d95a1750f0277cfb1be3b",
+      "checks": true,
+      "exportBytes": true,
+      "editUndo": true
+    }
+  ]
+}

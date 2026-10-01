@@ -85,10 +85,6 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
         <div><dt>Under water</dt><dd>{Math.round(f.wetShare * 100)}% of the map</dd></div>
         {f.startBench !== null ? <div><dt>Start bench</dt><dd>{f.startBench} level tiles round the district center</dd></div> : null}
         <div><dt>Water from the start</dt><dd>{f.waterDistance === null ? "none within reach" : `${f.waterDistance} tiles' walk`}</dd></div>
-        <div>
-          <dt>Best dam site</dt>
-          <dd>{f.bestDam ? `${f.bestDam.volume.toLocaleString()} water behind a ${f.bestDam.length}-tile dam` : "none near the start"}</dd>
-        </div>
         <div><dt>Drought need</dt><dd>{f.reservoirNeed.toLocaleString()} water stored</dd></div>
         <div><dt>Trees</dt><dd>{trees.length} ({living} alive)</dd></div>
         <div><dt>Berry bushes</dt><dd>{count((t) => t === "BlueberryBush")}</dd></div>
@@ -98,7 +94,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
       </dl>
       <StartRequirements checks={r.checks} wood={f.woodBySpecies ? { bySpecies: f.woodBySpecies, growing: f.woodGrowing } : undefined} />
       <details class="report" open={blocking.length > 0}>
-        <summary>
+        <summary title="Show or hide the checks the map passed">
           {summary}
           <span class="muted"> · {r.ms} ms{r.attempts > 1 ? `, ${r.attempts} attempts` : ""}</span>
         </summary>
@@ -109,7 +105,7 @@ export function MapCard({ result: r }: { result: GenerateResponse }) {
           const warn = checks.filter((c) => status(c) === "warn").length;
           return (
             <details class="group" key={g} open={bad > 0 || warn > 0}>
-              <summary>
+              <summary title={`Show or hide the ${g.toLowerCase()} checks`}>
                 {g} <span class="muted">· {bad ? `${bad} failed` : warn ? `${warn} warning${warn > 1 ? "s" : ""}` : "all passed"}</span>
               </summary>
               <ul>

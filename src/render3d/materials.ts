@@ -518,6 +518,11 @@ export interface TerrainUniforms {
   hover: { value: Vector3 };
   /** 0: ground coloured by soil (moisture), 1: by height. */
   groundMode: { value: number };
+  /** An eruption's heat on the ground (D206; forces.ts): its mask (RGBA a tile: vents, flows'
+   *  cracks, dust, when the heat arrives), its age in seconds (below 0: none) and its cooling. */
+  eruptionMask: { value: DataTexture };
+  eruptionAge: { value: number };
+  coolingAge: { value: number };
 }
 
 /** `lite`: a lighter look for browsers that render in software: no patterns, shadows or soil
@@ -527,6 +532,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     heightRange: { value: new Vector2(lo, hi) },
     hover: { value: new Vector3(0, 0, 0) },
     groundMode: { value: 0 },
+    eruptionMask: { value: overlayTexture(1, 1) },
+    eruptionAge: { value: -1 },
+    coolingAge: { value: 0 },
   };
   return new ShaderMaterial({
     defines: { LITE: lite ? 1 : 0 },
@@ -549,6 +557,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform vec2 heightRange;
       uniform vec3 hover;
       uniform float groundMode;
+      uniform sampler2D eruptionMask;
+      uniform float eruptionAge;
+      uniform float coolingAge;
       varying vec3 vWorld;
       varying vec3 vNormal;
       ${common(h)}
@@ -859,6 +870,25 @@ ${hook(h, "wall")}          float py = fwidth(y);
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
+        }
+        // an eruption's heat (D206): the vents and the flows glow, cool to a dark crust, and the
+        // crust fades back into the ground; ash dusts the slopes round it
+        // (not on the map's outer walls: the mask's edge would stretch down them)
+        vec2 eAt = vec2(vWorld.x, -vWorld.z);
+        bool eWall = abs(n.y) < 0.5 && (eAt.x < 0.01 || eAt.y < 0.01 || eAt.x > mapSize.x - 0.01 || eAt.y > mapSize.y - 0.01);
+        if (eruptionAge >= 0.0 && !eWall) {
+          vec4 e = texture2D(eruptionMask, eAt / mapSize);
+          float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
+          float cooling = smoothstep(0.0, 3.6, coolingAge);
+          float crust = smoothstep(2.0, 5.8, coolingAge);
+          float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
+          float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
+          float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
+          vec3 lava = mix(vec3(1.65, 0.47, 0.035), vec3(0.38, 0.028, 0.013), cooling);
+          lava = mix(lava, c * vec3(0.49, 0.46, 0.43), crust);
+          c = mix(c, lava, hot * arrival * fade * 0.9);
+          float ash = e.b * smoothstep(0.5, 2.4, eruptionAge) * (1.0 - smoothstep(0.5, 6.0, coolingAge));
+          c = mix(c, vec3(0.52, 0.49, 0.45), ash * 0.24 * max(0.0, n.y));
         }
         gl_FragColor = vec4(finish(c, vWorld), 1.0);
       }

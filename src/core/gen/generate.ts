@@ -22,6 +22,7 @@
 // drawn; a genome that has cost many settles is replaced (the time budget, counted in settles so
 // the map is the same on every machine).
 
+import * as portable from "../math/portable";
 import { sourcesInFlow } from "../analysis/sources";
 import { straightness, tooStraight } from "../analysis/straight";
 import { entityJson } from "../format/entities";
@@ -325,7 +326,7 @@ export function plannedWater(h: Uint8Array, hy: Hydro, W: number, H: number): Fl
         const j = yy * W + xx;
         if (!hy.water[j]) bank = Math.min(bank, h[j]);
       }
-      const byFlow = q[i] > 0 ? 0.44 * Math.sqrt(q[i] / 0.82) : 0.25;
+      const byFlow = q[i] > 0 ? 0.44 * portable.sqrt(q[i] / 0.82) : 0.25;
       D[i] = Math.max(0.05, Math.min(byFlow, Number.isFinite(bank) ? bank - h[i] - 0.1 : byFlow));
     }
   }
@@ -892,7 +893,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!(startWaterServed(b3, rule, droughtDays) <= rule - 2) || wetRing(b3, p3)) return null;
       // the second district keeps its distance and its walk from the start, the rise its stairs
       for (const st of sites) {
-        const d = Math.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
+        const d = portable.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;

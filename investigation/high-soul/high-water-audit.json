@@ -1,0 +1,161 @@
+{
+  "note": "High body inputs before ripple lighting, grade, transparency and caustics. Existing repository palette tests measure Standard; these expose the High coverage gap.",
+  "input": {
+    "shallow": [
+      0.13,
+      0.29,
+      0.36
+    ],
+    "body": [
+      0.08,
+      0.2,
+      0.28
+    ],
+    "deep": [
+      0.045,
+      0.12,
+      0.19
+    ],
+    "streakAbove": [
+      0.17647058823529413,
+      0.3254901960784314,
+      0.3764705882352941
+    ],
+    "streakLow": [
+      0.2196078431372549,
+      0.33725490196078434,
+      0.3843137254901961
+    ],
+    "grazing": [
+      0.07,
+      0.14,
+      0.23
+    ],
+    "streakGrazing": [
+      0.3235294117647059,
+      0.5,
+      0.5372549019607843
+    ],
+    "bad": [
+      0.32,
+      0.075,
+      0.062
+    ],
+    "badTrough": [
+      -0.07254901960784314,
+      -0.027450980392156862,
+      -0.023529411764705882
+    ],
+    "badStreak": [
+      0.041176470588235294,
+      0.050980392156862744,
+      0.01764705882352941
+    ],
+    "glint": [
+      0.97,
+      0.985,
+      1
+    ],
+    "badGlint": [
+      0.86,
+      0.58,
+      0.55
+    ],
+    "foam": [
+      0.9,
+      0.96,
+      0.98
+    ],
+    "badFoam": [
+      0.31,
+      0.17,
+      0.085
+    ],
+    "sideShallow": [
+      0.13,
+      0.58,
+      0.6
+    ],
+    "sideBody": [
+      0.045,
+      0.36,
+      0.48
+    ],
+    "sideDeep": [
+      0.025,
+      0.16,
+      0.3
+    ],
+    "sideBad": [
+      0.19,
+      0.064,
+      0.034
+    ],
+    "sideBadDeep": [
+      0.06,
+      0.022,
+      0.018
+    ],
+    "section": [
+      0.18,
+      0.5,
+      0.55
+    ],
+    "sectionDeep": [
+      0.075,
+      0.23,
+      0.3
+    ],
+    "sectionBad": [
+      0.38,
+      0.14,
+      0.095
+    ],
+    "mist": [
+      0.85,
+      0.94,
+      0.95
+    ],
+    "badMist": [
+      0.67,
+      0.54,
+      0.36
+    ],
+    "ring": [
+      0.8,
+      0.94,
+      0.93
+    ],
+    "badRing": [
+      0.62,
+      0.45,
+      0.28
+    ]
+  },
+  "raw": {
+    "shallowOverBad": 0.1348896,
+    "deepOverBad": -0.0019015920000000214
+  },
+  "simulations": {
+    "normal": {
+      "shallowOverBadLstar": 12.470530682467725,
+      "deepOverBadLstar": -3.459543844811396,
+      "cleanDepthSpan": 18.450116244799577
+    },
+    "deuteranopia": {
+      "shallowOverBadLstar": 9.15735743156958,
+      "deepOverBadLstar": -6.1688261222470295,
+      "cleanDepthSpan": 18.072668333963275
+    },
+    "protanopia": {
+      "shallowOverBadLstar": 18.214657972024426,
+      "deepOverBadLstar": 1.3094331715027039,
+      "cleanDepthSpan": 18.98417405411886
+    },
+    "tritanopia": {
+      "shallowOverBadLstar": 12.987799503223492,
+      "deepOverBadLstar": -2.8873751617352745,
+      "cleanDepthSpan": 18.389099849570503
+    }
+  }
+}

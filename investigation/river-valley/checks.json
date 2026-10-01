@@ -1,0 +1,62 @@
+{
+  "any": {
+    "hash": "2a963c8998392f8759f4d0d05d1dc747972d27d2e7a4bcc197d50865943cb63f",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "canyon": {
+    "hash": "a7b30883d04b6882c8518208bc806bfae00eb17d311756fe1f4facbd3b23e2e3",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "highlands": {
+    "hash": "dc6ba94ea9430e4b4c4b2afd67db9fdbc8e975b6ebb1f833b0a931aa0dce1636",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "lakeBasin": {
+    "hash": "6795232c6cdd72ade9f30b0a4c6697613a7370e2ffa0e8cbecdb172e07249220",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "delta": {
+    "hash": "db5d3ff113e2df44c45c8d1670b30adcfb53ad65fb5c56dcd136a11e7ef395f5",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "islands": {
+    "hash": "7900d2f826959f41017ebfabc4da04a0b03148810a0ab7e7e01536196775198e",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "riverValley": {
+    "hash": "fd9d6c143fdfe3496181461d0160f1b7f2a7b08d97dacd181a062a6d9a76401b",
+    "passed": true,
+    "shown": 1,
+    "lands": 1
+  },
+  "replay": "identical bytes",
+  "rebuild": "identical bytes",
+  "explicitInflows": "preserved",
+  "preset": {
+    "relief": 50,
+    "terracing": 45,
+    "buildableLand": "normal",
+    "rivers": 1,
+    "riverStyle": "meandering",
+    "riverFlow": "normal",
+    "droughtReserve": "normal",
+    "lakes": "some",
+    "waterfalls": "few",
+    "badwater": "normal",
+    "thornBelts": "some",
+    "forestDensity": 100,
+    "ruins": 100
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "dgm-water-speed-investigation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:prototype": "node prototype.mjs",
+    "build": "node build.mjs",
+    "typecheck": "node typecheck.mjs",
+    "smoke": "node smoke.mjs",
+    "profile": "node profile.mjs",
+    "verify": "node verify.mjs",
+    "bench": "node bench.mjs",
+    "oracle": "node oracle.mjs",
+    "browser": "node browser.mjs",
+    "report": "node summarize.mjs"
+  },
+  "dependencies": { "esbuild": "0.28.2", "typescript": "5.9.3", "fflate": "0.8.3", "ajv": "8.20.0" }
+}

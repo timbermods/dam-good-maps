@@ -122,9 +122,12 @@ export class HighLook {
     this.apply();
   }
 
-  /** Share the terrain material's own uniforms (height range, hover, ground mode) with Standard's. */
+  /** Share the terrain material's own uniforms (height range, hover, ground mode, an eruption's
+   *  heat, D206) with Standard's, so a change of look mid-eruption keeps its glow. */
   shareTerrainUniforms(standard: ShaderMaterial): void {
-    for (const k of ["heightRange", "hover", "groundMode"]) this.materials.terrain.uniforms[k] = standard.uniforms[k];
+    const t = this.materials.terrain.uniforms;
+    if (t.eruptionMask && t.eruptionMask !== standard.uniforms.eruptionMask) (t.eruptionMask.value as { dispose(): void }).dispose();
+    for (const k of ["heightRange", "hover", "groundMode", "eruptionMask", "eruptionAge", "coolingAge"]) t[k] = standard.uniforms[k];
   }
 
   // ------------------------------------------------------------------------------------ effects

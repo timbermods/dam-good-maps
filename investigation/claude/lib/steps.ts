@@ -12,7 +12,7 @@
 
 import type { EditOp } from "../../../src/core/doc/ops";
 import type { MapSession } from "../../../src/core/doc/session";
-import { cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, startCentre, type PlannedEdit } from "../../../src/core/doc/tools";
+import { carryStartOps, cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, startCentre, type PlannedEdit } from "../../../src/core/doc/tools";
 import { applyBrush, BRUSH_MAX_LEVEL, BRUSH_TOOLS, MAX_DABS, type BrushParams, type BrushTool } from "../../../src/core/features/raster/brush";
 import { polygonMask } from "../../../src/core/features/geometry";
 import { fmix32 } from "../../../src/core/math/hash";
@@ -45,7 +45,10 @@ import { comparative, findWord, JUDGEMENT, leverPatch, sizeWordOf, type SizeWord
 import { viewOf } from "./view";
 import { network } from "./flow";
 import { carveParams, forceMapOf } from "../../../src/core/forces/carve/result";
+import { forceOfCarve } from "../../../src/core/forces/op";
+import { checkForceStep, expandForceStep, type ForceStep } from "./forceSteps";
 import { CarveRun, type CarveSettings } from "../../../src/core/forces/carve/run";
+import { breakout, sourceTile, unleashWidth } from "../../../src/core/forces/carve/unleash";
 import { protectedGround, STEPS_PER_SECOND } from "../../../src/core/forces/force";
 
 export const MAX_STEPS = 12;
@@ -96,18 +99,23 @@ export type Step =
    *  beside a source, carves a bed that keeps flowing downhill, and the water follows it (smart
    *  Lower, D184). The brush kit's options (D184, D204): flatten `steps` (terraces every so many
    *  levels) and `edges` "ramped" (the rim's steps get the game's natural slopes, so beavers walk
-   *  up); smooth `walkable` (steps worn to one level, with the natural slopes on them). */
+   *  up). Smooth has no walkable option (D247): a natural slope is placeObject's slope, where a
+   *  beaver should climb a 1-level step. */
   | { op: "brush"; tool: BrushTool; where?: Where; path?: Point[]; amount?: number; level?: number; passes?: number; size?: SizeWord | number; edges?: "slope" | "cliff" | "ramped"; steps?: number; walkable?: boolean }
   /** Carve (D194, D199): a river unleashed from a spot (from, or the highest dry ground of where),
    *  or aimed at an end (to); run to its end, or for `seconds`. */
-  | { op: "carve"; from?: [number, number]; where?: Where; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  | { op: "carve"; from?: [number, number]; where?: Where; source?: [number, number]; to?: [number, number] | Where; power?: number | keyof typeof POWER_WORDS; width?: number; depth?: number; wander?: number; walls?: "steep" | "wide"; river?: "keep" | "dry"; defyGravity?: boolean; seconds?: number; path?: number; handle?: string }
+  /** Craterize, Erupt and Quake (D202, D203, D206): an impact at a tile or the middle of a place (a
+   *  glancing blow toward a tile), a volcano there or a fissure along a line, a fault along a line
+   *  lifting or sliding one side (forceSteps.ts). */
+  | ForceStep
   // M9a (docs/m9-design.md §16): a new map from the processes (theme, seed, size, Verticality), and
   // a natural narrows on a river (the builder #63 keeps as an internal operation)
   | { op: "generate"; theme?: string; seed?: number; size?: number; verticality?: number; variety?: number; flowDirection?: string; intentions?: string[] }
   | { op: "placeNarrows"; target?: string; where?: Where; at?: number; reach?: number; rise?: number; handle?: string }
   | { op: "undoLast" };
 
-export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "undoLast", "generate", "placeNarrows"] as const;
+export const STEP_OPS = ["changeSettings", "addSetPiece", "changeSetPiece", "changeFeature", "addSource", "changeSource", "addResource", "removeResources", "placeObject", "remove", "moveFeature", "moveStart", "deleteFeature", "sculpt", "brush", "carve", "craterize", "erupt", "quake", "undoLast", "generate", "placeNarrows"] as const;
 
 /** The shelf's objects, as a step names them, and the object each places (D184). */
 export const SHELF_OBJECTS = { pine: "Pine", birch: "Birch", oak: "Oak", berryBush: "BlueberryBush", ruin: "RuinColumnH", mineSite: "UndergroundRuins", relic: "Relic", slope: "Slope", thorns: "Thorns", naturalDam: "NaturalDam", blockage: "Blockage", geothermal: "GeothermalField" } as const;
@@ -322,14 +330,24 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.edges !== undefined && s.edges !== "slope" && s.edges !== "cliff" && s.edges !== "ramped") errs.push("edges is slope, cliff or ramped (flatten)");
       if (s.edges === "ramped" && s.tool !== "flatten") errs.push("ramped edges are flatten's: its rim steps down to the ground round it with the game's natural slopes");
       if (s.steps !== undefined && (s.tool !== "flatten" || !(Number.isInteger(s.steps) && num(s.steps, 2, 8)))) errs.push("steps is flatten's: terraces every 2–8 levels");
-      if (s.walkable !== undefined && (s.tool !== "smooth" || typeof s.walkable !== "boolean")) errs.push("walkable is smooth's: true wears steps to one level and puts the game's natural slopes on them");
+      if (s.walkable !== undefined) errs.push("Smooth has no walkable option (D247): smooth the steps to one level, then placeObject a slope where beavers should climb a 1-level step");
       return [...errs, ...checkPlace(s.where, "where", W, H)];
     case "carve":
-      if (s.from === undefined && s.where === undefined) return ["carve needs from [x, y] or a where (its start: the highest dry ground there)"];
+      if (s.source !== undefined) {
+        // Unleash (D239): a placed source carves its own course
+        if (!(Array.isArray(s.source) && s.source.length === 2 && num(s.source[0], 0, W - 1) && num(s.source[1], 0, H - 1))) return ["source is the tile [x, y] of a placed water or badwater source"];
+        if (s.from !== undefined || s.where !== undefined) return ["a source's river starts at the source (or where its pool spills over): give source, or from or where, not both"];
+        if (s.width !== undefined || s.river !== undefined || s.defyGravity !== undefined) return ["an unleashed source's river takes its width from the source's strength, keeps the source, and runs downhill: leave out width, river and defyGravity"];
+        if (s.to !== undefined && !(Array.isArray(s.to) && s.to.length === 2 && num(s.to[0], 0, W - 1) && num(s.to[1], 0, H - 1))) return ["to is a tile [x, y] on the map (aimed, downhill of the source)"];
+        if (s.power !== undefined && !(num(s.power, 0, 100) || String(s.power) in POWER_WORDS)) return ["power is 0–100, or creek, torrent, river, catastrophe"];
+        return [];
+      }
+      if (s.from === undefined && s.where === undefined) return ["carve needs from [x, y] or a where (its start: the highest dry ground there), or a source to unleash"];
       if (s.from !== undefined && !(Array.isArray(s.from) && s.from.length === 2 && num(s.from[0], 0, W - 1) && num(s.from[1], 0, H - 1))) errs.push("from is a tile [x, y] on the map");
       if (Array.isArray(s.to) && !(s.to.length === 2 && num(s.to[0], 0, W - 1) && num(s.to[1], 0, H - 1))) errs.push("to is a tile [x, y] on the map, or a place");
       if (s.power !== undefined && !(num(s.power, 0, 100) || String(s.power) in POWER_WORDS)) errs.push("power is 0–100, or creek, torrent, river, catastrophe");
       if (s.width !== undefined && !num(s.width, 2, 24)) errs.push("width is 2–24 tiles (left out, it follows power)");
+      if (s.depth !== undefined && !(Number.isInteger(s.depth) && num(s.depth, 1, 12))) errs.push("depth is 1–12 levels below the land it runs through (left out, it follows power)");
       if (s.wander !== undefined && !num(s.wander, 0, 100)) errs.push("wander is 0 (straight) to 100 (winding)");
       if (s.walls !== undefined && s.walls !== "steep" && s.walls !== "wide") errs.push("walls is steep (a gorge) or wide (terraces)");
       if (s.river !== undefined && s.river !== "keep" && s.river !== "dry") errs.push("river is keep (a source at its start keeps it flowing) or dry (a dry canyon)");
@@ -338,6 +356,10 @@ export function checkStep(step: unknown, W: number, H: number): string[] {
       if (s.seconds !== undefined && !num(s.seconds, 0.5, 120)) errs.push("seconds is 0.5–120 (left out, it runs until it ends by itself)");
       if (s.path !== undefined && !(Number.isInteger(s.path) && num(s.path, 0, 99))) errs.push("path is 0–99: 0 the first course, 1, 2, … the editor's Try another path");
       return [...errs, ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : []), ...(s.to !== undefined && !Array.isArray(s.to) ? checkPlace(s.to, "to", W, H) : [])];
+    case "craterize":
+    case "erupt":
+    case "quake":
+      return [...checkForceStep(s, W, H), ...(s.where !== undefined ? checkPlace(s.where, "where", W, H) : [])];
     case "undoLast":
       return [];
     case "generate":
@@ -598,6 +620,10 @@ export function expandStep(s: MapSession, conv: Conversation, step: Step): Expan
       return expandBrush(s, conv, step);
     case "carve":
       return expandCarve(s, conv, step);
+    case "craterize":
+    case "erupt":
+    case "quake":
+      return expandForce(s, conv, step);
     case "sculpt": {
       const where = resolve(v, step.where, refs);
       if (!where.ok) return fail(step, where.errors);
@@ -694,7 +720,76 @@ const CARVE_PATHS = [0, 1, 2];
 /** A carve (D194, D199), as the editor's Carve button makes it: Unleash from a spot (its start: the
  *  given tile, or the highest dry ground of the place, nearest its middle), or Aim to an end (a
  *  tile, or the place's middle), run to its end (or for `seconds`), and kept as one operation. */
+/** Unleash (D239): the placed source at `step.source` carves its own course with Carve's engine:
+ *  from a pool, it breaks out where the water would spill over (aimed with `to`: where its rim is
+ *  nearest); its strength sets the width; the source stays its origin (no second source). */
+function expandUnleash(s: MapSession, step: Extract<Step, { op: "carve" }>): Expanded {
+  const { x: W, y: H } = s.size;
+  const b = s.built;
+  const [sx, sy] = [Math.round(step.source![0]), Math.round(step.source![1])];
+  const resolved: Record<string, unknown> = { source: [sx, sy] };
+  const e = b.entities.find((g) => (g.template === "WaterSource" && g.x === sx && g.y === sy) || (g.template === "BadwaterSource" && sx >= g.x && sx <= g.x + 2 && sy >= g.y && sy <= g.y + 2));
+  if (!e) return fail(step, [`there is no water or badwater source at (${sx}, ${sy}) to unleash`], undefined, resolved);
+  const comps = (e.raw ? ((e.raw as { Components?: Record<string, unknown> }).Components ?? {}) : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+  const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
+  const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
+  const map = forceMapOf(b);
+  const keep = protectedGround(map);
+  for (const i of s.columns.keys()) keep[i] = 1;
+  const guard = keep;
+  const to = Array.isArray(step.to) ? ([Math.round(step.to[0]), Math.round(step.to[1])] as [number, number]) : undefined;
+  const at = (p: [number, number]) => p[1] * W + p[0];
+  const out = breakout(W, H, b.heights, b.water, sourceTile(e, W), guard, to ? at(to) : null);
+  const origin: [number, number] = [out.origin % W, Math.floor(out.origin / W)];
+  const power = typeof step.power === "string" ? POWER_WORDS[step.power] : (step.power ?? 65);
+  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: unleashWidth(strength), seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: false, dry: true, layers: true };
+  let run: CarveRun;
+  try {
+    run = new CarveRun(map, settings, { origin: out.origin, ...(to ? { end: at(to) } : {}) }, { keep, unleashed: e.id, bad: e.template === "BadwaterSource" });
+  } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    return fail(step, [/uphill/.test(text) ? "that point is uphill of the source: water runs downhill, aim it lower" : text], undefined, resolved);
+  }
+  const limit = step.seconds !== undefined ? Math.round(step.seconds * STEPS_PER_SECOND) : 1200;
+  for (let k = 0; k < limit && !run.done; k++) run.step();
+  const params = carveParams(map, run, { settings, origin, ...(to ? { end: to } : {}), cut: null });
+  if (!params) return fail(step, ["its water found nothing to carve from there: more power, or aim it with to"], undefined, resolved);
+  const cap = Math.floor(MAX_AREA_SHARE * W * H);
+  if (params.tiles.length > cap) return fail(step, [`that carve changes ${params.tiles.length} tiles; one proposal may change at most ${cap} (30% of the map): less power, or fewer seconds`], undefined, resolved);
+  let deepest = 0;
+  let cut = 0;
+  params.tiles.forEach((i, k) => {
+    const d = map.heights[i] - params.heights[k];
+    if (d > 0) cut += d;
+    deepest = Math.max(deepest, d);
+  });
+  const secs = (run.steps / STEPS_PER_SECOND).toFixed(1);
+  const ended = params.reason === "stopped" ? `stopped after ${secs} s` : `ran ${secs} s and ended at ${params.reason === "destination" ? "its end" : params.reason === "map edge" ? "the map's edge" : params.reason === "lake" ? "a lake" : params.reason}`;
+  const word = Object.entries(POWER_WORDS).reduce((a, x) => (Math.abs(x[1] - power) < Math.abs(a[1] - power) ? x : a))[0];
+  const kind = e.template === "BadwaterSource" ? "badwater source" : "water source";
+  const report = [
+    `unleashes the ${kind} at (${sx}, ${sy}) (${word}, power ${power}): ${out.pool ? `it breaks out of its pool at (${origin[0]}, ${origin[1]}), where the water spills over, and ` : ""}it ${ended}, cutting ${cut} blocks over ${params.tiles.length} tiles, ${deepest} levels deep at most, ${settings.width} tiles wide (the source's ${strength} blocks/s)`,
+    `the source stays the river's origin: no other source is added${e.template === "BadwaterSource" ? "; its river is badwater" : ""}`,
+  ];
+  const op = forceOfCarve(params);
+  const unleashOp: EditOp = { op: "forceResult", params: { ...op, where: { ...op.where, source: e.id } } };
+  // (a force is bound only by nature: where it broke the start's ground, the start is carried, D257)
+  const carry = carryStartOps(s, unleashOp);
+  if (carry.length) report.push("it broke the start's ground: the start is carried to the nearest level ground");
+  return {
+    ok: true,
+    step,
+    ops: [unleashOp, ...carry],
+    made: [],
+    report,
+    resolved: { ...resolved, origin, breakout: !!out.pool, mode: settings.mode, power, width: settings.width, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length },
+    errors: [],
+    tiles: params.tiles.length,
+  };
+}
+
 function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op: "carve" }>): Expanded {
+  if (step.source) return expandUnleash(s, step);
   const { x: W, y: H } = s.size;
   const b = s.built;
   const refs = refContext(conv);
@@ -788,7 +883,7 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   }
   if (chosenPath !== undefined) step = { ...step, path: chosenPath };
   const power = typeof step.power === "string" ? POWER_WORDS[step.power] : step.power ?? 65;
-  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
+  const settings: CarveSettings = { mode: to ? "aim" : "unleash", power, wander: step.wander ?? 35, width: step.width ?? null, ...(step.depth !== undefined ? { depth: step.depth } : {}), seed: step.path ?? 0, walls: step.walls ?? "steep", defyGravity: !!step.defyGravity, dry: step.river === "dry", layers: true };
   const at = (p: [number, number]) => p[1] * W + p[0];
   if (to && at(to) === at(from)) return fail(step, ["its end is where it starts: aim somewhere else"], undefined, { ...resolved, from });
   const id = newId(conv, "source");
@@ -821,6 +916,7 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
   const report = [
     `carves ${settings.dry ? "a dry canyon" : "a river"} (${word}, power ${power}) from (${from[0]}, ${from[1]})${to ? ` toward (${to[0]}, ${to[1]})` : ""}: it ${ended}, cutting ${cut} blocks over ${params.tiles.length} tiles, ${deepest} levels deep at most${Number.isFinite(low) ? `, down to level ${low}` : ""}`,
   ];
+  if (step.depth !== undefined) report.push(`its depth set to ${step.depth} level${step.depth > 1 ? "s" : ""} below the land it runs through: a ${params.width !== null && params.width >= 10 ? "wide, " : ""}shallow river, however strong`);
   if (params.source) report.push(`keeps a water source of ${params.source.strength} blocks/s at (${params.source.x}, ${params.source.y}), its strength following the width: the river keeps flowing`);
   else report.push("a dry canyon: no source");
   if (params.removed.length) report.push(`${params.removed.length} object${params.removed.length > 1 ? "s" : ""} on the cut ground go with it`);
@@ -829,16 +925,62 @@ function expandCarve(s: MapSession, conv: Conversation, step: Extract<Step, { op
       `${moved.start ? "starts at the next highest dry ground there" : "takes another path"}${moved.path ? ` (path ${moved.path})` : ""}: the first course from (${moved.first[0]}, ${moved.first[1]}), the highest, ${moved.why}`,
     );
   const made = params.source ? [{ handle: newHandle(conv, "source", step.handle), id: `${SOURCE_PREFIX}${params.source.id}`, kind: "source" }] : [];
+  const carveOp: EditOp = { op: "forceResult", params: forceOfCarve(params) };
+  // (a force is bound only by nature: where it broke the start's ground, the start is carried, D257)
+  const carry = carryStartOps(s, carveOp);
+  if (carry.length) report.push("it broke the start's ground: the start is carried to the nearest level ground");
   return {
     ok: true,
     step,
-    ops: [{ op: "carve", params }],
+    // (the four forces' one operation, as the editor's Carve keeps it, and the start's carry)
+    ops: [carveOp, ...carry],
     made,
     report,
-    resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },
+    resolved: { ...resolved, from, ...(to ? { to } : {}), mode: settings.mode, power, width: params.width, ...(step.depth !== undefined ? { depth: step.depth } : {}), seed: params.seed, reason: params.reason, seconds: Number(secs), cut, deepest, tiles: params.tiles.length, ...(params.source ? { source: params.source.strength } : {}) },
     errors: [],
     tiles: params.tiles.length,
   };
+}
+
+/** Craterize, Erupt and Quake (D202, D203, D206): the force whole on the map as it stands, as the
+ *  editor's button makes it; a place gives its middle (away from the start's own ground). */
+function expandForce(s: MapSession, conv: Conversation, step: ForceStep): Expanded {
+  const { x: W } = s.size;
+  const resolved: Record<string, unknown> = {};
+  let at: [number, number] | null = null;
+  if (step.op !== "quake") {
+    if (step.at) at = [Math.round(step.at[0]), Math.round(step.at[1])];
+    else if (step.where !== undefined && !(step.op === "erupt" && step.line)) {
+      const where = resolve(viewOf(s), step.where as Where, refContext(conv));
+      Object.assign(resolved, { place: where.place, assumptions: where.assumptions });
+      if (!where.ok) return fail(step, where.errors, undefined, resolved);
+      const keep = protectedGround(forceMapOf(s.built));
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      for (let i = 0; i < where.mask.length; i++)
+        if (where.mask[i]) {
+          sx += i % W;
+          sy += Math.floor(i / W);
+          n++;
+        }
+      let best = -1;
+      let bd = Infinity;
+      for (let i = 0; i < where.mask.length; i++) {
+        if (!where.mask[i] || keep[i]) continue;
+        const d = Math.hypot((i % W) - sx / n, Math.floor(i / W) - sy / n);
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      }
+      if (best < 0) return fail(step, ["that place is all the start's own ground"], undefined, resolved);
+      at = [best % W, Math.floor(best / W)];
+    }
+  }
+  const r = expandForceStep(s, step, at);
+  if (!r.ok) return fail(step, r.errors, undefined, { ...resolved, ...r.resolved });
+  return { ok: true, step, ops: r.ops, made: [], report: r.report, resolved: { ...resolved, ...r.resolved }, errors: [], tiles: r.tiles };
 }
 
 // ---------------------------------------------------------------------------------- sources
@@ -1157,7 +1299,6 @@ function expandBrush(s: MapSession, conv: Conversation, step: Extract<Step, { op
     const before = steepest(pre, tiles, W, H);
     const now = steepest(after, tiles, W, H);
     report.push(`${tool === "smooth" ? "smooths" : "weathers"} ${moved} of ${tiles.length} tiles in ${strokes.length} passes: the steepest step there ${now < before ? `goes from ${before} to ${now} levels` : `stays ${now} levels`}${roof}`);
-    if (step.walkable) report.push("made walkable: the game's natural slopes join the steps it leaves, so beavers can walk up");
   }
   const ops = strokes.map((params) => ({ op: "brush", params }) as EditOp);
   return { ok: true, step, ops, made: [], report, resolved: { ...resolved, tiles: tiles.length, strokes: strokes.length }, errors: [], tiles: tiles.length };
@@ -1369,14 +1510,13 @@ function expandBrushPath(s: MapSession, step: Extract<Step, { op: "brush" }>): E
   return { ok: true, step, ops, made: [], report, resolved, errors: [], tiles: changed };
 }
 
-/** A stroke with the brush kit's options the step asks for (flatten's steps and ramped edges,
- *  smooth's make walkable), as a player's stroke carries them. */
+/** A stroke with the brush kit's options the step asks for (flatten's steps and ramped edges), as a
+ *  player's stroke carries them. */
 function withKit(p: BrushParams, step: Extract<Step, { op: "brush" }>): BrushParams {
   return {
     ...p,
     ...(p.tool === "flatten" && step.steps ? { steps: step.steps } : {}),
     ...(p.tool === "flatten" && step.edges === "ramped" ? { edges: "ramped" as const } : {}),
-    ...(p.tool === "smooth" && step.walkable ? { walkable: true } : {}),
   };
 }
 

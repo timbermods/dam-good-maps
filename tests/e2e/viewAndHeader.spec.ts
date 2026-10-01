@@ -143,7 +143,7 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   const [hx, hy] = pair!;
   const high = await page.evaluate(([x, y]) => window.dgm3d!.renderer.mapState()!.heights[y * window.dgm3d!.renderer.mapState()!.W + x], [hx, hy] as [number, number]);
   await page.keyboard.press("1");
-  for (let k = 0; k < 3; k++) await page.keyboard.press("[");
+  for (let k = 0; k < 3; k++) await page.keyboard.press("{");
   const q = await client(page, hx + 1, hy);
   await page.mouse.move(q.x, q.y);
   await page.mouse.down();
@@ -158,4 +158,54 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   expect(after[0]).toBe(high);
   expect(after[1]).toBeLessThanOrEqual(cut);
   expect(errors).toEqual([]);
+});
+
+test("D368 (5): the top right is one tidy cluster: the compass in the corner, the level control beside it centred on its line, Slow forces and Sound beneath on the cluster's edges, one height and one gap throughout", async ({ page }, testInfo) => {
+  await refine(page);
+  await page.waitForTimeout(500);
+  const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
+  const measure = async () => {
+    const view = await box(page.locator(".editor-view .view3d"));
+    const compass = await box(page.locator(".view3d-corner .compass"));
+    const level = await box(page.getByRole("group", { name: "Visible layers" }));
+    const slow = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
+    const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
+    return { view, compass, level, slow, sound };
+  };
+  const near = (a: number, b: number, what: string) => expect(Math.abs(a - b), `${what}: ${a} against ${b}`).toBeLessThanOrEqual(1);
+  // at rest (the whole world showing) and with a layer cut (its ∞ button there too: the level control wider)
+  for (const state of ["at rest", "a layer cut"]) {
+    if (state === "a layer cut") {
+      await page.getByRole("button", { name: "Lower the visible layer" }).click();
+      await expect(page.getByRole("button", { name: "Show every layer" })).toBeVisible();
+    }
+    const { view, compass, level, slow, sound } = await measure();
+    const right = (b: { x: number; width: number }) => b.x + b.width;
+    const bottom = (b: { y: number; height: number }) => b.y + b.height;
+    const gap = compass.x - right(level);
+    // the compass in the corner
+    near(view.x + view.width - right(compass), 10, `${state}: the compass's right margin`);
+    near(compass.y - view.y, 10, `${state}: the compass's top margin`);
+    // the level control beside it, centred on its line, the same height
+    near(level.y + level.height / 2, compass.y + compass.height / 2, `${state}: the level control centred with the compass`);
+    near(level.height, compass.height, `${state}: the level control's height`);
+    expect(gap, `${state}: a gap between the level control and the compass`).toBeGreaterThan(2);
+    // Slow forces and Sound directly beneath, on the cluster's edges, the same gap, the same height
+    near(slow.y - bottom(compass), gap, `${state}: the gap beneath`);
+    near(sound.y, slow.y, `${state}: Slow forces and Sound on one line`);
+    near(slow.x, level.x, `${state}: Slow forces from the level control's left edge`);
+    near(right(sound), right(compass), `${state}: Sound to the compass's right edge`);
+    near(sound.x - right(slow), gap, `${state}: the gap between Slow forces and Sound`);
+    for (const [name, b] of [
+      ["Slow forces", slow],
+      ["Sound", sound],
+    ] as const)
+      near(b.height, compass.height, `${state}: ${name}'s height`);
+    near(sound.width, compass.width, `${state}: Sound square under the compass`);
+  }
+  // (a picture for Kyler's eye: the cluster, at rest)
+  await page.getByRole("button", { name: "Show every layer" }).click();
+  const { view } = await measure();
+  await page.mouse.move(view.x + 200, view.y + 400);
+  await page.screenshot({ path: testInfo.outputPath("top-right.png"), clip: { x: view.x + view.width - 420, y: view.y, width: 420, height: 160 } });
 });

@@ -1,0 +1,278 @@
+[
+  {
+    "size": 96,
+    "mode": "before",
+    "allThree": 9,
+    "absolutesFailed": 0,
+    "promise": 10,
+    "readable": 18,
+    "standout": 20,
+    "majoritySea": 0,
+    "firstLandMs": {
+      "median": 1403,
+      "p90": 2184
+    },
+    "cpuLandMs": {
+      "median": 1212,
+      "p90": 1944
+    },
+    "waterMs": {
+      "median": 2908,
+      "p90": 4762
+    },
+    "sea": {
+      "min": 0.123,
+      "median": 0.277,
+      "max": 0.473
+    },
+    "water": {
+      "min": 0.128,
+      "median": 0.286,
+      "max": 0.478
+    },
+    "maxSettleTicks": 2944,
+    "minLogs": 248,
+    "minMines": 2,
+    "minBerries": 33,
+    "maxLandAttempts": 14,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 19,
+      "start.reach": 3,
+      "start.badwater": 1
+    }
+  },
+  {
+    "size": 96,
+    "mode": "after",
+    "allThree": 20,
+    "absolutesFailed": 0,
+    "promise": 20,
+    "readable": 20,
+    "standout": 20,
+    "majoritySea": 20,
+    "firstLandMs": {
+      "median": 885,
+      "p90": 3376
+    },
+    "cpuLandMs": {
+      "median": 557,
+      "p90": 1680
+    },
+    "waterMs": {
+      "median": 4281,
+      "p90": 7774
+    },
+    "sea": {
+      "min": 0.634,
+      "median": 0.635,
+      "max": 0.637
+    },
+    "water": {
+      "min": 0.638,
+      "median": 0.641,
+      "max": 0.645
+    },
+    "maxSettleTicks": 2432,
+    "minLogs": 270,
+    "minMines": 2,
+    "minBerries": 48,
+    "maxLandAttempts": 14,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 10
+    }
+  },
+  {
+    "size": 128,
+    "mode": "before",
+    "allThree": 19,
+    "absolutesFailed": 0,
+    "promise": 19,
+    "readable": 20,
+    "standout": 20,
+    "majoritySea": 0,
+    "firstLandMs": {
+      "median": 987,
+      "p90": 2879
+    },
+    "cpuLandMs": {
+      "median": 767,
+      "p90": 2488
+    },
+    "waterMs": {
+      "median": 4173,
+      "p90": 13588
+    },
+    "sea": {
+      "min": 0.268,
+      "median": 0.418,
+      "max": 0.476
+    },
+    "water": {
+      "min": 0.272,
+      "median": 0.42,
+      "max": 0.48
+    },
+    "maxSettleTicks": 3456,
+    "minLogs": 270,
+    "minMines": 2,
+    "minBerries": 33,
+    "maxLandAttempts": 11,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 20
+    }
+  },
+  {
+    "size": 128,
+    "mode": "after",
+    "allThree": 20,
+    "absolutesFailed": 0,
+    "promise": 20,
+    "readable": 20,
+    "standout": 20,
+    "majoritySea": 20,
+    "firstLandMs": {
+      "median": 1627,
+      "p90": 3204
+    },
+    "cpuLandMs": {
+      "median": 816,
+      "p90": 1494
+    },
+    "waterMs": {
+      "median": 8989,
+      "p90": 12196
+    },
+    "sea": {
+      "min": 0.633,
+      "median": 0.633,
+      "max": 0.642
+    },
+    "water": {
+      "min": 0.636,
+      "median": 0.637,
+      "max": 0.645
+    },
+    "maxSettleTicks": 2432,
+    "minLogs": 275,
+    "minMines": 2,
+    "minBerries": 48,
+    "maxLandAttempts": 7,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 18,
+      "resources.scrap": 2
+    }
+  },
+  {
+    "size": 256,
+    "mode": "before",
+    "allThree": 20,
+    "absolutesFailed": 0,
+    "promise": 20,
+    "readable": 20,
+    "standout": 20,
+    "majoritySea": 0,
+    "firstLandMs": {
+      "median": 4282,
+      "p90": 6144
+    },
+    "cpuLandMs": {
+      "median": 3249,
+      "p90": 5721
+    },
+    "waterMs": {
+      "median": 25414,
+      "p90": 44671
+    },
+    "sea": {
+      "min": 0.28,
+      "median": 0.41,
+      "max": 0.47
+    },
+    "water": {
+      "min": 0.282,
+      "median": 0.411,
+      "max": 0.474
+    },
+    "maxSettleTicks": 3200,
+    "minLogs": 248,
+    "minMines": 3,
+    "minBerries": 33,
+    "maxLandAttempts": 5,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 20,
+      "start.badwater": 1,
+      "start.reach": 1
+    }
+  },
+  {
+    "size": 256,
+    "mode": "after",
+    "allThree": 20,
+    "absolutesFailed": 0,
+    "promise": 20,
+    "readable": 20,
+    "standout": 20,
+    "majoritySea": 20,
+    "firstLandMs": {
+      "median": 1809,
+      "p90": 3210
+    },
+    "cpuLandMs": {
+      "median": 1096,
+      "p90": 1704
+    },
+    "waterMs": {
+      "median": 39110,
+      "p90": 59587
+    },
+    "sea": {
+      "min": 0.631,
+      "median": 0.632,
+      "max": 0.635
+    },
+    "water": {
+      "min": 0.632,
+      "median": 0.633,
+      "max": 0.637
+    },
+    "maxSettleTicks": 2944,
+    "minLogs": 270,
+    "minMines": 3,
+    "minBerries": 48,
+    "maxLandAttempts": 1,
+    "headsLeaking": 0,
+    "multipleShown": 0,
+    "worn": 0,
+    "failures": [],
+    "settled": 20,
+    "warnings": {
+      "plants.drought": 19,
+      "water.storage_possible": 6
+    }
+  }
+]
