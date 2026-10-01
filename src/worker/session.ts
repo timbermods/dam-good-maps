@@ -2339,12 +2339,12 @@ export function forceAdvance(steps: number): ForceFrame | null {
 
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
-export function forcePaint(path: Point[], side: 1 | -1): ForceFrame | null {
+export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session || !(f.staged instanceof QuakeRun) || f.request.verb !== "quake") return null;
   try {
-    f.staged.repaint({ path, side });
-    f.request = { ...f.request, path, side };
+    f.staged.repaint({ path, side }, power);
+    f.request = { ...f.request, path, side, ...(power !== undefined ? { settings: { ...f.request.settings, power } } : {}) } as typeof f.request;
   } catch {
     // (a stroke that reaches the start's ground: the last good one stays)
   }

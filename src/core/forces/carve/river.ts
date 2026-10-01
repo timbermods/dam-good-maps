@@ -56,6 +56,8 @@ export function shapeRiver(run: CarveRun): number[] {
     const carved = h[i] < run.original[i];
     let v = carved ? Math.min(run.original[i], level) : Math.min(h[i], level);
     v = Math.max(v, Math.min(h[i], floor));
+    // (a river wider than its Power's own cuts no deeper, its banks included: D361 (3))
+    if (run.strengthDepth !== null) v = Math.max(v, Math.min(h[i], run.original[i] - run.strengthDepth));
     h[i] = v;
   };
   if (depth !== null) {

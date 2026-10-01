@@ -136,7 +136,7 @@ const api = {
   forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
   forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
   /** A painted Lift's fault as it is painted now. */
-  forcePaint: (path: ed.ForcePoint[], side: 1 | -1) => sendFrame(ed.forcePaint(path, side)),
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
