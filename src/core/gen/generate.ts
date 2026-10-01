@@ -46,7 +46,7 @@ import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
-import { riverSheet, SHEET_MOST } from "../land/sheets";
+import { shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
@@ -100,8 +100,12 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
-/** Whether a land whose river would spread as a sheet over a flat is drawn again (D372). */
-const SHEET_REJECT = true;
+/** Whether a land whose water would stand as a shallow sheet over a flat is drawn again (D372).
+ *  Off: read on the land and the planned water, the sheet the two Canyon 256² maps flood (seeds 14 and
+ *  22) does not show (their water rises over the plan's level where the outlets cannot pass the
+ *  inflow), and the reading at the rivers' bed level marked 67 maps at 96² that settle; the reading
+ *  is recorded (`info.sheet`) until the rule reads what floods. */
+const SHEET_REJECT = false;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -1558,11 +1562,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           }
         if (shelf > SEA_SHELF_MOST || (shelf >= 0.75 * sea && shelf >= 0.25 * N)) return fail("a sea over its shelf", null, false);
       }
-      // (D372: no river spreading as a shallow sheet over a flat of more than 5% of the map, at its
-      // bed's own level with no bank: it fills for days past the settle's six, Canyon 256² seeds 14
-      // and 22; deep water with banks, the planned lakes, is no sheet)
+      // (D372: no water standing as a shallow sheet over a flat of more than 5% of the map, a planned
+      // lake's level over a broad shelf: it fills for days past the settle's six, Canyon 256² seed 22;
+      // the deep water a lake's banks hold is no sheet)
       {
-        const sheet = riverSheet(hLand, W, H, hy.water);
+        const sheet = shallowSheet(hLand, W, H, hy);
         info.sheet = Math.round(sheet.share * 1000) / 1000;
         if (!lastAttempt && SHEET_REJECT && sheet.share > SHEET_MOST) return fail("a river over a flat", null, true);
       }
