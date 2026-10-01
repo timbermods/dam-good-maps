@@ -349,6 +349,8 @@ interface Head {
 
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
   const N = W * H;
+  // River Valley has one default trunk; an explicit Rivers count stays the player's.
+  if (g.theme === "riverValley" && !g.hydro.exactInflows) g.hydro.inflows = 1;
   const natural = opts.meander !== false;
   const rng = stream(seed, "hydro", attempt);
   const down = downstreamEdges(g.flowDir);
@@ -392,11 +394,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // must join the water already traced, as a tributary long enough to read as one, so the map's
   // water is one system a player follows from where it starts to where it leaves. Only a Rivers
   // count the player set may enter as a river of its own when no inflow can join. A few heads, never
-  // a tangle: at most `maxHeads` (4 at 96², 5 at 128², 6 at 256²).
+  // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
   const owner = new Int32Array(N).fill(-1);
   const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
   const areaK = N / (128 * 128);
-  const maxHeads = natural ? Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75)) : Infinity;
+  // A few fed tributaries read better than many shallow fragments at large sizes.
+  // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
+  const headCap = g.theme === "riverValley" && !g.hydro.exactInflows ? (side >= 256 ? 5 : 4) : Infinity;
+  const maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75))) : Infinity;
   const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
@@ -563,7 +568,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       }
       // (where no spring there joins them, one river of its own: a story reads with one river that
       // never joins the main one, D273 (1))
-      if (!added && !separateOne)
+      if (!added && !separateOne && g.theme !== "riverValley")
         for (const [, i] of apart.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
           added = true;
           separateOne = true;
@@ -1270,7 +1275,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
 
   // ---- a river splits round an island: a second arm leaves it and rejoins it downstream
   const main = rivers[0];
-  if (main && rng.float() < g.hydro.split) {
+  if (main && rng.float() < g.hydro.split && (g.theme !== "riverValley" || g.hydro.bigSplit || g.hydro.splitAtFall)) {
     const m = exits.get(main.id)!;
     for (let tries = 0; tries < 6; tries++) {
       // (M9b, "the river splits around a big island", D274: wider and longer)
@@ -1325,7 +1330,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   }
 
   // ---- a delta: near its mouth, the main river fans into two or three more mouths on its edge
-  if (main && "edge" in main.params.exit && rng.float() < g.hydro.delta) {
+  if (main && "edge" in main.params.exit && rng.float() < g.hydro.delta && (g.theme !== "riverValley" || g.hydro.braided)) {
     const m = exits.get(main.id)!;
     const e = main.params.exit.edge;
     const s0 = Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
