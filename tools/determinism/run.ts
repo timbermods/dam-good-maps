@@ -99,7 +99,9 @@ try {
   if (only) list = list.filter((c) => only.test(c.id));
   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
   const t0 = performance.now();
+  const slowest: { case: string; seconds: number }[] = [];
   for (const [index, c] of list.entries()) {
+    const tc = performance.now();
     const responses = await Promise.all(
       Object.entries(engines).map(async ([name, e]) => {
         try {
@@ -114,6 +116,7 @@ try {
         }
       }),
     );
+    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
     const reference = responses[0];
     for (const other of responses.slice(1)) {
       if (!other.rows || !reference.rows) continue;
@@ -140,6 +143,7 @@ try {
     platform: { os: os.platform(), release: os.release(), arch: os.arch(), cpu: os.cpus()[0]?.model ?? "", node: process.version },
     cases: list.length,
     seconds,
+    slowest: slowest.sort((a, b) => b.seconds - a.seconds).slice(0, 20),
     engines: Object.fromEntries(Object.entries(engines).map(([n, e]) => [n, { version: e.version, userAgent: e.userAgent, checkpoints: e.rows.length, errors: e.errors }])),
     mismatches,
   };

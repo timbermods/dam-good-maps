@@ -179,27 +179,31 @@ function water(m: any, ticks = 24) {
   return sim.out;
 }
 
-/** The case list. `smoke` (every pull request) keeps every theme, brush and force setting, with one
- *  generation seed and short sequences; the full list (nightly) adds seeds and long sequences. */
+/** The case list. The short list (`smoke`, every push, about 7 minutes on a desktop) keeps every theme,
+ *  brush and force setting at 128², with one generation seed and short sequences; at 256², Any, each
+ *  force at Power 55 (a click and a drag), short mixed and placement sequences and the weather. The
+ *  full list (nightly) runs every setting at both sizes, three seeds and long sequences. */
 export function cases(smoke = false): Case[] {
   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
   const out: Case[] = [];
   for (const n of [128, 256]) {
-    for (const theme of THEMES) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
-    for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
+    const grid = !smoke || n === 128;
+    for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
+    if (grid) for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
     for (const verb of verbs)
-      for (const power of [10, 55, 100])
-        for (const size of [null, 12, 48]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
-    out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? 12 : 120 });
+      for (const power of grid ? [10, 55, 100] : [55])
+        for (const size of grid ? [null, 12, 48] : [null]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
+    out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? (n === 128 ? 12 : 6) : 120 });
     out.push({ id: `session/${n}`, kind: "session", n, count: smoke ? 8 : 80 });
   }
   for (const n of [128, 256]) {
-    for (const tool of BRUSH_TOOLS) for (const variant of [1, 2]) out.push({ id: `variants/${n}/${tool}/${variant}`, kind: "brush", n, tool, strength: 5, size: 6.25, variant });
-    for (const verb of ["carve", "quake"]) for (const power of [10, 55, 100]) out.push({ id: `gesture/${n}/${verb}/${power}`, kind: "force", n, verb, power, size: null, mode: 2 });
-    out.push({ id: `placement/${n}`, kind: "placement", n, count: smoke ? 24 : 120 });
+    const grid = !smoke || n === 128;
+    if (grid) for (const tool of BRUSH_TOOLS) for (const variant of [1, 2]) out.push({ id: `variants/${n}/${tool}/${variant}`, kind: "brush", n, tool, strength: 5, size: 6.25, variant });
+    for (const verb of ["carve", "quake"]) for (const power of grid ? [10, 55, 100] : [55]) out.push({ id: `gesture/${n}/${verb}/${power}`, kind: "force", n, verb, power, size: null, mode: 2 });
+    out.push({ id: `placement/${n}`, kind: "placement", n, count: smoke ? (n === 128 ? 24 : 8) : 120 });
     out.push({ id: `weather/${n}`, kind: "weather", n, count: 90 });
     out.push({ id: `scheduling/${n}`, kind: "scheduling", n });
-    for (const reserve of ["scarce", "plenty"]) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
+    for (const reserve of ["scarce", "plenty"]) if (grid) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
   }
   return out;
 }
