@@ -762,7 +762,7 @@ to 6). Only a missed promise gets a note naming what the version has ("A version
 ready", D333 (5)); one found for its water alone is kept quietly, and Another like this shows it.
 Nothing else is generated until the player asks (Another like this, More in the strip). The first
 land shown is the map (D348): a land is shown as editable land once it passes every check the land
-alone can judge (its courses, the Rivers count, no source in a flow, a start on its planned water and a second place for one away from it, no sea over a shelf at its
+alone can judge (its courses, no inflow's head under water held downstream (a lake whose rim stands two levels or more over the head backs up to the edge and never settles), the Rivers count, no source in a flow, no wall along an edge, a start on the planned water its land holds and a second place for one away from it, room for the mine sites (D363), no sea over a shelf at its
 spill level of more than 10,000 tiles (it fills for days, D358) or mostly on one over a quarter of
 the map (it stays dry), no
 ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water), and it is
@@ -781,7 +781,13 @@ more from the planned water) holds fewer level squares for a site (7×7, clear o
 least 24 tiles out than it needs, the ground nearest to level becomes a pad, a level over it taken
 down to it (about 49 tiles, at most 61 with its edge), round, its edge wandering a tile or two out
 and eased where the ground over it would stand as a cliff, five tiles or more from the planned
-water; the hollows keep off those squares and the colony's way to them; on the settled water the
+water; where the planned start has no room even so, another start the planned water gives whose walk
+has it becomes the plan's start, and a land with none is drawn again; the start, its second place
+and the mine sites' room are judged on the planned water as its land holds it (`plannedWater` with
+`held`: a planned lake no higher than the rim its land spills over, 0.3 over it, and only where the
+land holds a pool of 9 tiles or more; a river's depth from the width it spreads to over ground no
+higher than its bed, so a river on a floodplain reads as the thin sheet it settles to), while the
+screens and the dam-wall check read the plan as planned, which they were measured against; the hollows keep off those squares and the colony's way to them; on the settled water the
 start goes where its walk has that room, passing over one whose pad would leave none, and the
 objects may stand where a start failed; hollows whose water settled are
 reused, rivers that left (their sources reached) leave on every later attempt, and water over the
