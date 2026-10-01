@@ -77,9 +77,8 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    document reorganisation, is the next session's first small task). **Done in the last-allowance session
    (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed,
    September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7),
-   and a consistency sweep of these documents. Waiting for Kyler: the 108 remote branches already merged into `dev` or
-   `main` are listed in `docs/merged-branches.md` (deleting them was blocked here as unverifiable scope; one command
-   deletes them), and PR #95 still targets `feature/forces`: retarget it to `dev`.
+   and a consistency sweep of these documents. The 109 remote branches already merged into `dev` or `main` are deleted
+   (log in `docs/merged-branches.md`) and #95 now targets `dev`.
 6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
    keep-awake script, stopped with the session.
 6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).

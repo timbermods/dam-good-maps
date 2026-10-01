@@ -51,11 +51,12 @@ forces; the deploy and the live check passed. The High look's release is next (D
      15–40%), so a timing would have been noise; Codex's own figure stands (about 1.25× at the median, 1.4× on 256²
      lakes and seas; `investigation/water-speed`, `bench.mjs --workers 1 --reps 5`, `local/` inputs regenerated per its
      INTEGRATION.md).
-  5. **Branches and PRs, listed but not deleted.** 108 remote branches are fully merged into `dev` or `main` and are
-     listed in [merged-branches.md](merged-branches.md) with the one command that deletes them: the automatic
-     permission check blocked the deletion here, so it waits for you. No open PR is superseded (all eleven are live or
-     held). **#95's base is `feature/forces`**, now released: retarget it to `dev` (`gh pr edit 95 --base dev`), then
-     `feature/forces` can go too. Local worktrees were not pruned (they follow the branches).
+  5. **Branches and PRs, cleaned (Kyler's authorization).** #95 was retargeted to `dev`; 109 remote branches, each
+     re-checked as fully merged into `dev` or `main` and in no open PR, were deleted (none skipped); the list with each
+     last commit, to restore any, is [merged-branches.md](merged-branches.md). No open PR is superseded (all eleven are
+     live or held). Local worktrees: `git worktree prune` found nothing to prune, since every local branch still
+     exists; about 25 old worktree folders beside the clone (`-brushes`, `-esc`, `-forces`, ...) point at branches
+     whose remote is gone, and are Kyler's to remove if he wants the space.
   6. **Consistency sweep** of PLAN §20, ROADMAP, STATUS, HANDOFF and CHAT-HANDOFF: they were all rewritten the same
      morning and agree on the forces' release, the next decision (D378), the order of work and the held items. Fixed: HANDOFF
      said the forces release still had to reach `dev` (it has) and still listed the flake as to-trace. No retired term
