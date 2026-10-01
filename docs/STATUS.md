@@ -5,7 +5,7 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
 [PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D378), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
 > smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
 > works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
 > skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check

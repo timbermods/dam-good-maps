@@ -6,7 +6,7 @@
 > where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
 > (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
 
-> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done`; High where the computer runs it
+> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
 > smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
 > works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
 > skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
@@ -66,7 +66,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    is not done.
 2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): **the quick-click bug (D378: Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force should skip to its end while the new one plays in full; check every force)**, **tests for an eruption in High and for the highlight on High's basin sources (D378)**, Carve's river born as it cuts
    (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
-   the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
+   (the High look's release is done) the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
    "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
    failing absolutes 2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed);
