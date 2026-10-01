@@ -1,0 +1,366 @@
+diff --git a/src/editor/waterPlayer.ts b/src/editor/waterPlayer.ts
+index d479466f..4772ed04 100644
+--- a/src/editor/waterPlayer.ts
++++ b/src/editor/waterPlayer.ts
+@@ -46,17 +46,18 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
+   const at = new Map<number, number>();
+   for (let k = 0; k < a.count; k++) at.set(a.tile[k], k);
+-  const tiles: number[] = [];
+-  const floor: number[] = [];
+-  const depth: number[] = [];
+-  const contamination: number[] = [];
++  // Keep the old order and double arithmetic; allocate the four final buffers once.
+   const seen = new Set<number>();
+-  for (let k = 0; k < b.count; k++) {
+-    const i = b.tile[k];
+-    seen.add(i);
+-    const j = at.get(i);
+-    tiles.push(i);
+-    floor.push(b.floor[k]);
+-    depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
+-    contamination.push((j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t);
++  for (let k = 0; k < b.count; k++) seen.add(b.tile[k]);
++  let count = b.count;
++  for (let k = 0; k < a.count; k++) if (!seen.has(a.tile[k]) && !(a.depth[k] * (1 - t) <= 0.001)) count++;
++  const tile = new Int32Array(count), floor = new Float32Array(count);
++  const depth = new Float32Array(count), contamination = new Float32Array(count);
++  let q = 0;
++  for (let k = 0; k < b.count; k++, q++) {
++    const i = b.tile[k], j = at.get(i);
++    tile[q] = i;
++    floor[q] = b.floor[k];
++    depth[q] = (j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
++    contamination[q] = (j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t;
+   }
+   for (let k = 0; k < a.count; k++) {
+@@ -65,10 +66,7 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
+     const d = a.depth[k] * (1 - t);
+     if (d <= 0.001) continue;
+-    tiles.push(i);
+-    floor.push(a.floor[k]);
+-    depth.push(d);
+-    contamination.push(a.contamination[k]);
++    tile[q] = i; floor[q] = a.floor[k]; depth[q] = d; contamination[q] = a.contamination[k]; q++;
+   }
+-  return { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
++  return { count, tile, floor, depth, contamination };
+ }
+
+@@ -118,5 +116,12 @@ export class WaterPlayer {
+     if (!this.timer && this.at >= this.frames.length - 1) this.restartClock();
+     this.finished = false;
+-    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) this.frames.push({ water: blendWater(last.water, f.water, k / (EASE + 1)), done: last.done + ((1 - last.done) * k) / (EASE + 1) });
++    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) {
++      // Unshown blends allocate nothing; replay computes exactly the same frame on demand.
++      let water: WaterView | undefined;
++      this.frames.push({
++        get water() { return water ??= blendWater(last.water, f.water, k / (EASE + 1)); },
++        done: last.done + ((1 - last.done) * k) / (EASE + 1),
++      });
++    }
+     this.frames.push(f);
+     if (f.final) this.finished = true;
+diff --git a/src/render3d/renderer.ts b/src/render3d/renderer.ts
+index 18f22077..5f66d8ba 100644
+--- a/src/render3d/renderer.ts
++++ b/src/render3d/renderer.ts
+@@ -22,4 +22,5 @@ import {
+   BufferGeometry,
+   BufferAttribute,
++  DynamicDrawUsage,
+   Color,
+   InstancedBufferGeometry,
+@@ -622,17 +623,36 @@ export class MapRenderer {
+   }
+
++  /** A same-shape remesh retains its GPU allocation; changed topology disposes it as a unit. */
++  private meshGeometry(old: Mesh | undefined, attrs: Record<string, BufferAttribute>, index: BufferAttribute): BufferGeometry {
++    const g = old?.geometry;
++    if (g && g.index?.array.length === index.array.length && Object.keys(attrs).every((key) => g.getAttribute(key)?.array.length === attrs[key].array.length)) {
++      for (const [key, attr] of Object.entries(attrs)) {
++        const a = g.getAttribute(key) as BufferAttribute;
++        a.array.set(attr.array); a.needsUpdate = true;
++      }
++      g.index.array.set(index.array); g.index.needsUpdate = true;
++      return g;
++    }
++    g?.dispose();
++    const next = new BufferGeometry();
++    for (const [key, attr] of Object.entries(attrs)) next.setAttribute(key, attr.setUsage(DynamicDrawUsage));
++    next.setIndex(index.setUsage(DynamicDrawUsage));
++    return next;
++  }
++
+   private meshTerrain(cx: number, cy: number): number {
+     const key = `${cx},${cy}`;
+     const old = this.terrain.get(key);
+-    if (old) this.dropMesh(old);
+-    this.terrain.delete(key);
+     const d = meshChunk(this.map!.source, cx, cy);
+-    if (!d.quads) return 0;
+-    const g = new BufferGeometry();
+-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
+-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
+-    g.setIndex(new BufferAttribute(d.indices, 1));
++    if (!d.quads) {
++      if (old) this.dropMesh(old);
++      this.terrain.delete(key); return 0;
++    }
++    const g = this.meshGeometry(old, {
++      position: new BufferAttribute(d.positions, 3), normal: new BufferAttribute(d.normals, 3, true),
++    }, new BufferAttribute(d.indices, 1));
+     g.computeBoundingSphere();
+-    const mesh = new Mesh(g, this.terrainMat);
++    const mesh = old ?? new Mesh(g, this.terrainMat);
++    mesh.geometry = g;
+     mesh.matrixAutoUpdate = false;
+     this.scene.add(mesh);
+@@ -644,18 +664,18 @@ export class MapRenderer {
+     const key = `${cx},${cy}`;
+     const old = this.water.get(key);
+-    if (old) this.dropMesh(old);
+-    this.water.delete(key);
+     const m = this.map!;
+     const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
+     this.meshFalls(key, d.falls, d.fallCount);
+-    if (!d.quads) return 0;
+-    const g = new BufferGeometry();
+-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
+-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
+-    g.setAttribute("wdata", new BufferAttribute(d.data, 2));
+-    g.setAttribute("wflags", new BufferAttribute(d.flags, 1));
+-    g.setIndex(new BufferAttribute(d.indices, 1));
++    if (!d.quads) {
++      if (old) this.dropMesh(old);
++      this.water.delete(key); return 0;
++    }
++    const g = this.meshGeometry(old, {
++      position: new BufferAttribute(d.positions, 3), normal: new BufferAttribute(d.normals, 3, true),
++      wdata: new BufferAttribute(d.data, 2), wflags: new BufferAttribute(d.flags, 1),
++    }, new BufferAttribute(d.indices, 1));
+     g.computeBoundingSphere();
+-    const mesh = new Mesh(g, this.waterMat);
++    const mesh = old ?? new Mesh(g, this.waterMat);
++    mesh.geometry = g;
+     mesh.matrixAutoUpdate = false;
+     mesh.renderOrder = 2;
+diff --git a/src/core/doc/ops.ts b/src/core/doc/ops.ts
+index 04764a02..7ae59e59 100644
+--- a/src/core/doc/ops.ts
++++ b/src/core/doc/ops.ts
+@@ -408,5 +408,5 @@ const CARVE_MAX_LEVEL = CEILING;
+
+ /** Largest number of tiles one operation may touch. */
+-export const MAX_OP_TILES = 256 * 256;
++export const MAX_OP_TILES = 512 * 512;
+
+ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+diff --git a/src/core/doc/ops.schema.json b/src/core/doc/ops.schema.json
+index 7e6fa476..5a32e9a6 100644
+--- a/src/core/doc/ops.schema.json
++++ b/src/core/doc/ops.schema.json
+@@ -33,10 +33,10 @@
+     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
+     "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+-    "coordinate": { "type": "integer", "minimum": 0, "maximum": 255 },
++    "coordinate": { "type": "integer", "minimum": 0, "maximum": 511 },
+     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
+     "runs": {
+       "type": "array",
+       "minItems": 1,
+-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
++      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
+     },
+     "brush": {
+@@ -47,11 +47,11 @@
+       "properties": {
+         "tool": { "enum": ["raise", "lower", "flatten", "smooth", "naturalize"] },
+-        "size": { "type": "number", "minimum": 0.5, "maximum": 128 },
++        "size": { "type": "number", "minimum": 0.5, "maximum": 256 },
+         "strength": { "type": "number", "minimum": 1, "maximum": 10 },
+         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
+         "target": { "type": "integer", "minimum": 0, "maximum": 22 },
+         "mode": { "enum": ["ground", "water"] },
+-        "wet": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+-        "bank": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
++        "wet": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "bank": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+         "sources": { "const": "keep" },
+         "seed": { "type": "integer" },
+@@ -66,6 +66,6 @@
+         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
+         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
+-        "keep": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+-        "area": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
+         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
+@@ -73,5 +73,5 @@
+         "edges": { "enum": ["ramped"] },
+         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
+-        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } }
++        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
+       }
+     },
+@@ -143,7 +143,7 @@
+         "steps": { "type": "integer", "minimum": 0 },
+         "reason": { "type": "string" },
+-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
++        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
+         "source": {
+           "type": "object",
+@@ -168,8 +168,8 @@
+           "required": ["tiles", "floor", "depth", "contamination"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
++            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
++            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+           }
+         },
+@@ -223,5 +223,5 @@
+             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+-            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
++            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 511 } } },
+             "side": { "enum": [1, -1] },
+             "source": { "type": "string" }
+@@ -231,6 +231,6 @@
+         "steps": { "type": "integer", "minimum": 0 },
+         "reason": { "type": "string" },
+-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+         "rock": {
+           "type": "object",
+@@ -238,17 +238,17 @@
+           "required": ["tiles", "bits"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "bits": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+           }
+         },
+-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
++        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
+         "moved": {
+           "type": "array",
+-          "maxItems": 65536,
++          "maxItems": 262144,
+           "items": { "type": "object", "additionalProperties": false, "required": ["id", "x", "y"], "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } } }
+         },
+         "felled": {
+           "type": "array",
+-          "maxItems": 65536,
++          "maxItems": 262144,
+           "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
+         },
+@@ -274,8 +274,8 @@
+           "required": ["tiles", "floor", "depth", "contamination"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
++            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
++            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+           }
+         },
+@@ -312,5 +312,5 @@
+       "additionalProperties": false,
+       "required": ["entities"],
+-      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } } }
++      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } } }
+     },
+     "setEntityProps": {
+diff --git a/src/core/features/raster/brush.ts b/src/core/features/raster/brush.ts
+index 4729af8c..f1eb0450 100644
+--- a/src/core/features/raster/brush.ts
++++ b/src/core/features/raster/brush.ts
+@@ -160,7 +160,7 @@ export const BRUSH_TOOLS: readonly BrushTool[] = ["raise", "lower", "flatten", "
+ export const BRUSH_MAX_LEVEL = CEILING;
+ export const BRUSH_SIZE_MIN = 0.5;
+-/** The largest radius: half the widest map's width (256², D322 item 42: the largest brush paints a
++/** The largest radius: half the widest supported side (512, D357: the largest brush paints a
+  *  whole map in one stroke). The page's own limit is half its map's width. */
+-export const BRUSH_SIZE_MAX = 128;
++export const BRUSH_SIZE_MAX = 256;
+ /** Pressure for one level. */
+ export const LEVEL = 1024;
+diff --git a/src/core/features/features.schema.json b/src/core/features/features.schema.json
+index 9ef3f63b..f13ee447 100644
+--- a/src/core/features/features.schema.json
++++ b/src/core/features/features.schema.json
+@@ -8,13 +8,13 @@
+   "$defs": {
+     "point": {
+-      "description": "A point in tile coordinates. It may lie up to one map side (256 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
++      "description": "A point in tile coordinates. It may lie up to one map side (512 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
+       "type": "array",
+       "minItems": 2,
+       "maxItems": 2,
+-      "items": { "type": "number", "minimum": -256, "maximum": 512 }
++      "items": { "type": "number", "minimum": -512, "maximum": 1024 }
+     },
+     "runs": {
+       "type": "array",
+-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
++      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
+     },
+     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
+@@ -98,6 +98,6 @@
+             "to": { "enum": ["edge", "river", "lake", "none"] },
+             "target": { "type": "string" },
+-            "path": { "type": "array", "maxItems": 131072, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+-            "levels": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
++            "path": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
++            "levels": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
+             "width": { "enum": [1, 3, 5] }
+           }
+@@ -241,6 +241,6 @@
+           "additionalProperties": false,
+           "properties": {
+-            "x": { "type": "integer", "minimum": 0, "maximum": 255 },
+-            "y": { "type": "integer", "minimum": 0, "maximum": 255 },
++            "x": { "type": "integer", "minimum": 0, "maximum": 511 },
++            "y": { "type": "integer", "minimum": 0, "maximum": 511 },
+             "orientation": { "$ref": "#/$defs/orientation" },
+             "area": { "$ref": "#/$defs/runs" }
+@@ -263,5 +263,5 @@
+       "required": ["position", "orientation", "benchRadius", "benchLevel", "player"],
+       "properties": {
+-        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
+         "orientation": { "$ref": "#/$defs/orientation" },
+         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
+diff --git a/tests/contract/projects.test.ts b/tests/contract/projects.test.ts
+index 9fd8e830..0e80428c 100644
+--- a/tests/contract/projects.test.ts
++++ b/tests/contract/projects.test.ts
+@@ -135,9 +135,10 @@ describe("the feature schema's points (PLAN §19.2)", () => {
+   const both = (outline: number[][]) => [validateFeatures(landform(outline)).length === 0, ajvFeatures(landform(outline)) as boolean];
+
+-  it("lie up to one map side (256 tiles) past each edge, in the runtime checker and in Ajv alike", () => {
++  it("lie up to one supported map side (512 tiles, D357) past each edge, in the runtime checker and in Ajv alike", () => {
+     expect(both([[-256, -256], [512, -256], [512, 512], [-256, 512]])).toEqual([true, true]);
++    expect(both([[-512, -512], [1024, -512], [1024, 1024], [-512, 1024]])).toEqual([true, true]);
+     expect(both([[-2.02, 40], [10, 40], [10, 60]])).toEqual([true, true]);
+-    expect(both([[-256.01, 40], [10, 40], [10, 60]])).toEqual([false, false]);
+-    expect(both([[0, 0], [512.01, 0], [0, 10]])).toEqual([false, false]);
++    expect(both([[-512.01, 40], [10, 40], [10, 60]])).toEqual([false, false]);
++    expect(both([[0, 0], [1024.01, 0], [0, 10]])).toEqual([false, false]);
+   });
+ });
