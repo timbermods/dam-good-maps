@@ -7,7 +7,8 @@
 // runs it on the main thread, the tests in Node.
 
 import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
-import { integrityAt } from "./terrain";
+import type { StartFeature } from "../schema";
+import { integrityAt, padTile } from "./terrain";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -27,6 +28,8 @@ export interface TerrainState {
   field?: Uint8Array | null;
   /** The highest the terrain may stand: 16, or a tall map's top (D172). */
   top?: number;
+  /** The start features: their pads are the one ground Naturalize leaves (D368 (8)). */
+  starts?: readonly StartFeature[];
 }
 
 export class StrokePreview {
@@ -66,9 +69,11 @@ export class StrokePreview {
       keep = new Uint8Array(W * H);
       for (const i of state.columns) keep[i] = 1;
     }
-    // Naturalize leaves protected tiles alone, as build step 6 does (D253)
-    const prot = settings.tool === "naturalize" ? state.protect : null;
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]));
+    // Naturalize weathers all but the start's pad, as build step 6 does (D368 (8))
+    // (a stroke from before D368 leaves every protected tile, as the build does)
+    const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
+    const prot = settings.tool === "naturalize" && !settings.weathers ? state.protect : null;
+    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))));
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;

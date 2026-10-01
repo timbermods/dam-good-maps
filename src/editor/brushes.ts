@@ -178,6 +178,9 @@ export interface PainterHost {
   rides?(): [number, number, number, number][];
   /** The sources' own tiles, as runs [y, x0, x1]: Keep leaves them as they are (D322, item 31). */
   sourceGround?(): [number, number, number][];
+  /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
+   *  (D368 (8)). */
+  objectGround?(): [number, number, number][];
   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
    *  a stroke changes only its tiles, feathered toward its edge. */
   area?(): [number, number, number][] | null;
@@ -573,13 +576,15 @@ export class BrushPainter {
     const keepSources = s.sources[s.tool] === "keep";
     const sourceRuns = keepSources ? (h.sourceGround?.() ?? []) : [];
     keep.push(...sourceRuns);
+    // Naturalize weathers all but the start's pad (the build's) and the ground under sources and objects (D368 (8))
+    if (tool === "naturalize") keep.push(...(h.objectGround?.() ?? []));
     const stop = target === null && tool === "raise" && cut !== null ? Math.min(BRUSH_MAX_LEVEL, cut) : null;
     const settings: Omit<BrushParams, "dabs"> = {
       tool,
       size: s.size,
       strength: s.strength,
       ...(target !== null ? { target } : {}),
-      ...(tool === "naturalize" ? { seed: (Math.random() * 0x7fffffff) | 0 } : {}),
+      ...(tool === "naturalize" ? { seed: (Math.random() * 0x7fffffff) | 0, weathers: true as const } : {}),
       ...(s.square ? { shape: "square" as const } : {}),
       ...(tool === "flatten" && s.steps ? { steps: s.steps } : {}),
       ...(stop !== null ? { stop } : {}),

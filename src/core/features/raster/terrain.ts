@@ -303,6 +303,12 @@ export function inBench(f: StartFeature, x: number, y: number): boolean {
   return !!bank && segmentDistance2(x, y, f.params.position, bank) <= BANK_HALF_WIDTH * BANK_HALF_WIDTH;
 }
 
+/** Whether tile (x, y) is on any of the starts' pads. */
+export function padTile(starts: readonly StartFeature[], x: number, y: number): boolean {
+  for (const f of starts) if (inBench(f, x, y)) return true;
+  return false;
+}
+
 /** The start bench (step 5): its disc, and in a project saved before the water rule changed
  *  (D153) the strip that runs it to the bank (D97). It never fills the river channel,
  *  which it would dam. */
@@ -372,9 +378,14 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const was = brushHard(s.params) ? heights.slice() : null;
     // kept sources' ground (D322, item 31): the integrity pass leaves it as it is
     if (s.params.sources === "keep") for (const [y, a, bb] of s.params.keep ?? []) if (y >= 0 && y < t.H) for (let x = Math.max(0, a); x <= Math.min(W - 1, bb); x++) if (t.inRegion(y * W + x)) t.protectedMask[y * W + x] = 1;
-    // Naturalize roughens only open land: it leaves every protected tile as it is (a set piece's,
-    // the start's bench, a precise stroke's, a force's), so it never breaks what they hold (D253)
-    const open = s.params.tool === "naturalize" ? (i: number) => !t.protectedMask[i] : () => true;
+    // Naturalize weathers whatever the player paints (D368 (8)): a force's result, a stroke's exact
+    // tiles, a river, a set piece. It leaves only the start's pad here; the ground under sources and
+    // objects is the stroke's own `keep` (objectGround.ts), and the build's drops a slope it leaves
+    // joining nothing (D253)
+    // (a stroke saved before D368 leaves every protected tile as it did: the set pieces', the start's
+    // bench, an exact stroke's, a force's, D253)
+    const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
+    const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
     applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)

@@ -23,7 +23,7 @@ import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
-import type { Feature } from "../features/schema";
+import type { Feature, StartFeature } from "../features/schema";
 import type { GenerateResult } from "../gen/generate";
 import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
@@ -347,6 +347,7 @@ export class MapSession {
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+      starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
     };
   }
 
