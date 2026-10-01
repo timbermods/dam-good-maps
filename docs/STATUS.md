@@ -3,12 +3,62 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D362), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D374), the order of work in [ROADMAP.md](../ROADMAP.md).
 
-## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
+## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
+
+The session on your main PC ended at 07:00 PDT on 2026-10-01, with your allowance at about 90%. Everything is pushed, no
+agent or background task is running, and a new milestone session resumes from [HANDOFF.md §0](HANDOFF.md) by running
+`npm run setup:machine` first. The planning chat's handoff is [CHAT-HANDOFF.md](CHAT-HANDOFF.md).
+
+**Waiting for you**
+
+1. **The forces release: your yes on the checklist below.** Everything is merged into `feature/forces` and green, and
+   the preview is built from it: <https://timbermods.github.io/dam-good-maps/preview/>.
+2. **Glaciate, two things for your eye:** its default Power is 60 again (the agent's call once the lower Powers passed
+   its test; say if it should stay 100), and Power 0 leaves a thin sheet on up to 5% of the floor where a river crosses.
+3. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
+4. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
+
+**Where things stand**
+
+- **The forces** (`feature/forces`, #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
+  three-engine check in CI, and three bugs fixed on the way (a re-imported tall map's bytes, two water-journey races).
+- **M9b** (`feature/m9b`, #70; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted on the
+  strict D348 base. Over 840 maps: failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps meeting all three
+  outcomes 212 / 227 / 229 of 280 (76%, 81%, 82%). Lake Basin (12 of 20 at every size) and Canyon and Highlands at 96²
+  are under two-thirds. Left: two dam walls, the 96² starts, speed at 256², the re-pins, then your review set.
+- **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
+  the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
+- **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
+  (D374), startup part 1 (D367).
+- **Not done:** the faster water settle's speed isn't timed (the machine was never quiet); September's Progress log
+  isn't copied to `docs/progress-log/`; the Wednesday allowance report wasn't written.
+
+### Your checklist: the eleven fixes since your re-check (the preview from `feature/forces`, 2026-10-01)
+
+1. **Keys:** F with the mouse (or `{ }`) sets Size; `[ ]` or F+scroll sets Power on every force and strength on Smooth
+   and Naturalize, nothing on Raise, Lower and Flatten. The number shows beside the pointer. The first F+scroll notch
+   ends F's mouse-sizing; press F again to resize.
+2. **Quake's hover** is a small dot, never a circle.
+3. **Glaciate:** Power is how deep, Size how wide; at every Power a clean U-shaped valley with its river in a channel.
+4. **Sources:** the label on the map, the settings row and the note by the pointer show one number, live at every notch.
+5. **The top right** is one cluster: the compass in the corner, the level control beside it, **Slow forces** and the
+   speaker beneath.
+6. **Tooltips** end with their shortcut as a small key cap; no key in brackets.
+7. **Craterize** is click-only: a drag makes one crater where the press began.
+8. **Naturalize** weathers forces' results, your own strokes, rivers and set pieces; only the start's pad and the ground
+   under sources and objects stay.
+9. **Carve's banks** form just behind the cut; nothing pops in at the end (Quake's Slide too).
+10. **No Slopes** or other objects appear after any force or brush; a mine site an edit cuts off shows in the checks.
+11. **F+scroll** for strength (with item 1).
+
+On your yes, the forces are released.
+
+## Earlier summary (2026-09-27 to 2026-10-01; history, superseded above where they differ)
 
 Paused at about 21:00 PDT on 2026-09-27, when your allowance ran out; a fresh session resumes on **Tuesday 2026-09-29 at 8:01
-PDT** from [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work). Every agent stopped at a clean point with everything
+PDT** from [HANDOFF.md §1](HANDOFF.md). Every agent stopped at a clean point with everything
 pushed; nothing is running. **M9a is released** (`m9a-done`, [#80](https://github.com/timbermods/dam-good-maps/pull/80)). Your
 decisions since the restart (D252–D315) are recorded below and in the living docs.
 
@@ -22,7 +72,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    the well-specified items (D318 (2)).
 2. Done with item 1: the models (item 38, D317).
 3. Done with item 1: model and task suitability (item 39, D318).
-4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary. The forces release waits for D361's ten sitting fixes and D366's cross-browser determinism (adopted on `feature/forces`, with its cross-engine check in CI).
+4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary. The forces release waits for D361's ten sitting fixes and D366's cross-browser determinism (adopted on `feature/forces`, with its cross-engine check in CI).
 5. **Item 33's documents are written** (D326): `docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`. The per-decision statuses come with item 34.
 6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
 6b. **Codex's M9b audits: outcome in D370** (Islands, Delta and River Valley adopted one at a time after the shared D348 fix; Canyon, Highlands, Lake Basin and settings held). *Earlier:* **Four Codex prototypes for M9b** (Kyler, 2026-10-01; Codex GPT-6.1 Sol, high; each on its own investigation branch from `feature/m9b`): Islands, Delta, River Valley's water, and the weak settings (Verticality, Lakes and basins). Each PR, once open and green, is held for Kyler's look; on his yes, the M9b agent adopts them one at a time, re-measuring first-map outcomes and absolutes after each, never all at once. Three more Codex audits join them (Kyler, 2026-10-01): Canyon, Highlands and Lake Basin (`investigation/canyon`, `investigation/highlands`, `investigation/lake-basin`, each from `feature/m9b`); each reports shared-code findings separately, for the M9b agent to fix once, and proposes theme shaping only where the theme falls short; each is held for Kyler's look and adopted one at a time with the other theme prototypes. The settings prototype (`investigation/settings`) comes last, after Islands, Delta and River Valley: it changes the global height normalisation and how lakes join the river network, which every theme shares; after it, every theme is re-measured, saying whether it costs any theme what its own prototype gained.
@@ -255,7 +305,7 @@ the other agents paused by hand.
 
 ### 7. Workstreams at the pause (2026-09-27, evening; models by D301)
 
-Nothing is running. Every branch is committed, pushed and clean; the next steps are in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
+Nothing is running. Every branch is committed, pushed and clean; the next steps are in [HANDOFF.md §1](HANDOFF.md).
 
 | Workstream | Branch (worktree), last commit | Agent, model | State and next step |
 |---|---|---|---|
@@ -561,7 +611,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 
 ## Running
 
-Nothing, at the pause for Tuesday (2026-09-27, evening). The order of work is in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work).
+Nothing, at the pause for Tuesday (2026-09-27, evening). The order of work is in [HANDOFF.md §1](HANDOFF.md).
 
 ## Waiting on Kyler
 

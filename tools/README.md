@@ -33,3 +33,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
 **Tests**: tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+
+## Machine setup
+
+`npm run setup:machine` (`tools/setup-machine.mjs`): on a fresh clone, creates the worktrees the plan uses, installs their
+dependencies, writes the probe allow rules for this machine's paths into `.claude/settings.local.json`, checks the tools
+the work needs and prints what's ready and what's missing. Safe to run again; `--dry-run`, `--all`, `--no-install`.
