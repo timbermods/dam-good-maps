@@ -774,8 +774,13 @@ start the settled water leaves dry gets a spring by it (D330's fix: a group of s
 hollow the colony walks beside, checked as `start.water` reads it); a start whose ground the settled
 water covers (judged first on water warm-started from the settle, which costs a fraction of one), or
 that no spring serves, gives way to another on the same settled water (three in all); a start or
-objects that still fail are planned again on the same land, keeping off what failed, and keeping
-the hollows whose water settled, so the settle is reused; the mine sites' ground is made as the land
+objects that still fail are planned again on the same land, keeping off what failed; the start on a
+shown land is one that needs no levelling first, a levelled one only when no other is left (D348); the
+badwater hollows are dug as the land is shaped, before it is shown, from the plan's start on the
+planned water, and every attempt keeps them as they are (hollows whose water keeps the land from
+settling, or whose source another's water reaches, stop the attempts on that land); the first land
+shown is then the land the player gets, byte for byte, but for the worn way out below
+(`tests/contract/firstLand.test.ts`); the mine sites' ground is made as the land
 is shaped (D363, `land/minePads.ts`): where the planned start's walk (its land joined two tiles or
 more from the planned water) holds fewer level squares for a site (7×7, clear of the water) at
 least 24 tiles out than it needs, the ground nearest to level becomes a pad, a level over it taken
@@ -789,8 +794,7 @@ land holds a pool of 9 tiles or more; a river's depth from the width it spreads 
 higher than its bed, so a river on a floodplain reads as the thin sheet it settles to), while the
 screens and the dam-wall check read the plan as planned, which they were measured against; the hollows keep off those squares and the colony's way to them; on the settled water the
 start goes where its walk has that room, passing over one whose pad would leave none, and the
-objects may stand where a start failed; hollows whose water settled are
-reused, rivers that left (their sources reached) leave on every later attempt, and water over the
+objects may stand where a start failed; rivers that left (their sources reached) leave on every later attempt, and water over the
 flood line runs gentler (0.7 of its flow, twice at most). Water that does not settle (D350): a
 basin's way out is widened while the land is shaped (`levels.ts` `widenOutlets`, a level under the
 basin past a short sill, only the tiles round what it would drain kept as they were), and a small

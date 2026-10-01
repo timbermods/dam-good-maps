@@ -96,6 +96,9 @@ export type { IntentionResult };
  *  start before its settle, a cheap attempt, and whose kept land takes a second; the first map that
  *  passes is returned at once). */
 export const MAX_ATTEMPTS = 24;
+/** Places tried for the badwater hollows before the land is shown, each off the last that another's
+ *  water reached (D348: they are never dug again after). */
+const HOLLOW_TRIES = 3;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -1611,9 +1614,36 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (D348: the badwater hollows are dug as the land is shaped, before it is shown, from the plan's
       // start on the planned water; the land shown holds them, and every attempt on it keeps them)
       if (guess && badAsk.count > 0) {
+        const bare = h.slice();
         bad = badAt(est, guess, 0);
+        // (and never where another's water reaches a hollow's source, read on the pre-fill, the water
+        // the settle starts from: the hollows are not dug again once the land is shown)
+        let keepOff = badAsk.keepOff ?? null;
+        for (let round = 0; round < HOLLOW_TRIES && bad.features.length; round++) {
+          const bw = build([...rivers, ...bad.features], "water");
+          const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+          const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: prefill(model).depth } as BuildResult);
+          if (!bad.features.some((f) => reached.has(f.id))) break;
+          for (const f of bad.features) contains.delete(f.id);
+          h.set(bare);
+          keepOff = orMask(keepOff, bad.avoid);
+          bad = round + 1 < HOLLOW_TRIES ? planBad(est, { ...badAsk, keepOff }, attempt * 4 + 5 + round, guess) : noBad;
+          if (bad.features.length) {
+            h.set(bad.heights);
+            for (const f of bad.features) contains.add(f.id);
+          }
+        }
         if (!bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
         hLand.set(h);
+      }
+      // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the
+      // planned water missed fails every attempt on the land once it is shown)
+      if (!lastAttempt) {
+        const bw = build([...rivers, ...bad.features], "water");
+        const pf = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
+        const both = new Float64Array(N);
+        for (let i = 0; i < N; i++) both[i] = Math.max(est[i], pf[i]);
+        if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
       landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: [], fed: {}, springs: [] };
