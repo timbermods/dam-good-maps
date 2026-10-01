@@ -15,7 +15,8 @@ on:
 # devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines) and
 # finishes in minutes: the `changes` job decides (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). A
 # skipped job counts as passed for merge and release (tools/release.sh). Any other change, a manual run, or a
-# change it can't compare keeps the full suite, unchanged. `test` (typecheck, the quick suite, the build) always runs.
+# change it can't compare keeps the full suite, unchanged. `test` always runs: the typecheck and the build, then
+# the whole quick suite, or for such a change only the two tests that read documents.
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -31,6 +32,7 @@ jobs:
         run: node tools/ci-changes.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.event.pull_request.head.sha || github.sha }}"
 
   test:
+    needs: changes
     runs-on: ubuntu-latest
     # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
     timeout-minutes: 30
@@ -50,7 +52,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Unit and contract tests (the heavy ones run nightly)
+        if: needs.changes.outputs.heavy == 'true'
         run: npm run test:quick
+      # a documents-only change: just the tests that read documents (retired terms, the sounds' credits)
+      - name: Document tests (a change that only touches documents, LICENSE or package.json's descriptive fields)
+        if: needs.changes.outputs.heavy != 'true'
+        run: npx vitest run --project quick tests/unit/retired-terms.test.ts tests/unit/juiceSounds.test.ts
       - name: Build
         run: npm run build
 
