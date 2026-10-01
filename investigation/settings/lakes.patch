@@ -1,0 +1,210 @@
+diff --git a/src/core/land/lakes.ts b/src/core/land/lakes.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/land/lakes.ts
+@@ -0,0 +1,89 @@
++import type { Genome } from "./genome";
++import type { Settings } from "../spec/mapspec";
++import type { Hydro } from "./hydro";
++import { stream } from "../math/rng";
++import { hash32 } from "../math/hash";
++import { fbm } from "../math/noise";
++import { BED_FLOOR } from "./genome";
++
++export function lakeAmount(s: Settings): number {
++  return s.water.lakeAmount ?? ({ none: 0, few: 25, some: 50, many: 100 }[s.water.lakes]);
++}
++
++/** Keep signature water separate from the player's additional standing-water budget. */
++export function lakeRange(g: Genome, s: Settings): void {
++  g.lakeAmount = lakeAmount(s);
++  const signature = g.theme === "lakeBasin";
++  // Zero removes optional standing water; signature lakes and seas remain the theme's own.
++  if (g.lakeAmount === 0 && (signature || g.sea)) return;
++  if (g.lakeAmount === 0) {
++    g.parts = g.parts.filter(p => p.kind !== "basin" || p.shape === "sea");
++    g.troughs = 0;
++    g.lakeSprings = 0;
++    g.hydro.oxbow = false;
++    g.hydro.chainLakes = 0;
++    g.hydro.lakeBudget = 0.0005;
++  }
++}
++
++/** Connected side basins on existing reaches: no extra sources, dams or independent systems.
++ * Only excavate; keep the bed floor, existing lakes, sources, edge mouths and protected tiles.
++ * A lower river bed within reach refuses a basin rather than draining it via that reach.
++ */
++export function connectedLakes(h: Uint8Array, W: number, H: number, g: Genome, seed: number, attempt: number, hy: Hydro, protect: Uint8Array | null): void {
++  const amount = (g.lakeAmount ?? 0) / 100;
++  if (amount <= 0) return;
++  const rng = stream(seed, "setting-connected-lakes", attempt, g.variation);
++  const noise = hash32(seed, "setting-lake-shores", attempt, g.variation);
++  const count = Math.round(10 * amount * Math.sqrt(W * H / 16384));
++  const sites: number[] = [];
++  for (let i=0;i<h.length;i++) if (hy.water[i] === 1 && h[i] >= BED_FLOOR+1) sites.push(i);
++  // Stable site order across amounts; more water adds later basins to the same first choices.
++  for (let k=sites.length-1;k>0;k--) { const j=rng.int(0,k+1); [sites[k],sites[j]]=[sites[j],sites[k]]; }
++  const occupied = new Uint8Array(h.length);
++  let placed=0;
++  for (const site of sites) {
++    if (placed >= count) break;
++    const sx=site%W, sy=Math.floor(site/W), bed=h[site];
++    const radius=4 + 5*rng.float();
++    const dx=rng.float()*2-1, dy=rng.float()*2-1;
++    const norm=Math.max(0.01,Math.sqrt(dx*dx+dy*dy));
++    const cx=sx+dx/norm*radius*0.55, cy=sy+dy/norm*radius*0.55;
++    const R=Math.ceil(radius*1.6);
++    if (cx-R<9 || cy-R<9 || cx+R>W-10 || cy+R>H-10) continue;
++    const tiles:number[]=[];
++    let refused=false, touches=false;
++    for (let y=Math.floor(cy)-R;y<=Math.ceil(cy)+R;y++) for(let x=Math.floor(cx)-R;x<=Math.ceil(cx)+R;x++) {
++      const i=y*W+x;
++      const shore=radius*(1+0.3*fbm(noise+placed,x,y,6,2));
++      const d=Math.sqrt((x-cx)*(x-cx)*0.8+(y-cy)*(y-cy)*1.25);
++      if(d>shore) continue;
++      if (protect?.[i] || occupied[i] || hy.water[i]===2 || h[i]<bed) { refused=true; break; }
++      if (hy.water[i]===1) { if(h[i]===bed) touches=true; continue; }
++      tiles.push(i);
++    }
++    if (refused || !touches || tiles.length<30) continue;
++    // Every new tile has a closed shore at least at the outlet bed, or the feeding river.
++    const inIt=new Set(tiles);
++    for(const i of tiles) for(const j of [i-1,i+1,i-W,i+W]) if(!inIt.has(j) && h[j]<bed) refused=true;
++    if(refused) continue;
++    // Keep only the connected part touching the channel, so noise never leaves isolated pits.
++    const roots=tiles.filter(i => [i-1,i+1,i-W,i+W].some(j=>hy.water[j]===1 && h[j]===bed));
++    if(!roots.length) continue;
++    const reached=new Set(roots), q=roots.slice();
++    for(let k=0;k<q.length;k++) for(const j of [q[k]-1,q[k]+1,q[k]-W,q[k]+W]) if(inIt.has(j)&&!reached.has(j)){reached.add(j);q.push(j);}
++    if(q.length<40) continue;
++    const river=hy.rivers.find(r => {
++      const pts=r.params.path;
++      return pts.some(p => Math.abs(p[0]-sx)+Math.abs(p[1]-sy)<10);
++    }) ?? hy.rivers[0];
++    if(!river) continue;
++    // Reserve the whole potential basin at every value, then grow its connected excavated part.
++    // Increasing Amount still grows water after the finite supply of legal sites is exhausted.
++    const grown=q.slice(0,Math.max(20,Math.round(q.length*(0.15+0.85*amount))));
++    for(const i of grown){h[i]=Math.max(BED_FLOOR,bed-1-Math.floor(1.5*amount));hy.water[i]=2;}
++    for(const i of q) for(let yy=-3;yy<=3;yy++) for(let xx=-3;xx<=3;xx++) occupied[i+yy*W+xx]=1;
++    hy.lakes.push({tiles:grown.sort((a,b)=>a-b),outletBed:bed,river:river.id});
++    placed++;
++  }
++}
+diff --git a/src/core/land/genome.ts b/src/core/land/genome.ts
+--- a/src/core/land/genome.ts
++++ b/src/core/land/genome.ts
+@@ -17,6 +17,7 @@
+ // 1's types from proto/genome.ts). The draws are the prototype's, in its order, so a theme's genome
+ // is the prototype's for the same seed; `leanGenome` then applies the map's settings.
+ 
++import { lakeRange } from "./lakes";
+ import { stream, type Rng } from "../math/rng";
+ import { RESERVE, reservoirNeeded } from "../gen/calibrated";
+ import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
+@@ -137,6 +138,7 @@ export interface Genome {
+   lakeSprings: number;
+   /** The most spring lakes, and the least hollow that may hold one, in tiles (Lakes and basins
+    *  above the theme's own; 4 and 100 when absent). */
++  lakeAmount?: number;
+   lakeSpringMax?: number;
+   lakeSpringMin?: number;
+   /** How far the water's way wanders from the steepest descent (levels), and the size of its
+@@ -924,38 +926,8 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
+   const rr = RESERVE[s.water.droughtReserve] / RESERVE[p.droughtReserve];
+   if (rr > 1) g.troughs += 1.2 * (rr - 1);
+   else if (rr < 1) g.troughs *= rr;
+-  // lakes and basins
+-  const dl = LAKE_STEP[s.water.lakes] - LAKE_STEP[p.lakes];
+-  // (M9b, D294: only a setting moved from the theme's own; at Islands' preset, None, the sea is its
+-  // water and kept its budget: the lake budget cut every Islands sea down to nothing)
+-  if (s.water.lakes === "none" && p.lakes !== "none") {
+-    // (a river crossing a hollow leaves no lake: the lake budget cuts its outlet down to nothing)
+-    g.parts = g.parts.filter((q) => q.kind !== "basin" || q.shape === "sea");
+-    g.troughs = 0;
+-    g.lakeSprings = 0;
+-    g.hydro.lakeBudget = 0.0005;
+-  } else if (dl > 0) {
+-    // (D333 (6): half again as deep: on the beds' floor, item 47, a basin in the low land was cut
+-    // off at the land's lowest level and held no lake)
+-    for (let k = 0; k < 6 * dl; k++) {
+-      const b = randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100);
+-      b.height *= LAKES_DEEPER;
+-      g.parts.push(b);
+-    }
+-    g.troughs += 2 * dl;
+-    g.lakeSprings = Math.min(1, g.lakeSprings + 0.5 * dl);
+-    // more of the land's hollows hold water, smaller ones too (dry ones are filled)
+-    g.lakeSpringMax = 4 + 3 * dl;
+-    g.lakeSpringMin = Math.max(50, 100 - 20 * dl);
+-    g.hydro.lakeBudget = clamp(g.hydro.lakeBudget * (1 + 0.5 * dl), 0.01, 0.5);
+-  } else if (dl < 0) {
+-    for (let k = 0; k < -2 * dl; k++) {
+-      const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
+-      if (at >= 0) g.parts.splice(at, 1);
+-    }
+-    g.troughs *= 0.5 ** -dl;
+-    g.lakeSprings *= 0.6 ** -dl;
+-  }
++  // The setting is an absolute additional-water budget, above signature water.
++  lakeRange(g, s);
+   // waterfalls
+   const df = FALL_STEP[s.water.waterfalls] - FALL_STEP[p.waterfalls];
+   if (s.water.waterfalls === "off") {
+diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
+--- a/src/core/land/hydro.ts
++++ b/src/core/land/hydro.ts
+@@ -29,6 +29,7 @@
+ //
+ // Ported from the design version 2 prototype (investigation/generative/v2/hydro.ts).
+ 
++import { connectedLakes } from "./lakes";
+ import { featureId } from "../features/ids";
+ import { mouthRowAt } from "../features/raster/terrain";
+ import type { BedStep, Edge, Point, RiverFeature } from "../features/schema";
+@@ -1356,7 +1357,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+       arms.push({ kind: "mouth", river: main.id, path: armCourse });
+     }
+   }
+-  return { rivers, water, lakes, falls, arms, flowTotal };
++  const result = { rivers, water, lakes, falls, arms, flowTotal };
++  connectedLakes(h, W, H, g, seed, attempt, result, protect);
++  return result;
+ }
+ 
+ export type { Rng };
+diff --git a/src/core/spec/mapspec.ts b/src/core/spec/mapspec.ts
+--- a/src/core/spec/mapspec.ts
++++ b/src/core/spec/mapspec.ts
+@@ -50,6 +50,8 @@ export interface Settings {
+     riverFlow: "trickle" | "normal" | "strong" | "lush";
+     droughtReserve: "scarce" | "normal" | "plenty";
+     lakes: "none" | "few" | "some" | "many";
++    /** Continuous prototype budget; when absent, None/Few/Some/Many map to 0/25/50/100. */
++    lakeAmount?: number; // 0–100
+     waterfalls: "off" | "few" | "many";
+     /** Sources (D330, the UI brief §8): Placed, the map as generated; None, the map generated as
+      *  usual, then every water and badwater source and its water removed, the dry valleys, basins
+diff --git a/src/core/spec/mapspec.schema.json b/src/core/spec/mapspec.schema.json
+--- a/src/core/spec/mapspec.schema.json
++++ b/src/core/spec/mapspec.schema.json
+@@ -53,6 +53,7 @@
+             "riverFlow": { "enum": ["trickle", "normal", "strong", "lush"] },
+             "droughtReserve": { "enum": ["scarce", "normal", "plenty"] },
+             "lakes": { "enum": ["none", "few", "some", "many"] },
++              "lakeAmount": { "type": "integer", "minimum": 0, "maximum": 100 },
+             "waterfalls": { "enum": ["off", "few", "many"] },
+             "sources": { "enum": ["placed", "none"] }
+           }
+diff --git a/src/core/spec/codec.ts b/src/core/spec/codec.ts
+--- a/src/core/spec/codec.ts
++++ b/src/core/spec/codec.ts
+@@ -76,6 +76,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
+   { key: "fl", path: ["water", "riverFlow"], kind: "enum", codes: { trickle: "t", normal: "n", strong: "s", lush: "l" } },
+   { key: "dr", path: ["water", "droughtReserve"], kind: "enum", codes: { scarce: "s", normal: "n", plenty: "p" } },
+   { key: "lk", path: ["water", "lakes"], kind: "enum", codes: { none: "0", few: "f", some: "s", many: "m" } },
++  { key: "la", path: ["water", "lakeAmount"], kind: "int" },
+   { key: "wf", path: ["water", "waterfalls"], kind: "enum", codes: { off: "0", few: "f", many: "m" } },
+   { key: "so", path: ["water", "sources"], kind: "enum", codes: { placed: "p", none: "n" } },
+   { key: "bw", path: ["hazards", "badwater"], kind: "enum", codes: { off: "0", low: "l", normal: "n", high: "h" } },
