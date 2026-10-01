@@ -88,8 +88,13 @@ export interface Hanging {
   joinLength: number;
 }
 
-/** The demo's defaults (Power 60, Auto size, Meltwater on) and its first personality. */
-export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 60, size: null, meltwater: true, seed: 891 };
+/** Its defaults: Power 100 (round 4's glacier in full, the deep U-shaped valley Kyler approved; lower
+ *  Powers carve shallower, D368 (3)), Auto size, Meltwater on, and the demo's first personality. */
+export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 100, size: null, meltwater: true, seed: 891 };
+
+/** The Power round 4's glacier was designed at (the investigation's default): the plan is always round
+ *  4's, as deep as it was there, and Glaciate's Power scales it afterwards (`glacierStrength`). */
+export const ROUND4_POWER = 60;
 
 /** Size's range in tiles (the row's slider). */
 export const GLACIATE_SIZE_MIN = 4;
@@ -108,15 +113,19 @@ export const noise = (seed: number, i: number) => {
 export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 1013904223) >>> 0;
 
 /** The most a click's glacier flows down its valley, as a share of the map's width (round 4's at its
- *  default Power, 60). */
-export const FLOW_REACH = 0.22 + (0.85 * 60) / 100;
+ *  default Power): how far it flows is the valley's, never Power's (D368 (3)). */
+export const FLOW_REACH = 0.22 + (0.85 * ROUND4_POWER) / 100;
+
+/** The trough's width on Auto: round 4's at its default Power (D368 (3): Size is how wide, Power how
+ *  deep, and neither drives the other, so Auto no longer follows Power). */
+export const GLACIATE_AUTO_SIZE = 30;
 
 /** The width at which a glacier's head measures the land's relief round it (round 4's at its default
- *  Size): its depth is Power's, never its Size's (D368 (3)). */
-export const RELIEF_SPAN = 30;
+ *  Size): its depth is never its Size's (D368 (3)). */
+export const RELIEF_SPAN = GLACIATE_AUTO_SIZE;
 
-/** The trough's width: set, or Auto (30 at Power 60). */
-export const sizeOf = (s: Pick<GlaciateSettings, "size" | "power">) => s.size ?? Math.round(8 + (36 * s.power) / 100);
+/** The trough's width: set, or Auto (30, whatever the Power). */
+export const sizeOf = (s: Pick<GlaciateSettings, "size">) => s.size ?? GLACIATE_AUTO_SIZE;
 
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 

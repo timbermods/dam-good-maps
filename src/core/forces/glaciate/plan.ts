@@ -25,9 +25,8 @@ import { entityTiles as tilesOf, plainEntities, snapshotMap, type FullForceMap }
 import { isPlant } from "../objects";
 import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
-import { glacierDeepening } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -144,7 +143,8 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const W = m.W;
   const H = m.H;
   const n = W * H;
-  const p = s.power / 100;
+  // (round 4's depth, as it was designed: Power scales the finished glacier, D368 (3))
+  const p = ROUND4_POWER / 100;
   const r = sizeOf(s) / 2;
   const phase = noise(s.seed, 7) * Math.PI * 2;
   const detail: GlaciateDetails = { benches: s.benches ?? ROUND4_DETAILS.benches, steps: s.steps ?? ROUND4_DETAILS.steps, tarn: s.tarn ?? ROUND4_DETAILS.tarn, scree: s.scree ?? ROUND4_DETAILS.scree };
@@ -213,9 +213,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       }
   // (the Floor, D321 item 40: its trough stays a level above it, so its river's channel and its tarn
   // still sink into the floor without going below the Floor; the plan is held at it below as well)
-  // (Power above 60 lets the whole floor down together, D368 (3): a deeper U-shaped valley)
-  const deepen = glacierDeepening(s.power);
-  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance - deepen);
+  for (const q of path) q.floor = Math.max(cutFloor + 1, q.floor - riverClearance);
   const nearest = new Int32Array(n).fill(-1);
   const closest = new Float64Array(n).fill(Infinity);
   const dist = new Float64Array(n).fill(Infinity);
