@@ -102,6 +102,9 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Places for a start prepared before the land is shown past the plan's start and its second place
+ *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
+const PREPARED_MORE = 2;
 /** Whether a land whose water would stand as a shallow sheet over a flat is drawn again (D372).
  *  Off: read on the land and the planned water, the sheet the two Canyon 256² maps flood (seeds 14 and
  *  22) does not show (their water rises over the plan's level where the outlets cannot pass the
@@ -293,6 +296,9 @@ interface LandStage {
   mineWay: Uint8Array;
   /** The mine sites' pads levelled as it was shaped (D363). */
   pads?: MinePad[];
+  /** The places for a start whose pads were made ready as it was shaped (D373 (3)): a start on it
+   *  is one of these when the settled water gives none that needs no levelling. */
+  prepared: StartPick[];
   /** Its rivers' largest sheet over a flat, a share of the map (D372). */
   sheet?: number;
   /** Its planned lakes' longest rise to their outlets' level (D373 (2)). */
@@ -1599,6 +1605,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     let second: StartPick | null = null;
+    const prepared: StartPick[] = [];
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
     guess = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 0, avoidOf(null));
@@ -1613,6 +1620,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         markTried(off, guess, W, H);
         second = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 5, off);
         if (!second) return fail("one place for a start", null, true);
+        // (and the places after it, apart from each other: every start a shown land may fall back
+        // on has its pad ready, levelled now if it needs it, D373 (3))
+        markTried(off, second, W, H);
+        for (let k = 0; k < PREPARED_MORE; k++) {
+          const more = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 9 + k, off);
+          if (!more) break;
+          prepared.push(more);
+          markTried(off, more, W, H);
+        }
       }
       // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
       // is shown rather than failing every attempt on it)
@@ -1623,8 +1639,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         levelStart(guess);
         guess = { ...guess, levelled: false, shore: undefined };
       }
-      // (and so has the second place, the start to fall back on once the land is shown)
+      // (and so have the second place and the places after it, the starts to fall back on once the
+      // land is shown)
       if (second?.levelled) levelStart(second);
+      for (const p of prepared) if (p.levelled) levelStart(p);
       // (D363: level ground for the mine sites the colony must reach, made as the land is shaped:
       // where the start's walk holds too few level squares, the ground nearest to level becomes a
       // pad, taken down a level at most, clear of the water)
@@ -1663,6 +1681,32 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         };
         for (const c of mineSquares()) mark(c, 6, mineKeep);
         for (const way of mineWays()) for (const c of way) mark(c, 2, mineWay);
+        // (and the other places a start on the shown land may fall back on have their mine sites'
+        // room too, pads where they need them; a place with none even so is no place to fall back on,
+        // D373 (3))
+        const roomy: StartPick[] = [];
+        for (const q of [second, ...prepared]) {
+          if (!q) continue;
+          const before = h.slice();
+          const more = padFor(q);
+          if (mineSquares().length < want) {
+            h.set(before);
+            continue;
+          }
+          roomy.push(q);
+          pads = [...pads, ...more];
+          for (const c of mineSquares()) mark(c, 6, mineKeep);
+          for (const way of mineWays()) for (const c of way) mark(c, 2, mineWay);
+        }
+        second = roomy.includes(second!) ? second : null;
+        prepared.length = 0;
+        for (const q of roomy) if (q !== second) prepared.push(q);
+        if (pads.length) info.pads = pads;
+      }
+      // (the plan's start, if it changed to one with room for the mine sites, has its pad ready too)
+      if (guess?.levelled) {
+        levelStart(guess);
+        guess = { ...guess, levelled: false, shore: undefined };
       }
       // (D348: the badwater hollows are dug as the land is shaped, before it is shown, from the plan's
       // start on the planned water; the land shown holds them, and every attempt on it keeps them)
@@ -1720,7 +1764,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, sheet: info.sheet, rise: info.rise, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
@@ -2008,7 +2052,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the start on the shown land: one that needs no levelling, so the land stays as it was shown
   // (D348; the plan's start had its ground levelled as the land was shaped)
   const chooseStart = (): StartPick | null => {
-    let p = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
+    // (a place whose pad and mine sites' room were made ready as the land was shaped, still dry and
+    // clear: before any start without room, D373 (3))
+    const ready = (): StartPick | null => {
+      for (const q of landStage?.prepared ?? []) {
+        if (tried[q.y * W + q.x] || avoidOf(bad)[q.y * W + q.x] || wetRing(b1, q) || padFloods(h, W, H, b1.water, q.x, q.y, q.level)) continue;
+        if (anyRoom && !mineRoomAt[q.y * W + q.x]) continue;
+        return q;
+      }
+      return null;
+    };
+    let p = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near) ?? ready() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
     // land was shown because it had one), when that is still dry ground clear of the hollows and of
     // the starts that failed here; a spring by it gives it water below when the settled water left
@@ -2028,6 +2082,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       if (p) fixes.push("start from the plan");
     }
+
     // (else level dry ground joined to enough land, nearest the water: its spring comes below)
     if (!p) {
       p = dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess, level: allowLevel }) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess, level: allowLevel });

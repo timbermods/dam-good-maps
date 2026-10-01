@@ -450,6 +450,79 @@ identical. Every golden fixture under both rules, the edge grids and 100 random 
 Python checker: 0 disagreements (47 generated, 19 official maps; `npm run oracle`'s 6 refusals are
 the generator's). The quick suite's 43 failures on this base are the same 43 with the engine before.
 
+### Mine-site pads (D363, 2026-10-01)
+
+At 96², 17 of 140 maps failed an absolute, each with no mine site the colony reached. Why, map by
+map: rugged land with no level 7×7 square in the start's walk; the badwater hollows, planned after the
+land was shown, took the level ground; the settled water or a hollow cut a thin neck between the start
+and its squares; a start's own pad, dug down to its water, left it on a ledge; the objects kept off
+the discs round the starts that failed (16 tiles each, a tenth of a 96² map), so three failed starts
+left nothing.
+
+- **Pads as the land is shaped** (`land/minePads.ts` `minePads`): the planned start's walk, its land
+  joined two tiles or more from the planned water, must hold two level squares for a site (one at
+  48²) 24 tiles or more out, clear of the water as the objects keep it. Where it holds too few, the
+  ground nearest to level becomes a pad: its tiles a level over it taken down to it (never more,
+  never raised), about 49 tiles and at most 61 with its edge, round, its edge wandering a tile or two
+  out and left as it is where the ground beyond stands two levels over it (no notch under a cliff),
+  five tiles or more from the planned water. Where the planned start has no room even so, another
+  planned start with room becomes the plan's start; a land with none is drawn again before it is
+  shown. Tests: `tests/unit/minePads.test.ts`.
+- **Kept for them:** the hollows keep off the squares and the colony's way to each (off the squares
+  alone where that leaves them no room: Islands 128² seed 4); on the settled water the start goes
+  where its walk has that room (`roomMap`, reading the ground as the objects' placement reads it), and
+  a start chosen there whose own pad leaves none gives way to the next; the objects may stand where a
+  start failed.
+- **The attempts:** lands drawn again before one is shown don't use up the attempts, up to 16
+  (`FREE_DRAWS`); the disc round a failed start shrinks with the map (`bandScale`: 12 at 96²).
+- **What the 840-map measures found next, each fixed at its cause** (the old code on seeds 21–40
+  failed 21 maps at 96², 3 at 128², 5 at 256²):
+  - the planned water the start, its second place and the mine sites' room are judged on
+    (`plannedWater` with `held`) stands a planned lake
+    no higher than the rim its land spills over (0.3 over it) and only where the land holds a pool of
+    9 tiles or more (Canyon 96² seed 16: a start by a lake planned at 6.6 that settled at 3.7–4.1;
+    Any 128² seed 26: a start relying on a one-tile pit of a lake its land didn't hold), and gives a
+    river the depth of the width it spreads to over ground no higher than its bed (River Valley 96²
+    seed 33: 0.42 planned in the channel, 0.12 settled over the floodplain, too shallow to pump);
+    tests: `tests/unit/plannedWater.test.ts`;
+  - a land with an inflow's head two levels or more under water held downstream is drawn again
+    before it is shown (`land/courses.ts` `drownedHeads`; Canyon 256² seed 14: a head at 4 under a
+    lake held at 7 backed up to the edge, put its sources in a flow and never settled); tests:
+    `tests/unit/drownedHeads.test.ts`;
+  - a land with a wall along an edge (D151) is drawn again before it is shown (River Valley 96² seed
+    2 failed every attempt on its shown land).
+- **D348 as D370 has it** (d4d2177c, 49eba513): every shaping step finishes before the first land is
+  shown, but D350's worn way out. The badwater hollows are dug as the land is shaped, read on the
+  pre-fill (moved off any whose source another's water reaches) and never dug again; a plan's start,
+  its second place and two more places apart from them have their pads levelled then; no start is
+  levelled after the land is shown; rivers whose sources the pre-fill shows reached leave before it
+  is shown, and the main river never leaves after. Tests: `tests/contract/firstLand.test.ts` (96²,
+  128², every theme; failed first, Any 96² seed 1: 119 tiles changed after the land was shown) and
+  `firstLand256.test.ts` (the heavy suite).
+- **Codex's audits' shared findings (D370):** a river's course carved at its bed through a planned
+  lake (8750c300; River Valley's water gaps; `tests/contract/lakeCourse.test.ts`); the canyon reading
+  from the first dry tile out (`tests/unit/canyonSignature.test.ts`); the water story joined over a
+  plug (`tests/unit/storyPlug.test.ts`); the mine sites the colony must reach placed as a pair
+  (0deba098; `tests/contract/minePair.test.ts`); islands in a lake hold objects and Islands' water
+  cap is 0.70 (D369; `tests/contract/lakeIsland.test.ts`, `tests/unit/waterCap.test.ts`).
+- **Adopted, one at a time** (seeds 1–20 of the theme; 24 maps of every other theme byte-identical
+  each time): Islands' sea-first shaping (3aedffce; all three 9 → 17, 20 → 20, 20 → 20 at 96², 128²,
+  256²), Delta's alluvial plain and braids (1b77d40f; 11 → 19, 16 → 18, 16 → 17), River Valley's own
+  shaping (cd5d5bf4; 18 → 17, 16 → 18, 15 → 17).
+- **D373 (1)** (a69c9f11): a channel below each confluence is cut as wide as all the water it
+  carries (Canyon 256² seed 22's six rivers through channels three tiles wide ran over their banks
+  onto a flat). 256²: no failing absolute in 280 maps since.
+- **D372's sheet rule and D373 (2)'s fill time: readings only.** Neither reads what floods on the
+  land and the planned water alone (Canyon 22's water rose over the plan's level where its outlets
+  couldn't pass the inflow; Canyon 14's was a deep lake filling slowly), and on 840 maps both would
+  only reject lands that settle; `info.sheet` and `info.rise` record them. **Starting a slow lake
+  full, the design kept for if one appears:** find the lake's settled level by running the game's own
+  settle on until that lake stops rising; keep that water as the lake's starting water
+  (`sim/water.ts` RetainedWater, as a carve's oxbow lake keeps its own), recorded in the lake feature
+  so a share link rebuilds it; every settle, and the game, then start from it, and the stored level
+  is the one the game's rules settle to.
+- RESULTS
+
 ## Handoff (2026-09-27, evening)
 
 Where it stopped: the last commits on `feature/m9b` are `2afb62f9` (decisions-pending #134 follows
