@@ -20,7 +20,7 @@ npm run setup:machine
 ```
 
 (`tools/setup-machine.mjs`, plain Node, safe to run again at any time.) It creates the worktrees the plan uses beside the
-clone (`<clone>-forces`, `-m9b`, `-high`, `-parity`, `-page`, `-weather`, `-3d` and the dedicated probe folder `-probe`),
+clone (`<clone>-m9b`, `-high`, `-parity`, `-page`, `-weather`, `-3d` and the dedicated probe folder `-probe`),
 installs their dependencies, writes the four probe allow rules for this machine's own paths into
 `.claude/settings.local.json` (keeping any rules already there), checks Node, `gh`, the .NET 8 SDK, Python and
 Timberborn's folders, and prints what's ready and what's missing. **Tell Kyler only about what the next task needs.**
@@ -64,16 +64,20 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    the High look's release (#75), the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
    "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
-   failing absolutes 3 / 1 / 0 at 96² / 128² / 256² over 840 maps; next the dam-wall fix (the plan made true), a trial
-   keeping planned lakes at their level, the 96² start class, the canyon measure's separate effect, speed at 256², the
-   D148 re-pins, then the review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
+   failing absolutes 2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed);
+   **first merge `dev` into `feature/m9b`** (the forces are released there) and re-measure against the committed
+   baseline; then a trial keeping planned lakes at their level, the 96² start class (Any 31, Islands 4, Highlands 14),
+   the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), then the
+   review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
    settings are held; Codex's settings round 2 starts from a69c9f11 or later. When the forces release reaches `dev`,
    fold `resources.mine_reach` into M9b's `resources.mine_site`.
 4. **Codex's open investigations** (hold until Kyler says): smoothness (#107, its 2–5 AM trial of 2026-10-01 pending),
    multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
 5. **Still to do from this session:** time the faster water settle (D359) on a quiet machine; copy September's Progress
    log to `docs/progress-log/2026-09.md` (§7); the allowance report Kyler asked for on Wednesday evening wasn't written.
-6. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
+6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
+   keep-awake script, stopped with the session.
+6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
 7. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
 
 The sections below are the earlier handoffs' record. Where they differ from §0, §0 is current.

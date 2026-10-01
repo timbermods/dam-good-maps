@@ -24,10 +24,11 @@ forces; the deploy and the live check passed. The High look's release is next (D
 
 - **The forces** (released; `feature/forces` merged by #77): D361's ten fixes, D368's eleven, cross-browser determinism (D366) with a
   three-engine check in CI, and three bugs fixed on the way (a re-imported tall map's bytes, two water-journey races).
-- **M9b** (`feature/m9b`, #70; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted on the
-  strict D348 base. Over 840 maps: failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps meeting all three
-  outcomes 212 / 227 / 229 of 280 (76%, 81%, 82%). Lake Basin (12 of 20 at every size) and Canyon and Highlands at 96²
-  are under two-thirds. Left: two dam walls, the 96² starts, speed at 256², the re-pins, then your review set.
+- **M9b** (`feature/m9b`, #70, tip e292cefe; `docs/progress/m9b.md`, "Hand-over"): Islands, Delta and River Valley adopted
+  on the strict D348 base. Over 840 maps: failing absolutes 2 / 0 / 0 at 96² / 128² / 256² (Any 96² 31 and Islands 96² 4,
+  both the small-map start class); first maps meeting all three outcomes 213 / 228 / 229 of 280 (76%, 81%, 82%). Lake
+  Basin (12–13 of 20) and Canyon and Highlands at 96² are under two-thirds. Left: the 96² starts, a trial keeping
+  planned lakes at their level, speed at 256², the re-pins (its CI is red on maps that moved), then your review set.
 - **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
 - **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing

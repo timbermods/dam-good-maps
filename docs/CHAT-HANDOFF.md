@@ -98,12 +98,12 @@ The public site shows them. **Next: the High look's release** (the milestone ses
 - **Adopted:** Codex's Islands, Delta and River Valley shaping, on the strict D348 base, with the shared fixes (the
   channel carved through planned lakes, channels sized for joined flow, the mine pair, river joins, one shared
   reading of the colony's reach).
-- **Measured** (840 maps, seeds 1–40 of every theme): failing absolutes 3 / 1 / 0 at 96² / 128² / 256²; first maps
-  meeting all three outcomes 212 / 227 / 229 of 280. Lake Basin (12 of 20 at every size), and Canyon and Highlands
-  at 96², are under two-thirds.
-- **Failing maps and their plans:** two dam walls (Any 96² 18, Lake Basin 128² 5: a river drains a planned lake
-  the plan still counts full; fix: make the plan true, then trial keeping planned lakes at their level); the 96²
-  start class (Any 31, Islands 4, Highlands 14: no start with room for two mine sites, or its water moves).
+- **Measured** (840 maps, seeds 1–40 of every theme; `feature/m9b` e292cefe): failing absolutes 2 / 0 / 0 at 96² /
+  128² / 256²; first maps meeting all three outcomes 213 / 228 / 229 of 280. Lake Basin (12–13 of 20 at every size),
+  and Canyon and Highlands at 96², are under two-thirds.
+- **Failing maps and their plans:** the 96² start class (Any 31, Islands 4: no start with room for two mine sites;
+  Highlands 14 passes only by luck, its starts' water moves). The dam walls are fixed. Still to try: keeping planned
+  lakes at their planned level (the cleared floor lets water round the outlet), which may lift Lake Basin.
 - **Held:** Canyon, Highlands and Lake Basin's prototypes (re-audit after the shared fixes; Lake Basin most worth
   a second Codex round) and the settings prototype (**Codex's round 2 starts from `feature/m9b` at a69c9f11 or
   later**; adopted last).
