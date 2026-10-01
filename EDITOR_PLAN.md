@@ -526,6 +526,8 @@ Make a valley, drop a source, and there's a river.
   set on top (`strengthReader`), so they change together at every Ctrl+scroll notch, and the worker sends the objects
   again whenever a strength changed, so its real strength follows within one answer (`tests/e2e/sources.spec.ts`). A click on a placed source selects it and shows its
   strength, its water (clean or bad) and Remove; Delete (or that Remove) makes its water recede live. A
+  source is drawn as the game draws one (D324, both looks): a stone basin with water welling up, and a
+  badwater source a darker stone basin with badwater boiling up, at its true 3×3 size (models of our own; Markers keeps the labels). A
   source is always findable, even underwater: a subtle upwelling (bubbles, a gentle ring) shows
   through the water; with a source picked on the shelf or when hovering near one, a clear marker
   with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool picked, the
@@ -566,8 +568,8 @@ Make a valley, drop a source, and there's a river.
   submerged bed), the water under and right round it turns clear, so the bed, ledges and sources
   show; working on dry land leaves the water as it is, so it can be seen. T (the game's key) or
   **Clear water** makes all of it clear. Clear water still reads as water: a faint blue tint, its
-  ripples and a soft bright shoreline. Badwater stays clearly distinct when clear (its own colour and
-  dark stripes), for colour-blind players too. Sources can go anywhere in the editor; the "only
+  ripples and a soft bright shoreline. Badwater stays clearly distinct when clear (its own darker crimson, dull
+  troughs and slow bubbles; never a hatching, D324), for colour-blind players too, by lightness. Sources can go anywhere in the editor; the "only
   where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit
@@ -652,13 +654,40 @@ Make a valley, drop a source, and there's a river.
 
 ## 6. The look
 
-The clean game-like view (D135), contaminated ground as a layer over the ground (D154), the mine
-sites and ruins (D178), the approved badwater in one shared water palette (D177), and a High mode
-with the water shader and soft shadows, chosen automatically on capable GPUs with a fallback to this
-Standard look (Map look 2, D147, D284), right after the forces' release.
-Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
-foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
-as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+Two looks (Map look 2, D147, D242, D250, D284):
+- **Standard**, the clean game-like view (D135): contaminated ground as a layer over the ground (D154),
+  the mine sites and ruins (D178), the approved badwater in one shared water palette (D177).
+  Waterfalls leave the lip and arc into the pool as one sheet, round the corners of a lip too, with
+  foam at the lip, whitewater and a splash where they land (soft white water, never cells that read
+  as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+- **High**, the same view finished further: #38's water (colour by depth, clear shallows, fine crests
+  and flecks moving with the flow, crimson matte badwater over its poisoned bed) and soft shadows
+  from the real meshes; #65's warm sunlight, ambient occlusion, colour-preserving tone curve and
+  grade, distance haze, sky, rock strata, soil edges and colour variation; #66's trees and bushes
+  (pine, birch, oak, blue-berried bushes, bare dead forms) swaying in the wind, also on the shelf's
+  icons and the placement ghost (D241); and #67's finish: the map's edge cut through rock with a
+  soil cap and the water's section, continuous waterfall crowns, irregular landings with bubbly
+  froth, mist and splash rings, rough water below falls and in rapids, and refreshed landmarks. #67's
+  visible seasons wait for the Drought and Badtide day-by-day view (D286 (4)).
+
+Both looks follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a
+muted green meeting it along the tile's edge with a slight painted wobble and a thin darker rim,
+olive-grey stone, bright orange ruins with cream sacks, near and far, contamination as the game's
+sparse orange-red veins through earth and grass alike, and falls teal with lighter streaks and little
+white. High adds exposure 1.00 with a restrained grade, navy pools, current-aligned caustics and
+rolling light on moving water, badwater's pink highlights and red contact at rock, and a bluer sky
+with fewer, larger clouds. Readability is the game's own: its look and its cues, with no lightness gap
+or pattern beyond them (D334 (2)).
+
+High is the default where the computer draws it smoothly: it starts in High (or where it settled
+last time on that GPU at about that window size), watches what each frame costs the GPU, and steps
+down by itself to a lower-cost High (no soft shadows, mist, rings, wind or fine detail, far tree
+models, 85% of the pixels) and then to Standard when frames stay too slow; never back up in a
+session. The **Look** menu (on the 3D view; in the editor's header) chooses **Automatic**, **High**
+or **Standard**, and switches High's four parts; every single effect is switchable too (the
+renderer's `setHighEffect`). A browser drawing in software keeps the light look, with no choice.
+Standard keeps its own water, light and finish; what the decisions changed in both looks is listed
+above and in D304, D305, D310, D324 and D334. The camera never moves by itself in either look (D265).
 
 ## 6a. Alive, not mechanical (D240; after the forces round 2)
 
@@ -1128,7 +1157,7 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
   - clear water (D196, D212): one uniform clears all the water (T), another the water round the brush
     or the shelf's ghost while it is over water (the view decides from its own water, `clearNear`);
     clean water keeps a faint blue tint, its ripples and a bright shoreline, badwater its own colour,
-    half see-through, with dark diagonal stripes (the shared water palette's `CLEAR_WATER`);
+    murky and half see-through, with its dull troughs and bubbles, never a hatching (D324; the shared water palette's `CLEAR_WATER`);
   - each source's upwelling (D196): a texture of the sources' middle tiles, read by the water shader
     for its rings and bubbles, and brighter for the sources the water under the pointer comes from;
   - juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for
@@ -1155,6 +1184,20 @@ page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiR
     not its earlier leaf-bed (D313, a family with Flatten). The player's volume (0.54 by default,
     a quarter lower than the round's original 0.72, D313) and off switch are kept as saved
     (`dgm.sound`); a volume saved before D313 is kept exactly, never lowered to match.
+  - the High look (Map look 2, D284; `src/render3d/high/`): the Standard shaders take the High
+    additions only at named points (`materials.ts` `ShaderHooks`), and only in High's own materials,
+    which the meshes swap to while the look is High: the Standard materials are never changed.
+    High's terrain shares Standard's own uniforms (height range, hover, ground mode and an eruption's
+    heat), so an eruption's glow shows in both looks and survives a change of look.
+    A 2048² sun depth map of the terrain and objects (redrawn only when they change, at most ten times
+    a second while a brush paints), ambient occlusion and the water's flow and rough water made in a
+    small worker (`bake.worker.ts`; the flow is estimated from the water's surface), the new trees
+    batched by species with a close-up and a far model (at most 32 draws), the landmarks beside
+    today's batches with the same bookkeeping (so highlight, removal and ground-following work), mist
+    and rings from the falls drawn. Each effect is a uniform switch; the tone curve and grade run at
+    the end of each High material, not as a second full-screen pass. The automatic choice
+    (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth frame
+    timed to its end) and a first quick reading a second after the first map.
 - The forces (D203, D206, D220): one shared core in `src/core/forces/`, from Codex's forces core (#59):
   `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve,
   whatever the frame rate), the shared numbers, rock and object rules (`random.ts`, `rock.ts`,

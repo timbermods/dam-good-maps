@@ -231,7 +231,12 @@ async function main() {
   const after = await site(resolve("."), "after", 4797, "try");
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT });
+    // Standard held: this predates the High look (D212), and "before" (59f826c) has no High to
+    // pick from at all; a capable GPU would otherwise draw "after" in High by itself, comparing two
+    // different looks (found auditing capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: VIEWPORT });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const a = await captureSite(page, 4797, null);
     const b = await captureSite(page, 4796, a.found);
     // the full-size shots, for a closer look (not committed)

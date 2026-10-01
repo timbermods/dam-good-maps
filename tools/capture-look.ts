@@ -768,7 +768,12 @@ async function main() {
   const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false });
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: this is the original Map look (D86, D110, D114), well before the High look
+    // existed; a capable GPU would otherwise draw it in High by itself (found auditing
+    // capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 400)));

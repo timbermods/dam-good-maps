@@ -151,7 +151,12 @@ async function runConfig(label: string, args: string[], cpuSlowdown: number, scr
   // (a window other windows cover still draws at the display's rate: Chrome would pause it)
   const keepDrawing = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"];
   const browser: Browser = await chromium.launch({ channel: "chrome", headless: false, args: [...args, ...keepDrawing] });
-  const page = await browser.newPage({ viewport: { width: screen.width, height: screen.height }, deviceScaleFactor: screen.scale });
+  // Standard held: this budget is ROADMAP M4/PLAN §14.2, before the High look existed, and a
+  // capable GPU would otherwise silently draw High, which costs more to render and would
+  // invalidate the budget (found auditing capture-badwater.ts's same gap, D304's investigation)
+  const context = await browser.newContext({ viewport: { width: screen.width, height: screen.height }, deviceScaleFactor: screen.scale });
+  await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+  const page = await context.newPage();
   if (cpuSlowdown > 1) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpuSlowdown });

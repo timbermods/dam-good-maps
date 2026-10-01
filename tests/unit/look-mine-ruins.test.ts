@@ -4,17 +4,18 @@
 // hole), with scaffold towers on the frame's corners and beams across; with Markers on, an outline
 // round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
 // variants, with ivy draped over the lower half of their storeys on moist ground; neighbouring columns
-// never look alike, and from afar each storey is a block in the scaffolding's rust. Kyler's
-// colours, measured in the game, hold.
+// never look alike, and from afar each storey is a block in the scaffolding's colour. Kyler's
+// colours hold: the mine sites' measured in the game, the ruins' bright orange with cream sacks from
+// Timberborn's references (D334).
 
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
 import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
-import { objectMaterial, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
+import { objectMaterial, RUIN_LATTICE_SCALE, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
-import { cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -117,14 +118,14 @@ describe("mine sites", () => {
     expect(frameTop).toBeGreaterThan(0.1);
   });
 
-  it("have Kyler's colours: the pit's earth shows about #373A34 in its shade, a dull rusty frame, pale wood", () => {
+  it("have Kyler's colours: the pit's earth shows about #2F312C (D324's option (a): #373A34 darkened a little to keep its margin under the darker badwater), a dull rusty frame, pale wood", () => {
     expect(cssColor(MINE.frame)).toBe("#844d2f");
     expect(cssColor(MINE.wood)).toBe("#a78e65");
-    expect(cssColor(MINE.pit)).toBe("#373a34");
+    expect(cssColor(MINE.pit)).toBe("#2f312c");
     // the frame is no longer bright orange
     expect(Math.max(...MINE.frame)).toBeLessThan(0.6);
     // down in the pit only the sky lights it (the object shader: sky × 1.15, the foot's shade 0.72,
-    // the warm grade): the floor and the earth show within a few steps of #373A34
+    // the warm grade): the floor and the earth show within a few steps of #2F312C
     const seen = (c: readonly number[], up: number) => c.map((v, k) => v * LIGHT.sky[k] * 1.15 * (0.8 + 0.2 * up) * 0.72 * [1.01, 1, 0.98][k]);
     const floor = seen(MINE.floor, 1);
     const earth = seen(MINE.earth, 0);
@@ -149,8 +150,9 @@ describe("mine sites", () => {
     for (let k = 0; k < badwater.length; k += 3) lightest = Math.max(lightest, lum([badwater[k], badwater[k + 1], badwater[k + 2]]));
     expect(lum(MINE.wood)).toBeGreaterThan(lightest + 0.2);
     // the pit's earth is darker than badwater by about 5 L* or more, as in the game (Kyler's review
-    // of D177 and D178, 2026-09-26: both colours stay, #373A34 and #38's crimson; it was lighter than
-    // the red-black badwater before)
+    // of D177 and D178, 2026-09-26: it was lighter than the red-black badwater before). D324 (option
+    // (a) of D310) darkened both, the pit's earth (from #373A34) and badwater's crimson, a little,
+    // so clean water could come down toward the game; the margin is what it was, never loosened
     const lightness = (c: readonly number[]) => {
       const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const y = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
@@ -227,10 +229,13 @@ describe("ruins", () => {
     expect(FOOTPRINTS.RuinColumnH3.size).toEqual([1, 1, 3]);
   });
 
-  it("are a rusty skeleton with beige panels close up (Kyler's colours), and from afar solid blocks in the scaffolding's rust", () => {
-    expect(cssColor(RUIN.rust)).toBe("#8d5631");
-    expect(cssColor(RUIN.panel)).toBe("#b8a775");
+  it("are an orange skeleton with cream sacks close up, and from afar a lattice block in the skeleton's own orange (D334, amending D305's muted rust)", () => {
+    expect(cssColor(RUIN.rust)).toBe("#d4781f");
+    expect(cssColor(RUIN.panel)).toBe("#e3cf96");
+    expect(cssColor(RUIN.far)).toBe("#b86e30");
     expect(cssColor(RUIN.ivy)).toBe("#405634");
+    // the sacks and boards, shaded a little one from another (entities3d.ts storey)
+    const panelShades = [0.95, 0.985, 1.02].map((k) => cssColor([RUIN.panel[0] * k, RUIN.panel[1] * k, RUIN.panel[2] * k]));
     for (const v of ["A", "B", "C", "D", "E"])
       for (let kind = 0; kind < 4; kind++) {
         const m = modelOf(`scaffold.${v}`, kind);
@@ -254,15 +259,17 @@ describe("ruins", () => {
             const w = v[2].map((q, i) => q - v[0][i]);
             const area = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
             farArea += area;
-            if (c === cssColor(RUIN.rust) || c === cssColor(RUIN.top)) rustArea += area;
+            if (c === cssColor(RUIN.far)) rustArea += area;
           }
         }
         expect(near).toContain(cssColor(RUIN.rust));
-        // panels on every layout (shaded a little one from another)
-        expect(near.some((c) => c !== cssColor(RUIN.rust) && /^#[a-c]/.test(c))).toBe(true);
+        // sacks or boards on every layout (shaded a little one from another)
+        expect(near.some((c) => panelShades.includes(c))).toBe(true);
         // from afar: four sides and a top, the storey's height (a partial top storey lower), with
-        // a panel set into each face that has one; mostly the scaffolding's rust (Kyler: plain tan
-        // reads as sandstone), the panels under two fifths of it
+        // a cream panel set into each face that has a sack or boards; mostly RUIN.far (the near
+        // skeleton's own orange from afar), the panels under two fifths of it. The lattice that
+        // tells it apart from a solid box is the object shader's own (materials.ts), not this CPU
+        // geometry, which the object shader's own test below checks for.
         expect(farTris).toBeGreaterThanOrEqual(10);
         expect(farTris).toBeLessThanOrEqual(20);
         expect(farTop).toBeCloseTo(kind < 2 ? 1 : 0.72, 5);
@@ -275,19 +282,62 @@ describe("ruins", () => {
     expect(modelTriangles("ruin")).toBeLessThanOrEqual(360);
   });
 
-  it("from afar stand apart from rusty contaminated ground, in greyscale too", () => {
-    for (const c of [RUIN.panel, RUIN.top, RUIN.rust]) expect(lum(c) - lum(GROUND.contaminated), cssColor(c)).toBeGreaterThan(0.12);
-    // the rust is orange, the contaminated ground's red-brown: more yellow in it
-    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(GROUND.contaminated[1] / GROUND.contaminated[0] + 0.05);
-    expect(lum(RUIN.panel) - lum(GROUND.contaminated)).toBeGreaterThan(0.35);
+  it("from afar stand apart from contaminated ground (its veins, and the light look's rusty tint), in greyscale too", () => {
+    for (const ground of [GROUND.contaminated, CONTAMINATION.vein]) {
+      for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(ground), cssColor(c)).toBeGreaterThan(0.12);
+      // the scaffold is orange, contaminated ground red-brown or orange-red: more yellow in it
+      expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(ground[1] / ground[0] + 0.05);
+      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.35);
+    }
+  });
+
+  it("hang cream sacks: shallow pouches bulging out of the face with a tied upper edge, as many triangles as the slabs they replace; broken boards stay flat (D334)", () => {
+    const shades = [0.95, 0.985, 1.02].map((k) => cssColor([RUIN.panel[0] * k, RUIN.panel[1] * k, RUIN.panel[2] * k]));
+    // variant B's first layout: a sack filling its north face (face 0, not turned)
+    const m = modelOf("scaffold.B", 0);
+    const pts: number[][] = [];
+    let tris = 0;
+    for (let t = 0; t < m.lod.length / 3; t++) {
+      if (m.lod[t * 3] !== LOD_NEAR || !shades.includes(cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]))) continue;
+      tris++;
+      for (let j = 0; j < 3; j++) pts.push([m.pos[t * 9 + j * 3], m.pos[t * 9 + j * 3 + 1], m.pos[t * 9 + j * 3 + 2]]);
+    }
+    expect(tris).toBe(12);
+    const zs = pts.map((p) => p[2]);
+    const ys = pts.map((p) => p[1]);
+    // a pouch, not a slab (0.03 thick): it bulges outward (−Z), past the posts but within the tile
+    expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(0.06);
+    expect(Math.min(...zs)).toBeLessThan(-0.4);
+    expect(Math.min(...zs)).toBeGreaterThanOrEqual(-0.5);
+    // resting on the storey's floor, wider than tall, its upper edge dipping where it is tied
+    expect(Math.min(...ys)).toBeGreaterThan(0.03);
+    expect(Math.max(...ys)).toBeLessThan(0.62);
+    const width = Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
+    expect(width).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
+    const top = Math.max(...ys);
+    const middleTop = Math.max(...pts.filter((p) => Math.abs(p[0]) < 0.1).map((p) => p[1]));
+    expect(middleTop).toBeLessThan(top - 0.04);
+    // broken panels stay two flat boards (0.03 thick each)
+    const broken = modelOf("scaffold.E", 1);
+    let boardTris = 0;
+    for (let t = 0; t < broken.lod.length / 3; t++) if (broken.lod[t * 3] === LOD_NEAR && shades.some((c) => c === cssColor([broken.col[t * 9], broken.col[t * 9 + 1], broken.col[t * 9 + 2]]) || c === cssColor([broken.col[t * 9] / 0.93, broken.col[t * 9 + 1] / 0.93, broken.col[t * 9 + 2] / 0.93]))) boardTris++;
+    expect(boardTris).toBe(24);
   });
 
   it("the object shader draws a model's parts for close up or from afar by its size on screen", () => {
     const u = sceneUniforms(1, 1, overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1));
-    const shader = objectMaterial(u).vertexShader;
+    const mat = objectMaterial(u);
+    const shader = mat.vertexShader;
     expect(shader).toContain("attribute float lod");
     expect(shader).toContain(`perUnit >= ${RUIN_NEAR_PX}`);
     expect(RUIN_NEAR_PX).toBeGreaterThanOrEqual(6);
+    // the far ruin block's lattice (D305): a cheap discard pattern in the fragment shader, gated on
+    // the far lod alone (so it never touches any other object), the same in Standard and High since
+    // it lives in the shared shader, not behind a hook
+    expect(mat.vertexShader).toContain("vLod = lod;");
+    expect(mat.fragmentShader).toContain("if (vLod > 1.5)");
+    expect(mat.fragmentShader).toContain(`${RUIN_LATTICE_SCALE}`);
+    expect(RUIN_LATTICE_SCALE).toBeGreaterThan(1);
     // every model carries the attribute; the light look (software rendering) draws a block per ruin
     for (const m of meshesOf([column(1, 1, 3, "B"), { template: "Pine", x: 3, y: 3, z: 2, orientation: "Cw0", owner: "f" }])) expect(m.geometry.getAttribute("lod")).toBeDefined();
     const lite = meshesOf([column(1, 1, 3, "B")], null, 0, true);
@@ -418,7 +468,7 @@ describe("ruins", () => {
           if (md.lod[t * 3] === LOD_FAR) {
             farArea += a;
             if (isIvy) farIvy += a;
-            if (c === cssColor(RUIN.rust) || c === cssColor(RUIN.top)) farRust += a;
+            if (c === cssColor(RUIN.far)) farRust += a;
             continue;
           }
           if (!isIvy) continue;

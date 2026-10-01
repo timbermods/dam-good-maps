@@ -31,6 +31,7 @@ tagged `m<N>-done` when all of its acceptance criteria pass.
 | [badwater-source.md](badwater-source.md) | Badwater on every map: a badwater source on every map unless No badwater (D200; generator 0.6.3) | 2026-09-26 |
 | [m9a.md](m9a.md) | M9a: terrain and water from processes (generator 0.7.0, project format 3) | 2026-09-26 |
 | [glaciate.md](glaciate.md) | Glaciate adopted onto the forces core, with the floor's water finished as one river (branch `feature/glaciate`, preview only) | 2026-09-27 |
+| [high-look.md](high-look.md) | The High look (Map look 2): #38, #65, #66 and #67 adopted beside Standard, the default where it runs smoothly (branch `feature/high-look`) | 2026-09-27 |
 | [brushes.md](brushes.md) | Batch 2, the brushes (D322): the target level as the game's editor, Ground, Water and Both, Sources Ride, Keep or Clear, bigger brushes, Clear's ghost sources (branch `feature/brushes`) | 2026-09-29 |
 | [kyler-todo.md](kyler-todo.md) | What Kyler needs to do | kept current; 2026-09-25 |
 | [select-shelf.md](select-shelf.md) | Select, Delete, the shelf and shortcuts (batch 3, D323 and D328; branch `feature/select-shelf`) | 2026-09-29 |
