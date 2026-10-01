@@ -149,7 +149,8 @@ editor is desktop-first (D185).
   drawn line sets its length. Every brush's options row shows its size, a number and a slider, as well as hold F to
   resize (D226, D322). **A force's Size and Power work as a brush's** (D344, A1, A2; one key habit for every tool, D368
   (1); `keyHabit` in `src/editor/forceSize.ts`): hold F and move the mouse to size its ring on the map (a click or
-  letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and ] its Power by five, the number
+  letting go keeps it, Esc or a right click puts it back), { and } step its Size, [ and ] its Power by five (or F held
+  and the wheel, D368 (11)), the number
   beside the pointer while it changes; a Size set by hand
   is off Auto. Power and Size always read as numbers in the row, a Size on Auto as **Auto (68)** (Power's word, a
   creek to a catastrophe, is its tooltip). Quake has no Size: F does nothing there.
@@ -294,8 +295,8 @@ editor is desktop-first (D185).
   changes it (0 to the height ceiling; plain scroll still zooms), **Ctrl+click** on the land takes its level (on water,
   the bed's), and the row's **Level** list sets it; once set it stays until the tool changes or Esc (the next Esc puts
   the brush away). Past either end of the range Raise and Lower are **Free**: they sculpt softly, building up as the
-  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll, or [ and ], sets their strength (Raise, Lower and Flatten take
-  nothing from [ and ]: their target level is theirs, D368 (1)). The tooltips
+  player paints, as they always did. Smooth and Naturalize stay soft; Shift+scroll, F held and the wheel, or [ and ], sets their strength (Raise, Lower and Flatten take
+  nothing from [ and ] or F with the wheel: their target level is theirs, D368 (1), (11)). The tooltips
   name the game editor's terms. Under a layer cut (D207) Raise stops at the cut. An exact stroke's tiles stay as it
   leaves them (the build's integrity pass leaves them out, so a one-tile pit stays a pit).
 - **Ground, Water and Both** (D322, item 2): every brush's row has its mode. **Ground** changes only dry tiles and
@@ -699,7 +700,7 @@ toggle with no key. **When the window loses focus** (a screenshot tool, Alt+Tab;
 everything held: every camera key and Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a
 released mouse button would end it, at the pointer's last place (`render3d/focusLost.ts`), so nothing behaves as if a
 key or the mouse were still held.
-**One key habit for every tool** (D368 (1)): F with the mouse, and { and }, set the Size; [ and ] set the strength: a force's Power, Smooth and Naturalize's strength, and nothing on Raise, Lower and Flatten (they have a target level instead). Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush or the force live, its size beside the pointer; let go (or click) to set it (D344, A1). Quake has no Size: F and { } do nothing there. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
+**One key habit for every tool** (D368 (1), (11); `keyHabit` in `forceSize.ts` decides): F with the mouse, and { and }, set the Size; F held with the wheel, and [ and ], set the strength: a force's Power, Smooth and Naturalize's strength, and nothing on Raise, Lower and Flatten (they have a target level instead); the number shows beside the pointer. Plain scroll still zooms; Shift+scroll and Ctrl+scroll keep their meanings. Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength, Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Hold F and move the mouse to resize the brush or the force live, its size beside the pointer; let go (or click) to set it (D344, A1). Quake has no Size: F and { } do nothing there. U unleashes a selected source (D239). Ctrl+Shift+1 to 9
 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; the number keys
 alone stay the brush shortcuts; bookmarks are saved with the project. Every tool is reachable by
 keyboard, with labels for screen readers. (D180, D184, D196, D205, D212, D219.)

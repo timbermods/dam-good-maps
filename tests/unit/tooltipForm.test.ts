@@ -43,9 +43,9 @@ describe("tooltips are one short phrase, the key a cap at the end (D368 (6))", (
       expect(keysOf(t).includes("R turns it"), it.name).toBe(it.turns);
     }
   });
-  it("Size's keys are F and { }, strength's and Power's [ ] (D368 (1))", () => {
+  it("Size's keys are F and { }, strength's and Power's F+scroll and [ ] (D368 (1), (11))", () => {
     expect(SIZE_KEYS).toEqual(["F", "{", "}"]);
-    expect(STRENGTH_KEYS).toEqual(["[", "]"]);
+    expect(STRENGTH_KEYS).toEqual(["F+scroll", "[", "]"]);
   });
   it("a key's cap and its words; no key, no cap", () => {
     expect(keyParts("V flips it")).toEqual({ cap: "V", words: "flips it" });
