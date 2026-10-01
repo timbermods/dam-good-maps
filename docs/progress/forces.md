@@ -1619,3 +1619,10 @@ seen failing.
   phrase, its `data-keys` the caps shown at the end; the browser's own tooltip is held back while ours shows. Every bracketed
   key moved to caps. The tooltip spec fails on a key in brackets and on a control named with a key its tooltip doesn't end
   with; a new spec hovers Carve (7), Smooth (4) and others and reads the caps.
+
+## F+scroll sets strength (D368 (11); `fix/f-scroll-strength`)
+
+- Holding F and scrolling steps the strength through the same `keyHabit` that maps { } and [ ] (`forceSize.ts`): Power on
+  every force, strength on Smooth and Naturalize, nothing on Raise, Lower and Flatten; the number beside the pointer. The
+  first notch ends F's sizing (kept), so the wheel's number shows. Plain, Shift, Ctrl and Alt scroll are unchanged. Power's
+  tooltips gain an F+scroll cap. `tests/e2e/forceKeys.spec.ts` "D368 (11)" (failed first: F+scroll zoomed).
