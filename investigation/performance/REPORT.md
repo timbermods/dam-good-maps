@@ -45,7 +45,8 @@ Hour retry: **3,613.4 seconds**, 121 edits, 43 raw chunks recomputed: 8,226 hitc
 Matched brush references: p99 388.6→384.7 ms, hitches 142→134; geometries 223→236,
 textures 15→16; private memory **576.4→1046.9 MB (+81.6%)**. Other CPU 0–12.84%, median
 0.96%; total 0–97%, median 35%. All 192,917 streamed frames visible/focused. Budgets fail;
-memory-growth cause is unproved.
+memory-growth cause is unproved. The final reference discards about **57.61 seconds** of
+remaining mixed-edit events; the hour elapsed, but complete event coverage is unverified.
 
 First hour discarded at 02:25:19, outside CPU **32.35%**: chrome PID36236 13.31%, ChatGPT
 PID30744 12.82%, chrome PID35568 2.04%. Standard before capture discarded at 02:27:22,
@@ -79,7 +80,7 @@ Remaining: **237 timing executions/81 captures**: Carve, Quake, Erupt, Glaciate 
 Craterize Watch, remaining abuse, missing capture phases. Firefox deferred: 13 prior stable
 Top-down setup stalls; probe timeout/WebGL loss observed, root cause unproved. Optional full gaps
 are nonblocking. **42 tests**, both typechecks, patch and worker-byte checks pass; gate reports
-**169 failures/missing checks**. Budgets stay provisional with measured fingerprint preserved;
+**170 failures/missing checks**. Budgets stay provisional with measured fingerprint preserved;
 calibration cannot hide faults. INTEGRATION.md gives regeneration/future-force requirements.
 
 **Separate interface finding:** Highlands 4242 → Craterize Power100 Fast → settle → Undo:

@@ -104,7 +104,8 @@ async function auditHour(folder,stem,item){
   streamWorstP99:summaries.length?Math.max(...summaries.map(s=>s.p99)):null,
   references:item.longReference?{first:compact(item.longReference.first),last:compact(item.longReference.last)}:null,
   privateMemoryMB:{first:item.loadAtStart?.browserPrivateMB??null,last:median(item.loadAfter?.samples?.map(s=>s.browserPrivateMB)??[])},
-  tailStream:'Final raw file contains the undrained tail and final reference; retained separately, not discarded.',exportByteProof:'unverified'};
+  completeEventCoverage:false,uncapturedFinalTailEstimateMs:item.longSession?.elapsed&&windows.length?item.longSession.elapsed-(windows.at(-1).end-windows[0].start):null,
+  tailStream:'The final reference begins with drainEvents() and discards the remaining mixed-edit tail. Final raw contains only events after the reference drain; full-hour event coverage is unverified.',exportByteProof:'unverified'};
 }
 const folders=readdirSync(resolve(local,'runs')).filter(n=>n>='2026-10-01T09-00'&&n<'2026-10-01T12-00').sort();
 for(const name of folders){

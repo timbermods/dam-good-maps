@@ -1,5 +1,5 @@
 {
-  "proofHash": "0101403a626cf0ecd523dbab0a644ba19acc1f3fd2f4d3422eb5ba61de5bc953",
+  "proofHash": "a0325fd13293cbdfddb36917f89c3fd121bbf4176654eb754758ba9471486e39",
   "allOriginalPixelsDecoded": 15860,
   "contactSheetsInspected": [
     "2026-10-01T09-26-39.704Z-before-capture",
@@ -150,7 +150,8 @@
     "Exhaustive perceptual review of every frame, including topology holes/seams, chunk appearance, water contact and continuity, lighting/shadows/reflections, objects following terrain, all flicker. All 15,860 PNGs decoded; human review covered change sheets and 14 full-resolution originals only.",
     "Audible crackle/dropout, motion synchronization and <=150ms held-texture release; seven qualified PCM streams refused overlapping frames.",
     "Full export-file byte identity: no export files recorded.",
-    "Budgets calibration: provisional fingerprint preserved; repeated measurements already violate strict hitch/byte budgets."
+    "Budgets calibration: provisional fingerprint preserved; repeated measurements already violate strict hitch/byte budgets.",
+    "Full-hour event coverage: final reference discards an estimated 57,610 ms of mixed-edit tail; elapsed session complete, tail pacing/foreground unavailable."
   ],
   "hitchAttribution": "Every observed hitch remains causally unattributed; renderer-method overlap alone is not proof.",
   "qualifiedGifPairs": "Generated from offline-qualified rows only by gifs.py --proof; timestamps from original PNG metadata, 10ms GIF quantization. Raw originals remain authoritative.",

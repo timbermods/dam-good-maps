@@ -256,3 +256,10 @@ cancellation determinism and prove full export identity before adoption. No post
 silently recertifies these runs. The offline gate compacts summaries without retaining every
 candidate object. Budgets.json remains unchanged: calibration needs supported repeated baselines
 and a migration preserving this measured fingerprint; observed hitch/byte faults cannot be hidden.
+
+The hour's final reference starts with an unsaved `drainEvents()`, discarding about 57.61 seconds
+of mixed-edit events. Elapsed time is complete; event coverage is not. Future recording must save
+that tail before the reference and supply an auditable `longSession.eventCoverageComplete` marker.
+Gate rejects its absence. This needs a new recording fingerprint and validation; no current hour
+is recertified. The offline audit reports the estimate from elapsed time minus first/last streamed
+wall-clock boundaries; it is not a precise per-frame coverage proof.

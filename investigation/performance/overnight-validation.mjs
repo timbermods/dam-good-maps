@@ -27,7 +27,7 @@ for(const r of proof.rows){
    if(!line.trim())continue;const chunk=JSON.parse(line);counts.frames+=chunk.frames.length;counts.rendered+=chunk.rendered.length;
    counts.badForeground+=chunk.frames.filter(f=>f.visibility!=='visible'||f.focused!==true).length;
   }
-  result.fullHourForeground=counts;
+  result.recordedHourForeground=counts;result.hourCompleteEventCoverage=r.hourReview.completeEventCoverage;
  }
  records.push(result);
 }
@@ -46,5 +46,5 @@ for(const b of proof.rows.filter(r=>r.qualified&&!r.hour&&r.phase==='before')){
 }
 const validation={measuredHarnessHash:proof.currentHarnessHash,records,pairs,exportBytes:{verified:false,reason:'No complete before/after export files were recorded. Snapshots omit export fields; worker-bundle equality is insufficient.'},audio:{listening:'unverified: no playback/aural-analysis tool available',overlaps:'Refuse conversion; never deduplicate or interleave contexts to manufacture clean evidence.'}};
 writeFileSync(resolve(dir,'overnight-validation.json'),JSON.stringify(validation,null,2)+'\n');
-if(records.some(r=>r.qualified&&(r.actualRedoExact!==true||(r.mode==='capture'&&r.captureHashMatches!==true)||r.fullHourForeground?.badForeground)))throw new Error('Qualified evidence validation mismatch');
-console.log(JSON.stringify({captureHashes:records.filter(r=>r.captureHashMatches).length,redoChecks:records.filter(r=>r.actualRedoExact===true).length,pairs:pairs.length,byteMismatches:pairs.filter(p=>!p.identical).length,hourForeground:records.filter(r=>r.hour).map(r=>r.fullHourForeground)}));
+if(records.some(r=>r.qualified&&(r.actualRedoExact!==true||(r.mode==='capture'&&r.captureHashMatches!==true)||r.recordedHourForeground?.badForeground)))throw new Error('Qualified evidence validation mismatch');
+console.log(JSON.stringify({captureHashes:records.filter(r=>r.captureHashMatches).length,redoChecks:records.filter(r=>r.actualRedoExact===true).length,pairs:pairs.length,byteMismatches:pairs.filter(p=>!p.identical).length,hourForeground:records.filter(r=>r.hour).map(r=>r.recordedHourForeground)}));

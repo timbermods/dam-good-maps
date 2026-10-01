@@ -231,11 +231,12 @@
       "phase": "after",
       "hour": true,
       "actualRedoExact": true,
-      "fullHourForeground": {
+      "recordedHourForeground": {
         "frames": 14138,
         "badForeground": 0,
         "rendered": 6599
-      }
+      },
+      "hourCompleteEventCoverage": false
     },
     {
       "folder": "2026-10-01T09-26-39.704Z-before-capture",
@@ -392,11 +393,12 @@
       "phase": "after",
       "hour": true,
       "actualRedoExact": true,
-      "fullHourForeground": {
+      "recordedHourForeground": {
         "frames": 192917,
         "badForeground": 0,
         "rendered": 131823
-      }
+      },
+      "hourCompleteEventCoverage": false
     },
     {
       "folder": "2026-10-01T10-53-57.278Z-before-capture",

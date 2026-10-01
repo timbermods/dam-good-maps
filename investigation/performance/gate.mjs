@@ -13,7 +13,7 @@ const manifests = existsSync(path) ? readdirSync(path).filter(n => !n.endsWith('
  const m=JSON.parse(readFileSync(p));
  const compact=s=>s&&({...s,hitches:{length:s.hitches.length},longTasks:{length:s.longTasks.length},glitches:{length:s.glitches.length},slowCalls:undefined,findings:undefined,discontinuities:undefined,instrumentation:undefined});
  return {path:p,phase:m.phase,mode:m.mode,flags:m.flags,results:m.results.map(r=>({...r,error:undefined,discardTopProcesses:undefined,
-  summary:compact(r.summary),longSession:r.longSession&&{elapsed:r.longSession.elapsed},
+  summary:compact(r.summary),longSession:r.longSession&&{elapsed:r.longSession.elapsed,eventCoverageComplete:r.longSession.eventCoverageComplete},
   longReference:r.longReference&&{first:compact(r.longReference.first),last:compact(r.longReference.last)},
   longWindows:r.longWindows?.map(w=>({summary:compact(w.summary)}))}))};
 }) : [];
@@ -84,6 +84,7 @@ for (const requirement of requirements(budget,suite)) {
   const rows = manifests.filter(m => m.mode === 'measure' && m.phase === 'after' && m.flags.hour).flatMap(m => m.results).filter(r => r.browser === browser && r.profile === profile && r.size === size && r.look === look && eligible(r,'after') && r.longSession?.elapsed >= budget.longSession.durationMs);
   if (rows.length < required) failures.push({ id: `${browser}/${profile}/${size}/${look}/hour`, reason: 'missing one qualified hour-long session' });
   for (const row of rows) {
+    if(row.longSession?.eventCoverageComplete!==true) failures.push({id:`${browser}/${profile}/${size}/${look}/hour`,reason:'full-hour event coverage unverified; final mixed-edit tail was not saved'});
     if (!row.device?.longTasksSupported) failures.push({id:`${browser}/${profile}/${size}/${look}/hour`,reason:'hour Long Tasks oracle unavailable'});
     if (!row.longReference) { failures.push({ id: `${browser}/${profile}/${size}/${look}/hour`, reason: 'missing matched start/end reference interaction' }); continue; }
     const { first, last } = row.longReference;

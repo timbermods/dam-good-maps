@@ -3,7 +3,8 @@
 **October 1, 02:00–05:00 PDT complete.** PID46928 finished cleanup at 04:59:45;
 controller and owned sampler stopped. No late or duplicate measurements.
 Trial 20/20 executions qualified. First hour outside-load discarded; retry completed
-3,613.4 seconds on Edge/CPU-proxy/High. Short work reached Craterize Fast, brush and
+3,613.4 seconds on Edge/CPU-proxy/High. Its final ~57.61 seconds of mixed-edit events
+were drained without saving, so complete hour event coverage remains unverified. Short work reached Craterize Fast, brush and
 Standard/native abuse. All 72 manifests audited: 67 qualified, two load discards,
 two Node heap failures, one deadline abort. 25/144 timing pairs, 6/48 capture pairs,
 one hour; coverage and pacing/byte/memory/manual-oracle budgets fail. PR #107 stays draft.
