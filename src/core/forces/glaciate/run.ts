@@ -108,16 +108,15 @@ export class GlaciateRun implements StagedRun {
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   private settle(p: GlaciatePlan): void {
     const m = p.map;
-    // Size and Power (D361 (3)): below Power 60, or larger than Power's own valley, the glacier cuts
-    // in proportion; what stands on its ground stays on it
-    const k = glacierStrength(this.settings.power, this.settings.size, sizeOf({ size: null, power: this.settings.power }));
+    // Power (D368 (3)): how deep the ice carves, whatever its Size: the glacier cuts in proportion (a
+    // light scour at Power 0); what stands on its ground rides it as far as the ground went
+    const k = glacierStrength(this.settings.power);
     if (k < 1) {
       const b = this.before.heights;
       const planned = p.map.heights.slice();
       for (let i = 0; i < m.heights.length; i++) if (m.heights[i] !== b[i]) m.heights[i] = Math.round(tempered(b[i], m.heights[i], k));
       m.entities = m.entities.map((e) => {
         const i = e.y * m.W + e.x;
-        // (an object on ground the glacier set rides it down as far as the ground went)
         return e.z === planned[i] && planned[i] !== m.heights[i] ? { ...e, z: m.heights[i] } : e;
       });
     }

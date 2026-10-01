@@ -267,7 +267,7 @@ export class MapRenderer {
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
   /** A force's ring as last shown (tests). */
-  forceRingState: { x: number; y: number; r: number } | null = null;
+  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -1320,8 +1320,9 @@ export class MapRenderer {
   }
 
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
-   *  water, on the ground elsewhere; null hides it. */
-  setForceRing(s: { x: number; y: number; r: number } | null): void {
+   *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
+   *  hides it. */
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;

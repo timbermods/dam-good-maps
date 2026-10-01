@@ -388,6 +388,6 @@ export function forcePowerWord(verb: Verb, power: number): string {
   if (verb === "craterize") return power < 25 ? "Pebble" : power < 55 ? "Meteor" : power < 85 ? "Asteroid" : "Cataclysm";
   if (verb === "quake") return power < 25 ? "Tremor" : power < 55 ? "Rift" : power < 85 ? "Upheaval" : "Cataclysm";
   if (verb === "erupt") return power < 25 ? "Cinder" : power < 55 ? "Cone" : power < 85 ? "Volcano" : "Cataclysm";
-  if (verb === "glaciate") return power < 25 ? "Cirque" : power < 55 ? "Glacier" : power < 85 ? "Great glacier" : "Ice age";
+  if (verb === "glaciate") return power < 25 ? "Light scour" : power < 55 ? "Glacier" : power < 85 ? "Great glacier" : "Ice age";
   return powerWord(power);
 }

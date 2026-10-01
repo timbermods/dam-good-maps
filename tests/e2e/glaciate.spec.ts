@@ -219,7 +219,7 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   }
 });
 
-test("Glaciate's size at the cursor (D312): a faint ring of its width, following Power and Size; no route or outline", async ({ page }) => {
+test("Glaciate's size at the cursor (D312): a faint ring of its width, its Size alone (D368 (3): Power is how deep, never how wide); no route or outline", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("-");
   const row = page.getByRole("group", { name: "Glaciate options" });
@@ -229,9 +229,11 @@ test("Glaciate's size at the cursor (D312): a faint ring of its width, following
   await page.mouse.move(p.x + 4, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
-  const low = (await gesture(page)).ring!;
+  // (Auto: round 4's width, whatever the Power)
+  expect((await gesture(page)).ring).toBe(15);
   await row.getByRole("slider", { name: "Power" }).fill("90");
-  await expect.poll(async () => (await gesture(page)).ring).toBeGreaterThan(low);
+  await page.waitForTimeout(100);
+  expect((await gesture(page)).ring).toBe(15);
   await row.getByRole("slider", { name: "Size" }).fill("20");
   await expect.poll(async () => (await gesture(page)).ring).toBe(10);
   expect((await gesture(page)).stroke).toBeNull();

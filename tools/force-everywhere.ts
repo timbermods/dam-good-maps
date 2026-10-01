@@ -3,10 +3,11 @@
 // peak, a slope, the map's edge, beside the start) at low, mid and high Power, headless and on fixed
 // seeds. Prints how often each use had a visible effect, and every use that did nothing or refused.
 //
-// Usage: npx tsx tools/force-everywhere.ts [--sizes 128,256] [--random 4] [--seed 5]
+// Usage: npx tsx tools/force-everywhere.ts [--sizes 128,256] [--random 4] [--seed 5] [--uses glaciate,quake]
+// (--uses: only the uses whose names start with these, e.g. "quake" for all four of Quake's)
 
 import { THEMES } from "../src/core/spec/mapspec";
-import { describe, invisible, sweep, VISIBLE_TILES, type Outcome } from "../tests/contract/forceEverywhere";
+import { describe, invisible, sweep, USES, VISIBLE_TILES, type Outcome } from "../tests/contract/forceEverywhere";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -15,12 +16,14 @@ const arg = (name: string) => {
 const SIZES = (arg("sizes") ?? "128,256").split(",").map(Number);
 const RANDOM = Number(arg("random") ?? 4);
 const SEED = Number(arg("seed") ?? 5);
+const ONLY = arg("uses")?.split(",");
+const uses = ONLY ? USES.filter((u) => ONLY.some((o) => u.startsWith(o))) : USES;
 
 const all: Outcome[] = [];
 for (const size of SIZES)
   for (const theme of THEMES.filter((t) => t !== "any")) {
     const t0 = performance.now();
-    const o = await sweep(theme, size, SEED, RANDOM);
+    const o = await sweep(theme, size, SEED, RANDOM, uses);
     all.push(...o);
     console.error(`${theme} ${size}²: ${o.length} uses, ${invisible(o).length} with nothing visible (${Math.round((performance.now() - t0) / 1000)} s)`);
   }
