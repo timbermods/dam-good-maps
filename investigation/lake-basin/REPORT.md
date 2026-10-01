@@ -1,5 +1,8 @@
 # Lake Basin: audit and exploratory prototype
 
+> **Held (Kyler, 2026-10-01, D370):** Lake Basin is the weakest theme (47%); its central-catchment prototype reached 67% on the old base but 48%, with six absolutes failing, on the newer one. It's the theme most worth a second Codex round once M9b's shared fixes are in. Its shared findings go to the M9b agent.
+
+
 ## Shared findings for the M9b agent
 
 **Fixed badwater hollows can still terminate a settled map.** On newer core `65b759d0`,

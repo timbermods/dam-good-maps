@@ -1,5 +1,8 @@
 # Highlands: audit and shaping prototype
 
+> **Held (Kyler, 2026-10-01, D370):** Highlands is already strong, and its 96² gain costs nearly three times the first-land time; re-audited after M9b's shared fixes, then decided. Its shared findings (D348 broken on every map, river joins that settle apart) go to the M9b agent.
+
+
 ## Shared findings for the M9b agent
 
 - **D348: terrain changes after first land on all 60 baseline maps.** One land is shown;

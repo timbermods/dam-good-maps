@@ -1,5 +1,8 @@
 ## Shared findings for the M9b agent
 
+> **Held (Kyler, 2026-10-01, D370):** the gain is negligible (41 to 42 of 60 first maps) with new water misses and a slower 256²; re-audited after M9b's shared fixes, then decided. Its shared findings go to the M9b agent.
+
+
 - **D348 still fails.** All 60 baseline maps change terrain after `onLand`: 5,991 tiles, 46–342 per map; 5,978 lie within five tiles of badwater. `generate.ts` shapes badwater and levels starts after display. The prototype also changes all 60 (5,948 tiles). Fix this shared ordering.
 - **Width-blind signature.** `analysis/signature.ts` scans 2–6 tiles from the centre, missing wider rivers' walls. At 256² seed 11, main cliff run is 1 versus 36 with a radius-12 diagnostic; seed 12 reads 31 versus 79. The wider scan is information only; genuine interruptions also occur.
 - **Source removal/routing changes the story.** `dropRivers` removes the main after display on 96² 17/18, 128² 12/15 and 256² 14, leaving separate spring systems. At 128²/14 a declared tributary is only 39% wet, including 46 consecutive dry samples. Exact bypass routing needs shared tracing; the historical feature-rasterizer lake gap is not assumed for frozen generated terrain.
