@@ -998,13 +998,21 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     }
   const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number): void => {
     for (const i of st.tiles) {
-      if (water[i] === 2 || protect?.[i] || mouthBank[i]) continue;
+      if (protect?.[i] || mouthBank[i]) continue;
       const d = st.d[i];
       const x = i % W;
       const y = (i - x) / W;
       const j = Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n)));
       const b = prof[j];
       const r = half(st.s[i], L);
+      // (a planned lake's tile on the course keeps the lake's floor where it is lower, but never
+      // stands above the course's bed: where the lake settles smaller than planned, the river runs
+      // on across its dry part in a channel, never spreading or standing over it; Codex's River
+      // Valley prototype, River Valley 96² seed 5)
+      if (water[i] === 2) {
+        if (d < r && h[i] > b) h[i] = b;
+        continue;
+      }
       if (d < r) {
         if (h[i] > b) h[i] = b;
         water[i] = 1;
