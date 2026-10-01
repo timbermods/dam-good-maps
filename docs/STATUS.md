@@ -64,6 +64,14 @@ forces; the deploy and the live check passed. The High look's release is next (D
      history; ROADMAP's "Watch a 20-second tour" is a different thing).
   7. The "didn't make it" list: the Wednesday allowance report is dropped (not needed); left: the faster settle's timing
      and item 34.
+  8. **`dev` (the released forces) is merged into `feature/high-look`** (#75, merge 47f934b3, tip 682e2f2b; CI
+     green). Conflicts: the renderer (both kept: High's models, cost timing and materials beside the forces' ghost
+     tint, camera, reframing and effects), the editor's view bar (dev's, the look's menu staying in the header), one
+     readability test (High's D334 re-base with D287's dam sites gone) and the docs. One fix: High's terrain now
+     shares the eruption's heat uniforms with Standard's, so an eruption glows in High and through a change of look.
+     The look's menu tooltips are in the D351 form. Locally: typecheck, 1,078 unit and contract tests, 117 browser
+     tests, all passing. Left: Kyler's final look on the preview (the eruption's glow in High is the place the two
+     meet visibly), then #75 into `dev`, `map-look-2-done` and `tools/release.sh`.
 
 ### Your checklist of the eleven fixes (passed by you on 2026-10-01, D375; kept as the record)
 

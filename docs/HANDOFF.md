@@ -52,10 +52,11 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
 **State at the end (everything is pushed; no agent or background task is running):**
 
 1. **The forces are released** (`forces-done`, #149, `main` e5a6bf35, 2026-10-01; Kyler's yes, D375). `FORCES_RELEASED`
-   is true and the public site shows all five. **The first task is the High look's release** (D284, D346): merge
-   `dev` into `feature/high-look` (#75; expect conflicts in the editor and the docs), wait for green, merge #75 into
-   `dev`, tag `map-look-2-done`, and release with `tools/release.sh` (§7, "Releases"); it is approved, so no new
-   sitting is needed unless the merge changes how something looks. The D341 flake (`tests/e2e/save-to-timberborn.spec.ts:65`,
+   is true and the public site shows all five. **The first task is the High look's release** (D284, D346): the merge
+   of `dev` into `feature/high-look` is done (#75, merge 47f934b3, tip 682e2f2b, CI green; `docs/STATUS.md`, item 8).
+   What remains: Kyler's final look on the preview (the one visible meeting point is an eruption's glow in High),
+   then merge #75 into `dev`, tag `map-look-2-done`, and release with `tools/release.sh` (§7, "Releases"); it is
+   approved, so no new sitting is needed unless that look finds something. The D341 flake (`tests/e2e/save-to-timberborn.spec.ts:65`,
    "browserContext.close: Test ended") is fixed in the test (the test ended before its download finished; see
    `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one file per decision) was due at this release boundary and
    is not done.
