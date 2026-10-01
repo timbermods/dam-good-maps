@@ -1,0 +1,1708 @@
+{
+  "base": "b01f113c1d97f90de042b7cbe74d052c28f0342c",
+  "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "memoryBytes": 66146570240,
+    "platform": "win32",
+    "node": "v24.13.0"
+  },
+  "screening": {
+    "128": {
+      "cases": 700,
+      "medianRatio": 1.2377358490566037,
+      "geomeanRatio": 1.2277399164571177,
+      "baselineMedianMs": 610,
+      "fastMedianMs": 500,
+      "baselineP90Ms": 1593,
+      "fastP90Ms": 1265,
+      "baselineMaxMs": 4281,
+      "fastMaxMs": 3579,
+      "belowOne": 27
+    },
+    "256": {
+      "cases": 350,
+      "medianRatio": 1.255532856656452,
+      "geomeanRatio": 1.2449512623903718,
+      "baselineMedianMs": 3423,
+      "fastMedianMs": 2704,
+      "baselineP90Ms": 7360,
+      "fastP90Ms": 5874,
+      "baselineMaxMs": 14078,
+      "fastMaxMs": 11407,
+      "belowOne": 3
+    },
+    "all": {
+      "cases": 1073,
+      "medianRatio": 1.2451690821256038,
+      "geomeanRatio": 1.2306091971570197,
+      "baselineMedianMs": 969,
+      "fastMedianMs": 782,
+      "baselineP90Ms": 4735,
+      "fastP90Ms": 3780,
+      "baselineMaxMs": 14078,
+      "fastMaxMs": 11407,
+      "belowOne": 32
+    },
+    "pinned": {
+      "cases": 96,
+      "medianRatio": 1.4202020202020202,
+      "geomeanRatio": 1.4025114601915245,
+      "baselineMedianMs": 1064,
+      "fastMedianMs": 751,
+      "baselineP90Ms": 6173,
+      "fastP90Ms": 4422,
+      "baselineMaxMs": 10078,
+      "fastMaxMs": 7313,
+      "belowOne": 0
+    }
+  },
+  "repeated": {
+    "canonical": {
+      "cases": 14,
+      "medianRatio": 1.374784110535406,
+      "geomeanRatio": 1.3542431645640995,
+      "baselineMedianMs": 796,
+      "fastMedianMs": 593,
+      "baselineP90Ms": 2328,
+      "fastP90Ms": 1624,
+      "baselineMaxMs": 3829,
+      "fastMaxMs": 2578,
+      "belowOne": 0
+    },
+    "live": {
+      "cases": 14,
+      "medianRatio": 1.4038461538461537,
+      "geomeanRatio": 1.3709558838116216,
+      "baselineMedianMs": 156,
+      "fastMedianMs": 110,
+      "baselineP90Ms": 500,
+      "fastP90Ms": 328,
+      "baselineMaxMs": 875,
+      "fastMaxMs": 594,
+      "belowOne": 0
+    },
+    "drought": {
+      "cases": 14,
+      "medianRatio": 1.3345195729537367,
+      "geomeanRatio": 1.3298566847604467,
+      "baselineMedianMs": 797,
+      "fastMedianMs": 594,
+      "baselineP90Ms": 1890,
+      "fastP90Ms": 1453,
+      "baselineMaxMs": 2969,
+      "fastMaxMs": 2172,
+      "belowOne": 0
+    },
+    "badtide": {
+      "cases": 14,
+      "medianRatio": 1.4064,
+      "geomeanRatio": 1.402315870834967,
+      "baselineMedianMs": 3469,
+      "fastMedianMs": 2468,
+      "baselineP90Ms": 7203,
+      "fastP90Ms": 4860,
+      "baselineMaxMs": 7438,
+      "fastMaxMs": 5016,
+      "belowOne": 0
+    }
+  },
+  "identity": {
+    "cases": 1073,
+    "checkpoints": 329020,
+    "attempts": 2291,
+    "refusals": 93,
+    "fixtureTicks": 23400,
+    "goldenLiveCheckpoints": 532,
+    "gridTicks": 3584,
+    "randomTicks": 10000,
+    "browserModels": 18,
+    "testsPassed": 176,
+    "upstreamTestFailures": 2,
+    "galleryTests": 85,
+    "pinnedCases": 96,
+    "pinnedRefusals": [
+      {
+        "id": "pinned-determinism-1",
+        "seed": 1037,
+        "size": 128
+      },
+      {
+        "id": "pinned-determinism-0",
+        "seed": 1000,
+        "size": 96
+      },
+      {
+        "id": "pinned-determinism-3",
+        "seed": 1111,
+        "size": 96
+      },
+      {
+        "id": "pinned-determinism-5",
+        "seed": 1185,
+        "size": 256
+      }
+    ],
+    "pinnedCheckpoints": 28864,
+    "oracle": {
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "status": "pass",
+      "files": [
+        {
+          "id": "generated-canyon-128-7",
+          "sha256": "eab0cc056109b64e3b3b54da3e4f461660cfeed0c9235f7b09f019959eeac4b9"
+        },
+        {
+          "id": "generated-canyon-128-8",
+          "sha256": "9aaf65d1ff99298bad9bdfcd52b9a0b6d748f55b9a98e3038239be22f87de747"
+        },
+        {
+          "id": "generated-canyon-128-9",
+          "sha256": "b8ba6b49f5b7f7c05d1ca678cb58d54a2eacd9eacecaf22c9ee38fd0d042d44b"
+        },
+        {
+          "id": "generated-any-128-1",
+          "sha256": "b8029935aebf99bc8dbbb7d2896afd4afa6c7f36364019e63827bd8a63230c8a"
+        },
+        {
+          "id": "generated-any-128-2",
+          "sha256": "2791cee3e7403b095f18c9290c5e39cf6cbaa4c12a0559f3f531bdb96fe1e637"
+        },
+        {
+          "id": "generated-delta-128-16",
+          "sha256": "019bf4a5fd08ca1fcaa803f9387c7cf9860da90fe6086e4d3b07add26b235aa8"
+        },
+        {
+          "id": "generated-delta-128-17",
+          "sha256": "bf71969232161bf3d5738eb7601d2d23026640fb36d65692359b0258fa087110"
+        },
+        {
+          "id": "generated-delta-128-18",
+          "sha256": "13ef022d634b00c2b50b4837600ba0e7145bb3d232701e746ffccb8d1505916c"
+        },
+        {
+          "id": "generated-highlands-128-10",
+          "sha256": "36afcc4c81279c6042a24abc001db46ad3530b1cd819e31991d3d14e82d8fd86"
+        },
+        {
+          "id": "generated-highlands-128-11",
+          "sha256": "21875b9c7d1c185ff688ec0f9e2c5cc4d1b1adb347918f78d104110ddcaa96a0"
+        },
+        {
+          "id": "generated-highlands-128-12",
+          "sha256": "574e0cacc04164f52662d62681eb311bc4697dc6a05a49cf400181c0b99c6063"
+        },
+        {
+          "id": "generated-lakeBasin-128-13",
+          "sha256": "0e69aba343efe85784bf5d172c05f76f9d5f4b0bb068e172ee0b73fb27a15959"
+        },
+        {
+          "id": "generated-lakeBasin-128-14",
+          "sha256": "9868afaa1dae3834e34183e23de34beb7cd71b674e7010cb0389ebc8eabbe937"
+        },
+        {
+          "id": "generated-lakeBasin-128-15",
+          "sha256": "64b1ed1c84e689a9b48c6e2767286181e16b45af1932117e7b7ace1151b393a4"
+        },
+        {
+          "id": "generated-riverValley-128-4",
+          "sha256": "7123c4fed115240955062480ba1e8eb0158297e6b83d481c01559df987734e0a"
+        },
+        {
+          "id": "generated-riverValley-128-5",
+          "sha256": "d56d592acc3ceaa586f260ecfce78b5826456eb7e5337371e64b6be28d83fabe"
+        },
+        {
+          "id": "generated-riverValley-128-6",
+          "sha256": "da27345144772fadc3afe2ae0064958044a275d71c5d9a7b1fccf976dbaba571"
+        },
+        {
+          "id": "generated-canyon-256-7",
+          "sha256": "ea4627a3741f0d5056a4a5f08a788d6dac12b8fb659a2203a2330283b0e814f4"
+        },
+        {
+          "id": "generated-canyon-256-8",
+          "sha256": "4fc7825233a0c8484c717dda798ec2d13f1c152b63e3a8cd355dab749060e05c"
+        },
+        {
+          "id": "generated-canyon-256-9",
+          "sha256": "658c2703b11030c8c152bd84734f3e0e9be6f46ecf42a05fbe8903b640096eb9"
+        },
+        {
+          "id": "generated-any-256-1",
+          "sha256": "f55a84e3b37568cb8f594a83a3b5bd739936521816e0fdaf219a1131e9a75c61"
+        },
+        {
+          "id": "generated-any-256-2",
+          "sha256": "a00169bd1da2b2c46b1cabcb60875a0727e9a21bf1d6935ad58fbe699b8d116a"
+        },
+        {
+          "id": "generated-any-256-3",
+          "sha256": "4895a659d77f01439e8ca7460f5d23f0f0fe88b54a274278e5c488af19dc3785"
+        },
+        {
+          "id": "generated-delta-256-16",
+          "sha256": "4bbe8d9e292919738d4afe55d33cf6a50018c5bf4c16789dbfff51f0c1d7e54e"
+        },
+        {
+          "id": "generated-delta-256-17",
+          "sha256": "725fe309f6c1d4578bbdaa67d778921cda7835453ab6aff39c563074aa92ad48"
+        },
+        {
+          "id": "generated-delta-256-18",
+          "sha256": "5163df8d87b810c3a3c33daebacdef785e30d12dea342ca478506c6466019bfa"
+        },
+        {
+          "id": "generated-highlands-256-10",
+          "sha256": "570c10850551e2e8e1e3c33ac7d2578d732b2251e84e2d50d1d9884d62d246d0"
+        },
+        {
+          "id": "generated-highlands-256-11",
+          "sha256": "42d5103b894fdf463d8374f3608235f4f71da71ca955e10264cb59370f9a2cdb"
+        },
+        {
+          "id": "generated-highlands-256-12",
+          "sha256": "01b080e414136840eafa572593c93b9e1bcce38b349768916a962060ddd41df7"
+        },
+        {
+          "id": "generated-lakeBasin-256-13",
+          "sha256": "b1abb5307fae7f20d8228cc99e56202f5f3bb09bf7a3c63faf2586353b99e9b3"
+        },
+        {
+          "id": "generated-lakeBasin-256-14",
+          "sha256": "975d646f390c3138a373269f0f8eca3816ac0cd474ea069da07db772a68f7deb"
+        },
+        {
+          "id": "generated-lakeBasin-256-15",
+          "sha256": "c3d383506d5e2a1e737194d266803646d9868861381019995c733f61bb589c73"
+        },
+        {
+          "id": "generated-riverValley-256-4",
+          "sha256": "e26942de7528134448a0cb328baacccd3799c4a17678a6481dcad8bf8fdd8be9"
+        },
+        {
+          "id": "generated-riverValley-256-5",
+          "sha256": "8ca54f867d8d0db4dfb5be94eaeeee248f8430fc2b46f9346b10a2cb16be8b7f"
+        },
+        {
+          "id": "generated-riverValley-256-6",
+          "sha256": "6740d514c9b718c6bb48d447e59ca19a16bdb6d8517c831feaf4f9a7d4d3bfcf"
+        },
+        {
+          "id": "generated-islands-128-19",
+          "sha256": "f375796051d6ce22f6798cd12d6890fedfea097ab80fe39777530af1d71ee9a1"
+        },
+        {
+          "id": "generated-islands-128-21",
+          "sha256": "9e58c676212029485ec525481cdb5f0b86bd188113360bb0991780cca93b6c17"
+        },
+        {
+          "id": "generated-islands-256-19",
+          "sha256": "04a7447ad726b034e6aa1811792b3716fb2709846d6e0fe415a172702c1fc971"
+        },
+        {
+          "id": "generated-islands-256-20",
+          "sha256": "b56c49093c4704bec372790d9d179857c19bdbf25fb52009cd48ec1989461457"
+        },
+        {
+          "id": "generated-islands-256-21",
+          "sha256": "403c639940af988531d07892852bc73f11bb268fa34cbfbb086825ce979d3aab"
+        }
+      ],
+      "pythonLoadPass": 40,
+      "pythonRoundtripPass": 40,
+      "generatedParityChecks": 1122,
+      "officialMaps": 19,
+      "disagreements": 0,
+      "upstreamRefusals": [
+        "generated-any-128-3",
+        "generated-islands-128-20"
+      ],
+      "reportSha256": "c40ad39be18f2041d7c7afac647573bc768c37f43cd8f9e3a4010a87ace2151d",
+      "seaReportSha256": "6546e86508af139ed7e988a65482dd71df888495d5ab332561a2e1164fa676ba"
+    }
+  },
+  "profile": [
+    {
+      "theme": "riverValley",
+      "size": 128,
+      "ticks": 896,
+      "ms": 336.9492,
+      "cpuMs": 328,
+      "substep": 0.7737556561085973,
+      "active": 0.09502262443438914,
+      "evap": 0.09502262443438914
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 128,
+      "ticks": 1408,
+      "ms": 491.1720999999998,
+      "cpuMs": 501,
+      "substep": 0.7665615141955836,
+      "active": 0.12302839116719243,
+      "evap": 0.0914826498422713
+    },
+    {
+      "theme": "islands",
+      "size": 128,
+      "ticks": 2176,
+      "ms": 1571.4647999999997,
+      "cpuMs": 1516,
+      "substep": 0.7745779543197616,
+      "active": 0.11519364448857994,
+      "evap": 0.10427010923535253
+    },
+    {
+      "theme": "riverValley",
+      "size": 256,
+      "ticks": 1024,
+      "ms": 1495.3472999999976,
+      "cpuMs": 1483,
+      "substep": 0.7693920335429769,
+      "active": 0.09538784067085954,
+      "evap": 0.12578616352201258
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 256,
+      "ticks": 3072,
+      "ms": 4876.499000000003,
+      "cpuMs": 4797,
+      "substep": 0.801726894787336,
+      "active": 0.09050207866965142,
+      "evap": 0.10521266389510713
+    },
+    {
+      "theme": "islands",
+      "size": 256,
+      "ticks": 1792,
+      "ms": 3330.0435999999972,
+      "cpuMs": 3235,
+      "substep": 0.8070422535211268,
+      "active": 0.09624413145539906,
+      "evap": 0.09014084507042254
+    }
+  ],
+  "selected": [
+    {
+      "id": "generated-any-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "e135b939adf6d8855552f030fc332aa364759fb50fd14263739347bbdd973064",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 125,
+          "fastCpuMs": 94,
+          "baselineWallMs": 121.51909999999998,
+          "fastWallMs": 94.83089999999993,
+          "cpuRatio": 1.3297872340425532,
+          "wallRatio": 1.267179576484426
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 78,
+          "fastCpuMs": 62,
+          "baselineWallMs": 75.6594,
+          "fastWallMs": 58.039200000000164,
+          "cpuRatio": 1.2741935483870968,
+          "wallRatio": 1.3051317303396304
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 329,
+          "fastCpuMs": 250,
+          "baselineWallMs": 333.12469999999985,
+          "fastWallMs": 244.1239999999998,
+          "cpuRatio": 1.316,
+          "wallRatio": 1.3645275361392781
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 859,
+          "fastCpuMs": 656,
+          "baselineWallMs": 858.8644999999997,
+          "fastWallMs": 649.2046000000009,
+          "cpuRatio": 1.3074581430745815,
+          "wallRatio": 1.3101128882689728
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-riverValley-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "5ec2ae911865031f0cade2396fc66f06bf9df38e90c76cbe80462603e05ea6e1",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 250,
+          "fastCpuMs": 203,
+          "baselineWallMs": 247.52300000000105,
+          "fastWallMs": 192.37259999999878,
+          "cpuRatio": 1.2266009852216748,
+          "wallRatio": 1.2851445580087792
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 62,
+          "fastCpuMs": 47,
+          "baselineWallMs": 61.91579999999885,
+          "fastWallMs": 46.786299999999756,
+          "cpuRatio": 1.3191489361702127,
+          "wallRatio": 1.3361934936622069
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 360,
+          "fastCpuMs": 281,
+          "baselineWallMs": 365.0540000000001,
+          "fastWallMs": 291.6898999999976,
+          "cpuRatio": 1.376,
+          "wallRatio": 1.2932917875573546
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 1437,
+          "fastCpuMs": 1031,
+          "baselineWallMs": 1446.5314999999973,
+          "fastWallMs": 1029.5024000000012,
+          "cpuRatio": 1.3924418604651163,
+          "wallRatio": 1.3998393694643474
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-canyon-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "76c5946b86d2226ff770cca5dd89ac6ebc22f8262d70129041ad5d28f21a8904",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 438,
+          "fastCpuMs": 328,
+          "baselineWallMs": 454.625,
+          "fastWallMs": 333.0248999999967,
+          "cpuRatio": 1.3323170731707317,
+          "wallRatio": 1.3952513824798045
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 63,
+          "fastCpuMs": 47,
+          "baselineWallMs": 64.68250000000262,
+          "fastWallMs": 47.231800000001385,
+          "cpuRatio": 1.3404255319148937,
+          "wallRatio": 1.3708145505649338
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 609,
+          "fastCpuMs": 454,
+          "baselineWallMs": 633.5656000000017,
+          "fastWallMs": 450.94570000000385,
+          "cpuRatio": 1.3195876288659794,
+          "wallRatio": 1.3300832738349115
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 2906,
+          "fastCpuMs": 2094,
+          "baselineWallMs": 2919.1865000000034,
+          "fastWallMs": 2098.2035000000033,
+          "cpuRatio": 1.3692762186115215,
+          "wallRatio": 1.3495619577538063
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "e1c83b54d94f16f991fd73e6dd20c1d85743555f1d1146bc84931209b383fac2",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 203,
+          "fastCpuMs": 140,
+          "baselineWallMs": 191.82710000000952,
+          "fastWallMs": 142.7326999999932,
+          "cpuRatio": 1.3428571428571427,
+          "wallRatio": 1.3386913269277083
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 156,
+          "fastCpuMs": 94,
+          "baselineWallMs": 149.05319999999483,
+          "fastWallMs": 103.17900000000373,
+          "cpuRatio": 1.4403669724770642,
+          "wallRatio": 1.3593999957925778
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 250,
+          "fastCpuMs": 187,
+          "baselineWallMs": 244.2564999999886,
+          "fastWallMs": 190.01879999999073,
+          "cpuRatio": 1.4224598930481283,
+          "wallRatio": 1.2854333360699073
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 1469,
+          "fastCpuMs": 1062,
+          "baselineWallMs": 1488.0088999999862,
+          "fastWallMs": 1061.3392000000022,
+          "cpuRatio": 1.3832391713747645,
+          "wallRatio": 1.4020106861218196
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "3bfe371b801245c342e05ab8af6264b77d0f47d42e8275ec0b3c77c752dca7e4",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 360,
+          "fastCpuMs": 250,
+          "baselineWallMs": 361.3445999999967,
+          "fastWallMs": 252.5743999999977,
+          "cpuRatio": 1.387900355871886,
+          "wallRatio": 1.377510299296608
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 79,
+          "fastCpuMs": 78,
+          "baselineWallMs": 81.1140999999916,
+          "fastWallMs": 66.33349999999336,
+          "cpuRatio": 1.1595744680851063,
+          "wallRatio": 1.2159361408641831
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 891,
+          "fastCpuMs": 734,
+          "baselineWallMs": 912.5278000000108,
+          "fastWallMs": 726.7160000000003,
+          "cpuRatio": 1.2138964577656677,
+          "wallRatio": 1.2189549975506144
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 1438,
+          "fastCpuMs": 1078,
+          "baselineWallMs": 1474.4633999999933,
+          "fastWallMs": 1069.955999999991,
+          "cpuRatio": 1.3324444444444445,
+          "wallRatio": 1.361756304439069
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "20c561a60458712517997a248b99416e2ec50ddf999f07f4aef2faa27fe6dd8c",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 282,
+          "fastCpuMs": 219,
+          "baselineWallMs": 290.1488000000245,
+          "fastWallMs": 218.27460000000428,
+          "cpuRatio": 1.2831050228310503,
+          "wallRatio": 1.3209832935210906
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 156,
+          "fastCpuMs": 110,
+          "baselineWallMs": 158.0289000000048,
+          "fastWallMs": 108.01399999999558,
+          "cpuRatio": 1.4311926605504588,
+          "wallRatio": 1.5085038283216199
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 250,
+          "fastCpuMs": 188,
+          "baselineWallMs": 246.52760000000126,
+          "fastWallMs": 190.1577999999863,
+          "cpuRatio": 1.3297872340425532,
+          "wallRatio": 1.28890689732419
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 2219,
+          "fastCpuMs": 1593,
+          "baselineWallMs": 2239.2637000000104,
+          "fastWallMs": 1605.1582000000053,
+          "cpuRatio": 1.3339610797237915,
+          "wallRatio": 1.3322548582783948
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-islands-128-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "fcac3408c85ab9534fb9356589ee3a34f893fb2b053fb6517cd7a1cb4367aca4",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 1031,
+          "fastCpuMs": 704,
+          "baselineWallMs": 1021.0094999999856,
+          "fastWallMs": 709.9876999999979,
+          "cpuRatio": 1.3746666666666667,
+          "wallRatio": 1.3864426102029677
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 94,
+          "fastCpuMs": 62,
+          "baselineWallMs": 92.99590000000899,
+          "fastWallMs": 66.54739999998128,
+          "cpuRatio": 1.5161290322580645,
+          "wallRatio": 1.4123241479009774
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 1890,
+          "fastCpuMs": 1453,
+          "baselineWallMs": 1888.2217999999993,
+          "fastWallMs": 1449.0420999999915,
+          "cpuRatio": 1.2870722433460076,
+          "wallRatio": 1.2905796958204718
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 2750,
+          "fastCpuMs": 2000,
+          "baselineWallMs": 2746.324899999978,
+          "fastWallMs": 2008.0278999999864,
+          "cpuRatio": 1.4189886480908154,
+          "wallRatio": 1.4032065761625268
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-any-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "be3617adab9478bbe2057b627de642479c4db642a09f99b86ccec8523acdeb85",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 719,
+          "fastCpuMs": 593,
+          "baselineWallMs": 740.3396000000066,
+          "fastWallMs": 594.8310999999812,
+          "cpuRatio": 1.2753108348134992,
+          "wallRatio": 1.2859171284084001
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 79,
+          "fastCpuMs": 62,
+          "baselineWallMs": 80.98410000000149,
+          "fastWallMs": 59.111999999993714,
+          "cpuRatio": 1.2741935483870968,
+          "wallRatio": 1.3700111652458062
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 750,
+          "fastCpuMs": 578,
+          "baselineWallMs": 738.3479999999981,
+          "fastWallMs": 574.4378999999899,
+          "cpuRatio": 1.2975778546712802,
+          "wallRatio": 1.296330305189257
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 3469,
+          "fastCpuMs": 2468,
+          "baselineWallMs": 3478.1281000000017,
+          "fastWallMs": 2505.805000000022,
+          "cpuRatio": 1.4064,
+          "wallRatio": 1.3986221505724985
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-riverValley-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "b46505c52f12912ada7b6c2ba02193556623de9e906472cc60ea4b1d1706eda7",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 1141,
+          "fastCpuMs": 812,
+          "baselineWallMs": 1145.3093999999692,
+          "fastWallMs": 823.9322000000393,
+          "cpuRatio": 1.4051724137931034,
+          "wallRatio": 1.3974594026061207
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 203,
+          "fastCpuMs": 141,
+          "baselineWallMs": 206.17739999998594,
+          "fastWallMs": 145.61620000004768,
+          "cpuRatio": 1.4038461538461537,
+          "wallRatio": 1.4221625715831159
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 1297,
+          "fastCpuMs": 969,
+          "baselineWallMs": 1304.9624000000185,
+          "fastWallMs": 973.358200000017,
+          "cpuRatio": 1.3384932920536636,
+          "wallRatio": 1.330914456774442
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 6360,
+          "fastCpuMs": 4376,
+          "baselineWallMs": 6401.4059000000125,
+          "fastWallMs": 4432.59639999998,
+          "cpuRatio": 1.4424131627056673,
+          "wallRatio": 1.4470916851177462
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-canyon-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "bb0dfc29c67257cf83e00e028abfa66d88e31c6bdc0d2bc02e0244cc5f97b682",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 1078,
+          "fastCpuMs": 781,
+          "baselineWallMs": 1070.266100000008,
+          "fastWallMs": 777.6574999999721,
+          "cpuRatio": 1.380281690140845,
+          "wallRatio": 1.4046774549564078
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 156,
+          "fastCpuMs": 125,
+          "baselineWallMs": 159.01049999997485,
+          "fastWallMs": 132.42210000002524,
+          "cpuRatio": 1.248,
+          "wallRatio": 1.205147314589951
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 797,
+          "fastCpuMs": 594,
+          "baselineWallMs": 813.6449999999604,
+          "fastWallMs": 605.0562999999966,
+          "cpuRatio": 1.3417508417508417,
+          "wallRatio": 1.3190026712541263
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 4827,
+          "fastCpuMs": 3360,
+          "baselineWallMs": 4858.347400000028,
+          "fastWallMs": 3359.7101999999722,
+          "cpuRatio": 1.4501061571125264,
+          "wallRatio": 1.446061448990472
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "b856f2878051188456d1cda80cb889c7896128e4fd1e6cff0649b7bd9e605bb0",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 1548,
+          "fastCpuMs": 1141,
+          "baselineWallMs": 1563.6894999999786,
+          "fastWallMs": 1139.6180000000168,
+          "cpuRatio": 1.376,
+          "wallRatio": 1.3836789390448017
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 203,
+          "fastCpuMs": 141,
+          "baselineWallMs": 201.89480000000913,
+          "fastWallMs": 143.438300000038,
+          "cpuRatio": 1.4038461538461537,
+          "wallRatio": 1.37139939894261
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 875,
+          "fastCpuMs": 657,
+          "baselineWallMs": 890.8513000000385,
+          "fastWallMs": 669.2509999999893,
+          "cpuRatio": 1.3318112633181127,
+          "wallRatio": 1.3347827646129675
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 3626,
+          "fastCpuMs": 2687,
+          "baselineWallMs": 3628.057700000005,
+          "fastWallMs": 2684.206999999995,
+          "cpuRatio": 1.3494603647190175,
+          "wallRatio": 1.3516311148879396
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "5d7001549f5a6086f7074147ab488ab66ea37958a4b44336fc8a7e7660d78302",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 3829,
+          "fastCpuMs": 2578,
+          "baselineWallMs": 3891.410899999959,
+          "fastWallMs": 2600.353000000003,
+          "cpuRatio": 1.4666408068269976,
+          "wallRatio": 1.4649982004977127
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 875,
+          "fastCpuMs": 594,
+          "baselineWallMs": 877.8314999999711,
+          "fastWallMs": 590.3223999999464,
+          "cpuRatio": 1.486159169550173,
+          "wallRatio": 1.4449166610372772
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 2969,
+          "fastCpuMs": 2172,
+          "baselineWallMs": 2978.8887000000104,
+          "fastWallMs": 2190.925099999993,
+          "cpuRatio": 1.3764487714418174,
+          "wallRatio": 1.3691018008785516
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 7438,
+          "fastCpuMs": 5016,
+          "baselineWallMs": 7556.266399999964,
+          "fastWallMs": 5054.790299999993,
+          "cpuRatio": 1.4875770224607434,
+          "wallRatio": 1.4841053841541143
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "d38742dd45cc1fcb1a1e4a0beb240814d6cfca6b732f2c0d14e73b65e4dec313",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 796,
+          "fastCpuMs": 578,
+          "baselineWallMs": 791.7784000000684,
+          "fastWallMs": 579.2456000000238,
+          "cpuRatio": 1.374784110535406,
+          "wallRatio": 1.3783757202960398
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 344,
+          "fastCpuMs": 234,
+          "baselineWallMs": 343.3843999999808,
+          "fastWallMs": 231.35210000001825,
+          "cpuRatio": 1.4292237442922375,
+          "wallRatio": 1.4798774278933127
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 375,
+          "fastCpuMs": 297,
+          "baselineWallMs": 374.2188000000315,
+          "fastWallMs": 288.6728000000585,
+          "cpuRatio": 1.3345195729537367,
+          "wallRatio": 1.3118401472331365
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 4172,
+          "fastCpuMs": 2813,
+          "baselineWallMs": 4229.087300000014,
+          "fastWallMs": 2821.6860999999335,
+          "cpuRatio": 1.4747944225956382,
+          "wallRatio": 1.4781961862177504
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-islands-256-1",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "7395592ae6a590e16ef9afaa7b7cd05799391eacfeabb24f69bd2d86bc07885f",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 2328,
+          "fastCpuMs": 1624,
+          "baselineWallMs": 2338.1071999999695,
+          "fastWallMs": 1621.528099999996,
+          "cpuRatio": 1.4233846153846155,
+          "wallRatio": 1.4395862952516991
+        },
+        {
+          "stage": "live",
+          "baselineCpuMs": 500,
+          "fastCpuMs": 328,
+          "baselineWallMs": 515.0884000000078,
+          "fastWallMs": 335.6550999999745,
+          "cpuRatio": 1.524390243902439,
+          "wallRatio": 1.5217055627813174
+        },
+        {
+          "stage": "drought",
+          "baselineCpuMs": 1358,
+          "fastCpuMs": 1000,
+          "baselineWallMs": 1369.019100000034,
+          "fastWallMs": 1031.6933000000427,
+          "cpuRatio": 1.344,
+          "wallRatio": 1.3195488426646433
+        },
+        {
+          "stage": "badtide",
+          "baselineCpuMs": 7203,
+          "fastCpuMs": 4860,
+          "baselineWallMs": 7309.076800000039,
+          "fastWallMs": 4858.653799999971,
+          "cpuRatio": 1.501440329218107,
+          "wallRatio": 1.5043419640230558
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    }
+  ],
+  "tail": [
+    {
+      "id": "generated-highlands-128-15",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "8664849801cb7fbb1323071b327a533a6a44130d3a69ebc32dc5b57920b4b735",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 140,
+          "fastCpuMs": 110,
+          "baselineWallMs": 133.47029999999995,
+          "fastWallMs": 100.66489999999999,
+          "cpuRatio": 1.2727272727272727,
+          "wallRatio": 1.3263988600975254
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-47",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "725cdb57fd084c5e1be272797dad2f509d0fa96e581717f8e6185b67dfebc373",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 94,
+          "fastCpuMs": 63,
+          "baselineWallMs": 90.92430000000013,
+          "fastWallMs": 69.21810000000005,
+          "cpuRatio": 1.2580645161290323,
+          "wallRatio": 1.3175219818117587
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-68",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "2aa99df53c2a1503a79b59de13063f0099f31e9287d4320b5c2ce58850ec1e3b",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 31,
+          "fastCpuMs": 16,
+          "baselineWallMs": 24.146500000000287,
+          "fastWallMs": 19.278200000000197,
+          "cpuRatio": 1.9375,
+          "wallRatio": 1.2451380602482611
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-islands-256-6",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "36fca6928ab76aa4303e1673dd8ea4d7b66f07386a63bb3451c5f10e54be14c7",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 7218,
+          "fastCpuMs": 5485,
+          "baselineWallMs": 7254.127900000007,
+          "fastWallMs": 5545.285900000003,
+          "cpuRatio": 1.3183702902469803,
+          "wallRatio": 1.328893285736629
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-islands-256-10",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "0185e817a453f403876e014fc6aa7eeb22b96a8a1f4433c1f56f63c0c1d7ac02",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 8782,
+          "fastCpuMs": 7203,
+          "baselineWallMs": 8828.395400000009,
+          "fastWallMs": 7236.1777,
+          "cpuRatio": 1.2108740536820373,
+          "wallRatio": 1.214795891621535
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-islands-256-28",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "d579844ebf6e16384a1a8fd93e3ff00e641ef47ee8a28624af47b7cc02c13fcd",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 7672,
+          "fastCpuMs": 6188,
+          "baselineWallMs": 7708.875999999989,
+          "fastWallMs": 6255.097499999974,
+          "cpuRatio": 1.2524240465416936,
+          "wallRatio": 1.2449930879728965
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    }
+  ],
+  "regressions": [
+    {
+      "id": "generated-highlands-128-3",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "9e226ec8ac3c94bc94d83b7a79852e43acbfd91341ac60d6f4a814f6686e3560",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 93,
+          "fastCpuMs": 93,
+          "baselineWallMs": 86.95389999999998,
+          "fastWallMs": 83.74710000000005,
+          "cpuRatio": 1,
+          "wallRatio": 1.0413017184599722
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-11",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "6469a04e46ffc493e02acb61e04f960424fdccf900c5c3a540310000a9d5563a",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 31,
+          "fastCpuMs": 31,
+          "baselineWallMs": 29.80040000000008,
+          "fastWallMs": 28.222300000000132,
+          "cpuRatio": 1,
+          "wallRatio": 1.0512854734475887
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-22",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "2c827f1323bc9116eadeca03f739301c029c45eff09cd1255dcbf6e92b5e3f25",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 109,
+          "fastCpuMs": 109,
+          "baselineWallMs": 113.41350000000011,
+          "fastWallMs": 104.82749999999987,
+          "cpuRatio": 1,
+          "wallRatio": 1.0906098113567524
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-22",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "321586048104a034b7a4a0bef6329e0d1c1cefbbf379d5fb3a68afde673ebcaf",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 234,
+          "fastCpuMs": 219,
+          "baselineWallMs": 225.26580000000013,
+          "fastWallMs": 216.61929999999938,
+          "cpuRatio": 1.0684931506849316,
+          "wallRatio": 1.0869199981664779
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-riverValley-128-23",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "d56345ff51e0063effb9f9b0a060313fc94f39b6778eb421bb86831f10d70087",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 63,
+          "fastCpuMs": 62,
+          "baselineWallMs": 61.36170000000038,
+          "fastWallMs": 56.76630000000023,
+          "cpuRatio": 1.0161290322580645,
+          "wallRatio": 1.1089814391673494
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-24",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "42a75a6ca4a83942e88c69f16e685860da9208ed8b1339a4965f6a71269f4251",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 141,
+          "fastCpuMs": 94,
+          "baselineWallMs": 137.70900000000074,
+          "fastWallMs": 101.09950000000026,
+          "cpuRatio": 1.1595744680851063,
+          "wallRatio": 1.0659815330441758
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-any-128-28",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "8d4f42617a8454eb9c5bcf937240b159309a855d92010e7e22ed4ad128fc78a7",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 78,
+          "fastCpuMs": 79,
+          "baselineWallMs": 84.13210000000072,
+          "fastWallMs": 83.9914000000008,
+          "cpuRatio": 1.1772151898734178,
+          "wallRatio": 0.9902823384298737
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-any-128-47",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "7e29d8baa6afc5f57a7f6689ddeb02e860b8ed91189c48396f4eb75ef19ed114",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 109,
+          "fastCpuMs": 109,
+          "baselineWallMs": 102.94540000000052,
+          "fastWallMs": 107.76080000000002,
+          "cpuRatio": 1,
+          "wallRatio": 1.0256840485360015
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-riverValley-128-47",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "779917b3dab86be385add008b362c517d8239d23d4c17732e4924f9daa2a1dd4",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 125,
+          "fastCpuMs": 110,
+          "baselineWallMs": 113.29659999999967,
+          "fastWallMs": 111.2466000000004,
+          "cpuRatio": 1,
+          "wallRatio": 1.0446861125839977
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-riverValley-128-52",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "92d39e409665c3ce10e04dbc7277f0598673acda0ca04c9bd0ec0924faa3bd88",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 31,
+          "fastCpuMs": 32,
+          "baselineWallMs": 30.661799999999857,
+          "fastWallMs": 28.179599999999482,
+          "cpuRatio": 0.96875,
+          "wallRatio": 1.0611418437839917
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-60",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "4b33b2a1ebeec358410d18d0da208f3af65e6dac203bb56a9856810dd1df5ad7",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 47,
+          "fastCpuMs": 47,
+          "baselineWallMs": 44.91160000000127,
+          "fastWallMs": 44.21309999999903,
+          "cpuRatio": 1,
+          "wallRatio": 1.0157984850644324
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-128-62",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "eb54f8531bc894461fa7c889de70b7ce2607577623bee311b253dc843980abd9",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 281,
+          "fastCpuMs": 234,
+          "baselineWallMs": 282.89090000000033,
+          "fastWallMs": 236.70000000000073,
+          "cpuRatio": 1.195744680851064,
+          "wallRatio": 1.1641442729378657
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-canyon-128-65",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "05805005201a51bcf6d4b57517b937b50ba420292323c7593fe68d4206cfa8ac",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 265,
+          "fastCpuMs": 250,
+          "baselineWallMs": 274.16419999999925,
+          "fastWallMs": 249.04809999999998,
+          "cpuRatio": 1.06,
+          "wallRatio": 1.08817420156448
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-canyon-128-67",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "b17a4cbcf848dcbee62fc6757e93585d9deb4f580611c53df7f39060ea9e52a6",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 203,
+          "fastCpuMs": 188,
+          "baselineWallMs": 203.44450000000143,
+          "fastWallMs": 193.9907000000021,
+          "cpuRatio": 1.0797872340425532,
+          "wallRatio": 1.068810328069742
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-67",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "87b19830fd9390b1952019b7629bdffd7c12864d3360e7543958ab4f573d4e06",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 500,
+          "fastCpuMs": 484,
+          "baselineWallMs": 499.3087999999989,
+          "fastWallMs": 490.589600000003,
+          "cpuRatio": 1.0330578512396693,
+          "wallRatio": 1.0154287820206505
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-76",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "ebf276a105870769e6b829a23ea9aec24bec775781ae211081314976150886c4",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 47,
+          "fastCpuMs": 47,
+          "baselineWallMs": 46.11590000000069,
+          "fastWallMs": 44.460800000000745,
+          "cpuRatio": 1,
+          "wallRatio": 1.0336940607719236
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-any-128-78",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "3c5aaac80f8fa9908edf0dc68147931e57238090cbc6e2e000f402c6ce0d3319",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 94,
+          "fastCpuMs": 94,
+          "baselineWallMs": 102.1864999999998,
+          "fastWallMs": 98.51350000000093,
+          "cpuRatio": 1,
+          "wallRatio": 1.0728568113884756
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-79",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "b8790b8f041845d251f50a5f3b5946ecdc0f8ccb484be9a025aa8e06d6c8b16c",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 125,
+          "fastCpuMs": 156,
+          "baselineWallMs": 140.74049999999988,
+          "fastWallMs": 148.89710000000196,
+          "cpuRatio": 0.8865248226950354,
+          "wallRatio": 0.9583739374373292
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-any-128-85",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "064b5d9c574338b917d2779d1e7078224b4b6a4bc36be03ba758625b3a8c8fc2",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 63,
+          "fastCpuMs": 63,
+          "baselineWallMs": 65.19340000000011,
+          "fastWallMs": 64.1242999999995,
+          "cpuRatio": 0.9841269841269841,
+          "wallRatio": 0.9965722822705442
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-86",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "2334dc2c2cfe25ccd1c38a175bd7e2b3e769249df340342268b02c5db6edd8c4",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 438,
+          "fastCpuMs": 375,
+          "baselineWallMs": 449.2123000000065,
+          "fastWallMs": 379.5472000000009,
+          "cpuRatio": 1.168,
+          "wallRatio": 1.1886464090737134
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-canyon-128-88",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "560d07d8ce8e4f340ad466009153f0d34181855a121436765f6a72cd23076f27",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 47,
+          "fastCpuMs": 47,
+          "baselineWallMs": 50.376900000002934,
+          "fastWallMs": 49.19550000000163,
+          "cpuRatio": 1,
+          "wallRatio": 1.0536650534381706
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-128-90",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "575aa490dbf1fdc0c760022c4c007e18dba37362b547f853f78df9b3ef083879",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 203,
+          "fastCpuMs": 203,
+          "baselineWallMs": 200.0957999999955,
+          "fastWallMs": 188.74240000000282,
+          "cpuRatio": 1.085561497326203,
+          "wallRatio": 1.0817101459268237
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-128-93",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "de1be6b163d6059d721a0e296180d2441b67339f64644433dcf934a9e2cbece7",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 265,
+          "fastCpuMs": 234,
+          "baselineWallMs": 258.0939999999973,
+          "fastWallMs": 261.3491999999969,
+          "cpuRatio": 1.1415525114155252,
+          "wallRatio": 1.045678349120648
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-delta-128-100",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "f96e1328050136d284849de3a62726e43eca8872febf7f424b6d8441f5859efb",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 78,
+          "fastCpuMs": 78,
+          "baselineWallMs": 71.73750000000291,
+          "fastWallMs": 70.75780000000668,
+          "cpuRatio": 1,
+          "wallRatio": 1.0209633993928755
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-256-9",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "e33ab765db3942d7420a883415bc030a6ff96d31dcb857197eb97e60eff38e0a",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 156,
+          "fastCpuMs": 141,
+          "baselineWallMs": 151.76370000000315,
+          "fastWallMs": 140.4247000000032,
+          "cpuRatio": 0.9929078014184397,
+          "wallRatio": 1.0769076584528803
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-256-18",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "47b9d02defed9c47fd4b9c47e0f67dd640c0b9ddf4022ac4293c39e5eee82580",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 219,
+          "fastCpuMs": 203,
+          "baselineWallMs": 217.17409999999654,
+          "fastWallMs": 199.44060000000172,
+          "cpuRatio": 1.1595744680851063,
+          "wallRatio": 1.1124941245193816
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-256-19",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "835e87ffbfa66dfa6eadf10c69a2f0983eba885683b8e1341fd68eb36caf798b",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 297,
+          "fastCpuMs": 266,
+          "baselineWallMs": 281.363400000002,
+          "fastWallMs": 261.69779999999446,
+          "cpuRatio": 1.0569395017793595,
+          "wallRatio": 1.045813912077236
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "official-Diorama",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "d99caad30b99ad7511a73564e4720d50b2a7919ffd2c5caf55cd4b13d5fcfa20",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 31,
+          "fastCpuMs": 31,
+          "baselineWallMs": 28.762300000002142,
+          "fastWallMs": 26.489100000006147,
+          "cpuRatio": 1.032258064516129,
+          "wallRatio": 1.0475054854580321
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "official-Meander",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "6ccc16d5708e3df1b2756e82a6cfcbe8cbfba518b2450a379bd28215dc8fe702",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 282,
+          "fastCpuMs": 281,
+          "baselineWallMs": 281.8845999999976,
+          "fastWallMs": 273.22179999999935,
+          "cpuRatio": 1.053191489361702,
+          "wallRatio": 1.0484642522685468
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-highlands-128-15",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "8664849801cb7fbb1323071b327a533a6a44130d3a69ebc32dc5b57920b4b735",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 140,
+          "fastCpuMs": 110,
+          "baselineWallMs": 133.47029999999995,
+          "fastWallMs": 100.66489999999999,
+          "cpuRatio": 1.2727272727272727,
+          "wallRatio": 1.3263988600975254
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-47",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "725cdb57fd084c5e1be272797dad2f509d0fa96e581717f8e6185b67dfebc373",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 94,
+          "fastCpuMs": 63,
+          "baselineWallMs": 90.92430000000013,
+          "fastWallMs": 69.21810000000005,
+          "cpuRatio": 1.2580645161290323,
+          "wallRatio": 1.3175219818117587
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    },
+    {
+      "id": "generated-lakeBasin-128-68",
+      "buildId": "e62c3bb797873f084ca72b99624159c6d849bc2d96829d45dd04ed3aecaa5037",
+      "inputHash": "2aa99df53c2a1503a79b59de13063f0099f31e9287d4320b5c2ce58850ec1e3b",
+      "rows": [
+        {
+          "stage": "canonical",
+          "baselineCpuMs": 31,
+          "fastCpuMs": 16,
+          "baselineWallMs": 24.146500000000287,
+          "fastWallMs": 19.278200000000197,
+          "cpuRatio": 1.9375,
+          "wallRatio": 1.2451380602482611
+        }
+      ],
+      "reps": 5,
+      "status": "pass"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D357), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D362), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 ## Summary for Kyler (updated 2026-09-27, evening: paused for Tuesday)
 
@@ -22,7 +22,7 @@ decisions since the restart (D252–D315) are recorded below and in the living d
    the well-specified items (D318 (2)).
 2. Done with item 1: the models (item 38, D317).
 3. Done with item 1: model and task suitability (item 39, D318).
-4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary.
+4. **The six batches** (your build order, D321–D326; each batch's branch, worktree and model in [HANDOFF.md §1](HANDOFF.md#1-resume-here-the-order-of-work) item 4): forces, brushes, Select and the shelf, the look, M9b, documents. Item 34 (WORK.md, hand-back notes, one file per decision) comes at the forces release boundary. The forces release waits for D361's ten sitting fixes and D366's cross-browser determinism (adopted on `feature/forces`, with its cross-engine check in CI).
 5. **Item 33's documents are written** (D326): `docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`. The per-decision statuses come with item 34.
 6. **The UI brief is approved** (D330, `docs/UI-BRIEF.md`): built right after the forces' release on `build`.
 7. **The water shades (D310): settled, option (a)** (D324, batch 4): darken the mine pit's earth, then badwater, then the clean shallows toward the game, keeping every readability rule. Your look sitting comes after.
@@ -76,6 +76,32 @@ decisions since the restart (D252–D315) are recorded below and in the living d
 ### For Kyler: plan conflicts
 
 None open: the frame's touch-up (the sweep's one conflict) is settled by D296.
+
+### Your short checklist: what changed since the forces sitting (the preview from `feature/forces` at 32aee5cf, 2026-10-01)
+
+On <https://timbermods.github.io/dam-good-maps/preview/>: Generate, then **Refine this map**. Only the changed items.
+
+**The forces** (D344, D356, D360 (1))
+1. F with the mouse and `[ ]` set a force's Size, `{ }` its Power, with the number beside the pointer; "Auto (68)" when on Auto.
+2. A drawn gesture shows as a band of the force's width, no ring (Quake's band is its reach from the fault: judge its size).
+3. Esc while drawing cancels; Esc while a force plays skips to its end; Ctrl+Z (or Z, or Revert) takes it back at any moment.
+4. A small drawn loop gives a small eruption, even at max Size; Carve plays from where the stroke began.
+5. Glaciate's ice and sound end as its land settles.
+6. A Carve click at the map's edge carves inward; a Quake click, Lift or Slide, makes a short natural fault.
+
+**The editor** (D345, D347, D351, D352, D360 (2))
+7. Every camera view frames the map centred; long settings rows wrap to a second line; More opens as a grid.
+8. The level control sits top right beside the compass, with Watch and Sound under it.
+9. Ctrl+scroll over a source changes its strength at once; clicking a source never places a second one.
+10. Delete counts and removes submerged objects, and everything inside a selection.
+11. Placing an object never spills water.
+12. X puts down whatever tool is held; the plain pointer picks and drags every object (trees and bushes too), with a hover highlight.
+13. Select: Ctrl+click takes a level, Shift+scroll dials it, Whole map beside the marking icons, "Up 1" and "Down 1".
+14. The bottom-left readout names whatever is under the pointer ("Ruin, 5 levels, 75 scrap metal · Height 5, dry soil").
+15. Hover any control: every one has a one-line tooltip with its key.
+16. The forces row: Carve, Craterize, Erupt · Quake, Glaciate; the first-run hint points at Carve.
+17. The water status after an undo or redo shows the worker's real state.
+18. Saved files are named `dgm-<theme>-<seed>.timber` (`dgm-<name>` for imports and places), numbered, never overwritten.
 
 ### Your checklist for the forces sitting (the preview from `feature/forces` at 9e14f189, 2026-09-29)
 
@@ -169,10 +195,10 @@ Tuesday's session refreshes it with the forces sitting's changes and tells you.
 
 ### 4. Probe batches (2026-09-27, all with your installed mods; every restore clean)
 
-- **Ready, waiting for Kyler's YES: Sizes** (D357 (9), `chore/probe-sizes`, PR #108): 512×512, 128×512, 64×512 and 512×256,
-  with 256×256 and 399×399 as references; each loaded at its size, its water after a day against our model, frame times with
-  a camera pan at normal speed, the fastest and the probe's speed, and the time to load. About 36 minutes as planned. The runner
-  now writes a group's maps itself before it plans (`batch -- --group Sizes`), so the probe folder's four commands cover it.
+- **2026-10-01, M9b, on Kyler's YES, from the probe folder** (`m9b-20261001`, `feature/m9b` at 889f7ddf, 22 maps; settings backed up to `C:dgm-probesettings-backup6-09-30T20-31-19`; restore clean): every map passed every check: the 18 M9b maps (every theme at 128², both 256² chaos maps, both Sources: None maps), including River Valley and Lake Basin seed 2's weather timeline that diverged after the drought on 2026-09-30, and the four maps whose water settles in 4–6 days (D358), whose stored water held against the game.
+- **2026-09-30, early morning, under Kyler's standing overnight YES, from the probe folder** (each restore clean: registry unchanged, nothing left behind, only Steam's `steam_autocloud.vdf` files changed):
+  - **Parity re-check** (`parity-20260930c`, `feature/parity` at 881164b6, 7 maps): every check passed: the seep's 0.8 stop, the delayed source dry at load, the sink, the drain, the aquifer, the reserves, the core's water once settled after the blast, succulents dying on moist soil.
+  - **Sizes** (`sizes-20260930`, `chore/probe-sizes` at a13a3573, 6 maps, D357 (9)): 256², 399², 64×512, 128×512, 512×256 and 512×512 all load with their terrain, objects and water matching our model. At normal speed and speed 3 every size runs as smoothly as 256² (median about 1.1 ms, p95 about 1.5 ms a frame, no frame over 100 ms, empty maps with no colony). Load time grows with area: 11 s at 256², 18 s at 512×256, 21 s at 399², 34 s at 512². At the probe's top speed the simulation reaches 61× at 256² and 16× at 512². The memory reading recorded 0 MB everywhere (the meter didn't work). Practical limit: 512 on a side loads and plays; a real colony's load is untested.
 - **2026-09-30, Parity, on Kyler's main PC, on his YES** (`parity-20260930`, `feature/parity` at 13565ec0, 7 maps; settings backed up to `C:dgm-probesettings-backup6-09-30T05-49-15`; registry unchanged, nothing left behind): passed the Badtide Drain, the Aquifer and its drill, the reserves loading; failed the seep's 0.8 stop, a delayed source's tile already wet at load, the sink's draining, the water after a core's blast (its land matched exactly), and succulents dying on moist soil. Each is with `build` on `feature/parity` to match the game.
 - **2026-09-29, on Kyler's main PC, on his YES** (settings backed up to `C:dgm-probesettings-backup6-09-29T22-36-02`; registry unchanged, nothing left behind; only Steam's `steam_autocloud.vdf` files changed):
   - **M9b** (`m9b-20260929b`, `feature/m9b` at 7695e6a8, 18 maps): 14 pass every check, both 256² chaos maps included. The two Sources: None maps fail only the water check's handling of an empty map (0/0 wet tiles). River Valley and Lake Basin 128² seed 2 diverge from the game from day 7, when the water refills after the drought (the model refills more); with M9b.
@@ -492,7 +518,7 @@ Every decision Kyler sent since `m8-done`, in the version in force.
 - D240: the editor feels alive: short, visual-only animations for land, water and moments (Generate's reveal, pops, undo in reverse, Save to Timberborn's send-off), synced sounds, off with reduced motion, GPU effects scaled down on weaker hardware; the final map and water unchanged. After the forces round 2, alongside D235.
 - D239: Unleash on water sources: a selected source's small Unleash action (or U) carves its own river with Carve's engine, breaking out of a pool at its rim's lowest point; strength sets width, a quick Power; one undo step. On the preview with or right after the forces round 2.
 - D237: "Without pre-filled water" leaves the player's page (folded into D233); the capability stays internal for the probe and tests.
-- D236: the design pass comes straight after your editor UI audit of the combined page; M9b and M9c run in parallel with "The page is the editor" and take the machine first. #79's defaults accepted (D238): the Frame pass is a light update after Map look 2 from the design pass's records; the refinement phase gets its own `refinement-done` tag. Amended by D255 (Pick a place no longer waits for M11).
+- D236: the design pass comes straight after your editor UI audit of the combined page; **moved by D349:** the audit and the design pass are now in step 3, polish, after 3D; M9b and M9c run in parallel with "The page is the editor" and take the machine first. #79's defaults accepted (D238): the Frame pass is a light update after Map look 2 from the design pass's records; the refinement phase gets its own `refinement-done` tag. Amended by D255 (Pick a place no longer waits for M11).
 - D235: scatter-type shelf items (trees, bushes, ruins, thorns) place like a brush, as in Cities: Skylines: size and density, natural scatter, gap filling, an amber warning on dry ground, an Age option for trees, a click still places one; unique landmarks stay single. Scheduled after the forces round 2, on the preview.
 - D232–D234: 3D everywhere; the landing page's map is the editor (essentials around it, a full-screen editor behind an expand button, undoable Generate, a Legend button); Your maps (the last 30 edited maps in this browser). Scheduled after the forces round 2 and M9a's release; then your editor UI audit, then the design pass.
 - D231: #63 accepted (#77, #78); the crown's per-tile curls, the fall's straight edge at the pool and the milky froth are queued for the next waterfall look pass (Map look 2 or 3).
@@ -543,7 +569,7 @@ See the summary's section 1.
 ## Where to look next
 
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
-- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D357.
+- [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D362.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
 - [m9-design.md](m9-design.md): M9 design version 1.
 - [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.

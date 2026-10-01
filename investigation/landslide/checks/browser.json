@@ -1,0 +1,61 @@
+{
+  "browser": "headless Microsoft Edge",
+  "viewport": "960×640",
+  "timings": [
+    {
+      "case": "rockfall",
+      "plannedMs": 145.1,
+      "finalMs": 1996.9,
+      "frames": 40
+    },
+    {
+      "case": "slump",
+      "plannedMs": 118.4,
+      "finalMs": 1954.4,
+      "frames": 41
+    },
+    {
+      "case": "flow",
+      "plannedMs": 118.3,
+      "finalMs": 1978.7,
+      "frames": 38
+    }
+  ],
+  "largeClicks": [
+    {
+      "case": "rockfall",
+      "plannedMs": 124.90000000596046,
+      "finalMs": 1973.0999999940395
+    },
+    {
+      "case": "slump",
+      "plannedMs": 194.2000000178814,
+      "finalMs": 2049.800000011921
+    },
+    {
+      "case": "flow",
+      "plannedMs": 148.40000000596046,
+      "finalMs": 1967
+    }
+  ],
+  "longest": {
+    "points": 6,
+    "lengthTiles": 118,
+    "plannedMs": 133.2,
+    "finalMs": 1961.3
+  },
+  "checks": [
+    "real pointer band",
+    "Esc drawing",
+    "undo mid-force",
+    "Esc Watch finish",
+    "one undo step",
+    "byte-exact undo",
+    "Try another replacement",
+    "F size",
+    "brace power",
+    "Floor / Style controls",
+    "water settled"
+  ],
+  "errors": []
+}

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="400" viewBox="0 0 900 400" role="img">
+<title>Where baseline settle spends CPU time</title><desc>Six sampled profiles; seed 1. Sea = Islands theme. Percentages are sampling estimates.</desc>
+<style>text{font-family:Arial,sans-serif;fill:#193343;font-size:14px}.title{font-size:23px;font-weight:bold}.small{font-size:12px}.label{font-size:13px}</style>
+<rect width="900" height="400" fill="#f8fafb"/>
+<text x="28" y="37" class="title">Where baseline settle spends CPU time</text>
+<text x="28" y="62" class="small">Six sampled profiles; seed 1. Sea = Islands theme. Percentages are sampling estimates.</text>
+<text x="28" y="119" class="label">riverValley 128²</text>
+<rect x="215.00" y="101.00" width="464.25" height="25" fill="#276b8a"/>
+<rect x="679.25" y="101.00" width="57.01" height="25" fill="#e9b44c"/>
+<rect x="736.27" y="101.00" width="57.01" height="25" fill="#5ca986"/>
+<rect x="793.28" y="101.00" width="21.72" height="25" fill="#ccd6db"/>
+<text x="827" y="119" class="label">77%</text>
+<text x="28" y="158" class="label">lakeBasin 128²</text>
+<rect x="215.00" y="140.00" width="459.94" height="25" fill="#276b8a"/>
+<rect x="674.94" y="140.00" width="73.82" height="25" fill="#e9b44c"/>
+<rect x="748.75" y="140.00" width="54.89" height="25" fill="#5ca986"/>
+<rect x="803.64" y="140.00" width="11.36" height="25" fill="#ccd6db"/>
+<text x="827" y="158" class="label">77%</text>
+<text x="28" y="197" class="label">islands 128²</text>
+<rect x="215.00" y="179.00" width="464.75" height="25" fill="#276b8a"/>
+<rect x="679.75" y="179.00" width="69.12" height="25" fill="#e9b44c"/>
+<rect x="748.86" y="179.00" width="62.56" height="25" fill="#5ca986"/>
+<rect x="811.43" y="179.00" width="3.57" height="25" fill="#ccd6db"/>
+<text x="827" y="197" class="label">77%</text>
+<text x="28" y="236" class="label">riverValley 256²</text>
+<rect x="215.00" y="218.00" width="461.64" height="25" fill="#276b8a"/>
+<rect x="676.64" y="218.00" width="57.23" height="25" fill="#e9b44c"/>
+<rect x="733.87" y="218.00" width="75.47" height="25" fill="#5ca986"/>
+<rect x="809.34" y="218.00" width="5.66" height="25" fill="#ccd6db"/>
+<text x="827" y="236" class="label">77%</text>
+<text x="28" y="275" class="label">lakeBasin 256²</text>
+<rect x="215.00" y="257.00" width="481.04" height="25" fill="#276b8a"/>
+<rect x="696.04" y="257.00" width="54.30" height="25" fill="#e9b44c"/>
+<rect x="750.34" y="257.00" width="63.13" height="25" fill="#5ca986"/>
+<rect x="813.46" y="257.00" width="1.54" height="25" fill="#ccd6db"/>
+<text x="827" y="275" class="label">80%</text>
+<text x="28" y="314" class="label">islands 256²</text>
+<rect x="215.00" y="296.00" width="484.23" height="25" fill="#276b8a"/>
+<rect x="699.23" y="296.00" width="57.75" height="25" fill="#e9b44c"/>
+<rect x="756.97" y="296.00" width="54.08" height="25" fill="#5ca986"/>
+<rect x="811.06" y="296.00" width="3.94" height="25" fill="#ccd6db"/>
+<text x="827" y="314" class="label">81%</text>
+<rect x="28.00" y="354.00" width="14.00" height="14" fill="#276b8a"/>
+<text x="48" y="366" class="small">Flow substeps</text>
+<rect x="242.00" y="354.00" width="14.00" height="14" fill="#e9b44c"/>
+<text x="262" y="366" class="small">Build active set</text>
+<rect x="456.00" y="354.00" width="14.00" height="14" fill="#5ca986"/>
+<text x="476" y="366" class="small">Evaporation</text>
+<rect x="670.00" y="354.00" width="14.00" height="14" fill="#ccd6db"/>
+<text x="690" y="366" class="small">Other</text>
+</svg>
