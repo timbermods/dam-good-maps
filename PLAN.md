@@ -765,7 +765,9 @@ land shown is the map (D348): a land is shown as editable land once it passes ev
 alone can judge (its courses, no inflow's head under water held downstream (a lake whose rim stands two levels or more over the head backs up to the edge and never settles), the Rivers count, no source in a flow, no wall along an edge, a start on the planned water its land holds and a second place for one away from it, room for the mine sites (D363), no sea over a shelf at its
 spill level of more than 10,000 tiles (it fills for days, D358) or mostly on one over a quarter of
 the map (it stays dry), no
-ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water), and it is
+ground above 16 unless tall, no ruler-straight channel or dam wall on its planned water, its lakes'
+banks read alone as well (the channels that join a lake break its bank on the plan and may settle too
+shallow to count)), and it is
 never replaced. Before one is shown, a land whose planned water misses the theme's promise or a
 readable water story is drawn again, up to 6 lands at 128² (4 to 192², 3 above: the land stage is
 part of the time to land), so first maps meet all three outcomes more often (D333 (3)). What needs its settled water is fixed on it: with no place for a start on the settled
@@ -794,7 +796,10 @@ land holds a pool of 9 tiles or more; a river's depth from the width it spreads 
 higher than its bed, so a river on a floodplain reads as the thin sheet it settles to), while the
 screens and the dam-wall check read the plan as planned, which they were measured against; the hollows keep off those squares and the colony's way to them; on the settled water the
 start goes where its walk has that room, passing over one whose pad would leave none, and the
-objects may stand where a start failed; rivers that left (their sources reached) leave on every later attempt, and water over the
+objects may stand where a start failed; the mine sites the colony reaches are read by one function
+(`validate/playability.ts` `colonyReach` and `minesReached`, D342) for the check and the generator
+alike: the second site is placed on the walk round the first, and no object set after the sites, nor
+the debris before a second district, may cut the colony off from a site it reached; rivers that left (their sources reached) leave on every later attempt, and water over the
 flood line runs gentler (0.7 of its flow, twice at most). Water that does not settle (D350): a
 basin's way out is widened while the land is shaped (`levels.ts` `widenOutlets`, a level under the
 basin past a short sill, only the tiles round what it would drain kept as they were), and a small

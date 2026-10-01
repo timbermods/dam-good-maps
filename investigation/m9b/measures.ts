@@ -70,6 +70,12 @@ export interface MapMeasure {
   sheet?: number | null;
   /** The planned lakes' longest rise to their outlets' level (D373 (2)). */
   rise?: number | null;
+  /** The planned lakes' own longest straight bank and canal, before the land is shown (a reading). */
+  lakeStraight?: { run: number; canal: number } | null;
+  /** The share of the map under the planned water or the pre-fill, before the land is shown (a reading). */
+  preWet?: number | null;
+  /** The share of the map under the settled water. */
+  wetShare?: number | null;
   /** The final settle's ticks (D358: up to 6 game days). */
   settleTicks?: number;
   /** Settles the map took, and lands drawn again by the land-stage screen. */
@@ -220,6 +226,9 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     pads: r.info.pads ? r.info.pads.map((p) => p.cut.length) : null,
     sheet: r.info.sheet ?? null,
     rise: r.info.rise ?? null,
+    lakeStraight: r.info.lakeStraight ?? null,
+    preWet: r.info.preWet ?? null,
+    wetShare: r.built ? Math.round((r.built.water.reduce((a: number, v: number) => a + (v > 0.05 ? 1 : 0), 0) / r.built.water.length) * 1000) / 1000 : null,
     worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width)) } : null,
     settleTicks: b.settle.ticks,
     redrawn: r.failures.filter((f) => f.failed.some((w) => w.includes('(planned)'))).length,

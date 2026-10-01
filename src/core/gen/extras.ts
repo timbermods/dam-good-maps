@@ -168,8 +168,8 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const hy = e.y + dy;
     if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
   }
-  const regions = walkRegions(h, W, H, walkBlocked, links);
-  const root = regions[sy * W + sx];
+  let regions = walkRegions(h, W, H, walkBlocked, links);
+  let root = regions[sy * W + sx];
   // (and the land it reaches with a flight of stairs, never across water or up a cliff, item 47)
   const wetNow = new Uint8Array(N);
   for (let i = 0; i < N; i++) wetNow[i] = b.water[i] > WET ? 1 : 0;
@@ -243,6 +243,10 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x: spot.x, y: spot.y, orientation: spot.orientation } } });
         placed.push({ kind, tiles: spot.tiles });
         take(spot.tiles, 3);
+        // (a site blocks walking: the colony's walk to the next one goes round it)
+        for (const [x, y] of spot.tiles) if (x >= 0 && y >= 0 && x < W && y < H) walkBlocked[y * W + x] = 1;
+        regions = walkRegions(h, W, H, walkBlocked, links);
+        root = regions[sy * W + sx];
       }
       continue;
     }

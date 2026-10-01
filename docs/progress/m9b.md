@@ -521,6 +521,42 @@ left nothing.
   (`sim/water.ts` RetainedWater, as a carve's oxbow lake keeps its own), recorded in the lake feature
   so a share link rebuilds it; every settle, and the game, then start from it, and the stored level
   is the one the game's rules settle to.
+- **D373 (3)** (62858d54): the plan's start, its second place and two more places apart from them
+  have their pads levelled, and their mine sites' room made, before the land is shown; a start on the
+  settled water takes a prepared place before one that would need levelling.
+- **The last failing maps, each traced to its cause** (840 maps, seeds 1–40):
+  - *The debris before a second district* (Delta 128² seed 37) stood across the colony's way to both
+    mine sites, placed before it. "Reached" is now one function for the check and the generator
+    (`colonyReach`, `minesReached`, D342; `tests/unit/colonyReach.test.ts`): the second site is placed
+    on the walk round the first, and neither the debris nor an object set after the sites may cut the
+    colony off from a site it reached. Fixed.
+  - *A lake along a straight trough* (Canyon 128² seed 16): erosion cut a canyon 35 tiles long at
+    exactly 45°, and a lake filled it. On the plan its bank read 22 tiles straight, broken by the
+    channels that join it; those settled too shallow to count and the bank read 47, over the limit of
+    44, on a land already shown. A land's planned lakes are now read alone as well, at the limit
+    itself (47 here). Of the 840 maps two more read over it and settle within it today, River Valley
+    256² seed 11 (51) and Lake Basin 256² seed 39 (46): each draws one more land and builds. Fixed.
+    Capping a joined channel's width at twice its swing, tried first, changed about 240 lands and
+    not this one: taken out again.
+  - *A wall on the settled water only* (Any 96² seed 18, Lake Basin 128² seed 5), **cause found, not
+    yet fixed.** Where a river arrives lower than a planned lake's bed and leaves no higher, its
+    channel (8750c300) drains the lake. The floor the river clears round the lake skips the lake's
+    tiles, so the lake's old bed stands between the channel and the floor as a band of rock with the
+    river through it, and the plan still counts the lake full, so the dam-wall check before the land
+    is shown reads those tiles as water and passes. Two things tried and dropped: a reading of dam
+    walls from the land alone (it flagged 2, 5 and 26 lands that settle fine at 96², 128² and 256²,
+    and missed Any 18); clearing the floor through the lake's tiles (it fixed both maps, but that old
+    bed also keeps a river off its floodplain: River Valley 256² seed 37 then never settled, River
+    Valley 96² seed 1 flooded to 36%, and Lake Basin's first maps meeting all three fell 12 → 8 of
+    20 at 256²; the patch is kept in `investigation/m9b/local/`). Next: the plan's water without the
+    lakes their own river drains, so the dam-wall check sees the wall before the land is shown.
+  - *Still failing, with their causes:* Any 96² seed 31 and Islands 96² seed 4 (the settled water
+    moves the start off the plan's, and no other start's land holds two level squares 24 tiles out:
+    Islands 4's island is about 20 tiles across); Highlands 96² seed 14 (three starts in turn lose
+    their water once it settles).
+  - *A reading for later:* `info.preWet`, the share of the map under the planned water or the
+    pre-fill before the land is shown (nothing reads the water cap before then; on one land tried it
+    read 39% where the settled water covered 36%).
 - RESULTS
 
 ## Handoff (2026-09-27, evening)

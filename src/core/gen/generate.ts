@@ -70,7 +70,7 @@ import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, MINE_LO, MINE_REACH_LO, minesWanted, rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -158,6 +158,13 @@ export interface GenerationInfo {
   sheet?: number;
   /** The planned lakes' longest rise to their outlets' level (D373 (2)), a reading. */
   rise?: number;
+  /** The longest straight bank and canal of the planned lakes alone, before the land is shown, a
+   *  reading (Canyon 128² seed 16: a lake along a straight trough, its bank broken on the plan by
+   *  the channels that join it, which settle shallow). */
+  lakeStraight?: { run: number; canal: number };
+  /** The share of the map under the planned water or the pre-fill before the land is shown, a
+   *  reading (River Valley 96² seed 1: 36% settled, over the cap, on a land already shown). */
+  preWet?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean };
@@ -303,6 +310,8 @@ interface LandStage {
   sheet?: number;
   /** Its planned lakes' longest rise to their outlets' level (D373 (2)). */
   rise?: number;
+  lakeStraight?: { run: number; canal: number };
+  preWet?: number;
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
   /** Where the starts of the attempts that failed on it stood (and round them): kept off. */
@@ -1516,6 +1525,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (from?.pads) info.pads = from.pads;
   if (from?.sheet !== undefined) info.sheet = from.sheet;
   if (from?.rise !== undefined) info.rise = from.rise;
+  if (from?.lakeStraight !== undefined) info.lakeStraight = from.lakeStraight;
+  if (from?.preWet !== undefined) info.preWet = from.preWet;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
@@ -1566,6 +1577,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (let i = 0; i < N; i++) if ((hy.water[i] === 1 || hy.water[i] === 2) && chan[i] < 0.1) chan[i] = 0.1;
         const st = straightness(W, H, chan);
         if ((st.longest?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.run || (st.canal?.length ?? 0) > 0.8 * STRAIGHT_LIMITS.canal) return fail("ruler-straight channel", null, true);
+        // (and the planned lakes alone, at the limit itself: a lake's banks are its land's walls, and
+        // the channels that join it, which break its bank on the plan, may settle too shallow to
+        // count: Canyon 128² seed 16's lake along a straight trough, 22 on the plan, 47 settled and 47
+        // read this way; of 840 maps no other reads over the limit)
+        const lakesOnly = new Float64Array(N);
+        for (let i = 0; i < N; i++) if (hy.water[i] === 2) lakesOnly[i] = Math.max(0.1, est[i]);
+        const ls = straightness(W, H, lakesOnly);
+        info.lakeStraight = { run: ls.longest?.length ?? 0, canal: Math.round((ls.canal?.length ?? 0) * 10) / 10 };
+        if (tooStraight(ls)) return fail("ruler-straight channel", null, true);
       }
       if (!lastAttempt && damWalls(hLand, W, H, est).length) return fail("terrain.dam_wall", null, true);
       // (a sea standing over a broad shelf at its own spill level: its water crosses the shelf as a
@@ -1760,11 +1780,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           pf = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
         }
         const both = new Float64Array(N);
-        for (let i = 0; i < N; i++) both[i] = Math.max(est[i], pf[i]);
+        let wetPre = 0;
+        for (let i = 0; i < N; i++) {
+          both[i] = Math.max(est[i], pf[i]);
+          if (both[i] > WET) wetPre++;
+        }
+        info.preWet = Math.round((wetPre / N) * 1000) / 1000;
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
       firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       opts.onLand?.({ attempt, heights: hLand, water: hy.water });
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
@@ -2209,6 +2234,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   opts.onProgress?.({ attempt, stage: "objects" });
   const avoid = avoidOf(bad);
   const walked = startWalkable(base);
+  // (the mine sites the colony reaches on a build, read with the mine sites' own check: one function
+  // for the check and the generator, D342)
+  const wantMines = minesWanted(W, H);
+  const minesReachedOn = (b: BuildResult): number => {
+    if (!b.start) return 0;
+    const wetB = new Uint8Array(N);
+    for (let i = 0; i < N; i++) wetB[i] = b.water[i] > WET ? 1 : 0;
+    const objs = mapObjects({ entities: b.entities.map(entityJson) });
+    return minesReached(objs, W, H, colonyReach(W, H, b.heights, wetB, objs, b.start));
+  };
   const objects = planExtras({ spec, base, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
@@ -2219,6 +2254,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       kept.sort((a, c) => (a.params.kind === "thornBelt" ? 0 : 1) - (c.params.kind === "thornBelt" ? 0 : 1) || own(c) - own(a));
       kept.shift();
       b2 = build([...layout, ...kept], "resources");
+    }
+    // (and none that cuts the colony off from a mine site it reached before they were placed: an
+    // object set after the sites, across the slope or the way to one, is left out, thorns first,
+    // then the largest; never a mine site)
+    if (minesReachedOn(b2) < wantMines) {
+      const sitesOnly = kept.filter((f) => f.params.kind === "mineSite");
+      const before = Math.min(wantMines, minesReachedOn(build([...layout, ...sitesOnly], "resources")));
+      while (minesReachedOn(b2) < before) {
+        const blockers = kept.filter((f) => f.params.kind !== "mineSite");
+        if (!blockers.length) break;
+        blockers.sort((a, c) => (a.params.kind === "thornBelt" ? 0 : 1) - (c.params.kind === "thornBelt" ? 0 : 1) || own(c) - own(a));
+        kept.splice(kept.indexOf(blockers[0]), 1);
+        b2 = build([...layout, ...kept], "resources");
+      }
     }
     layout.push(...kept);
     base = b2;
@@ -2258,7 +2307,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const drole = "mapObject/plug/districtDebris";
           const debris: MapObjectFeature = { id: featureId(seed, "mapObject", drole), kind: "mapObject", origin: "generated", role: drole, locked: false, params: { kind: "plug", placement: { area: tilesToRuns(ends, W) } } };
           const b3 = build([...layout, r.feature, debris], "resources");
-          if (startWalksTo(b3, x, y)) continue;
+          // (the debris never cuts the colony off from a mine site it reached: Delta 128² seed 37's
+          // stood across the way to both)
+          if (startWalksTo(b3, x, y) || minesReachedOn(b3) < Math.min(wantMines, minesReachedOn(b2))) continue;
           extra.push(debris);
           b2 = b3;
         }

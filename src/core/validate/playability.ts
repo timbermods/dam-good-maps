@@ -339,13 +339,39 @@ export function minesWanted(W: number, H: number): number {
   return W * H < SMALL_MAP ? 1 : MINES_WANTED;
 }
 
-function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector): void {
-  let mines = 0;
+/** The land the colony reaches from the start (item 47, D342: the one function the mine sites'
+ *  check and the generator read "reached" with): the start's walk over the map's own ground and its
+ *  slopes, round the objects that block walking, and the dry land joined to the start's by steps of
+ *  one level (a flight of stairs at most, never across water or up a cliff). */
+export function colonyReach(W: number, H: number, h: Uint8Array, wet: Uint8Array, objects: readonly MapObject[], start: { x: number; y: number }): Uint8Array {
+  const N = W * H;
+  const blocked = new Uint8Array(N);
+  const links: [number, number][] = [];
+  for (const o of objects) {
+    if (o.template === "Slope") {
+      const [dx, dy] = slopeHighSide(o.orientation);
+      const hx = o.x + dx;
+      const hy = o.y + dy;
+      if (o.x >= 0 && o.x < W && o.y >= 0 && o.y < H && hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([o.y * W + o.x, hy * W + hx]);
+      continue;
+    }
+    if (!WALK_BLOCKERS.has(o.template) || !FOOTPRINTS[o.template]) continue;
+    for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
+  }
+  const labels = walkRegions(h, W, H, blocked, links);
+  const root = labels[start.y * W + start.x];
+  const land = landRegions(h, W, H, wet);
+  const landRoot = land[start.y * W + start.x];
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if ((root >= 0 && labels[i] === root) || (landRoot >= 0 && land[i] === landRoot)) out[i] = 1;
+  return out;
+}
+
+/** The mine sites the colony reaches: those with a tile beside their footprint on `reach`. */
+export function minesReached(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array): number {
   let walked = 0;
   for (const o of objects) {
     if (o.template !== "UndergroundRuins") continue;
-    mines++;
-    if (!reach) continue;
     const own = new Set<number>();
     for (const [x, y] of footprintTiles(o.template, o)) own.add(y * W + x);
     let hit = false;
@@ -362,6 +388,13 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
     }
     if (hit) walked++;
   }
+  return walked;
+}
+
+function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector): void {
+  let mines = 0;
+  for (const o of objects) if (o.template === "UndergroundRuins") mines++;
+  const walked = reach ? minesReached(objects, W, H, reach) : 0;
   const n = reach ? walked : mines;
   const want = minesWanted(W, H);
   const every = want === MINES_WANTED ? "every map needs" : "a map this small needs";
@@ -708,11 +741,8 @@ function checkStart(
     if (tree) trees++;
     else bushes++;
   }
-  const land = landRegions(h, W, H, wet);
-  const landRoot = land[sy * W + sx];
-  const landReach = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (reach[i] || (landRoot >= 0 && land[i] === landRoot)) landReach[i] = 1;
-  checkMines(objects, W, H, landReach, c);
+  // (the mine sites the colony reaches, read with the one function the generator reads them with)
+  checkMines(objects, W, H, colonyReach(W, H, h, wet, objects, { x: sx, y: sy }), c);
   // the start's walk once more (items 24 and 47): the trees within the floor's walk and their logs,
   // and the farmland and level building land within 20 tiles' walk
   {
