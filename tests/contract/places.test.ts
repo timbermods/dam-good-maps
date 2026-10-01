@@ -8,6 +8,7 @@ import { join, relative, sep } from "node:path";
 import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
+import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
 import { PROVIDER_NOTICES } from "../../src/core/places/attribution";
@@ -96,13 +97,14 @@ describe("a sample of places", () => {
   it("Refine: the editor imports a place, and exports it unedited as the same file", () => {
     for (const e of SAMPLE) {
       const r = built(e.id);
-      const s = MapSession.importMap(r.bytes, r.fileName);
+      // (the page opens a place under its own name, as the worker does)
+      const s = MapSession.importMap(r.bytes, `${e.name}.timber`);
       expect(s.mode).toBe("import");
       expect(s.meta.name).toBe(e.name);
       expect(s.size).toEqual({ x: e.size, y: e.size });
       expect(s.validate("import", { loadOnly: true }).report.passed).toBe(true);
       const out = s.exportTimber();
-      expect(out.fileName).toBe(`${e.name}.timber`);
+      expect(out.fileName).toBe(namedFile(e.name));
       expect(sha256(out.bytes)).toBe(e.sha256);
     }
   });

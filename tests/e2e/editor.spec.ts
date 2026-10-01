@@ -1,5 +1,5 @@
-// ROADMAP M4 acceptance: generate → refine → back to settings → regenerate → refine keeps the
-// player's edits, through the page itself. Also: the editor's tools, the start dragged on the map,
+// ROADMAP M4 acceptance, as D336 has it: generate → refine → back to settings → Generate makes a
+// new map, and the edited one stays one step away with its edits, through the page itself. Also: the editor's tools, the start dragged on the map,
 // undo and redo, the history, export from both screens, and the autosave after a reload.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -17,7 +17,7 @@ async function drag(page: Page, from: [number, number], to: [number, number]) {
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 
-test("generate → refine → back to settings → regenerate → refine keeps the player's edits", async ({ page }) => {
+test("generate → refine → back to settings → Generate → back to editing keeps the player's edits", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
@@ -42,7 +42,8 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   const lowered: [number, number] = [x, 12];
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
-  await drag(page, [lowered[0] - 3, lowered[1]], [lowered[0] + 3, lowered[1]]);
+  // (from the tile itself: its target is a level below where the stroke starts, D322)
+  await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   // a spring on dry, empty ground beside the river, its water running straight in: away from the
@@ -107,37 +108,33 @@ test("generate → refine → back to settings → regenerate → refine keeps t
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("River Valley (4244).timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4244.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
-  // back to settings: the card shows the edited map; change a setting and generate again
+  // back to settings: the card shows the edited map; change a setting and generate: a new map
+  // (edits never replay onto new land, D336)
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Back to settings" }).click();
-  await expect(page.getByRole("button", { name: "Generate, keeping my edits" })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/Your 3 edits stay/)).toBeVisible();
-  // (a setting that leaves the land as it is, so the edits stand on the same ground: on M9a's maps
-  // Designed for reshapes the valley, a harder drought asking for more stored water, PLAN §11.4)
-  await page.locator("summary", { hasText: /^Resources$/ }).click();
-  await page.getByLabel("Grove size").selectOption("bigWoods");
-  await page.getByRole("button", { name: "Generate, keeping my edits" }).click();
-  await expect(page.getByRole("button", { name: "Generating…" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Generate, keeping my edits" })).toBeEnabled({ timeout: 120_000 });
-  await expect(page.getByText(/seed 4244 · designed for normal/)).toBeVisible();
-  // export from the settings page too
-  await page.getByRole("button", { name: /^Export River Valley/ }).click();
+  await expect(page.getByText("Generate makes a new map. Yours stays saved, with its edits.")).toBeVisible({ timeout: 60_000 });
+  // export from the settings page too (the edited map)
+  await page.getByRole("button", { name: /^Export dgm-river-valley/ }).click();
   await expect(page.getByRole("dialog").getByText(/checks pass|Warnings/)).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press("Escape");
+  await page.locator("summary", { hasText: /^Resources$/ }).click();
+  await page.getByLabel("Grove size").selectOption("bigWoods");
+  await page.getByRole("button", { name: /^Generate/ }).click();
+  await expect(page.getByText(/New map from these settings/)).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("button", { name: /^Generate/ })).toBeEnabled({ timeout: 120_000 });
 
-  // refine again: the edits are all there, and the regeneration is one more step in the history
-  await page.getByRole("button", { name: "Refine this map" }).click();
+  // back to editing: the edited map as it was, its edits all there
+  await page.getByRole("status").filter({ hasText: /You're editing/ }).getByRole("button", { name: "Back to editing" }).click();
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
   i = await info(page);
-  expect(i.spec!.settings.resources.groveSize).toBe("bigWoods");
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start", "Change settings and regenerate"]);
+  expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);
   expect((i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(moved.position);
-  // the lowered ground stays so on the new map, and the spring is there
   expect(await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered)).toBeLessThan(ground);
   expect(await springs()).toBe(1);
 
@@ -164,8 +161,8 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), start.position);
   await page.mouse.click(p.x, p.y);
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);
-  // water is never an object (D196): a click on the river picks nothing, and Delete then removes
-  // nothing
+  // water is never an object (D196): a click on the river picks nothing, and Delete then takes the
+  // bed's top block, never an object (D323 item 1: under water, the ground's top block)
   const river = (await info(page)).features.find((f) => f.kind === "river")!.params as { path: [number, number][] };
   const w = river.path[Math.floor(river.path.length / 2)];
   const wp = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [Math.round(w[0]), Math.round(w[1])] as [number, number]);
@@ -173,7 +170,8 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);
   await page.keyboard.press("Delete");
   await page.evaluate(() => window.dgmEditor!.idle());
-  expect((await info(page)).edits).toBe(0);
+  expect((await info(page)).edits).toBe(1);
+  expect((await info(page)).history.at(-1)!.label).toBe("Delete a level of ground");
   // hover reads the tile in plain words
   const q = await page.evaluate(() => window.dgmEditor!.tileToClient(40, 40));
   await page.mouse.move(q.x, q.y);

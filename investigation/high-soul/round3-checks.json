@@ -1,0 +1,63 @@
+{
+  "round": 3,
+  "errors": [],
+  "soil": {
+    "earth": [
+      {
+        "contamination": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0
+      },
+      {
+        "contamination": 128,
+        "changedFraction": 0.08795454545454545,
+        "maxChannelDelta": 129
+      },
+      {
+        "contamination": 255,
+        "changedFraction": 0.09596590909090909,
+        "maxChannelDelta": 143
+      },
+      {
+        "contamination": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0
+      }
+    ],
+    "grass": [
+      {
+        "contamination": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0
+      },
+      {
+        "contamination": 128,
+        "changedFraction": 0.10278409090909091,
+        "maxChannelDelta": 148
+      },
+      {
+        "contamination": 255,
+        "changedFraction": 0.11198863636363636,
+        "maxChannelDelta": 145
+      },
+      {
+        "contamination": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0
+      }
+    ]
+  },
+  "note": "Changed fractions (>8 display codes) guard against absent veins and whole-soil recolouring, not a colour-blindness contrast requirement. 0/128/255/0 are synthetic displayed-day snapshots, not a weather simulation run.",
+  "build": {
+    "signature": "a4ed88025ace3ada25ebf878b78549623890558f206be34bbe9a12cb6409ea23",
+    "base": "8c975822c2691edef94ff4f96217167697a91177"
+  },
+  "pools": {
+    "comparisonCommit": "a39f004c",
+    "unchangedStatistics": true
+  },
+  "unchangedModules": [
+    "src/render3d/palette.ts",
+    "src/render3d/waterPalette.ts"
+  ]
+}

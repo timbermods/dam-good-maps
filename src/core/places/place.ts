@@ -15,7 +15,7 @@ import { bush, entityJson, ruin, startingLocation, tree, waterSource, type Entit
 import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
 import { GAME_VERSION, LAYERS, settledSimulationSingletons, voxelsFromHeights } from "../format/world";
 import { entityId } from "../features/ids";
-import { TIMESTAMP } from "../gen/pack";
+import { namedFile, TIMESTAMP } from "../gen/pack";
 import { thumbnailJpeg } from "../render/shade";
 import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
@@ -125,7 +125,7 @@ export function decodeTiles(gaps: readonly number[]): number[] {
 
 /** The .timber's file name: the game shows it as the map's name. */
 export function placeFileName(p: Pick<PlaceData, "name">): string {
-  return `${p.name}.timber`;
+  return namedFile(p.name);
 }
 
 /** The map's in-game description: what it is, that it is not a replica, and its credits. */

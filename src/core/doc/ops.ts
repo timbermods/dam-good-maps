@@ -6,14 +6,14 @@
 //
 // The document keeps an ordered log of applied operations. Feature operations change the document
 // state and store undo data; sculpt, slope and entity operations are overlays that the build
-// pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). Replaying the log on a new
-// generation (regeneration) re-applies every operation whose target still exists; the others are
-// kept and flagged as orphaned, never dropped (PLAN §19.4).
-//
-// `specPatch` (change settings and regenerate) is not a log operation: it replaces the generation
-// under the log (session.ts). Locks and the retired regenerateRegion operation were removed (D253,
-// D270): an old project that held one still opens, with its land as it was kept (document.ts).
+// pipeline applies in log order (PLAN §19.8 steps 6, 8 and 13). The log replays only onto the land
+// it was made on (undo and redo, reopening a project, share links): edits never replay onto new
+// land (PLAN §20, D336), so there is no settings change among the operations. An operation whose
+// target is gone is kept and flagged as orphaned, never dropped (PLAN §19.4). Locks and the retired
+// regenerateRegion operation were removed (D253, D270): an old project that held one still opens,
+// with its land as it was kept (document.ts).
 
+import { CEILING } from "../format/world";
 import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
@@ -25,6 +25,7 @@ import type { Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { carveProblems, type CarveParams } from "../forces/carve/op";
+import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
 import opsSchema from "./ops.schema.json" with { type: "json" };
 
@@ -39,22 +40,27 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
-  /** A carve, a force of nature (D194, D199), its result stored literally (forces/carve/op.ts). */
+  /** A carve, a force of nature (D194, D199), its result stored literally (forces/carve/op.ts): the
+   *  carve's operation before the four forces shared `forceResult`; still read, applied and replayed. */
   carve: CarveParams;
+  /** A force of nature (Carve, Craterize, Erupt, Quake: D194, D202, D203, D206, D220), its result
+   *  stored literally (forces/op.ts). */
+  forceResult: ForceResultParams;
   placeEntity: PlaceEntityParams;
-  moveEntity: { id: string; x: number; y: number; orientation?: Orientation };
+  /** `quiet`: only a force's own edit sets it (an object it carried that is gone, or whose new ground
+   *  is taken, is left out); an operation in the log never does. */
+  moveEntity: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean };
   /** `quiet`: ids already gone are fine. Only a carve's own edit sets it (its ground places the
    *  resources again); an operation in the log never does. */
   deleteEntities: { entities: string[]; quiet?: boolean };
-  /** A JSON Merge Patch on the entity's components (BlockObject excluded: use moveEntity). */
-  setEntityProps: { id: string; components: Record<string, unknown> };
+  /** A JSON Merge Patch on the entity's components (BlockObject excluded: use moveEntity). `quiet`:
+   *  only a force's own edit sets it (a tree it knocked down that is gone is fine). */
+  setEntityProps: { id: string; components: Record<string, unknown>; quiet?: boolean };
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
-  /** A JSON Merge Patch on the MapSpec, then regenerate (PLAN §19.1). */
-  specPatch: { patch: Record<string, unknown> };
 }
 
 export type OpName = keyof OpParams;
@@ -62,8 +68,8 @@ export type EditOp = { [K in OpName]: { op: K; params: OpParams[K] } }[OpName];
 export type OpOf<K extends OpName> = { op: K; params: OpParams[K] };
 
 export interface UndoData {
-  /** The carve a "Try another path" replaced, and where it stood in the sculpts and entity edits. */
-  replaced?: { op: AppliedOpOf<"carve">; sculpt: number; entity: number };
+  /** The force a "Try another" replaced, and where it stood in the sculpts and entity edits. */
+  replaced?: { op: ForceOp; sculpt: number; entity: number };
   /** The feature before an update or a delete. */
   before?: Feature;
   /** Where the feature was (delete, reorder) or went (add). */
@@ -86,13 +92,16 @@ export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
 /** Operations kept in the document's log and replayed on every generation. */
 export const LOG_OPS: readonly OpName[] = [
-  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "placeEntity", "moveEntity",
+  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
   "deleteEntities", "setEntityProps", "pinSlope", "removeSlope",
 ];
 export const ENTITY_OPS: readonly OpName[] = ["placeEntity", "moveEntity", "deleteEntities", "setEntityProps"];
 export const SLOPE_OPS: readonly OpName[] = ["pinSlope", "removeSlope"];
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"carve">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
+/** A force's operation: the shared `forceResult`, or a `carve` of before it. */
+export type ForceOp = AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
+export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "carve" || op.op === "forceResult";
 export type SlopeOp = AppliedOpOf<"pinSlope"> | AppliedOpOf<"removeSlope">;
 export type EntityOp = AppliedOpOf<"placeEntity"> | AppliedOpOf<"moveEntity"> | AppliedOpOf<"deleteEntities"> | AppliedOpOf<"setEntityProps">;
 
@@ -235,13 +244,14 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "brush":
       state.sculpts.push(op);
       return;
-    case "carve": {
-      // another path replaces the carve before it: that one is left out while this one stands
+    case "carve":
+    case "forceResult": {
+      // Try another replaces the force before it: that one is left out while this one stands
       const r = op.params.replaces;
       if (r !== undefined) {
-        const k = state.sculpts.findIndex((s) => s.op === "carve" && s.seq === r);
+        const k = state.sculpts.findIndex((s) => isForceOp(s) && s.seq === r);
         if (k >= 0) {
-          const replaced = state.sculpts[k] as AppliedOpOf<"carve">;
+          const replaced = state.sculpts[k] as ForceOp;
           const e = state.entityEdits.findIndex((x) => x.seq === r);
           state.sculpts.splice(k, 1);
           removeAllFromList(state.entityEdits, r);
@@ -249,7 +259,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
         }
       }
       state.sculpts.push(op);
-      state.entityEdits.push(...carveEntityEdits(op));
+      state.entityEdits.push(...forceEntityEdits(op));
       return;
     }
     case "pinSlope":
@@ -263,21 +273,25 @@ export function applyOp(state: DocState, op: AppliedOp): void {
       state.entityEdits.push(op);
       return;
     default:
-      throw new Error(`${op.op} is not a log operation`);
+      throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
 }
 
-/** A carve's objects, as the entity edits the build applies (same seq): the objects that lost their
- *  ground go, and its source is placed. */
-function carveEntityEdits(op: AppliedOpOf<"carve">): EntityOp[] {
+/** A force's objects, as the entity edits the build applies (same seq): the objects that lost their
+ *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
+ *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+function forceEntityEdits(op: ForceOp): EntityOp[] {
   const { seq, origin } = op;
   const out: EntityOp[] = [];
   const p = op.params;
   if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
-  if (p.source) {
-    const s = p.source;
-    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
+  if (op.op === "forceResult") {
+    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
+    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
   }
+  // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
+  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
+    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
   return out;
 }
 
@@ -313,14 +327,15 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "brush":
       removeFromList(state.sculpts, op.seq);
       return;
-    case "carve": {
+    case "carve":
+    case "forceResult": {
       removeFromList(state.sculpts, op.seq);
       removeAllFromList(state.entityEdits, op.seq);
-      // the carve it replaced comes back where it was
+      // the force it replaced comes back where it was
       const r = op.undo?.replaced;
       if (r) {
         state.sculpts.splice(Math.min(r.sculpt, state.sculpts.length), 0, r.op);
-        const edits = carveEntityEdits(r.op);
+        const edits = forceEntityEdits(r.op);
         if (edits.length) state.entityEdits.splice(r.entity >= 0 ? Math.min(r.entity, state.entityEdits.length) : state.entityEdits.length, 0, ...edits);
       }
       return;
@@ -336,54 +351,22 @@ export function invertOp(state: DocState, op: AppliedOp): void {
       removeFromList(state.entityEdits, op.seq);
       return;
     default:
-      throw new Error(`${op.op} is not a log operation`);
+      throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
 }
 
-/** Replay a log on a generation's features. Each operation's undo data and orphan flag are
- *  recomputed for the new state (the operations are copied, the input is not changed). `fits`
- *  orphans the operations that no longer fit the map (a regeneration may change its size). */
-export function replay(
-  baseFeatures: readonly Feature[],
-  log: readonly AppliedOp[],
-  fits?: (op: AppliedOp) => string | null,
-): { state: DocState; log: AppliedOp[] } {
+/** Replay a log on the features of the generation it was made on (never onto new land, D336).
+ *  Each operation's undo data and orphan flag are recomputed for the state (the operations are
+ *  copied, the input is not changed). */
+export function replay(baseFeatures: readonly Feature[], log: readonly AppliedOp[]): { state: DocState; log: AppliedOp[] } {
   const state = emptyState(baseFeatures);
   const out: AppliedOp[] = [];
   for (const op of log) {
     const copy = clone(op) as AppliedOp;
-    const misfit = fits?.(copy) ?? null;
-    if (misfit) {
-      delete copy.undo;
-      copy.orphaned = misfit;
-    } else applyOp(state, copy);
+    applyOp(state, copy);
     out.push(copy);
   }
   return { state, log: out };
-}
-
-/** Why an operation's tiles no longer lie on a W × H map (null when they do). */
-export function opFitsMap(op: EditOp, W: number, H: number): string | null {
-  const inMap = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H;
-  switch (op.op) {
-    case "addFeature": {
-      const errors = featureGeometryProblems(op.params.feature, W, H);
-      return errors.length ? `it no longer fits the map: ${errors[0]}` : null;
-    }
-    case "sculpt":
-      return runsProblems(op.params.cells, W, H, "its cells").length ? "its cells are outside the map" : null;
-    case "brush":
-      return brushProblems(op.params, W, H).length ? "its dabs are outside the map" : null;
-    case "carve":
-      return carveProblems(op.params, W, H, 255).length ? "its tiles are outside the map" : null;
-    case "placeEntity":
-    case "moveEntity":
-    case "pinSlope":
-    case "removeSlope":
-      return inMap(op.params.x, op.params.y) ? null : `(${op.params.x}, ${op.params.y}) is outside the map`;
-    default:
-      return null;
-  }
 }
 
 // -------------------------------------------------------------------------------------- validation
@@ -420,8 +403,8 @@ export const PLACEABLE = new Set([
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
 ]);
 
-/** The highest level a carve may leave (a carve's fan builds to the in-game editor's 16). */
-const CARVE_MAX_LEVEL = 22;
+/** The highest level a carve may leave: the editor's one ceiling (D244). */
+const CARVE_MAX_LEVEL = CEILING;
 
 /** Largest number of tiles one operation may touch. */
 export const MAX_OP_TILES = 256 * 256;
@@ -571,18 +554,40 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       // another path starts from the land before the carve it replaces, whose objects may be gone now
       if (p.replaces === undefined) for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
       for (const id of p.removed) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
-      if (p.source) {
-        if (!GUID.test(p.source.id)) return [`${p.source.id} is not a lowercase GUID`];
-        if (ctx.entityIds.has(p.source.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.source!.id)) return [`an entity with the Id ${p.source.id} already exists`];
+      for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+        if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
       }
-      if (p.replaces !== undefined && !state.sculpts.some((s) => s.op === "carve" && s.seq === p.replaces)) return [`there is no carve ${p.replaces} to try another path for`];
+      if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no carve ${p.replaces} to try another path for`];
+      return [];
+    }
+    case "forceResult": {
+      const p = op.params;
+      const errors = forceProblems(p, W, H, CARVE_MAX_LEVEL);
+      if (errors.length) return errors;
+      if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a force leaves as it is`];
+      // Try another starts from the land before the force it replaces, whose objects may be gone now
+      if (p.replaces === undefined) {
+        if (p.where.source !== undefined && !ctx.entityIds.has(p.where.source)) return [`there is no source ${p.where.source} to unleash`];
+        for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
+        for (const m of p.moved ?? []) if (!ctx.entityIds.has(m.id)) return [`entity ${m.id} does not exist`];
+        for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];
+      }
+      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
+      for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+        if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
+      }
+      if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no force ${p.replaces} to try another for`];
       return [];
     }
     case "placeEntity": {
       const p = op.params;
       if (!GUID.test(p.id)) return [`${p.id} is not a lowercase GUID`];
       if (ctx.entityIds.has(p.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
-      if (!PLACEABLE.has(p.template) || !FOOTPRINTS[p.template]) return [`${p.template} cannot be placed by hand`];
+      // (the start too, on a map that has none: its own was deleted, D323 item 44)
+      const noStart = p.template === "StartingLocation" && !state.features.some((f) => f.kind === "start") && (ctx.otherStarts ?? 0) === 0;
+      if (!(PLACEABLE.has(p.template) || noStart) || !FOOTPRINTS[p.template]) return [`${p.template} cannot be placed by hand`];
       if (!inMap(p.x, p.y)) return [`(${p.x}, ${p.y}) is outside the map`];
       if (!ORIENTATIONS.includes(p.orientation)) return [`bad orientation ${String(p.orientation)}`];
       if (!p.components && !hasDefaults(p.template)) return [`${p.template} needs its components`];
@@ -593,13 +598,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
       const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
-      return why ? [`it can't stand there: ${why}`] : [];
+      return why ? [why] : [];
     }
     case "deleteEntities": {
       if ("quiet" in op.params) return ["quiet is a carve's own"];
@@ -613,7 +618,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
-    case "specPatch":
-      return ctx.generated ? [] : ["an imported map has no settings to change"];
   }
 }

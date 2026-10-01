@@ -3,9 +3,10 @@
 // deterministic sine in math/detmath.ts. Ported from the M9 design prototype
 // (investigation/generative/proto/num.ts).
 
+import * as portable from "../math/portable";
 import { cosDet, PI, sinDet } from "../math/detmath";
 
-export const SQRT1_2 = Math.sqrt(0.5);
+export const SQRT1_2 = portable.sqrt(0.5);
 
 /** The 8 flow directions (PLAN §7.1), as unit vectors (x east, y north), east first, counter-clockwise. */
 export const DIRS8: readonly (readonly [number, number])[] = [
@@ -40,7 +41,7 @@ export function unit(turns: number): [number, number] {
 export function dist(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
   const dy = ay - by;
-  return Math.sqrt(dx * dx + dy * dy);
+  return portable.sqrt(dx * dx + dy * dy);
 }
 
 /** Distance from (x, y) to the segment a–b. */

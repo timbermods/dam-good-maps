@@ -79,5 +79,26 @@ namespace DGMProbe
         public List<Moment> Moments = new List<Moment>();
         public List<ProbeAction> Actions = new List<ProbeAction>();
         public List<Pose> Poses = new List<Pose>();
+        // How smoothly the game runs the map (PerfMeter): null for most maps.
+        public PerfSpec Perf;
+    }
+
+    // Frame times after the map's first day: each phase holds a game speed (0: the job's speed) for some real
+    // seconds while the camera pans over the whole map; the first Warmup seconds of a phase are not counted.
+    public class PerfSpec
+    {
+        // The game day the phases start at (the moments before it are taken first).
+        public double StartDay;
+        // The distance between the pan's rows, in tiles (the view's width at the game's opening zoom).
+        public float RowSpacing = 96f;
+        public List<PerfPhase> Phases = new List<PerfPhase>();
+    }
+
+    public class PerfPhase
+    {
+        public string Id;
+        public float Speed;
+        public float Seconds = 30f;
+        public float Warmup = 3f;
     }
 }

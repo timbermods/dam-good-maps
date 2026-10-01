@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Erode investigation</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <canvas id="view" aria-label="The map in 3D"></canvas>
+
+    <header class="top">
+      <div class="brand">Erode <span>investigation · local only</span></div>
+      <label class="pick">Case <select id="case" aria-label="Case"></select></label>
+      <button id="playcase" title="Its gesture on its fresh land">Play this case</button>
+      <span class="sep"></span>
+      <button id="overview">Overview</button>
+      <button id="low">Low view</button>
+      <div class="mapname" id="mapname"></div>
+    </header>
+
+    <div class="side">
+      <button id="undo" title="Ctrl+Z">Undo</button>
+      <button id="redo" title="Ctrl+Y">Redo</button>
+      <button id="sound" aria-pressed="true">Sound on</button>
+    </div>
+
+    <div class="bar" role="toolbar" aria-label="Erode">
+      <strong>Erode</strong>
+      <label>Power <input id="power" type="range" min="0" max="100" step="1" /> <output id="powerv"></output></label>
+      <label>Size <input id="size" type="range" min="0" max="100" step="1" /> <output id="sizev"></output></label>
+      <label class="auto"><input id="auto" type="checkbox" /> Auto</label>
+      <button id="another">Try another</button>
+      <button id="more" aria-expanded="false" aria-controls="details">More</button>
+    </div>
+    <div id="details" class="details" hidden aria-label="Erode details"></div>
+
+    <div class="word" id="word" role="status"></div>
+
+    <footer>
+      <p class="hint"><b>Click</b> rock to wear it, or <b>drag</b> along a cliff or across a ridge. <span id="gesturehint"></span> Right-drag turns, middle-drag pans, the wheel zooms. <b>Esc</b> takes a playing erode back; <b>Ctrl+Z</b> undoes one.</p>
+      <p class="water">Water under the new roofs is an approximation until the water engine lands: a hollow fills to the level of the water beside it, with no pressure or flow. The rest of the water is the map's own.</p>
+      <p class="readout" id="readout"></p>
+    </footer>
+
+    <script type="module" src="./demo/app.ts"></script>
+  </body>
+</html>

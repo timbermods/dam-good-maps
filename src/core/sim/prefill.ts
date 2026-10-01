@@ -58,13 +58,13 @@ export function spillLevels(m: WaterModel): Float64Array {
   return filled;
 }
 
-/** The deterministic starting state of the canonical settle (see the file comment). */
-export function prefill(m: WaterModel): WaterState {
+/** The flow through each tile (`q`, blocks a second: the strength of every running emitter whose
+ *  water passes it, walking downhill or level on the filled surface), its badwater part, the tiles
+ *  it passes (`path`) and the spill levels it walked on. */
+export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Array; path: Uint8Array; spill: Float64Array } {
   const { W, H } = m;
   const N = W * H;
   const spill = spillLevels(m);
-  // flow through each tile: the strength of every emitter whose water passes it, walking downhill
-  // (or level) on the filled surface
   const q = new Float64Array(N);
   const qBad = new Float64Array(N);
   const path = new Uint8Array(N);
@@ -101,6 +101,14 @@ export function prefill(m: WaterModel): WaterState {
       }
     }
   }
+  return { q, qBad, path, spill };
+}
+
+/** The deterministic starting state of the canonical settle (see the file comment). */
+export function prefill(m: WaterModel): WaterState {
+  const { W, H } = m;
+  const N = W * H;
+  const { q, qBad, path, spill } = flowThrough(m);
   // open-channel tiles (on the path, not in a depression): local width = the shorter of the row
   // and column runs of such tiles through the tile
   const open = new Uint8Array(N);

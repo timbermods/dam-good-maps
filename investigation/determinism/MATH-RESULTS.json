@@ -1,0 +1,283 @@
+{
+  "versions": {
+    "chromium": "145.0.7632.6",
+    "firefox": "146.0.1",
+    "webkit": "26.0"
+  },
+  "samples": 45117,
+  "nativeMismatches": 3629,
+  "portableMismatches": 0,
+  "nativeByFunction": {
+    "hypot": 1698,
+    "cos": 114,
+    "atan2": 732,
+    "exp": 431,
+    "log": 290,
+    "sin": 128,
+    "log2": 51,
+    "tanh": 182,
+    "pow": 2,
+    "atan": 1
+  },
+  "examples": [
+    {
+      "index": 4,
+      "name": "hypot",
+      "args": [
+        "c0384104d8d80000",
+        "4056ef771f900000"
+      ],
+      "native": "4057b92fdc7755a3",
+      "portable": "4057b92fdc7755a3",
+      "nativeByEngine": {
+        "chromium": "4057b92fdc7755a3",
+        "firefox": "4057b92fdc7755a2",
+        "webkit": "4057b92fdc7755a2"
+      }
+    },
+    {
+      "index": 15,
+      "name": "hypot",
+      "args": [
+        "406aaf63ba630000",
+        "4035bc4f35400000"
+      ],
+      "native": "406ad2b4d99bfc5f",
+      "portable": "406ad2b4d99bfc5f",
+      "nativeByEngine": {
+        "chromium": "406ad2b4d99bfc5f",
+        "firefox": "406ad2b4d99bfc60",
+        "webkit": "406ad2b4d99bfc60"
+      }
+    },
+    {
+      "index": 48,
+      "name": "hypot",
+      "args": [
+        "c05773c8b4160000",
+        "c0612be4af2f0000"
+      ],
+      "native": "4064cb15bfc13b24",
+      "portable": "4064cb15bfc13b24",
+      "nativeByEngine": {
+        "chromium": "4064cb15bfc13b24",
+        "firefox": "4064cb15bfc13b25",
+        "webkit": "4064cb15bfc13b25"
+      }
+    },
+    {
+      "index": 56,
+      "name": "cos",
+      "args": [
+        "406d8a923f950000"
+      ],
+      "native": "bfe83fac4ed77f27",
+      "portable": "bfe83fac4ed77f3a",
+      "nativeByEngine": {
+        "chromium": "bfe83fac4ed77f27",
+        "firefox": "bfe83fac4ed77f28",
+        "webkit": "bfe83fac4ed77f28"
+      }
+    },
+    {
+      "index": 81,
+      "name": "hypot",
+      "args": [
+        "c068592bce580000",
+        "c05345965a200000"
+      ],
+      "native": "406a2f8b1765fb46",
+      "portable": "406a2f8b1765fb46",
+      "nativeByEngine": {
+        "chromium": "406a2f8b1765fb46",
+        "firefox": "406a2f8b1765fb45",
+        "webkit": "406a2f8b1765fb45"
+      }
+    },
+    {
+      "index": 92,
+      "name": "hypot",
+      "args": [
+        "c0661e23bee90000",
+        "c06138823eaa0000"
+      ],
+      "native": "406c07fc6921eb2a",
+      "portable": "406c07fc6921eb2a",
+      "nativeByEngine": {
+        "chromium": "406c07fc6921eb2a",
+        "firefox": "406c07fc6921eb2b",
+        "webkit": "406c07fc6921eb2a"
+      }
+    },
+    {
+      "index": 114,
+      "name": "hypot",
+      "args": [
+        "c062be5942390000",
+        "4042b18cb8600000"
+      ],
+      "native": "4063513fe0627a22",
+      "portable": "4063513fe0627a22",
+      "nativeByEngine": {
+        "chromium": "4063513fe0627a22",
+        "firefox": "4063513fe0627a23",
+        "webkit": "4063513fe0627a23"
+      }
+    },
+    {
+      "index": 125,
+      "name": "hypot",
+      "args": [
+        "c06301c38a250000",
+        "c060801c2fc90000"
+      ],
+      "native": "40692b816bce53e3",
+      "portable": "40692b816bce53e3",
+      "nativeByEngine": {
+        "chromium": "40692b816bce53e3",
+        "firefox": "40692b816bce53e2",
+        "webkit": "40692b816bce53e2"
+      }
+    }
+  ],
+  "numericalErrorAgainstNative": {
+    "chromium": {
+      "sin": {
+        "absolute": 4.3520742565306136e-14,
+        "scaled": 4.3520742565306136e-14
+      },
+      "cos": {
+        "absolute": 4.441585987891017e-14,
+        "scaled": 4.441585987891017e-14
+      },
+      "atan": {
+        "absolute": 2.220446049250313e-16,
+        "scaled": 2.2027798794904257e-16
+      },
+      "atan2": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 4.434902024092201e-16
+      },
+      "hypot": {
+        "absolute": 0,
+        "scaled": 0
+      },
+      "sqrt": {
+        "absolute": 0,
+        "scaled": 0
+      },
+      "exp": {
+        "absolute": 864691128455135200,
+        "scaled": 9.119929786617808e-15
+      },
+      "log": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 4.440892098500626e-16
+      },
+      "log2": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 6.661338147750939e-16
+      },
+      "pow": {
+        "absolute": 1.4551915228366852e-11,
+        "scaled": 2.7916529880474965e-15
+      },
+      "tanh": {
+        "absolute": 3.3306690738754696e-16,
+        "scaled": 3.3306690738754696e-16
+      }
+    },
+    "firefox": {
+      "sin": {
+        "absolute": 4.3520742565306136e-14,
+        "scaled": 4.3520742565306136e-14
+      },
+      "cos": {
+        "absolute": 4.441585987891017e-14,
+        "scaled": 4.441585987891017e-14
+      },
+      "atan": {
+        "absolute": 2.220446049250313e-16,
+        "scaled": 2.2027798794904257e-16
+      },
+      "atan2": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 4.434902024092201e-16
+      },
+      "hypot": {
+        "absolute": 1.942668892225729e+84,
+        "scaled": 2.5199708019999595e-16
+      },
+      "sqrt": {
+        "absolute": 0,
+        "scaled": 0
+      },
+      "exp": {
+        "absolute": 864691128455135200,
+        "scaled": 9.119929786617808e-15
+      },
+      "log": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 4.440892098500626e-16
+      },
+      "log2": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 6.661338147750939e-16
+      },
+      "pow": {
+        "absolute": 1.4551915228366852e-11,
+        "scaled": 2.7916529880474965e-15
+      },
+      "tanh": {
+        "absolute": 3.3306690738754696e-16,
+        "scaled": 3.3306690738754696e-16
+      }
+    },
+    "webkit": {
+      "sin": {
+        "absolute": 4.3520742565306136e-14,
+        "scaled": 4.3520742565306136e-14
+      },
+      "cos": {
+        "absolute": 4.441585987891017e-14,
+        "scaled": 4.441585987891017e-14
+      },
+      "atan": {
+        "absolute": 2.220446049250313e-16,
+        "scaled": 2.2027798794904257e-16
+      },
+      "atan2": {
+        "absolute": 4.440892098500626e-16,
+        "scaled": 2.2435338409879083e-16
+      },
+      "hypot": {
+        "absolute": 1.942668892225729e+84,
+        "scaled": 2.8642225727665525e-16
+      },
+      "sqrt": {
+        "absolute": 0,
+        "scaled": 0
+      },
+      "exp": {
+        "absolute": 864691128455135200,
+        "scaled": 9.119929786617808e-15
+      },
+      "log": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 4.440892098500626e-16
+      },
+      "log2": {
+        "absolute": 8.881784197001252e-16,
+        "scaled": 6.661338147750939e-16
+      },
+      "pow": {
+        "absolute": 1.4551915228366852e-11,
+        "scaled": 2.7916529880474965e-15
+      },
+      "tanh": {
+        "absolute": 2.220446049250313e-16,
+        "scaled": 2.220446049250313e-16
+      }
+    }
+  }
+}

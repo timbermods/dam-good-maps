@@ -1,0 +1,1038 @@
+{
+ "note": "npm --prefix investigation/erode run check: dropped voxels by terrain3d/proto/support.ts over every voxel; all 160 gestures checked, including no-ops, plus the same gestures with varied Floor; ms is the planner alone at 128² (median of 5)",
+ "result": "PASS",
+ "round9": {
+  "result": "PASS",
+  "gestures": 23,
+  "animationBuckets": 336,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "belowFloorVoxelsRemoved": 0,
+  "sourceGround": "PASS",
+  "round7FaceFixtures": [
+   {
+    "case": "crater-lip",
+    "power": 72,
+    "size": 68,
+    "round7Worn": 868,
+    "round8Worn": 868,
+    "round9Worn": 868,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "canyon-cave",
+    "power": 70,
+    "size": 67,
+    "round7Worn": 363,
+    "round8Worn": 363,
+    "round9Worn": 363,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "tall-arch",
+    "power": 70,
+    "size": 45,
+    "round7Worn": 38,
+    "round8Worn": 38,
+    "round9Worn": 38,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "tall-shore",
+    "power": 75,
+    "size": 55,
+    "round7Worn": 104,
+    "round8Worn": 104,
+    "round9Worn": 104,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 30,
+    "size": 43,
+    "round7Worn": 210,
+    "round8Worn": 641,
+    "round9Worn": 210,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 60,
+    "size": 61,
+    "round7Worn": 443,
+    "round8Worn": 443,
+    "round9Worn": 443,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-wall-calibration",
+    "power": 90,
+    "size": 79,
+    "round7Worn": 747,
+    "round8Worn": 747,
+    "round9Worn": 747,
+    "byteIdenticalToRound7": true,
+    "result": "PASS"
+   }
+  ],
+  "longSweep": {
+   "worn": 6597,
+   "changedSamples": 152,
+   "strokeSamples": 152,
+   "byteIdenticalToRound8": true
+  }
+ },
+ "round8": {
+  "result": "PASS",
+  "gestures": 43,
+  "animationBuckets": 1032,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "bottomLayer": "PASS",
+  "chosenFloor": "PASS",
+  "sourceGround": "PASS",
+  "supportedObjects": "PASS",
+  "powerUndiluted": "PASS",
+  "preservedRound7Fixtures": 12,
+  "deliberatelyChanged": [
+   "wash-step: whole-face gallery plus the shallow wash"
+  ],
+  "longestStrokeTiles": 399,
+  "slowestPlannerMs": 323,
+  "maxWorn": 11985,
+  "kyler": {
+   "power": 72,
+   "size": 68,
+   "beforeWorn": 861,
+   "worn": 6597,
+   "beforeChangedSamples": 34,
+   "changedSamples": 152,
+   "strokeSamples": 152,
+   "parts": {
+    "parts": 23,
+    "galleries": 22,
+    "washes": 1,
+    "roofs": 0
+   },
+   "sha256": "9f575170dc4abd3d8441d7a66d1ae0647170be22a1d8e53ab18224b3c9398a46"
+  }
+ },
+ "round7": {
+  "result": "PASS",
+  "cases": [
+   {
+    "case": "roof-skylight",
+    "power": 25,
+    "size": 45,
+    "worn": 74,
+    "rubble": 4,
+    "skylightTiles": 15,
+    "raisedCeilingTiles": 0,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   },
+   {
+    "case": "roof-bridge",
+    "power": 100,
+    "size": 100,
+    "worn": 981,
+    "rubble": 32,
+    "skylightTiles": 247,
+    "raisedCeilingTiles": 1,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   },
+   {
+    "case": "roof-dome",
+    "power": 65,
+    "size": 60,
+    "worn": 292,
+    "rubble": 16,
+    "skylightTiles": 20,
+    "raisedCeilingTiles": 89,
+    "dropped": 0,
+    "leftoverSingleBlocks": 0,
+    "result": "PASS"
+   }
+  ],
+  "randomRoofCeilingGestures": 48,
+  "existingShelterGestures": 24,
+  "totalGestures": 88,
+  "animationFrames": 2112,
+  "droppedVoxels": 0,
+  "leftoverSingleBlocks": 0,
+  "support": "PASS",
+  "floorAndBottom": "PASS",
+  "sourceGround": "PASS",
+  "objectsAndStart": "PASS",
+  "waterResettled": "PASS",
+  "fixturePreservation": "See round6 and round8 checks for local and mixed results"
+ },
+ "round6": {
+  "result": "PASS",
+  "floorRange": "1–22 on all ten cases",
+  "gestures": 240,
+  "animationBuckets": 240,
+  "support": "PASS",
+  "bottomLayer": "PASS",
+  "chosenFloor": "PASS",
+  "belowFloorVoxelsRemoved": 0,
+  "defaultResultsUnchanged": "PASS (tall-step local wash; mixed result checked in round 8)",
+  "shallowerWashesWithDrainage": 45
+ },
+ "round5": {
+  "result": "PASS",
+  "cases": [
+   {
+    "case": "wash-terraces-down",
+    "power": 10,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2293,
+    "worn": 2293,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 30,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2293,
+    "worn": 2293,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 85,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2104,
+    "worn": 2311,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 2,
+    "maxDepth": 2,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "power": 100,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2300,
+    "worn": 4363,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 3,
+    "maxDepth": 3,
+    "runs": 1,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 10,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2191,
+    "worn": 2191,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 30,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2191,
+    "worn": 2191,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 1,
+    "maxDepth": 1,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 85,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2114,
+    "worn": 2547,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 2,
+    "maxDepth": 2,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-rise",
+    "power": 100,
+    "size": 100,
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 2554,
+    "worn": 4834,
+    "outlet": "edge",
+    "details": {
+     "winding": 62,
+     "sideGullies": 42,
+     "dryFalls": 39,
+     "undercutBanks": 53
+    },
+    "bottomVoxelsRemoved": 0,
+    "cap": 3,
+    "maxDepth": 3,
+    "runs": 2,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   }
+  ],
+  "thinGroundRepeatedGestures": 54,
+  "protectedSource": "PASS",
+  "bottomLayer": "PASS: no bottom voxels removed or scheduled",
+  "animationSupport": "PASS"
+ },
+ "round4": {
+  "result": "PASS",
+  "scope": "Local washes; round 8 separately checks mixed cliff crossings",
+  "cases": [
+   {
+    "case": "wash-terraces-up",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1408,
+    "worn": 1574,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 1,
+    "maxStepDrop": 3,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-terraces-down",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1408,
+    "worn": 1574,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 1,
+    "maxStepDrop": 3,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   },
+   {
+    "case": "wash-step",
+    "result": "PASS",
+    "droppedOnLoad": 0,
+    "undrainedBedTiles": 0,
+    "downstreamRises": 0,
+    "bedTiles": 1142,
+    "worn": 1362,
+    "outlet": "edge",
+    "details": {
+     "winding": 60,
+     "sideGullies": 30,
+     "dryFalls": 51,
+     "undercutBanks": 62
+    },
+    "minDepth": 1,
+    "maxStepDrop": 12,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0
+   }
+  ],
+  "unevenVariantsBothDirections": 48,
+  "preservedFlatVariants": 16,
+  "preservedRound3Cases": 6,
+  "cliffFootGallery": "PASS",
+  "stepFacePointerHits": "PASS",
+  "animationSupport": "PASS"
+ },
+ "round3": {
+  "result": "PASS",
+  "unchangedRound2Cases": [
+   "crater-lip",
+   "canyon-cave",
+   "tall-shore",
+   "wash-small"
+  ],
+  "arch": {
+   "footprint": "3×3",
+   "headroom": 5,
+   "floor": 8,
+   "x": 28,
+   "y": 86,
+   "roofedTiles": 5
+  },
+  "wash": {
+   "dryFallsAtLeastTwoLevels": 2,
+   "fallHeights": [
+    2,
+    2
+   ],
+   "tributaryTiles": 84,
+   "shelfTiles": 1086,
+   "sheerBankTiles": 80,
+   "undercutTiles": 78
+  }
+ },
+ "round2": {
+  "cases": [
+   {
+    "case": "crater-lip",
+    "power": 100,
+    "size": 100,
+    "droppedOnLoad": 0,
+    "floor": 7,
+    "headroom": 5,
+    "buildableFloorTiles": 175,
+    "footprints3x3": 61,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0,
+    "worn": 1296,
+    "held": 210,
+    "lowPowerWorn": 372,
+    "result": "PASS"
+   },
+   {
+    "case": "canyon-cave",
+    "power": 100,
+    "size": 100,
+    "droppedOnLoad": 0,
+    "floor": 3,
+    "headroom": 5,
+    "buildableFloorTiles": 89,
+    "footprints3x3": 22,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0,
+    "worn": 563,
+    "held": 166,
+    "lowPowerWorn": 167,
+    "result": "PASS"
+   },
+   {
+    "case": "tall-arch",
+    "power": 70,
+    "size": 45,
+    "droppedOnLoad": 0,
+    "floor": 8,
+    "headroom": 5,
+    "buildableFloorTiles": 5,
+    "footprints3x3": 0,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0,
+    "worn": 38,
+    "held": 25,
+    "lowPowerWorn": 30,
+    "result": "PASS"
+   },
+   {
+    "case": "crater-click",
+    "power": 100,
+    "size": 100,
+    "droppedOnLoad": 0,
+    "floor": 7,
+    "headroom": 5,
+    "buildableFloorTiles": 98,
+    "footprints3x3": 34,
+    "leftoverSingleBlocks": 0,
+    "leftoverSmallClusters": 0,
+    "worn": 749,
+    "held": 145,
+    "lowPowerWorn": 152,
+    "result": "PASS"
+   }
+  ],
+  "steppedCliffs": [
+   {
+    "rise": 1,
+    "worn": 126,
+    "droppedOnLoad": 0,
+    "result": "PASS"
+   },
+   {
+    "rise": 2,
+    "worn": 252,
+    "droppedOnLoad": 0,
+    "result": "PASS"
+   },
+   {
+    "rise": 3,
+    "worn": 378,
+    "droppedOnLoad": 0,
+    "result": "PASS"
+   }
+  ],
+  "shortOverhang": "PASS: no columns",
+  "animationBuckets": "PASS",
+  "wash": {
+   "cases": [
+    {
+     "case": "wash-small",
+     "power": 30,
+     "size": 30,
+     "droppedOnLoad": 0,
+     "undrainedBedTiles": 0,
+     "downstreamRises": 0,
+     "bedTiles": 382,
+     "worn": 490,
+     "outlet": "edge",
+     "details": {
+      "winding": 86,
+      "sideGullies": 24,
+      "dryFalls": 78,
+      "undercutBanks": 24
+     },
+     "buildableFloorTiles": 0,
+     "leftoverSingleBlocks": 0,
+     "leftoverSmallClusters": 0,
+     "result": "PASS"
+    },
+    {
+     "case": "wash-giant",
+     "power": 100,
+     "size": 100,
+     "droppedOnLoad": 0,
+     "undrainedBedTiles": 0,
+     "downstreamRises": 0,
+     "bedTiles": 2212,
+     "worn": 10849,
+     "outlet": "edge",
+     "details": {
+      "winding": 86,
+      "sideGullies": 24,
+      "dryFalls": 78,
+      "undercutBanks": 24
+     },
+     "buildableFloorTiles": 17,
+     "leftoverSingleBlocks": 0,
+     "leftoverSmallClusters": 0,
+     "result": "PASS"
+    }
+   ],
+   "pinVariants": 8,
+   "click": "PASS",
+   "autoReroll": "PASS",
+   "drainage": "PASS"
+  }
+ },
+ "cases": [
+  {
+   "case": "crater-lip",
+   "map": "crater",
+   "worn": 868,
+   "held": 131,
+   "fell": 17,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 3,
+   "blocksOverAir": 131,
+   "deepest": 12,
+   "roofedTiles": 131,
+   "msToFinal": 10.1,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 836,
+     "held": 141,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 816,
+     "held": 172,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 832,
+     "held": 127,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "canyon-cave",
+   "map": "canyon",
+   "worn": 363,
+   "held": 47,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 2,
+   "blocksOverAir": 64,
+   "deepest": 10,
+   "roofedTiles": 64,
+   "msToFinal": 2.8,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 336,
+     "held": 74,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 325,
+     "held": 85,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 372,
+     "held": 38,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "tall-arch",
+   "map": "tall",
+   "worn": 38,
+   "held": 25,
+   "fell": 1,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 2,
+   "blocksOverAir": 5,
+   "deepest": 1,
+   "roofedTiles": 5,
+   "msToFinal": 2.5,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 38,
+     "held": 25,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 38,
+     "held": 25,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 38,
+     "held": 25,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "tall-shore",
+   "map": "tall",
+   "worn": 104,
+   "held": 24,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 2,
+   "blocksOverAir": 19,
+   "deepest": 2,
+   "roofedTiles": 19,
+   "msToFinal": 1.1,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 101,
+     "held": 25,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 102,
+     "held": 24,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 103,
+     "held": 24,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-small",
+   "map": "wash",
+   "worn": 490,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 3.9,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 487,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 490,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 482,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-giant",
+   "map": "wash",
+   "worn": 10849,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 2,
+   "blocksOverAir": 78,
+   "deepest": 2,
+   "roofedTiles": 78,
+   "msToFinal": 17,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 13647,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 12571,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 12564,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-terraces-up",
+   "map": "terraces",
+   "worn": 1574,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 7.2,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 1615,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 1451,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 1479,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-terraces-down",
+   "map": "terraces",
+   "worn": 1574,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 8.5,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 1615,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 1451,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 1479,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-step",
+   "map": "step",
+   "worn": 2028,
+   "held": 140,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 3,
+   "blocksOverAir": 101,
+   "deepest": 17,
+   "roofedTiles": 101,
+   "msToFinal": 24.4,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 2126,
+     "held": 115,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 1955,
+     "held": 166,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 2032,
+     "held": 145,
+     "dropped": 0
+    }
+   ]
+  },
+  {
+   "case": "wash-rise",
+   "map": "rise",
+   "worn": 4834,
+   "held": 0,
+   "fell": 0,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "reach": 0,
+   "blocksOverAir": 0,
+   "deepest": 0,
+   "roofedTiles": 0,
+   "msToFinal": 12.5,
+   "seconds": 0.65,
+   "tryAnother": [
+    {
+     "seed": 2,
+     "worn": 4901,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 3,
+     "worn": 4676,
+     "held": 0,
+     "dropped": 0
+    },
+    {
+     "seed": 4,
+     "worn": 6459,
+     "held": 0,
+     "dropped": 0
+    }
+   ]
+  }
+ ],
+ "random": [
+  {
+   "map": "highlands",
+   "gestures": 40,
+   "acted": 40,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
+   "maxReach": 3,
+   "slowestMs": 26,
+   "result": "PASS"
+  },
+  {
+   "map": "canyon",
+   "gestures": 40,
+   "acted": 40,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
+   "maxReach": 3,
+   "slowestMs": 12,
+   "result": "PASS"
+  },
+  {
+   "map": "crater",
+   "gestures": 40,
+   "acted": 40,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
+   "maxReach": 3,
+   "slowestMs": 14,
+   "result": "PASS"
+  },
+  {
+   "map": "tall",
+   "gestures": 40,
+   "acted": 40,
+   "droppedOnLoad": 0,
+   "bottomVoxelsRemoved": 0,
+   "chosenFloorGestures": 40,
+   "chosenFloorDroppedOnLoad": 0,
+   "belowFloorVoxelsRemoved": 0,
+   "maxReach": 3,
+   "slowestMs": 8,
+   "result": "PASS"
+  }
+ ]
+}

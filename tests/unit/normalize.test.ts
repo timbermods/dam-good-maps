@@ -164,7 +164,7 @@ describe("import normalization (PLAN §19.6)", () => {
     const s = MapSession.importMap(timber(oldWorld()), "Old map.timber");
     expect(s.mode).toBe("import");
     const out = s.exportTimber();
-    expect(out.fileName).toBe("Old map.timber");
+    expect(out.fileName).toBe("dgm-old-map.timber");
     const world = strFromU8(unzipSync(out.bytes)["world.json"]);
     expect(world).toBe(encodeWorld(w));
     const again = MapSession.importMap(out.bytes, out.fileName);

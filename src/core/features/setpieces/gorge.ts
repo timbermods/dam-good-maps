@@ -8,6 +8,7 @@
 // slope (a chained slope climbs them), up to the ground behind the wall. The notch runs square to
 // the river, along the map's axes, so every step meets the next side to side.
 
+import * as portable from "../../math/portable";
 import { bedAt, pointAtArc } from "../geometry";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import type { Feature, RiverFeature, SetPieceFeature } from "../schema";
@@ -54,7 +55,7 @@ function nearest(path: readonly [number, number][], x: number, y: number): { d: 
     const vx = path[i + 1][0] - ax;
     const vy = path[i + 1][1] - ay;
     const l2 = vx * vx + vy * vy;
-    const l = Math.sqrt(l2);
+    const l = portable.sqrt(l2);
     let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
@@ -67,7 +68,7 @@ function nearest(path: readonly [number, number][], x: number, y: number): { d: 
     }
     acc += l;
   }
-  return { d: Math.sqrt(best), s: bestS };
+  return { d: portable.sqrt(best), s: bestS };
 }
 
 /** The notch's tiles, from the first tile outside the channel outward, square to the river along
@@ -156,7 +157,7 @@ export const gorge: SetPieceBuilder = {
     const report: string[] = [];
     const path = river.params.path;
     let total = 0;
-    for (let i = 0; i + 1 < path.length; i++) total += Math.sqrt((path[i + 1][0] - path[i][0]) ** 2 + (path[i + 1][1] - path[i][1]) ** 2);
+    for (let i = 0; i + 1 < path.length; i++) total += portable.sqrt(portable.pow(path[i + 1][0] - path[i][0], 2) + portable.pow(path[i + 1][1] - path[i][1], 2));
     let length = clampReported("Length", Math.round(Number(req.length)), { min: 6, max: 40 }, report, "a gorge has (PLAN §9.9)");
     let from = Math.max(1, Number(req.from));
     if (from + length > total - 1) {

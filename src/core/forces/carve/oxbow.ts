@@ -4,6 +4,7 @@
 //
 // Ported from investigation/carve/oxbow.ts (PR #47), kept to its structure.
 
+import * as portable from "../../math/portable";
 import type { Point } from "./course";
 import type { Station } from "./run";
 
@@ -36,7 +37,7 @@ export function findNeck(path: Station[], step: number): Oxbow | null {
     const A = path[start];
     const dx = B.x - A.x;
     const dy = B.y - A.y;
-    const d = Math.hypot(dx, dy);
+    const d = portable.hypot(dx, dy);
     const radius = Math.min(A.width, B.width);
     const arc = (end - start) * 1.35;
     if (d < radius * 2 + 3 || d > radius * 4 + 10 || arc < d * 2.2) continue;

@@ -1,0 +1,11 @@
+const path=require('node:path');
+const ts=require('./local/node_modules/typescript');
+const transform=require('./transform.cjs');
+const opts={noEmit:true,strict:true,skipLibCheck:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,resolveJsonModule:true};
+const host=ts.createCompilerHost(opts),read=host.readFile;
+host.readFile=file=>{const text=read(file);return text===undefined?text:transform(file,text);};
+const program=ts.createProgram(['src/core/land/genome.ts','src/core/land/hydro.ts'].map(p=>path.resolve(__dirname,'../..',p)),opts,host);
+const diagnostics=ts.getPreEmitDiagnostics(program);
+if(diagnostics.length)console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics,{getCurrentDirectory:()=>process.cwd(),getCanonicalFileName:f=>f,getNewLine:()=> '\n'}));
+console.log(`Typecheck: ${program.getSourceFiles().length} files, ${diagnostics.length} diagnostics`);
+process.exitCode=diagnostics.length?1:0;

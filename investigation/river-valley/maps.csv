@@ -1,0 +1,121 @@
+mode,size,seed,absolute_pass,all,water,promise,standout,land_ms,cpu_land_ms,settled_ms,lands,shown,changed,main_share,systems,ponds,main_wet,least_wet,reach,why,summary,failed_checks,fixes,logs,mines
+before,96,1,True,True,True,True,True,1443,1442,2122,1,1,72,0.985,1,3,0.917,0.636,0.569,,water reads | promise kept | standout: stepped-lakes,,,332,2
+before,96,2,True,True,True,True,True,1423,1423,2049,1,1,49,1,0,0,1,1,0.498,,water reads | promise kept | standout: under-cliff,,,848,2
+before,96,3,True,True,True,True,True,273,273,884,1,1,44,1,0,0,1,1,0.556,,water reads | promise kept | standout: relic-pinnacle,,,603,2
+before,96,4,True,True,True,True,True,327,327,813,1,1,65,1,0,0,1,1,0.59,,water reads | promise kept | standout: upper-lower,,,647,2
+before,96,5,True,False,False,False,True,461,461,1576,1,1,64,0.818,1,5,0.37,0.37,0.593,the main river holds water on 37% of its course,water: the main river holds water on 37% of its course | no a main river through a broad valley | standout: stepped-lakes,,,247,2
+before,96,6,True,True,True,True,True,539,539,826,1,1,61,1,0,0,1,0.809,0.533,,water reads | promise kept | standout: district-behind,,,288,2
+before,96,7,True,False,False,False,True,1192,1192,1520,1,1,71,1,0,0,0.786,0.786,0.4,the main river holds water on 79% of its course,water: the main river holds water on 79% of its course | no a main river through a broad valley | standout: under-cliff,,,246,2
+before,96,8,True,True,True,True,True,424,411,1764,1,1,124,0.999,0,3,0.953,0.886,0.574,,water reads | promise kept | standout: high-lake,,,330,2
+before,96,9,True,True,True,True,True,419,419,4648,1,1,73,0.904,1,1,0.938,0.938,0.536,,water reads | promise kept | standout: long-view,,start on dry ground; spring by the start,368,2
+before,96,10,True,False,False,True,True,608,608,1166,1,1,73,1,0,0,1,0.708,0.338,only 34% of the land lies near clean water,water: only 34% of the land lies near clean water | promise kept | standout: landmark,,,292,2
+before,96,11,True,False,False,False,True,821,820,1377,1,1,50,1,0,0,0.738,0.738,0.577,the main river holds water on 74% of its course,water: the main river holds water on 74% of its course | no a main river through a broad valley | standout: under-cliff,,,241,2
+before,96,12,True,True,True,True,True,458,458,834,1,1,64,0.849,1,1,1,0.892,0.551,,water reads | promise kept | standout: under-cliff,,,620,2
+before,96,13,True,True,True,True,True,301,293,592,1,1,104,1,0,0,1,1,0.498,,water reads | promise kept | standout: high-lake,,,664,2
+before,96,14,True,True,True,True,True,137,125,1438,1,1,127,1,0,0,1,0.979,0.549,,water reads | promise kept | standout: landmark,,,513,2
+before,96,15,True,False,True,False,True,1272,1272,2453,1,1,65,1,0,0,0.976,0.976,0.526,,water reads | no a main river through a broad valley | standout: under-cliff,,,207,2
+before,96,16,True,True,True,True,True,217,217,1309,1,1,57,1,0,0,1,1,0.456,,water reads | promise kept | standout: upper-lower,,spring by the start,322,2
+before,96,17,True,True,True,True,True,233,232,699,1,1,85,1,0,0,1,1,0.527,,water reads | promise kept | standout: hidden-valley,,,438,2
+before,96,18,True,True,True,True,True,851,804,1539,1,1,63,0.874,1,0,1,0.951,0.598,,water reads | promise kept | standout: landmark,,,644,2
+before,96,19,True,True,True,True,True,1429,1314,2157,1,1,103,0.985,1,0,1,0.791,0.528,,water reads | promise kept | standout: landmark,,,304,2
+before,96,20,True,True,True,True,True,771,649,1107,1,1,57,0.933,1,0,1,0.971,0.528,,water reads | promise kept | standout: snaking-river,,,695,2
+before,128,1,True,True,True,True,True,788,787,1630,1,1,119,0.967,1,0,1,0.787,0.567,,water reads | promise kept | standout: under-cliff,,,442,2
+before,128,2,True,False,False,True,True,2090,2090,5203,1,1,58,0.926,1,0,0.685,0.642,0.44,the main river holds water on 69% of its course,water: the main river holds water on 69% of its course | promise kept | standout: meeting-waters,,,557,2
+before,128,3,True,True,True,True,True,490,490,1367,1,1,118,1,0,0,1,1,0.501,,water reads | promise kept | standout: relic-pinnacle,,,336,2
+before,128,4,True,True,True,True,True,353,353,2405,1,1,39,0.98,1,0,1,1,0.65,,water reads | promise kept | standout: under-cliff,,,565,2
+before,128,5,True,False,False,True,True,2097,2097,3606,1,1,174,1,0,0,0.826,0.696,0.499,the main river holds water on 83% of its course,water: the main river holds water on 83% of its course | promise kept | standout: long-view,,,922,2
+before,128,6,True,True,True,True,True,800,799,1570,1,1,51,1,0,0,1,1,0.476,,water reads | promise kept | standout: hidden-valley,,,287,2
+before,128,7,True,False,True,False,True,280,217,22863,1,1,68,0.906,2,2,1,0.9,0.595,,water reads | no a main river through a broad valley | standout: landmark,,lake spring,309,2
+before,128,8,True,True,True,True,True,604,604,1477,1,1,127,1,0,0,1,1,0.483,,water reads | promise kept | standout: under-cliff,,,390,2
+before,128,9,True,False,True,False,True,4982,4413,6584,1,1,74,1,0,0,0.987,0.885,0.454,,water reads | no a main river through a broad valley | standout: under-cliff,,,668,2
+before,128,10,True,False,False,True,True,830,784,2584,1,1,65,0.624,4,5,0.968,0.747,0.517,the main system holds 62% of the water; 4 other water systems,water: the main system holds 62% of the water; 4 other water systems | promise kept | standout: farmland-past-gorge,,,344,2
+before,128,11,True,False,False,True,True,1002,1002,1773,1,1,44,0.355,1,0,0.728,0.728,0.618,the main system holds 36% of the water; 2 rivers never join it; the main river holds water on 73% of its course,water: the main system holds 36% of the water; 2 rivers never join it; the main river holds water on 73% of its course | promise kept | standout: stepped-lakes,,,408,2
+before,128,12,True,False,False,False,True,2173,1975,14664,1,1,64,0.573,5,3,1,0.315,0.808,the main system holds 57% of the water; 5 other water systems; a river holds water on 31% of its course,water: the main system holds 57% of the water; 5 other water systems; a river holds water on 31% of its course | no a main river through a broad valley | standout: landmark,,spring by the start,274,2
+before,128,13,True,True,True,True,True,1409,1406,3500,1,1,160,0.999,0,1,1,0.976,0.566,,water reads | promise kept | standout: hidden-valley,,,407,2
+before,128,14,True,True,True,True,True,470,427,4171,1,1,64,0.963,1,0,0.919,0.919,0.667,,water reads | promise kept | standout: split-island,,,296,2
+before,128,15,True,True,True,True,True,1305,1292,4121,1,1,48,0.998,0,3,1,0.862,0.612,,water reads | promise kept | standout: long-view,,spring by the start,276,2
+before,128,16,True,False,False,True,True,421,339,22879,1,1,178,0.566,3,1,0.886,0.803,0.742,the main system holds 57% of the water,water: the main system holds 57% of the water | promise kept | standout: meeting-waters,,lake fed,351,2
+before,128,17,True,False,False,True,True,1084,905,6657,1,1,51,0.998,0,1,1,0.489,0.603,a river holds water on 49% of its course,water: a river holds water on 49% of its course | promise kept | standout: landmark,,,268,2
+before,128,18,True,True,True,True,True,1124,1005,2512,1,1,94,0.836,1,0,1,0.84,0.522,,water reads | promise kept | standout: snaking-river,,,476,2
+before,128,19,True,True,True,True,True,691,665,1849,1,1,95,1,0,0,1,0.891,0.492,,water reads | promise kept | standout: plug-lake,,,336,2
+before,128,20,True,False,True,False,True,643,444,3209,1,1,62,1,0,0,0.957,0.949,0.692,,water reads | no a main river through a broad valley | standout: hidden-valley,,,688,2
+before,256,1,True,True,True,True,True,9431,8920,28801,1,1,333,0.995,0,3,0.989,0.68,0.633,,water reads | promise kept | standout: upper-lower,,,267,3
+before,256,2,True,False,False,True,True,6283,4972,28147,1,1,53,0.993,1,2,1,0.58,0.581,a river holds water on 58% of its course,water: a river holds water on 58% of its course | promise kept | standout: under-cliff,,,360,3
+before,256,3,True,True,True,True,True,3370,2509,9903,1,1,156,1,0,0,1,0.817,0.637,,water reads | promise kept | standout: relic-pinnacle,,,258,2
+before,256,4,True,False,False,False,True,4283,3155,15519,1,1,124,0.646,2,1,1,0.8,0.504,the main system holds 65% of the water; 3 rivers never join it,water: the main system holds 65% of the water; 3 rivers never join it | no a main river through a broad valley | standout: snaking-river,,,344,3
+before,256,5,True,True,True,True,True,1712,1546,5724,1,1,87,0.996,0,2,1,0.871,0.511,,water reads | promise kept | standout: stepped-lakes,,,1248,3
+before,256,6,True,True,True,True,True,4719,3930,10695,1,1,301,0.965,2,0,1,0.776,0.693,,water reads | promise kept | standout: landmark,,,246,3
+before,256,7,True,True,True,True,True,2203,1460,25515,1,1,88,0.957,1,3,0.956,0.898,0.792,,water reads | promise kept | standout: high-lake,,,273,3
+before,256,8,True,False,False,True,True,10616,7439,17202,1,1,72,0.556,3,1,0.982,0.895,0.563,the main system holds 56% of the water; 2 rivers never join it,water: the main system holds 56% of the water; 2 rivers never join it | promise kept | standout: under-cliff,,,1216,3
+before,256,9,True,True,True,True,True,2722,1926,8379,1,1,285,0.998,0,1,1,0.61,0.633,,water reads | promise kept | standout: under-cliff,,,464,3
+before,256,10,True,True,True,True,True,2085,1610,7493,1,1,465,0.873,1,0,1,0.869,0.532,,water reads | promise kept | standout: landmark,,,570,3
+before,256,11,True,False,False,False,True,11263,7125,25909,1,1,65,0.457,1,1,1,0.618,0.453,the main system holds 46% of the water; 3 rivers never join it,water: the main system holds 46% of the water; 3 rivers never join it | no a main river through a broad valley | standout: snaking-river,,,284,3
+before,256,12,True,True,True,True,True,2697,1539,8240,1,1,115,0.983,1,1,0.931,0.871,0.487,,water reads | promise kept | standout: snaking-river,,,401,3
+before,256,13,True,True,True,True,True,3549,1928,18111,1,1,65,0.997,0,1,1,0.918,0.768,,water reads | promise kept | standout: snaking-river,,,293,3
+before,256,14,True,True,True,True,True,2956,1604,10108,1,1,77,0.982,1,0,0.996,0.848,0.571,,water reads | promise kept | standout: landmark,,,358,3
+before,256,15,True,True,True,True,True,13171,8609,22471,1,1,90,0.993,1,1,0.995,0.876,0.747,,water reads | promise kept | standout: snaking-river,,,338,3
+before,256,16,True,False,True,False,True,4573,3227,15403,1,1,108,0.746,1,1,1,0.844,0.536,,water reads | no a main river through a broad valley | standout: snaking-river,,,316,3
+before,256,17,True,True,True,True,True,3665,2407,10448,1,1,275,0.995,0,4,1,0.951,0.451,,water reads | promise kept | standout: high-lake,,,444,3
+before,256,18,True,False,False,True,True,4625,3243,11074,1,1,137,0.531,3,5,1,0.802,0.572,the main system holds 53% of the water; 2 rivers never join it,water: the main system holds 53% of the water; 2 rivers never join it | promise kept | standout: under-cliff,,,277,3
+before,256,19,True,True,True,True,True,3400,2366,18353,1,1,96,0.992,0,2,1,0.959,0.727,,water reads | promise kept | standout: snaking-river,,,257,3
+before,256,20,True,False,True,False,True,1811,1239,11653,1,1,115,1,0,0,1,0.988,0.711,,water reads | no a main river through a broad valley | standout: under-cliff,,,330,3
+after,96,1,True,False,True,False,True,2332,882,7831,1,1,76,1,0,0,1,1,0.385,,water reads | no a main river through a broad valley | standout: under-cliff,,,410,2
+after,96,2,True,False,False,True,True,2773,1308,3604,1,1,49,1,0,0,1,0.566,0.583,a river holds water on 57% of its course,water: a river holds water on 57% of its course | promise kept | standout: under-cliff,,,860,2
+after,96,3,True,True,True,True,True,959,415,2622,1,1,48,1,0,0,1,1,0.554,,water reads | promise kept | standout: relic-pinnacle,,,455,2
+after,96,4,True,True,True,True,True,1053,455,2047,1,1,58,1,0,0,1,1,0.587,,water reads | promise kept | standout: hidden-valley,,,272,2
+after,96,5,True,True,True,True,True,512,243,1902,1,1,215,1,0,0,0.944,0.944,0.445,,water reads | promise kept | standout: under-cliff,,,355,2
+after,96,6,True,True,True,True,True,2287,741,4558,1,1,134,1,0,0,1,1,0.506,,water reads | promise kept | standout: landmark,,,289,2
+after,96,7,True,True,True,True,True,1032,419,3452,1,1,48,1,0,0,1,0.944,0.621,,water reads | promise kept | standout: meeting-waters,,,310,2
+after,96,8,True,True,True,True,True,1608,592,4090,1,1,172,1,0,0,1,1,0.539,,water reads | promise kept | standout: landmark,,,750,2
+after,96,9,True,True,True,True,True,1264,568,10779,1,1,80,1,0,0,0.938,0.938,0.478,,water reads | promise kept | standout: long-view,,start on dry ground; spring by the start,296,2
+after,96,10,True,True,True,True,True,630,304,1988,1,1,136,1,0,0,1,0.971,0.498,,water reads | promise kept | standout: landmark,,,1046,2
+after,96,11,True,True,True,True,True,2890,1258,3753,1,1,63,1,0,0,1,1,0.65,,water reads | promise kept | standout: upper-lower,,,318,2
+after,96,12,True,True,True,True,True,2778,959,4033,1,1,43,1,0,0,1,0.944,0.507,,water reads | promise kept | standout: landmark,,,472,2
+after,96,13,True,True,True,True,True,2271,881,4928,1,1,71,1,0,0,1,1,0.542,,water reads | promise kept | standout: high-lake,,,521,2
+after,96,14,True,True,True,True,True,944,382,3377,1,1,121,1,0,0,1,0.979,0.533,,water reads | promise kept | standout: landmark,,,604,2
+after,96,15,True,True,True,True,True,2346,1041,3830,1,1,149,1,0,0,1,1,0.418,,water reads | promise kept | standout: two-ways,,,317,2
+after,96,16,True,True,True,True,True,1020,413,1460,1,1,71,0.843,1,0,1,0.8,0.452,,water reads | promise kept | standout: under-cliff,,,291,2
+after,96,17,True,True,True,True,True,703,245,1608,1,1,48,1,0,0,1,1,0.466,,water reads | promise kept | standout: landmark,,,391,2
+after,96,18,True,True,True,True,True,1348,695,2661,1,1,123,0.941,1,0,1,0.97,0.621,,water reads | promise kept | standout: snaking-river,,,634,2
+after,96,19,True,True,True,True,True,3660,1527,5613,1,1,45,1,0,0,1,1,0.529,,water reads | promise kept | standout: snaking-river,,,274,2
+after,96,20,True,True,True,True,True,1513,693,15981,1,1,216,0.942,2,0,1,0.952,0.448,,water reads | promise kept | standout: farmland-past-gorge,,,786,2
+after,128,1,True,True,True,True,True,1152,1151,2688,1,1,124,1,0,0,1,0.949,0.585,,water reads | promise kept | standout: under-cliff,,,472,2
+after,128,2,True,True,True,True,True,2228,2034,3278,1,1,51,1,0,0,1,1,0.434,,water reads | promise kept | standout: under-cliff,,,328,2
+after,128,3,True,True,True,True,True,1268,980,2425,1,1,89,1,0,0,1,1,0.473,,water reads | promise kept | standout: upper-lower,,,611,2
+after,128,4,True,True,True,True,True,617,524,3549,1,1,48,1,0,0,1,1,0.631,,water reads | promise kept | standout: meeting-waters,,,422,2
+after,128,5,True,True,True,True,True,1529,1375,3244,1,1,153,1,0,0,1,1,0.437,,water reads | promise kept | standout: relic-pinnacle,,,360,2
+after,128,6,True,True,True,True,True,1004,911,2030,1,1,88,1,0,0,1,1,0.482,,water reads | promise kept | standout: landmark,,,636,2
+after,128,7,True,False,False,False,True,497,432,2110,1,1,41,1,0,0,1,1,0.347,only 35% of the land lies near clean water,water: only 35% of the land lies near clean water | no a main river through a broad valley | standout: hidden-valley,,,518,2
+after,128,8,True,True,True,True,True,641,553,1378,1,1,108,0.936,1,0,0.948,0.887,0.434,,water reads | promise kept | standout: long-view,,,273,2
+after,128,9,True,False,False,True,True,2269,1876,3913,1,1,123,0.939,1,0,0.897,0.571,0.518,a river holds water on 57% of its course,water: a river holds water on 57% of its course | promise kept | standout: crater-rivers,,,350,2
+after,128,10,True,True,True,True,True,722,613,2159,1,1,113,1,0,0,1,0.816,0.444,,water reads | promise kept | standout: snaking-river,,,592,2
+after,128,11,True,True,True,True,True,1186,1134,2529,1,1,48,1,0,0,0.988,0.943,0.596,,water reads | promise kept | standout: relic-pinnacle,,,248,2
+after,128,12,True,True,True,True,True,5088,3510,6196,1,1,110,1,0,0,0.983,0.983,0.584,,water reads | promise kept | standout: snaking-river,,,506,2
+after,128,13,True,True,True,True,True,618,468,1645,1,1,60,1,0,0,1,1,0.596,,water reads | promise kept | standout: hidden-valley,,,304,2
+after,128,14,True,True,True,True,True,569,433,2318,1,1,82,1,0,0,1,0.948,0.667,,water reads | promise kept | standout: landmark,,,461,2
+after,128,15,True,True,True,True,True,839,649,1544,1,1,54,0.97,1,0,1,1,0.381,,water reads | promise kept | standout: under-cliff,,,310,2
+after,128,16,True,True,True,True,True,577,388,2563,1,1,156,0.971,1,0,1,0.628,0.607,,water reads | promise kept | standout: farmland-past-gorge,,,454,2
+after,128,17,True,True,True,True,True,569,506,1228,1,1,145,1,0,0,1,0.918,0.503,,water reads | promise kept | standout: two-ways,,,423,2
+after,128,18,True,True,True,True,True,732,720,1450,1,1,60,1,0,0,1,1,0.557,,water reads | promise kept | standout: landmark,,,355,2
+after,128,19,True,True,True,True,True,440,384,6864,1,1,69,0.972,2,2,1,1,0.523,,water reads | promise kept | standout: plug-lake,,spring by the start,289,2
+after,128,20,True,True,True,True,True,554,489,1670,1,1,113,0.961,1,0,0.979,0.979,0.6,,water reads | promise kept | standout: farmland-past-gorge,,,244,2
+after,256,1,True,True,True,True,True,2816,2582,29212,1,1,82,1,0,0,1,0.902,0.522,,water reads | promise kept | standout: snaking-river,,,314,3
+after,256,2,True,False,True,False,True,5295,4326,10004,1,1,140,1,0,0,0.874,0.874,0.477,,water reads | no a main river through a broad valley | standout: two-ways,,,1380,3
+after,256,3,True,True,True,True,True,2408,2407,7662,1,1,59,1,0,0,1,0.693,0.557,,water reads | promise kept | standout: hidden-valley,,,276,3
+after,256,4,True,True,True,True,True,1678,1678,134032,1,1,113,1,0,0,1,0.685,0.664,,water reads | promise kept | standout: cliff-falls-lake,,start on dry ground; spring by the start,358,3
+after,256,5,True,True,True,True,True,1128,1128,4164,1,1,62,1,0,0,1,0.702,0.451,,water reads | promise kept | standout: snaking-river,,,672,3
+after,256,6,True,True,True,True,True,2244,2244,7834,1,1,118,0.946,1,2,1,0.641,0.472,,water reads | promise kept | standout: two-ways,,,601,3
+after,256,7,True,False,False,True,True,2223,2222,6840,1,1,159,1,0,0,0.997,0.56,0.619,a river holds water on 56% of its course,water: a river holds water on 56% of its course | promise kept | standout: two-ways,,,280,3
+after,256,8,True,True,True,True,True,1084,1084,6964,1,1,136,0.937,1,2,0.996,0.823,0.615,,water reads | promise kept | standout: upper-lower,,,366,3
+after,256,9,True,True,True,True,True,2022,1784,5532,1,1,108,0.998,0,1,1,1,0.557,,water reads | promise kept | standout: snaking-river,,,1488,3
+after,256,10,True,True,True,True,True,1727,1704,4537,1,1,138,1,0,0,1,0.739,0.42,,water reads | promise kept | standout: landmark,,,733,3
+after,256,11,True,False,False,False,True,7295,7295,9238,1,1,157,1,0,0,1,0.987,0.26,only 26% of the land lies near clean water,water: only 26% of the land lies near clean water | no a main river through a broad valley | standout: snaking-river,,,720,3
+after,256,12,True,True,True,True,True,1186,1186,6816,1,1,77,0.779,1,5,0.978,0.783,0.548,,water reads | promise kept | standout: snaking-river,,,440,3
+after,256,13,True,True,True,True,True,1760,1697,6623,1,1,77,1,0,0,1,1,0.696,,water reads | promise kept | standout: snaking-river,,,306,3
+after,256,14,True,True,True,True,True,1645,1645,5147,1,1,65,1,0,0,1,1,0.498,,water reads | promise kept | standout: landmark,,,310,3
+after,256,15,True,True,True,True,True,3189,3188,7078,1,1,394,0.911,1,2,0.908,0.721,0.37,,water reads | promise kept | standout: relic-pinnacle,,,530,3
+after,256,16,True,True,True,True,True,1729,1698,15577,1,1,62,1,0,0,0.99,0.846,0.49,,water reads | promise kept | standout: high-lake,,,380,3
+after,256,17,True,True,True,True,True,1354,1354,6460,1,1,101,1,0,0,0.988,0.963,0.389,,water reads | promise kept | standout: meeting-waters,,,320,3
+after,256,18,True,True,True,True,True,3349,3215,12276,1,1,70,0.958,1,0,1,0.901,0.651,,water reads | promise kept | standout: under-cliff,,,511,3
+after,256,19,True,True,True,True,True,4588,4524,17548,1,1,94,1,0,0,0.869,0.869,0.652,,water reads | promise kept | standout: high-lake,,,684,3
+after,256,20,True,True,True,True,True,2514,2514,9300,1,1,130,1,0,0,1,0.959,0.677,,water reads | promise kept | standout: snaking-river,,,306,3

@@ -1059,6 +1059,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       continue;
     }
     if (PLANTS.has(template)) {
+      // every tree upright on its tile, as in the game (D321, item 7: a knocked-down one is dead)
       const dead = !!(flags & DEAD);
       const s = (flags & YOUNG ? 0.5 : 0.85 + 0.3 * jitter(x, y, 1)) * (dead ? 0.95 : 1);
       const tint = dead ? 0.94 + 0.08 * jitter(x, y, 5) : 0.9 + 0.2 * jitter(x, y, 5);

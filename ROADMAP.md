@@ -13,7 +13,7 @@ differently, this file wins.
   that serves both halves.
 - **Editor-ready from the first milestone.** M1 already generates maps *from* parametric features
   and offers them as a project file, so the editor opens every generated map with its plan kept,
-  for "Generate, keeping my edits" and Claude's steering. No generator code is
+  for the analysis and Claude's steering. No generator code is
   retrofitted later. (The editor showed those features as objects with handles until Live
   editing; the brushes shape the land now, D182, D184.)
 - **Every milestone ends with its blocking criteria met and its tests green.**
@@ -54,6 +54,20 @@ differently, this file wins.
   `docs/sheets/<step>.png`: seeds 1–30 of every built theme at 128², top-down, each labelled with
   its seed and theme; our own generated maps only; under 1 MB.
 
+**The order after 2026-09-29 (Kyler, PLAN §20 D349), which this file follows:**
+1. **Finish the editor as players will know it:** the forces release, M9b's release, the High look's release, the
+   parity batch (D337–D339), "The page is the editor" (D330). Then the **Weather view** (Drought and Badtide, day by day,
+   #73), which brings the High look's contamination veins into the Badtide view and the Unstable Core's moment into its
+   timeline; its sitting comes then (D349, 2026-09-30).
+   Then **custom map sizes** (D357): any width and height from 4 to 512, shaped by the generator, after a probe of
+   large and long maps in the game.
+2. **3D, terrain above terrain:** the foundations, the view, then Erode and the Block tool (D279–D281, D335).
+3. **Polish until mature:** Kyler's editor UI audit and the design pass (D236), and every feature feeling finished. The 20-second live tour of the editor's best controls is built here (D377; its section follows the design pass's).
+   **M13** (problem reports, shortcuts and help, a final performance pass) folds in here, all done before collaborative
+   editing's first users (D349, 2026-09-30).
+4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
+5. **M12 (Claude)**, after collaborative editing (D277, D342).
+
 ## Overview
 
 | # | Milestone | From | In-game check (logged as pending, D11) | Effort |
@@ -74,10 +88,10 @@ differently, this file wins.
 | 3D-2 | Terrain above terrain, step 2: the view, after Map look 2 | DESIGN.md §6–7 · D126, D280, D281 | no | high |
 | 3D-3 | Terrain above terrain, step 3: creating them (Erode, the block tool), after the view | EDITOR_PLAN Part 1 §9 · D182, D257, D258, D279–D281 | a probe batch (T5, T2 on edited maps) | high |
 | 3D-4 | Terrain above terrain, step 4: generation, once M9b has settled | DESIGN.md §5 · PLAN §5.9 · D123, D132, D138, D280 | a probe batch (T1–T4, T6, T7; D145) | high |
-| Weather | Weather view: the drought line and a map-card line, after the 3D stages (slimmed, D285) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
-| Design | Design pass, straight after Kyler's editor UI audit of the combined page (D236), alongside M9b | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
+| Weather | Weather view: the drought line and a map-card line; Drought and Badtide day by day (#73) with the contamination veins and the Unstable Core's moment; closes step 1, after "The page is the editor" (D285, D349) | investigation/cycles/, investigation/mechanics/ · PLAN §20 D133, D186, D253, D267, D269, D285 | none beyond D267's buttons | high |
+| Design | Design pass, in step 3, polish, after 3D: Kyler's editor UI audit, then the design pass (D236, D349) | the impeccable-app-flow skill (timbermods/.github, `claude-skills/`) · old milestone 6 | no | high |
 | M12 | Claude integration (deferred until Kyler resumes it, D277) | EDITOR_PLAN: Claude integration, Testing (the Claude suite) · PLAN §19.9 · the Claude groundwork (D88) · the workshop study (D87) · steering, a provider-neutral layer, the summoned chat box and brush-style edits (D139, D140, D187) | yes (the waterfall and compound requests) | xhigh |
-| M13 | Problem reports, shortcuts and help, a final performance pass (slimmed, D285) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
+| M13 | Problem reports, shortcuts and help, a final performance pass, folded into the polish step before collaborative editing (D285, D349) | PLAN §2.3, §14, §15, old milestone 6 | none | high |
 | Later | See the end of this file, now including versioned deploys, mobile layouts and the build time-lapse (D285) | PLAN §5.7, old milestone 7 · EDITOR_PLAN Part 1 §9 | per item | — |
 
 In the rows for M1–M8 and Look, "EDITOR §n" and E1–E9 name EDITOR_PLAN.md's sections and
@@ -103,7 +117,7 @@ rivers and lakes are superseded by Live editing (D182, D184; EDITOR_PLAN.md Part
   `3d-c-done` split;
 - the Weather view (slimmed to the drought line and a map-card line, D285 (2)): tagged
   `weather-view-done`;
-- the design pass: tagged `design-done` (straight after Kyler's editor UI audit, D236);
+- the design pass: tagged `design-done` (in step 3, polish, after 3D, following Kyler's editor UI audit; D236, D349);
   **housekeeping** (the former refinement phase's remaining items, D283 (3)) has no milestone, gate
   or tag — each item ships on its own, when convenient;
 - after M12: Claude.
@@ -291,7 +305,7 @@ The deviations are PLAN §20 D24–D34. In-game checks B1–B4 are pending.
 - Every voxel-format investigation map imports and re-exports its normalized world byte for byte.
 - The two 0.6 maps import.
 - Generate, add a user feature, change a setting, regenerate: the user feature survives and
-  nothing is silently dropped.
+  nothing is silently dropped. (Superseded by D336: edits never replay onto new land.)
 - The spike report answers each open question with evidence.
 
 **In-game check:** no. Import normalization is checked in game at M8 (F3).
@@ -307,7 +321,7 @@ criterion passes:
 - all 30 voxel-format investigation maps re-export their normalized world byte for byte, and the
   two 0.6 maps import;
 - regeneration keeps the player's features and flags every edit that no longer applies, with
-  its reason;
+  its reason (superseded by D336);
 - the spike report answers the open questions with evidence.
 
 Two spike questions need Kyler's own run of the published page: `sample`'s latency with tools,
@@ -339,7 +353,8 @@ and who can open the artifact. The deviations are PLAN §20 D35–D41, and D8 an
 **Acceptance**
 - Every investigation map imports, renders and exports unchanged.
 - The 3D view builds in < 1.5 s at 256² and orbits at 60 fps on a mid-range laptop.
-- Generate → refine → back to settings → regenerate → refine keeps user edits.
+- Generate → refine → back to settings → regenerate → refine keeps user edits. (Superseded by
+  D336: Generate makes a new map, and the edited one stays one step away.)
 
 **In-game check:** no.
 
@@ -354,7 +369,8 @@ criterion passes:
   the budget was judged on its integrated GPU with the CPU slowed 4× on a laptop-sized screen
   (D46);
 - generate → refine → back to settings → regenerate → refine keeps the player's edits, tested
-  through the page.
+  through the page (superseded by D336: Generate makes a new map, and Back to editing returns to
+  the edited one).
 
 The deviations are PLAN §20 D42–D46.
 
@@ -905,51 +921,62 @@ released as `live-editing-done` when Kyler says it feels right.
 
 **Before `live-editing-done`** (Kyler, 2026-09-26; D212): sources move to the left shelf as two items after
 Start (Water source, Badwater source); clear water only under or around the brush when it's over water,
-and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Next:
-Carve, Craterize, Erupt and Quake (with both Lift and Slide) merged and built as buttons on one shared
-forces core (D216, D219), put on the preview, and released only after Kyler has tried them. Both
+and still reading as water (a faint blue tint, ripples, a soft bright shoreline). Then released. Both
 changes are built, and Carve with them, for the preview (`docs/progress/live-editing.md`).
+
+**The forces** (D216, D219, D220, D226): Carve, Craterize, Erupt and Quake (with both Lift and Slide)
+are built as the forces group's four buttons on one shared forces core (Codex's, #59), on branch
+`feature/forces` (`docs/progress/forces.md`). Kyler's review (D226) is built in its second round:
+Erupt kept to the demo (a peak within the room it has, new cones on the flanks, always complete),
+Power and size separate in every force (Carve's Depth), the brush size in its row, the shelf's order,
+and the editor's sounds on Codex's second round (#64: recorded CC0 foley, clearly audible by default).
+Round 2b: Unleash on water sources (D239: a selected source's own water carves its river), Smooth's
+walkable option removed (D247) and Level lines a view switch (D248). They go to the preview, and are
+released (and the branch merged) only after Kyler has tried them.
 
 **The design** (D184, Kyler's editor design principles; it replaces earlier editor decisions where
 they conflict):
 - **Principles:** the land is the interface (feedback from the land itself, not from panels,
   dialogs or readouts); direct manipulation; few tools, each obvious; smart defaults, with options
   hidden until wanted; forgiveness (instant undo, Esc always backs out); one grammar (pick, paint or
-  place, see the result; [ and ] for size, Shift+scroll for strength, in every tool; plain scroll
+  place, see the result; [ and ] for size, Shift+scroll for a height brush's target level (D322) or a soft brush's
+  strength, in every tool; plain scroll
   always zooms, Alt+scroll slices the visible layers, as in the game, D196); things just work (painting never waits on water and keeps
   full frame rate on 256²); landforms come from the brushes, never from buttons (D182);
   desktop-first: a desktop screen, a mouse or a drawing tablet, and a keyboard (D185).
-1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize | the forces (Carve,
-   Craterize, Quake, Erupt; a visually distinct group, D203, D206) | Remove (the sources are on the
-   left shelf, D212). Every force's options row starts with its mode switch. The forces go to the
-   preview and are released only after Kyler has tried them (D219): until then the public site shows
-   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (Vent or Fissure,
-   Power, Steep or Broad, a summit, flows, Try
-   another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land along a drawn fault (Lift
-   or Slide, Power, Sheer or Stepped scarp, Try another); built from `investigation/quake` (#52, ready with Lift and
-   Slide, D219). All four forces share one forces core, built on `investigation/forces-core` (#59, D220).
-   Craterize (D202) simulates a giant impact (Strike or Aim, Power, Size, walls, centre, debris, Try
-   another); built from `investigation/craterize` (#51, ready, D216). A small row
-   beneath shows only the picked tool's options. The size ring is drawn on the land; strength shows
-   only while Shift+scrolling. Toggles, off by default: square shape, precise mode, straight lines (level lines moved
-   to the view buttons, D248). Flatten has "in steps" (terraces) and Ramped edges; a natural slope goes exactly where the player
-   puts the shelf's Slope (D247 removed Smooth's walkable option; the start's reach updates live). Select opens with a key or a modifier-drag, with no permanent
-   slot. Pen pressure sets strength on a drawing tablet.
-   Hold to dig (D193): in precise mode, holding Lower or Raise keeps working a level at a time,
-   with an optional "stop at" level (a faint plane, a pulse on arrival); never below the map's bottom
-   or under placed objects.
-   Flatten (D204) starts from the stroke's own height, cuts and fills, has Cliff or Ramped edges,
-   hints where the start fits, and carries trees and objects with the ground.
-   Hold F to resize the brush by dragging (D205); the camera's old R and F zoom are gone (D212).
+1. **Top bar:** the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, then Select | the forces (Carve,
+   Craterize, Quake, Erupt; a visually distinct group, D203, D206); no Remove tool (D288: item 8). The sources are on
+   the left shelf (D212). Every force's row is Power, Size, at most one choice and Try another (D289); the gesture
+   is the mode (a click or a drag), and the rest of its character comes from the land and the seed, behind a small
+   More button, each detail on Auto until pinned (D309). The forces go to
+   the preview and are released only after Kyler has tried them (D219): until then the public site shows
+   no forces group (one switch, `src/editor/release.ts`). Erupt raises a volcano (a click vents, a drag opens a
+   fissure; Power, Size, Try another); built from `investigation/erupt` (#50, ready, D216). Quake splits the land
+   along a drawn fault (Lift or Slide, its one choice; Power, Try another; X flips the side); built from
+   `investigation/quake` (#52, ready with Lift and Slide, D219). All four forces share one forces core, built on
+   `investigation/forces-core` (#59, D220). Craterize (D202) simulates a giant impact (a click strikes, a drag aims;
+   Power, Size, Try another); built from `investigation/craterize` (#51, ready, D216). A small row
+   beneath shows only the picked tool's options. The size ring is drawn on the land, up to half the map (D322).
+   Raise, Lower and Flatten work as the game's editor, to a target level beside the pointer (D322, item 37: exact,
+   hard-edged; Free past the range's ends sculpts softly); every brush has its mode, Ground, Water or Both (item 2), and
+   Sources: Ride, Keep or Clear (item 31). Toggles, off by default: square shape, straight lines (level lines moved
+   to the view buttons, D248). Flatten has "in steps" (terraces); a natural slope goes exactly where the player
+   puts the shelf's Slope (D247 removed Smooth's walkable option, D322 Flatten's ramped edges; the start's reach updates
+   live). Select opens with a key or a modifier-drag, with no permanent slot. Pen pressure sets a soft stroke's strength
+   on a drawing tablet.
+   Flatten (D204) cuts and fills to its target, hints where the start fits, and carries trees and objects with the
+   ground.
+   Hold F to resize the brush by moving the mouse, its size beside the pointer (D205, D322); the camera's old R and F
+   zoom are gone (D212).
 2. **Water:** a reflection of the land being painted.
    - **Smart Lower:** a stroke that starts in or next to water carves a bed that keeps flowing
      downhill, so the water follows the brush; the ring turns softly blue. Anywhere else it is an
      ordinary Lower.
    - **Water source and Badwater source** (D212): on the left shelf, right after the start; click
      to place, and water spreads at once; the row beneath sets the next one's strength.
-     Shift+scroll over any source changes its strength live (a friendly note past the official
+     Ctrl+scroll over any source changes its strength live (D322; a friendly note past the official
      range, never a block); drag to move it; a click selects it (its strength, clean or bad,
-     Remove); Delete or Remove makes its water recede. Anywhere in the editor (D171 is for generated
+     Remove); Delete or that Remove makes its water recede. Anywhere in the editor (D171 is for generated
      maps). Always findable, even underwater (an upwelling; a marker with its strength when near or
      with a source picked on the shelf; Markers shows all) (D196).
    - **Glaciate** (D246), after the forces round 2: a fifth force that turns a valley into a glacial valley (a level floor
@@ -979,13 +1006,12 @@ they conflict):
      play and Speed, the start's-water marker; an edit ends the hazard view, D269; the game's rules,
      from `investigation/cycles`); moisture spreading as the land greens; optional sounds of our own. The
      final water is always the game's settled result, at any speed.
-   - **Carve** (D194, D216): a force of nature, the first of the forces group (key 7): Unleash and
-     Aim modes, Defy gravity, a Power slider from creek to catastrophe; it forms gorges and valleys
-     (D181). Built from `investigation/carve` (#47), keeping its full feature set (D199): Width,
-     Wander, variation (bends wider and deeper on the outside, narrower on the straights), Try
-     another path, Steep or Wide walls, Keep river or Dry canyon, oxbow lakes sealed by sediment, carving
-     effects (no following camera, D265), Space to pause, Stop, Esc or Ctrl+Z to undo it
-     instantly. On the preview until Kyler has tried it (D219).
+   - **Carve** (D194, D216, D289): a force of nature, the first of the forces group (key 7): a click unleashes it,
+     a drag aims it (cutting through rises on its way); Power from creek to catastrophe, Size (its width), Keep river
+     or Dry canyon, Try another path; it forms gorges and valleys (D181). Built from `investigation/carve` (#47): its
+     wander and walls drawn from the land and the seed, variation (bends wider and deeper on the outside, narrower on
+     the straights), oxbow lakes sealed by sediment, carving effects (no following camera, D265), Space to pause, Esc
+     or Ctrl+Z to undo it instantly; it keeps itself when it ends. On the preview until Kyler has tried it (D219).
 3. **Left shelf:** a clean grid of icons, each a small render of the object in the map's look: the
    start, the water source and the badwater source (D212), pine, birch, oak, berry bushes, ruins,
    the mine site, relics, natural slopes, blockages, geothermal fields and thorns. Picking one shows a live ghost on the terrain, its footprint green
@@ -994,8 +1020,10 @@ they conflict):
    forces round 2): size and density, natural scatter only where the game allows it, gap filling, an Age option for
    trees, one undo step a stroke; unique landmarks stay single. Trees and bushes: click places one, drag paints many, naturally
    clustered at official-like densities.
-4. **View buttons:** Orbit, Top-down, Reset view, Height colours, Level lines (D248), Markers, and the overlays
-   (moisture, contamination, drought). The legend appears only while an overlay is on.
+4. **View buttons** (D287): one Top-down toggle, Reset view, Height colours, Level lines (D248), Markers, and the
+   overlays, Badwater and Under roofs. The legend appears only while an overlay is on. No dam site is drawn on the map
+   or named on the map card; no Moisture or Drought view (the land shows moisture; the water bar's Drought shows a
+   drought day by day).
    Visible layers exactly as in Timberborn (D207): a compact layer widget (∞ until used), slicing
    that hides everything above the level, the layer pick, and tools that act on the visible land.
    Also (D205): a corner minimap (on by default at 256², a toggle among the view buttons), small
@@ -1009,9 +1037,9 @@ they conflict):
    the map. Never a pop-up.
 7. **The start:** its water, wood and berry reach appears around it while hovered or dragged, then
    fades.
-8. **Remove:** click one, drag many; filters; a red highlight on hover; Delete removes a selection;
-   one undo step each; water re-flows live; never changes terrain; a removal that breaks a rule is
-   refused live; instant on 256².
+8. **Delete** (D288; no Remove tool): with a selection open, Delete removes everything standing inside it, objects
+   and sources, as one undo step; with none, Delete removes what the pointer is on (a source within its reach, else
+   the object on the tile). The start always stays; water re-flows live; never changes terrain; instant on 256².
 9. **Select, and the working area** (D254, D259; on `feature/forces` with the forces round 2, for Kyler's
    forces sitting): Select gets a small button on the bar beside the brushes (M and Ctrl+drag still open
    it), with Circle and Brush beside Rectangle and Freehand, and Same level becomes Wand, which also selects a river's or lake's visible water (D261); Set level reaches the map's
@@ -1038,15 +1066,16 @@ they conflict):
 **Removed:** the landform tools and their handles (D182); the river tool with its start and end
 rules, Natural or exact, width, depth and strength controls; the lake click-fill; the Channel tool;
 separate plant brushes; the cursor readouts (only the level number while flattening stays); the
-text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs.
+text tabs, the Advanced checkbox, the Show dropdown and the help paragraphs; the Orbit button, the Dam sites view,
+the Moisture and Drought views (D287); the Remove tool and Select's Clear objects (D288).
 <!-- /retired-terms:allow -->
 
 **Kept:** the smooth camera (D180, approved by Kyler); every edit live, as one undo step, with
 limits shown while dragging, never dialogs afterwards (D179); the Select tool (rectangle, freehand,
 same level; Shift adds, Alt subtracts; raise or lower by N levels, flatten or set to a level, dig
-out, clear trees and objects); Ctrl-click samples a level (on water, its bed); heavy operations
-("Generate, keeping my edits") shown growing, never a frozen wait; every stroke
-an operation that replays exactly and survives regeneration and format 3; only changed chunks
+out, Delete what stands there); Ctrl-click samples a level (on water, its bed); heavy operations
+shown growing, never a frozen wait; every stroke
+an operation that replays exactly onto its own land (edits never replay onto new land, D336) and survives format 3; only changed chunks
 rebuilt; keyboard access and screen-reader labels; saved projects keep their land exactly (any
 landforms already in a project open as plain terrain). Until the design pass, new interface uses the existing
 shared styles and components (D176, amended by D236). **Kept from M10** (D253): Naturalize never breaks
@@ -1073,7 +1102,30 @@ terrain steps extend the same brushes to caves and tunnels.
 
 ---
 
+## Crop map to selection (D340)
+
+After the forces' release, on `build-light` (Sonnet 5.5, high). A Select action that makes the map exactly the selected rectangle (from 4×4 up to the map's size), as one undo step, with the full map kept in Your maps. Everything inside comes along exactly; at the new edge, rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are re-read. PLAN §20 D340 has the rule and its tests.
+
+## Glaciate in Fast: the ice carves as it advances (D374)
+
+Right after the forces release, with D371: Glaciate's land change takes most of its time, carving as the ice advances (no long opening circle, no rush at the end); its Fast time is 3.5 s with easing, the other forces about 2 s, Slow forces proportionally slower; every force checked for the same imbalance; any stutter left is fixed with the smoothness work's adoption, its harness run on every force at 256², Glaciate first.
+
+## Carve's river is born as it cuts (D371)
+
+Right after the forces release, alongside the startup's part 1 (D367): while Carve cuts, the water front follows just behind the cutting edge from upstream, handing off to the real simulation's water with no jump and ending exactly where it settles; both looks, reduced motion calm; the same approach for Glaciate's lakes, Craterize's crater lakes and the Rift's captured rivers, using `investigation/performance`'s findings. Gates: no frame-rate cost at 256² (the smoothness harness), and the final frame's water equals the settled water.
+
+## Startup: maps open fast (D367)
+
+Codex's startup investigation (`investigation/startup`, #127), approved by Kyler on 2026-10-01: first-visit maps editable in 1.30–1.44 s median (1.59 s worst), cold on a typical connection, with byte identity and Save and export still gated.
+
+1. **Right after the forces release** (`build`, Opus 5.5, high): a stored map opens from its stored state without rebuilding (legacy files and files with water still pending keep the rebuild fallback); the renderer warms its shaders and GPU state while the map loads; the checks start after the first editable frame, every gate unchanged.
+2. **With "The page is the editor"**: the ready-made first-visit map picker and parallel loading, and the caching, merged into one service worker with the multi-core water investigation's isolation worker.
+
+Both add the investigation's budgets and its CI check. Open: a whole-laptop measurement, which Kyler makes on a real modest laptop once it's adopted.
+
 ## The page is the editor (D232–D234)
+
+**The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330, 2026-09-29).** It is what gets built, and supersedes the D233 description below where they differ. Built right after the forces' release on `build` (Opus 5.5, high), approved by Kyler on 2026-09-29, with item 34's split of the editor's giant files into feature folders in the same rebuild; then Kyler's editor UI audit, then the design pass (D236). Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
 
 After the forces round 2 and M9a's release (Kyler, 2026-09-26). **3D everywhere** (D232): the 2D toggle removed, with an
 automatic fallback for computers that can't run 3D well. **The landing page's map is the editor** (D233): editable right
@@ -1082,10 +1134,8 @@ full editor in true full screen (Keyboard Lock in Chrome and Edge; the browser w
 changes undoable with a quiet note, a collapsed Legend button, Save to Timberborn from both, Real places opened the same
 way, view-only on phones. **Your maps** (D234): the last 30 edited maps in this browser, stars kept forever, reopened
 exactly as left, with rename, copy, undoable delete and a saved-to-Timberborn mark. The export row loses "Without
-pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview; then Kyler runs
-his editor UI audit, and the design pass comes straight after it (D236), so both judge the combined page and editor.
-M9b doesn't wait for this step: it runs in parallel with it and takes the machine first when the two compete
-(D236).
+pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe and the tests). Put on the preview. Kyler's editor UI audit and the design pass come later, in step 3, polish, after 3D (D349),
+so both judge the finished editor.
 
 **Blocking:** breakage (no edit or map lost: expanding, returning, Generate over edits and Your maps keep every edit; undo
 always brings the previous map back; storage failures said plainly) and what a player feels (expanding needs no reload;
@@ -1155,9 +1205,8 @@ it's chosen for (blocking: what a player feels). **High's frame rate is measured
 
 ## Design pass
 
-Straight after Kyler's editor UI audit of the combined page and editor, which follows "The page is the editor" on the
-preview (Kyler, 2026-09-26; PLAN §20 D236; before that it came after M11 and the refinement phase). It runs alongside
-M9b, which takes the machine first. It is the Impeccable design pass with the timbermods design system, moved
+In step 3, polish, after 3D (Kyler, 2026-10-01, D349; earlier it followed "The page is the editor" straight away, D236),
+after Kyler's editor UI audit of the finished editor. It is the Impeccable design pass with the timbermods design system, moved
 from M13 and then forward to here. It follows the impeccable-app-flow skill
 (timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
 MEANING.md behind: the design records every later interface follows (D176, D236).
@@ -1282,7 +1331,7 @@ M9 waits for that approval.
   information the generator prefers, not a guard (#67); Kyler picks the candidate intentions later
   (#66).
 - **Models and priority** (D210, amended by D262 and D278): the M9a build on Opus 5.5 at xhigh; M9b
-  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5 at medium; M9a comes first when
+  on `m9b-build` (Opus 5.5, xhigh, D262); routine work on Sonnet 5.5 at medium; M9a comes first when
   work competes for the machine. M9c is removed (D278): `m9-build` stays defined but unused.
 
 **Staging: M9a and M9b, approved by Kyler** (2026-09-25; PLAN §20 D145; M9c folded into M9b, D278).
@@ -1552,6 +1601,8 @@ After the High look is adopted (Map look 2, above), so there is only one mesher 
 
 After the view (D280 (3)).
 
+**Where the tools sit (D335, Kyler, 2026-09-29):** the Block tool (`investigation/block-tool`, D335) sits on the tools row with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it's built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool. Erode stays on the forces row.
+
 **Delivers**
 1. **Erode**, a new force, adopted from its investigation (`investigation/erode`, D281) onto the
    forces core, under the forces' principles (D257: bound only by nature; D258: no predicted route
@@ -1639,6 +1690,8 @@ Once M9b has settled (D280 (4)).
 ---
 
 ## Weather view
+
+**Also required (Kyler, 2026-10-01, D361):** the day-by-day view can stay on any chosen day (the drought's worst day, say) without cycling back to the start, and steps forward and back one day at a time.
 
 After the 3D stages (Kyler, 2026-09-25; PLAN §20 D133, D253; **slimmed by D285 (2)**, 2026-09-27:
 the separate timeline and its plain-language summary are dropped; the strategy axes move to M9b as
@@ -1749,7 +1802,7 @@ doesn't need a separate naturalness pass over stamped shapes, because nothing in
 decisions-pending #29 (containment should look natural) and #13 (moot since D184) go with them.
 
 Its remaining small items become housekeeping: no milestone, no release, no gate — each is fixed
-when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5, medium, D286 (5)):
+when convenient, with its own test, on `chore/housekeeping` (routine, Sonnet 5.5, medium, D286 (5)):
 - pending decision [#2](docs/decisions-pending.md): `plants.drought` warns on every River Valley
   map, because the berry bushes near the start grow on water that drains in a drought;
 - pending decision [#12](docs/decisions-pending.md): narrow a generated fall's channel to 1–3
@@ -2013,6 +2066,16 @@ dangerous badwater route on the opposite side.").
 
 ---
 
+## The 20-second tour (D377)
+
+In step 3, polish, with M13's help. A ghost cursor performs about 20 seconds of choreographed editing on the map in front of the player, to advertise the controls that can't be discovered by looking: hold F and move the mouse to size, hold F and scroll for Power, Shift+click for the opposite (Raise becomes Lower), Ctrl+click to take a level from the land. The sequence (Kyler's refinement, 2026-10-01): two forces only, so the rest stay a discovery: Carve (a river, grown with F and the mouse) and Craterize (a crater, its Power scrolled up with F); then the brushes' flow, which players will use most: Raise a hill and size it with F; Shift+click to lower; Ctrl+click a hilltop to take its level and Flatten a spot to it; Smooth the edges; then Save to Timberborn.
+
+- The keys show on screen as they're pressed (F held, the scroll, Shift, Ctrl).
+- Offered, never forced: the first visit's one quiet hint offers it ("Watch a 20-second tour"), and it's in the ⋯ menu. It plays on a temporary copy of the current map, so the player's map is untouched; Esc ends it at any moment.
+- Built from stored gestures replayed (every edit is a deterministic operation, D158, D342), using the keyboard shortcuts rather than toolbar clicks where possible, so it survives layout changes.
+- The same sequence is recorded once as a GIF and video for the website, the workshop page and posts.
+- No click-Next walkthrough, and no second "More forces" tour. Per-tool "Show me" demos can come later on the same machinery.
+
 ## M13. Problem reports, shortcuts and help, a final performance pass
 
 **Slimmed** (Kyler, 2026-09-27; PLAN §20 D285 (1), amending old PLAN milestone 6 and this step's
@@ -2041,7 +2104,61 @@ the new screens; no second full design pass.
 
 ---
 
+## Custom map sizes (D357)
+
+At the end of step 1, after the Weather view. Any width and height from the game's minimum (4) up to 512 on either
+side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
+boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
+down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
+with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
+player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
+256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
+refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
+loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
+reported. PLAN §20 D357 has the whole decision.
+
+- **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
+  references. Our file writer and both validators' other load checks handle every size and shape already.
+- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
+  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
+  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
+  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
+  "4–256 per axis".
+
+## Collaborative editing (D349)
+
+**The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
+
+After the polish (step 3 of the order above); nothing is built before then. Two players edit one map live, sharing one
+ordered list of operations; each browser rebuilds the map from it, so both see identical terrain and water (every
+change is a deterministic operation, D158, D342).
+
+- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
+- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply
+  code to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with
+  one-click copy and each step plainly worded.
+- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay;
+  a network that blocks the connection is told plainly.
+- One player hosts and keeps the order of operations.
+- **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and
+  intended action).
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109, merged 2026-10-01): the two-code join works, with 324-character codes; the maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across different networks over the internet (Kyler tests it himself).
+- **Planned: area locks** (Kyler, 2026-09-30; to settle in the design Q&A). Each player can reserve parts of the map (for
+  example half each), so the other player's operations can't change them. Open questions: locks protect land and objects
+  from the other player's edits, but water still flows across borders as physics dictates; a force whose effect would reach
+  into the other's area (a Carve drawn through both, an eruption near the line); how areas are claimed (drawn with
+  Select's shapes), shown (a tint in each player's colour), released or offered to the other; and the default (the whole
+  map shared until someone claims an area).
+
 ## Later
+
+**A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
+
+**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
+
+**A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
+
+Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

@@ -13,6 +13,7 @@ const HEAVY = [
   "tests/contract/rivers.test.ts", // rivers drawn at random on three sizes
   "tests/contract/reshape.test.ts", // set pieces, lakes and landforms beside every kind of object
   "tests/contract/settings.test.ts", // each setting's batch experiment (M6)
+  "tests/contract/forceEverywhere.heavy.test.ts", // every force at many places on every theme (D356)
 ];
 
 export default defineConfig({

@@ -4,6 +4,7 @@
 // (PLAN §7.5), and the generator plants a grove and berries there (40+ trees, 20+ bushes). It is
 // also where a second colony could start on a Timber Together map (PLAN §20, D5).
 
+import * as portable from "../../math/portable";
 import { levelRegions } from "../../math/grid";
 import type { BuildTarget, Rect } from "../target";
 import type { SetPieceFeature } from "../schema";
@@ -41,7 +42,7 @@ export function pumpableWithin(ctx: Pick<PlanContext, "W" | "H" | "heights" | "w
       if (!(D[i] >= 0.3) || (C && C[i] >= 0.05)) continue;
       const s = h[i] + D[i];
       if (s > level + 0.01 || s < level - 2) continue;
-      const d = Math.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y));
+      const d = portable.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y));
       if (d < best) best = d;
     }
   return best <= max ? best : Infinity;
@@ -62,7 +63,7 @@ function planDistrict(req: PlanRecord, ctx: PlanContext): PlanOutcome {
   const water = pumpableWithin(ctx, x, y, level, DISTRICT_WATER);
   if (ctx.water && !Number.isFinite(water)) return { ok: false, errors: [`a district needs clean water a pump can reach within ${DISTRICT_WATER} tiles`] };
   const s = ctx.start;
-  const distance = s ? Math.round(Math.sqrt((x - s.x) * (x - s.x) + (y - s.y) * (y - s.y))) : 0;
+  const distance = s ? Math.round(portable.sqrt((x - s.x) * (x - s.x) + (y - s.y) * (y - s.y))) : 0;
   const report = [`a second district site on ${fmt(land)} tiles of level ground at level ${level}${s ? `, ${distance} tiles from the start` : ""}${Number.isFinite(water) ? `, with pumpable water ${fmt(Math.round(water))} tiles away` : ""}`];
   if (s && (distance < 60 || distance > 120)) report.push("second districts usually stand 60–120 tiles from the start");
   const plan: DistrictPlan = { x, y, level, radius: DISTRICT_RADIUS, land, distance, water: Number.isFinite(water) ? Math.round(water) : -1 };
