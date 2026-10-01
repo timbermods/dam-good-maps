@@ -1,6 +1,163 @@
 # M9b: composition and variety
 
-> **Hand-back note (D333, M9b's answers; 2026-09-29).** Branch `feature/m9b` (draft PR #70). Batch 5
+## Hand-over (2026-10-01): where M9b stands, and how to resume
+
+Written for a session with no memory of this one. Branch `feature/m9b`, draft PR #70 into `dev`, never
+merged by Claude. The round's full account is "Mine-site pads (D363, 2026-10-01)" below; this is
+the state and the next steps.
+
+### The tip, and what is in it
+
+The code is at `13d1f1a2` (later commits are documents and tools). In it, newest first:
+
+- a dam wall on the pre-fill's water 0.2 deep or more redraws the land before it is shown (13d1f1a2);
+- "reached" as one function (`colonyReach`, `minesReached`, D342), the debris before a second
+  district kept off the way to the mine sites, a land's planned lakes read alone for straight banks;
+- D373 (3): every start a shown land may use has its pad and its mine sites' room ready (62858d54);
+- D373 (1): a channel below each confluence as wide as the water it carries (a69c9f11);
+- D370's adoptions, one at a time: Islands' sea-first shaping (3aedffce), Delta's plain and braids
+  (1b77d40f), River Valley's own shaping (cd5d5bf4). **Held:** Canyon, Highlands, Lake Basin (their
+  audits are Codex's; nothing of theirs is adopted) and the settings prototype, last. Codex's
+  settings round 2 starts from a69c9f11 or later;
+- D348 as D370 has it (every shaping step before the first land is shown, but D350's worn way
+  out), D369 (Islands' water cap 0.70, islands in a lake hold objects), the mine-site pads (D363),
+  the faster settle (D359, merged in from `dev`).
+
+D372's sheet rule and D373 (2)'s fill time are readings only (`info.sheet`, `info.rise`); neither
+rejects anything. Other readings: `info.lakeStraight`, `info.preWet` (a poor predictor of the
+settled share, off by −0.21 to +0.41: don't build a flood check on it).
+
+### The last measure (13d1f1a2, 840 maps: seeds 1–40, seven themes, three sizes)
+
+Failing an absolute: **2 at 96², 0 at 128², 0 at 256²** (D350: zero before release). First maps
+meeting all three outcomes, of 280: 213, 228, 229. Per theme, seeds 1–20 (the target is two-thirds,
+14 of 20), with the outcome missed most:
+
+| Theme | 96² | 128² | 256² |
+|---|---|---|---|
+| Any | 19, water (1) | 18, water (2) | 17, water (3) |
+| River Valley | 19, water (1) | 18, promise (1) | 16, water (3) |
+| Canyon | 11, promise (5) | 15, water (4) | 15, water (3) |
+| Highlands | 9, promise (8) | 15, promise (5) | 17, promise (3) |
+| Lake Basin | 12, promise (8) | 13, water (6) | 12, promise (7) |
+| Delta | 19, standout (1) | 18, standout (2) | 17, standout (2) |
+| Islands | 19, absolute (1) | 20 | 20 |
+
+Under the target: Canyon 96², Highlands 96², Lake Basin at every size. Median time to the map
+2.2 s, 2.8 s, 9.0 s. The rows are committed: `investigation/m9b/baseline/13d1f1a2-*.jsonl.gz`.
+
+### The failing maps, their causes, the planned fixes (in the order agreed with Kyler's planning chat)
+
+1. **Fixed (13d1f1a2): Any 96² seed 18, Lake Basin 128² seed 5, a dam wall on the settled water
+   only.** The river arrives lower than a planned lake's bed (its bed 3, the lake's tiles 6–8);
+   8750c300 cuts its channel through the lake's tiles; the floor the river clears beside its
+   channel (a level over its bed) skips lake tiles, so the lake's old bed stands between the channel
+   and the floor as a band of rock with the river through it. The plan (`plannedWater`) counts the
+   lake full, so the check before the land is shown read those tiles as water and passed.
+   - **P, as built:** the check also reads the pre-fill alone, the water the settle starts from,
+     with its water under 0.2 deep left out; a wall there redraws the land
+     (`tests/contract/drainedLakeWall.test.ts`). Counted before it rejected anything: it flags those
+     two maps and no other of the 840. Making the plan's own estimate true, tried first, does not
+     work: a tributary across the old lake bed reads as wet on any plan and settles dry.
+   - **L, a trial still to run, with a full measure against this tip** (absolutes, all three per
+     theme, which maps moved; keep it if clearly better, P stays as the net): the feature's bed
+     profile shows the bed rising again at the lake's outlet (3 through the lake, 8 at its outlet
+     on Any 18), so the lake should hold. It drains because the floor along the lake stretch, and
+     along the reach above it, is cut a level over the *channel's* bed (4), far under the lake's
+     level, and lets the water round the outlet. This is likely why planned lakes settle smaller
+     than planned in general (the reason `plannedWater` has `held` at all), and may be part of Lake
+     Basin's 12 of 20. The trial: in `land/hydro.ts`, cut the floor no lower than a level over the
+     level the water must reach to leave (the running maximum of the bed downstream, which the
+     feature already computes as `env`), instead of a level over the bed.
+   - **Tried and dropped:** a reading of dam walls from the land alone (33 false flags in 840, misses
+     Any 18); clearing the floor through the lake's tiles (`patches/lake-floor.patch`: fixes both
+     maps, but River Valley 256² seed 37 then never settles, River Valley 96² seed 1 floods to 36%,
+     Lake Basin's all three at 256² fall 12 → 8); a cap on a joined channel's width.
+2. **Any 96² seed 31, Islands 96² seed 4: the 96² start class.** The settled water moves the start
+   off the plan's, and the start then used has no room for two mine sites 24 tiles out (Islands 4's
+   island is about 20 tiles across). Two places judge that room by different rules than the placement
+   does (D342: one function):
+   - `gen/extras.ts` `roomFor` (the pair's reservation) reads a square's distance at its corner;
+     `resources/baseline.ts` `pickMineSite` asks the footprint's nearest tile to be 23.5 out. Make
+     `roomFor` ask the same.
+   - `land/minePads.ts` `roomMap` (which starts have room, on the settled water) keeps off less
+     than the placement does (`extras.ts`'s `blocked`: lake beds, the map's border, the water's
+     margin as a square). Give both one keep-off mask.
+   - Then, the planning chat's suggestion: plan the start only where its land can hold the pair
+     24 tiles out (on Islands, an island big enough), or draw the land again before it is shown;
+     **measure the cost before it rejects anything.**
+3. **Highlands 96² seed 14** passes by the order of its attempts only: three of its
+   starts in turn lose their water once it settles. Same class as 2; unaddressed.
+
+### Open from D370 (2), not started
+
+- **The Canyon signature's separate effect:** a 60-map Canyon run (seeds 1–20 at the three sizes)
+  with the signature reading as it was before `tests/unit/canyonSignature.test.ts`'s change against
+  the tip, to say how much of Canyon's promise moved because of it.
+- **256² speed for Any, Canyon, Highlands, Lake Basin:** profile first (`investigation/m9b/speed.py`
+  reads the measure's times; a CPU profile of `generate` on the slowest seeds), byte-identical
+  changes where possible, and report the profile before any change that moves a map.
+
+### Tests red on the branch, and why
+
+CI at cc161b3a (the last finished run when this was written; check 13d1f1a2's): `oracle` and browser
+shards 2 and 3 pass; red:
+
+- **`generation`**: Lake Basin 128² seed 5 failed (the dam wall, fixed since); the job wants final ≥ 98%.
+- **`test`**, 16 tests in 11 files, all pins or seeds of maps that moved this round (D148: re-pin or
+  re-seed each to what its name says, once the counts settle, and note it under "Tests updated
+  because a decision changed what they tested" below; never weaken one): `brush` (a one-tile pit;
+  a ramped Flatten on a map), `carve` (an oxbow lake's water kept), `look-mine-ruins` (the map's
+  bytes), `look-waterfalls` (Highlands 5, Lake Basin 3), `narrows`, `objects` (ruins on a rise, a
+  second district's site, a generated weir, a plugged spillway), `parity` (Lake Basin 128² seed 5:
+  the map that failed, fixed since), `projects` (an outline past the edge), `resources` (the official
+  amounts), `startPlanting` (no two starts alike), `versions` (the background search's sibling).
+- **browser shards 1 and 4**: `tests/e2e/editor.spec.ts:20` and `tests/e2e/waterView.spec.ts:18`,
+  seeds whose maps moved.
+
+Green and new this round: `tests/unit/colonyReach.test.ts`, `minePads`, `plannedWater`,
+`drownedHeads`, `riverSheet`, `waterCap`, `canyonSignature`, `storyPlug`; `tests/contract/`
+`districtDebris`, `lakeBanks`, `drainedLakeWall`, `lakeCourse`, `firstLand`, `lakeIsland`, `minePair`
+(`firstLand256` is in the heavy suite). The contact sheet (`docs/sheets/`, D144) is due again once
+the maps settle.
+
+### The measure tooling
+
+Once per machine: `npm ci && npm --prefix investigation/probe ci`.
+
+- `sh investigation/m9b/measure.sh <name> [jobs] [seeds]` runs the 840 maps from a frozen copy of
+  `src/` (edit freely while it runs) into `investigation/m9b/local/measures/<name>-<size>.jsonl`
+  (gitignored, D195). About 27 minutes with 6 jobs on the machine this was built on: 5, 7 and 15
+  for 96², 128², 256². One heavy run at a time.
+- `python investigation/m9b/share.py <name>`: the table above. `python
+  investigation/m9b/compare.py 13d1f1a2 <name>`: failing maps, lands changed, all three gained and
+  lost, against the committed baseline. `python investigation/m9b/summary.py <file>…`: failures
+  with their last attempts, fixes used, times, pads, worn ways out.
+- `npx tsx investigation/m9b/tools/trace.ts <theme> <seed> <size>`: one map, attempt by attempt.
+- A row's fields are `MapMeasure` in `investigation/m9b/measures.ts`.
+
+### Only on the machine it was built on
+
+Everything needed is committed. Left behind in `investigation/m9b/local/` (gitignored): the runs
+p1–p25 (p25 is the committed baseline; regenerate any with `measure.sh` at its commit), and
+throwaway probes of single maps, each a few lines round `generate` with a temporary hook. Nothing
+there is needed to resume.
+
+### First, on resuming: merge `dev`
+
+The forces were released (`forces-done`), so `dev` now holds all of `feature/forces`. This branch
+has not merged it (it would have moved the measure's base at the session's end). Merge `dev` into
+`feature/m9b`, run the measure and `compare.py 13d1f1a2 <name>` (the generator's maps should not
+move; say which do), then fold `resources.mine_reach` (the forces' editor-only advisory, #146,
+D368 (10)) into `resources.mine_site`, so there is one check, read with `colonyReach`; it keeps
+its editor-only advisory behaviour for edits.
+
+### Waiting on Kyler
+
+`docs/decisions-pending.md` #149 (amended), #151, #154 (D363's choices). The DGM Probe has not run
+on this round's maps; a batch is the planning chat's to ask Kyler for, never launched from here.
+
+> **Hand-back note (D333, M9b's answers; 2026-09-29; history: the hand-over above is current).** Branch `feature/m9b` (draft PR #70). Batch 5
 > (D325) is in, and the pooled probe ran on Kyler's yes (m9b-20260929b: 14 of 18 maps pass everything;
 > the two Sources: None maps' water check fixed; the refill gap explained, below). D333's answers are
 > built: the land kept once it passes (speed), first maps' quality, one note for a missed promise,
@@ -431,6 +588,142 @@ calendar timelines, which failed on the refill gap in the last batch, and the tw
 maps. D358's four slow-settling maps (Lake Basin 256² seeds 16 and 5, Any 256² seed 12, Islands
 128² seed 3: 4,096–4,608 ticks) keep their stored water: after a day 100%, 100%, 100% and 98.3% of
 their wet tiles within 0.1 deep of the file, the volume within 0.2–0.9%.
+
+### The faster water settle, adopted (D359, Codex's `investigation/water-speed`, 2026-10-01)
+
+`sim/water.ts` keeps its bookkeeping up to date as tiles turn wet or dry instead of rebuilding it
+each substep or tick (the active list by reference counts, wet-neighbour counts, the evaporation
+modifiers of the 5×5 round a change, neighbour indices, clearing only dried outflows, a dry tile that
+receives nothing set directly, the active list sorted every 64 ticks). Codex's mechanisms, rewritten
+for reading; the file says why each is exact. A new test checks the kept bookkeeping against a rebuild
+every tick (`water-speedups`; it fails if the 5×5 shrinks to 3×3).
+
+**Identity** (0ee6e276, Codex's A/B harness against the engine before, both in one process, every
+step compared): 303 of 303 cases identical: seeds 1–20 of all seven themes at 128² and 256² (map
+sha and settled water, every generation attempt, the canonical settle in slices, a live edit, a
+Normal drought and badtide day by day and the return), the 19 official maps, two saves and two
+projects; 95,167 checkpoints. Under D358's 6 days: 26 maps settle after day 4, 9 never do, all
+identical. Every golden fixture under both rules, the edge grids and 100 random scenes too. The
+Python checker: 0 disagreements (47 generated, 19 official maps; `npm run oracle`'s 6 refusals are
+the generator's). The quick suite's 43 failures on this base are the same 43 with the engine before.
+
+### Mine-site pads (D363, 2026-10-01)
+
+At 96², 17 of 140 maps failed an absolute, each with no mine site the colony reached. Why, map by
+map: rugged land with no level 7×7 square in the start's walk; the badwater hollows, planned after the
+land was shown, took the level ground; the settled water or a hollow cut a thin neck between the start
+and its squares; a start's own pad, dug down to its water, left it on a ledge; the objects kept off
+the discs round the starts that failed (16 tiles each, a tenth of a 96² map), so three failed starts
+left nothing.
+
+- **Pads as the land is shaped** (`land/minePads.ts` `minePads`): the planned start's walk, its land
+  joined two tiles or more from the planned water, must hold two level squares for a site (one at
+  48²) 24 tiles or more out, clear of the water as the objects keep it. Where it holds too few, the
+  ground nearest to level becomes a pad: its tiles a level over it taken down to it (never more,
+  never raised), about 49 tiles and at most 61 with its edge, round, its edge wandering a tile or two
+  out and left as it is where the ground beyond stands two levels over it (no notch under a cliff),
+  five tiles or more from the planned water. Where the planned start has no room even so, another
+  planned start with room becomes the plan's start; a land with none is drawn again before it is
+  shown. Tests: `tests/unit/minePads.test.ts`.
+- **Kept for them:** the hollows keep off the squares and the colony's way to each (off the squares
+  alone where that leaves them no room: Islands 128² seed 4); on the settled water the start goes
+  where its walk has that room (`roomMap`, reading the ground as the objects' placement reads it), and
+  a start chosen there whose own pad leaves none gives way to the next; the objects may stand where a
+  start failed.
+- **The attempts:** lands drawn again before one is shown don't use up the attempts, up to 16
+  (`FREE_DRAWS`); the disc round a failed start shrinks with the map (`bandScale`: 12 at 96²).
+- **What the 840-map measures found next, each fixed at its cause** (the old code on seeds 21–40
+  failed 21 maps at 96², 3 at 128², 5 at 256²):
+  - the planned water the start, its second place and the mine sites' room are judged on
+    (`plannedWater` with `held`) stands a planned lake
+    no higher than the rim its land spills over (0.3 over it) and only where the land holds a pool of
+    9 tiles or more (Canyon 96² seed 16: a start by a lake planned at 6.6 that settled at 3.7–4.1;
+    Any 128² seed 26: a start relying on a one-tile pit of a lake its land didn't hold), and gives a
+    river the depth of the width it spreads to over ground no higher than its bed (River Valley 96²
+    seed 33: 0.42 planned in the channel, 0.12 settled over the floodplain, too shallow to pump);
+    tests: `tests/unit/plannedWater.test.ts`;
+  - a land with an inflow's head two levels or more under water held downstream is drawn again
+    before it is shown (`land/courses.ts` `drownedHeads`; Canyon 256² seed 14: a head at 4 under a
+    lake held at 7 backed up to the edge, put its sources in a flow and never settled); tests:
+    `tests/unit/drownedHeads.test.ts`;
+  - a land with a wall along an edge (D151) is drawn again before it is shown (River Valley 96² seed
+    2 failed every attempt on its shown land).
+- **D348 as D370 has it** (d4d2177c, 49eba513): every shaping step finishes before the first land is
+  shown, but D350's worn way out. The badwater hollows are dug as the land is shaped, read on the
+  pre-fill (moved off any whose source another's water reaches) and never dug again; a plan's start,
+  its second place and two more places apart from them have their pads levelled then; no start is
+  levelled after the land is shown; rivers whose sources the pre-fill shows reached leave before it
+  is shown, and the main river never leaves after. Tests: `tests/contract/firstLand.test.ts` (96²,
+  128², every theme; failed first, Any 96² seed 1: 119 tiles changed after the land was shown) and
+  `firstLand256.test.ts` (the heavy suite).
+- **Codex's audits' shared findings (D370):** a river's course carved at its bed through a planned
+  lake (8750c300; River Valley's water gaps; `tests/contract/lakeCourse.test.ts`); the canyon reading
+  from the first dry tile out (`tests/unit/canyonSignature.test.ts`); the water story joined over a
+  plug (`tests/unit/storyPlug.test.ts`); the mine sites the colony must reach placed as a pair
+  (0deba098; `tests/contract/minePair.test.ts`); islands in a lake hold objects and Islands' water
+  cap is 0.70 (D369; `tests/contract/lakeIsland.test.ts`, `tests/unit/waterCap.test.ts`).
+- **Adopted, one at a time** (seeds 1–20 of the theme; 24 maps of every other theme byte-identical
+  each time): Islands' sea-first shaping (3aedffce; all three 9 → 17, 20 → 20, 20 → 20 at 96², 128²,
+  256²), Delta's alluvial plain and braids (1b77d40f; 11 → 19, 16 → 18, 16 → 17), River Valley's own
+  shaping (cd5d5bf4; 18 → 17, 16 → 18, 15 → 17).
+- **D373 (1)** (a69c9f11): a channel below each confluence is cut as wide as all the water it
+  carries (Canyon 256² seed 22's six rivers through channels three tiles wide ran over their banks
+  onto a flat). 256²: no failing absolute in 280 maps since.
+- **D372's sheet rule and D373 (2)'s fill time: readings only.** Neither reads what floods on the
+  land and the planned water alone (Canyon 22's water rose over the plan's level where its outlets
+  couldn't pass the inflow; Canyon 14's was a deep lake filling slowly), and on 840 maps both would
+  only reject lands that settle; `info.sheet` and `info.rise` record them. **Starting a slow lake
+  full, the design kept for if one appears:** find the lake's settled level by running the game's own
+  settle on until that lake stops rising; keep that water as the lake's starting water
+  (`sim/water.ts` RetainedWater, as a carve's oxbow lake keeps its own), recorded in the lake feature
+  so a share link rebuilds it; every settle, and the game, then start from it, and the stored level
+  is the one the game's rules settle to.
+- **D373 (3)** (62858d54): the plan's start, its second place and two more places apart from them
+  have their pads levelled, and their mine sites' room made, before the land is shown; a start on the
+  settled water takes a prepared place before one that would need levelling.
+- **The last failing maps, each traced to its cause** (840 maps, seeds 1–40):
+  - *The debris before a second district* (Delta 128² seed 37) stood across the colony's way to both
+    mine sites, placed before it. "Reached" is now one function for the check and the generator
+    (`colonyReach`, `minesReached`, D342; `tests/unit/colonyReach.test.ts`): the second site is placed
+    on the walk round the first, and neither the debris nor an object set after the sites may cut the
+    colony off from a site it reached. Fixed.
+  - *A lake along a straight trough* (Canyon 128² seed 16): erosion cut a canyon 35 tiles long at
+    exactly 45°, and a lake filled it. On the plan its bank read 22 tiles straight, broken by the
+    channels that join it; those settled too shallow to count and the bank read 47, over the limit of
+    44, on a land already shown. A land's planned lakes are now read alone as well, at the limit
+    itself (47 here). Fixed. The cost, measured: on five other maps of the 840 a land that settled
+    within the limit before is drawn again (Any 128² seed 38; River Valley 11, Canyon 27 and 31, Lake
+    Basin 39 at 256²; nine lands in all); all five still build, none loses an outcome, River Valley
+    11 gains all three.
+    Capping a joined channel's width at twice its swing, tried first, changed about 240 lands and
+    not this one: taken out again.
+  - *A wall on the settled water only* (Any 96² seed 18, Lake Basin 128² seed 5). Where a river
+    arrives lower than a planned lake's bed, its channel (8750c300) is cut through the lake's tiles,
+    and the floor the river clears round the lake skips them, so the lake's old bed stands between
+    the channel and the floor as a band of rock with the river through it. The plan counts the lake
+    full, so the dam-wall check before the land is shown read those tiles as water and passed. The
+    check now also reads the pre-fill alone, with its water under 0.2 deep left out (13d1f1a2;
+    `tests/contract/drainedLakeWall.test.ts`): over 840 maps it flags those two and no other.
+    Fixed. Tried and dropped on the way: a reading of dam walls from the land alone (it flagged 2,
+    5 and 26 lands that settle fine at 96², 128² and 256², and missed Any 18); clearing the floor
+    through the lake's tiles (both maps pass, but that old bed also keeps a river off its
+    floodplain: River Valley 256² seed 37 then never settled, River Valley 96² seed 1 flooded to
+    36%, and Lake Basin's first maps meeting all three fell 12 → 8 of 20 at 256²;
+    `investigation/m9b/patches/lake-floor.patch`); the plan's own estimate made true (a tributary
+    across the old bed reads as wet on any plan and settles dry).
+  - *Still failing, with their causes:* Any 96² seed 31 and Islands 96² seed 4 (the settled water
+    moves the start off the plan's, and no other start's land holds two level squares 24 tiles out:
+    Islands 4's island is about 20 tiles across). Highlands 96² seed 14 passes at cc161b3a, by the
+    order of its attempts only: three of its starts still lose their water once it settles.
+  - *A reading for later:* `info.preWet`, the share of the map under the planned water or the
+    pre-fill before the land is shown (nothing reads the water cap before then; on one land tried it
+    read 39% where the settled water covered 36%).
+- **Measured at 13d1f1a2** (840 maps, seeds 1–40; in brackets the measure before this round):
+  failing an absolute 2 (4) at 96² (Any 31, Islands 4), 0 (3) at 128², 0 (0) at 256²; first maps
+  meeting all three outcomes 213 (211), 228 (225), 229 (228) of 280. Per theme, seeds 1–20, at 96²,
+  128², 256²: Any 19, 18, 17; River Valley 19, 18, 16; Canyon 11, 15, 15; Highlands 9, 15, 17; Lake
+  Basin 12, 13, 12; Delta 19, 18, 17; Islands 19, 20, 20 of 20. Median time to the map 2.2 s, 2.8 s
+  and 9.0 s (the faster settle, D359).
 
 ## Handoff (2026-09-27, evening)
 

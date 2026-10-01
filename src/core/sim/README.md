@@ -7,6 +7,7 @@ The game's water and soil rules on a height field: the water model, the exact wa
 - The water written into a file always comes from the canonical settle (`prefill.ts`), never from the editor's warm-started preview (`preview.ts`, PLAN §19.7).
 - Every emitter and blocker is handled through its footprint (`model.ts`, PLAN §11.5).
 - Changing a rule moves maps: re-pin the golden fixtures (D308).
+- A speed-up never moves a byte (D130, D359): `water-speedups` pins every byte of the state, and the bookkeeping `water.ts` keeps up to date (the active list, wet-neighbour counts, evaporation modifiers) is checked against a rebuild every tick. That bookkeeping follows the water only through `run`: start water through the constructor, never by writing `D` or `C` afterwards.
 
 **Start from**: `model.ts` `waterModel`; `prefill.ts` `canonicalSettle`; `water.ts` (the simulation); `moisture.ts`, `contamination.ts`; `drought.ts` `droughtStorage`; `preview.ts` (editor previews); `weather.ts` (Drought and Badtide days).
 

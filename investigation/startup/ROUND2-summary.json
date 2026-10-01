@@ -1,0 +1,5858 @@
+[
+  {
+    "group": "river-valley-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1491,
+      "worst": 1524
+    },
+    "firstFrame": {
+      "median": 1413,
+      "worst": 1459
+    },
+    "fcp": {
+      "median": 152,
+      "worst": 176
+    },
+    "response": {
+      "median": 163,
+      "worst": 198
+    },
+    "workerReady": {
+      "median": 184,
+      "worst": 203
+    },
+    "projectOpen": {
+      "median": 266,
+      "worst": 289
+    },
+    "mapDownload": {
+      "median": 216,
+      "worst": 229
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 625,
+      "worst": 661
+    },
+    "mesh": {
+      "median": 62,
+      "worst": 65
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 59,
+      "worst": 64
+    },
+    "compile": {
+      "median": 66,
+      "worst": 73
+    },
+    "evaluate": {
+      "median": 666,
+      "worst": 711
+    },
+    "transferred": {
+      "median": 794944,
+      "worst": 794944
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 535,
+      "worst": 622
+    },
+    "firstFrame": {
+      "median": 509,
+      "worst": 590
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 73,
+      "worst": 79
+    },
+    "workerReady": {
+      "median": 48,
+      "worst": 52
+    },
+    "projectOpen": {
+      "median": 271,
+      "worst": 303
+    },
+    "mapDownload": {
+      "median": 37,
+      "worst": 43
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 89,
+      "worst": 104
+    },
+    "mesh": {
+      "median": 57,
+      "worst": 68
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 57,
+      "worst": 59
+    },
+    "compile": {
+      "median": 76,
+      "worst": 84
+    },
+    "evaluate": {
+      "median": 339,
+      "worst": 395
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1010,
+      "worst": 1120
+    },
+    "firstFrame": {
+      "median": 955,
+      "worst": 1053
+    },
+    "fcp": {
+      "median": 164,
+      "worst": 180
+    },
+    "response": {
+      "median": 175,
+      "worst": 587
+    },
+    "workerReady": {
+      "median": 527,
+      "worst": 582
+    },
+    "projectOpen": {
+      "median": 165,
+      "worst": 196
+    },
+    "mapDownload": {
+      "median": 541,
+      "worst": 591
+    },
+    "rendererPrepare": {
+      "median": 359,
+      "worst": 403
+    },
+    "render": {
+      "median": 70,
+      "worst": 77
+    },
+    "mesh": {
+      "median": 51,
+      "worst": 61
+    },
+    "checksStart": {
+      "median": 999,
+      "worst": 1109
+    },
+    "parse": {
+      "median": 48,
+      "worst": 58
+    },
+    "compile": {
+      "median": 54,
+      "worst": 64
+    },
+    "evaluate": {
+      "median": 230,
+      "worst": 273
+    },
+    "transferred": {
+      "median": 1039483,
+      "worst": 1039483
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 440,
+      "worst": 448
+    },
+    "firstFrame": {
+      "median": 401,
+      "worst": 420
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 114,
+      "worst": 129
+    },
+    "workerReady": {
+      "median": 85,
+      "worst": 99
+    },
+    "projectOpen": {
+      "median": 166,
+      "worst": 174
+    },
+    "mapDownload": {
+      "median": 85,
+      "worst": 99
+    },
+    "rendererPrepare": {
+      "median": 46,
+      "worst": 55
+    },
+    "render": {
+      "median": 68,
+      "worst": 73
+    },
+    "mesh": {
+      "median": 54,
+      "worst": 57
+    },
+    "checksStart": {
+      "median": 418,
+      "worst": 435
+    },
+    "parse": {
+      "median": 53,
+      "worst": 58
+    },
+    "compile": {
+      "median": 65,
+      "worst": 72
+    },
+    "evaluate": {
+      "median": 233,
+      "worst": 254
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2015,
+      "worst": 2479
+    },
+    "firstFrame": {
+      "median": 1892,
+      "worst": 2303
+    },
+    "fcp": {
+      "median": 216,
+      "worst": 244
+    },
+    "response": {
+      "median": 308,
+      "worst": 372
+    },
+    "workerReady": {
+      "median": 225,
+      "worst": 272
+    },
+    "projectOpen": {
+      "median": 265,
+      "worst": 349
+    },
+    "mapDownload": {
+      "median": 277,
+      "worst": 348
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 789,
+      "worst": 975
+    },
+    "mesh": {
+      "median": 222,
+      "worst": 291
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 67,
+      "worst": 76
+    },
+    "compile": {
+      "median": 78,
+      "worst": 92
+    },
+    "evaluate": {
+      "median": 609,
+      "worst": 767
+    },
+    "transferred": {
+      "median": 794944,
+      "worst": 794944
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1539,
+      "worst": 1688
+    },
+    "firstFrame": {
+      "median": 1416,
+      "worst": 1563
+    },
+    "fcp": {
+      "median": 108,
+      "worst": 132
+    },
+    "response": {
+      "median": 218,
+      "worst": 282
+    },
+    "workerReady": {
+      "median": 144,
+      "worst": 175
+    },
+    "projectOpen": {
+      "median": 311,
+      "worst": 412
+    },
+    "mapDownload": {
+      "median": 176,
+      "worst": 215
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 373,
+      "worst": 414
+    },
+    "mesh": {
+      "median": 298,
+      "worst": 335
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 61,
+      "worst": 69
+    },
+    "compile": {
+      "median": 91,
+      "worst": 101
+    },
+    "evaluate": {
+      "median": 760,
+      "worst": 815
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1784,
+      "worst": 1932
+    },
+    "firstFrame": {
+      "median": 1629,
+      "worst": 1737
+    },
+    "fcp": {
+      "median": 200,
+      "worst": 212
+    },
+    "response": {
+      "median": 754,
+      "worst": 829
+    },
+    "workerReady": {
+      "median": 237,
+      "worst": 753
+    },
+    "projectOpen": {
+      "median": 156,
+      "worst": 187
+    },
+    "mapDownload": {
+      "median": 715,
+      "worst": 778
+    },
+    "rendererPrepare": {
+      "median": 469,
+      "worst": 518
+    },
+    "render": {
+      "median": 220,
+      "worst": 323
+    },
+    "mesh": {
+      "median": 197,
+      "worst": 293
+    },
+    "checksStart": {
+      "median": 1747,
+      "worst": 1885
+    },
+    "parse": {
+      "median": 55,
+      "worst": 103
+    },
+    "compile": {
+      "median": 64,
+      "worst": 94
+    },
+    "evaluate": {
+      "median": 242,
+      "worst": 277
+    },
+    "transferred": {
+      "median": 1039483,
+      "worst": 1039483
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1145,
+      "worst": 1354
+    },
+    "firstFrame": {
+      "median": 1023,
+      "worst": 1182
+    },
+    "fcp": {
+      "median": 104,
+      "worst": 136
+    },
+    "response": {
+      "median": 358,
+      "worst": 446
+    },
+    "workerReady": {
+      "median": 147,
+      "worst": 192
+    },
+    "projectOpen": {
+      "median": 155,
+      "worst": 169
+    },
+    "mapDownload": {
+      "median": 313,
+      "worst": 384
+    },
+    "rendererPrepare": {
+      "median": 148,
+      "worst": 172
+    },
+    "render": {
+      "median": 243,
+      "worst": 321
+    },
+    "mesh": {
+      "median": 216,
+      "worst": 285
+    },
+    "checksStart": {
+      "median": 1107,
+      "worst": 1295
+    },
+    "parse": {
+      "median": 51,
+      "worst": 59
+    },
+    "compile": {
+      "median": 70,
+      "worst": 80
+    },
+    "evaluate": {
+      "median": 217,
+      "worst": 267
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1809,
+      "worst": 1876
+    },
+    "firstFrame": {
+      "median": 1741,
+      "worst": 1806
+    },
+    "fcp": {
+      "median": 264,
+      "worst": 272
+    },
+    "response": {
+      "median": 289,
+      "worst": 296
+    },
+    "workerReady": {
+      "median": 527,
+      "worst": 534
+    },
+    "projectOpen": {
+      "median": 241,
+      "worst": 296
+    },
+    "mapDownload": {
+      "median": 634,
+      "worst": 646
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 615,
+      "worst": 627
+    },
+    "mesh": {
+      "median": 56,
+      "worst": 61
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 56,
+      "worst": 58
+    },
+    "compile": {
+      "median": 62,
+      "worst": 63
+    },
+    "evaluate": {
+      "median": 595,
+      "worst": 646
+    },
+    "transferred": {
+      "median": 794944,
+      "worst": 794944
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 498,
+      "worst": 557
+    },
+    "firstFrame": {
+      "median": 469,
+      "worst": 526
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 36
+    },
+    "response": {
+      "median": 72,
+      "worst": 80
+    },
+    "workerReady": {
+      "median": 46,
+      "worst": 54
+    },
+    "projectOpen": {
+      "median": 242,
+      "worst": 274
+    },
+    "mapDownload": {
+      "median": 37,
+      "worst": 45
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 85,
+      "worst": 94
+    },
+    "mesh": {
+      "median": 55,
+      "worst": 61
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 55,
+      "worst": 105
+    },
+    "compile": {
+      "median": 71,
+      "worst": 107
+    },
+    "evaluate": {
+      "median": 312,
+      "worst": 351
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1328,
+      "worst": 1348
+    },
+    "firstFrame": {
+      "median": 1266,
+      "worst": 1288
+    },
+    "fcp": {
+      "median": 268,
+      "worst": 280
+    },
+    "response": {
+      "median": 289,
+      "worst": 300
+    },
+    "workerReady": {
+      "median": 858,
+      "worst": 876
+    },
+    "projectOpen": {
+      "median": 151,
+      "worst": 166
+    },
+    "mapDownload": {
+      "median": 876,
+      "worst": 894
+    },
+    "rendererPrepare": {
+      "median": 329,
+      "worst": 343
+    },
+    "render": {
+      "median": 61,
+      "worst": 67
+    },
+    "mesh": {
+      "median": 46,
+      "worst": 48
+    },
+    "checksStart": {
+      "median": 1313,
+      "worst": 1337
+    },
+    "parse": {
+      "median": 45,
+      "worst": 46
+    },
+    "compile": {
+      "median": 50,
+      "worst": 51
+    },
+    "evaluate": {
+      "median": 218,
+      "worst": 229
+    },
+    "transferred": {
+      "median": 1039483,
+      "worst": 1039483
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 395,
+      "worst": 432
+    },
+    "firstFrame": {
+      "median": 369,
+      "worst": 403
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 112,
+      "worst": 113
+    },
+    "workerReady": {
+      "median": 81,
+      "worst": 83
+    },
+    "projectOpen": {
+      "median": 162,
+      "worst": 171
+    },
+    "mapDownload": {
+      "median": 81,
+      "worst": 83
+    },
+    "rendererPrepare": {
+      "median": 45,
+      "worst": 45
+    },
+    "render": {
+      "median": 58,
+      "worst": 68
+    },
+    "mesh": {
+      "median": 44,
+      "worst": 55
+    },
+    "checksStart": {
+      "median": 384,
+      "worst": 422
+    },
+    "parse": {
+      "median": 50,
+      "worst": 130
+    },
+    "compile": {
+      "median": 61,
+      "worst": 136
+    },
+    "evaluate": {
+      "median": 215,
+      "worst": 242
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2418,
+      "worst": 2478
+    },
+    "firstFrame": {
+      "median": 2254,
+      "worst": 2349
+    },
+    "fcp": {
+      "median": 332,
+      "worst": 336
+    },
+    "response": {
+      "median": 388,
+      "worst": 396
+    },
+    "workerReady": {
+      "median": 524,
+      "worst": 546
+    },
+    "projectOpen": {
+      "median": 248,
+      "worst": 278
+    },
+    "mapDownload": {
+      "median": 647,
+      "worst": 666
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 814,
+      "worst": 833
+    },
+    "mesh": {
+      "median": 239,
+      "worst": 240
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 59,
+      "worst": 61
+    },
+    "compile": {
+      "median": 67,
+      "worst": 72
+    },
+    "evaluate": {
+      "median": 619,
+      "worst": 648
+    },
+    "transferred": {
+      "median": 794944,
+      "worst": 794944
+    }
+  },
+  {
+    "group": "river-valley-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1579,
+      "worst": 1681
+    },
+    "firstFrame": {
+      "median": 1442,
+      "worst": 1557
+    },
+    "fcp": {
+      "median": 124,
+      "worst": 136
+    },
+    "response": {
+      "median": 246,
+      "worst": 300
+    },
+    "workerReady": {
+      "median": 169,
+      "worst": 189
+    },
+    "projectOpen": {
+      "median": 315,
+      "worst": 346
+    },
+    "mapDownload": {
+      "median": 195,
+      "worst": 234
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 392,
+      "worst": 408
+    },
+    "mesh": {
+      "median": 314,
+      "worst": 330
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 70,
+      "worst": 70
+    },
+    "compile": {
+      "median": 97,
+      "worst": 102
+    },
+    "evaluate": {
+      "median": 778,
+      "worst": 811
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2036,
+      "worst": 2112
+    },
+    "firstFrame": {
+      "median": 1921,
+      "worst": 1983
+    },
+    "fcp": {
+      "median": 344,
+      "worst": 356
+    },
+    "response": {
+      "median": 407,
+      "worst": 422
+    },
+    "workerReady": {
+      "median": 518,
+      "worst": 553
+    },
+    "projectOpen": {
+      "median": 166,
+      "worst": 195
+    },
+    "mapDownload": {
+      "median": 1064,
+      "worst": 1084
+    },
+    "rendererPrepare": {
+      "median": 492,
+      "worst": 506
+    },
+    "render": {
+      "median": 241,
+      "worst": 291
+    },
+    "mesh": {
+      "median": 216,
+      "worst": 261
+    },
+    "checksStart": {
+      "median": 2023,
+      "worst": 2085
+    },
+    "parse": {
+      "median": 52,
+      "worst": 56
+    },
+    "compile": {
+      "median": 63,
+      "worst": 69
+    },
+    "evaluate": {
+      "median": 238,
+      "worst": 246
+    },
+    "transferred": {
+      "median": 1039483,
+      "worst": 1039483
+    }
+  },
+  {
+    "group": "river-valley-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1485,
+      "worst": 1565
+    },
+    "firstFrame": {
+      "median": 1354,
+      "worst": 1444
+    },
+    "fcp": {
+      "median": 108,
+      "worst": 140
+    },
+    "response": {
+      "median": 426,
+      "worst": 480
+    },
+    "workerReady": {
+      "median": 161,
+      "worst": 203
+    },
+    "projectOpen": {
+      "median": 183,
+      "worst": 208
+    },
+    "mapDownload": {
+      "median": 357,
+      "worst": 409
+    },
+    "rendererPrepare": {
+      "median": 169,
+      "worst": 203
+    },
+    "render": {
+      "median": 309,
+      "worst": 349
+    },
+    "mesh": {
+      "median": 279,
+      "worst": 318
+    },
+    "checksStart": {
+      "median": 1457,
+      "worst": 1548
+    },
+    "parse": {
+      "median": 63,
+      "worst": 121
+    },
+    "compile": {
+      "median": 84,
+      "worst": 132
+    },
+    "evaluate": {
+      "median": 280,
+      "worst": 296
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1272,
+      "worst": 1345
+    },
+    "firstFrame": {
+      "median": 1206,
+      "worst": 1282
+    },
+    "fcp": {
+      "median": 144,
+      "worst": 152
+    },
+    "response": {
+      "median": 160,
+      "worst": 168
+    },
+    "workerReady": {
+      "median": 183,
+      "worst": 194
+    },
+    "projectOpen": {
+      "median": 194,
+      "worst": 208
+    },
+    "mapDownload": {
+      "median": 197,
+      "worst": 200
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 596,
+      "worst": 626
+    },
+    "mesh": {
+      "median": 49,
+      "worst": 54
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 51,
+      "worst": 55
+    },
+    "compile": {
+      "median": 60,
+      "worst": 62
+    },
+    "evaluate": {
+      "median": 478,
+      "worst": 520
+    },
+    "transferred": {
+      "median": 755800,
+      "worst": 755800
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 435,
+      "worst": 501
+    },
+    "firstFrame": {
+      "median": 407,
+      "worst": 473
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 73,
+      "worst": 74
+    },
+    "workerReady": {
+      "median": 45,
+      "worst": 46
+    },
+    "projectOpen": {
+      "median": 197,
+      "worst": 249
+    },
+    "mapDownload": {
+      "median": 35,
+      "worst": 39
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 76,
+      "worst": 82
+    },
+    "mesh": {
+      "median": 49,
+      "worst": 54
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 52,
+      "worst": 55
+    },
+    "compile": {
+      "median": 68,
+      "worst": 71
+    },
+    "evaluate": {
+      "median": 261,
+      "worst": 309
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 932,
+      "worst": 992
+    },
+    "firstFrame": {
+      "median": 870,
+      "worst": 944
+    },
+    "fcp": {
+      "median": 144,
+      "worst": 156
+    },
+    "response": {
+      "median": 163,
+      "worst": 171
+    },
+    "workerReady": {
+      "median": 192,
+      "worst": 515
+    },
+    "projectOpen": {
+      "median": 143,
+      "worst": 165
+    },
+    "mapDownload": {
+      "median": 517,
+      "worst": 547
+    },
+    "rendererPrepare": {
+      "median": 325,
+      "worst": 358
+    },
+    "render": {
+      "median": 56,
+      "worst": 59
+    },
+    "mesh": {
+      "median": 44,
+      "worst": 45
+    },
+    "checksStart": {
+      "median": 914,
+      "worst": 975
+    },
+    "parse": {
+      "median": 44,
+      "worst": 49
+    },
+    "compile": {
+      "median": 49,
+      "worst": 54
+    },
+    "evaluate": {
+      "median": 198,
+      "worst": 240
+    },
+    "transferred": {
+      "median": 963245,
+      "worst": 963245
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 365,
+      "worst": 375
+    },
+    "firstFrame": {
+      "median": 335,
+      "worst": 346
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 109,
+      "worst": 111
+    },
+    "workerReady": {
+      "median": 78,
+      "worst": 81
+    },
+    "projectOpen": {
+      "median": 143,
+      "worst": 143
+    },
+    "mapDownload": {
+      "median": 78,
+      "worst": 80
+    },
+    "rendererPrepare": {
+      "median": 43,
+      "worst": 44
+    },
+    "render": {
+      "median": 53,
+      "worst": 60
+    },
+    "mesh": {
+      "median": 44,
+      "worst": 45
+    },
+    "checksStart": {
+      "median": 349,
+      "worst": 364
+    },
+    "parse": {
+      "median": 48,
+      "worst": 64
+    },
+    "compile": {
+      "median": 55,
+      "worst": 76
+    },
+    "evaluate": {
+      "median": 210,
+      "worst": 232
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1994,
+      "worst": 2365
+    },
+    "firstFrame": {
+      "median": 1840,
+      "worst": 2215
+    },
+    "fcp": {
+      "median": 196,
+      "worst": 224
+    },
+    "response": {
+      "median": 274,
+      "worst": 359
+    },
+    "workerReady": {
+      "median": 216,
+      "worst": 298
+    },
+    "projectOpen": {
+      "median": 210,
+      "worst": 362
+    },
+    "mapDownload": {
+      "median": 259,
+      "worst": 305
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 846,
+      "worst": 954
+    },
+    "mesh": {
+      "median": 239,
+      "worst": 296
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 61,
+      "worst": 74
+    },
+    "compile": {
+      "median": 73,
+      "worst": 93
+    },
+    "evaluate": {
+      "median": 531,
+      "worst": 714
+    },
+    "transferred": {
+      "median": 755800,
+      "worst": 755800
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1413,
+      "worst": 1473
+    },
+    "firstFrame": {
+      "median": 1292,
+      "worst": 1348
+    },
+    "fcp": {
+      "median": 120,
+      "worst": 124
+    },
+    "response": {
+      "median": 241,
+      "worst": 251
+    },
+    "workerReady": {
+      "median": 154,
+      "worst": 163
+    },
+    "projectOpen": {
+      "median": 237,
+      "worst": 262
+    },
+    "mapDownload": {
+      "median": 185,
+      "worst": 194
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 368,
+      "worst": 410
+    },
+    "mesh": {
+      "median": 298,
+      "worst": 332
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 66,
+      "worst": 67
+    },
+    "compile": {
+      "median": 91,
+      "worst": 95
+    },
+    "evaluate": {
+      "median": 631,
+      "worst": 652
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1619,
+      "worst": 1835
+    },
+    "firstFrame": {
+      "median": 1470,
+      "worst": 1687
+    },
+    "fcp": {
+      "median": 184,
+      "worst": 216
+    },
+    "response": {
+      "median": 745,
+      "worst": 840
+    },
+    "workerReady": {
+      "median": 227,
+      "worst": 653
+    },
+    "projectOpen": {
+      "median": 157,
+      "worst": 184
+    },
+    "mapDownload": {
+      "median": 693,
+      "worst": 775
+    },
+    "rendererPrepare": {
+      "median": 460,
+      "worst": 541
+    },
+    "render": {
+      "median": 221,
+      "worst": 269
+    },
+    "mesh": {
+      "median": 199,
+      "worst": 240
+    },
+    "checksStart": {
+      "median": 1584,
+      "worst": 1800
+    },
+    "parse": {
+      "median": 59,
+      "worst": 64
+    },
+    "compile": {
+      "median": 68,
+      "worst": 77
+    },
+    "evaluate": {
+      "median": 225,
+      "worst": 264
+    },
+    "transferred": {
+      "median": 963245,
+      "worst": 963245
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1242,
+      "worst": 1401
+    },
+    "firstFrame": {
+      "median": 1117,
+      "worst": 1249
+    },
+    "fcp": {
+      "median": 112,
+      "worst": 140
+    },
+    "response": {
+      "median": 406,
+      "worst": 462
+    },
+    "workerReady": {
+      "median": 171,
+      "worst": 199
+    },
+    "projectOpen": {
+      "median": 148,
+      "worst": 162
+    },
+    "mapDownload": {
+      "median": 359,
+      "worst": 412
+    },
+    "rendererPrepare": {
+      "median": 169,
+      "worst": 190
+    },
+    "render": {
+      "median": 281,
+      "worst": 310
+    },
+    "mesh": {
+      "median": 251,
+      "worst": 286
+    },
+    "checksStart": {
+      "median": 1210,
+      "worst": 1356
+    },
+    "parse": {
+      "median": 58,
+      "worst": 66
+    },
+    "compile": {
+      "median": 77,
+      "worst": 87
+    },
+    "evaluate": {
+      "median": 231,
+      "worst": 248
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1784,
+      "worst": 1795
+    },
+    "firstFrame": {
+      "median": 1706,
+      "worst": 1730
+    },
+    "fcp": {
+      "median": 268,
+      "worst": 292
+    },
+    "response": {
+      "median": 292,
+      "worst": 305
+    },
+    "workerReady": {
+      "median": 526,
+      "worst": 528
+    },
+    "projectOpen": {
+      "median": 213,
+      "worst": 234
+    },
+    "mapDownload": {
+      "median": 597,
+      "worst": 604
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 622,
+      "worst": 631
+    },
+    "mesh": {
+      "median": 53,
+      "worst": 61
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 56,
+      "worst": 62
+    },
+    "compile": {
+      "median": 62,
+      "worst": 69
+    },
+    "evaluate": {
+      "median": 541,
+      "worst": 566
+    },
+    "transferred": {
+      "median": 755800,
+      "worst": 755800
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 471,
+      "worst": 500
+    },
+    "firstFrame": {
+      "median": 434,
+      "worst": 447
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 75,
+      "worst": 79
+    },
+    "workerReady": {
+      "median": 47,
+      "worst": 55
+    },
+    "projectOpen": {
+      "median": 206,
+      "worst": 216
+    },
+    "mapDownload": {
+      "median": 38,
+      "worst": 45
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 83,
+      "worst": 95
+    },
+    "mesh": {
+      "median": 54,
+      "worst": 62
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 59,
+      "worst": 62
+    },
+    "compile": {
+      "median": 77,
+      "worst": 81
+    },
+    "evaluate": {
+      "median": 278,
+      "worst": 289
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1322,
+      "worst": 1358
+    },
+    "firstFrame": {
+      "median": 1252,
+      "worst": 1293
+    },
+    "fcp": {
+      "median": 264,
+      "worst": 276
+    },
+    "response": {
+      "median": 288,
+      "worst": 294
+    },
+    "workerReady": {
+      "median": 862,
+      "worst": 903
+    },
+    "projectOpen": {
+      "median": 146,
+      "worst": 153
+    },
+    "mapDownload": {
+      "median": 872,
+      "worst": 907
+    },
+    "rendererPrepare": {
+      "median": 349,
+      "worst": 376
+    },
+    "render": {
+      "median": 64,
+      "worst": 67
+    },
+    "mesh": {
+      "median": 46,
+      "worst": 52
+    },
+    "checksStart": {
+      "median": 1303,
+      "worst": 1349
+    },
+    "parse": {
+      "median": 48,
+      "worst": 50
+    },
+    "compile": {
+      "median": 53,
+      "worst": 56
+    },
+    "evaluate": {
+      "median": 213,
+      "worst": 236
+    },
+    "transferred": {
+      "median": 963245,
+      "worst": 963245
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 393,
+      "worst": 426
+    },
+    "firstFrame": {
+      "median": 364,
+      "worst": 391
+    },
+    "fcp": {
+      "median": 36,
+      "worst": 36
+    },
+    "response": {
+      "median": 121,
+      "worst": 126
+    },
+    "workerReady": {
+      "median": 90,
+      "worst": 94
+    },
+    "projectOpen": {
+      "median": 151,
+      "worst": 160
+    },
+    "mapDownload": {
+      "median": 90,
+      "worst": 94
+    },
+    "rendererPrepare": {
+      "median": 48,
+      "worst": 52
+    },
+    "render": {
+      "median": 57,
+      "worst": 68
+    },
+    "mesh": {
+      "median": 45,
+      "worst": 56
+    },
+    "checksStart": {
+      "median": 379,
+      "worst": 411
+    },
+    "parse": {
+      "median": 52,
+      "worst": 56
+    },
+    "compile": {
+      "median": 67,
+      "worst": 70
+    },
+    "evaluate": {
+      "median": 220,
+      "worst": 225
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2438,
+      "worst": 2602
+    },
+    "firstFrame": {
+      "median": 2276,
+      "worst": 2422
+    },
+    "fcp": {
+      "median": 336,
+      "worst": 356
+    },
+    "response": {
+      "median": 389,
+      "worst": 418
+    },
+    "workerReady": {
+      "median": 515,
+      "worst": 529
+    },
+    "projectOpen": {
+      "median": 230,
+      "worst": 264
+    },
+    "mapDownload": {
+      "median": 624,
+      "worst": 650
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 903,
+      "worst": 931
+    },
+    "mesh": {
+      "median": 251,
+      "worst": 280
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 62,
+      "worst": 74
+    },
+    "compile": {
+      "median": 76,
+      "worst": 90
+    },
+    "evaluate": {
+      "median": 554,
+      "worst": 632
+    },
+    "transferred": {
+      "median": 755800,
+      "worst": 755800
+    }
+  },
+  {
+    "group": "canyon-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1507,
+      "worst": 1590
+    },
+    "firstFrame": {
+      "median": 1358,
+      "worst": 1447
+    },
+    "fcp": {
+      "median": 128,
+      "worst": 140
+    },
+    "response": {
+      "median": 267,
+      "worst": 293
+    },
+    "workerReady": {
+      "median": 171,
+      "worst": 191
+    },
+    "projectOpen": {
+      "median": 278,
+      "worst": 365
+    },
+    "mapDownload": {
+      "median": 213,
+      "worst": 233
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 369,
+      "worst": 385
+    },
+    "mesh": {
+      "median": 290,
+      "worst": 307
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 73,
+      "worst": 128
+    },
+    "compile": {
+      "median": 101,
+      "worst": 128
+    },
+    "evaluate": {
+      "median": 663,
+      "worst": 688
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2021,
+      "worst": 2249
+    },
+    "firstFrame": {
+      "median": 1855,
+      "worst": 2065
+    },
+    "fcp": {
+      "median": 336,
+      "worst": 360
+    },
+    "response": {
+      "median": 397,
+      "worst": 434
+    },
+    "workerReady": {
+      "median": 522,
+      "worst": 1034
+    },
+    "projectOpen": {
+      "median": 155,
+      "worst": 187
+    },
+    "mapDownload": {
+      "median": 1031,
+      "worst": 1080
+    },
+    "rendererPrepare": {
+      "median": 486,
+      "worst": 519
+    },
+    "render": {
+      "median": 254,
+      "worst": 274
+    },
+    "mesh": {
+      "median": 226,
+      "worst": 246
+    },
+    "checksStart": {
+      "median": 1980,
+      "worst": 2207
+    },
+    "parse": {
+      "median": 55,
+      "worst": 60
+    },
+    "compile": {
+      "median": 70,
+      "worst": 74
+    },
+    "evaluate": {
+      "median": 255,
+      "worst": 267
+    },
+    "transferred": {
+      "median": 963245,
+      "worst": 963245
+    }
+  },
+  {
+    "group": "canyon-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1337,
+      "worst": 1604
+    },
+    "firstFrame": {
+      "median": 1194,
+      "worst": 1410
+    },
+    "fcp": {
+      "median": 112,
+      "worst": 128
+    },
+    "response": {
+      "median": 386,
+      "worst": 517
+    },
+    "workerReady": {
+      "median": 161,
+      "worst": 199
+    },
+    "projectOpen": {
+      "median": 166,
+      "worst": 202
+    },
+    "mapDownload": {
+      "median": 337,
+      "worst": 439
+    },
+    "rendererPrepare": {
+      "median": 159,
+      "worst": 221
+    },
+    "render": {
+      "median": 302,
+      "worst": 346
+    },
+    "mesh": {
+      "median": 271,
+      "worst": 308
+    },
+    "checksStart": {
+      "median": 1294,
+      "worst": 1553
+    },
+    "parse": {
+      "median": 57,
+      "worst": 70
+    },
+    "compile": {
+      "median": 76,
+      "worst": 97
+    },
+    "evaluate": {
+      "median": 259,
+      "worst": 285
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1494,
+      "worst": 1660
+    },
+    "firstFrame": {
+      "median": 1415,
+      "worst": 1567
+    },
+    "fcp": {
+      "median": 160,
+      "worst": 180
+    },
+    "response": {
+      "median": 180,
+      "worst": 191
+    },
+    "workerReady": {
+      "median": 187,
+      "worst": 195
+    },
+    "projectOpen": {
+      "median": 233,
+      "worst": 259
+    },
+    "mapDownload": {
+      "median": 197,
+      "worst": 212
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 691,
+      "worst": 816
+    },
+    "mesh": {
+      "median": 77,
+      "worst": 85
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 62,
+      "worst": 69
+    },
+    "compile": {
+      "median": 73,
+      "worst": 76
+    },
+    "evaluate": {
+      "median": 630,
+      "worst": 659
+    },
+    "transferred": {
+      "median": 760943,
+      "worst": 760943
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 570,
+      "worst": 643
+    },
+    "firstFrame": {
+      "median": 540,
+      "worst": 599
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 77,
+      "worst": 82
+    },
+    "workerReady": {
+      "median": 55,
+      "worst": 56
+    },
+    "projectOpen": {
+      "median": 253,
+      "worst": 295
+    },
+    "mapDownload": {
+      "median": 42,
+      "worst": 49
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 127,
+      "worst": 136
+    },
+    "mesh": {
+      "median": 89,
+      "worst": 94
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 63,
+      "worst": 128
+    },
+    "compile": {
+      "median": 84,
+      "worst": 124
+    },
+    "evaluate": {
+      "median": 361,
+      "worst": 410
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1101,
+      "worst": 1157
+    },
+    "firstFrame": {
+      "median": 1035,
+      "worst": 1071
+    },
+    "fcp": {
+      "median": 168,
+      "worst": 196
+    },
+    "response": {
+      "median": 188,
+      "worst": 591
+    },
+    "workerReady": {
+      "median": 576,
+      "worst": 604
+    },
+    "projectOpen": {
+      "median": 159,
+      "worst": 168
+    },
+    "mapDownload": {
+      "median": 576,
+      "worst": 607
+    },
+    "rendererPrepare": {
+      "median": 377,
+      "worst": 405
+    },
+    "render": {
+      "median": 100,
+      "worst": 119
+    },
+    "mesh": {
+      "median": 76,
+      "worst": 86
+    },
+    "checksStart": {
+      "median": 1088,
+      "worst": 1134
+    },
+    "parse": {
+      "median": 53,
+      "worst": 55
+    },
+    "compile": {
+      "median": 59,
+      "worst": 66
+    },
+    "evaluate": {
+      "median": 262,
+      "worst": 283
+    },
+    "transferred": {
+      "median": 960855,
+      "worst": 960855
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 436,
+      "worst": 469
+    },
+    "firstFrame": {
+      "median": 408,
+      "worst": 432
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 44
+    },
+    "response": {
+      "median": 117,
+      "worst": 128
+    },
+    "workerReady": {
+      "median": 84,
+      "worst": 95
+    },
+    "projectOpen": {
+      "median": 165,
+      "worst": 174
+    },
+    "mapDownload": {
+      "median": 84,
+      "worst": 95
+    },
+    "rendererPrepare": {
+      "median": 45,
+      "worst": 50
+    },
+    "render": {
+      "median": 91,
+      "worst": 102
+    },
+    "mesh": {
+      "median": 73,
+      "worst": 83
+    },
+    "checksStart": {
+      "median": 427,
+      "worst": 455
+    },
+    "parse": {
+      "median": 54,
+      "worst": 60
+    },
+    "compile": {
+      "median": 66,
+      "worst": 74
+    },
+    "evaluate": {
+      "median": 255,
+      "worst": 267
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2418,
+      "worst": 2651
+    },
+    "firstFrame": {
+      "median": 2235,
+      "worst": 2461
+    },
+    "fcp": {
+      "median": 200,
+      "worst": 216
+    },
+    "response": {
+      "median": 303,
+      "worst": 323
+    },
+    "workerReady": {
+      "median": 224,
+      "worst": 236
+    },
+    "projectOpen": {
+      "median": 264,
+      "worst": 290
+    },
+    "mapDownload": {
+      "median": 277,
+      "worst": 294
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 992,
+      "worst": 1226
+    },
+    "mesh": {
+      "median": 323,
+      "worst": 503
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 70,
+      "worst": 78
+    },
+    "compile": {
+      "median": 86,
+      "worst": 98
+    },
+    "evaluate": {
+      "median": 696,
+      "worst": 751
+    },
+    "transferred": {
+      "median": 760943,
+      "worst": 760943
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1754,
+      "worst": 1938
+    },
+    "firstFrame": {
+      "median": 1589,
+      "worst": 1730
+    },
+    "fcp": {
+      "median": 140,
+      "worst": 156
+    },
+    "response": {
+      "median": 285,
+      "worst": 328
+    },
+    "workerReady": {
+      "median": 182,
+      "worst": 205
+    },
+    "projectOpen": {
+      "median": 305,
+      "worst": 322
+    },
+    "mapDownload": {
+      "median": 223,
+      "worst": 256
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 542,
+      "worst": 691
+    },
+    "mesh": {
+      "median": 460,
+      "worst": 570
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 72,
+      "worst": 77
+    },
+    "compile": {
+      "median": 103,
+      "worst": 116
+    },
+    "evaluate": {
+      "median": 754,
+      "worst": 805
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1880,
+      "worst": 2162
+    },
+    "firstFrame": {
+      "median": 1715,
+      "worst": 1967
+    },
+    "fcp": {
+      "median": 200,
+      "worst": 208
+    },
+    "response": {
+      "median": 821,
+      "worst": 911
+    },
+    "workerReady": {
+      "median": 722,
+      "worst": 779
+    },
+    "projectOpen": {
+      "median": 179,
+      "worst": 212
+    },
+    "mapDownload": {
+      "median": 775,
+      "worst": 852
+    },
+    "rendererPrepare": {
+      "median": 519,
+      "worst": 596
+    },
+    "render": {
+      "median": 358,
+      "worst": 406
+    },
+    "mesh": {
+      "median": 321,
+      "worst": 352
+    },
+    "checksStart": {
+      "median": 1836,
+      "worst": 2113
+    },
+    "parse": {
+      "median": 68,
+      "worst": 72
+    },
+    "compile": {
+      "median": 83,
+      "worst": 89
+    },
+    "evaluate": {
+      "median": 291,
+      "worst": 354
+    },
+    "transferred": {
+      "median": 960855,
+      "worst": 960855
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1565,
+      "worst": 1615
+    },
+    "firstFrame": {
+      "median": 1416,
+      "worst": 1443
+    },
+    "fcp": {
+      "median": 124,
+      "worst": 136
+    },
+    "response": {
+      "median": 436,
+      "worst": 462
+    },
+    "workerReady": {
+      "median": 181,
+      "worst": 192
+    },
+    "projectOpen": {
+      "median": 173,
+      "worst": 192
+    },
+    "mapDownload": {
+      "median": 385,
+      "worst": 411
+    },
+    "rendererPrepare": {
+      "median": 175,
+      "worst": 198
+    },
+    "render": {
+      "median": 469,
+      "worst": 478
+    },
+    "mesh": {
+      "median": 429,
+      "worst": 442
+    },
+    "checksStart": {
+      "median": 1520,
+      "worst": 1561
+    },
+    "parse": {
+      "median": 63,
+      "worst": 120
+    },
+    "compile": {
+      "median": 83,
+      "worst": 133
+    },
+    "evaluate": {
+      "median": 302,
+      "worst": 344
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1910,
+      "worst": 2038
+    },
+    "firstFrame": {
+      "median": 1830,
+      "worst": 1949
+    },
+    "fcp": {
+      "median": 268,
+      "worst": 280
+    },
+    "response": {
+      "median": 293,
+      "worst": 303
+    },
+    "workerReady": {
+      "median": 526,
+      "worst": 529
+    },
+    "projectOpen": {
+      "median": 239,
+      "worst": 292
+    },
+    "mapDownload": {
+      "median": 596,
+      "worst": 602
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 721,
+      "worst": 768
+    },
+    "mesh": {
+      "median": 80,
+      "worst": 91
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 61,
+      "worst": 67
+    },
+    "compile": {
+      "median": 69,
+      "worst": 75
+    },
+    "evaluate": {
+      "median": 619,
+      "worst": 687
+    },
+    "transferred": {
+      "median": 760943,
+      "worst": 760943
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 622,
+      "worst": 713
+    },
+    "firstFrame": {
+      "median": 580,
+      "worst": 614
+    },
+    "fcp": {
+      "median": 36,
+      "worst": 40
+    },
+    "response": {
+      "median": 80,
+      "worst": 87
+    },
+    "workerReady": {
+      "median": 58,
+      "worst": 59
+    },
+    "projectOpen": {
+      "median": 272,
+      "worst": 310
+    },
+    "mapDownload": {
+      "median": 44,
+      "worst": 47
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 132,
+      "worst": 144
+    },
+    "mesh": {
+      "median": 90,
+      "worst": 95
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 67,
+      "worst": 68
+    },
+    "compile": {
+      "median": 90,
+      "worst": 91
+    },
+    "evaluate": {
+      "median": 391,
+      "worst": 409
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1438,
+      "worst": 1589
+    },
+    "firstFrame": {
+      "median": 1366,
+      "worst": 1516
+    },
+    "fcp": {
+      "median": 280,
+      "worst": 288
+    },
+    "response": {
+      "median": 297,
+      "worst": 309
+    },
+    "workerReady": {
+      "median": 908,
+      "worst": 930
+    },
+    "projectOpen": {
+      "median": 167,
+      "worst": 206
+    },
+    "mapDownload": {
+      "median": 924,
+      "worst": 986
+    },
+    "rendererPrepare": {
+      "median": 398,
+      "worst": 457
+    },
+    "render": {
+      "median": 95,
+      "worst": 119
+    },
+    "mesh": {
+      "median": 71,
+      "worst": 98
+    },
+    "checksStart": {
+      "median": 1403,
+      "worst": 1559
+    },
+    "parse": {
+      "median": 51,
+      "worst": 55
+    },
+    "compile": {
+      "median": 58,
+      "worst": 64
+    },
+    "evaluate": {
+      "median": 253,
+      "worst": 313
+    },
+    "transferred": {
+      "median": 960855,
+      "worst": 960855
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 458,
+      "worst": 525
+    },
+    "firstFrame": {
+      "median": 427,
+      "worst": 483
+    },
+    "fcp": {
+      "median": 40,
+      "worst": 40
+    },
+    "response": {
+      "median": 124,
+      "worst": 146
+    },
+    "workerReady": {
+      "median": 96,
+      "worst": 111
+    },
+    "projectOpen": {
+      "median": 169,
+      "worst": 199
+    },
+    "mapDownload": {
+      "median": 96,
+      "worst": 110
+    },
+    "rendererPrepare": {
+      "median": 53,
+      "worst": 61
+    },
+    "render": {
+      "median": 88,
+      "worst": 104
+    },
+    "mesh": {
+      "median": 68,
+      "worst": 83
+    },
+    "checksStart": {
+      "median": 448,
+      "worst": 510
+    },
+    "parse": {
+      "median": 59,
+      "worst": 64
+    },
+    "compile": {
+      "median": 71,
+      "worst": 81
+    },
+    "evaluate": {
+      "median": 252,
+      "worst": 292
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2658,
+      "worst": 3031
+    },
+    "firstFrame": {
+      "median": 2498,
+      "worst": 2821
+    },
+    "fcp": {
+      "median": 352,
+      "worst": 388
+    },
+    "response": {
+      "median": 432,
+      "worst": 486
+    },
+    "workerReady": {
+      "median": 531,
+      "worst": 555
+    },
+    "projectOpen": {
+      "median": 246,
+      "worst": 277
+    },
+    "mapDownload": {
+      "median": 643,
+      "worst": 671
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 1026,
+      "worst": 1206
+    },
+    "mesh": {
+      "median": 347,
+      "worst": 439
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 68,
+      "worst": 84
+    },
+    "compile": {
+      "median": 82,
+      "worst": 99
+    },
+    "evaluate": {
+      "median": 644,
+      "worst": 713
+    },
+    "transferred": {
+      "median": 760943,
+      "worst": 760943
+    }
+  },
+  {
+    "group": "highlands-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1740,
+      "worst": 1989
+    },
+    "firstFrame": {
+      "median": 1592,
+      "worst": 1838
+    },
+    "fcp": {
+      "median": 140,
+      "worst": 160
+    },
+    "response": {
+      "median": 297,
+      "worst": 361
+    },
+    "workerReady": {
+      "median": 189,
+      "worst": 208
+    },
+    "projectOpen": {
+      "median": 294,
+      "worst": 342
+    },
+    "mapDownload": {
+      "median": 237,
+      "worst": 267
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 560,
+      "worst": 654
+    },
+    "mesh": {
+      "median": 471,
+      "worst": 558
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 75,
+      "worst": 79
+    },
+    "compile": {
+      "median": 107,
+      "worst": 114
+    },
+    "evaluate": {
+      "median": 765,
+      "worst": 826
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2212,
+      "worst": 2449
+    },
+    "firstFrame": {
+      "median": 2057,
+      "worst": 2253
+    },
+    "fcp": {
+      "median": 356,
+      "worst": 368
+    },
+    "response": {
+      "median": 444,
+      "worst": 462
+    },
+    "workerReady": {
+      "median": 525,
+      "worst": 1160
+    },
+    "projectOpen": {
+      "median": 181,
+      "worst": 195
+    },
+    "mapDownload": {
+      "median": 1111,
+      "worst": 1172
+    },
+    "rendererPrepare": {
+      "median": 556,
+      "worst": 603
+    },
+    "render": {
+      "median": 385,
+      "worst": 438
+    },
+    "mesh": {
+      "median": 353,
+      "worst": 388
+    },
+    "checksStart": {
+      "median": 2171,
+      "worst": 2392
+    },
+    "parse": {
+      "median": 64,
+      "worst": 68
+    },
+    "compile": {
+      "median": 79,
+      "worst": 85
+    },
+    "evaluate": {
+      "median": 282,
+      "worst": 335
+    },
+    "transferred": {
+      "median": 960855,
+      "worst": 960855
+    }
+  },
+  {
+    "group": "highlands-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1570,
+      "worst": 1788
+    },
+    "firstFrame": {
+      "median": 1430,
+      "worst": 1603
+    },
+    "fcp": {
+      "median": 128,
+      "worst": 156
+    },
+    "response": {
+      "median": 470,
+      "worst": 560
+    },
+    "workerReady": {
+      "median": 181,
+      "worst": 243
+    },
+    "projectOpen": {
+      "median": 187,
+      "worst": 197
+    },
+    "mapDownload": {
+      "median": 405,
+      "worst": 501
+    },
+    "rendererPrepare": {
+      "median": 211,
+      "worst": 240
+    },
+    "render": {
+      "median": 492,
+      "worst": 529
+    },
+    "mesh": {
+      "median": 433,
+      "worst": 479
+    },
+    "checksStart": {
+      "median": 1549,
+      "worst": 1731
+    },
+    "parse": {
+      "median": 70,
+      "worst": 131
+    },
+    "compile": {
+      "median": 96,
+      "worst": 142
+    },
+    "evaluate": {
+      "median": 328,
+      "worst": 336
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1712,
+      "worst": 2132
+    },
+    "firstFrame": {
+      "median": 1619,
+      "worst": 2023
+    },
+    "fcp": {
+      "median": 172,
+      "worst": 184
+    },
+    "response": {
+      "median": 192,
+      "worst": 352
+    },
+    "workerReady": {
+      "median": 206,
+      "worst": 236
+    },
+    "projectOpen": {
+      "median": 334,
+      "worst": 507
+    },
+    "mapDownload": {
+      "median": 222,
+      "worst": 257
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 750,
+      "worst": 904
+    },
+    "mesh": {
+      "median": 76,
+      "worst": 105
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 67,
+      "worst": 119
+    },
+    "compile": {
+      "median": 78,
+      "worst": 109
+    },
+    "evaluate": {
+      "median": 766,
+      "worst": 1006
+    },
+    "transferred": {
+      "median": 776731,
+      "worst": 776731
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 697,
+      "worst": 1323
+    },
+    "firstFrame": {
+      "median": 660,
+      "worst": 1230
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 100
+    },
+    "response": {
+      "median": 87,
+      "worst": 171
+    },
+    "workerReady": {
+      "median": 58,
+      "worst": 112
+    },
+    "projectOpen": {
+      "median": 365,
+      "worst": 811
+    },
+    "mapDownload": {
+      "median": 48,
+      "worst": 98
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 118,
+      "worst": 152
+    },
+    "mesh": {
+      "median": 81,
+      "worst": 106
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 75,
+      "worst": 138
+    },
+    "compile": {
+      "median": 101,
+      "worst": 138
+    },
+    "evaluate": {
+      "median": 463,
+      "worst": 575
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1262,
+      "worst": 1493
+    },
+    "firstFrame": {
+      "median": 1182,
+      "worst": 1369
+    },
+    "fcp": {
+      "median": 160,
+      "worst": 188
+    },
+    "response": {
+      "median": 644,
+      "worst": 772
+    },
+    "workerReady": {
+      "median": 643,
+      "worst": 761
+    },
+    "projectOpen": {
+      "median": 223,
+      "worst": 250
+    },
+    "mapDownload": {
+      "median": 643,
+      "worst": 761
+    },
+    "rendererPrepare": {
+      "median": 454,
+      "worst": 494
+    },
+    "render": {
+      "median": 86,
+      "worst": 173
+    },
+    "mesh": {
+      "median": 71,
+      "worst": 93
+    },
+    "checksStart": {
+      "median": 1246,
+      "worst": 1421
+    },
+    "parse": {
+      "median": 55,
+      "worst": 108
+    },
+    "compile": {
+      "median": 64,
+      "worst": 107
+    },
+    "evaluate": {
+      "median": 315,
+      "worst": 323
+    },
+    "transferred": {
+      "median": 993835,
+      "worst": 993835
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 486,
+      "worst": 935
+    },
+    "firstFrame": {
+      "median": 451,
+      "worst": 851
+    },
+    "fcp": {
+      "median": 40,
+      "worst": 48
+    },
+    "response": {
+      "median": 138,
+      "worst": 178
+    },
+    "workerReady": {
+      "median": 108,
+      "worst": 150
+    },
+    "projectOpen": {
+      "median": 193,
+      "worst": 453
+    },
+    "mapDownload": {
+      "median": 99,
+      "worst": 111
+    },
+    "rendererPrepare": {
+      "median": 60,
+      "worst": 64
+    },
+    "render": {
+      "median": 71,
+      "worst": 128
+    },
+    "mesh": {
+      "median": 56,
+      "worst": 106
+    },
+    "checksStart": {
+      "median": 471,
+      "worst": 886
+    },
+    "parse": {
+      "median": 60,
+      "worst": 71
+    },
+    "compile": {
+      "median": 76,
+      "worst": 81
+    },
+    "evaluate": {
+      "median": 274,
+      "worst": 389
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2252,
+      "worst": 2547
+    },
+    "firstFrame": {
+      "median": 2104,
+      "worst": 2384
+    },
+    "fcp": {
+      "median": 216,
+      "worst": 228
+    },
+    "response": {
+      "median": 312,
+      "worst": 326
+    },
+    "workerReady": {
+      "median": 240,
+      "worst": 250
+    },
+    "projectOpen": {
+      "median": 298,
+      "worst": 379
+    },
+    "mapDownload": {
+      "median": 264,
+      "worst": 302
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 921,
+      "worst": 1015
+    },
+    "mesh": {
+      "median": 261,
+      "worst": 296
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 71,
+      "worst": 77
+    },
+    "compile": {
+      "median": 84,
+      "worst": 95
+    },
+    "evaluate": {
+      "median": 710,
+      "worst": 805
+    },
+    "transferred": {
+      "median": 776731,
+      "worst": 776731
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1730,
+      "worst": 1762
+    },
+    "firstFrame": {
+      "median": 1584,
+      "worst": 1613
+    },
+    "fcp": {
+      "median": 140,
+      "worst": 152
+    },
+    "response": {
+      "median": 298,
+      "worst": 311
+    },
+    "workerReady": {
+      "median": 193,
+      "worst": 204
+    },
+    "projectOpen": {
+      "median": 354,
+      "worst": 360
+    },
+    "mapDownload": {
+      "median": 235,
+      "worst": 246
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 414,
+      "worst": 446
+    },
+    "mesh": {
+      "median": 332,
+      "worst": 365
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 79,
+      "worst": 136
+    },
+    "compile": {
+      "median": 111,
+      "worst": 159
+    },
+    "evaluate": {
+      "median": 851,
+      "worst": 863
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1839,
+      "worst": 1948
+    },
+    "firstFrame": {
+      "median": 1672,
+      "worst": 1785
+    },
+    "fcp": {
+      "median": 208,
+      "worst": 224
+    },
+    "response": {
+      "median": 797,
+      "worst": 881
+    },
+    "workerReady": {
+      "median": 262,
+      "worst": 770
+    },
+    "projectOpen": {
+      "median": 182,
+      "worst": 198
+    },
+    "mapDownload": {
+      "median": 761,
+      "worst": 825
+    },
+    "rendererPrepare": {
+      "median": 515,
+      "worst": 563
+    },
+    "render": {
+      "median": 237,
+      "worst": 287
+    },
+    "mesh": {
+      "median": 213,
+      "worst": 261
+    },
+    "checksStart": {
+      "median": 1799,
+      "worst": 1908
+    },
+    "parse": {
+      "median": 58,
+      "worst": 60
+    },
+    "compile": {
+      "median": 73,
+      "worst": 74
+    },
+    "evaluate": {
+      "median": 257,
+      "worst": 299
+    },
+    "transferred": {
+      "median": 993835,
+      "worst": 993835
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1441,
+      "worst": 1527
+    },
+    "firstFrame": {
+      "median": 1275,
+      "worst": 1393
+    },
+    "fcp": {
+      "median": 104,
+      "worst": 128
+    },
+    "response": {
+      "median": 408,
+      "worst": 476
+    },
+    "workerReady": {
+      "median": 149,
+      "worst": 211
+    },
+    "projectOpen": {
+      "median": 193,
+      "worst": 196
+    },
+    "mapDownload": {
+      "median": 354,
+      "worst": 424
+    },
+    "rendererPrepare": {
+      "median": 177,
+      "worst": 193
+    },
+    "render": {
+      "median": 325,
+      "worst": 340
+    },
+    "mesh": {
+      "median": 287,
+      "worst": 309
+    },
+    "checksStart": {
+      "median": 1395,
+      "worst": 1509
+    },
+    "parse": {
+      "median": 61,
+      "worst": 69
+    },
+    "compile": {
+      "median": 82,
+      "worst": 94
+    },
+    "evaluate": {
+      "median": 281,
+      "worst": 290
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1799,
+      "worst": 1953
+    },
+    "firstFrame": {
+      "median": 1732,
+      "worst": 1880
+    },
+    "fcp": {
+      "median": 264,
+      "worst": 284
+    },
+    "response": {
+      "median": 292,
+      "worst": 302
+    },
+    "workerReady": {
+      "median": 526,
+      "worst": 535
+    },
+    "projectOpen": {
+      "median": 239,
+      "worst": 350
+    },
+    "mapDownload": {
+      "median": 617,
+      "worst": 628
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 609,
+      "worst": 636
+    },
+    "mesh": {
+      "median": 56,
+      "worst": 66
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 54,
+      "worst": 59
+    },
+    "compile": {
+      "median": 59,
+      "worst": 69
+    },
+    "evaluate": {
+      "median": 601,
+      "worst": 775
+    },
+    "transferred": {
+      "median": 776731,
+      "worst": 776731
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 503,
+      "worst": 611
+    },
+    "firstFrame": {
+      "median": 470,
+      "worst": 574
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 75,
+      "worst": 80
+    },
+    "workerReady": {
+      "median": 48,
+      "worst": 59
+    },
+    "projectOpen": {
+      "median": 253,
+      "worst": 310
+    },
+    "mapDownload": {
+      "median": 41,
+      "worst": 44
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 82,
+      "worst": 98
+    },
+    "mesh": {
+      "median": 53,
+      "worst": 65
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 55,
+      "worst": 67
+    },
+    "compile": {
+      "median": 72,
+      "worst": 87
+    },
+    "evaluate": {
+      "median": 318,
+      "worst": 383
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1301,
+      "worst": 1429
+    },
+    "firstFrame": {
+      "median": 1236,
+      "worst": 1364
+    },
+    "fcp": {
+      "median": 276,
+      "worst": 280
+    },
+    "response": {
+      "median": 295,
+      "worst": 297
+    },
+    "workerReady": {
+      "median": 593,
+      "worst": 842
+    },
+    "projectOpen": {
+      "median": 154,
+      "worst": 180
+    },
+    "mapDownload": {
+      "median": 857,
+      "worst": 914
+    },
+    "rendererPrepare": {
+      "median": 337,
+      "worst": 375
+    },
+    "render": {
+      "median": 59,
+      "worst": 70
+    },
+    "mesh": {
+      "median": 46,
+      "worst": 52
+    },
+    "checksStart": {
+      "median": 1282,
+      "worst": 1402
+    },
+    "parse": {
+      "median": 44,
+      "worst": 50
+    },
+    "compile": {
+      "median": 48,
+      "worst": 55
+    },
+    "evaluate": {
+      "median": 229,
+      "worst": 243
+    },
+    "transferred": {
+      "median": 993835,
+      "worst": 993835
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 394,
+      "worst": 473
+    },
+    "firstFrame": {
+      "median": 357,
+      "worst": 441
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 36
+    },
+    "response": {
+      "median": 108,
+      "worst": 124
+    },
+    "workerReady": {
+      "median": 78,
+      "worst": 102
+    },
+    "projectOpen": {
+      "median": 154,
+      "worst": 190
+    },
+    "mapDownload": {
+      "median": 74,
+      "worst": 80
+    },
+    "rendererPrepare": {
+      "median": 42,
+      "worst": 49
+    },
+    "render": {
+      "median": 57,
+      "worst": 65
+    },
+    "mesh": {
+      "median": 46,
+      "worst": 52
+    },
+    "checksStart": {
+      "median": 372,
+      "worst": 460
+    },
+    "parse": {
+      "median": 49,
+      "worst": 58
+    },
+    "compile": {
+      "median": 61,
+      "worst": 73
+    },
+    "evaluate": {
+      "median": 223,
+      "worst": 257
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2397,
+      "worst": 2512
+    },
+    "firstFrame": {
+      "median": 2262,
+      "worst": 2370
+    },
+    "fcp": {
+      "median": 332,
+      "worst": 348
+    },
+    "response": {
+      "median": 396,
+      "worst": 416
+    },
+    "workerReady": {
+      "median": 527,
+      "worst": 531
+    },
+    "projectOpen": {
+      "median": 257,
+      "worst": 281
+    },
+    "mapDownload": {
+      "median": 632,
+      "worst": 648
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 849,
+      "worst": 898
+    },
+    "mesh": {
+      "median": 235,
+      "worst": 278
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 60,
+      "worst": 66
+    },
+    "compile": {
+      "median": 71,
+      "worst": 75
+    },
+    "evaluate": {
+      "median": 614,
+      "worst": 660
+    },
+    "transferred": {
+      "median": 776731,
+      "worst": 776731
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1465,
+      "worst": 1500
+    },
+    "firstFrame": {
+      "median": 1335,
+      "worst": 1371
+    },
+    "fcp": {
+      "median": 120,
+      "worst": 132
+    },
+    "response": {
+      "median": 244,
+      "worst": 262
+    },
+    "workerReady": {
+      "median": 158,
+      "worst": 174
+    },
+    "projectOpen": {
+      "median": 315,
+      "worst": 326
+    },
+    "mapDownload": {
+      "median": 192,
+      "worst": 212
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 339,
+      "worst": 371
+    },
+    "mesh": {
+      "median": 266,
+      "worst": 294
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 64,
+      "worst": 68
+    },
+    "compile": {
+      "median": 90,
+      "worst": 94
+    },
+    "evaluate": {
+      "median": 728,
+      "worst": 756
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1921,
+      "worst": 2046
+    },
+    "firstFrame": {
+      "median": 1778,
+      "worst": 1896
+    },
+    "fcp": {
+      "median": 344,
+      "worst": 348
+    },
+    "response": {
+      "median": 406,
+      "worst": 420
+    },
+    "workerReady": {
+      "median": 538,
+      "worst": 544
+    },
+    "projectOpen": {
+      "median": 159,
+      "worst": 165
+    },
+    "mapDownload": {
+      "median": 1027,
+      "worst": 1077
+    },
+    "rendererPrepare": {
+      "median": 480,
+      "worst": 503
+    },
+    "render": {
+      "median": 216,
+      "worst": 253
+    },
+    "mesh": {
+      "median": 192,
+      "worst": 216
+    },
+    "checksStart": {
+      "median": 1885,
+      "worst": 2007
+    },
+    "parse": {
+      "median": 54,
+      "worst": 55
+    },
+    "compile": {
+      "median": 65,
+      "worst": 68
+    },
+    "evaluate": {
+      "median": 230,
+      "worst": 244
+    },
+    "transferred": {
+      "median": 993835,
+      "worst": 993835
+    }
+  },
+  {
+    "group": "lake-basin-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1246,
+      "worst": 1378
+    },
+    "firstFrame": {
+      "median": 1108,
+      "worst": 1213
+    },
+    "fcp": {
+      "median": 104,
+      "worst": 136
+    },
+    "response": {
+      "median": 355,
+      "worst": 451
+    },
+    "workerReady": {
+      "median": 151,
+      "worst": 203
+    },
+    "projectOpen": {
+      "median": 166,
+      "worst": 185
+    },
+    "mapDownload": {
+      "median": 312,
+      "worst": 396
+    },
+    "rendererPrepare": {
+      "median": 145,
+      "worst": 173
+    },
+    "render": {
+      "median": 269,
+      "worst": 275
+    },
+    "mesh": {
+      "median": 240,
+      "worst": 246
+    },
+    "checksStart": {
+      "median": 1211,
+      "worst": 1333
+    },
+    "parse": {
+      "median": 59,
+      "worst": 66
+    },
+    "compile": {
+      "median": 76,
+      "worst": 83
+    },
+    "evaluate": {
+      "median": 267,
+      "worst": 273
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1678,
+      "worst": 1964
+    },
+    "firstFrame": {
+      "median": 1612,
+      "worst": 1883
+    },
+    "fcp": {
+      "median": 144,
+      "worst": 168
+    },
+    "response": {
+      "median": 164,
+      "worst": 184
+    },
+    "workerReady": {
+      "median": 182,
+      "worst": 189
+    },
+    "projectOpen": {
+      "median": 525,
+      "worst": 553
+    },
+    "mapDownload": {
+      "median": 214,
+      "worst": 220
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 613,
+      "worst": 787
+    },
+    "mesh": {
+      "median": 54,
+      "worst": 82
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 56,
+      "worst": 61
+    },
+    "compile": {
+      "median": 65,
+      "worst": 70
+    },
+    "evaluate": {
+      "median": 1094,
+      "worst": 1342
+    },
+    "transferred": {
+      "median": 819752,
+      "worst": 819752
+    }
+  },
+  {
+    "group": "delta-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 756,
+      "worst": 1024
+    },
+    "firstFrame": {
+      "median": 723,
+      "worst": 986
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 36
+    },
+    "response": {
+      "median": 72,
+      "worst": 81
+    },
+    "workerReady": {
+      "median": 45,
+      "worst": 57
+    },
+    "projectOpen": {
+      "median": 470,
+      "worst": 678
+    },
+    "mapDownload": {
+      "median": 41,
+      "worst": 42
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 95,
+      "worst": 105
+    },
+    "mesh": {
+      "median": 62,
+      "worst": 69
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 53,
+      "worst": 71
+    },
+    "compile": {
+      "median": 70,
+      "worst": 94
+    },
+    "evaluate": {
+      "median": 553,
+      "worst": 760
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 996,
+      "worst": 1051
+    },
+    "firstFrame": {
+      "median": 941,
+      "worst": 984
+    },
+    "fcp": {
+      "median": 148,
+      "worst": 160
+    },
+    "response": {
+      "median": 159,
+      "worst": 172
+    },
+    "workerReady": {
+      "median": 262,
+      "worst": 555
+    },
+    "projectOpen": {
+      "median": 167,
+      "worst": 177
+    },
+    "mapDownload": {
+      "median": 529,
+      "worst": 555
+    },
+    "rendererPrepare": {
+      "median": 342,
+      "worst": 368
+    },
+    "render": {
+      "median": 64,
+      "worst": 70
+    },
+    "mesh": {
+      "median": 48,
+      "worst": 57
+    },
+    "checksStart": {
+      "median": 986,
+      "worst": 1020
+    },
+    "parse": {
+      "median": 46,
+      "worst": 48
+    },
+    "compile": {
+      "median": 51,
+      "worst": 56
+    },
+    "evaluate": {
+      "median": 234,
+      "worst": 263
+    },
+    "transferred": {
+      "median": 1115170,
+      "worst": 1115170
+    }
+  },
+  {
+    "group": "delta-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 414,
+      "worst": 438
+    },
+    "firstFrame": {
+      "median": 387,
+      "worst": 410
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 40
+    },
+    "response": {
+      "median": 118,
+      "worst": 119
+    },
+    "workerReady": {
+      "median": 87,
+      "worst": 88
+    },
+    "projectOpen": {
+      "median": 173,
+      "worst": 181
+    },
+    "mapDownload": {
+      "median": 87,
+      "worst": 88
+    },
+    "rendererPrepare": {
+      "median": 46,
+      "worst": 48
+    },
+    "render": {
+      "median": 59,
+      "worst": 65
+    },
+    "mesh": {
+      "median": 47,
+      "worst": 50
+    },
+    "checksStart": {
+      "median": 402,
+      "worst": 429
+    },
+    "parse": {
+      "median": 53,
+      "worst": 125
+    },
+    "compile": {
+      "median": 64,
+      "worst": 125
+    },
+    "evaluate": {
+      "median": 227,
+      "worst": 242
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2423,
+      "worst": 2565
+    },
+    "firstFrame": {
+      "median": 2289,
+      "worst": 2402
+    },
+    "fcp": {
+      "median": 192,
+      "worst": 208
+    },
+    "response": {
+      "median": 297,
+      "worst": 326
+    },
+    "workerReady": {
+      "median": 219,
+      "worst": 243
+    },
+    "projectOpen": {
+      "median": 542,
+      "worst": 566
+    },
+    "mapDownload": {
+      "median": 270,
+      "worst": 306
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 862,
+      "worst": 899
+    },
+    "mesh": {
+      "median": 234,
+      "worst": 261
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 66,
+      "worst": 73
+    },
+    "compile": {
+      "median": 77,
+      "worst": 86
+    },
+    "evaluate": {
+      "median": 1143,
+      "worst": 1206
+    },
+    "transferred": {
+      "median": 819752,
+      "worst": 819752
+    }
+  },
+  {
+    "group": "delta-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1831,
+      "worst": 1971
+    },
+    "firstFrame": {
+      "median": 1699,
+      "worst": 1819
+    },
+    "fcp": {
+      "median": 124,
+      "worst": 132
+    },
+    "response": {
+      "median": 246,
+      "worst": 250
+    },
+    "workerReady": {
+      "median": 166,
+      "worst": 168
+    },
+    "projectOpen": {
+      "median": 587,
+      "worst": 637
+    },
+    "mapDownload": {
+      "median": 198,
+      "worst": 200
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 382,
+      "worst": 416
+    },
+    "mesh": {
+      "median": 294,
+      "worst": 324
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 63,
+      "worst": 131
+    },
+    "compile": {
+      "median": 89,
+      "worst": 148
+    },
+    "evaluate": {
+      "median": 1286,
+      "worst": 1408
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1708,
+      "worst": 2385
+    },
+    "firstFrame": {
+      "median": 1556,
+      "worst": 2147
+    },
+    "fcp": {
+      "median": 204,
+      "worst": 224
+    },
+    "response": {
+      "median": 773,
+      "worst": 997
+    },
+    "workerReady": {
+      "median": 235,
+      "worst": 289
+    },
+    "projectOpen": {
+      "median": 180,
+      "worst": 232
+    },
+    "mapDownload": {
+      "median": 734,
+      "worst": 936
+    },
+    "rendererPrepare": {
+      "median": 467,
+      "worst": 594
+    },
+    "render": {
+      "median": 236,
+      "worst": 369
+    },
+    "mesh": {
+      "median": 207,
+      "worst": 335
+    },
+    "checksStart": {
+      "median": 1669,
+      "worst": 2313
+    },
+    "parse": {
+      "median": 60,
+      "worst": 73
+    },
+    "compile": {
+      "median": 72,
+      "worst": 92
+    },
+    "evaluate": {
+      "median": 247,
+      "worst": 331
+    },
+    "transferred": {
+      "median": 1115170,
+      "worst": 1115170
+    }
+  },
+  {
+    "group": "delta-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1275,
+      "worst": 1559
+    },
+    "firstFrame": {
+      "median": 1146,
+      "worst": 1441
+    },
+    "fcp": {
+      "median": 108,
+      "worst": 128
+    },
+    "response": {
+      "median": 374,
+      "worst": 500
+    },
+    "workerReady": {
+      "median": 149,
+      "worst": 172
+    },
+    "projectOpen": {
+      "median": 183,
+      "worst": 230
+    },
+    "mapDownload": {
+      "median": 326,
+      "worst": 433
+    },
+    "rendererPrepare": {
+      "median": 154,
+      "worst": 222
+    },
+    "render": {
+      "median": 275,
+      "worst": 331
+    },
+    "mesh": {
+      "median": 244,
+      "worst": 299
+    },
+    "checksStart": {
+      "median": 1240,
+      "worst": 1541
+    },
+    "parse": {
+      "median": 55,
+      "worst": 67
+    },
+    "compile": {
+      "median": 73,
+      "worst": 90
+    },
+    "evaluate": {
+      "median": 262,
+      "worst": 342
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1988,
+      "worst": 2025
+    },
+    "firstFrame": {
+      "median": 1916,
+      "worst": 1962
+    },
+    "fcp": {
+      "median": 264,
+      "worst": 268
+    },
+    "response": {
+      "median": 290,
+      "worst": 291
+    },
+    "workerReady": {
+      "median": 530,
+      "worst": 533
+    },
+    "projectOpen": {
+      "median": 422,
+      "worst": 449
+    },
+    "mapDownload": {
+      "median": 666,
+      "worst": 669
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 596,
+      "worst": 617
+    },
+    "mesh": {
+      "median": 49,
+      "worst": 66
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 50,
+      "worst": 51
+    },
+    "compile": {
+      "median": 54,
+      "worst": 58
+    },
+    "evaluate": {
+      "median": 961,
+      "worst": 1040
+    },
+    "transferred": {
+      "median": 819752,
+      "worst": 819752
+    }
+  },
+  {
+    "group": "delta-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 763,
+      "worst": 799
+    },
+    "firstFrame": {
+      "median": 734,
+      "worst": 764
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 68,
+      "worst": 71
+    },
+    "workerReady": {
+      "median": 47,
+      "worst": 50
+    },
+    "projectOpen": {
+      "median": 484,
+      "worst": 499
+    },
+    "mapDownload": {
+      "median": 34,
+      "worst": 38
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 94,
+      "worst": 98
+    },
+    "mesh": {
+      "median": 62,
+      "worst": 66
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 52,
+      "worst": 57
+    },
+    "compile": {
+      "median": 70,
+      "worst": 76
+    },
+    "evaluate": {
+      "median": 556,
+      "worst": 579
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1361,
+      "worst": 1368
+    },
+    "firstFrame": {
+      "median": 1300,
+      "worst": 1310
+    },
+    "fcp": {
+      "median": 260,
+      "worst": 272
+    },
+    "response": {
+      "median": 282,
+      "worst": 289
+    },
+    "workerReady": {
+      "median": 828,
+      "worst": 834
+    },
+    "projectOpen": {
+      "median": 158,
+      "worst": 165
+    },
+    "mapDownload": {
+      "median": 916,
+      "worst": 932
+    },
+    "rendererPrepare": {
+      "median": 309,
+      "worst": 317
+    },
+    "render": {
+      "median": 60,
+      "worst": 65
+    },
+    "mesh": {
+      "median": 42,
+      "worst": 47
+    },
+    "checksStart": {
+      "median": 1334,
+      "worst": 1358
+    },
+    "parse": {
+      "median": 41,
+      "worst": 44
+    },
+    "compile": {
+      "median": 47,
+      "worst": 49
+    },
+    "evaluate": {
+      "median": 218,
+      "worst": 232
+    },
+    "transferred": {
+      "median": 1115170,
+      "worst": 1115170
+    }
+  },
+  {
+    "group": "delta-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 388,
+      "worst": 397
+    },
+    "firstFrame": {
+      "median": 361,
+      "worst": 371
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 102,
+      "worst": 111
+    },
+    "workerReady": {
+      "median": 70,
+      "worst": 80
+    },
+    "projectOpen": {
+      "median": 162,
+      "worst": 165
+    },
+    "mapDownload": {
+      "median": 70,
+      "worst": 79
+    },
+    "rendererPrepare": {
+      "median": 40,
+      "worst": 42
+    },
+    "render": {
+      "median": 58,
+      "worst": 60
+    },
+    "mesh": {
+      "median": 45,
+      "worst": 47
+    },
+    "checksStart": {
+      "median": 376,
+      "worst": 387
+    },
+    "parse": {
+      "median": 45,
+      "worst": 49
+    },
+    "compile": {
+      "median": 57,
+      "worst": 67
+    },
+    "evaluate": {
+      "median": 213,
+      "worst": 233
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2557,
+      "worst": 2655
+    },
+    "firstFrame": {
+      "median": 2428,
+      "worst": 2520
+    },
+    "fcp": {
+      "median": 328,
+      "worst": 336
+    },
+    "response": {
+      "median": 385,
+      "worst": 390
+    },
+    "workerReady": {
+      "median": 540,
+      "worst": 546
+    },
+    "projectOpen": {
+      "median": 459,
+      "worst": 465
+    },
+    "mapDownload": {
+      "median": 664,
+      "worst": 675
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 758,
+      "worst": 800
+    },
+    "mesh": {
+      "median": 202,
+      "worst": 235
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 55,
+      "worst": 59
+    },
+    "compile": {
+      "median": 65,
+      "worst": 70
+    },
+    "evaluate": {
+      "median": 1006,
+      "worst": 1059
+    },
+    "transferred": {
+      "median": 819752,
+      "worst": 819752
+    }
+  },
+  {
+    "group": "delta-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1702,
+      "worst": 1822
+    },
+    "firstFrame": {
+      "median": 1588,
+      "worst": 1646
+    },
+    "fcp": {
+      "median": 112,
+      "worst": 120
+    },
+    "response": {
+      "median": 222,
+      "worst": 252
+    },
+    "workerReady": {
+      "median": 145,
+      "worst": 160
+    },
+    "projectOpen": {
+      "median": 574,
+      "worst": 588
+    },
+    "mapDownload": {
+      "median": 179,
+      "worst": 199
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 340,
+      "worst": 401
+    },
+    "mesh": {
+      "median": 276,
+      "worst": 310
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 63,
+      "worst": 65
+    },
+    "compile": {
+      "median": 88,
+      "worst": 91
+    },
+    "evaluate": {
+      "median": 1274,
+      "worst": 1279
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "delta-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1940,
+      "worst": 1988
+    },
+    "firstFrame": {
+      "median": 1798,
+      "worst": 1822
+    },
+    "fcp": {
+      "median": 332,
+      "worst": 336
+    },
+    "response": {
+      "median": 391,
+      "worst": 399
+    },
+    "workerReady": {
+      "median": 525,
+      "worst": 547
+    },
+    "projectOpen": {
+      "median": 164,
+      "worst": 167
+    },
+    "mapDownload": {
+      "median": 998,
+      "worst": 1038
+    },
+    "rendererPrepare": {
+      "median": 428,
+      "worst": 489
+    },
+    "render": {
+      "median": 212,
+      "worst": 247
+    },
+    "mesh": {
+      "median": 187,
+      "worst": 219
+    },
+    "checksStart": {
+      "median": 1906,
+      "worst": 1944
+    },
+    "parse": {
+      "median": 47,
+      "worst": 48
+    },
+    "compile": {
+      "median": 57,
+      "worst": 62
+    },
+    "evaluate": {
+      "median": 231,
+      "worst": 236
+    },
+    "transferred": {
+      "median": 1115170,
+      "worst": 1115170
+    }
+  },
+  {
+    "group": "delta-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1239,
+      "worst": 1282
+    },
+    "firstFrame": {
+      "median": 1108,
+      "worst": 1177
+    },
+    "fcp": {
+      "median": 100,
+      "worst": 108
+    },
+    "response": {
+      "median": 347,
+      "worst": 383
+    },
+    "workerReady": {
+      "median": 141,
+      "worst": 152
+    },
+    "projectOpen": {
+      "median": 166,
+      "worst": 209
+    },
+    "mapDownload": {
+      "median": 300,
+      "worst": 316
+    },
+    "rendererPrepare": {
+      "median": 137,
+      "worst": 143
+    },
+    "render": {
+      "median": 261,
+      "worst": 279
+    },
+    "mesh": {
+      "median": 232,
+      "worst": 256
+    },
+    "checksStart": {
+      "median": 1203,
+      "worst": 1255
+    },
+    "parse": {
+      "median": 51,
+      "worst": 54
+    },
+    "compile": {
+      "median": 68,
+      "worst": 74
+    },
+    "evaluate": {
+      "median": 245,
+      "worst": 276
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-before,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2244,
+      "worst": 2344
+    },
+    "firstFrame": {
+      "median": 2185,
+      "worst": 2294
+    },
+    "fcp": {
+      "median": 148,
+      "worst": 164
+    },
+    "response": {
+      "median": 161,
+      "worst": 182
+    },
+    "workerReady": {
+      "median": 181,
+      "worst": 200
+    },
+    "projectOpen": {
+      "median": 1123,
+      "worst": 1209
+    },
+    "mapDownload": {
+      "median": 208,
+      "worst": 218
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 602,
+      "worst": 620
+    },
+    "mesh": {
+      "median": 51,
+      "worst": 52
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 51,
+      "worst": 58
+    },
+    "compile": {
+      "median": 59,
+      "worst": 68
+    },
+    "evaluate": {
+      "median": 1173,
+      "worst": 1244
+    },
+    "transferred": {
+      "median": 799179,
+      "worst": 799179
+    }
+  },
+  {
+    "group": "islands-1,round2-before,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1588,
+      "worst": 1666
+    },
+    "firstFrame": {
+      "median": 1560,
+      "worst": 1633
+    },
+    "fcp": {
+      "median": 36,
+      "worst": 36
+    },
+    "response": {
+      "median": 74,
+      "worst": 82
+    },
+    "workerReady": {
+      "median": 47,
+      "worst": 52
+    },
+    "projectOpen": {
+      "median": 1307,
+      "worst": 1359
+    },
+    "mapDownload": {
+      "median": 42,
+      "worst": 43
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 92,
+      "worst": 103
+    },
+    "mesh": {
+      "median": 61,
+      "worst": 67
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 55,
+      "worst": 108
+    },
+    "compile": {
+      "median": 73,
+      "worst": 117
+    },
+    "evaluate": {
+      "median": 1384,
+      "worst": 1452
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-after,fast,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 960,
+      "worst": 971
+    },
+    "firstFrame": {
+      "median": 902,
+      "worst": 916
+    },
+    "fcp": {
+      "median": 140,
+      "worst": 148
+    },
+    "response": {
+      "median": 158,
+      "worst": 168
+    },
+    "workerReady": {
+      "median": 268,
+      "worst": 487
+    },
+    "projectOpen": {
+      "median": 157,
+      "worst": 169
+    },
+    "mapDownload": {
+      "median": 508,
+      "worst": 519
+    },
+    "rendererPrepare": {
+      "median": 323,
+      "worst": 329
+    },
+    "render": {
+      "median": 61,
+      "worst": 66
+    },
+    "mesh": {
+      "median": 44,
+      "worst": 47
+    },
+    "checksStart": {
+      "median": 939,
+      "worst": 953
+    },
+    "parse": {
+      "median": 42,
+      "worst": 45
+    },
+    "compile": {
+      "median": 47,
+      "worst": 52
+    },
+    "evaluate": {
+      "median": 230,
+      "worst": 236
+    },
+    "transferred": {
+      "median": 1075833,
+      "worst": 1075833
+    }
+  },
+  {
+    "group": "islands-1,round2-after,fast,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 414,
+      "worst": 437
+    },
+    "firstFrame": {
+      "median": 380,
+      "worst": 409
+    },
+    "fcp": {
+      "median": 32,
+      "worst": 32
+    },
+    "response": {
+      "median": 110,
+      "worst": 118
+    },
+    "workerReady": {
+      "median": 76,
+      "worst": 87
+    },
+    "projectOpen": {
+      "median": 161,
+      "worst": 187
+    },
+    "mapDownload": {
+      "median": 75,
+      "worst": 87
+    },
+    "rendererPrepare": {
+      "median": 43,
+      "worst": 47
+    },
+    "render": {
+      "median": 57,
+      "worst": 67
+    },
+    "mesh": {
+      "median": 43,
+      "worst": 45
+    },
+    "checksStart": {
+      "median": 394,
+      "worst": 423
+    },
+    "parse": {
+      "median": 47,
+      "worst": 51
+    },
+    "compile": {
+      "median": 61,
+      "worst": 64
+    },
+    "evaluate": {
+      "median": 219,
+      "worst": 233
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-before,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2859,
+      "worst": 2891
+    },
+    "firstFrame": {
+      "median": 2723,
+      "worst": 2747
+    },
+    "fcp": {
+      "median": 192,
+      "worst": 216
+    },
+    "response": {
+      "median": 280,
+      "worst": 294
+    },
+    "workerReady": {
+      "median": 224,
+      "worst": 237
+    },
+    "projectOpen": {
+      "median": 1090,
+      "worst": 1116
+    },
+    "mapDownload": {
+      "median": 260,
+      "worst": 270
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 815,
+      "worst": 856
+    },
+    "mesh": {
+      "median": 214,
+      "worst": 228
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 58,
+      "worst": 60
+    },
+    "compile": {
+      "median": 68,
+      "worst": 71
+    },
+    "evaluate": {
+      "median": 2303,
+      "worst": 2351
+    },
+    "transferred": {
+      "median": 799179,
+      "worst": 799179
+    }
+  },
+  {
+    "group": "islands-1,round2-before,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 2049,
+      "worst": 2358
+    },
+    "firstFrame": {
+      "median": 1945,
+      "worst": 2219
+    },
+    "fcp": {
+      "median": 100,
+      "worst": 136
+    },
+    "response": {
+      "median": 207,
+      "worst": 250
+    },
+    "workerReady": {
+      "median": 131,
+      "worst": 174
+    },
+    "projectOpen": {
+      "median": 1091,
+      "worst": 1241
+    },
+    "mapDownload": {
+      "median": 163,
+      "worst": 206
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 296,
+      "worst": 345
+    },
+    "mesh": {
+      "median": 237,
+      "worst": 277
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 57,
+      "worst": 64
+    },
+    "compile": {
+      "median": 76,
+      "worst": 87
+    },
+    "evaluate": {
+      "median": 1155,
+      "worst": 1315
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-after,fast,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1556,
+      "worst": 1895
+    },
+    "firstFrame": {
+      "median": 1430,
+      "worst": 1733
+    },
+    "fcp": {
+      "median": 196,
+      "worst": 212
+    },
+    "response": {
+      "median": 711,
+      "worst": 841
+    },
+    "workerReady": {
+      "median": 233,
+      "worst": 657
+    },
+    "projectOpen": {
+      "median": 162,
+      "worst": 208
+    },
+    "mapDownload": {
+      "median": 676,
+      "worst": 794
+    },
+    "rendererPrepare": {
+      "median": 434,
+      "worst": 531
+    },
+    "render": {
+      "median": 209,
+      "worst": 233
+    },
+    "mesh": {
+      "median": 185,
+      "worst": 202
+    },
+    "checksStart": {
+      "median": 1527,
+      "worst": 1856
+    },
+    "parse": {
+      "median": 50,
+      "worst": 59
+    },
+    "compile": {
+      "median": 59,
+      "worst": 73
+    },
+    "evaluate": {
+      "median": 225,
+      "worst": 270
+    },
+    "transferred": {
+      "median": 1075833,
+      "worst": 1075833
+    }
+  },
+  {
+    "group": "islands-1,round2-after,fast,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1068,
+      "worst": 1164
+    },
+    "firstFrame": {
+      "median": 980,
+      "worst": 1061
+    },
+    "fcp": {
+      "median": 100,
+      "worst": 108
+    },
+    "response": {
+      "median": 354,
+      "worst": 369
+    },
+    "workerReady": {
+      "median": 148,
+      "worst": 154
+    },
+    "projectOpen": {
+      "median": 158,
+      "worst": 169
+    },
+    "mapDownload": {
+      "median": 308,
+      "worst": 316
+    },
+    "rendererPrepare": {
+      "median": 137,
+      "worst": 151
+    },
+    "render": {
+      "median": 207,
+      "worst": 245
+    },
+    "mesh": {
+      "median": 185,
+      "worst": 223
+    },
+    "checksStart": {
+      "median": 1056,
+      "worst": 1130
+    },
+    "parse": {
+      "median": 48,
+      "worst": 119
+    },
+    "compile": {
+      "median": 68,
+      "worst": 127
+    },
+    "evaluate": {
+      "median": 235,
+      "worst": 244
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-before,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2757,
+      "worst": 2837
+    },
+    "firstFrame": {
+      "median": 2681,
+      "worst": 2770
+    },
+    "fcp": {
+      "median": 264,
+      "worst": 276
+    },
+    "response": {
+      "median": 285,
+      "worst": 293
+    },
+    "workerReady": {
+      "median": 522,
+      "worst": 524
+    },
+    "projectOpen": {
+      "median": 1106,
+      "worst": 1249
+    },
+    "mapDownload": {
+      "median": 632,
+      "worst": 646
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 621,
+      "worst": 649
+    },
+    "mesh": {
+      "median": 64,
+      "worst": 68
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 53,
+      "worst": 57
+    },
+    "compile": {
+      "median": 58,
+      "worst": 63
+    },
+    "evaluate": {
+      "median": 1191,
+      "worst": 1263
+    },
+    "transferred": {
+      "median": 799179,
+      "worst": 799179
+    }
+  },
+  {
+    "group": "islands-1,round2-before,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1425,
+      "worst": 1649
+    },
+    "firstFrame": {
+      "median": 1390,
+      "worst": 1620
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 72,
+      "worst": 77
+    },
+    "workerReady": {
+      "median": 46,
+      "worst": 53
+    },
+    "projectOpen": {
+      "median": 1163,
+      "worst": 1371
+    },
+    "mapDownload": {
+      "median": 35,
+      "worst": 40
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 81,
+      "worst": 91
+    },
+    "mesh": {
+      "median": 51,
+      "worst": 58
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 57,
+      "worst": 108
+    },
+    "compile": {
+      "median": 73,
+      "worst": 112
+    },
+    "evaluate": {
+      "median": 1210,
+      "worst": 1384
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-after,typical,1,cold",
+    "runs": 5,
+    "editable": {
+      "median": 1378,
+      "worst": 1383
+    },
+    "firstFrame": {
+      "median": 1313,
+      "worst": 1319
+    },
+    "fcp": {
+      "median": 268,
+      "worst": 272
+    },
+    "response": {
+      "median": 288,
+      "worst": 292
+    },
+    "workerReady": {
+      "median": 837,
+      "worst": 885
+    },
+    "projectOpen": {
+      "median": 162,
+      "worst": 190
+    },
+    "mapDownload": {
+      "median": 897,
+      "worst": 915
+    },
+    "rendererPrepare": {
+      "median": 329,
+      "worst": 362
+    },
+    "render": {
+      "median": 66,
+      "worst": 93
+    },
+    "mesh": {
+      "median": 50,
+      "worst": 55
+    },
+    "checksStart": {
+      "median": 1367,
+      "worst": 1369
+    },
+    "parse": {
+      "median": 45,
+      "worst": 48
+    },
+    "compile": {
+      "median": 51,
+      "worst": 56
+    },
+    "evaluate": {
+      "median": 233,
+      "worst": 238
+    },
+    "transferred": {
+      "median": 1075833,
+      "worst": 1075833
+    }
+  },
+  {
+    "group": "islands-1,round2-after,typical,1,warm",
+    "runs": 5,
+    "editable": {
+      "median": 401,
+      "worst": 415
+    },
+    "firstFrame": {
+      "median": 375,
+      "worst": 380
+    },
+    "fcp": {
+      "median": 28,
+      "worst": 32
+    },
+    "response": {
+      "median": 107,
+      "worst": 119
+    },
+    "workerReady": {
+      "median": 75,
+      "worst": 88
+    },
+    "projectOpen": {
+      "median": 164,
+      "worst": 166
+    },
+    "mapDownload": {
+      "median": 75,
+      "worst": 88
+    },
+    "rendererPrepare": {
+      "median": 41,
+      "worst": 52
+    },
+    "render": {
+      "median": 57,
+      "worst": 63
+    },
+    "mesh": {
+      "median": 45,
+      "worst": 49
+    },
+    "checksStart": {
+      "median": 389,
+      "worst": 398
+    },
+    "parse": {
+      "median": 47,
+      "worst": 50
+    },
+    "compile": {
+      "median": 59,
+      "worst": 63
+    },
+    "evaluate": {
+      "median": 218,
+      "worst": 226
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-before,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 4890,
+      "worst": 4974
+    },
+    "firstFrame": {
+      "median": 4689,
+      "worst": 4783
+    },
+    "fcp": {
+      "median": 376,
+      "worst": 392
+    },
+    "response": {
+      "median": 472,
+      "worst": 504
+    },
+    "workerReady": {
+      "median": 544,
+      "worst": 575
+    },
+    "projectOpen": {
+      "median": 1926,
+      "worst": 2186
+    },
+    "mapDownload": {
+      "median": 670,
+      "worst": 735
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 1215,
+      "worst": 1288
+    },
+    "mesh": {
+      "median": 396,
+      "worst": 428
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 79,
+      "worst": 147
+    },
+    "compile": {
+      "median": 100,
+      "worst": 126
+    },
+    "evaluate": {
+      "median": 2998,
+      "worst": 3657
+    },
+    "transferred": {
+      "median": 799179,
+      "worst": 799179
+    }
+  },
+  {
+    "group": "islands-1,round2-before,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 3515,
+      "worst": 3596
+    },
+    "firstFrame": {
+      "median": 3348,
+      "worst": 3408
+    },
+    "fcp": {
+      "median": 140,
+      "worst": 176
+    },
+    "response": {
+      "median": 325,
+      "worst": 480
+    },
+    "workerReady": {
+      "median": 215,
+      "worst": 260
+    },
+    "projectOpen": {
+      "median": 1943,
+      "worst": 2023
+    },
+    "mapDownload": {
+      "median": 260,
+      "worst": 318
+    },
+    "rendererPrepare": null,
+    "render": {
+      "median": 485,
+      "worst": 536
+    },
+    "mesh": {
+      "median": 358,
+      "worst": 401
+    },
+    "checksStart": null,
+    "parse": {
+      "median": 137,
+      "worst": 145
+    },
+    "compile": {
+      "median": 139,
+      "worst": 154
+    },
+    "evaluate": {
+      "median": 1864,
+      "worst": 1926
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  },
+  {
+    "group": "islands-1,round2-after,typical,4,cold",
+    "runs": 5,
+    "editable": {
+      "median": 2619,
+      "worst": 2867
+    },
+    "firstFrame": {
+      "median": 2393,
+      "worst": 2644
+    },
+    "fcp": {
+      "median": 368,
+      "worst": 436
+    },
+    "response": {
+      "median": 453,
+      "worst": 1389
+    },
+    "workerReady": {
+      "median": 527,
+      "worst": 593
+    },
+    "projectOpen": {
+      "median": 252,
+      "worst": 276
+    },
+    "mapDownload": {
+      "median": 1179,
+      "worst": 1377
+    },
+    "rendererPrepare": {
+      "median": 635,
+      "worst": 729
+    },
+    "render": {
+      "median": 331,
+      "worst": 383
+    },
+    "mesh": {
+      "median": 296,
+      "worst": 338
+    },
+    "checksStart": {
+      "median": 2553,
+      "worst": 2807
+    },
+    "parse": {
+      "median": 71,
+      "worst": 137
+    },
+    "compile": {
+      "median": 89,
+      "worst": 123
+    },
+    "evaluate": {
+      "median": 334,
+      "worst": 377
+    },
+    "transferred": {
+      "median": 1075833,
+      "worst": 1075833
+    }
+  },
+  {
+    "group": "islands-1,round2-after,typical,4,warm",
+    "runs": 5,
+    "editable": {
+      "median": 1753,
+      "worst": 2178
+    },
+    "firstFrame": {
+      "median": 1593,
+      "worst": 2006
+    },
+    "fcp": {
+      "median": 144,
+      "worst": 160
+    },
+    "response": {
+      "median": 549,
+      "worst": 632
+    },
+    "workerReady": {
+      "median": 224,
+      "worst": 375
+    },
+    "projectOpen": {
+      "median": 232,
+      "worst": 275
+    },
+    "mapDownload": {
+      "median": 454,
+      "worst": 542
+    },
+    "rendererPrepare": {
+      "median": 242,
+      "worst": 266
+    },
+    "render": {
+      "median": 485,
+      "worst": 505
+    },
+    "mesh": {
+      "median": 458,
+      "worst": 465
+    },
+    "checksStart": {
+      "median": 1705,
+      "worst": 2135
+    },
+    "parse": {
+      "median": 132,
+      "worst": 136
+    },
+    "compile": {
+      "median": 130,
+      "worst": 137
+    },
+    "evaluate": {
+      "median": 338,
+      "worst": 373
+    },
+    "transferred": {
+      "median": 0,
+      "worst": 0
+    }
+  }
+]

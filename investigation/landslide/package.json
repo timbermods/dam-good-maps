@@ -1,0 +1,13 @@
+{
+  "name": "dam-good-maps-landslide", "private": true, "type": "module",
+  "scripts": {
+    "demo": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "samples": "node run.mjs samples.ts",
+    "check": "node run.mjs check.ts",
+    "captures": "node run.mjs captures.ts"
+  },
+  "dependencies": { "three": "0.186.0", "fflate": "^0.8.3" },
+  "devDependencies": { "@types/three": "^0.186.0", "@types/node": "^24.0.0", "typescript": "~5.9.3", "vite": "^8.3.0", "esbuild": "^0.28.0", "@playwright/test": "^1.63.0", "gifenc": "1.0.3", "pngjs": "^7.0.0", "@types/pngjs": "^6.0.5" }
+}

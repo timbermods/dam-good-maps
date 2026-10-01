@@ -39,6 +39,7 @@ namespace DGMProbe
         private readonly WeatherForcer _weather;
         private readonly ShotTaker _shots;
         private readonly PanelCloser _panels;
+        private readonly PerfMeter _perf;
 
         private JobMap _map;
         private MapResult _result;
@@ -56,10 +57,13 @@ namespace DGMProbe
         private float _speed;
         private int _slowFrames;
         private bool _slowedForShot;
+        // The frame-time phases (PerfMeter): asked for in the tick, run in the frame, done once.
+        private bool _perfWanted;
+        private bool _perfDone;
 
         public GameDriver(EventBus eventBus, Autosaver autosaver, SpeedManager speedManager, IDayNightCycle clock, ILoadingIssueService loadingIssues,
             EntityComponentRegistry components, EntityRegistry entities, EntityService entityService, MainMenuSceneLoader mainMenu,
-            Recorder recorder, WeatherForcer weather, ShotTaker shots, PanelCloser panels)
+            Recorder recorder, WeatherForcer weather, ShotTaker shots, PanelCloser panels, PerfMeter perf)
         {
             _eventBus = eventBus;
             _autosaver = autosaver;
@@ -74,6 +78,7 @@ namespace DGMProbe
             _weather = weather;
             _shots = shots;
             _panels = panels;
+            _perf = perf;
         }
 
         private double Day => _clock.DayNumber + (double)_clock.DayProgress;
@@ -120,6 +125,8 @@ namespace DGMProbe
             }
             _ready = true;
             _runStartReal = Time.realtimeSinceStartup;
+            _result.LoadSeconds = Probe.LoadStartedReal > 0 ? _runStartReal - Probe.LoadStartedReal : 0;
+            _result.WorkingSetAtLoadMb = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / 1048576.0;
             _nextSample = Day;
             Probe.Day = Day;
             Probe.Phase = "running";
@@ -173,6 +180,18 @@ namespace DGMProbe
             double day = Day;
             Probe.Day = day;
             Probe.Tick = _ticks;
+            // While the frame times are measured nothing else is recorded (a snapshot would be a hitch of its own):
+            // the moments, samples and the end wait until the phases are done.
+            if (_perfWanted || _perf.Running)
+            {
+                return;
+            }
+            if (_map.Perf != null && !_perfDone && day >= _map.Perf.StartDay && _pendingShots.Count == 0 && !_shots.Busy
+                && _map.Moments.All(m => _momentsDone.Contains(m.Id) || m.Day > _map.Perf.StartDay))
+            {
+                _perfWanted = true;
+                return;
+            }
             if (day >= _nextSample)
             {
                 SampleRow row = new SampleRow { Day = day, Tick = _ticks, Weather = _weather.CurrentWeather() };
@@ -297,6 +316,27 @@ namespace DGMProbe
             if (_finishing)
             {
                 Finish();
+                return;
+            }
+            if (_perfWanted)
+            {
+                _perfWanted = false;
+                _result.Perf = new PerfResult();
+                Probe.Log($"frame times from day {Day:0.000}");
+                _perf.Begin(_map.Perf, _recorder.Width, _recorder.Height, _result.Perf);
+                return;
+            }
+            if (_perf.Running)
+            {
+                if (_perf.Update())
+                {
+                    _perfDone = true;
+                    // (the game days the phases ran are skipped by the samples; the moments after them are taken at once)
+                    _nextSample = Math.Max(_nextSample, Day);
+                    _slowedForShot = false;
+                    _speedManager.ChangeSpeed(_speed);
+                    Probe.Log($"frame times done at day {Day:0.000}: " + string.Join("; ", _result.Perf.Phases.Select(x => $"{x.Id} median {x.MedianMs:0.0} ms, p95 {x.P95Ms:0.0} ms, speed {x.SpeedReached:0.0}")));
+                }
                 return;
             }
             Probe.Phase = "running";

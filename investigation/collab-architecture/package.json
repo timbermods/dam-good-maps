@@ -1,0 +1,1 @@
+{"name":"collab-architecture-investigation","private":true,"type":"module","scripts":{"setup":"npm install --prefix local/runtime --no-audit --no-fund --save-exact esbuild@0.25.12 fflate@0.8.3 typescript@5.9.3 @types/node@24.0.0","check":"node run.mjs"}}
