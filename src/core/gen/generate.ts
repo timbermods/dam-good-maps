@@ -200,8 +200,9 @@ export interface GenerateResult {
   /** The file `bytes` was written from (for the project file's stored base). */
   file: TimberFile;
   attempts: number;
-  /** Each failed attempt: why, and when it ended (ms from the call; information only). */
-  failures: { attempt: number; failed: string[]; ms?: number }[];
+  /** Each failed attempt and why (part of the record, the same in every engine: when each ended is
+   *  in `timings.failed`). */
+  failures: { attempt: number; failed: string[] }[];
   /** The land the processes made, as the document stores it (format 3); a map that failed its
    *  checks keeps its field too, for the record. */
   field: FieldData | null;
@@ -214,8 +215,9 @@ export interface GenerateResult {
   name?: string;
   description?: string;
   /** Milliseconds from the call: the first look (land and planned water), the first settled
-   *  water, the finished map. Information only: nothing depends on them. */
-  timings: { firstLook: number; firstWater: number; final: number };
+   *  water, the finished map, and when each failed attempt ended (`failed`, in `failures`' order).
+   *  Information only: nothing depends on them, and they are never part of the record. */
+  timings: { firstLook: number; firstWater: number; final: number; failed?: number[] };
 }
 
 export interface GenerateOptions {
@@ -393,6 +395,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   const H = specIn.size.y;
   const seed = specIn.seed;
   const failures: GenerateResult["failures"] = [];
+  const failedAt: number[] = [];
   let max = opts.maxAttempts ?? MAX_ATTEMPTS;
   let free = 0;
   let last: Attempt | null = null;
@@ -475,6 +478,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     a.result.info.settles = settles;
     a.result.attempts = attempt + 1;
     a.result.failures = failures;
+    a.result.timings.failed = failedAt;
     a.result.info.lands = lands;
     last = a;
     opts.onAttempt?.({ attempt, passed: a.passed, result: a.result });
@@ -499,7 +503,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
       return a.result;
     }
-    failures.push({ attempt, failed: failedIds(a.result), ms: Math.round(performance.now() - t0) });
+    failures.push({ attempt, failed: failedIds(a.result) });
+    failedAt.push(Math.round(performance.now() - t0));
     // (the next attempt on a shown land keeps off the start that failed, TRIED_RADIUS round it)
     // (only on a shown land: a land drawn again before it was shown builds nothing for its record)
     const st = committed && a.stage ? a.result.built.start : null;

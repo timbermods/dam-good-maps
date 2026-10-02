@@ -238,7 +238,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     failedChecks: r.report.passed ? [] : r.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id).concat(r.info.stage !== 'built' && r.info.stage !== 'checks' ? [r.info.stage] : []),
     cpu: { share: Math.round(cpuShare * 1000) / 1000, land: Math.round(r.timings.firstLook * cpuShare), water: Math.round(r.timings.firstWater * cpuShare), final: Math.round(final * cpuShare) },
     outcomes: r.outcomes ? { met: r.outcomes.met, promise: r.outcomes.promise, water: r.outcomes.story.readable, standout: !!r.outcomes.standout, summary: r.outcomes.summary, story: r.outcomes.story, signature: r.outcomes.signature } : null,
-    spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: (f as { ms?: number }).ms !== undefined ? (f as { ms: number }).ms - (k ? ((r.failures[k - 1] as { ms?: number }).ms ?? 0) : 0) : -1 })),
+    spent: r.failures.map((f, k) => ({ why: f.failed.join(' + '), ms: r.timings.failed?.[k] !== undefined ? r.timings.failed[k] - (k ? (r.timings.failed[k - 1] ?? 0) : 0) : -1 })),
     heights: { bedMin, landMin, max, above16, small },
     trees: { living, dead, succulent },
     mines: { count: mines, walked },
