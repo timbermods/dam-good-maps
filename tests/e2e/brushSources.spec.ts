@@ -7,6 +7,7 @@
 // the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -44,10 +45,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   // brush's options take two lines; the map is framed whole and centred, D345 B1, so the view is centred on the
   // two spots below, clear of the rows)
   await page.setViewportSize({ width: 1280, height: 960 });
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 

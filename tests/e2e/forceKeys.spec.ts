@@ -7,6 +7,7 @@
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -18,10 +19,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 const note = (page: Page) => page.locator(".shape-note");
 
 async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 

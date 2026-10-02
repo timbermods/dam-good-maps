@@ -10,6 +10,7 @@
 // size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -64,10 +65,7 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // ground at level 4 or above for the pits, the stroke, the plateau and the Select tool, and a mine
   // site standing unturned; seed 24, used since M9a's first maps, now has room for only two, and
   // 0.7.0's 4242 for none)
-  await page.goto("./#s=35&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

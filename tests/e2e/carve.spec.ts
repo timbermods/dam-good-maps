@@ -8,6 +8,7 @@
 // the line's higher end to its lower, whichever way it was drawn.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -16,10 +17,7 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.carve());
 
 async function refine(page: Page, hash: string) {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 

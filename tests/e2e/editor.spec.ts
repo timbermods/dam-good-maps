@@ -3,6 +3,7 @@
 // undo and redo, the history, export from both screens, and the autosave after a reload.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -150,10 +151,7 @@ test("generate → refine → back to settings → Generate → back to editing 
 });
 
 test("a click picks no generated feature, and never water (D184, D196)", async ({ page }) => {
-  await page.goto("./#s=77&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=77&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // a click on the start picks nothing (it is dragged, or picked on the shelf), and nothing is
   // listed: the generator's features are its plan, not objects (D184)

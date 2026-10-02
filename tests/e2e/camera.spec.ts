@@ -5,6 +5,7 @@
 // here waits on the wall clock for a distance).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const view = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.getView());
 const glide = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.cameraGlide());
@@ -37,10 +38,7 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
   // D held: the target moves every frame, not in a few jumps
   const v0 = await view(page);

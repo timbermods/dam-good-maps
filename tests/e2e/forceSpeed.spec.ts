@@ -8,6 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -19,10 +20,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function refine(page: Page, size: number) {
   await page.goto("about:blank");
-  await page.goto(`./#s=4242&z=${size}&d=n&t=highlands`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
 }

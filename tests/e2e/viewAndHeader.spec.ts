@@ -5,6 +5,7 @@
 // brushes working only the visible land under a cut.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -13,10 +14,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function refine(page: Page) {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 }
 
 test("the header, the quiet dot, the first run's hints, the minimap and camera bookmarks", async ({ page }) => {

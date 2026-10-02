@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -130,11 +131,7 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
 
 test("the generator links to the gallery, and a place never replaces a saved map unasked", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("./#s=1&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
-  // a map in the editor, autosaved
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 120_000 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await expect(page.getByText("saved in this browser")).toBeVisible({ timeout: 30_000 });
   await page.goto("./");
   await page.getByRole("link", { name: "Real places" }).click();
