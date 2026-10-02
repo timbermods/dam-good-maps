@@ -307,6 +307,11 @@ Tag `m9b-done` (M9c folded in, D278). **Read [docs/PERFECT.md](docs/PERFECT.md) 
 around five outcomes, judged by Kyler's eye against PERFECT, not only by the batches and the measures (D273). The branch, its
 tip and the hand-over are in `docs/progress/m9b.md` on `feature/m9b` ("Hand-over") and [docs/STATUS.md](docs/STATUS.md).
 
+**Islands and Delta block the release** (D407): Kyler's verdict on the review set: each is one map with minor differences,
+worse than M9a. Redesigned first (varied island arrangements with relief and fresh water; a delta that fans into channels
+from higher ground, varying by seed), judged on 30-seed contact sheets at 128² beside M9a's before any outcome tuning.
+Small starts' hidden land only at 128² and under (D405); no worn way out on generated maps (D406).
+
 **Adoption order** (D380: M9b must not release slower than `dev` at 256²). First merge `dev` into `feature/m9b` (the forces
 are released there) and re-measure against the committed baseline, folding `resources.mine_reach` into M9b's
 `resources.mine_site`. Then, re-measuring after each: small starts, then generation speed (round 1, then round 2), then Lake
