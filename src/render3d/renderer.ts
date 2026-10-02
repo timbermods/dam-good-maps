@@ -68,6 +68,7 @@ import { HighLook, type HighMaterials } from "./high/highLook";
 import { Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
+import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
@@ -1020,16 +1021,20 @@ export class MapRenderer {
   private meshTerrain(cx: number, cy: number): number {
     const key = `${cx},${cy}`;
     const old = this.terrain.get(key);
+    const d = meshChunk(this.map!.source, cx, cy);
+    const arrays: ChunkArrays = {
+      quads: d.quads,
+      attributes: [
+        { name: "position", array: d.positions, itemSize: 3 },
+        { name: "normal", array: d.normals, itemSize: 3, normalized: true },
+      ],
+    };
+    // (into the chunk's own buffers when it fits: R1)
+    if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
     this.terrain.delete(key);
-    const d = meshChunk(this.map!.source, cx, cy);
     if (!d.quads) return 0;
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
-    g.setIndex(new BufferAttribute(d.indices, 1));
-    g.computeBoundingSphere();
-    const mesh = new Mesh(g, this.terrainMat);
+    const mesh = new Mesh(chunkGeometry(arrays), this.terrainMat);
     mesh.matrixAutoUpdate = false;
     this.scene.add(mesh);
     this.terrain.set(key, mesh);
@@ -1039,20 +1044,23 @@ export class MapRenderer {
   private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
     const key = `${cx},${cy}`;
     const old = this.water.get(key);
-    if (old) this.dropMesh(old);
-    this.water.delete(key);
     const m = this.map!;
     const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
     this.meshFalls(key, d.falls, d.fallCount);
+    const arrays: ChunkArrays = {
+      quads: d.quads,
+      attributes: [
+        { name: "position", array: d.positions, itemSize: 3 },
+        { name: "normal", array: d.normals, itemSize: 3, normalized: true },
+        { name: "wdata", array: d.data, itemSize: 2 },
+        { name: "wflags", array: d.flags, itemSize: 1 },
+      ],
+    };
+    if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
+    if (old) this.dropMesh(old);
+    this.water.delete(key);
     if (!d.quads) return 0;
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
-    g.setAttribute("wdata", new BufferAttribute(d.data, 2));
-    g.setAttribute("wflags", new BufferAttribute(d.flags, 1));
-    g.setIndex(new BufferAttribute(d.indices, 1));
-    g.computeBoundingSphere();
-    const mesh = new Mesh(g, this.waterMat);
+    const mesh = new Mesh(chunkGeometry(arrays), this.waterMat);
     mesh.matrixAutoUpdate = false;
     mesh.renderOrder = 2;
     this.scene.add(mesh);
