@@ -1,0 +1,34 @@
+# Adoption template. The milestone places this under .github/workflows/ after M9b releases.
+name: Rust water identity
+on: [push, pull_request]
+jobs:
+  exact:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.90.0
+          targets: wasm32-unknown-unknown
+      - run: npm ci
+      - run: cargo build --release
+        working-directory: investigation/rust-water
+      - run: cargo build --release --target wasm32-unknown-unknown --lib
+        working-directory: investigation/rust-water
+      - run: node build.mjs --wasm && node prepare-parallel.mjs && node typecheck.mjs && node smoke.mjs --native && node golden-contract.mjs
+        working-directory: investigation/rust-water
+        env:
+          DGM_DEPS: ${{ github.workspace }}
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: node build-browser.mjs && node browser.mjs --smoke
+        working-directory: investigation/rust-water
+        env:
+          DGM_DEPS: ${{ github.workspace }}

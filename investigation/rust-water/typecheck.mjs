@@ -1,0 +1,4 @@
+import {resolve,dirname} from 'node:path';
+import {HERE,ROOT,LOCAL,deps,json} from './common.mjs';
+const ts=deps('typescript');const options={target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,lib:['lib.es2022.d.ts','lib.dom.d.ts','lib.webworker.d.ts'],skipLibCheck:true,strict:true,noEmit:true,types:[],baseUrl:ROOT,paths:{fflate:[deps.resolve('fflate')]}};
+const program=ts.createProgram(['water.ts','protocol.ts','coordinator.ts','shared-kernel-template.ts','parallel-coordinator.ts','local/shared-runtime.ts','local/shared-helper.ts'].map(p=>resolve(HERE,p)),options);const diags=ts.getPreEmitDiagnostics(program);console.log(ts.formatDiagnosticsWithColorAndContext(diags,{getCurrentDirectory:()=>HERE,getCanonicalFileName:f=>f,getNewLine:()=> '\n'}));json('typecheck.json',{errors:diags.length});if(diags.length)process.exit(1);console.log('Investigation TypeScript PASS');

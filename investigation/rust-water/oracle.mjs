@@ -1,0 +1,10 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {HERE,ROOT,LOCAL,deps,json,hash} from './common.mjs';
+let source=readFileSync(resolve(ROOT,'tools/oracle.ts'),'utf8');
+source=source.replace('const OFFICIAL = "investigation/raw/builtin";','const OFFICIAL = process.env.DGM_OFFICIAL ?? "investigation/raw/builtin";');
+source=`import {installRustWaterSync} from ${JSON.stringify(resolve(HERE,'water.ts'))};\nimport {readFileSync as readWasm} from 'node:fs';\nif(!installRustWaterSync(readWasm(${JSON.stringify(resolve(LOCAL,'water.wasm'))})))throw Error('Rust Wasm unavailable');\n`+source;
+await deps('esbuild').build({stdin:{contents:source,loader:'ts',resolveDir:resolve(ROOT,'tools')},outfile:resolve(LOCAL,'oracle.cjs'),bundle:true,platform:'node',format:'cjs',target:'es2022',nodePaths:[resolve(dirname(deps.resolve('fflate/package.json')),'..')],plugins:[{name:'rust-oracle',setup(b){b.onResolve({filter:/water$/},a=>resolve(a.resolveDir,a.path)===resolve(ROOT,'src/core/sim/water')?{path:resolve(HERE,'water.ts')}:undefined);}}]});
+const result=spawnSync(process.execPath,[resolve(LOCAL,'oracle.cjs'),'--out',resolve(LOCAL,'oracle-generated'),'--report',resolve(LOCAL,'oracle-report.txt'),...process.argv.slice(2)],{cwd:ROOT,encoding:'utf8',maxBuffer:256<<20,env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
+writeFileSync(resolve(LOCAL,'oracle.log'),(result.stdout??'')+(result.stderr??''));json('oracle.json',{status:result.status,bundle:hash(readFileSync(resolve(LOCAL,'oracle.cjs')))});console.log(result.stdout,result.stderr);process.exit(result.status??1);
