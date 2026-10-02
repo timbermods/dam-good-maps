@@ -50,7 +50,7 @@ const sha = async (page: Page) => (await page.evaluate(() => window.dgm!.current
 
 test("Generate rolls a fresh seed every press; the box, the card, the address, the link and the editor show the map made", async ({ page }) => {
   test.setTimeout(240_000);
-  await openEditor(page, "s=4242&z=64&d=n&t=riverValley");
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   // a link pinned its seed: unpin it, then Generate rolls
   await expect(lock(page)).toBeVisible();
   await lock(page).click();
@@ -71,7 +71,7 @@ test("Generate rolls a fresh seed every press; the box, the card, the address, t
 
 test("a typed seed is pinned: Generate makes the same map until it is unlocked or cleared; a share link pins its seed; no Dice", async ({ page }) => {
   test.setTimeout(240_000);
-  await openEditor(page, "s=4242&z=64&d=n&t=riverValley");
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   // a link pins its seed
   await expect(lock(page)).toBeVisible();
   await expect(page.getByRole("button", { name: "Dice" })).toHaveCount(0);

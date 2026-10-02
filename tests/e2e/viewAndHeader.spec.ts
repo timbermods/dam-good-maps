@@ -89,10 +89,9 @@ test("the Save plate, the quiet dot, the first run's hints, the minimap and came
   await page.keyboard.press("Shift+Digit2");
   await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
   expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
-  // kept with the project: the autosave brings them back on the next visit
+  // kept with the project: the autosave brings them back after a reload
   await page.waitForTimeout(2500);
-  await page.goto("about:blank");
-  await page.goto("./");
+  await page.reload();
   await waitForEditor(page);
   expect((await info(page)).views.map((v) => v.slot)).toEqual([2]);
   // the hints stay gone

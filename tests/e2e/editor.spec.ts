@@ -129,10 +129,9 @@ test("open → edit → Generate asks first and Cancel keeps the player's edits 
   expect(await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered)).toBeLessThan(ground);
   expect(await springs()).toBe(1);
 
-  // the autosave: the next visit (no link in the address) opens the same map with its edits
+  // the autosave: a reload in the editor opens the same map with its edits
   await page.waitForTimeout(2500);
-  await page.goto("about:blank");
-  await page.goto("./");
+  await page.reload();
   await waitForEditor(page);
   const again = await info(page);
   expect(again.history.length).toBe(3); // a reopened document's history starts at its generation
@@ -165,4 +164,20 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   const q = await page.evaluate(() => window.dgmEditor!.tileToClient(40, 40));
   await page.mouse.move(q.x, q.y);
   await expect(page.locator(".readout")).toContainText(/height \d+/i);
+});
+
+test("the next visit, with no link in the address, opens the autosaved map with its edits", async ({ page }) => {
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await drag(page, [30, 40], [34, 40]);
+  await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
+  expect((await info(page)).edits).toBe(1);
+  await page.waitForTimeout(2500);
+  await page.goto("about:blank");
+  await page.goto("./");
+  await waitForEditor(page);
+  const again = await info(page);
+  expect(again.edits).toBe(1);
+  expect(again.name).toBe("River Valley");
 });

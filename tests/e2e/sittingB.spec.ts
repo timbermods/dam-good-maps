@@ -83,7 +83,8 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
   expect(layer.y).toBeLessThan(canvas.y + 70);
   expect(layer.x + layer.width).toBeLessThanOrEqual(compass.x + 2);
   expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(120);
-  expect(layer.height).toBeGreaterThanOrEqual(40);
+  // (one height for every plate outside the panel: 38px, DESIGN.md "Layout", D330; 40 before)
+  expect(layer.height).toBeGreaterThanOrEqual(38);
   const watch = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
   const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
   expect(watch.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
@@ -274,13 +275,13 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces row is in three groups by prominence: Carve, Craterize, Erupt · Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+test("B13: the forces row is one line in the order of prominence: Carve, Craterize, Erupt, Quake, Glaciate, with no clusters (D330); the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
   expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  // two clusters in one row today (the third group's forces are not adopted yet)
-  expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
+  // one evenly spaced line: no clusters and no dividers (DESIGN.md, "Layout"; this changes D352's groups)
+  await expect(row.locator(".force-cluster")).toHaveCount(0);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 

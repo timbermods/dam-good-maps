@@ -152,7 +152,7 @@ async function main(): Promise<void> {
     if (want("bar")) {
       await open(page);
       await pick(page, "0", "Erupt options");
-      const box = (await page.locator(".brush-bar-wrap").boundingBox())!;
+      const box = (await page.locator(".rows-plate").boundingBox())!;
       const shot = readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x, y: box.y, width: Math.min(box.width, 1000), height: 104 } })));
       const rgb = new Uint8Array(shot.width * shot.height * 3);
       for (let i = 0; i < shot.width * shot.height; i++) rgb.set(shot.data.subarray(i * 4, i * 4 + 3), i * 3);
