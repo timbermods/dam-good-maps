@@ -9,16 +9,24 @@
     "carve",
     "glaciate"
   ],
+  "requiredCounts": {
+    "native": 2000,
+    "node-wasm": 2000,
+    "chromium": 500,
+    "firefox": 500,
+    "webkit": 500
+  },
+  "performance": "Round 2 accepted by user; provisional until a quiet window. No round-3 timings.",
   "gates": {
     "portableArithmetic": true,
     "carve": true,
     "glaciate": true,
-    "allWaterAndPlaybackRecords": false,
+    "allWaterAndPlaybackRecords": true,
     "existingTestsAgainstRust": false,
     "thousandsPerForcePerSizePerTarget": false,
-    "existingCrossEngineDeterminism": true,
+    "existingCrossEngineDeterminism": false,
     "performanceAcceptance": true,
-    "completeIntegrationAdapter": true,
-    "productExportBytes": false
+    "completeIntegrationAdapter": false,
+    "productExportBytes": true
   }
 }

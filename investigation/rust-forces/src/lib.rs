@@ -1,3 +1,4 @@
+include!(concat!(env!("OUT_DIR"), "/portable-module.rs"));
 // Reused from rust-water 2ebeea87, including its validated pointer cache.
 mod water {
     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
@@ -974,9 +975,6 @@ mod water {
 use serde_json::{json, Value as V};
 use std::collections::{HashMap, HashSet};
 const PI: f64 = 3.141592653589793;
-const HALF_PI: f64 = 1.5707963267948966;
-const TWO_PI: f64 = 6.283185307179586;
-const LN2: f64 = 0.6931471805599453;
 fn max(a: f64, b: f64) -> f64 {
     if a.is_nan() || b.is_nan() {
         f64::NAN
@@ -1011,186 +1009,8 @@ fn smooth(v: f64) -> f64 {
     let v = clamp(v, 0.0, 1.0);
     v * v * (3.0 - 2.0 * v)
 }
-fn sin(x: f64) -> f64 {
-    let mut r = x - TWO_PI * (x / TWO_PI).floor();
-    if r > PI {
-        r -= TWO_PI;
-    }
-    if r > HALF_PI {
-        r = PI - r;
-    } else if r < -HALF_PI {
-        r = -PI - r;
-    }
-    let r2 = r * r;
-    let mut p = -2.8114572543455206e-15;
-    p = p * r2 + 7.647163731819816e-13;
-    p = p * r2 - 1.6059043836821613e-10;
-    p = p * r2 + 2.505210838544172e-8;
-    p = p * r2 - 2.7557319223985893e-6;
-    p = p * r2 + 1.984126984126984e-4;
-    p = p * r2 - 8.333333333333333e-3;
-    p = p * r2 + 1.6666666666666666e-1;
-    r - r * r2 * p
-}
-fn cos(x: f64) -> f64 {
-    sin(x + HALF_PI)
-}
-fn exp(x: f64) -> f64 {
-    let k = round(x / LN2);
-    let r = x - k * LN2;
-    let mut term = 1.0;
-    let mut sum = 1.0;
-    for i in 1..=20 {
-        term = (term * r) / i as f64;
-        sum += term;
-    }
-    let mut scale = 1.0;
-    let mut base = if k >= 0.0 { 2.0 } else { 0.5 };
-    let mut n = k.abs() as u32;
-    while n > 0 {
-        if n & 1 != 0 {
-            scale *= base;
-        }
-        base *= base;
-        n >>= 1;
-    }
-    sum * scale
-}
-fn log(x: f64) -> f64 {
-    if x == 0.0 {
-        return f64::NEG_INFINITY;
-    }
-    if !(x > 0.0) {
-        return f64::NAN;
-    }
-    if x == f64::INFINITY {
-        return x;
-    }
-    let mut m = x;
-    let mut exponent = 0.0;
-    while m >= 2.0 {
-        m *= 0.5;
-        exponent += 1.0;
-    }
-    while m < 1.0 {
-        m *= 2.0;
-        exponent -= 1.0;
-    }
-    let z = (m - 1.0) / (m + 1.0);
-    let z2 = z * z;
-    let mut term = z;
-    let mut sum = z;
-    for k in 1..=24 {
-        term *= z2;
-        sum += term / (2 * k + 1) as f64;
-    }
-    exponent * LN2 + 2.0 * sum
-}
-fn pow(x: f64, y: f64) -> f64 {
-    if y == 0.0 {
-        return 1.0;
-    }
-    if y.fract() == 0.0 && y.abs() <= 1024.0 {
-        let mut n = y.abs() as u32;
-        let mut b = x;
-        let mut result = 1.0;
-        while n > 0 {
-            if n % 2 == 1 {
-                result *= b;
-            }
-            n /= 2;
-            if n > 0 {
-                b *= b;
-            }
-        }
-        return if y < 0.0 { 1.0 / result } else { result };
-    }
-    if x == 0.0 && y > 0.0 {
-        return 0.0;
-    }
-    assert!(x > 0.0 && x.is_finite() && y.is_finite());
-    let v = y * log(x);
-    assert!(v.abs() < 700.0);
-    exp(v)
-}
-fn hypot(x: f64, y: f64) -> f64 {
-    let scale = max(x.abs(), y.abs());
-    if scale == 0.0 || scale == f64::INFINITY {
-        return scale;
-    }
-    let mut sum = 0.0;
-    let r = x / scale;
-    sum += r * r;
-    let r = y / scale;
-    sum += r * r;
-    scale * sum.sqrt()
-}
-fn atan(x: f64) -> f64 {
-    if !x.is_finite() {
-        return if x.is_nan() {
-            f64::NAN
-        } else if x < 0.0 {
-            -HALF_PI
-        } else {
-            HALF_PI
-        };
-    }
-    if x == 0.0 {
-        return x;
-    }
-    let sign = if x < 0.0 { -1.0 } else { 1.0 };
-    let mut a = x.abs();
-    let mut offset = 0.0;
-    let mut invert = false;
-    if a > 1.0 {
-        a = 1.0 / a;
-        invert = true;
-    }
-    if a > 0.41421356237309503 {
-        a = (a - 1.0) / (a + 1.0);
-        offset = PI / 4.0;
-    }
-    let a2 = a * a;
-    let mut term = a;
-    let mut sum = a;
-    for k in 1..=24 {
-        term *= -a2;
-        sum += term / (2 * k + 1) as f64;
-    }
-    let value = offset + sum;
-    sign * if invert { HALF_PI - value } else { value }
-}
-fn atan2(y: f64, x: f64) -> f64 {
-    if x.is_nan() || y.is_nan() {
-        return f64::NAN;
-    }
-    let ny = y.is_sign_negative();
-    let nx = x.is_sign_negative();
-    if y == 0.0 {
-        return if nx {
-            if ny {
-                -PI
-            } else {
-                PI
-            }
-        } else {
-            y
-        };
-    }
-    if x == 0.0 {
-        return if y < 0.0 { -HALF_PI } else { HALF_PI };
-    }
-    if !x.is_finite() && !y.is_finite() {
-        return (if ny { -1.0 } else { 1.0 }) * (if nx { (3.0 * PI) / 4.0 } else { PI / 4.0 });
-    }
-    let a = atan((y / x).abs());
-    let b = if x < 0.0 { PI - a } else { a };
-    if y < 0.0 {
-        -b
-    } else {
-        b
-    }
-}
+use portable_math::{sin, cos, exp, log, pow, atan, atan2};
+fn hypot(x: f64, y: f64) -> f64 { portable_math::hypot(&[x, y]) }
 fn hash(seed: f64, k: f64) -> f64 {
     let mut x = ((seed as u64 as u32)
         ^ ((k as i64 as u32).wrapping_add(1).wrapping_mul(0x9e3779b9)))
@@ -1205,7 +1025,7 @@ fn strength(power: f64, size: Option<f64>, natural: f64) -> f64 {
     if !(size > natural) || natural <= 0.0 {
         return 1.0;
     }
-    let floor = (natural / size).sqrt();
+    let floor = portable_math::sqrt(natural / size);
     floor + (1.0 - floor) * pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
 }
 fn tempered(before: f64, after: f64, k: f64) -> f64 {
@@ -3358,7 +3178,7 @@ impl Crater {
         let b = radius / (1.0 + 0.18 * glance);
         let depth = clamp(
             (1.0 + (12.0 * power) / 100.0)
-                * (crater_size(power) / diameter).sqrt()
+                * portable_math::sqrt(crater_size(power) / diameter)
                 * (1.0 - 0.28 * glance),
             1.0,
             20.0,
@@ -3941,7 +3761,7 @@ impl RiverCharacter {
         let mut c = Self {
             seed,
             radius: width / 2.0,
-            intensity: (s.natural_width() / width).sqrt(),
+            intensity: portable_math::sqrt(s.natural_width() / width),
             wander: s.wander / 100.0,
             phase: (seed as f64 / 4294967296.0) * std::f64::consts::PI * 2.0,
             phase2: (carve_mix(seed) as f64 / 4294967296.0) * std::f64::consts::PI * 2.0,
@@ -4983,7 +4803,7 @@ impl CarveState {
             return 1.0;
         }
         self.map.rock.get(level as usize).copied().unwrap_or(
-            if (level + self.seed as f64 % 4.0) % 4.0 == 0.0 {
+            if portable_math::rem(level + portable_math::rem(self.seed as f64, 4.0), 4.0) == 0.0 {
                 1.0
             } else {
                 0.0
@@ -6028,8 +5848,7 @@ impl CarveState {
                     let q = u.floor() as i32;
                     let f = u - q as f64;
                     let r = |q: i32| {
-                        force_hash(&[seed.to_string(), q.to_string(), sd.to_string()]) as f64
-                            % 1000.0
+                        portable_math::rem(force_hash(&[seed.to_string(), q.to_string(), sd.to_string()]) as f64, 1000.0)
                             / 1000.0
                     };
                     let e = f * f * (3.0 - 2.0 * f);
@@ -9956,7 +9775,7 @@ impl Volcano {
                         continue;
                     }
                     let bucket =
-                        (((atan2(dy as f64, dx as f64) + PI) / (PI * 2.0)) * 12.0).floor() % 12.0;
+                        portable_math::rem((((atan2(dy as f64, dx as f64) + PI) / (PI * 2.0)) * 12.0).floor(), 12.0);
                     let score = d * (1.0 + 0.3 * hash(n(s0, "seed"), 940.0 + bucket));
                     if score < best_score {
                         best_score = score;
@@ -10014,7 +9833,7 @@ impl Volcano {
             let broad = max(
                 0.6,
                 min(
-                    min(1.25, 1.0 / k.sqrt()),
+                    min(1.25, 1.0 / portable_math::sqrt(k)),
                     if widest > 0.0 {
                         3.0 / (a.radius * widest)
                     } else {
@@ -10327,7 +10146,7 @@ impl Fault {
         for k in 1..path.len() {
             let a = path[k - 1];
             let b = path[k];
-            let l = (pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0)).sqrt();
+            let l = portable_math::sqrt(pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0));
             if l < 0.01 {
                 continue;
             }
@@ -10407,7 +10226,7 @@ impl Fault {
         for k in 1..pts.len() {
             let a = pts[k - 1];
             let b = pts[k];
-            let l = (pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0)).sqrt();
+            let l = portable_math::sqrt(pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0));
             segments.push(FSeg {
                 a,
                 b,

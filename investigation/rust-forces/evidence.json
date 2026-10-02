@@ -1,23 +1,57 @@
 {
-  "status": "incomplete-do-not-adopt",
-  "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-  "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
+  "round": 3,
+  "status": {
+    "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+    "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
+    "implemented": [
+      "footprint",
+      "craterize",
+      "erupt",
+      "quake",
+      "carve",
+      "glaciate"
+    ],
+    "requiredCounts": {
+      "native": 2000,
+      "node-wasm": 2000,
+      "chromium": 500,
+      "firefox": 500,
+      "webkit": 500
+    },
+    "performance": "Round 2 accepted by user; provisional until a quiet window. No round-3 timings.",
+    "gates": {
+      "portableArithmetic": true,
+      "carve": true,
+      "glaciate": true,
+      "allWaterAndPlaybackRecords": true,
+      "existingTestsAgainstRust": false,
+      "thousandsPerForcePerSizePerTarget": false,
+      "existingCrossEngineDeterminism": false,
+      "performanceAcceptance": true,
+      "completeIntegrationAdapter": false,
+      "productExportBytes": true
+    }
+  },
   "build": {
     "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+    "portableSha256": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
+    "guardSha256": "3d20eef37cf9654fecc8c9df7bc525e72154ffe185f7f58eb8aa2e46eb325ebd",
     "inputs": {
-      "src/lib.rs": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
+      "build.rs": "d1f74a50039fe0bc775a351a88e8a1717153ee7202078a93b8a56f8c4134bc28",
+      "shared-math.mjs": "b166cc8886cfdcacbd3069b6d6e0f86d3b1e2492c813f12026869d0eee986aa3",
+      "src/lib.rs": "2b86c026bc911fff63ff25d6c91707e8a4ece15fb6d723e8b813b70266a230ea",
       "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467",
       "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
       "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
-      ".cargo/config.toml": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
+      ".cargo/config.toml": "a810afcbfb6870929a86321f0c737f85cebf04418c949b600b77439d5134a143",
       "protocol.ts": "79cce08de6cefad4f6ad7caa55e41afc441cb498e68c90db344f6187893b26af",
       "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
       "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
-      "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
+      "worker.ts": "9b299318adb1c423072992f7183db6183108ee09333ed28a0f8c03efb4b5e319",
       "suite-adapter.ts": "b2e8a9f6aba88526c403c3040e72ec7fd2baed0c93ebe49dab9a389145007d7e",
-      "check.mjs": "0f022418b7a564a933003f02f607afe0d080bc204c1dc422e8795b0ea2a799b5",
+      "check.mjs": "717281ccc7b93d3b4c2f790802352ea94f9940ba11483e289e6665d4ff1ffadc",
       "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
-      "browser.mjs": "de8c946e60c3f440ea33e28928f02d4b7a9f0492b04509011f49c1794383d7bb",
+      "browser.mjs": "dd482a078027ed82157afd0151892c113926886c22c11d8d3cdeaf2dd79212f9",
       "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
       "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
       "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
@@ -27,8 +61,8 @@
       "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
       "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
       "existing-browser.mjs": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
-      "identity-matrix.mjs": "5d78bfce36f89c7a5d713d5c0359779b454cd817ab12cceed475ffb623dcdfc1",
-      "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
+      "identity-matrix.mjs": "99164829d9b5ac7d5d71e7ce82ca41af2b553ced4381254f2aa938bff7aed502",
+      "verify-ir.mjs": "a094c9eac37f86d686f73c58aa7a1aaf04ff1a15e86f47316c3ede20cda86d9d",
       "suite-replay.mjs": "3d36269d55b38337e9f2210391f6d17bbb67507d34d0463b76e893402258ff2d",
       "footprint-check.mjs": "e260bba8c852940e5ee53855a6b074fb31f4967a52b76416e16eb2e50b9d516b",
       "verifier-check.mjs": "bd8dd914655b9f6032bb97958cf56de8bf36a030a2b07c85ece45538a2003cdf",
@@ -115,936 +149,352 @@
       "local/checkout/src/core/forces/carve/river.ts": "b2b0fd5e6b4e5e345cf2384e6cebe42e63352442031878d1803366c9a2d4ed63",
       "local/checkout/src/core/forces/carve/run.ts": "4d81d95ddeb604fd1ae03d3cb61d13a9d7f2c323c2b84b13cb947067a275babb",
       "local/checkout/src/core/forces/carve/play.ts": "035b272a5659784edd6e7793dd178e9cb6ae1ebe42f59072b9fde91523ec27ae",
-      "local/final/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
+      "local/round3/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
       "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/browser.js": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
-      "local/final/oracle-worker.ts": "44d45100b5a7853941decb2194726a314d20f14858bc58234447a871e5a42b31"
+      "local/round3/oracle-worker.ts": "83cc0e45b40dfa05f99e13078e9595947fc3936903c8c37f24734823a2e2f0dc"
     },
     "wasm": {
       "imports": [],
-      "sha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-      "bytes": 814253,
-      "gzip": 262703,
-      "brotli": 206580
+      "sha256": "96d4c15ca074a5faf8fc0704c8bc6d0ef4838f8e26ccec9734de1e854b52c4b0",
+      "bytes": 842541,
+      "gzip": 270542,
+      "brotli": 211337
     }
   },
-  "nativeSha256": "560f30795a05b389ccdd0a6d516fe191d3f7adab9b0a1f9a24bec06545f5eb18",
-  "mathGuard": {
+  "arithmetic": {
     "status": "pass",
-    "rustSourceSha256": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
-    "configSha256": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
+    "rustSourceSha256": "2b86c026bc911fff63ff25d6c91707e8a4ece15fb6d723e8b813b70266a230ea",
+    "configSha256": "a810afcbfb6870929a86321f0c737f85cebf04418c949b600b77439d5134a143",
+    "portableSha256": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
+    "guardSha256": "3d20eef37cf9654fecc8c9df7bc525e72154ffe185f7f58eb8aa2e46eb325ebd",
+    "wasmSha256": "96d4c15ca074a5faf8fc0704c8bc6d0ef4838f8e26ccec9734de1e854b52c4b0",
     "rows": [
       {
-        "name": "target/wasm32-unknown-unknown/release/deps/rust_forces.ll",
-        "sha256": "76595ff9c9030915c0c54bbe464cfd44019b62b58b928e6013b50b32a8bdc545"
+        "target": "wasm32-unknown-unknown",
+        "name": "rust_forces.ll",
+        "sha256": "e7d3fa087f42fc60a62e0db674253f15287eb50c60c122483b0baf31bb0bf8c3"
       },
       {
-        "name": "target/release/deps/rust_forces.ll",
-        "sha256": "7a05f9a577e2afdc819cdb10ba5a02e8d801ce41ec92f8497200c2828181b0ce"
+        "target": "wasm32-unknown-unknown",
+        "name": "rust_forces.s",
+        "sha256": "be90e9bf78780123b65fa46d5e345d28ad110541c7b91c44b06292ce72ce0476"
+      },
+      {
+        "target": "native",
+        "name": "rust_forces.ll",
+        "sha256": "d6fc18792b300c1b748cb20cbb02c634455c68a7254b1f5e1d0fd25326326958"
+      },
+      {
+        "target": "native",
+        "name": "rust_forces.s",
+        "sha256": "ebc6c5e49406a8e50f25fdb961f1fd3ec3275db869318c86465bca1c0de2e7d1"
       }
     ]
   },
+  "requiredCounts": {
+    "native": 2000,
+    "node-wasm": 2000,
+    "chromium": 500,
+    "firefox": 500,
+    "webkit": 500
+  },
   "identity": {
-    "counts": {},
-    "accepted": {},
-    "refusals": 0,
-    "randomPinned": false,
-    "randomFile": {
-      "name": "checks-random-final.json",
-      "sha256": null
-    },
-    "matrix": {
-      "name": "identity-matrix.json",
-      "sha256": null
-    },
-    "pilot": {
-      "cases": 72,
-      "sha256": "8ce40fbc1a759d65664aee8a35c28cbbf725e326a979ea2904d562f2ceeedf83"
-    },
-    "crossEngine": null,
-    "lifecycle": {
-      "status": "pass",
-      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-      "rows": [
-        {
-          "verb": "carve",
-          "k": 0,
-          "error": null,
-          "sha256": "25d724b3a9b6ba009a5ccf865f38f4c37c9f7db8f1397dc497904664301f940e"
-        },
-        {
-          "verb": "craterize",
-          "k": 1,
-          "error": null,
-          "sha256": "ec73dd5fd4573203802227e5fae28b3b9d22f744bc71b3b1a7ada3a7159d5bc4"
-        },
-        {
-          "verb": "erupt",
-          "k": 2,
-          "error": null,
-          "sha256": "3b9cca3a48453f624f8c40fdd568826653518b0e1224fdb67d8be7cd61ff09e3"
-        },
-        {
-          "verb": "quake",
-          "k": 3,
-          "error": null,
-          "sha256": "5905afc778508770c1870d3dcdb2bc0c97e84f1838681a11dd479844df3d7236"
-        },
-        {
-          "verb": "glaciate",
-          "k": 4,
-          "error": null,
-          "sha256": "5a6a555abc1d25dc9312a63048f8f6b284820f9d10cc19939eb2adf5c0d0f21c"
-        },
-        {
-          "verb": "footprint",
-          "k": 5,
-          "error": null,
-          "sha256": "3699769a0946b3ebd4fbec5d6be20915d5c1630b4e719b5c0e85c2ae1b8ab3fa"
-        },
-        {
-          "verb": "carve",
-          "k": 6,
-          "error": null,
-          "sha256": "e36ed26b175be58c5a8416db4cafea389297c91cede399fb759bc6af82e08d18"
-        },
-        {
-          "verb": "craterize",
-          "k": 7,
-          "error": null,
-          "sha256": "0d5ddd6a588b1cd593d776f89c8afff878d1d848efc717cfae307ba750db5458"
-        },
-        {
-          "verb": "erupt",
-          "k": 8,
-          "error": null,
-          "sha256": "1c997d7f03a5f61f4d1885a4f5c88ef0375337fd68b9527defdaa9d3114a764b"
-        },
-        {
-          "verb": "quake",
-          "k": 9,
-          "error": null,
-          "sha256": "31b0a7c2adf2d484aaff214d91715e8dda74cb3afb13613ce1da91f458bdde7b"
-        },
-        {
-          "verb": "glaciate",
-          "k": 10,
-          "error": null,
-          "sha256": "3bbbe63944960883e1441f4f8484540beef2d001cde731ef3c8450801872d5cd"
-        },
-        {
-          "verb": "footprint",
-          "k": 11,
-          "error": null,
-          "sha256": "64258ab3a7a508b4bc2ade7f35f2c5d7eeda745e097aa597919460324694de6d"
-        },
-        {
-          "verb": "carve",
-          "k": 12,
-          "error": null,
-          "sha256": "d5cae65ff618c04f9abec103095b6f4b12cdfbe9d54e9f765cfa6f43bddf8efa"
-        },
-        {
-          "verb": "craterize",
-          "k": 13,
-          "error": null,
-          "sha256": "a27a6ac8af3583a7e2a9b6b4c79f2765fdf4a6a719cb853092e5fc1b5ebcf5f8"
-        },
-        {
-          "verb": "erupt",
-          "k": 14,
-          "error": null,
-          "sha256": "c5caf45f5a32267022ce91700138be0e1c8204430137a303c7d994a0ba93b1e6"
-        },
-        {
-          "verb": "quake",
-          "k": 15,
-          "error": null,
-          "sha256": "299ecf4ac8cdf8df9e92ffafb44959dea0fea444e211199bc88e0704d70faf98"
-        },
-        {
-          "verb": "glaciate",
-          "k": 16,
-          "error": null,
-          "sha256": "19a6bd155e8b0b24f20058f9f852f722bfdd5153016d1043c0d72bd62fdb5ae5"
-        },
-        {
-          "verb": "footprint",
-          "k": 17,
-          "error": null,
-          "sha256": "1a2d4b0346d0e3b73a675c50b69d4172fb10a8ad1282a1a628b827666baa9ecf"
-        }
-      ],
-      "scope": "all five forces, consecutive operations, before/map/record views, host writes, allocator growth, reset, disposal"
-    },
-    "edge": {
-      "status": "pass",
-      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-      "rows": [
-        {
-          "target": "native/node-wasm",
-          "name": "quake-zero-length-resampled-segment",
-          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "craterize-power-refusal",
-          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "craterize-zero-power-floor",
-          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "erupt-power-refusal",
-          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "erupt-zero-power-floor",
-          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "quake-power-refusal",
-          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "quake-zero-power-floor",
-          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "carve-power-refusal",
-          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "carve-zero-power-floor",
-          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "glaciate-power-refusal",
-          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "glaciate-zero-power-floor",
-          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
-        },
-        {
-          "target": "chromium",
-          "name": "quake-zero-length-resampled-segment",
-          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
-        },
-        {
-          "target": "chromium",
-          "name": "craterize-power-refusal",
-          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
-        },
-        {
-          "target": "chromium",
-          "name": "craterize-zero-power-floor",
-          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
-        },
-        {
-          "target": "chromium",
-          "name": "erupt-power-refusal",
-          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
-        },
-        {
-          "target": "chromium",
-          "name": "erupt-zero-power-floor",
-          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
-        },
-        {
-          "target": "chromium",
-          "name": "quake-power-refusal",
-          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
-        },
-        {
-          "target": "chromium",
-          "name": "quake-zero-power-floor",
-          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
-        },
-        {
-          "target": "chromium",
-          "name": "carve-power-refusal",
-          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
-        },
-        {
-          "target": "chromium",
-          "name": "carve-zero-power-floor",
-          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
-        },
-        {
-          "target": "chromium",
-          "name": "glaciate-power-refusal",
-          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
-        },
-        {
-          "target": "chromium",
-          "name": "glaciate-zero-power-floor",
-          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
-        },
-        {
-          "target": "firefox",
-          "name": "quake-zero-length-resampled-segment",
-          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
-        },
-        {
-          "target": "firefox",
-          "name": "craterize-power-refusal",
-          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
-        },
-        {
-          "target": "firefox",
-          "name": "craterize-zero-power-floor",
-          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
-        },
-        {
-          "target": "firefox",
-          "name": "erupt-power-refusal",
-          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
-        },
-        {
-          "target": "firefox",
-          "name": "erupt-zero-power-floor",
-          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
-        },
-        {
-          "target": "firefox",
-          "name": "quake-power-refusal",
-          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
-        },
-        {
-          "target": "firefox",
-          "name": "quake-zero-power-floor",
-          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
-        },
-        {
-          "target": "firefox",
-          "name": "carve-power-refusal",
-          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
-        },
-        {
-          "target": "firefox",
-          "name": "carve-zero-power-floor",
-          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
-        },
-        {
-          "target": "firefox",
-          "name": "glaciate-power-refusal",
-          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
-        },
-        {
-          "target": "firefox",
-          "name": "glaciate-zero-power-floor",
-          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
-        },
-        {
-          "target": "webkit",
-          "name": "quake-zero-length-resampled-segment",
-          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
-        },
-        {
-          "target": "webkit",
-          "name": "craterize-power-refusal",
-          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
-        },
-        {
-          "target": "webkit",
-          "name": "craterize-zero-power-floor",
-          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
-        },
-        {
-          "target": "webkit",
-          "name": "erupt-power-refusal",
-          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
-        },
-        {
-          "target": "webkit",
-          "name": "erupt-zero-power-floor",
-          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
-        },
-        {
-          "target": "webkit",
-          "name": "quake-power-refusal",
-          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
-        },
-        {
-          "target": "webkit",
-          "name": "quake-zero-power-floor",
-          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
-        },
-        {
-          "target": "webkit",
-          "name": "carve-power-refusal",
-          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
-        },
-        {
-          "target": "webkit",
-          "name": "carve-zero-power-floor",
-          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
-        },
-        {
-          "target": "webkit",
-          "name": "glaciate-power-refusal",
-          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
-        },
-        {
-          "target": "webkit",
-          "name": "glaciate-zero-power-floor",
-          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
-        }
-      ]
-    },
-    "footprints": {
-      "status": "pass",
-      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-      "rows": [
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-128-0-0",
-          "entities": 2520,
-          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-128-1-0",
-          "entities": 2520,
-          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-128-3-0",
-          "entities": 2520,
-          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-256-0-0",
-          "entities": 2520,
-          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-256-1-0",
-          "entities": 2520,
-          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-256-3-0",
-          "entities": 2520,
-          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-512-0-0",
-          "entities": 2520,
-          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-512-1-0",
-          "entities": 2520,
-          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
-        },
-        {
-          "target": "native/node-wasm",
-          "name": "footprint-512-3-0",
-          "entities": 2520,
-          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-128-0-0",
-          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-128-1-0",
-          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-128-3-0",
-          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-256-0-0",
-          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-256-1-0",
-          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-256-3-0",
-          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-512-0-0",
-          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-512-1-0",
-          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
-        },
-        {
-          "target": "chromium",
-          "name": "footprint-512-3-0",
-          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-128-0-0",
-          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-128-1-0",
-          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-128-3-0",
-          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-256-0-0",
-          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-256-1-0",
-          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-256-3-0",
-          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-512-0-0",
-          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-512-1-0",
-          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
-        },
-        {
-          "target": "firefox",
-          "name": "footprint-512-3-0",
-          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-128-0-0",
-          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-128-1-0",
-          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-128-3-0",
-          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-256-0-0",
-          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-256-1-0",
-          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-256-3-0",
-          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-512-0-0",
-          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-512-1-0",
-          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
-        },
-        {
-          "target": "webkit",
-          "name": "footprint-512-3-0",
-          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
-        }
-      ]
-    },
-    "verifier": {
-      "status": "pass",
-      "comparisons": 1081,
-      "adapterSha256": "b2e8a9f6aba88526c403c3040e72ec7fd2baed0c93ebe49dab9a389145007d7e",
-      "apiSha256": "6bd2d4572c3448d133e9ad5dc20ef2a9371d28bf48120bbda2ed82ebe2a10fe3",
-      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937"
-    },
-    "scope": "Exact IEEE fixture bytes: raw/final land, water, ordered objects, geometry, literal changes, all playback tapes and timings. Every accepted random gesture also compares actual .timber writer bytes with fixed fixture metadata, no thumbnail and zero soil. Existing contracts/browser suites cover editor, project, worker and finalizer exports."
-  },
-  "existingTests": {
-    "name": "existing-final.json",
-    "sha256": "ff93ac588e69c7b3b5f4fa7b3cd74c8a5fdfdf51ab01df69e9f96e96ce45d164",
-    "build": {
-      "nativeFixtures": true,
-      "captureCorpus": true,
-      "include": [
-        "tests/unit/*force*.test.ts",
-        "tests/contract/*force*.test.ts",
-        "tests/contract/carve*.test.ts",
-        "tests/contract/curvedFault.test.ts",
-        "tests/contract/glaciate*.test.ts",
-        "tests/contract/erupt*.test.ts",
-        "tests/contract/unleash.test.ts"
-      ],
-      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-      "nativeSha256": "560f30795a05b389ccdd0a6d516fe191d3f7adab9b0a1f9a24bec06545f5eb18",
-      "adapterSha256": "b2e8a9f6aba88526c403c3040e72ec7fd2baed0c93ebe49dab9a389145007d7e",
-      "build": {
-        "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-        "inputs": {
-          "src/lib.rs": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
-          "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467",
-          "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
-          "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
-          ".cargo/config.toml": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
-          "protocol.ts": "79cce08de6cefad4f6ad7caa55e41afc441cb498e68c90db344f6187893b26af",
-          "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
-          "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
-          "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
-          "suite-adapter.ts": "b2867c630765a2d7f54c658eb1d76ee37d04b69a7f12fcac9a4f35f1b0bb85f8",
-          "check.mjs": "8ffb6f48922f66b47fd5aaa441b11fc8c4e7a53c7e44d59ac421a0cdb7d68e50",
-          "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
-          "browser.mjs": "d2a9bfd9ea326ff065975f95891aaa12d58b48e1439b928593115192177f2877",
-          "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
-          "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
-          "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
-          "native-fixtures.mjs": "b79108d169795d698ba8cac9628805b41551d43ab9ae7b8ed86d6e9ed44cc8af",
-          "load.mjs": "cb86180e5547dec09221d5fe15181a1a6c56abb21c6bf898d0a3964b2950e10c",
-          "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
-          "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
-          "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
-          "existing-browser.mjs": "2300e1e06f00c7122c855a81b4f4c313f5d458bd0d06156302b0cf591ad6e993",
-          "identity-matrix.mjs": "10d8b57c9498574079232699afad270e9497eb3a4d32e24f919d3b061ab57b47",
-          "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
-          "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
-          "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
-          "local/checkout/src/core/data/log-floor.json": "ed7385477cbd49fa4355b170bbeae15803af6931b522f0146099ed5e784ddbd0",
-          "local/checkout/src/core/data/logFloor.ts": "d330bad83a075b2b3b695797a9a97dabdce9884ffab2bf2b66852d8fc71e33d7",
-          "local/checkout/src/core/format/entities.ts": "e22aaf0658296a0b39bfbbd7816b6f81cd34ea00c0cf04f765082df0b8736e82",
-          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/index.mjs": "8d75534a30a0580608e1271c13d70943ed4cd3589fddff7b1197748036a5116e",
-          "local/checkout/src/core/format/world.ts": "972b183aef802dfc927ea223369ddacee80e6f83ad0bb8574f14d5f75d85bb4d",
-          "local/checkout/src/core/format/timber.ts": "3496cbfbcdf3f47c6b853cec3709e82a62066cafac78665933a7a680869a9b08",
-          "local/checkout/src/core/math/detmath.ts": "5c8ac657b0769a0d897e9fa447827ef70d08697ddca405a9b32a0eda83c8beef",
-          "local/checkout/src/core/math/portable.ts": "8b50cc97600e128ae14f9250c58f8f40e5dd6f5b5a73b40920b9085cf4756e73",
-          "local/checkout/src/core/data/footprints.json": "1041a770dc33aed409f05fea2002e105581aaa5ff07be82f6e4bd9f2fd0b8e39",
-          "local/checkout/src/core/format/footprints.ts": "aecda8f5011956bccf5f30cdcb701ce996a4b9b9c82fcc9cedd45bc0dc444913",
-          "local/checkout/src/core/sim/model.ts": "d865b27fd02f261c12d082dd22af2d10ad484fa1cbdaac930323f481fb33dd53",
-          "local/checkout/src/core/forces/random.ts": "891e7a29c5d1e856302fef1d7ba81650534e361eccd49b1c66da25a3ef33e567",
-          "local/checkout/src/core/forces/force.ts": "e87cd30a030397fcbdaf31f738eb1dd61755a9f24c5f75fa6baf89aac1705626",
-          "local/checkout/tests/contract/forceFixtures.ts": "5ff1cd91cd701b4948c91a9d45d1bb530f7f83affde83aaebf4db2cfecd87761",
-          "local/checkout/src/core/forces/objects.ts": "a8eb383a6ed6a6159cde44b8e10b781e9cd1fec6bea73d360e023eba0729716d",
-          "local/checkout/src/core/forces/strength.ts": "6b59f241c77c1c176166bf6d9ad87d2e8a8f72bda3492bd8c7456652d340b2b3",
-          "local/checkout/src/core/forces/craterize.ts": "44b7f42758dc02bea70324be9123aeca729e1a65f95c8bd8bb40b0173ac60d5d",
-          "local/checkout/src/core/math/grid.ts": "6119da419ca2008d4a7d8dbc983422a4cb7c2147fbb5b8f72a554bcc6f1be62d",
-          "local/checkout/src/core/sim/contamination.ts": "8c24c69a2d1d016c129bbddff9924706a68d056c9df3807858172716c1dd3299",
-          "local/checkout/src/core/sim/moisture.ts": "51dde823d7ef851569e90ffe76cd729a55eab717899deeb513037abc13df6a4e",
-          "local/checkout/src/core/sim/water.ts": "b3859ead5b2f6bfdcdff0939094d78d0105f53ddda654dc3a1c3f3d32b3f2e80",
-          "local/checkout/src/core/sim/prefill.ts": "77728b3f556c6a07156e5b476662b9782a4f3d783e5470ec49a7706e6c36d599",
-          "local/checkout/src/core/sim/preview.ts": "14599f5e2581d08503c8cd8d0526397835595d801e44c1fd855f25e4a80f94a7",
-          "local/checkout/src/core/forces/glaciate/model.ts": "54e9254371d5b58db8d978548aae5e98c7c4e7cda03f27ed0cb7fa13ccd0833f",
-          "local/checkout/src/core/forces/floor.ts": "d2073946206869515091cd14d1608000294a4ecab2172e5df899cca15e641e5a",
-          "local/checkout/src/core/forces/op.ts": "e943ab4c1d2df08f9d5d1c5d47ca52b2ef090e1e4a82e46715b8abf08e1f1b60",
-          "local/checkout/src/core/math/hash.ts": "da01f3e39803ff515b491b3ec80ebf05c20acb44f560145a29af3a4617445ab3",
-          "local/checkout/src/core/features/ids.ts": "a155357df37d37860e651662a11713e27310508a70fe1bd61c18d7d982db16a3",
-          "local/checkout/src/core/features/features.schema.json": "333ae2d2e80480177ad1111f6ed6830e011a1372548292a58f017e224f883e1f",
-          "local/checkout/src/core/spec/mapspec.schema.json": "0f0de7381bbee1403de2ae0abf540e39288a37359c358d03d18ffb0c449c0dc3",
-          "local/checkout/src/core/spec/schema.ts": "32986632c89c0ed5e8f5de72c64009b7c2ece8deddb981b1d645dc6359f7ef9f",
-          "local/checkout/src/core/features/geometry.ts": "258c01c5c06e5d88a5169cb9ecb9c4fea5c7cf4a89d7ba2ba442488eedc63cad",
-          "local/checkout/src/core/features/route.ts": "79134dcbf14ad4d27fd217cefa5d0c9d53d803a0ef2793968b23e2b6dc0c3fa7",
-          "local/checkout/src/core/features/target.ts": "673725bb96a31f5ee9b1ef5178e2fc7a9038e6ce9b329e457460ae7585bdd6cc",
-          "local/checkout/src/core/gen/calibrated.ts": "19805a998926f7308d07fcbdd732eec99bee00aa9e1d21e6a019dfd692b243c6",
-          "local/checkout/src/core/features/setpieces/common.ts": "36a3bbd721abffbfcf63428368be8fc35eff47e0531beb8f3ed62da4e348b955",
-          "local/checkout/src/core/features/setpieces/badwaterBasin.ts": "aa7c7164309fa9c01ec7df29cab4e4d1eb5101201a5bd0c3422f531b1392f2ca",
-          "local/checkout/src/core/analysis/damsites.ts": "c474d1c611c231d4a2d3bd291f2494f4b3b209f1c3df6c5f9e1acdadb6558f9e",
-          "local/checkout/src/core/math/noise.ts": "7d37b76f2ceee6b20742532da78abfb7cdb287b9b1ceeb536c0af0b756654c84",
-          "local/checkout/src/core/features/setpieces/damSite.ts": "26268317afc3bacffabbae066d939e6f428a3fa279553d1ff36c8b105d4a4d21",
-          "local/checkout/src/core/features/setpieces/gorge.ts": "19576cc7562a9abe4b58e30e97df47a95411c2362bfd4e418f072bbe7a05d988",
-          "local/checkout/src/core/math/rng.ts": "5236a244b99a2a5d1aa69e934c8ce222f4a40f50aabca94e05a63eb4690657b2",
-          "local/checkout/src/core/analysis/ridge.ts": "7ccc4d5e110f5c55bad5031d60ae650a787d4a34582512c42141d70131593135",
-          "local/checkout/src/core/land/num.ts": "4c20fa7a4af94861fd1556bbace1b8d7105849a29d475a90f0cdc4b2e035575a",
-          "local/checkout/src/core/land/narrows.ts": "40da5f13dfb06d60a52e4b69ad4e16e438c8dcfccedf1381d0a42c82a1fcb42c",
-          "local/checkout/src/core/features/setpieces/naturalNarrows.ts": "312a6807c08a035e7f370af511f622fc2112a8d19d44189faa147e4ba9a23f75",
-          "local/checkout/src/core/features/setpieces/obstaclePayoff.ts": "8d5c3ff2a9730bc4cc4d11db8d3f85f40c7bc03af0fcd49b10c6eceed56798b8",
-          "local/checkout/src/core/features/setpieces/plugSpillway.ts": "85626ee982f25f2b2cc3427f021bd755de02c1733400041221156e35be90f0fc",
-          "local/checkout/src/core/features/setpieces/secondDistrict.ts": "3933b39812e092e9125f120bb31b29572f7aa4f7bd6974c6c6c1416e43729561",
-          "local/checkout/src/core/features/setpieces/terracedCliffs.ts": "eaa89a9897cccf581ffc4b04f48ad3db87213704d938e7463d8ab3ca14ab2e29",
-          "local/checkout/src/core/features/setpieces/waterfall.ts": "712cf1149fb8cb03d5bc0701c71b8ef057f0d0382ffcd7bc75ecef54a5f0c288",
-          "local/checkout/src/core/features/setpieces/index.ts": "843b75e56fac9bb4b912a147278c26a2f35d7ee98bc199eb43f2cc3167adee2f",
-          "local/checkout/src/core/features/slopes.ts": "57ae0b3df5ddf1b7a6b61be671ed65d1e2fcd42d20762bd563b09e251b4f90a8",
-          "local/checkout/src/core/features/edits.ts": "e71e77471ac38d45c62251a6d1b0723bf1c7248fbb184b966d7dc3b4a16312e0",
-          "local/checkout/src/core/features/raster/brush.ts": "45550420d1ec21250fcac5c4b9b6290a23284b4be641b6303ce9538cfb970d3d",
-          "local/checkout/src/core/features/raster/terrain.ts": "b23f4b6f16fe12363e36efb2a12c7550e4f0eec995ebdb0dfbc26a2a40b5b5f1",
-          "local/checkout/src/core/gen/blobs.ts": "726759e4583a58195b1ae23d7d54a5d32ba782bd2a36e9b0f580905e11c9dad1",
-          "local/checkout/src/core/resources/budget.ts": "58624556178fe5f14edd6ce1735970fe09fcafb8fd033bcb8ccc5a3441448521",
-          "local/checkout/src/core/resources/measure.ts": "64670d02d787d6f7b453ad58f9792860f3d12dde972eb4d2bf84d45f484cfcc9",
-          "local/checkout/src/core/resources/baseline.ts": "9bb3b538a9d8e8e99677d5a91f360e958df9dec9183b1ac369494d3c3c58a368",
-          "local/checkout/src/core/features/raster/resources.ts": "9f1eaa7651e3727416016bd88f20c925f74dbbdae1194f3147a296e22c352137",
-          "local/checkout/src/core/features/objects.ts": "7f7331ecd7138ed118a518d46bcb14f0dcf32d75296c7f0cfe449f77db249499",
-          "local/checkout/src/core/features/build.ts": "18267253e76e4d26a5fe4c0c7b7e798a6718f365fff4e9a344a54996f1bcb926",
-          "local/checkout/src/core/forces/erupt.ts": "fe3ae5918ef9738e502abdf33e696b43ab55c3b39ca350854ec44c9c3da033b2",
-          "local/checkout/src/core/forces/path.ts": "244ca1dabe22f4b857a7ce4a81cb149c5e0d7ed7993f2222fe2cdea57f7d21e6",
-          "local/checkout/src/core/forces/quake.ts": "efc4767fc421ad54fefb589008f135114bef1869e0f97160d2c853d4c3c66332",
-          "local/checkout/src/core/forces/rock.ts": "719ff643c0e2394c480f4195a0d954bc150157fe40a8f5457d6e94a676aae4b8",
-          "local/checkout/src/core/forces/runs.ts": "1389bf9b6672a0177a7a021127f6aa78d266287992dbb3df44d637b115ef01f5",
-          "local/checkout/src/core/water/sourceGroups.ts": "c44f2fb3ce8ac4045347c79e62af028d647b2abc7688814fc71de1df319f951e",
-          "local/checkout/src/core/forces/glaciate/floor.ts": "cc07216563482ad04c29a7f1e66bf78ce2e5de1e0ed512ba62498695742db3fe",
-          "local/checkout/src/core/forces/glaciate/plan.ts": "8d286ca199f37f5779cd8caaba57a9322b0fe07f17acc7121c7342f928043884",
-          "local/checkout/src/core/water/edgeSources.ts": "30fbabece7dce0ee89f330ba237596c5d9ecc3bba7599463db7ece9ebbe4179c",
-          "local/checkout/src/core/forces/glaciate/run.ts": "2b24063d1ba462f0ad6014c59ba0dd67ae9cefdce558bfe684ce13c6b7579217",
-          "local/checkout/src/core/forces/result.ts": "19168ba000a8d6ec20cce0ae5fe55dc82fe0bd96be1703dda7abad0ad6cca272",
-          "local/checkout/src/core/forces/carve/character.ts": "4f364a14c7a892cdeeb1fd431adbcf5a84d66caa45fd590ba62ba6984ebe31e9",
-          "local/checkout/src/core/forces/drainage.ts": "5bf0929bf0a05c9ae0c0b87d91f8ab9f67a90d8351062d2e244239c683cb39e3",
-          "local/checkout/src/core/forces/carve/course.ts": "c795ec1438139cca43c61f3ace97a100f28fd055ec25c319c8c76339bbdf468d",
-          "local/checkout/src/core/forces/carve/oxbow.ts": "9fdf15b41b18eeb6b8ecd9c9d36235b8465deeb67f7a6aad9a7dbf28e5190b3d",
-          "local/checkout/src/core/forces/carve/water.ts": "a7b4b01a2794118d64b88181e1085b1c1f6e5be477ff65ad0406206910e85cf3",
-          "local/checkout/src/core/forces/carve/river.ts": "b2b0fd5e6b4e5e345cf2384e6cebe42e63352442031878d1803366c9a2d4ed63",
-          "local/checkout/src/core/forces/carve/run.ts": "4d81d95ddeb604fd1ae03d3cb61d13a9d7f2c323c2b84b13cb947067a275babb",
-          "local/checkout/src/core/forces/carve/play.ts": "035b272a5659784edd6e7793dd178e9cb6ae1ebe42f59072b9fde91523ec27ae",
-          "local/final/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
-          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/browser.js": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
-          "local/final/oracle-worker.ts": "44d45100b5a7853941decb2194726a314d20f14858bc58234447a871e5a42b31"
-        },
-        "wasm": {
-          "imports": [],
-          "sha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-          "bytes": 814253,
-          "gzip": 262703,
-          "brotli": 206580
-        }
-      }
-    },
-    "files": 27,
-    "total": 186,
-    "passed": 186,
-    "failed": 0,
-    "success": true,
-    "currentSuite": true
-  },
-  "suiteReplay": {
-    "sha256": "08307792e71bfb06e53f10337f6c467208a1317b3b0213b280f4179a3b8ee648",
-    "status": "pass",
-    "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-    "corpusSha256": "01c80c088846d38dad72c45a9110d78f34cf9d51145539fb9503753c57a8aa47",
-    "cases": 4,
-    "comparisons": 12,
     "counts": {
-      "glaciate/128/historical": 4
+      "native/carve/128": 20,
+      "node-wasm/carve/128": 20,
+      "native/carve/256": 20,
+      "node-wasm/carve/256": 20,
+      "native/carve/512": 20,
+      "node-wasm/carve/512": 20,
+      "native/craterize/128": 20,
+      "node-wasm/craterize/128": 20,
+      "native/craterize/256": 20,
+      "node-wasm/craterize/256": 20,
+      "native/craterize/512": 20,
+      "node-wasm/craterize/512": 20,
+      "native/erupt/128": 20,
+      "node-wasm/erupt/128": 20,
+      "native/erupt/256": 20,
+      "node-wasm/erupt/256": 20,
+      "native/erupt/512": 20,
+      "node-wasm/erupt/512": 20,
+      "native/footprint/128": 20,
+      "node-wasm/footprint/128": 20,
+      "native/footprint/256": 20,
+      "node-wasm/footprint/256": 20,
+      "native/footprint/512": 20,
+      "node-wasm/footprint/512": 20,
+      "native/glaciate/128": 20,
+      "node-wasm/glaciate/128": 20,
+      "native/glaciate/256": 20,
+      "node-wasm/glaciate/256": 20,
+      "native/glaciate/512": 20,
+      "node-wasm/glaciate/512": 20,
+      "native/quake/128": 20,
+      "node-wasm/quake/128": 20,
+      "native/quake/256": 20,
+      "node-wasm/quake/256": 20,
+      "native/quake/512": 20,
+      "node-wasm/quake/512": 20,
+      "chromium/carve/128": 5,
+      "chromium/carve/256": 5,
+      "chromium/carve/512": 5,
+      "chromium/craterize/128": 5,
+      "chromium/craterize/256": 5,
+      "chromium/craterize/512": 5,
+      "chromium/erupt/128": 5,
+      "chromium/erupt/256": 5,
+      "chromium/erupt/512": 5,
+      "chromium/footprint/128": 5,
+      "chromium/footprint/256": 5,
+      "chromium/footprint/512": 5,
+      "chromium/glaciate/128": 5,
+      "chromium/glaciate/256": 5,
+      "chromium/glaciate/512": 5,
+      "chromium/quake/128": 5,
+      "chromium/quake/256": 5,
+      "chromium/quake/512": 5,
+      "firefox/carve/128": 5,
+      "firefox/carve/256": 5,
+      "firefox/carve/512": 5,
+      "firefox/craterize/128": 5,
+      "firefox/craterize/256": 5,
+      "firefox/craterize/512": 5,
+      "firefox/erupt/128": 5,
+      "firefox/erupt/256": 5,
+      "firefox/erupt/512": 5,
+      "firefox/footprint/128": 5,
+      "firefox/footprint/256": 5,
+      "firefox/footprint/512": 5,
+      "firefox/glaciate/128": 5,
+      "firefox/glaciate/256": 5,
+      "firefox/glaciate/512": 5,
+      "firefox/quake/128": 5,
+      "firefox/quake/256": 5,
+      "firefox/quake/512": 5,
+      "webkit/carve/128": 5,
+      "webkit/carve/256": 5,
+      "webkit/carve/512": 5,
+      "webkit/craterize/128": 5,
+      "webkit/craterize/256": 5,
+      "webkit/craterize/512": 5,
+      "webkit/erupt/128": 5,
+      "webkit/erupt/256": 5,
+      "webkit/erupt/512": 5,
+      "webkit/footprint/128": 5,
+      "webkit/footprint/256": 5,
+      "webkit/footprint/512": 5,
+      "webkit/glaciate/128": 5,
+      "webkit/glaciate/256": 5,
+      "webkit/glaciate/512": 5,
+      "webkit/quake/128": 5,
+      "webkit/quake/256": 5,
+      "webkit/quake/512": 5
     },
-    "replayPass": false
-  },
-  "existingBrowser": {
-    "sha256": "89b6fa7278b9985c71676b19189aea58fbabd42753c09fb7c4cb2b73d0cef759",
-    "build": {
-      "build": {
-        "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-        "inputs": {
-          "src/lib.rs": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
-          "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467",
-          "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
-          "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
-          ".cargo/config.toml": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
-          "protocol.ts": "79cce08de6cefad4f6ad7caa55e41afc441cb498e68c90db344f6187893b26af",
-          "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
-          "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
-          "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
-          "suite-adapter.ts": "b2e8a9f6aba88526c403c3040e72ec7fd2baed0c93ebe49dab9a389145007d7e",
-          "check.mjs": "0f022418b7a564a933003f02f607afe0d080bc204c1dc422e8795b0ea2a799b5",
-          "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
-          "browser.mjs": "de8c946e60c3f440ea33e28928f02d4b7a9f0492b04509011f49c1794383d7bb",
-          "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
-          "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
-          "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
-          "native-fixtures.mjs": "b79108d169795d698ba8cac9628805b41551d43ab9ae7b8ed86d6e9ed44cc8af",
-          "load.mjs": "cb86180e5547dec09221d5fe15181a1a6c56abb21c6bf898d0a3964b2950e10c",
-          "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
-          "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
-          "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
-          "existing-browser.mjs": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
-          "identity-matrix.mjs": "5d78bfce36f89c7a5d713d5c0359779b454cd817ab12cceed475ffb623dcdfc1",
-          "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
-          "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
-          "footprint-check.mjs": "e260bba8c852940e5ee53855a6b074fb31f4967a52b76416e16eb2e50b9d516b",
-          "verifier-check.mjs": "bd8dd914655b9f6032bb97958cf56de8bf36a030a2b07c85ece45538a2003cdf",
-          "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
-          "local/checkout/src/core/data/log-floor.json": "ed7385477cbd49fa4355b170bbeae15803af6931b522f0146099ed5e784ddbd0",
-          "local/checkout/src/core/data/logFloor.ts": "d330bad83a075b2b3b695797a9a97dabdce9884ffab2bf2b66852d8fc71e33d7",
-          "local/checkout/src/core/format/entities.ts": "e22aaf0658296a0b39bfbbd7816b6f81cd34ea00c0cf04f765082df0b8736e82",
-          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/index.mjs": "8d75534a30a0580608e1271c13d70943ed4cd3589fddff7b1197748036a5116e",
-          "local/checkout/src/core/format/world.ts": "972b183aef802dfc927ea223369ddacee80e6f83ad0bb8574f14d5f75d85bb4d",
-          "local/checkout/src/core/format/timber.ts": "3496cbfbcdf3f47c6b853cec3709e82a62066cafac78665933a7a680869a9b08",
-          "local/checkout/src/core/math/detmath.ts": "5c8ac657b0769a0d897e9fa447827ef70d08697ddca405a9b32a0eda83c8beef",
-          "local/checkout/src/core/math/portable.ts": "8b50cc97600e128ae14f9250c58f8f40e5dd6f5b5a73b40920b9085cf4756e73",
-          "local/checkout/src/core/data/footprints.json": "1041a770dc33aed409f05fea2002e105581aaa5ff07be82f6e4bd9f2fd0b8e39",
-          "local/checkout/src/core/format/footprints.ts": "aecda8f5011956bccf5f30cdcb701ce996a4b9b9c82fcc9cedd45bc0dc444913",
-          "local/checkout/src/core/sim/model.ts": "d865b27fd02f261c12d082dd22af2d10ad484fa1cbdaac930323f481fb33dd53",
-          "local/checkout/src/core/forces/random.ts": "891e7a29c5d1e856302fef1d7ba81650534e361eccd49b1c66da25a3ef33e567",
-          "local/checkout/src/core/forces/force.ts": "e87cd30a030397fcbdaf31f738eb1dd61755a9f24c5f75fa6baf89aac1705626",
-          "local/checkout/tests/contract/forceFixtures.ts": "5ff1cd91cd701b4948c91a9d45d1bb530f7f83affde83aaebf4db2cfecd87761",
-          "local/checkout/src/core/forces/objects.ts": "a8eb383a6ed6a6159cde44b8e10b781e9cd1fec6bea73d360e023eba0729716d",
-          "local/checkout/src/core/forces/strength.ts": "6b59f241c77c1c176166bf6d9ad87d2e8a8f72bda3492bd8c7456652d340b2b3",
-          "local/checkout/src/core/forces/craterize.ts": "44b7f42758dc02bea70324be9123aeca729e1a65f95c8bd8bb40b0173ac60d5d",
-          "local/checkout/src/core/math/grid.ts": "6119da419ca2008d4a7d8dbc983422a4cb7c2147fbb5b8f72a554bcc6f1be62d",
-          "local/checkout/src/core/sim/contamination.ts": "8c24c69a2d1d016c129bbddff9924706a68d056c9df3807858172716c1dd3299",
-          "local/checkout/src/core/sim/moisture.ts": "51dde823d7ef851569e90ffe76cd729a55eab717899deeb513037abc13df6a4e",
-          "local/checkout/src/core/sim/water.ts": "b3859ead5b2f6bfdcdff0939094d78d0105f53ddda654dc3a1c3f3d32b3f2e80",
-          "local/checkout/src/core/sim/prefill.ts": "77728b3f556c6a07156e5b476662b9782a4f3d783e5470ec49a7706e6c36d599",
-          "local/checkout/src/core/sim/preview.ts": "14599f5e2581d08503c8cd8d0526397835595d801e44c1fd855f25e4a80f94a7",
-          "local/checkout/src/core/forces/glaciate/model.ts": "54e9254371d5b58db8d978548aae5e98c7c4e7cda03f27ed0cb7fa13ccd0833f",
-          "local/checkout/src/core/forces/floor.ts": "d2073946206869515091cd14d1608000294a4ecab2172e5df899cca15e641e5a",
-          "local/checkout/src/core/forces/op.ts": "e943ab4c1d2df08f9d5d1c5d47ca52b2ef090e1e4a82e46715b8abf08e1f1b60",
-          "local/checkout/src/core/math/hash.ts": "da01f3e39803ff515b491b3ec80ebf05c20acb44f560145a29af3a4617445ab3",
-          "local/checkout/src/core/features/ids.ts": "a155357df37d37860e651662a11713e27310508a70fe1bd61c18d7d982db16a3",
-          "local/checkout/src/core/features/features.schema.json": "333ae2d2e80480177ad1111f6ed6830e011a1372548292a58f017e224f883e1f",
-          "local/checkout/src/core/spec/mapspec.schema.json": "0f0de7381bbee1403de2ae0abf540e39288a37359c358d03d18ffb0c449c0dc3",
-          "local/checkout/src/core/spec/schema.ts": "32986632c89c0ed5e8f5de72c64009b7c2ece8deddb981b1d645dc6359f7ef9f",
-          "local/checkout/src/core/features/geometry.ts": "258c01c5c06e5d88a5169cb9ecb9c4fea5c7cf4a89d7ba2ba442488eedc63cad",
-          "local/checkout/src/core/features/route.ts": "79134dcbf14ad4d27fd217cefa5d0c9d53d803a0ef2793968b23e2b6dc0c3fa7",
-          "local/checkout/src/core/features/target.ts": "673725bb96a31f5ee9b1ef5178e2fc7a9038e6ce9b329e457460ae7585bdd6cc",
-          "local/checkout/src/core/gen/calibrated.ts": "19805a998926f7308d07fcbdd732eec99bee00aa9e1d21e6a019dfd692b243c6",
-          "local/checkout/src/core/features/setpieces/common.ts": "36a3bbd721abffbfcf63428368be8fc35eff47e0531beb8f3ed62da4e348b955",
-          "local/checkout/src/core/features/setpieces/badwaterBasin.ts": "aa7c7164309fa9c01ec7df29cab4e4d1eb5101201a5bd0c3422f531b1392f2ca",
-          "local/checkout/src/core/analysis/damsites.ts": "c474d1c611c231d4a2d3bd291f2494f4b3b209f1c3df6c5f9e1acdadb6558f9e",
-          "local/checkout/src/core/math/noise.ts": "7d37b76f2ceee6b20742532da78abfb7cdb287b9b1ceeb536c0af0b756654c84",
-          "local/checkout/src/core/features/setpieces/damSite.ts": "26268317afc3bacffabbae066d939e6f428a3fa279553d1ff36c8b105d4a4d21",
-          "local/checkout/src/core/features/setpieces/gorge.ts": "19576cc7562a9abe4b58e30e97df47a95411c2362bfd4e418f072bbe7a05d988",
-          "local/checkout/src/core/math/rng.ts": "5236a244b99a2a5d1aa69e934c8ce222f4a40f50aabca94e05a63eb4690657b2",
-          "local/checkout/src/core/analysis/ridge.ts": "7ccc4d5e110f5c55bad5031d60ae650a787d4a34582512c42141d70131593135",
-          "local/checkout/src/core/land/num.ts": "4c20fa7a4af94861fd1556bbace1b8d7105849a29d475a90f0cdc4b2e035575a",
-          "local/checkout/src/core/land/narrows.ts": "40da5f13dfb06d60a52e4b69ad4e16e438c8dcfccedf1381d0a42c82a1fcb42c",
-          "local/checkout/src/core/features/setpieces/naturalNarrows.ts": "312a6807c08a035e7f370af511f622fc2112a8d19d44189faa147e4ba9a23f75",
-          "local/checkout/src/core/features/setpieces/obstaclePayoff.ts": "8d5c3ff2a9730bc4cc4d11db8d3f85f40c7bc03af0fcd49b10c6eceed56798b8",
-          "local/checkout/src/core/features/setpieces/plugSpillway.ts": "85626ee982f25f2b2cc3427f021bd755de02c1733400041221156e35be90f0fc",
-          "local/checkout/src/core/features/setpieces/secondDistrict.ts": "3933b39812e092e9125f120bb31b29572f7aa4f7bd6974c6c6c1416e43729561",
-          "local/checkout/src/core/features/setpieces/terracedCliffs.ts": "eaa89a9897cccf581ffc4b04f48ad3db87213704d938e7463d8ab3ca14ab2e29",
-          "local/checkout/src/core/features/setpieces/waterfall.ts": "712cf1149fb8cb03d5bc0701c71b8ef057f0d0382ffcd7bc75ecef54a5f0c288",
-          "local/checkout/src/core/features/setpieces/index.ts": "843b75e56fac9bb4b912a147278c26a2f35d7ee98bc199eb43f2cc3167adee2f",
-          "local/checkout/src/core/features/slopes.ts": "57ae0b3df5ddf1b7a6b61be671ed65d1e2fcd42d20762bd563b09e251b4f90a8",
-          "local/checkout/src/core/features/edits.ts": "e71e77471ac38d45c62251a6d1b0723bf1c7248fbb184b966d7dc3b4a16312e0",
-          "local/checkout/src/core/features/raster/brush.ts": "45550420d1ec21250fcac5c4b9b6290a23284b4be641b6303ce9538cfb970d3d",
-          "local/checkout/src/core/features/raster/terrain.ts": "b23f4b6f16fe12363e36efb2a12c7550e4f0eec995ebdb0dfbc26a2a40b5b5f1",
-          "local/checkout/src/core/gen/blobs.ts": "726759e4583a58195b1ae23d7d54a5d32ba782bd2a36e9b0f580905e11c9dad1",
-          "local/checkout/src/core/resources/budget.ts": "58624556178fe5f14edd6ce1735970fe09fcafb8fd033bcb8ccc5a3441448521",
-          "local/checkout/src/core/resources/measure.ts": "64670d02d787d6f7b453ad58f9792860f3d12dde972eb4d2bf84d45f484cfcc9",
-          "local/checkout/src/core/resources/baseline.ts": "9bb3b538a9d8e8e99677d5a91f360e958df9dec9183b1ac369494d3c3c58a368",
-          "local/checkout/src/core/features/raster/resources.ts": "9f1eaa7651e3727416016bd88f20c925f74dbbdae1194f3147a296e22c352137",
-          "local/checkout/src/core/features/objects.ts": "7f7331ecd7138ed118a518d46bcb14f0dcf32d75296c7f0cfe449f77db249499",
-          "local/checkout/src/core/features/build.ts": "18267253e76e4d26a5fe4c0c7b7e798a6718f365fff4e9a344a54996f1bcb926",
-          "local/checkout/src/core/forces/erupt.ts": "fe3ae5918ef9738e502abdf33e696b43ab55c3b39ca350854ec44c9c3da033b2",
-          "local/checkout/src/core/forces/path.ts": "244ca1dabe22f4b857a7ce4a81cb149c5e0d7ed7993f2222fe2cdea57f7d21e6",
-          "local/checkout/src/core/forces/quake.ts": "efc4767fc421ad54fefb589008f135114bef1869e0f97160d2c853d4c3c66332",
-          "local/checkout/src/core/forces/rock.ts": "719ff643c0e2394c480f4195a0d954bc150157fe40a8f5457d6e94a676aae4b8",
-          "local/checkout/src/core/forces/runs.ts": "1389bf9b6672a0177a7a021127f6aa78d266287992dbb3df44d637b115ef01f5",
-          "local/checkout/src/core/water/sourceGroups.ts": "c44f2fb3ce8ac4045347c79e62af028d647b2abc7688814fc71de1df319f951e",
-          "local/checkout/src/core/forces/glaciate/floor.ts": "cc07216563482ad04c29a7f1e66bf78ce2e5de1e0ed512ba62498695742db3fe",
-          "local/checkout/src/core/forces/glaciate/plan.ts": "8d286ca199f37f5779cd8caaba57a9322b0fe07f17acc7121c7342f928043884",
-          "local/checkout/src/core/water/edgeSources.ts": "30fbabece7dce0ee89f330ba237596c5d9ecc3bba7599463db7ece9ebbe4179c",
-          "local/checkout/src/core/forces/glaciate/run.ts": "2b24063d1ba462f0ad6014c59ba0dd67ae9cefdce558bfe684ce13c6b7579217",
-          "local/checkout/src/core/forces/result.ts": "19168ba000a8d6ec20cce0ae5fe55dc82fe0bd96be1703dda7abad0ad6cca272",
-          "local/checkout/src/core/forces/carve/character.ts": "4f364a14c7a892cdeeb1fd431adbcf5a84d66caa45fd590ba62ba6984ebe31e9",
-          "local/checkout/src/core/forces/drainage.ts": "5bf0929bf0a05c9ae0c0b87d91f8ab9f67a90d8351062d2e244239c683cb39e3",
-          "local/checkout/src/core/forces/carve/course.ts": "c795ec1438139cca43c61f3ace97a100f28fd055ec25c319c8c76339bbdf468d",
-          "local/checkout/src/core/forces/carve/oxbow.ts": "9fdf15b41b18eeb6b8ecd9c9d36235b8465deeb67f7a6aad9a7dbf28e5190b3d",
-          "local/checkout/src/core/forces/carve/water.ts": "a7b4b01a2794118d64b88181e1085b1c1f6e5be477ff65ad0406206910e85cf3",
-          "local/checkout/src/core/forces/carve/river.ts": "b2b0fd5e6b4e5e345cf2384e6cebe42e63352442031878d1803366c9a2d4ed63",
-          "local/checkout/src/core/forces/carve/run.ts": "4d81d95ddeb604fd1ae03d3cb61d13a9d7f2c323c2b84b13cb947067a275babb",
-          "local/checkout/src/core/forces/carve/play.ts": "035b272a5659784edd6e7793dd178e9cb6ae1ebe42f59072b9fde91523ec27ae",
-          "local/final/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
-          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/browser.js": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
-          "local/final/oracle-worker.ts": "44d45100b5a7853941decb2194726a314d20f14858bc58234447a871e5a42b31"
-        },
-        "wasm": {
-          "imports": [],
-          "sha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
-          "bytes": 814253,
-          "gzip": 262703,
-          "brotli": 206580
-        }
-      },
-      "suiteAdapterSha256": "e94b8750ebb84056719fb93c9bdd2f063d8201a48c63f2c3774b724debb75753",
-      "harnessSha256": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
+    "recordCoverage": {
+      "native/craterize/128": 20,
+      "native/craterize/256": 20,
+      "native/craterize/512": 20,
+      "native/erupt/128": 20,
+      "native/erupt/256": 20,
+      "native/erupt/512": 20,
+      "native/quake/128": 20,
+      "native/quake/256": 20,
+      "native/quake/512": 20,
+      "native/carve/128": 18,
+      "native/carve/256": 20,
+      "native/carve/512": 20,
+      "native/glaciate/128": 20,
+      "native/glaciate/256": 20,
+      "native/glaciate/512": 20,
+      "node-wasm/craterize/128": 20,
+      "node-wasm/craterize/256": 20,
+      "node-wasm/craterize/512": 20,
+      "node-wasm/erupt/128": 20,
+      "node-wasm/erupt/256": 20,
+      "node-wasm/erupt/512": 20,
+      "node-wasm/quake/128": 20,
+      "node-wasm/quake/256": 20,
+      "node-wasm/quake/512": 20,
+      "node-wasm/carve/128": 18,
+      "node-wasm/carve/256": 20,
+      "node-wasm/carve/512": 20,
+      "node-wasm/glaciate/128": 20,
+      "node-wasm/glaciate/256": 20,
+      "node-wasm/glaciate/512": 20,
+      "chromium/craterize/128": 5,
+      "chromium/craterize/256": 5,
+      "chromium/craterize/512": 5,
+      "chromium/erupt/128": 5,
+      "chromium/erupt/256": 5,
+      "chromium/erupt/512": 5,
+      "chromium/quake/128": 5,
+      "chromium/quake/256": 5,
+      "chromium/quake/512": 5,
+      "chromium/carve/128": 4,
+      "chromium/carve/256": 5,
+      "chromium/carve/512": 5,
+      "chromium/glaciate/128": 5,
+      "chromium/glaciate/256": 5,
+      "chromium/glaciate/512": 5,
+      "firefox/craterize/128": 5,
+      "firefox/craterize/256": 5,
+      "firefox/craterize/512": 5,
+      "firefox/erupt/128": 5,
+      "firefox/erupt/256": 5,
+      "firefox/erupt/512": 5,
+      "firefox/quake/128": 5,
+      "firefox/quake/256": 5,
+      "firefox/quake/512": 5,
+      "firefox/carve/128": 4,
+      "firefox/carve/256": 5,
+      "firefox/carve/512": 5,
+      "firefox/glaciate/128": 5,
+      "firefox/glaciate/256": 5,
+      "firefox/glaciate/512": 5,
+      "webkit/craterize/128": 5,
+      "webkit/craterize/256": 5,
+      "webkit/craterize/512": 5,
+      "webkit/erupt/128": 5,
+      "webkit/erupt/256": 5,
+      "webkit/erupt/512": 5,
+      "webkit/quake/128": 5,
+      "webkit/quake/256": 5,
+      "webkit/quake/512": 5,
+      "webkit/carve/128": 4,
+      "webkit/carve/256": 5,
+      "webkit/carve/512": 5,
+      "webkit/glaciate/128": 5,
+      "webkit/glaciate/256": 5,
+      "webkit/glaciate/512": 5
+    },
+    "exportCoverage": {
+      "native/craterize/128": 20,
+      "native/craterize/256": 20,
+      "native/craterize/512": 20,
+      "native/erupt/128": 20,
+      "native/erupt/256": 20,
+      "native/erupt/512": 20,
+      "native/quake/128": 20,
+      "native/quake/256": 20,
+      "native/quake/512": 20,
+      "native/carve/128": 18,
+      "native/carve/256": 20,
+      "native/carve/512": 20,
+      "native/glaciate/128": 20,
+      "native/glaciate/256": 20,
+      "native/glaciate/512": 20,
+      "node-wasm/craterize/128": 20,
+      "node-wasm/craterize/256": 20,
+      "node-wasm/craterize/512": 20,
+      "node-wasm/erupt/128": 20,
+      "node-wasm/erupt/256": 20,
+      "node-wasm/erupt/512": 20,
+      "node-wasm/quake/128": 20,
+      "node-wasm/quake/256": 20,
+      "node-wasm/quake/512": 20,
+      "node-wasm/carve/128": 18,
+      "node-wasm/carve/256": 20,
+      "node-wasm/carve/512": 20,
+      "node-wasm/glaciate/128": 20,
+      "node-wasm/glaciate/256": 20,
+      "node-wasm/glaciate/512": 20,
+      "chromium/craterize/128": 5,
+      "chromium/craterize/256": 5,
+      "chromium/craterize/512": 5,
+      "chromium/erupt/128": 5,
+      "chromium/erupt/256": 5,
+      "chromium/erupt/512": 5,
+      "chromium/quake/128": 5,
+      "chromium/quake/256": 5,
+      "chromium/quake/512": 5,
+      "chromium/carve/128": 4,
+      "chromium/carve/256": 5,
+      "chromium/carve/512": 5,
+      "chromium/glaciate/128": 5,
+      "chromium/glaciate/256": 5,
+      "chromium/glaciate/512": 5,
+      "firefox/craterize/128": 5,
+      "firefox/craterize/256": 5,
+      "firefox/craterize/512": 5,
+      "firefox/erupt/128": 5,
+      "firefox/erupt/256": 5,
+      "firefox/erupt/512": 5,
+      "firefox/quake/128": 5,
+      "firefox/quake/256": 5,
+      "firefox/quake/512": 5,
+      "firefox/carve/128": 4,
+      "firefox/carve/256": 5,
+      "firefox/carve/512": 5,
+      "firefox/glaciate/128": 5,
+      "firefox/glaciate/256": 5,
+      "firefox/glaciate/512": 5,
+      "webkit/craterize/128": 5,
+      "webkit/craterize/256": 5,
+      "webkit/craterize/512": 5,
+      "webkit/erupt/128": 5,
+      "webkit/erupt/256": 5,
+      "webkit/erupt/512": 5,
+      "webkit/quake/128": 5,
+      "webkit/quake/256": 5,
+      "webkit/quake/512": 5,
+      "webkit/carve/128": 4,
+      "webkit/carve/256": 5,
+      "webkit/carve/512": 5,
+      "webkit/glaciate/128": 5,
+      "webkit/glaciate/256": 5,
+      "webkit/glaciate/512": 5
+    },
+    "accepted": 298,
+    "refusals": 2,
+    "identityErrors": [],
+    "matrix": {
+      "status": "pass",
+      "pilot": true,
+      "fingerprint": "89372b4f15a535f79d2c5ad352772c2484619ac16d79c0e6d56c434da4e89a53"
+    },
+    "cross": {
+      "status": "pass",
+      "exportCases": 298,
+      "refusals": 2,
+      "cases": 360,
+      "comparisons": 270,
+      "checksSha256": "a009dd5e8a2852056a2f503b952085f1b848462beedee7e8e24a81bb9c59ce24",
+      "browserSha256": "a0d694d6dd7774b1173e12f7bf7ed57fcf2f55b414bb5c982421547ba13ca51b",
+      "wasmSha256": "96d4c15ca074a5faf8fc0704c8bc6d0ef4838f8e26ccec9734de1e854b52c4b0",
       "engines": [
         "chromium",
         "firefox",
         "webkit"
       ],
-      "selection": [],
-      "sources": {
-        "forces": "7cb57d0cf5723235fdd10c62a2811a1a7e844ab31cd9b6d20ccd190a241ed590",
-        "carve": "e92b0394b651f1a4214583dfecf453e6e984406318aa8272b001a3678f25fbbe",
-        "glaciate": "16e91552fead16bf7cfad9ccd4cdaa7eecd26b3796a51c4b07cdcbdf753ef189",
-        "unleash": "ac82c934e9648560ef56a678e3251b8c5034cb58aa136692298f615512c1d2f3",
-        "forceKeys": "8e24621764f9ee2d88dd8cbb9cc8ab1b5564d41a5b967fec860da2b120454b50",
-        "forceSpeed": "92aa521a7c1a790787724da268ba4bbed7e7e9a58b0571e0f0a83cb2385c3ba0",
-        "determinism": "ac13cb0afae99ebdd969e2d2214f9ef91a9e305780214ab2d38b0b932ba82edf"
-      },
-      "driver": "1.58.2",
-      "informationalTimingsEnabled": true,
-      "webkitScratchCanvasFallback": true,
-      "pointerFrameSynchronization": true
-    },
-    "stats": {
-      "startTime": "2026-10-02T16:34:33.785Z",
-      "duration": 1374401.411,
-      "expected": 93,
-      "skipped": 0,
-      "unexpected": 0,
-      "flaky": 0
-    },
-    "rustComparisons": 21853,
-    "fullBrowser": true
+      "nativeFingerprints": [
+        "1951bd6f3f9e3d267886d435683227232d6d30f38bb962d263aae3019c476dd4"
+      ],
+      "fingerprints": [
+        "29406dd9afaa8677108b872520e564d7133b7dba85c47bac3f2572dc087e0585"
+      ]
+    }
   },
-  "measurements": {
-    "file": "measurement-evidence.json",
-    "sha256": "fdb7de86ba17764a04ceafa45fb994986904ba1f34f29cb5c37fabfd600af458",
-    "firstThree": {
-      "cells": 72,
-      "pass": true
+  "pilot": {
+    "pilot": true,
+    "window": null,
+    "elapsedSeconds": 2255.099,
+    "projectedFullSeconds": 225509.9,
+    "load": {
+      "mean": 20.57344823278843,
+      "max": 57.847777784833944,
+      "samples": 2238,
+      "source": "Windows PDH Processor(_Total) % Processor Time"
     },
-    "allForces": {
-      "cells": 120,
-      "pass": true
-    },
-    "timingPinned": true
+    "parallel": 1,
+    "completed": 72,
+    "total": 72,
+    "failed": null,
+    "projection": "100 times sequential 1% shard elapsed, including process/browser startup and cold verification; shared-PC total CPU, not force timing"
   },
-  "remaining": [
-    "allWaterAndPlaybackRecords",
-    "existingTestsAgainstRust",
-    "thousandsPerForcePerSizePerTarget",
-    "productExportBytes"
-  ]
+  "gateFixes": {
+    "allWaterAndPlaybackRecords": "Missing a separate completeness proof: the gate was coupled to finishing the random corpus; full typed raw/final water, every playback tape and total/step timing are now checked against the complete TS record.",
+    "productExportBytes": "Missing separate current-arithmetic proof of native opaque-component order/JsonFloat tokens through the actual product writer; native and all Wasm bindings now compare .timber bytes independently of corpus completion."
+  },
+  "regenerate": "INTEGRATION.md; generated bundles, maps, IR, exports, CPU logs and failure payloads remain in ignored local/round3/."
 }
