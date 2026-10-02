@@ -294,7 +294,7 @@ export class PreviewJob {
 class PreviewRun {
   private readonly run: SettleRun;
   constructor(sim: WaterSim, sealed: readonly number[] | undefined) {
-    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed, untilSteady: true });
+    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed });
   }
   advance(ticks: number) {
     return this.run.advance(ticks);
