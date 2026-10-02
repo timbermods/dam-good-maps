@@ -20,7 +20,7 @@ import type { Point } from "../core/features/schema";
 import type { FixOp } from "../core/validate/report";
 import { rulesFor } from "../core/validate/playability";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
-import { DEAD, FLIPPED, YOUNG, ORIENTATION_NAMES, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "../render3d/model";
+import { DEAD, FLIPPED, YOUNG, ORIENTATION_NAMES, surfaceWater, type EntityView, type SoilView, type WaterView } from "../render3d/model";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
 import { LookMenu } from "../ui/LookMenu";
@@ -30,17 +30,14 @@ import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTil
 import { checkStartAt, startProblemAt, entitiesByTile, FeatureIndex, feedingGroups, newId, sourceGroups, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, strengthKey, strengthReader, type StartCheck, type StartStatus, type TileContext } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, SourceReadout, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
-import { isPickable, pickWinner, removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { isPickable, pickWinner, removeTakes, type RemoveKind } from "../core/features/objects";
 import { modalLevel } from "../core/features/footprintLevel";
-
-/** Delete takes every kind (D288): objects, sources and the start (D323 item 44). */
-const ALL_KINDS: RemoveKind[] = ["trees", "bushes", "ruins", "objects", "slopes", "sources", "start"];
 import { Shelf } from "./Shelf";
 import { DEFAULT_SHELF_OPTIONS, paintTiles, quietWord, SHELF, templateOf, type ShelfItem, type ShelfOptions } from "./shelfItems";
 import { shelfTool } from "./placeTools";
 import { Juice, loadSound, type SoundSettings, type StrokeSound } from "./juice";
-import { ForceDriver, paceOf, powerWord, type ForceStatus, type ForceTiming } from "./forceDriver";
-import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, RIVER_DEPTH_DEFAULT, type CarveUi } from "./CarveRow";
+import { ForceDriver, paceOf, powerWord } from "./forceDriver";
+import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
 import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
@@ -60,7 +57,7 @@ import { FirstRun, loadFirstRun, saveFirstRun, type FirstStep } from "./FirstRun
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
 import { FORCES, ForceFloor, ForceKeys, forceShown, TopBar, type TopTool } from "./TopBar";
-import { FLOOR_DEFAULT, floorProblem } from "../core/forces/floor";
+import { FLOOR_DEFAULT } from "../core/forces/floor";
 import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, Selection, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
 import { ModeIcon, WholeMapIcon } from "./SelectIcons";
 import { WaterBar } from "./WaterBar";
@@ -70,13 +67,18 @@ import type { Hazard } from "../core/sim/weather";
 import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { PointerWords } from "./pointerWords";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "./forceSize";
-import { BRUSHES, BRUSH_NAMES, BrushPainter, DEFAULT_BRUSH, hasTarget, nextSize, paste, sizeMax, targetWords, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice, type Stroke } from "./brushes";
+import { BRUSHES, BRUSH_NAMES, BrushPainter, hasTarget, nextSize, paste, sizeMax, targetWords, type BrushSettings, type BrushTool, type Stroke } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, sourcesPressed, targetSource, type SourceSpot } from "./sourceSpots";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
 import { BAD, BADWATER_STRENGTHS, GHOST_OK, STATUS_COLOR, WARN, coordinatesAt, DEFAULT_OPTIONS, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, LOWERS, MOVING, paintOverlay, PROBLEM, RAISES, SELECTED, SOURCE_STRENGTHS, sourceRequest, type OverlayLayer, type Rgba, type ToolOptions } from "./tools";
 import { tip } from "../ui/Tooltip";
+import { type Mirror, mirrorOf } from "./session/mirror";
+import { loadBrush, saveBrush } from "./prefs/brushPrefs";
+import { type StartHere, NO_START_HERE } from "./start/startHere";
+import { ALL_KINDS } from "./remove/kinds";
+import { loadForcesPrefs, saveForcesPrefs } from "./prefs/forcesPrefs";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -90,85 +92,97 @@ export interface EditorProps {
   saveState: string;
 }
 
-interface Mirror {
-  heights: Uint8Array;
-  water: SurfaceWater;
-  /** The water on screen, as the worker sent it. */
-  waterView: WaterView;
-  /** The map's water: the last the worker put in place (a journey's frames pass over it). */
-  mapWater: WaterView;
-  entities: EntityView;
-  /** The objects on each tile, made when first asked for after the objects change. */
-  entitiesAt: Map<number, number[]> | null;
-  /** The objects covering each tile (their footprints), likewise. */
-  coverAt?: Map<number, number[]> | null;
-  soil?: SoilView;
+/** What the editor says once the map's last badwater spring is gone (D213). */
+const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
+
+/** The overlays' words on their view buttons. */
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
-declare global {
-  interface Window {
-    /** Test hook: the open editor (tests/e2e). */
-    dgmEditor?: {
-      info: () => SessionInfo;
-      tileToClient(x: number, y: number): { x: number; y: number };
-      idle(): Promise<void>;
-      /** The problems the last edit made. */
-      instant(): CheckItem[];
-      /** The footprint under the pointer (an object from the shelf): its tiles, and why the game would
-       *  refuse it there. */
-      fit(): { tiles: number[]; problem: string | null } | null;
-      /** The start's check while it moves (its footprint and the three start requirements). */
-      startCheck(): StartCheck | null;
-      /** An edit through the editor, as a stroke or a click would make it (tests). */
-      edit(op: EditOp, label: string): Promise<void>;
-      /** The worker, for timing its answers (tests/e2e/preview.spec.ts). */
-      worker: Remote<GeneratorApi>;
-      /** Strokes whose painted terrain differed from the worker's build (0 when all is well). */
-      strokeMismatches(): number;
-      /** Strokes, undos and redos on their way to the worker. */
-      pendingTerrain(): number;
-      /** The carve at work (D199), or null. */
-      carve(): ForceStatus | null;
-      /** Any force at work (D202, D203, D206), or null. */
-      force(): ForceStatus | null;
-      /** The last force's times from its gesture (D321, item 29): worked out, its land final as planned and as it came, kept, and its showing. */
-      forceTiming(): ForceTiming | null;
-      /** The last stroke painted (its operation's params), or null. */
-      lastStroke(): BrushParams | null;
-      /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
-      startHint(): { x: number; y: number; strong: boolean; ms: number } | null;
-      /** The editor's sounds (D226): the recorded bank ready, and recordings playing now. */
-      sound(): { ready: boolean; playing: number } | null;
-      /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
-       *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
-       *  fault that moves (1 its left, -1 its right: V flips it, D289). */
-      /** The drawn gesture on the land: its tiles and its band's half width (D344, A3; 0: a thin line). */
-      gesture(): { stroke: number | null; band: number | null; cursor: [number, number] | null; side: 1 | -1; ring: number | null };
-      /** The sources glowing red for Sources: Clear (D249, D322), by their corner tiles (the view draws the
-       *  glow only with a GPU: this is what it asks for). */
-      sourceGlow(): number[];
-      /** The Select tool's selection (the working area while it is open, D259), its tiles. */
-      selection(): number[];
-
-    };
+/** The overlay of a water layer: moisture in three greens, badwater brown and the soil it spoils
+ *  lighter, the drought's kept water blue and the water that dries up orange, the tiles under
+ *  roofs violet. */
+function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
+  const pick = (codes: Uint8Array, code: number) => {
+    const out: number[] = [];
+    for (let i = 0; i < codes.length; i++) if (codes[i] === code) out.push(i);
+    return out;
+  };
+  switch (kind) {
+    case "badwater":
+      return [
+        { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
+        { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
+      ];
+    case "roofed":
+      return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];
+    default:
+      return [];
   }
 }
 
-/** The start's middle tile, its facing and the entity or feature it belongs to. */
-interface StartHere {
-  x: number;
-  y: number;
-  orientation: Orientation;
-  /** The start feature (generated maps), or null for an imported map's own StartingLocation. */
-  feature: string | null;
-  owner: string;
+/** The middle tile of a StartingLocation at Coordinates (x, y) facing o. */
+function cornerToCentre(x: number, y: number, o: Orientation): [number, number] {
+  switch (o) {
+    case "Cw0":
+      return [x + 1, y + 1];
+    case "Cw90":
+      return [x + 1, y - 1];
+    case "Cw180":
+      return [x - 1, y - 1];
+    case "Cw270":
+      return [x - 1, y + 1];
+  }
 }
 
-/** Where a map without a start would put one: facing as a new start does. */
-const NO_START_HERE: StartHere = { x: -1, y: -1, orientation: "Cw0", feature: null, owner: "" };
-
-/** What the editor says once the map's last badwater spring is gone (D213). */
-const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
+/** Dropping a .timber or project file on the editor opens it: only a file dragged in from outside
+ *  the page (D323, item 11). A drag that began on the page (an icon, an image, a link) carries a
+ *  file of its own in Chrome, and never opens anything. */
+function DropTarget({ onFile }: { onFile(file: File): void }) {
+  const latest = useRef(onFile);
+  latest.current = onFile;
+  useEffect(() => {
+    /** A drag that began on this page is under way. */
+    let inside = false;
+    // (after the page's own handlers, so a drag they cancel is no drag at all)
+    const began = (e: DragEvent) => {
+      inside = !e.defaultPrevented;
+    };
+    const ended = () => {
+      inside = false;
+    };
+    const over = (e: DragEvent) => {
+      if (!inside && e.dataTransfer?.types.includes("Files")) e.preventDefault();
+    };
+    const drop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0];
+      const own = inside;
+      inside = false;
+      if (!file || own) return;
+      e.preventDefault();
+      latest.current(file);
+    };
+    window.addEventListener("dragstart", began);
+    window.addEventListener("dragend", ended);
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    // (a page's own drag that ends with no dragend: the next press starts clean)
+    window.addEventListener("pointerdown", ended);
+    return () => {
+      window.removeEventListener("dragstart", began);
+      window.removeEventListener("dragend", ended);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("drop", drop);
+      window.removeEventListener("pointerdown", ended);
+    };
+  }, []);
+  return null;
+}
 
 export default function Editor(props: EditorProps) {
   const { api } = props;
@@ -4278,204 +4292,3 @@ export default function Editor(props: EditorProps) {
     </ForceFloor.Provider>
   );
 }
-
-/** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
-
-const BRUSH_KEY = "dgm.brush";
-
-/** The brush the viewer last used: its size and strength, and each brush's mode and sources choice
- *  (D322; not its target, which lasts until the tool changes). A brush saved with the old shared
- *  Clear sources on clears with every brush. */
-function loadBrush(): BrushSettings {
-  try {
-    const s = JSON.parse(localStorage.getItem(BRUSH_KEY) ?? "null") as (Partial<BrushSettings> & { clearSources?: boolean }) | null;
-    if (!s) return DEFAULT_BRUSH;
-    const pick = <T extends string>(saved: unknown, fallback: Record<BrushTool, T>, ok: readonly T[]): Record<BrushTool, T> => {
-      const out = { ...fallback };
-      if (saved && typeof saved === "object") for (const b of BRUSHES) {
-        const v = (saved as Record<string, unknown>)[b.tool];
-        if (typeof v === "string" && (ok as readonly string[]).includes(v)) out[b.tool] = v as T;
-      }
-      return out;
-    };
-    const sources = s.clearSources === true ? { raise: "clear", lower: "clear", flatten: "clear", smooth: "clear", naturalize: "clear" } as Record<BrushTool, SourcesChoice> : DEFAULT_BRUSH.sources;
-    return {
-      ...DEFAULT_BRUSH,
-      size: typeof s.size === "number" ? Math.min(128, Math.max(1, s.size)) : DEFAULT_BRUSH.size,
-      strength: typeof s.strength === "number" ? Math.min(10, Math.max(1, Math.round(s.strength))) : DEFAULT_BRUSH.strength,
-      modes: pick<BrushMode>(s.modes, DEFAULT_BRUSH.modes, ["ground", "water", "both"]),
-      sources: pick<SourcesChoice>(s.sources, sources, ["ride", "keep", "clear"]),
-    };
-  } catch {
-    return DEFAULT_BRUSH;
-  }
-}
-
-function saveBrush(s: BrushSettings): void {
-  try {
-    localStorage.setItem(BRUSH_KEY, JSON.stringify({ size: s.size, strength: s.strength, modes: s.modes, sources: s.sources }));
-  } catch {
-    // the brush lasts for this visit only
-  }
-}
-
-const FORCES_KEY = "dgm.forces";
-
-/** Each force's More (open or closed), and the details the player has pinned (D309); a detail still
- *  on Auto is null. Power, Size, dry and mode last only the visit, as before. */
-interface ForcesPrefs {
-  /** Slow forces (D321, item 29): off, Fast. */
-  watch: boolean;
-  /** The forces' Floor (D321, item 40): 1 unless set. */
-  floor: number;
-  more: Partial<Record<Verb, boolean>>;
-  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks">;
-  craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
-  erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges">;
-  quake: Pick<QuakeUi, "scarp">;
-  glaciate: Pick<GlaciateUi, "benches" | "steps" | "tarn" | "scree">;
-}
-
-const AUTO_FORCES_PREFS: ForcesPrefs = {
-  watch: false,
-  floor: FLOOR_DEFAULT,
-  more: {},
-  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null },
-  craterize: { walls: null, centre: null, debris: null, rays: null },
-  erupt: { shape: null, summit: null, flows: null, ridges: null },
-  quake: { scarp: null },
-  glaciate: { benches: null, steps: null, tarn: null, scree: null },
-};
-
-/** `v` if it is one of `options`, else `null` (a detail left on Auto: a stray or outdated value
- *  never reaches the row). */
-function among<T>(v: unknown, options: readonly T[]): T | null {
-  return (options as readonly unknown[]).includes(v) ? (v as T) : null;
-}
-
-function loadForcesPrefs(): ForcesPrefs {
-  try {
-    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ watch: unknown; floor: unknown; more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown> }> | null;
-    if (!s) return AUTO_FORCES_PREFS;
-    const more: Partial<Record<Verb, boolean>> = {};
-    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
-    return {
-      watch: s.watch === true,
-      floor: floorProblem(s.floor) === null && typeof s.floor === "number" ? s.floor : FLOOR_DEFAULT,
-      more,
-      carve: {
-        wander: typeof s.carve?.wander === "number" ? s.carve.wander : null,
-        walls: among(s.carve?.walls, ["steep", "wide"]),
-        depth: typeof s.carve?.depth === "number" ? s.carve.depth : null,
-        riverDepth: s.carve?.riverDepth === null ? null : typeof s.carve?.riverDepth === "number" && Number.isInteger(s.carve.riverDepth) && s.carve.riverDepth >= 1 && s.carve.riverDepth <= 22 ? s.carve.riverDepth : RIVER_DEPTH_DEFAULT,
-        banks: typeof s.carve?.banks === "number" && s.carve.banks >= 0 && s.carve.banks <= 10 ? s.carve.banks : null,
-      },
-      craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
-      erupt: { shape: among(s.erupt?.shape, ["steep", "broad"]), summit: among(s.erupt?.summit, ["auto", "peak", "crater", "caldera"]), flows: among(s.erupt?.flows, ["light", "heavy"]), ridges: typeof s.erupt?.ridges === "boolean" ? s.erupt.ridges : null },
-      quake: { scarp: among(s.quake?.scarp, ["sheer", "stepped"]) },
-      glaciate: { benches: among(s.glaciate?.benches, ["none", "some", "many"]), steps: among(s.glaciate?.steps, ["few", "some", "many"]), tarn: typeof s.glaciate?.tarn === "boolean" ? s.glaciate.tarn : null, scree: typeof s.glaciate?.scree === "boolean" ? s.glaciate.scree : null },
-    };
-  } catch {
-    return AUTO_FORCES_PREFS;
-  }
-}
-
-function saveForcesPrefs(p: ForcesPrefs): void {
-  try {
-    localStorage.setItem(FORCES_KEY, JSON.stringify(p));
-  } catch {
-    // the pins last for this visit only
-  }
-}
-
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
-/** The overlay of a water layer: moisture in three greens, badwater brown and the soil it spoils
- *  lighter, the drought's kept water blue and the water that dries up orange, the tiles under
- *  roofs violet. */
-function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
-  const pick = (codes: Uint8Array, code: number) => {
-    const out: number[] = [];
-    for (let i = 0; i < codes.length; i++) if (codes[i] === code) out.push(i);
-    return out;
-  };
-  switch (kind) {
-    case "badwater":
-      return [
-        { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
-        { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
-      ];
-    case "roofed":
-      return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];
-    default:
-      return [];
-  }
-}
-
-/** The middle tile of a StartingLocation at Coordinates (x, y) facing o. */
-function cornerToCentre(x: number, y: number, o: Orientation): [number, number] {
-  switch (o) {
-    case "Cw0":
-      return [x + 1, y + 1];
-    case "Cw90":
-      return [x + 1, y - 1];
-    case "Cw180":
-      return [x - 1, y - 1];
-    case "Cw270":
-      return [x - 1, y + 1];
-  }
-}
-
-function mirrorOf(v: MapView): Mirror {
-  return { heights: v.heights, water: surfaceWater(v.W, v.H, v.water), waterView: v.water, mapWater: v.water, entities: v.entities, entitiesAt: null, soil: v.soil };
-}
-
-/** Dropping a .timber or project file on the editor opens it: only a file dragged in from outside
- *  the page (D323, item 11). A drag that began on the page (an icon, an image, a link) carries a
- *  file of its own in Chrome, and never opens anything. */
-function DropTarget({ onFile }: { onFile(file: File): void }) {
-  const latest = useRef(onFile);
-  latest.current = onFile;
-  useEffect(() => {
-    /** A drag that began on this page is under way. */
-    let inside = false;
-    // (after the page's own handlers, so a drag they cancel is no drag at all)
-    const began = (e: DragEvent) => {
-      inside = !e.defaultPrevented;
-    };
-    const ended = () => {
-      inside = false;
-    };
-    const over = (e: DragEvent) => {
-      if (!inside && e.dataTransfer?.types.includes("Files")) e.preventDefault();
-    };
-    const drop = (e: DragEvent) => {
-      const file = e.dataTransfer?.files?.[0];
-      const own = inside;
-      inside = false;
-      if (!file || own) return;
-      e.preventDefault();
-      latest.current(file);
-    };
-    window.addEventListener("dragstart", began);
-    window.addEventListener("dragend", ended);
-    window.addEventListener("dragover", over);
-    window.addEventListener("drop", drop);
-    // (a page's own drag that ends with no dragend: the next press starts clean)
-    window.addEventListener("pointerdown", ended);
-    return () => {
-      window.removeEventListener("dragstart", began);
-      window.removeEventListener("dragend", ended);
-      window.removeEventListener("dragover", over);
-      window.removeEventListener("drop", drop);
-      window.removeEventListener("pointerdown", ended);
-    };
-  }, []);
-  return null;
-}
-
