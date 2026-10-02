@@ -10,6 +10,8 @@
 // on a laptop-sized screen. Measures are information (D115), never a failure.
 //
 // Usage: npm run bench:brush [-- --configs 1] [-- --size 256] [-- --theme riverValley]
+//        [-- --tool naturalize] [-- --brush 64]   (the brush, keys 1-5, and its Size; default Raise at its saved size)
+//        [-- --out <file>]                          (default out/live/bench-brush.json)
 // Writes out/live/bench-brush.json.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -22,6 +24,10 @@ const arg = (name: string) => {
 };
 const SIZE = Number(arg("size") ?? 256);
 const THEME = arg("theme") ?? "riverValley";
+const TOOLS = ["raise", "lower", "flatten", "smooth", "naturalize"];
+const TOOL = arg("tool") ?? "raise";
+if (!TOOLS.includes(TOOL)) throw new Error(`--tool: one of ${TOOLS.join(", ")}`);
+const BRUSH = arg("brush") ? Number(arg("brush")) : null;
 const CONFIGS = arg("configs")?.split(",").map(Number);
 const PORT = Number(arg("port") ?? 4394);
 const OUT = ".scratch/bench-brush-dist";
@@ -63,7 +69,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   // let the first checks finish, so painting is measured on its own
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 300_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.keyboard.press("1");
+  await page.keyboard.press(String(TOOLS.indexOf(TOOL) + 1));
   // (a string, so the bundler's helpers stay out of the page)
   await page.evaluate(`(() => {
     const w = window;
@@ -180,17 +186,18 @@ async function main() {
       // (found auditing capture-badwater.ts's same gap, D304's investigation)
       const context = await browser.newContext({ viewport: { width: screen.width, height: screen.height }, deviceScaleFactor: screen.scale });
       await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+      if (BRUSH) await context.addInitScript(`try { localStorage.setItem('dgm.brush', JSON.stringify({ size: ${BRUSH} })); } catch {}`);
       const page = await context.newPage();
       await page.addInitScript("window.__name = (f) => f;");
       if (slow > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: slow });
       const gpu = (await page.evaluate(`(() => { const c = document.createElement("canvas").getContext("webgl2"); const e = c.getExtension("WEBGL_debug_renderer_info"); return String(e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : c.getParameter(c.RENDERER)); })()`)) as string;
-      const r = { config: label, gpu, cpuSlowdown: slow, ...(await measure(page)) };
+      const r = { config: label, gpu, cpuSlowdown: slow, tool: TOOL, brushSize: BRUSH, ...(await measure(page)) };
       console.log(JSON.stringify(r, null, 2));
       runs.push(r);
       await browser.close();
     }
     mkdirSync("out/live", { recursive: true });
-    writeFileSync("out/live/bench-brush.json", JSON.stringify({ date: new Date().toISOString().slice(0, 10), runs }, null, 2) + "\n");
+    writeFileSync(arg("out") ?? "out/live/bench-brush.json", JSON.stringify({ date: new Date().toISOString().slice(0, 10), runs }, null, 2) + "\n");
     console.log("wrote out/live/bench-brush.json");
   } finally {
     await server.close();
