@@ -25,7 +25,7 @@ import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckProgress, EntityInfo, ForceFrame, ForceRequest, SessionInfo, SessionOpen, SessionUpdate, ToolRequest, ViewUpdate } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTileFacts, type TileObject } from "../core/doc/describeTile";
-import { checkStartAt, startProblemAt, feedingGroups, newId, sourceGroups, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, type StartCheck, type SourceGroup } from "./features";
+import { checkStartAt, startProblemAt, newId, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, type StartCheck } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, SourceReadout, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { removeTakes, type RemoveKind } from "../core/features/objects";
@@ -75,6 +75,7 @@ import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
 import { useSourcePointer } from "./sources/useSourcePointer";
+import { useMarkers } from "./sources/useMarkers";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -139,8 +140,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  groupsRef: { current: SourceGroup[] };
-  sourcesChanged: () => void;
   setStartHint: Dispatch<StateUpdater<{ x: number; y: number; z: number; strong: boolean } | null>>;
   fitWant: { current: string | null };
   ghostAt: { current: { template: string; x: number; y: number; z: number; orientation: number } | null };
@@ -160,100 +159,27 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, usePaint(ed, props));
   Object.assign(ed, useView(ed));
   Object.assign(ed, useSourcePointer(ed));
+  Object.assign(ed, useMarkers(ed));
 
   const {
     api, info, setInfo, view, mirror, renderer, ready, setReady, tool, setTool, anchorRef, flipRef, repaintRef,
     forceEscRef, setForceStroke, setForceCursor, setForceRing, gestureRef, options, setOptions, shelf, shelfOptions,
     setShelfOptions, turn, setTurn, setPainted, setIcons, icons, setStartDrag, startDrag, setBusy, busy, setMessage,
     message, setHover, hover, showHistory, setShowHistory, check, progress, layer, setLayer, waterLayers, waterTick,
-    flowing, markersOn, setMarkersOn, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
-    setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, setSelectionTick, selectionTick,
-    setSelectDraw, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts, deleteCounts, setHoverObject,
-    player, mounted, sound, juice, setSound, feel, weather, weatherRef, setWeather, journey, instant, firstRun,
-    setFirstRun, firstDone, firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
-    noticesOpen, setNoticesOpen, viewTick, setViewTick, setFit, fit, setPicked, picked, pickedObject,
-    setPickedObject, pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef,
-    shelfOptionsRef, turnRef, optionsRef, needs, enqueue, run, toggleWeather, applyUpdate, applyView, brushTool,
-    brush, brushRef, brushToolRef, setBrush, terrain, pendingTerrain, strokeMismatches, localUndo, localRedo,
-    painter, sendTerrain, undo, redo, pickTop, putDown, pickBrush, pickShelf, applyFix, spots, targetAt, targetSpot,
-    targeted, setTargeted, ctx, startHereRef, startHere, pointerAt, notePointer, sourceAtTile, placeSource,
-    sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles, grabObject, strengthTick, strengthOfEntity,
-    liveStrength, entityIndexOf, wheelSource
+    flowing, setMarkersOn, clearWater, setClearWater, setSliceLevel, sliceLevel, setSelecting, selecting,
+    selectingRef, selection, setSelectionTick, selectionTick, setSelectDraw, setSelectPreview, deleteMenu,
+    setDeleteMenu, setDeleteCounts, deleteCounts, setHoverObject, player, mounted, sound, juice, setSound, feel,
+    weather, weatherRef, setWeather, journey, instant, firstRun, setFirstRun, firstDone, firstDoneRef, minimap,
+    setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen, viewTick,
+    setViewTick, setFit, fit, setPicked, picked, pickedObject, setPickedObject, pickedObjectRef, pickedRef,
+    setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef, optionsRef, needs, enqueue,
+    run, toggleWeather, applyUpdate, applyView, brushTool, brush, brushRef, brushToolRef, setBrush, terrain,
+    pendingTerrain, strokeMismatches, localUndo, localRedo, painter, sendTerrain, undo, redo, pickTop, putDown,
+    pickBrush, pickShelf, applyFix, spots, targetAt, targetSpot, setTargeted, ctx, startHereRef, startHere,
+    pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles,
+    grabObject, strengthOfEntity, liveStrength, entityIndexOf, wheelSource, groupsRef, hoverSources, sourcesChanged,
+    pointedWords, markerRef, sourceMarkers
   } = ed;
-
-  // ------------------------------------------------------------------------ the sources' markers
-
-  /** The map's sources as markers (a river's mouth is one), from the page's view of the objects. */
-  // (the one number, D368 (4): worked out again whenever the page's copy of the objects or a strength set on it
-  // changes, never left on an older copy)
-  const groups = useMemo(() => sourceGroups(mirror.current.entities, info.W, mirror.current.heights, strengthOfEntity), [info.version, ready, mirror.current.entities, strengthTick]);
-  const groupsRef = useRef(groups);
-  groupsRef.current = groups;
-  /** Near the pointer: the groups within two tiles; over water: the groups it comes from. */
-  const hoverKey = useRef("");
-  function hoverSources(hit: TileHit | null) {
-    const key = hit ? `${hit.x},${hit.y}` : "";
-    if (key === hoverKey.current) return;
-    hoverKey.current = key;
-    const gs = groupsRef.current;
-    const r = renderer.current;
-    if (!hit) {
-      setNearSources([]);
-      setFeeding([]);
-      r?.setSourceGlow([]);
-      return;
-    }
-    const near: number[] = [];
-    gs.forEach((g, k) => {
-      if (g.tiles.some((t) => Math.abs((t % info.W) - hit.x) <= 2 && Math.abs(Math.floor(t / info.W) - hit.y) <= 2)) near.push(k);
-    });
-    setNearSources(near);
-    const feed = mirror.current.water ? (feedingGroups(mirror.current.water, gs, info.W, info.H, hit.x, hit.y) ?? []) : [];
-    setFeeding(feed);
-    r?.setSourceGlow(feed.flatMap((k) => gs[k].tiles));
-  }
-  const hoverSourcesRef = useRef(hoverSources);
-  hoverSourcesRef.current = hoverSources;
-  /** The objects changed: the sources near the pointer and those feeding its water are found again
-   *  at once, so a removed source's marker, label and glow go with it (D260), never after the water
-   *  or the background check. */
-  function sourcesChanged() {
-    // (the groups as the objects are now: the page's memo follows at its next render)
-    groupsRef.current = sourceGroups(mirror.current.entities, infoRef.current.W, mirror.current.heights, strengthOfEntity);
-    hoverKey.current = "";
-    hoverSourcesRef.current(renderer.current?.hoverHit ?? null);
-  }
-  /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
-   *  near the pointer and those its water comes from. */
-  /** The strength of the source the pointer is on, in words, the same as its marker's label (D361, item 6). */
-  const pointedWords = targeted !== null ? (() => { const s = sourceStrengths(groups, strengthOfEntity, targeted); return s ? sourceStrengthWords(s) : null; })() : null;
-  const targetGroup = targeted === null ? -1 : groups.findIndex((g) => g.members.includes(targeted));
-  const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding, ...(targetGroup >= 0 ? [targetGroup] : [])])];
-  const markerRef = useRef(false);
-  markerRef.current = shownGroups.length > 0;
-
-  function sourceMarkers() {
-    const r = renderer.current;
-    if (!r || !shownGroups.length) return null;
-    void viewTick;
-    return (
-      <div class="source-markers" aria-hidden="true">
-        {shownGroups.map((k) => {
-          const g = groups[k];
-          if (!g) return null;
-          const p = r.project(g.x + 0.5, g.z + 0.6, -(g.y + 0.5));
-          if (!p.visible) return null;
-          const n = g.members.length;
-          const words = `${n > 1 ? `${n} sources, ` : ""}${g.strength} ${g.bad ? "badwater" : "water"}/s`;
-          return (
-            <span key={k} class={`map-note source-marker${g.bad ? " bad" : ""}${feeding.includes(k) ? " feeding" : ""}${k === targetGroup ? " target" : ""}`} style={{ left: `${p.x}px`, top: `${p.y}px` }}>
-              {words}
-            </span>
-          );
-        })}
-      </div>
-    );
-  }
 
   // "the start fits here" (D204): after a Flatten stroke, a spot on its level ground for the district
   // center, looked for once the stroke is on the map and the page is idle; a click moves the start
@@ -3065,7 +2991,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { groupsRef, sourcesChanged, setStartHint, fitWant, ghostAt, coverAt, deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef });
+  Object.assign(ed, { setStartHint, fitWant, ghostAt, coverAt, deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
