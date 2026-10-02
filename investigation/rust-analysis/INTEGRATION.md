@@ -34,12 +34,15 @@ for their inexpensive label scans. All nine ports have identity checks and direc
 timings. Selection is fixed by code, never by measured timing, machine load or RNG.
 Checks, object handling, start rules, theme outcomes and M9b's descriptive measures
 retain their TypeScript orchestration and call the selected Rust kernels.
-Firefox regresses in the measured Wasm path, particularly `roomMap`. Performance
-is an adoption gate: retain the TypeScript backend in Firefox until follow-up
-work clears that gate. Chromium/WebKit/native gains do not justify enabling it
-there. Backend routing can use the existing engine/capability configuration;
-never choose it from task timings or change numerical policy. All-nine identity
-coverage still includes Firefox's Rust implementation.
+The original Firefox timing used a debugger that pinned Wasm to its baseline
+compiler. Those measurements are historical; use [PROFILE_REPORT.md](PROFILE_REPORT.md)
+and [PROFILE_EVIDENCE.json](PROFILE_EVIDENCE.json) for the corrected Firefox gate.
+Backend selection remains fixed, never based on task timing or numerical policy.
+The follow-up's fixed six-kernel policy is the measured generation/check policy.
+Its inexpensive outcome/descriptive-row medians retain small overhead: keep
+those contexts on the original TS implementation at milestone adoption pending
+actual product-worker measurements. Choose that routing by function/context,
+never by clocks, seed or load; every Rust result remains identity-tested.
 
 For milestone adoption, retain adjacent TypeScript implementations. Initialize
 the analysis module once in the generator/check coordinator worker, before its
@@ -121,6 +124,82 @@ all 840 maps on 16 workers. It excludes compilation and source bundling. Report
 median and largest sample, with Windows PDH total CPU load. Sub-second cells can
 have no 1-second counter sample; absence is recorded as missing, never as zero.
 Do not reuse the exploratory all-nine/default-decoder timing cohorts.
+
+## Firefox follow-up and buffer invariants
+
+The follow-up reuses Rust-water's isolated Firefox 146 diagnostic copy. Its
+Juggler Runtime has exactly the two upstream Playwright 1.63 debugger properties:
+`allowUnobservedWasm = true` and `allowUnobservedAsmJS = true`. The executable
+is unchanged. `firefox-runtime.mjs` verifies the properties, records the
+executable/archive/Runtime hashes and disables the baseline compiler while
+enabling optimization and disabling lazy tiering. Successfully instantiating
+both modules in this setup demonstrates that optimization is available.
+This is a benchmark-harness correction; product users need no browser patch.
+Browser record caches now bind this runtime fingerprint as well as inputs/binaries.
+
+`roomMap` stops a square scan at its first failed tile, caches candidate
+coordinates, and stops a one-room search at its first eligible candidate.
+The coordinate conversion, distance arithmetic, list order, multi-room greedy
+selection and thresholds are unchanged. Dam floods and room/dilation scans
+borrow fixed buffers with `Grid`/`GridMut`. The frame parser validates dimensions,
+lengths and link indices before execution. Every unchecked buffer index comes
+from a validated linear range, a bounded neighbor, or a +/-3 square offset at
+least five cells from an edge. Labels originate in that same grid. Borrowed
+backing vectors cannot grow; queues and candidate lists keep ordinary checks.
+Wasm's memory sandbox remains. `--cfg checked_grid` restores an assertion at
+every access; `verify-guards.mjs` replays the entire corpus through that build
+and tests malformed headers/shapes/links. Scalar binary64 and strict IR remain.
+
+`profile-firefox.mjs` compares TS, original Rust at `c336b37e`, and the improved
+Rust port in the same corrected optimizing-only runtime. The three orders rotate;
+module installation, warmup and identity comparisons stay outside the timed
+interval. Each direct sample averages a calibrated loop targeting 30 ms, capped
+at 200 calls; the full generation samples each time one complete run. Three
+repetitions cover seed 1 in every theme/size; generation shares cover all seven
+themes at 256² with unchanged TS water. Median/worst and PDH load are retained.
+The historical native batch and other-engine timings in `EVIDENCE.json` describe
+the original port; the follow-up does not claim new native batch timing.
+
+After regenerating the original corpus and bundles below, reproduce the follow-up:
+
+```powershell
+./prepare-profile.ps1
+./compile.ps1
+node smoke.mjs
+node verify-ir.mjs
+node typecheck.mjs
+node water-contract.mjs
+node exe-contract.mjs
+node verify-guards.mjs
+node native.mjs --mode replay --threads 4
+node build-browser.mjs
+node build-m9b-browser.mjs
+node verify-matrix.mjs --shards 4
+node native-export.mjs --keep-snapshots
+# Wait for identity work above to finish before timing.
+node profile-firefox.mjs --reps 3
+node profile-firefox.mjs --generation --reps 3
+node summarize-profile.mjs
+node write-profile-report.mjs
+```
+
+The default corrected executable is Rust-water's existing
+`local/profiles/firefox-diagnostic/firefox.exe`; override with
+`DGM_FIREFOX_EXECUTABLE`. If absent, the reused `prepare-firefox.py` can copy an
+existing compatible Firefox directory into this investigation's ignored local
+folder, apply only those two debugger properties, and save provenance:
+
+```powershell
+python prepare-firefox.py C:/path/to/ms-playwright/firefox-1509/firefox local/followup/firefox-diagnostic
+$env:DGM_FIREFOX_EXECUTABLE = "$PWD/local/followup/firefox-diagnostic/firefox.exe"
+```
+
+The shared installation is never edited. Original artifacts can be rebuilt from
+`c336b37e` with the same pinned Rust 1.90 toolchain; `prepare-profile.ps1` saves
+its source and Wasm under `local/followup/`. Captured snapshots stay immutable:
+`native-export.mjs --keep-snapshots` rechecks generation and export bytes without
+overwriting them. Do not run the historical `summarize.mjs` on new artifacts;
+`summarize-profile.mjs` writes separately bound follow-up evidence and timing CSV.
 
 ## Regenerate
 

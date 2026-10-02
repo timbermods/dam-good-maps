@@ -18,12 +18,14 @@ if(!isMainThread){
   assert.equal(hash(exact({measure:untimed(measure),state})),c.highLevel,c.id+' native deterministic state/measures');
   const built={W:r.built.W,H:r.built.H,heights:r.built.heights,water:r.built.water,soilContamination:r.built.soilContamination,contamination:r.built.contamination,entities:r.built.entities,waterModel:{emitters:r.built.waterModel.emitters},settle:{out:r.built.settle.out,ticks:r.built.settle.ticks}};
   const captured={theme:c.theme,seed:c.seed,size:c.size,result:{built,info:r.info,report:r.report,analysis:r.analysis,outcomes:r.outcomes,attempts:r.attempts,failures:r.failures,timings:r.timings},generation:{shown:measure.shown,changed:measure.changed},measure:untimed(measure)};
-  const snapshot=gzipSync(JSON.stringify(pack(captured)),{level:1});writeFileSync(resolve(LOCAL,'cases',c.id+'.m9b.json.gz'),snapshot);
+  const snapshotPath=resolve(LOCAL,'cases',c.id+'.m9b.json.gz');
+  const snapshot=process.argv.includes('--keep-snapshots')?readFileSync(snapshotPath):gzipSync(JSON.stringify(pack(captured)),{level:1});
+  if(!process.argv.includes('--keep-snapshots'))writeFileSync(snapshotPath,snapshot);
   parentPort.postMessage({id:c.id,bytes:result.bytes.length,sha256:hash(result.bytes),snapshot:hash(snapshot),identity:true});
  }catch(e){parentPort.postMessage({id:c.id,error:e.stack});}});
 }else{
  const cases=JSON.parse(readFileSync(resolve(LOCAL,'corpus.json'))).cases.filter(c=>c.id.startsWith('m9b-')).map(c=>{const [,theme,size,seed]=c.id.split('-');return{...c,theme,size:Number(size),seed:Number(seed)};});
  let at=0;const records=[];
  await Promise.all(Array.from({length:16},()=>new Promise((res,rej)=>{const worker=new Worker(new URL(import.meta.url));const next=()=>at<cases.length?worker.postMessage(cases[at++]):worker.terminate().then(res);worker.on('error',rej);worker.on('message',r=>{if(r.error){worker.terminate();rej(Error(r.error));return;}records.push(r);if(records.length%25===0)console.log('native exports',records.length+'/840');json('native-exports-progress.json',{done:records.length,total:840});next();});next();})));
- assert.equal(records.length,840);json('native-exports.json',{status:'pass',threads:16,records:records.sort((a,b)=>a.id.localeCompare(b.id))});console.log('Every complete native export passes');
+ assert.equal(records.length,840);json('native-exports.json',{status:'pass',threads:16,binary:hash(readFileSync(resolve(LOCAL,'analysis.node'))),snapshotsRetained:process.argv.includes('--keep-snapshots'),records:records.sort((a,b)=>a.id.localeCompare(b.id))});console.log('Every complete native export passes');
 }
