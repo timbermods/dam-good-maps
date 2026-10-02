@@ -1,0 +1,1961 @@
+{
+  "environment": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.13.0",
+    "measurements": "One warm-up, three fresh repetitions; concurrent machine load uncontrolled; Node Wasm, not browser.",
+    "timingScope": "Constructor + paired wall/control physics + reports. Source preparation and map generation excluded."
+  },
+  "cases": [
+    {
+      "map": "riverValley-128-4242",
+      "size": 128,
+      "case": "one dam across the valley",
+      "inputSha256": "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 18.175899999999956,
+          "previewMs": 9.378099999999904,
+          "sliceMedianMs": 9.827299999999923,
+          "sliceMaxMs": 22.729899999999816,
+          "fillMs": 538.4496000000001,
+          "droughtMs": 1341.3141999999998,
+          "totalMs": 1880.1462
+        },
+        {
+          "constructMs": 29.24240000000009,
+          "previewMs": 59.49759999999969,
+          "sliceMedianMs": 12.3442,
+          "sliceMaxMs": 59.49759999999969,
+          "fillMs": 719.2925999999998,
+          "droughtMs": 1754.5266999999994,
+          "totalMs": 2473.821
+        },
+        {
+          "constructMs": 18.532500000000255,
+          "previewMs": 28.792699999999968,
+          "sliceMedianMs": 21.40430000000015,
+          "sliceMaxMs": 53.39249999999993,
+          "fillMs": 1163.1893,
+          "droughtMs": 1635.2110999999995,
+          "totalMs": 2798.402100000001
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 768,
+          "capped": false
+        },
+        "runtimeMs": 1156.1747999999961,
+        "totalWaterM3": 1277.8251190945712,
+        "controlWaterM3": 1263.1589312079936,
+        "additionalWaterM3": 14.666187886577518,
+        "reservoirs": [
+          {
+            "tiles": 28,
+            "volumeM3": 26.34425206021876,
+            "surfaceRange": [
+              4.650208467919127,
+              4.657252855093941
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 65,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 2656,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 17
+        },
+        "conflicts": 6,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 768,
+          "capped": false
+        },
+        "runtimeMs": 2786.9939999999824,
+        "totalWaterM3": 245.00896858321642,
+        "controlWaterM3": 238.9139677693574,
+        "additionalWaterM3": 6.095000813859002,
+        "reservoirs": [
+          {
+            "tiles": 28,
+            "volumeM3": 6.3611966604853425,
+            "surfaceRange": [
+              3.7951495381627347,
+              3.7951496266259834
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 65,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 372,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 2
+        },
+        "conflicts": 6,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "riverValley-128-4242",
+      "size": 128,
+      "case": "three levees and a dam; a bent wall",
+      "inputSha256": "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              64
+            ],
+            [
+              74,
+              68
+            ],
+            [
+              74,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 38.52530000000115,
+          "previewMs": 27.60820000000058,
+          "sliceMedianMs": 12.010299999999916,
+          "sliceMaxMs": 31.419200000000274,
+          "fillMs": 1193.6110000000008,
+          "droughtMs": 1254.3023000000012,
+          "totalMs": 2447.9148000000005
+        },
+        {
+          "constructMs": 17.89890000000014,
+          "previewMs": 16.85189999999966,
+          "sliceMedianMs": 9.9958000000006,
+          "sliceMaxMs": 23.615300000001298,
+          "fillMs": 989.6347999999998,
+          "droughtMs": 1152.2767999999996,
+          "totalMs": 2141.913199999999
+        },
+        {
+          "constructMs": 11.558100000000195,
+          "previewMs": 9.001099999999497,
+          "sliceMedianMs": 11.397000000000844,
+          "sliceMaxMs": 32.5102999999981,
+          "fillMs": 1068.0859999999993,
+          "droughtMs": 1031.8294999999998,
+          "totalMs": 2099.917300000001
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1408,
+          "capped": false
+        },
+        "runtimeMs": 1061.0737000000063,
+        "totalWaterM3": 1465.02535173947,
+        "controlWaterM3": 1263.1220415293253,
+        "additionalWaterM3": 201.90331021014458,
+        "reservoirs": [
+          {
+            "tiles": 98,
+            "volumeM3": 222.6768203944115,
+            "surfaceRange": [
+              7.647810858962743,
+              7.650790786723835
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 69,
+          "levee": 207,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 2702,
+          "newly": 63,
+          "start": 0,
+          "farmland": null,
+          "objects": 32
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1408,
+          "capped": false
+        },
+        "runtimeMs": 2089.6831999999977,
+        "totalWaterM3": 393.0329470697701,
+        "controlWaterM3": 238.91797380437006,
+        "additionalWaterM3": 154.11497326540004,
+        "reservoirs": [
+          {
+            "tiles": 98,
+            "volumeM3": 156.8354246479004,
+            "surfaceRange": [
+              6.974509113980997,
+              6.9745699244134585
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 69,
+          "levee": 207,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 447,
+          "newly": 77,
+          "start": 0,
+          "farmland": null,
+          "objects": 15
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "riverValley-128-4242",
+      "size": 128,
+      "case": "levee with a two-level gate at 1.5",
+      "inputSha256": "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              63
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              70,
+              64
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "floodgate",
+              "maxHeight": 2,
+              "height": 1.5
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              70,
+              65
+            ],
+            [
+              70,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 45.84739999999874,
+          "previewMs": 37.47819999999774,
+          "sliceMedianMs": 13.991500000000087,
+          "sliceMaxMs": 37.47819999999774,
+          "fillMs": 665.8565999999992,
+          "droughtMs": 1165.8148,
+          "totalMs": 1831.6728999999978
+        },
+        {
+          "constructMs": 94.4210000000021,
+          "previewMs": 17.018800000001647,
+          "sliceMedianMs": 13.666700000001583,
+          "sliceMaxMs": 41.36200000000099,
+          "fillMs": 668.828800000003,
+          "droughtMs": 1434.8682000000008,
+          "totalMs": 2103.6983
+        },
+        {
+          "constructMs": 25.802999999999884,
+          "previewMs": 12.643400000000838,
+          "sliceMedianMs": 13.805499999998574,
+          "sliceMaxMs": 42.28489999999874,
+          "fillMs": 680.4377000000022,
+          "droughtMs": 1242.3044999999984,
+          "totalMs": 1922.7436000000016
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 640,
+          "capped": false
+        },
+        "runtimeMs": 676.5638999999755,
+        "totalWaterM3": 1323.3822812747278,
+        "controlWaterM3": 1263.1637703825238,
+        "additionalWaterM3": 60.218510892203994,
+        "reservoirs": [
+          {
+            "tiles": 38,
+            "volumeM3": 76.25946228734921,
+            "surfaceRange": [
+              6.058065575273209,
+              6.060750587239768
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 128,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 2660,
+          "newly": 14,
+          "start": 0,
+          "farmland": null,
+          "objects": 18
+        },
+        "conflicts": 12,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 640,
+          "capped": false
+        },
+        "runtimeMs": 1913.8850999999704,
+        "totalWaterM3": 289.6115717100731,
+        "controlWaterM3": 238.9019344525442,
+        "additionalWaterM3": 50.709637257528925,
+        "reservoirs": [
+          {
+            "tiles": 38,
+            "volumeM3": 50.97901659303405,
+            "surfaceRange": [
+              5.394183258152736,
+              5.394184990468206
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 128,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 402,
+          "newly": 30,
+          "start": 0,
+          "farmland": null,
+          "objects": 2
+        },
+        "conflicts": 12,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "size": 128,
+      "case": "one dam across the valley",
+      "inputSha256": "307b7578b9e4cb39798f9058b17a4336ff383c05d50f11361e5f59d619b886ac",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 12.839799999997922,
+          "previewMs": 9.94380000000092,
+          "sliceMedianMs": 8.729699999999866,
+          "sliceMaxMs": 23.50300000000061,
+          "fillMs": 331.65339999999924,
+          "droughtMs": 922.7678000000014,
+          "totalMs": 1254.422499999997
+        },
+        {
+          "constructMs": 11.718600000000151,
+          "previewMs": 8.09889999999723,
+          "sliceMedianMs": 8.83599999999933,
+          "sliceMaxMs": 24.985999999997148,
+          "fillMs": 348.15639999999985,
+          "droughtMs": 1060.1538,
+          "totalMs": 1408.3116999999984
+        },
+        {
+          "constructMs": 30.017000000003463,
+          "previewMs": 21.72019999999975,
+          "sliceMedianMs": 11.018499999998312,
+          "sliceMaxMs": 34.67789999999877,
+          "fillMs": 445.49800000000323,
+          "droughtMs": 876.1525000000001,
+          "totalMs": 1321.6522000000004
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 512,
+          "capped": false
+        },
+        "runtimeMs": 438.2012999999897,
+        "totalWaterM3": 1125.970821341965,
+        "controlWaterM3": 1123.110305501501,
+        "additionalWaterM3": 2.860515840463904,
+        "reservoirs": [
+          {
+            "tiles": 7,
+            "volumeM3": 10.562924892808045,
+            "surfaceRange": [
+              12.65089203680916,
+              12.653314162168815
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 65,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 1590,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 16
+        },
+        "conflicts": 1,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 512,
+          "capped": false
+        },
+        "runtimeMs": 1311.3356999999814,
+        "totalWaterM3": 498.97069658905383,
+        "controlWaterM3": 495.4191349826294,
+        "additionalWaterM3": 3.551561606424457,
+        "reservoirs": [
+          {
+            "tiles": 7,
+            "volumeM3": 3.7012226335722067,
+            "surfaceRange": [
+              11.616870333765767,
+              11.616870521538827
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 65,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 382,
+          "newly": 6,
+          "start": 0,
+          "farmland": null,
+          "objects": 3
+        },
+        "conflicts": 1,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "size": 128,
+      "case": "three levees and a dam; a bent wall",
+      "inputSha256": "307b7578b9e4cb39798f9058b17a4336ff383c05d50f11361e5f59d619b886ac",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              64
+            ],
+            [
+              74,
+              68
+            ],
+            [
+              74,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 15.05319999999847,
+          "previewMs": 10.558899999999994,
+          "sliceMedianMs": 8.001400000001013,
+          "sliceMaxMs": 13.22899999999936,
+          "fillMs": 615.1620999999977,
+          "droughtMs": 667.0587999999989,
+          "totalMs": 1282.2216999999982
+        },
+        {
+          "constructMs": 11.035900000002584,
+          "previewMs": 5.163100000005215,
+          "sliceMedianMs": 6.766400000000431,
+          "sliceMaxMs": 9.597900000000664,
+          "fillMs": 488.85519999999815,
+          "droughtMs": 1088.2741999999998,
+          "totalMs": 1577.1307000000015
+        },
+        {
+          "constructMs": 21.78450000000157,
+          "previewMs": 10.759400000002643,
+          "sliceMedianMs": 9.800100000000384,
+          "sliceMaxMs": 18.792300000000978,
+          "fillMs": 777.065300000002,
+          "droughtMs": 1253.6619999999966,
+          "totalMs": 2030.7289000000019
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1152,
+          "capped": false
+        },
+        "runtimeMs": 770.515699999989,
+        "totalWaterM3": 1210.0176599694698,
+        "controlWaterM3": 1123.1104858993024,
+        "additionalWaterM3": 86.90717407016746,
+        "reservoirs": [
+          {
+            "tiles": 73,
+            "volumeM3": 123.48247994443739,
+            "surfaceRange": [
+              15.033779582034786,
+              15.034982336169476
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 69,
+          "levee": 207,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 2473,
+          "newly": 970,
+          "start": 0,
+          "farmland": null,
+          "objects": 103
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1152,
+          "capped": false
+        },
+        "runtimeMs": 2018.3608000000168,
+        "totalWaterM3": 568.3153813790145,
+        "controlWaterM3": 495.4286127134232,
+        "additionalWaterM3": 72.88676866559132,
+        "reservoirs": [
+          {
+            "tiles": 73,
+            "volumeM3": 74.07869857472231,
+            "surfaceRange": [
+              14.357237876191022,
+              14.357245755828547
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 69,
+          "levee": 207,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 449,
+          "newly": 73,
+          "start": 0,
+          "farmland": null,
+          "objects": 5
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "size": 128,
+      "case": "levee with a two-level gate at 1.5",
+      "inputSha256": "307b7578b9e4cb39798f9058b17a4336ff383c05d50f11361e5f59d619b886ac",
+      "strokes": [
+        {
+          "path": [
+            [
+              70,
+              32
+            ],
+            [
+              70,
+              63
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              70,
+              64
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "floodgate",
+              "maxHeight": 2,
+              "height": 1.5
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              70,
+              65
+            ],
+            [
+              70,
+              96
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 8.514000000002852,
+          "previewMs": 8.423399999999674,
+          "sliceMedianMs": 12.838700000000244,
+          "sliceMaxMs": 27.699899999999616,
+          "fillMs": 459.86849999999686,
+          "droughtMs": 1244.9932000000044,
+          "totalMs": 1704.8631999999998
+        },
+        {
+          "constructMs": 9.3862999999983,
+          "previewMs": 10.230799999997544,
+          "sliceMedianMs": 8.481399999996938,
+          "sliceMaxMs": 14.766100000000733,
+          "fillMs": 289.42059999999765,
+          "droughtMs": 759.7743000000046,
+          "totalMs": 1049.1958999999988
+        },
+        {
+          "constructMs": 10.249700000000303,
+          "previewMs": 7.36250000000291,
+          "sliceMedianMs": 7.113199999999779,
+          "sliceMaxMs": 15.01310000000376,
+          "fillMs": 247.28689999999915,
+          "droughtMs": 813.7165000000023,
+          "totalMs": 1061.0048000000024
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 512,
+          "capped": false
+        },
+        "runtimeMs": 244.94859999998152,
+        "totalWaterM3": 1135.585870865123,
+        "controlWaterM3": 1123.110305501501,
+        "additionalWaterM3": 12.475565363622081,
+        "reservoirs": [
+          {
+            "tiles": 7,
+            "volumeM3": 20.848320030669296,
+            "surfaceRange": [
+              14.120590383651948,
+              14.121981481208472
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 128,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 1591,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 16
+        },
+        "conflicts": 2,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 512,
+          "capped": false
+        },
+        "runtimeMs": 1052.736699999965,
+        "totalWaterM3": 509.1061476902777,
+        "controlWaterM3": 495.4191349826294,
+        "additionalWaterM3": 13.687012707648307,
+        "reservoirs": [
+          {
+            "tiles": 7,
+            "volumeM3": 13.68612477176504,
+            "surfaceRange": [
+              13.098017782054939,
+              13.09801787608825
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 128,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 383,
+          "newly": 7,
+          "start": 0,
+          "farmland": null,
+          "objects": 3
+        },
+        "conflicts": 2,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "riverValley-256-4242",
+      "size": 256,
+      "case": "one dam across the valley",
+      "inputSha256": "dec66f581ada99a2dee37e0e13d8c00e524c8b740dfccc203931dc0a376458ec",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 63.53530000000319,
+          "previewMs": 27.53979999999865,
+          "sliceMedianMs": 43.492599999997765,
+          "sliceMaxMs": 159.90679999999702,
+          "fillMs": 4808.556900000003,
+          "droughtMs": 4821.849900000001,
+          "totalMs": 9630.408300000003
+        },
+        {
+          "constructMs": 50.28280000000086,
+          "previewMs": 28.24199999999837,
+          "sliceMedianMs": 26.72309999999561,
+          "sliceMaxMs": 52.170399999995425,
+          "fillMs": 2939.3139999999985,
+          "droughtMs": 5139.061099999992,
+          "totalMs": 8078.376299999996
+        },
+        {
+          "constructMs": 62.090500000005704,
+          "previewMs": 38.19470000000729,
+          "sliceMedianMs": 32.06379999998899,
+          "sliceMaxMs": 67.14070000000356,
+          "fillMs": 3642.1831999999995,
+          "droughtMs": 4346.622799999997,
+          "totalMs": 7988.8076
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1664,
+          "capped": false
+        },
+        "runtimeMs": 3609.717399999907,
+        "totalWaterM3": 5687.333330065003,
+        "controlWaterM3": 5678.680407191663,
+        "additionalWaterM3": 8.652922873339776,
+        "reservoirs": [
+          {
+            "tiles": 1,
+            "volumeM3": 0.2877776859289935,
+            "surfaceRange": [
+              1.2877776859289936,
+              1.2877776859289936
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 129,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 6914,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 25
+        },
+        "conflicts": 10,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1664,
+          "capped": false
+        },
+        "runtimeMs": 7940.979399999982,
+        "totalWaterM3": 1752.9215836401754,
+        "controlWaterM3": 1751.9745712331835,
+        "additionalWaterM3": 0.9470124069919166,
+        "reservoirs": [
+          {
+            "tiles": 1,
+            "volumeM3": 0,
+            "surfaceRange": null
+          }
+        ],
+        "pieces": {
+          "dam": 129,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 1534,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 1
+        },
+        "conflicts": 10,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 1.5846354166666667,
+          "observedDays": 9,
+          "exhausted": true,
+          "censored": false,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "riverValley-256-4242",
+      "size": 256,
+      "case": "three levees and a dam; a bent wall",
+      "inputSha256": "dec66f581ada99a2dee37e0e13d8c00e524c8b740dfccc203931dc0a376458ec",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              128
+            ],
+            [
+              144,
+              132
+            ],
+            [
+              144,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 57.78290000000561,
+          "previewMs": 29.35009999999602,
+          "sliceMedianMs": 27.809699999997974,
+          "sliceMaxMs": 45.722300000008545,
+          "fillMs": 6344.967900000003,
+          "droughtMs": 5962.5622,
+          "totalMs": 12307.531499999997
+        },
+        {
+          "constructMs": 67.3744000000006,
+          "previewMs": 27.901800000006915,
+          "sliceMedianMs": 38.26999999998952,
+          "sliceMaxMs": 124.0460000000021,
+          "fillMs": 9199.559800000003,
+          "droughtMs": 6247.943799999994,
+          "totalMs": 15447.5049
+        },
+        {
+          "constructMs": 50.12619999999879,
+          "previewMs": 24.74760000000242,
+          "sliceMedianMs": 30.157599999991362,
+          "sliceMaxMs": 110.61250000000291,
+          "fillMs": 7362.26449999999,
+          "droughtMs": 5168.953000000009,
+          "totalMs": 12531.219100000002
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 3456,
+          "capped": false
+        },
+        "runtimeMs": 7301.017800000205,
+        "totalWaterM3": 9135.4710019504,
+        "controlWaterM3": 5680.666931573567,
+        "additionalWaterM3": 3454.804070376833,
+        "reservoirs": [
+          {
+            "tiles": 1394,
+            "volumeM3": 3229.9432504175315,
+            "surfaceRange": [
+              3.6500135962631797,
+              3.679217512993583
+            ]
+          },
+          {
+            "tiles": 429,
+            "volumeM3": 2226.556790166298,
+            "surfaceRange": [
+              7.138182996918035,
+              7.14356804124499
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 133,
+          "levee": 399,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 7648,
+          "newly": 1110,
+          "start": 0,
+          "farmland": null,
+          "objects": 150
+        },
+        "conflicts": 15,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 3456,
+          "capped": false
+        },
+        "runtimeMs": 12455.132800000225,
+        "totalWaterM3": 4793.912346677619,
+        "controlWaterM3": 1751.9959534771544,
+        "additionalWaterM3": 3041.916393200465,
+        "reservoirs": [
+          {
+            "tiles": 1394,
+            "volumeM3": 2469.713234460154,
+            "surfaceRange": [
+              3.1138511744236155,
+              3.1138550307662705
+            ]
+          },
+          {
+            "tiles": 429,
+            "volumeM3": 1962.2541940334627,
+            "surfaceRange": [
+              6.525067132360496,
+              6.525068246513893
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 133,
+          "levee": 399,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 2629,
+          "newly": 1133,
+          "start": 0,
+          "farmland": null,
+          "objects": 56
+        },
+        "conflicts": 15,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "riverValley-256-4242",
+      "size": 256,
+      "case": "levee with a two-level gate at 1.5",
+      "inputSha256": "dec66f581ada99a2dee37e0e13d8c00e524c8b740dfccc203931dc0a376458ec",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              127
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              140,
+              128
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "floodgate",
+              "maxHeight": 2,
+              "height": 1.5
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              140,
+              129
+            ],
+            [
+              140,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 51.150299999979325,
+          "previewMs": 26.37819999997737,
+          "sliceMedianMs": 36.04399999999441,
+          "sliceMaxMs": 117.93319999999949,
+          "fillMs": 3915.955900000001,
+          "droughtMs": 4732.802400000015,
+          "totalMs": 8648.759899999975
+        },
+        {
+          "constructMs": 83.64180000001215,
+          "previewMs": 36.49700000000303,
+          "sliceMedianMs": 30.849099999992177,
+          "sliceMaxMs": 72.54449999998906,
+          "fillMs": 3261.5754000000015,
+          "droughtMs": 4355.002299999993,
+          "totalMs": 7616.578999999998
+        },
+        {
+          "constructMs": 61.64499999998952,
+          "previewMs": 51.94949999998789,
+          "sliceMedianMs": 31.006200000003446,
+          "sliceMaxMs": 68.96779999998398,
+          "fillMs": 3457.666199999978,
+          "droughtMs": 5587.276099999988,
+          "totalMs": 9044.94319999998
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1536,
+          "capped": false
+        },
+        "runtimeMs": 3432.8576999997313,
+        "totalWaterM3": 6180.112746071265,
+        "controlWaterM3": 5679.125709327086,
+        "additionalWaterM3": 500.987036744179,
+        "reservoirs": [
+          {
+            "tiles": 637,
+            "volumeM3": 1007.9642336098705,
+            "surfaceRange": [
+              2.053176488080646,
+              2.097165611781178
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 256,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 7391,
+          "newly": 520,
+          "start": 0,
+          "farmland": null,
+          "objects": 71
+        },
+        "conflicts": 16,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 1536,
+          "capped": false
+        },
+        "runtimeMs": 9007.252599999803,
+        "totalWaterM3": 2207.096896945054,
+        "controlWaterM3": 1751.9788593855508,
+        "additionalWaterM3": 455.11803755950336,
+        "reservoirs": [
+          {
+            "tiles": 637,
+            "volumeM3": 622.5542703275528,
+            "surfaceRange": [
+              1.460835029206278,
+              1.4608395262223848
+            ]
+          }
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 256,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 1813,
+          "newly": 310,
+          "start": 0,
+          "farmland": null,
+          "objects": 2
+        },
+        "conflicts": 16,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 9,
+          "observedDays": 9,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "size": 256,
+      "case": "one dam across the valley",
+      "inputSha256": "63ce879ebb91e2ca996ae6fe714c581fb27b9ba46440b06046d7acfb1dc7e0a4",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 77.96099999998114,
+          "previewMs": 103.78349999999045,
+          "sliceMedianMs": 40.1588000000047,
+          "sliceMaxMs": 103.78349999999045,
+          "fillMs": 807.5089999999909,
+          "droughtMs": 8236.586700000014,
+          "totalMs": 9044.09639999998
+        },
+        {
+          "constructMs": 67.56969999999274,
+          "previewMs": 53.68739999999525,
+          "sliceMedianMs": 44.51009999998496,
+          "sliceMaxMs": 72.50849999999627,
+          "fillMs": 754.7073000000091,
+          "droughtMs": 7135.123400000011,
+          "totalMs": 7889.83110000001
+        },
+        {
+          "constructMs": 54.56999999997788,
+          "previewMs": 47.01290000000154,
+          "sliceMedianMs": 33.85529999999562,
+          "sliceMaxMs": 59.709700000006706,
+          "fillMs": 630.8916999999783,
+          "droughtMs": 5942.708099999989,
+          "totalMs": 6573.600299999991
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 627.3624999999593,
+        "totalWaterM3": 8969.240119715329,
+        "controlWaterM3": 8969.240119715318,
+        "additionalWaterM3": 1.0913936421275139e-11,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 129,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 7042,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 32
+        },
+        "conflicts": 7,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 6554.759599999816,
+        "totalWaterM3": 5906.894917071837,
+        "controlWaterM3": 5906.894917071838,
+        "additionalWaterM3": -9.094947017729282e-13,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 129,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 3171,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 18
+        },
+        "conflicts": 7,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 9,
+          "exhausted": true,
+          "censored": false,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "size": 256,
+      "case": "three levees and a dam; a bent wall",
+      "inputSha256": "63ce879ebb91e2ca996ae6fe714c581fb27b9ba46440b06046d7acfb1dc7e0a4",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              128
+            ],
+            [
+              144,
+              132
+            ],
+            [
+              144,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "dam"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 68.2052000000258,
+          "previewMs": 30.270199999999022,
+          "sliceMedianMs": 33.93540000001667,
+          "sliceMaxMs": 38.85629999998491,
+          "fillMs": 611.8785000000207,
+          "droughtMs": 5896.537199999992,
+          "totalMs": 6508.416500000021
+        },
+        {
+          "constructMs": 57.74770000000717,
+          "previewMs": 33.44239999999991,
+          "sliceMedianMs": 33.20089999999618,
+          "sliceMaxMs": 37.66959999999381,
+          "fillMs": 569.0559000000067,
+          "droughtMs": 5987.956999999995,
+          "totalMs": 6557.013500000001
+        },
+        {
+          "constructMs": 51.13550000000396,
+          "previewMs": 22.39790000001085,
+          "sliceMedianMs": 30.278099999995902,
+          "sliceMaxMs": 50.74330000000191,
+          "fillMs": 549.965200000006,
+          "droughtMs": 6816.906500000012,
+          "totalMs": 7366.872300000017
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 546.7214000000386,
+        "totalWaterM3": 8969.240119715329,
+        "controlWaterM3": 8969.240119715318,
+        "additionalWaterM3": 1.0913936421275139e-11,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 133,
+          "levee": 399,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 7042,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 32
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 7344.932200000214,
+        "totalWaterM3": 5906.894917071837,
+        "controlWaterM3": 5906.894917071838,
+        "additionalWaterM3": -9.094947017729282e-13,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 133,
+          "levee": 399,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 3171,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 18
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 9,
+          "exhausted": true,
+          "censored": false,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "size": 256,
+      "case": "levee with a two-level gate at 1.5",
+      "inputSha256": "63ce879ebb91e2ca996ae6fe714c581fb27b9ba46440b06046d7acfb1dc7e0a4",
+      "strokes": [
+        {
+          "path": [
+            [
+              140,
+              64
+            ],
+            [
+              140,
+              127
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              140,
+              128
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "floodgate",
+              "maxHeight": 2,
+              "height": 1.5
+            }
+          ]
+        },
+        {
+          "path": [
+            [
+              140,
+              129
+            ],
+            [
+              140,
+              192
+            ]
+          ],
+          "stack": [
+            {
+              "kind": "levee"
+            },
+            {
+              "kind": "levee"
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "constructMs": 72.94989999997779,
+          "previewMs": 31.260599999979604,
+          "sliceMedianMs": 30.04700000002049,
+          "sliceMaxMs": 43.26860000001034,
+          "fillMs": 558.3696999999811,
+          "droughtMs": 6065.278099999996,
+          "totalMs": 6623.648499999981
+        },
+        {
+          "constructMs": 42.007700000016484,
+          "previewMs": 28.5228000000061,
+          "sliceMedianMs": 34.169800000003306,
+          "sliceMaxMs": 53.3693000000203,
+          "fillMs": 615.8977000000014,
+          "droughtMs": 6629.006699999998,
+          "totalMs": 7244.904899999994
+        },
+        {
+          "constructMs": 48.51219999999739,
+          "previewMs": 25.708199999993667,
+          "sliceMedianMs": 35.71719999998459,
+          "sliceMaxMs": 64.62789999999222,
+          "fillMs": 654.8589000000211,
+          "droughtMs": 5982.382899999997,
+          "totalMs": 6637.242400000017
+        }
+      ],
+      "fill": {
+        "phase": "weather",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 648.5083000001032,
+        "totalWaterM3": 8969.240119715329,
+        "controlWaterM3": 8969.240119715318,
+        "additionalWaterM3": 1.0913936421275139e-11,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 0,
+          "levee": 256,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 7042,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 32
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 0,
+          "exhausted": false,
+          "censored": true,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      },
+      "final": {
+        "phase": "complete",
+        "backend": "rust-heightfield",
+        "fill": {
+          "settled": true,
+          "ticks": 256,
+          "capped": false
+        },
+        "runtimeMs": 6614.749500000209,
+        "totalWaterM3": 5906.894917071837,
+        "controlWaterM3": 5906.894917071838,
+        "additionalWaterM3": -9.094947017729282e-13,
+        "reservoirs": [],
+        "pieces": {
+          "dam": 0,
+          "levee": 256,
+          "floodgate1": 0,
+          "floodgate2": 1,
+          "floodgate3": 0
+        },
+        "floods": {
+          "all": 3171,
+          "newly": 0,
+          "start": 0,
+          "farmland": null,
+          "objects": 18
+        },
+        "conflicts": 14,
+        "drought": {
+          "provenance": "Explicit Normal full-strength nine-day drought scenario; notes Q7. Map has no future schedule.",
+          "coveredDays": 0,
+          "observedDays": 9,
+          "exhausted": true,
+          "censored": false,
+          "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+        }
+      }
+    }
+  ],
+  "bySize": [
+    {
+      "size": 128,
+      "first16TicksMedianMs": 10.759400000002643,
+      "slice16TicksMedianMs": 11.018499999998312,
+      "worstSliceMs": 59.49759999999969,
+      "fillMedianMs": 665.8565999999992,
+      "drought9DaysMedianMs": 1165.8148
+    },
+    {
+      "size": 256,
+      "first16TicksMedianMs": 30.270199999999022,
+      "slice16TicksMedianMs": 33.85529999999562,
+      "worstSliceMs": 159.90679999999702,
+      "fillMedianMs": 2939.3139999999985,
+      "drought9DaysMedianMs": 5962.5622
+    }
+  ]
+}

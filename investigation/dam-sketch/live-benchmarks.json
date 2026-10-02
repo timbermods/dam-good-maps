@@ -1,0 +1,319 @@
+{
+  "scope": "Same actual maps and 12 strokes as benchmarks.json. First 96 ticks only; 8-tick publications. One warm-up, three fresh repetitions. Node Wasm; shared host load uncontrolled.",
+  "bySize": [
+    {
+      "size": 128,
+      "slice8TicksMedianMs": 3.8332000000000335,
+      "sliceWorstMs": 10.039099999999962,
+      "newSketchFirstPreviewMedianMs": 16.413299999999936
+    },
+    {
+      "size": 256,
+      "slice8TicksMedianMs": 18.325300000000425,
+      "sliceWorstMs": 62.98909999999978,
+      "newSketchFirstPreviewMedianMs": 67.15880000000107
+    }
+  ],
+  "cases": [
+    {
+      "map": "riverValley-128-4242",
+      "case": "one dam across the valley",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 17.938799999999986,
+          "firstPreviewMs": 23.20829999999998,
+          "sliceMedianMs": 4.698100000000011,
+          "sliceMaxMs": 6.010600000000011
+        },
+        {
+          "constructMs": 12.043700000000001,
+          "firstPreviewMs": 16.77619999999996,
+          "sliceMedianMs": 4.140300000000025,
+          "sliceMaxMs": 4.795700000000011
+        },
+        {
+          "constructMs": 7.651499999999999,
+          "firstPreviewMs": 11.226799999999969,
+          "sliceMedianMs": 3.9460000000000264,
+          "sliceMaxMs": 4.544099999999958
+        }
+      ]
+    },
+    {
+      "map": "riverValley-128-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 16.23230000000001,
+          "firstPreviewMs": 21.067300000000046,
+          "sliceMedianMs": 4.552500000000009,
+          "sliceMaxMs": 5.048099999999977
+        },
+        {
+          "constructMs": 11.871399999999994,
+          "firstPreviewMs": 16.445500000000038,
+          "sliceMedianMs": 4.345699999999965,
+          "sliceMaxMs": 4.750799999999913
+        },
+        {
+          "constructMs": 10.185600000000022,
+          "firstPreviewMs": 14.312999999999988,
+          "sliceMedianMs": 3.8332000000000335,
+          "sliceMaxMs": 7.53469999999993
+        }
+      ]
+    },
+    {
+      "map": "riverValley-128-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 9.509999999999991,
+          "firstPreviewMs": 14.506999999999948,
+          "sliceMedianMs": 5.255400000000009,
+          "sliceMaxMs": 7.9221
+        },
+        {
+          "constructMs": 13.381200000000035,
+          "firstPreviewMs": 18.551200000000108,
+          "sliceMedianMs": 5.10530000000017,
+          "sliceMaxMs": 5.567500000000109
+        },
+        {
+          "constructMs": 14.554000000000087,
+          "firstPreviewMs": 19.32420000000002,
+          "sliceMedianMs": 5.375700000000052,
+          "sliceMaxMs": 10.039099999999962
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "one dam across the valley",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 8.948799999999892,
+          "firstPreviewMs": 12.298099999999977,
+          "sliceMedianMs": 3.2741000000000895,
+          "sliceMaxMs": 5.3870999999999185
+        },
+        {
+          "constructMs": 9.242600000000039,
+          "firstPreviewMs": 12.775900000000092,
+          "sliceMedianMs": 3.3958000000000084,
+          "sliceMaxMs": 8.943299999999908
+        },
+        {
+          "constructMs": 12.347500000000082,
+          "firstPreviewMs": 15.426600000000008,
+          "sliceMedianMs": 3.7187000000001262,
+          "sliceMaxMs": 6.812900000000127
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 14.963000000000193,
+          "firstPreviewMs": 20.445500000000266,
+          "sliceMedianMs": 3.163400000000138,
+          "sliceMaxMs": 5.482500000000073
+        },
+        {
+          "constructMs": 10.903999999999996,
+          "firstPreviewMs": 14.18509999999992,
+          "sliceMedianMs": 3.4187000000001717,
+          "sliceMaxMs": 8.028299999999945
+        },
+        {
+          "constructMs": 10.1253999999999,
+          "firstPreviewMs": 16.413299999999936,
+          "sliceMedianMs": 3.423999999999978,
+          "sliceMaxMs": 6.287900000000036
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 128,
+      "samples": [
+        {
+          "constructMs": 14.498499999999922,
+          "firstPreviewMs": 17.863599999999906,
+          "sliceMedianMs": 3.0193000000001575,
+          "sliceMaxMs": 6.554399999999987
+        },
+        {
+          "constructMs": 8.648699999999963,
+          "firstPreviewMs": 11.892100000000028,
+          "sliceMedianMs": 3.243400000000065,
+          "sliceMaxMs": 6.097200000000157
+        },
+        {
+          "constructMs": 7.687199999999848,
+          "firstPreviewMs": 10.734199999999873,
+          "sliceMedianMs": 3.4236000000000786,
+          "sliceMaxMs": 5.488799999999856
+        }
+      ]
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 42.522199999999884,
+          "firstPreviewMs": 57.51940000000013,
+          "sliceMedianMs": 15.420200000000023,
+          "sliceMaxMs": 23.046699999999873
+        },
+        {
+          "constructMs": 36.23799999999983,
+          "firstPreviewMs": 50.65309999999954,
+          "sliceMedianMs": 15.758899999999812,
+          "sliceMaxMs": 24.264799999999923
+        },
+        {
+          "constructMs": 37.74459999999999,
+          "firstPreviewMs": 53.22510000000011,
+          "sliceMedianMs": 18.92589999999973,
+          "sliceMaxMs": 30.889900000000125
+        }
+      ]
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 68.07900000000018,
+          "firstPreviewMs": 85.03410000000031,
+          "sliceMedianMs": 21.157400000000052,
+          "sliceMaxMs": 30.115800000000036
+        },
+        {
+          "constructMs": 84.35519999999997,
+          "firstPreviewMs": 101.44650000000001,
+          "sliceMedianMs": 25.90610000000015,
+          "sliceMaxMs": 53.15929999999935
+        },
+        {
+          "constructMs": 58.93379999999979,
+          "firstPreviewMs": 76.90200000000004,
+          "sliceMedianMs": 18.325300000000425,
+          "sliceMaxMs": 35.815599999999904
+        }
+      ]
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 46.17069999999967,
+          "firstPreviewMs": 64.50919999999951,
+          "sliceMedianMs": 24.238499999999476,
+          "sliceMaxMs": 39.45340000000033
+        },
+        {
+          "constructMs": 37.51770000000033,
+          "firstPreviewMs": 90.22090000000026,
+          "sliceMedianMs": 20.402500000000146,
+          "sliceMaxMs": 62.98909999999978
+        },
+        {
+          "constructMs": 48.46429999999964,
+          "firstPreviewMs": 81.90459999999894,
+          "sliceMedianMs": 19.88549999999941,
+          "sliceMaxMs": 33.4402999999993
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 61.52739999999994,
+          "firstPreviewMs": 99.86840000000029,
+          "sliceMedianMs": 26.9407999999994,
+          "sliceMaxMs": 53.0634
+        },
+        {
+          "constructMs": 76.2489999999998,
+          "firstPreviewMs": 105.33519999999953,
+          "sliceMedianMs": 18.356399999999667,
+          "sliceMaxMs": 33.69390000000021
+        },
+        {
+          "constructMs": 42.20290000000023,
+          "firstPreviewMs": 59.27379999999994,
+          "sliceMedianMs": 18.08470000000034,
+          "sliceMaxMs": 22.248999999999796
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 53.20260000000053,
+          "firstPreviewMs": 67.15880000000107,
+          "sliceMedianMs": 14.247800000001007,
+          "sliceMaxMs": 17.868800000000192
+        },
+        {
+          "constructMs": 60.72049999999945,
+          "firstPreviewMs": 75.7572999999993,
+          "sliceMedianMs": 14.147100000000137,
+          "sliceMaxMs": 19.87670000000071
+        },
+        {
+          "constructMs": 46.45789999999943,
+          "firstPreviewMs": 61.948999999998705,
+          "sliceMedianMs": 17.818600000000515,
+          "sliceMaxMs": 23.025700000000143
+        }
+      ]
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "samples": [
+        {
+          "constructMs": 49.752300000000105,
+          "firstPreviewMs": 62.854699999999866,
+          "sliceMedianMs": 13.965799999999945,
+          "sliceMaxMs": 21.98790000000008
+        },
+        {
+          "constructMs": 33.1268,
+          "firstPreviewMs": 47.098299999999654,
+          "sliceMedianMs": 14.076699999999619,
+          "sliceMaxMs": 18.278399999999237
+        },
+        {
+          "constructMs": 45.494300000000294,
+          "firstPreviewMs": 61.23619999999937,
+          "sliceMedianMs": 13.780099999999948,
+          "sliceMaxMs": 15.741899999999077
+        }
+      ]
+    }
+  ]
+}
