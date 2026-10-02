@@ -2,6 +2,69 @@
 //! All arithmetic and traversal order mirrors e292cefe. No FMA or approximate maths.
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::marker::PhantomData;
+// A fixed, validated grid borrows its backing slice for its entire lifetime.
+// No vector can grow while borrowed. Every access below is either 0..w*h,
+// returned by neighbor(), or an interior square offset. Dynamic queues and
+// site lists keep ordinary Rust checks. Wasm sandbox checks are unchanged.
+struct Grid<'a, T> {
+    ptr: *const T,
+    #[allow(dead_code)] // Read by checked_grid diagnostic and test builds.
+    n: usize,
+    borrow: PhantomData<&'a [T]>,
+}
+impl<'a, T> Grid<'a, T> {
+    fn new(slice: &'a [T], n: usize) -> Self {
+        assert_eq!(slice.len(), n, "grid shape");
+        Self {
+            ptr: slice.as_ptr(),
+            n,
+            borrow: PhantomData,
+        }
+    }
+}
+impl<T> std::ops::Index<usize> for Grid<'_, T> {
+    type Output = T;
+    #[inline(always)]
+    fn index(&self, i: usize) -> &T {
+        #[cfg(any(test, checked_grid))]
+        assert!(i < self.n);
+        unsafe { &*self.ptr.add(i) }
+    }
+}
+struct GridMut<'a, T> {
+    ptr: *mut T,
+    #[allow(dead_code)]
+    n: usize,
+    borrow: PhantomData<&'a mut [T]>,
+}
+impl<'a, T> GridMut<'a, T> {
+    fn new(slice: &'a mut [T], n: usize) -> Self {
+        assert_eq!(slice.len(), n, "grid shape");
+        Self {
+            ptr: slice.as_mut_ptr(),
+            n,
+            borrow: PhantomData,
+        }
+    }
+}
+impl<T> std::ops::Index<usize> for GridMut<'_, T> {
+    type Output = T;
+    #[inline(always)]
+    fn index(&self, i: usize) -> &T {
+        #[cfg(any(test, checked_grid))]
+        assert!(i < self.n);
+        unsafe { &*self.ptr.add(i) }
+    }
+}
+impl<T> std::ops::IndexMut<usize> for GridMut<'_, T> {
+    #[inline(always)]
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        #[cfg(any(test, checked_grid))]
+        assert!(i < self.n);
+        unsafe { &mut *self.ptr.add(i) }
+    }
+}
 const S2: f64 = std::f64::consts::SQRT_2;
 #[derive(Clone, Copy)]
 struct Entry(f64, usize);
@@ -284,15 +347,15 @@ struct Dam {
     ratio: f64,
 }
 fn candidate(
-    ht: &[f64],
-    surface: &[f64],
+    ht: &Grid<'_, f64>,
+    surface: &Grid<'_, f64>,
     w: usize,
     h: usize,
     c: usize,
     dy: isize,
     dx: isize,
     height: f64,
-    seen: &mut [usize],
+    seen: &mut GridMut<'_, usize>,
     mark: &mut usize,
     queue: &mut Vec<usize>,
     max_flood: usize,
@@ -378,26 +441,36 @@ fn candidate(
     })
 }
 fn dams(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
+    let n = w * h;
+    let ht = Grid::new(a[0], n);
+    let channel = Grid::new(a[1], n);
+    let surface = Grid::new(a[2], n);
+    let sd = if a[3].is_empty() {
+        None
+    } else {
+        Some(Grid::new(a[3], n))
+    };
     let mut found = vec![];
-    let mut seen = vec![0; w * h];
+    let mut seen_values = vec![0; n];
+    let mut seen = GridMut::new(&mut seen_values, n);
     let mut mark = 0;
     let mut queue = Vec::with_capacity(w * h);
     let mut k = 0;
     let max_flood = 6000.max((0.15 * w as f64 * h as f64).floor() as usize);
     for i in 0..w * h {
-        if a[1][i] == 0.0 {
+        if channel[i] == 0.0 {
             continue;
         }
         let sampled = k % p[1] as usize == 0;
         k += 1;
-        if !sampled || (!a[3].is_empty() && a[3][i] > p[0]) {
+        if !sampled || sd.as_ref().is_some_and(|v| v[i] > p[0]) {
             continue;
         }
         let mut best: Option<Dam> = None;
         for &height in a[4] {
             for (dy, dx) in [(1, 0), (0, 1), (1, 1), (1, -1)] {
                 if let Some(c) = candidate(
-                    a[0], a[2], w, h, i, dy, dx, height, &mut seen, &mut mark, &mut queue,
+                    &ht, &surface, w, h, i, dy, dx, height, &mut seen, &mut mark, &mut queue,
                     max_flood,
                 ) {
                     if (p[3] <= 0.0 || c.volume / c.area as f64 >= p[3])
@@ -441,8 +514,12 @@ fn dams(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
     out
 }
 fn near_water(wet: &[f64], w: usize, h: usize, margin: usize) -> Vec<f64> {
-    let mut rows = vec![0.0; w * h];
-    let mut out = rows.clone();
+    let n = w * h;
+    let wet = Grid::new(wet, n);
+    let mut row_values = vec![0.0; n];
+    let mut out_values = vec![0.0; n];
+    let mut rows = GridMut::new(&mut row_values, n);
+    let mut out = GridMut::new(&mut out_values, n);
     let margin = margin as isize;
     for y in 0..h {
         let mut last = -(w as isize) - margin - 1;
@@ -484,20 +561,24 @@ fn near_water(wet: &[f64], w: usize, h: usize, margin: usize) -> Vec<f64> {
             }
         }
     }
-    out
+    out_values
 }
 fn room(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
-    let ht = a[0];
-    let wet = a[1];
+    let n = w * h;
+    let ht = Grid::new(a[0], n);
+    let wet = Grid::new(a[1], n);
+    let keep = Grid::new(a[2], n);
     let firm = p[2] as usize;
-    let water = if firm > 0 {
-        near_water(wet, w, h, firm)
+    let water_values = if firm > 0 {
+        near_water(a[1], w, h, firm)
     } else {
-        wet.iter()
+        a[1].iter()
             .map(|&v| if v > 0.05 { 1.0 } else { 0.0 })
             .collect()
     };
-    let mut land = regions(4, &[ht, &water], &[], w, h);
+    let mut land_values = regions(4, &[a[0], &water_values], &[], w, h);
+    let water = Grid::new(&water_values, n);
+    let mut land = GridMut::new(&mut land_values, n);
     if firm > 0 {
         for i in 0..w * h {
             if land[i] >= 0.0 || wet[i] > 0.05 {
@@ -527,7 +608,8 @@ fn room(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
             }
         }
     }
-    let near = near_water(wet, w, h, 3);
+    let near_values = near_water(a[1], w, h, 3);
+    let near = Grid::new(&near_values, n);
     let mut by_land = vec![vec![]; w * h];
     let cheb = |a: usize, b: usize| (a % w).abs_diff(b % w).max((a / w).abs_diff(b / w));
     if w > 10 && h > 10 {
@@ -538,12 +620,15 @@ fn room(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
                     continue;
                 }
                 let mut ok = true;
-                for dy in -3..=3 {
+                let level = ht[c];
+                let label = land[c];
+                'square: for dy in -3..=3 {
                     for dx in -3..=3 {
-                        let v = neighbor(c, dx, dy, w, h).unwrap();
-                        if ht[v] != ht[c] || land[v] != land[c] || near[v] != 0.0 || a[2][v] != 0.0
-                        {
-                            ok = false
+                        // c is at least five tiles from all edges; +/-3 is interior.
+                        let v = (c as isize + dy * w as isize + dx) as usize;
+                        if near[v] != 0.0 || keep[v] != 0.0 || land[v] != label || ht[v] != level {
+                            ok = false;
+                            break 'square;
                         }
                     }
                 }
@@ -558,27 +643,40 @@ fn room(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
     }
     let reach = p[1] + 4.5;
     let reach2 = reach * reach;
+    // Preserve list order and the exact integer->f64 conversion, hoisting the
+    // repeated divisions and conversions out of the per-start candidate scan.
+    let coordinates: Vec<Vec<(usize, f64, f64)>> = by_land
+        .iter()
+        .map(|list| {
+            list.iter()
+                .map(|&c| (c, (c % w) as f64, (c / w) as f64))
+                .collect()
+        })
+        .collect();
     let mut out = vec![0.0; w * h];
     for i in 0..w * h {
         if land[i] < 0.0 {
             continue;
         }
-        let list = &by_land[land[i] as usize];
+        let list = &coordinates[land[i] as usize];
+        let ix = (i % w) as f64;
+        let iy = (i / w) as f64;
         let mut count = 0;
         let mut x0 = f64::INFINITY;
         let mut x1 = f64::NEG_INFINITY;
         let mut y0 = f64::INFINITY;
         let mut y1 = f64::NEG_INFINITY;
         let mut far = vec![];
-        for &c in list {
-            let cx = (c % w) as f64;
-            let cy = (c / w) as f64;
-            let dx = cx - (i % w) as f64;
-            let dy = cy - (i / w) as f64;
+        for &(c, cx, cy) in list {
+            let dx = cx - ix;
+            let dy = cy - iy;
             if dx * dx + dy * dy < reach2 {
                 continue;
             }
             count += 1;
+            if p[0] <= 1.0 {
+                break;
+            }
             if p[0] > 2.0 {
                 far.push(c)
             }
@@ -621,22 +719,68 @@ fn room(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
     out
 }
 pub fn execute(input: &[f64]) -> Vec<f64> {
-    let op = input[0] as usize;
-    let w = input[1] as usize;
-    let h = input[2] as usize;
-    let np = input[3] as usize;
-    let p = &input[4..4 + np];
-    let mut at = 4 + np;
-    let na = input[at] as usize;
+    fn integer(v: f64) -> usize {
+        assert!(
+            v.is_finite() && v >= 0.0 && v.fract() == 0.0 && v < usize::MAX as f64,
+            "integer header/index"
+        );
+        v as usize
+    }
+    assert!(input.len() >= 5, "short header");
+    let op = integer(input[0]);
+    let w = integer(input[1]);
+    let h = integer(input[2]);
+    assert!(w > 0 && h > 0, "positive dimensions");
+    let cells = w.checked_mul(h).expect("dimension overflow");
+    assert!(
+        cells <= isize::MAX as usize / std::mem::size_of::<f64>(),
+        "grid address range"
+    );
+    let np = integer(input[3]);
+    let end = 4usize.checked_add(np).expect("parameter overflow");
+    let p = &input[4..end];
+    let mut at = end;
+    let na = integer(input[at]);
     at += 1;
     let mut a = vec![];
     for _ in 0..na {
-        let n = input[at] as usize;
+        let n = integer(input[at]);
         at += 1;
-        a.push(&input[at..at + n]);
-        at += n;
+        let end = at.checked_add(n).expect("array overflow");
+        a.push(&input[at..end]);
+        at = end;
     }
     assert_eq!(at, input.len());
+    let (params, arrays, grids) = match op {
+        1 => (0, 1, 1),
+        2 => (3, 3, 2),
+        3 => (0, 3, 2),
+        4 => (0, 2, 2),
+        5 => (1, 1, 1),
+        6 => (0, 1, 1),
+        7 => (0, 3, 3),
+        8 => (4, 5, 3),
+        9 => (3, 3, 3),
+        _ => panic!("unknown opcode"),
+    };
+    assert_eq!(p.len(), params, "parameter shape");
+    assert_eq!(a.len(), arrays, "array count");
+    for grid in a.iter().take(grids) {
+        assert_eq!(grid.len(), cells, "grid shape");
+    }
+    if op == 2 || op == 3 {
+        assert_eq!(a[2].len() % 2, 0, "link pairs");
+        for &index in a[2] {
+            assert!(integer(index) < cells, "link index");
+        }
+    }
+    if op == 8 {
+        assert!(a[3].is_empty() || a[3].len() == cells, "distance shape");
+        assert!(integer(p[1]) > 0, "positive stride");
+    }
+    if op == 9 {
+        assert!(integer(p[2]) <= isize::MAX as usize / 8, "firm radius");
+    }
     match op {
         1 => distance(a[0], w, h),
         2 => walk(&a, p, w, h),
@@ -645,6 +789,33 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         8 => dams(&a, p, w, h),
         9 => room(&a, p, w, h),
         _ => panic!("unknown opcode"),
+    }
+}
+#[cfg(test)]
+mod guards {
+    use super::*;
+    #[test]
+    fn rejects_short_and_fractional_headers() {
+        for input in [
+            vec![],
+            vec![1., 1.5, 1., 0., 1., 1., 0.],
+            vec![1., 0., 1., 0., 1., 0.],
+        ] {
+            assert!(std::panic::catch_unwind(|| execute(&input)).is_err());
+        }
+    }
+    #[test]
+    fn rejects_room_shape_before_raw_access() {
+        let input = [
+            9., 2., 2., 3., 1., 2., 0., 3., 4., 0., 0., 0., 0., 1., 0., 4., 0., 0., 0., 0.,
+        ];
+        assert!(std::panic::catch_unwind(|| execute(&input)).is_err());
+        assert!(std::panic::catch_unwind(|| Grid::new(&[1., 2.], 3)).is_err());
+    }
+    #[test]
+    fn rejects_link_indices() {
+        let input = [3., 1., 1., 0., 3., 1., 0., 1., 0., 2., 0., 1.];
+        assert!(std::panic::catch_unwind(|| execute(&input)).is_err());
     }
 }
 #[no_mangle]

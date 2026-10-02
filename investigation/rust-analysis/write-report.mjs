@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {HERE} from './common.mjs';
 const e=JSON.parse(readFileSync(resolve(HERE,'EVIDENCE.json')));
@@ -49,4 +49,5 @@ measure set is tested; optional weather-cycle measures are outside this study.
 Large traces and binaries stay in ignored \`local/\`; regeneration and exact
 interfaces are in [INTEGRATION.md](INTEGRATION.md).
 `;
-writeFileSync(resolve(HERE,'REPORT.md'),text);console.log('Short report saved');
+if(existsSync(resolve(HERE,'PROFILE_EVIDENCE.json')))await import('./write-profile-report.mjs');
+else {writeFileSync(resolve(HERE,'REPORT.md'),text);console.log('Historical report saved');}
