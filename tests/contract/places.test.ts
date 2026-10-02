@@ -15,7 +15,7 @@ import { PROVIDER_NOTICES } from "../../src/core/places/attribution";
 import { placeDescription, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
-import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_SOURCES_IN_FLOW, PLACES_START_WATER_A_PUDDLE, placeData, sha256 } from "./placesCommon";
+import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, placeData, sha256 } from "./placesCommon";
 
 describe("the gallery's data", () => {
   it("holds the survey's real places: no random-land controls, one entry and two files each", () => {
@@ -147,7 +147,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
     for (const [k, e] of SAMPLE.entries()) {
       const rep = reports.get(paths[k].split(sep).join("/"));
       expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
-      const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WATER_A_PUDDLE.has(e.id) ? ["start.water"] : [])];
+      const known = [...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WITHOUT_FED_WATER.has(e.id) ? ["start.water"] : []), ...(PLACES_SHORT_OF_BERRIES.has(e.id) ? ["start.food"] : []), ...(PLACES_PLANTS_ON_DRY_SOIL.has(e.id) ? ["plants.survive"] : [])];
       expect(rep!.passed, e.id).toBe(known.length === 0);
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
@@ -156,7 +156,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       const p = Object.fromEntries(rep!.checks.map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
-    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WATER_A_PUDDLE.has(e.id)) ? 1 : 0);
+    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
   });
 });
 

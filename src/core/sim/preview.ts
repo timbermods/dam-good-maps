@@ -20,8 +20,12 @@
 // new ground (a pool whose source was removed, a stretch of river cut off, a lake breached) takes
 // the canonical start too (dry), so it drains away in the edit's own journey instead of standing
 // until the background check's settle; a lake a force stored (`RetainedWater`) is its own cause and
-// keeps its water while its hollow holds it.
+// keeps its water while its hollow holds it. Nor does water appear from nowhere (D385): the
+// pre-fill's water on the tiles that take the canonical start stays only where a running source,
+// a stored lake or the water kept from before reaches it (sim/fed.ts), so a pit dug on dry ground
+// stays dry while one dug beside a river fills at once.
 
+import { fedTiles } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
@@ -147,11 +151,22 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   const N = next.W * next.H;
   const out = new Float64Array(4 * N);
   const po = from.water.out ?? null;
+  // (the water kept from before, and the stored lakes, feed the pre-fill's water as the sources do)
+  const seeds = new Uint8Array(N);
+  for (const r of next.retained ?? []) for (const i of r.tiles) seeds[i] = 1;
   for (let i = 0; i < N; i++) {
     if (changed[i] || unfed?.[i]) continue;
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
+    seeds[i] = 1;
+  }
+  // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
+  const fed = fedTiles(next, init.depth, seeds);
+  for (let i = 0; i < N; i++) {
+    if (!(changed[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    init.depth[i] = 0;
+    init.contamination[i] = 0;
   }
   return { state: init, out: po ? out : null };
 }

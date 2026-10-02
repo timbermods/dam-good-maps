@@ -13,8 +13,15 @@
 //   passes all its water each substep, PLAN §9.2).
 // A basin sealed off from its river (a carve's oxbow lake) then starts with the water it kept
 // (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources.
+//
+// The walk spreads level over flat ground in every direction, further than a source's water goes:
+// a hollow on a dry plateau the walk crossed starts full, and the thin start on the plateau drains
+// into a hollow that started empty. That water would come from nowhere (D385). So once the water has
+// settled, the water no running source and no stored lake reaches (sim/fed.ts) is taken away and
+// the water settles on from there (`UNFED_DAYS`); a map with none keeps its bytes.
 
 import { MinHeap } from "../math/grid";
+import { fedTiles, storedTiles } from "./fed";
 import { sealedTiles, SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
@@ -188,9 +195,10 @@ export interface CanonicalWater extends SettleResult {
 }
 
 /** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks). The same input always gives the same bytes. A sealed oxbow
- *  lake's evaporation never keeps it from counting as settled (`steadyTicks`, D222), and never
- *  changes where it stops. */
+ *  days, checked every 128 ticks), then, when water no source reaches is left (the pre-fill's, see
+ *  the file comment), once more without it (at most `UNFED_DAYS`). The same input always gives the
+ *  same bytes. A sealed oxbow lake's evaporation never keeps it from counting as settled
+ *  (`steadyTicks`, D222), and never changes where it stops. */
 export function canonicalSettle(m: WaterModel): CanonicalWater {
   const run = canonicalRun(m);
   let r = run.advance(Infinity);
@@ -198,25 +206,78 @@ export function canonicalSettle(m: WaterModel): CanonicalWater {
   return r;
 }
 
+/** The most game days the canonical settle runs on after taking away the water no source reaches
+ *  (`canonicalRun`): the first settle's own limit. The water round it had settled, so it is mostly
+ *  steady again within a check or two; a map whose water passed the settle's test while a slow surge
+ *  still moved (Near Bardenas Reales) takes longer. */
+export const UNFED_DAYS = 4;
+
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. */
 export function canonicalRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  const sim = new WaterSim(m, prefill(m));
-  const run = new SettleRun(sim, { sealed: sealedTiles(m) });
+  let sim = new WaterSim(m, prefill(m));
+  const sealed = sealedTiles(m);
+  let run = new SettleRun(sim, { sealed });
+  let maxTicks = run.maxTicks;
+  let checked = false;
   let done: CanonicalWater | null = null;
   return {
     advance(ticks: number): CanonicalWater | null {
       if (done) return done;
-      const r = run.advance(ticks);
-      if (r) done = { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice() };
-      return done;
+      let left = ticks;
+      for (;;) {
+        const t0 = sim.ticks;
+        const r = run.advance(left);
+        left -= sim.ticks - t0;
+        if (!r) return null;
+        if (!checked) {
+          checked = true;
+          const next = withoutUnfed(m, sim);
+          if (next) {
+            sim = next;
+            run = new SettleRun(sim, { sealed, maxDays: UNFED_DAYS });
+            maxTicks = sim.ticks + run.maxTicks;
+            if (left > 0) continue;
+            return null;
+          }
+        }
+        done = { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice() };
+        return done;
+      }
     },
     get ticks() {
-      return run.ticks;
+      return sim.ticks;
     },
     get maxTicks() {
-      return run.maxTicks;
+      return maxTicks;
     },
   };
+}
+
+/** The simulation without the water no running source and no stored lake reaches (sim/fed.ts): a
+ *  new simulation on the water as it stands, those tiles dry and still, at the same tick; null when
+ *  all of it is reached (nothing changes). */
+export function withoutUnfed(m: WaterModel, sim: WaterSim): WaterSim | null {
+  const D = sim.D;
+  const fed = fedTiles(m, D, storedTiles(m));
+  let any = false;
+  for (let i = 0; i < sim.N; i++)
+    if (D[i] > 0 && !fed[i]) {
+      any = true;
+      break;
+    }
+  if (!any) return null;
+  const state: WaterState = { depth: D.slice(), contamination: sim.C.slice() };
+  const out = sim.out.slice();
+  for (let i = 0; i < sim.N; i++) {
+    if (!(D[i] > 0) || fed[i]) continue;
+    state.depth[i] = 0;
+    state.contamination[i] = 0;
+    out[4 * i] = out[4 * i + 1] = out[4 * i + 2] = out[4 * i + 3] = 0;
+  }
+  const next = new WaterSim(m, state);
+  next.out.set(out);
+  next.ticks = sim.ticks;
+  return next;
 }

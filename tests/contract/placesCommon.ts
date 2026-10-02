@@ -99,25 +99,56 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
   "near-waimakariri-river",
 ]);
 
-/** The start's water is never a sealed puddle (Kyler's D302, M9a): these places' starts reach only
- *  water no source feeds that a Normal drought empties, which `start.water` refuses (a playability
- *  check: it warns in the export profile, and the gallery's download works). Real places 2 gives
- *  the places their water (D300) and empties the list. */
-export const PLACES_START_WATER_A_PUDDLE = new Set([
+/** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
+ *  reaches: these places' starts reach no water a source feeds, which `start.water` refuses (a
+ *  playability check: it warns in the export profile, and the gallery's download works). Their water
+ *  was a puddle the canonical settle's pre-fill left in a hollow no source's water reaches, water
+ *  from nowhere that a Normal drought emptied; since D385 the settle takes such water away, so most
+ *  of these starts now reach none (Near Dinaric Karst Plitvice and Near Mount Taranaki joined the
+ *  list then). Real places 2 gives the places their water (D300) and empties the list. */
+export const PLACES_START_WITHOUT_FED_WATER = new Set([
   "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bungle-bungle",
   "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau",
-  "near-death-valley", "near-deccan-plateau", "near-drumheller", "near-english-lake-district",
-  "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls", "near-kinabatangan-river",
-  "near-lake-toba", "near-mount-mayon", "near-na-pali-coast", "near-ngorongoro",
-  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-taklimakan-kunlun-fan",
-  "near-tibetan-plateau", "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river",
-  "near-victoria-falls", "near-waimakariri-river", "near-yosemite-valley",
+  "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice", "near-drumheller",
+  "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
+  "near-kinabatangan-river", "near-lake-toba", "near-mount-mayon", "near-mount-taranaki",
+  "near-na-pali-coast", "near-ngorongoro", "near-niagara-falls", "near-paricutin", "near-phong-nha",
+  "near-taklimakan-kunlun-fan", "near-tibetan-plateau", "near-tsingy-bemaraha", "near-twelve-apostles",
+  "near-uvac-river", "near-victoria-falls", "near-waimakariri-river", "near-yosemite-valley",
+]);
+
+/** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
+ *  pre-fill's puddles kept moist (water from nowhere, see above); with that water gone, some stand on
+ *  dry soil, which `plants.survive` flags (a playability check: it warns in the export profile).
+ *  Real places 2 plants them by the settled water and empties the list. */
+export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
+  "near-alaknanda-and-bhagirathi", "near-atacama-fan", "near-badlands-national-park", "near-bardenas-reales",
+  "near-blue-mountains-jamison", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
+  "near-bungle-bungle", "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
+  "near-colorado-plateau", "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice",
+  "near-drakensberg-amphitheatre", "near-drumheller", "near-ethiopian-highlands", "near-finnish-saimaa",
+  "near-fish-river-canyon", "near-goosenecks-san-juan", "near-grand-canyon-colorado", "near-iguazu-falls",
+  "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay", "near-kinabatangan-river",
+  "near-lake-toba", "near-lauterbrunnen", "near-lower-mississippi-oxbows", "near-milford-sound",
+  "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast", "near-niagara-escarpment-hamilton",
+  "near-niagara-falls", "near-painted-desert", "near-paricutin", "near-sete-cidades",
+  "near-skeidara-outwash", "near-taklimakan-kunlun-fan", "near-tibetan-plateau", "near-todgha-gorge",
+  "near-torres-del-paine", "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river",
+  "near-yosemite-valley",
+]);
+
+/** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'
+ *  moist ground, so `start.food` (a playability check, a warning in the export profile) now finds
+ *  too few living ones. Real places 2 plants them by the settled water and empties the list. */
+export const PLACES_SHORT_OF_BERRIES = new Set([
+  "near-atacama-fan", "near-cliffs-of-moher", "near-dinaric-karst-plitvice", "near-iguazu-falls",
+  "near-lake-toba", "near-mount-taranaki", "near-uvac-river", "near-yosemite-valley",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
- *  flow, the missing mine site and badwater source, the starting wood and the start's water), and
- *  which of them fail. */
-export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean } {
+ *  flow, the missing mine site and badwater source, the starting wood, the start's water and
+ *  berries, and plants on dry soil), and which of them fail. */
+export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean; food: boolean; plants: boolean } {
   const all = failing(checks);
   const known = (f: string) =>
     f.startsWith("terrain.edge_wall:") ||
@@ -126,7 +157,9 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     f.startsWith("resources.badwater_source:") ||
     f.startsWith("start.wood:") ||
     f.startsWith("start.wood_floor:") ||
-    (f.startsWith("start.water:") && f.includes("sealed puddle"));
+    f.startsWith("start.water:") ||
+    f.startsWith("start.food:") ||
+    f.startsWith("plants.survive:");
   return {
     other: all.filter((f) => !known(f)),
     edgeWall: all.some((f) => f.startsWith("terrain.edge_wall:")),
@@ -136,6 +169,8 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     wood: all.some((f) => f.startsWith("start.wood:")),
     floor: all.some((f) => f.startsWith("start.wood_floor:")),
     startWater: all.some((f) => f.startsWith("start.water:")),
+    food: all.some((f) => f.startsWith("start.food:")),
+    plants: all.some((f) => f.startsWith("plants.survive:")),
   };
 }
 
@@ -143,7 +178,8 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
  *  validate, write), passes the export profile and every check of the generate profile but its known
  *  faults, which flag it as long as the places have them (`PLACES_HAVE_EDGE_WALLS`,
  *  `PLACES_SOURCES_IN_FLOW`, `PLACES_LACK_MINE_SITES`, `PLACES_LACK_BADWATER`, `PLACES_SHORT_OF_WOOD`,
- *  `PLACES_BELOW_THE_FLOOR`), and is the same bytes as the index records. */
+ *  `PLACES_BELOW_THE_FLOOR`, `PLACES_START_WITHOUT_FED_WATER`, `PLACES_SHORT_OF_BERRIES`,
+ *  `PLACES_PLANTS_ON_DRY_SOIL`), and is the same bytes as the index records. */
 export function checkShard(k: number, n: number): void {
   const places = INDEX.places.filter((_, i) => i % n === k);
   describe(`real places ${k + 1} of ${n}: every map validates and is the same file`, () => {
@@ -165,7 +201,9 @@ export function checkShard(k: number, n: number): void {
       expect(f.badwater).toBe(PLACES_LACK_BADWATER);
       expect(f.wood).toBe(PLACES_SHORT_OF_WOOD.has(entry.id));
       expect(f.floor).toBe(PLACES_BELOW_THE_FLOOR.has(entry.id));
-      expect(f.startWater).toBe(PLACES_START_WATER_A_PUDDLE.has(entry.id));
+      expect(f.startWater).toBe(PLACES_START_WITHOUT_FED_WATER.has(entry.id));
+      expect(f.food).toBe(PLACES_SHORT_OF_BERRIES.has(entry.id));
+      expect(f.plants).toBe(PLACES_PLANTS_ON_DRY_SOIL.has(entry.id));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works

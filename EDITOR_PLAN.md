@@ -756,6 +756,12 @@ opened, are listed but never blamed on the player's edits and do not block its e
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
     settle's, except under roofs.
+  - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
+    stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
+    settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
+    pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
+    (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
+    §10; `tests/contract/waterFromNowhere.test.ts`).
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
