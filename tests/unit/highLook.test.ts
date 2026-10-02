@@ -15,7 +15,7 @@ import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DRO
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
 import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
 import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
-import { currentOf } from "../../src/render3d/current";
+import { outflowsOf } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
 import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
@@ -198,8 +198,8 @@ describe("the water's flow (the settle's own current, D353)", () => {
       }
     }
     const view = waterFromDepth(heights, depth, cont);
-    const current = currentOf(view, W, H, out);
-    if (current) view.current = current;
+    const outflow = outflowsOf(view, W, H, out);
+    if (outflow) view.outflow = outflow;
     return { W, H, heights, view, sw: surfaceWater(W, H, view) };
   };
 
@@ -215,9 +215,9 @@ describe("the water's flow (the settle's own current, D353)", () => {
 
   it("is missing without outflows (still water, never a guess from the surface)", () => {
     const { W, H, view } = scene();
-    expect(currentOf(view, W, H, undefined)).toBeUndefined();
-    expect(currentOf(view, W, H, new Float64Array(4))).toBeUndefined();
-    const { current: _, ...plain } = view;
+    expect(outflowsOf(view, W, H, undefined)).toBeUndefined();
+    expect(outflowsOf(view, W, H, new Float64Array(4))).toBeUndefined();
+    const { outflow: _, ...plain } = view;
     expect(surfaceWater(W, H, plain).current.every((v) => v === 0)).toBe(true);
   });
 

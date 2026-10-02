@@ -249,7 +249,7 @@ export class WaterMotion {
     const id = ++this.latest;
     const sw = p.surface;
     // (copies the worker takes over: the view keeps its own)
-    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), current: sw.current.slice(), lower: [] };
+    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), current: sw.current.slice(), outflow: new Float32Array(0), hasOutflow: false, lower: [] };
     const heights = p.heights.slice();
     const transfer = [copy.surface, copy.floor, copy.depth, copy.contamination, copy.current, heights].map((a) => a.buffer as ArrayBuffer);
     void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy }, transfer).then((r) => {

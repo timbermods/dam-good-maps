@@ -5,6 +5,7 @@
 // Coordinates: tile (x, y) with x east and y north, as in the game. The renderer's world space is
 // X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up.
 
+import { currentOf } from "./current";
 import { contaminationByte, moistureByte } from "./palette";
 
 export const LAYERS = 23;
@@ -56,9 +57,9 @@ export interface WaterView {
   depth: Float32Array;
   /** Badwater share, 0–1. */
   contamination: Float32Array;
-  /** The water's current at each column (x, y: two a column, tiles a second; current.ts), from the
-   *  settle's outflows; missing where the worker had none (still water). Only drawn. */
-  current?: Float32Array;
+  /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
+   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+  outflow?: Float32Array;
 }
 
 /** Soil per tile, as bytes (palette.ts `moistureByte`, `contaminationByte`): moisture above 0
@@ -130,6 +131,9 @@ export interface SurfaceWater {
   /** The surface water's current (x, y: two a tile, tiles a second; current.ts); zero where still or
    *  where the view has none. */
   current: Float32Array;
+  /** The surface water's outflows (four a tile, current.ts), when the view has them (`hasOutflow`). */
+  outflow: Float32Array;
+  hasOutflow: boolean;
   /** Columns below the surface one (water in caves), as indices into the view. */
   lower: number[];
 }
@@ -140,8 +144,8 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
   const floor = new Float32Array(N).fill(NaN);
   const depth = new Float32Array(N);
   const contamination = new Float32Array(N);
-  const current = new Float32Array(N * 2);
-  const c = w.current;
+  const outflow = new Float32Array(N * 4);
+  const o = w.outflow;
   const top = new Int32Array(N).fill(-1);
   const lower: number[] = [];
   for (let k = 0; k < w.count; k++) {
@@ -157,12 +161,10 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
     depth[i] = w.depth[k];
     surface[i] = w.floor[k] + w.depth[k];
     contamination[i] = w.contamination[k];
-    if (c) {
-      current[i * 2] = c[k * 2];
-      current[i * 2 + 1] = c[k * 2 + 1];
-    }
+    if (o) outflow.set(o.subarray(k * 4, k * 4 + 4), i * 4);
   }
-  return { surface, floor, depth, contamination, current, lower };
+  const current = o ? currentOf(W, H, outflow, depth) : new Float32Array(N * 2);
+  return { surface, floor, depth, contamination, current, outflow, hasOutflow: !!o, lower };
 }
 
 /** The voxel columns as a map from tile index to its 23 voxels. */
@@ -248,7 +250,7 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
     add(v.columns.tiles);
     add(v.columns.voxels);
   }
-  if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination]) add(a);
+  if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
   if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination]) add(a);
   if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
   return out;

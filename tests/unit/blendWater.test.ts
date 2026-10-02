@@ -1,6 +1,6 @@
 // The water journey's easing frames (waterPlayer.ts), blended in typed arrays and only when shown (R1, the
 // performance audit's water blending): the same water as the original blend, column for column, with the
-// current blended too (D353), caves' several columns a tile included.
+// outflows blended too (D353), caves' several columns a tile included.
 
 import { describe, expect, it, vi } from "vitest";
 import { blendWater, WaterPlayer } from "../../src/editor/waterPlayer";
@@ -14,9 +14,9 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
   const floor: number[] = [];
   const depth: number[] = [];
   const contamination: number[] = [];
-  const current: number[] = [];
-  const ca = a.current;
-  const cb = b.current;
+  const outflow: number[] = [];
+  const ca = a.outflow;
+  const cb = b.outflow;
   const seen = new Set<number>();
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
@@ -26,7 +26,7 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
     floor.push(b.floor[k]);
     depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
     contamination.push((j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t);
-    if (cb) for (let c = 0; c < 2; c++) current.push((j === undefined || !ca ? cb[k * 2 + c] : ca[j * 2 + c]) * (1 - t) + cb[k * 2 + c] * t);
+    if (cb) for (let c = 0; c < 4; c++) outflow.push((j === undefined || !ca ? cb[k * 4 + c] : ca[j * 4 + c]) * (1 - t) + cb[k * 4 + c] * t);
   }
   for (let k = 0; k < a.count; k++) {
     const i = a.tile[k];
@@ -37,10 +37,10 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
     floor.push(a.floor[k]);
     depth.push(d);
     contamination.push(a.contamination[k]);
-    if (cb) current.push(ca ? ca[k * 2] : 0, ca ? ca[k * 2 + 1] : 0);
+    if (cb) for (let c = 0; c < 4; c++) outflow.push(ca ? ca[k * 4 + c] : 0);
   }
   const w: WaterView = { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
-  if (cb) w.current = Float32Array.from(current);
+  if (cb) w.outflow = Float32Array.from(outflow);
   return w;
 }
 
@@ -63,13 +63,13 @@ function view(N: number, withCurrent: boolean): WaterView {
     depth: Float32Array.from(tiles, () => (rnd() < 0.1 ? rnd() * 0.002 : rnd() * 3)),
     contamination: Float32Array.from(tiles, () => (rnd() < 0.7 ? 0 : rnd())),
   };
-  if (withCurrent) w.current = Float32Array.from({ length: n * 2 }, () => rnd() * 6 - 3);
+  if (withCurrent) w.outflow = Float32Array.from({ length: n * 4 }, () => rnd() * 3);
   return w;
 }
 
 const same = (x: WaterView, y: WaterView) => {
   expect(x.count).toBe(y.count);
-  for (const k of ["tile", "floor", "depth", "contamination", "current"] as const) {
+  for (const k of ["tile", "floor", "depth", "contamination", "outflow"] as const) {
     const p = x[k];
     const q = y[k];
     expect(!!p).toBe(!!q);
@@ -78,7 +78,7 @@ const same = (x: WaterView, y: WaterView) => {
 };
 
 describe("the journey's easing frames (R1)", () => {
-  it("blend as the original did, with and without the current, at every step", () => {
+  it("blend as the original did, with and without the outflows, at every step", () => {
     for (const N of [50, 4096, 70000])
       for (const [ca, cb] of [
         [true, true],

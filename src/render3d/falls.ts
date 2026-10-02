@@ -16,12 +16,13 @@
 //   outer corner and stopping short at an inner one (a mitre, `END`), so no gap opens between them
 //   as they arc out; only a free end is closed (the thickness shows) and frays.
 //
-// The flow at the lip: the view carries no flow, and needs none. At a drop the water simulation
-// empties the lip tile every substep (its outflow is clamped to the water it holds), so the water
-// pouring over a side per second is the lip's depth over the substep (sim/water.ts DT), shared among
-// the sides it flows out of by their head, as the simulation shares it (`lipOutflow`; within a few
-// per cent of the simulation's own outflow at the falls of the generated maps, tested). So the falls
-// follow every water update, and the live water's frames, with nothing more sent.
+// The flow at the lip: the simulation's own outflow over that side, which every water view carries
+// (current.ts, D353; tests/contract/fallOutflow.test.ts pins every lip to the settle, the map's edge
+// included). Water with no outflows (a force's own water while it plays) is estimated instead: at a
+// drop the simulation empties the lip tile every substep, so the water pouring over a side per second
+// is the lip's depth over the substep (sim/water.ts DT), shared among the sides it flows out of by
+// their head (within a few per cent of the simulation's own outflow at most falls; it gives the map's
+// edge no share, so a lip pouring off the map was drawn far too strong, M9b's finding).
 //
 // Cheap on 256² maps with many falls: each fall is one instance (16 floats) of a small shared
 // template (`fallTemplate`), which the vertex shader bends into the arc (materials.ts
@@ -141,14 +142,19 @@ export function firstCorner(x: number, y: number, k: number): [number, number] {
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
+/** The simulation's direction (current.ts's outflow order −y, −x, +y, +x) of each side k. */
+const SIM_SIDE = [3, 1, 2, 0];
+
 /** The water pouring over side k of tile i each second, per tile of edge (see the file comment):
- *  the tile's depth over the simulation's substep, shared among the sides it flows out of by their
- *  head (the neighbour's water surface, or its ground where dry; none where the neighbour's floor
- *  stands at the water's surface or above it; the map's edge counts for none). */
+ *  the simulation's own outflow over that side; without outflows, the tile's depth over the
+ *  simulation's substep, shared among the sides it flows out of by their head (the neighbour's water
+ *  surface, or its ground where dry; none where the neighbour's floor stands at the water's surface or
+ *  above it; the map's edge counts for none). */
 export function lipOutflow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, x: number, y: number, k: number): number {
   const i = y * W + x;
   const s = sw.surface[i];
   if (!(s === s)) return 0;
+  if (sw.hasOutflow) return sw.outflow[i * 4 + SIM_SIDE[k]];
   let sum = 0;
   let mine = 0;
   for (let kk = 0; kk < 4; kk++) {

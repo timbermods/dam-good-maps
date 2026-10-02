@@ -45,7 +45,7 @@ const EASE = 16;
 let columnOf = new Int32Array(0).fill(-1);
 let inLater = new Uint8Array(0);
 
-/** Water between two frames (t from 0 to 1): each tile's depth, contamination and current in between,
+/** Water between two frames (t from 0 to 1): each tile's depth, contamination and outflows in between,
  *  its floor from the later frame. */
 export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   let most = -1;
@@ -57,14 +57,14 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   }
   // (a tile with several columns, under caves: its last one, as a map lookup would keep)
   for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = k;
-  const ca = a.current;
-  const cb = b.current;
+  const ca = a.outflow;
+  const cb = b.outflow;
   const most2 = a.count + b.count;
   const tile = new Int32Array(most2);
   const floor = new Float32Array(most2);
   const depth = new Float32Array(most2);
   const contamination = new Float32Array(most2);
-  const current = cb ? new Float32Array(most2 * 2) : null;
+  const outflow = cb ? new Float32Array(most2 * 4) : null;
   let n = 0;
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
@@ -74,7 +74,7 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     floor[n] = b.floor[k];
     depth[n] = (j < 0 ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
     contamination[n] = (j < 0 ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t;
-    if (current) for (let c = 0; c < 2; c++) current[n * 2 + c] = (j < 0 || !ca ? cb![k * 2 + c] : ca[j * 2 + c]) * (1 - t) + cb![k * 2 + c] * t;
+    if (outflow) for (let c = 0; c < 4; c++) outflow[n * 4 + c] = (j < 0 || !ca ? cb![k * 4 + c] : ca[j * 4 + c]) * (1 - t) + cb![k * 4 + c] * t;
     n++;
   }
   for (let k = 0; k < a.count; k++) {
@@ -86,16 +86,13 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     floor[n] = a.floor[k];
     depth[n] = d;
     contamination[n] = a.contamination[k];
-    if (current && ca) {
-      current[n * 2] = ca[k * 2];
-      current[n * 2 + 1] = ca[k * 2 + 1];
-    }
+    if (outflow && ca) outflow.set(ca.subarray(k * 4, k * 4 + 4), n * 4);
     n++;
   }
   for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = -1;
   for (let k = 0; k < b.count; k++) inLater[b.tile[k]] = 0;
   const w: WaterView = { count: n, tile: tile.slice(0, n), floor: floor.slice(0, n), depth: depth.slice(0, n), contamination: contamination.slice(0, n) };
-  if (current) w.current = current.slice(0, n * 2);
+  if (outflow) w.outflow = outflow.slice(0, n * 4);
   return w;
 }
 

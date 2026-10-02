@@ -841,9 +841,10 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
     force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
-  - The moving water (D353): the water worker adds the settle's own current to every water view it sends
-    (`render3d/current.ts`: the outflows net across each face, over the depth; an imported map's stored outflows),
-    never estimated from the surface's slope. The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
+    view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
+    the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
+    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.

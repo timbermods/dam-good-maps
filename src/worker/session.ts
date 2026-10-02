@@ -85,7 +85,7 @@ import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth } from "../core/features/raster/brush";
-import { currentOf } from "../render3d/current";
+import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -283,15 +283,15 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-/** The water the view shows, with its current (the moving water, current.ts): the live water's own
- *  outflows, else the settle's, else the stored file's. */
+/** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
+ *  water's own, else the settle's, else the stored file's. */
 function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const view = columnsWaterOf(s, live, ground);
-  // (a build without the current, for measuring its own cost: tools/smooth)
+  // (a build without the outflows, for measuring their own cost: tools/smooth)
   if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
   const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
-  const current = currentOf(view, s.size.x, s.size.y, out);
-  if (current) view.current = current;
+  const outflow = outflowsOf(view, s.size.x, s.size.y, out);
+  if (outflow) view.outflow = outflow;
   return view;
 }
 
