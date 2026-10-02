@@ -84,6 +84,11 @@ settings experiment 30 of 34 (below), the rest green.
 - **Lake Basin round 2**: its adoption waits for a quiet-machine timing showing it is no slower than
   today (its own report: revised first land 4.8 / 8.4 / 15.3 s median at 96² / 128² / 256² under load).
 - Speed at 256² against `dev` (D380: M9b must not release slower).
+- **Runner for all four** (`chore/m9b-quiet-window`): `node investigation/m9b/quiet-window.mjs` waits for a quiet
+  machine, then times them with paired, interleaved, repeated runs and writes `local/quiet-window/<stamp>/summary.md`;
+  `--plan` gives the estimate (about 2 hours at 3 lanes), `--smoke` proves the pipeline on tiny inputs. Its header says
+  what each timing compares (refs, seeds, repeats). Lake Basin round 2 is `quiet-window/lake-basin-round2.patch`, the
+  investigation's patch ported to the tip.
 
 ### For the page session (its three dependencies, all on `feature/m9b`)
 
