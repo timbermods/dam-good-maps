@@ -3,6 +3,32 @@
    words, a cream bar). A button is a raised piece of the wood. One height (38px) and one gap (6px) for every
    plate outside the panel; everything sits 12px from the window's edge. */
 
+/* how much of each edge of the map's canvas the panels take: the view fits the map in what is left
+   (`MapRenderer.frameMap`). Registered as lengths, so they compute to pixels. */
+@property --frame-left {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --frame-top {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --frame-right {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --frame-bottom {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 :root {
   --wood: rgba(43, 34, 28, 0.94);
   --wood-solid: #2b221c;
@@ -174,6 +200,13 @@ body {
   --panel-w: 340px;
   --rows-left: calc(var(--edge) + var(--panel-w) + var(--edge));
   --right-w: 176px;
+  /* the rows' plate: 622px, so at 1366 wide it ends exactly one edge (12px) short of Save's plate; four lines */
+  --rows-w: 622px;
+  --rows-h: 156px;
+  --frame-left: var(--rows-left);
+  --frame-top: calc(var(--edge) + var(--rows-h) + var(--gap));
+  --frame-right: calc(var(--edge) + var(--right-w) + var(--edge));
+  --frame-bottom: calc(var(--edge) + var(--h) + var(--gap));
 }
 
 .workspace.panel-collapsed {
@@ -656,7 +689,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  width: fit-content;
+  width: var(--rows-w);
   max-width: calc(100% - var(--rows-left) - 380px);
   padding: 0 5px;
   pointer-events: auto;
@@ -677,13 +710,10 @@ body {
   border-top: 0;
 }
 
-/* the view bar alone sets the plate's width: the other lines wrap inside it and never widen it */
-.workspace .rows-plate > .map-bar:not(.view-row) {
-  contain: inline-size;
-}
+/* the plate's width never changes: every line wraps inside it */
 
 .workspace .rows-plate > .view-row {
-  /* one line wherever it fits; where the window is too narrow for it (a ninth toggle at 1366 wide), a second */
+  /* one line; a map with roofed water has a ninth toggle, and the bar takes a second line */
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 3px;
@@ -828,6 +858,13 @@ body {
 
 .workspace .checks-dot.ok .dot {
   box-shadow: 0 0 8px rgba(127, 196, 107, 0.6);
+}
+
+/* the words keep one width, so Save9s plate never changes size */
+.workspace .checks-dot .dot-words {
+  width: 78px;
+  text-align: left;
+  white-space: nowrap;
 }
 
 /* (the words say how many; the count stays for whoever reads the markup) */

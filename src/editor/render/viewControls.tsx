@@ -22,14 +22,14 @@ export function levelLinesButton(ed: Ed) {
 }
 
 export function viewButtons(ed: Ed) {
-  const { clearWater, setClearWater, waterLayers, layer, setLayer, minimap, setMinimap } = ed;
+  const { clearWater, setClearWater, waterLayers, hasRoofed, layer, setLayer, minimap, setMinimap } = ed;
 
   return (
     <>
       <button type="button" aria-pressed={clearWater} onClick={() => setClearWater(!clearWater)} {...tip("See through the water", "T")}>
         Clear water
       </button>
-      {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
+      {(["badwater", ...(hasRoofed || waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
         <button type="button" key={k} aria-pressed={layer === k} onClick={() => setLayer(layer === k ? "none" : k)} title={`Show ${LAYER_NAMES[k].toLowerCase()}`}>
           {OVERLAY_WORDS[k]}
         </button>

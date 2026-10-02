@@ -18,6 +18,8 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
 export interface PaintSlice {
+  /** The map has water under roofs (asked once when it opens): the view bar has its Under roofs toggle. */
+  hasRoofed: boolean;
   brushTool: BrushTool | null;
   brush: BrushSettings;
   brushRef: { current: BrushSettings };
@@ -236,6 +238,17 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     };
   }, [info.version]);
 
+  // whether the map has water under roofs, asked once when it opens: its toggle is in the view bar from the
+  // start, so the bar never grows a line while the player works
+  const [hasRoofed, setHasRoofed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void enqueue(() => api.waterLayers()).then((l) => live && setHasRoofed(l.roofed.length > 0));
+    return () => {
+      live = false;
+    };
+  }, []);
+
   // the water layer on show: fetched again after every change of the map or its water
   useEffect(() => {
     if (layer === "none") return setLayers(null);
@@ -300,6 +313,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   }, []);
 
   return {
+    hasRoofed,
     brushTool, brush, brushRef, brushToolRef, setBrush, terrain, pendingTerrain, checkStroke, strokeMismatches,
     localUndo, localRedo, painter, sendTerrain, undo, redo, pickTop, putDown, pickBrush, pickShelf, applyFix
   };

@@ -53,7 +53,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
       <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
         {d.count ? <span class="dot-count">{d.count}</span> : null}
-        <span class="dot-words">{d.tone === "wait" ? "Checking…" : d.words}</span>
+        <span class="dot-words">{d.tone === "wait" ? "Checking…" : d.tone === "ok" ? d.words : `${d.count} to look at`}</span>
       </button>
       {p.open ? (
         <div class="checks-list" role="region" aria-label="Checks">

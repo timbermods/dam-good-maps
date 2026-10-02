@@ -128,6 +128,10 @@ export function Panel(p: PanelProps) {
           Generator {GENERATOR_VERSION}. Not affiliated with Mechanistry.{" "}
           <a href="https://github.com/timbermods/dam-good-maps" title="The source code, on GitHub">
             Source
+          </a>{" "}
+          ·{" "}
+          <a href={`${import.meta.env.BASE_URL}licences/Bitter-OFL.txt`} title="The licence of Bitter, the font of the map's name">
+            Font licence
           </a>
         </footer>
         {section ? (

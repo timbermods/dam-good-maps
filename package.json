@@ -31,6 +31,7 @@
     "spike:check": "tsx tools/build-spike.ts && tsx tools/spike-check.ts"
   },
   "dependencies": {
+    "@fontsource/bitter": "^5.3.0",
     "@preact/signals": "^2.11.2",
     "comlink": "^4.4.2",
     "fflate": "^0.8.3",

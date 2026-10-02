@@ -196,4 +196,7 @@ service, you must offer its full source to its users under the same licence.
 The maps you make with Dam Good Maps are yours; the code's licence doesn't cover them. Versions published before
 2026-10-01 stay under the MIT licence they were released with.
 
+A map's name is set in Bitter, by The Bitter Project Authors, under the
+[SIL Open Font License 1.1](public/licences/Bitter-OFL.txt).
+
 Timberborn is a game by Mechanistry; this project is not affiliated with Mechanistry.
