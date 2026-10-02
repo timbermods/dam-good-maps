@@ -1,3 +1,4 @@
+import { mineFootDistance } from "./mineGround";
 // The resource baseline (Kyler's "Resources like the official maps", 2026-09-25): how many trees,
 // berry bushes and how much scrap a map carries for its size and settings, and where they go, as
 // the official maps have them (investigation/official-baselines.json). The generator's
@@ -596,8 +597,7 @@ export function pickMineSite(m: MineGround, rng: Rng, band: { lo: number; hi: nu
       const y = (pick - x) / W;
       const [cx, cy] = coordinatesForMinCorner(size[0], size[1], x, y, orientation);
       const tiles = footprintTiles("UndergroundRuins", { template: "UndergroundRuins", x: cx, y: cy, z: 0, orientation, flipped: false });
-      let d = Infinity;
-      for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) d = Math.min(d, sd[ty * W + tx]);
+      const d = mineFootDistance(sd, W, x, y);
       if (d < least || d > band.hi) continue;
       if (!fits(tiles)) continue;
       return { x, y, orientation, tiles, reachable };

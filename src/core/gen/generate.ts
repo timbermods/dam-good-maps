@@ -75,7 +75,7 @@ import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWant
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
-import { BEHIND_CUT, CLOSE_DISTRICT, districtCandidates, neckCut, planExtras, riseSpots, riseStands } from "./extras";
+import { BEHIND_CUT, CLOSE_DISTRICT, districtCandidates, neckCut, objectKeepOff, planExtras, riseSpots, riseStands } from "./extras";
 import { DISTRICT_RADIUS } from "../features/setpieces/secondDistrict";
 import { lakeFeatures } from "./readback";
 import { planWeir } from "./weir";
@@ -222,8 +222,8 @@ export interface GenerateOptions {
   maxAttempts?: number;
   /** Progress: the attempt and its stage (land, water, start, objects, resources, check). */
   onProgress?: (p: { attempt: number; stage: string }) => void;
-  /** The first look: each attempt's land and its planned water (channels 1, lakes 2, floors 3), as
-   *  soon as they exist. */
+  /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
+   *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
   /** Regeneration constraints (PLAN §7.0). */
   context?: PlanContext | null;
@@ -291,10 +291,11 @@ interface StageBundle {
   plug: ReturnType<typeof planPlug>;
 }
 
-/** A land that passed the land stage (D333 (2), D348): the map from here on, shown at once as
- *  editable land and never replaced. Its water, start, badwater and objects are planned again on it
- *  until an attempt passes; new land is never drawn after it is shown. */
+/** Prepared land retained across attempts. It becomes the fixed, editable map only after its
+ *  actual settled start reaches the required mine pair; new land is never drawn after display. */
 interface LandStage {
+  /** The actual settled start and mine pair have been proved, and onLand fired. */
+  shown: boolean;
   hLand: Uint8Array;
   bundle: StageBundle;
   keep: Uint8Array;
@@ -399,19 +400,27 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // theme's promise, a standout intention; gen/outcomes.ts) are measured for the page: a miss that
   // matters starts a background search for a version that meets all three (gen/versions.ts), never
   // held before the map is shown. Water storage near the start stays a preference of the settler.
-  // D333 (2), D348: the first land that passes the land stage (every check the land alone can judge)
-  // is shown at once (the first look, editable land) and is the map: never replaced. What needs its
-  // settled water is fixed on it (the start where the plan put it, a spring by the start) or planned
-  // again on it (the start, the badwater, the objects), never by drawing new land.
+  // D348/D373: prepared land stays private until the actual settled start reaches its mine pair.
+  // Once shown (the first look, editable land), it is the map and is never replaced. Later water,
+  // start and object fixes retain that land under the existing retry rules.
   let committed: LandStage | null = null;
   let lands = 0;
   // (lands drawn again before one is shown because their planned water misses an outcome)
   const screened = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
     if (committed && land) {
-      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, committed, screened);
+      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, committed, screened);
       const r = attemptDone(a, attempt);
       if (r) return r;
+      // Until the actual start reaches its mine pair, this land is still hidden.
+      // Its exhausted starts or an unrepairable water plan may therefore draw another land.
+      // Once onLand fired, the original D348 retry rules apply unchanged.
+      if (!committed.shown && (a.stuck || a.result.info.stage === "no start")) {
+        committed = null;
+        land = null;
+        if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
+        continue;
+      }
       if (a.stuck) break;
       continue;
     }
@@ -435,10 +444,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const E = orientField(F.E, W, H, o);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max }, t0, null, screened);
+    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
     if (a.stage) {
       committed = a.stage;
-      lands++;
     }
     const r = attemptDone(a, attempt);
     if (r) return r;
@@ -1806,9 +1814,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (info.fillWalls[1] > 0) return fail("terrain.dam_wall", null, true);
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
-      firstLook = Math.round(performance.now() - t0);
-      landStage = { hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
-      opts.onLand?.({ attempt, heights: hLand, water: hy.water });
+      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
     // them already)
@@ -2079,8 +2085,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (what the objects' placement keeps off, gen/extras.ts: the hollows' ground and what the start
   // keeps off, channels, objects, lakes, protected set pieces)
   const roomKeepOf = (b: typeof b1) => {
-    const k = avoidOf(bad, false);
-    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || b.channel[i] || b.occupied[i] || b.cache.terrain.protect[i] || hy.water[i] === 2) k[i] = 1;
+    const k = objectKeepOff(b, [...rivers, ...bad.features], protect, avoidOf(bad, false));
+    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i]) k[i] = 1;
     return k;
   };
   const scale = bandScale(W, H);
@@ -2289,6 +2295,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
     layout.push(...kept);
     base = b2;
+  }
+  // D348/D373: show the shaped land only once the actual settled start and pair
+  // have been proved by the placement and reach functions. A failed hidden attempt
+  // retains its prepared pads and cached settle; exhausted hidden land may redraw.
+  if (landStage && !landStage.shown && minesReachedOn(base) >= wantMines) {
+    landStage.shown = true;
+    landStage.hLand.set(h);
+    firstLook = Math.round(performance.now() - t0);
+    landStage.firstLook = firstLook;
+    opts.onLand?.({ attempt, heights: landStage.hLand, water: hy.water });
   }
   // ---- a second district's site (PLAN §9.8, maps of 128² and up): level land 60–120 tiles out
   //      with its own water, found on the land (it changes no terrain), joined to the start's

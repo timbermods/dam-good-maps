@@ -26,6 +26,7 @@ import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setp
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
+import { mineFootDistance } from "../resources/mineGround";
 import { pickMineSite } from "../resources/baseline";
 import { entityTiles } from "../features/edits";
 
@@ -82,6 +83,29 @@ export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number
 /** Placing order: the biggest footprints first, so they find room. */
 const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMedium", "relicSmall", "unstableCore"];
 
+/** One keep-off mask for mine room and object placement, before adding a start's margin. */
+export function objectKeepOff(b: BuildResult, features: readonly Feature[], protect?: Uint8Array | null, avoid?: Uint8Array | null): Uint8Array {
+  const { W, H } = b;
+  const N = W * H;
+  const blocked = new Uint8Array(N);
+  const margin = FLOOD_MARGIN + 1;
+  for (let i = 0; i < N; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || protect?.[i] || avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
+    if (b.water[i] > WET)
+      for (let dy = -margin; dy <= margin; dy++)
+        for (let dx = -margin; dx <= margin; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
+        }
+  }
+  const beds = lakeBeds(features, b.heights, W, H);
+  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
+  return blocked;
+}
+
 export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   const { spec, base: b } = inp;
   const { W, H } = b;
@@ -101,22 +125,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
   // player's tiles and the map's border
-  const blocked = new Uint8Array(N);
-  const margin = FLOOD_MARGIN + 1;
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || inp.protect?.[i] || inp.avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
-    if (b.water[i] > WET)
-      for (let dy = -margin; dy <= margin; dy++)
-        for (let dx = -margin; dx <= margin; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-        }
-  }
-  const beds = lakeBeds(inp.features, h, W, H);
-  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
+  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 
@@ -209,7 +218,9 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         let found = 0;
         const spots: number[] = [];
         for (let i = 0; i < N && found < still; i++) {
-          if (sq[i] < side || land[i] !== landRoot || sd[i] < lo) continue;
+          const x = i % W;
+          const y = Math.floor(i / W);
+          if (sq[i] < side || land[i] !== landRoot || mineFootDistance(sd, W, x + 1, y + 1) < lo) continue;
           if (spots.some((t) => Math.max(Math.abs((t % W) - (i % W)), Math.abs(Math.floor(t / W) - Math.floor(i / W))) < side + 3)) continue;
           spots.push(i);
           found++;

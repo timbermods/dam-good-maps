@@ -15,3 +15,5 @@ The generator's land processes (`docs/archive/m9-design.md`): a genome drawn fro
 - `intentions.ts` (the set, the nudges, the checks); `narrows.ts` `planNarrows` (an internal operation, no editor tool).
 
 **Tests**: `tests/unit/genome.test.ts`, plus the `gen/` tests, which build whole maps. Run `npx vitest run tests/unit/genome.test.ts`.
+
+Mine room uses the placement's nearest-footprint distance, from the start's 3×3 to the site's 5×5, rather than a square's corner or a centre-distance allowance. The generator supplies the same keep-off mask as object placement, including lake beds, the border and the square water margin.

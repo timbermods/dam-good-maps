@@ -16,6 +16,7 @@ import { distanceFrom } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import * as portable from "../math/portable";
+import { mineDistance } from "../resources/mineGround";
 
 /** A mine site's square: its footprint (5×5) and the ring round it, all at one level. */
 const SIDE = 7;
@@ -32,9 +33,6 @@ export const PAD_MOST = 49;
  *  spreads further, over flats and into ponds. */
 const WATER_MARGIN = 3;
 const PAD_WATER_MARGIN = 5;
-/** How much farther a square's middle stands from the start's than the site's nearest tile from
- *  the start's zone, at most (the footprint's corner, the zone's corner). */
-const REACH_SLACK = 4.5;
 
 const N4 = [
   [1, 0],
@@ -141,7 +139,7 @@ function ownSquares(h: Uint8Array, W: number, H: number, opts: SiteOptions & { f
   const startMask = new Uint8Array(N);
   for (let y = start.y - 1; y <= start.y + 1; y++) for (let x = start.x - 1; x <= start.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) startMask[y * W + x] = 1;
   const sd = distanceFrom(startMask, W, H);
-  const far = (c: number) => sd[c] >= opts.lo + REACH_SLACK;
+  const far = (c: number) => mineDistance(start.x, start.y, c % W, Math.floor(c / W)) >= opts.lo;
   const taken: number[] = [];
   if (root < 0) return { land, root, sd, far, taken };
   // (clear of the water as the objects' placement keeps it, of the kept tiles and the start's zone)
@@ -397,8 +395,6 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
     byLand.set(land[c], list);
   }
   const out = new Uint8Array(N);
-  const reach = opts.lo + REACH_SLACK;
-  const reach2 = reach * reach;
   for (let i = 0; i < N; i++) {
     const list = land[i] >= 0 ? byLand.get(land[i]) : undefined;
     if (!list) continue;
@@ -415,7 +411,7 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
     for (const c of list) {
       const cx = c % W;
       const cy = (c - cx) / W;
-      if ((cx - x) * (cx - x) + (cy - y) * (cy - y) < reach2) continue;
+      if (mineDistance(x, y, cx, cy) < opts.lo) continue;
       n++;
       if (opts.want > 2) farOnes.push(c);
       if (cx < x0) x0 = cx;
