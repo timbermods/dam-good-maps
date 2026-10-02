@@ -198,6 +198,8 @@ describe("water from nowhere, on a synthetic dry plateau (D385)", () => {
     dig(h);
     const lake = { tiles: pit.slice().sort((a, b) => a - b), floor: pit.map(() => 2), depth: pit.map(() => 1.5), contamination: pit.map(() => 0) };
     const m: WaterModel = { ...waterModel(W, H, h, sources), retained: [lake] };
-    expect(deepest(canonicalSettle(m).depth, pit)).toBeGreaterThan(1.2);
+    // (all of it still there but what evaporated over the settle's days)
+    const c = canonicalSettle(m);
+    for (const i of pit) expect(c.depth[i], `tile ${i}`).toBeGreaterThan(0.5);
   });
 });
