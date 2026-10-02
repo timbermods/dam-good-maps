@@ -434,6 +434,9 @@ export class BrushStroke {
   private idle: Uint8Array | null = null;
   private lastIntensity: Float32Array | null = null;
   private lastBox: Rect | null = null;
+  /** The water round the last rectangle (`shoreOf`), and which rectangle it was. */
+  private shoreKey = "";
+  private shoreAt: { shore: [number, number, number, number][]; pools: [number, number, number][] } | null = null;
   private writable: Uint8Array | null = null;
   private readonly water: ArrayLike<number> | null;
   private readonly opts: BrushStrokeOptions;
@@ -610,8 +613,13 @@ export class BrushStroke {
         const i = y * W + x;
         // the pressure gathered (a level's worth weathers fully), faded across the ring's outer part
         // by distance: fully within three tenths of the radius of a dab, nothing beyond nine tenths
+        const a = this.acc[i];
+        if (!(a > 0)) {
+          I[i] = 0;
+          continue;
+        }
         const near = portable.sqrt(1 - portable.sqrt(reach[i] / 256));
-        I[i] = Math.min(1, this.acc[i] / LEVEL) * Math.max(0, Math.min(1, (0.9 - near) / 0.6));
+        I[i] = Math.min(1, a / LEVEL) * Math.max(0, Math.min(1, (0.9 - near) / 0.6));
       }
     // and never a tile beside one it leaves alone, so its edge meets the land round it as it was
     // (the box's ring is outside the brush: nothing there)
@@ -657,8 +665,14 @@ export class BrushStroke {
     let pools = this.settings.pools ?? null;
     const { depth, shown, record } = this.opts;
     if (!shore && !pools && depth && shown) {
-      ({ shore, pools } = shoreOf(box, shown, depth, W));
-      record?.(shore, pools);
+      // (the same rectangle as the last dab's: the same water round it)
+      const key = `${box.x0},${box.y0},${box.x1},${box.y1}`;
+      if (this.shoreKey !== key) {
+        this.shoreKey = key;
+        this.shoreAt = shoreOf(box, shown, depth, W);
+        record?.(this.shoreAt.shore, this.shoreAt.pools);
+      }
+      ({ shore, pools } = this.shoreAt!);
     }
     const cache = (this.cache ??= new WeatherCache(before, W, H));
     weather({ W, H, box, before, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, shore, pools, cache }, this.heights);

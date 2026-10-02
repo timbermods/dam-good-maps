@@ -5,14 +5,19 @@
 //
 // - Edges wander: every level's edge, read softly (a binomial blur), moves in or out along one smooth
 //   noise, a line that curves in and out by a few tiles and never frays; stacked edges move together,
-//   so a cliff stays a cliff. The curves' size follows Size, how far they move follows Strength. The
+//   so a cliff stays a cliff. The curves are as wide as Size and at least a few tiles more than
+//   Strength, so a strong stroke bends a straight edge in and out by several tiles. The
 //   noise is fixed to the map's tiles (never the stroke's seed), and the soft reading pulls a wandered
 //   edge back toward its smooth course, so painting the same spot again changes less and less:
 //   repeating settles. Knobs and spurs narrower than the softness wear away; nothing small grows.
-// - Cliffs retreat: a cliff of three levels or more sheds into the stepped slope scree makes, a level
-//   each tread (two tiles or more, as Strength and the map's noise say) up from the middle of the
-//   cliff and down from it, its edges wandering along the noise: its top pulled back, its foot an
-//   irregular apron. A slope once shed has no cliff left to shed.
+// - Cliffs retreat: a cliff of three levels or more sheds into the stepped slope scree makes, up from
+//   the middle of the cliff and down from it in steps mostly two levels tall, treads two tiles or more
+//   (wider with Strength, and varying along the cliff as the map's noise says), its edges wandering:
+//   its top pulled back, its foot an apron that runs out in lobes. It sheds only so far round the
+//   cliff (taller cliffs farther, unevenly along their length). A slope once shed has no cliff left.
+// - Old land has fewer terraces: a narrow stretch of a terrace joins the level it borders most, whole,
+//   where that takes away more of the land's edges than it adds; the land keeps its shape in fewer,
+//   chunkier, irregular terraces.
 // - Flat tops stay flat: nothing moves farther from an edge than the edge itself does.
 // - No seam: the effect fades out across the ring's outer part (`intensity`), and a cliff sheds only
 //   where the stroke presses (the slope narrowing into the cliff beside it).
@@ -64,6 +69,20 @@ export interface WeatherInput {
   /** What it may keep between the dabs of one stroke (`WeatherCache`, on the same `before`). */
   cache?: WeatherCache | null;
 }
+
+// Work buffers kept between dabs (a large brush's rectangle is tens of thousands of tiles, worked
+// through several times a dab): each is the first `n` items of one kept array, its contents whatever
+// was last left there (each use fills what it reads first). Nothing here is ever reentered.
+const POOL = new Map<string, Uint8Array | Int16Array | Int32Array | Float32Array>();
+function pooled<T extends Uint8Array | Int16Array | Int32Array | Float32Array>(name: string, n: number, make: (n: number) => T): T {
+  let a = POOL.get(name) as T | undefined;
+  if (!a || a.length < n) POOL.set(name, (a = make(Math.max(n, a ? a.length * 2 : 0))));
+  return a.subarray(0, n) as T;
+}
+const u8 = (name: string, n: number) => pooled(name, n, (m) => new Uint8Array(m));
+const i16 = (name: string, n: number) => pooled(name, n, (m) => new Int16Array(m));
+const i32 = (name: string, n: number) => pooled(name, n, (m) => new Int32Array(m));
+const f32 = (name: string, n: number) => pooled(name, n, (m) => new Float32Array(m));
 
 /** Water deeper than this stands on a tile. */
 const WET = 1e-3;
@@ -117,12 +136,21 @@ const CLIFF_ROOM = 3;
  *  runs: an edge never wanders out over it (scree may still fall there; the guard keeps it from damming
  *  anything). */
 const CHANNEL = 80;
+/** A tile that this many tiles drain through (in the stroke's rectangle, before it) is where a stream
+ *  runs: no scree falls on it. */
+const STREAM = 320;
 /** How far the noise pushes a softened edge (under a half: flat ground far from any edge never moves). */
 const WANDER_PUSH = 0.45;
 
 /** The wander's wavelength in tiles: follows Size, within what reads as a terrace's edge. */
-export function wanderCell(size: number): number {
-  return Math.max(4, Math.min(16, Math.round(size * 1.25)));
+export function wanderCell(size: number, strength = 1): number {
+  return Math.max(4, Math.min(16, Math.max(Math.round(size * 1.25), 2 + Math.max(1, Math.min(10, strength)))));
+}
+
+/** How far round a cliff its ground sheds, in tiles (the map's noise takes it from six tenths of this
+ *  to fourteen tenths): farther with Strength. */
+export function screeReach(strength: number): number {
+  return 1 + 0.2 * Math.max(1, Math.min(10, strength));
 }
 
 /** The scree's treads, in tiles: the narrowest, and how many more where the map's noise says (the
@@ -130,7 +158,7 @@ export function wanderCell(size: number): number {
  *  Strength. */
 export function shedTread(strength: number): [number, number] {
   const s = Math.max(1, Math.min(10, strength));
-  return s <= 3 ? [2, 0] : s <= 7 ? [2, 1] : [2, 2];
+  return s <= 3 ? [2, 0] : s <= 7 ? [2, 2] : [3, 3];
 }
 
 
@@ -143,8 +171,8 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
   const bh = box.y1 - box.y0 + 1;
   if (bw < 3 || bh < 3) return null;
   const n = bw * bh;
-  const h0 = new Uint8Array(n);
-  const I = new Float32Array(n);
+  const h0 = u8("h0", n);
+  const I = f32("I", n).fill(0);
   let any = false;
   for (let y = 0; y < bh; y++)
     for (let x = 0; x < bw; x++) {
@@ -161,45 +189,13 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
   let h: Uint8Array = h0;
   if (any) {
     const cache = inp.cache ?? new WeatherCache(inp.before, W, inp.H);
-    // what it must leave as it is, known before the land moves: where water stood (`wet`: a shore
-    // tile never below the water beside it, a wet tile never raised), and, for the wander, the way
-    // water runs (`hi`: a tile that drains CHANNEL tiles or more is never raised)
-    const lo = new Uint8Array(n);
-    const hi = new Uint8Array(n).fill(255);
-    for (const [y, a, b, level] of inp.shore ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) lo[(y - box.y0) * bw + x - box.x0] = Math.max(0, Math.min(255, level));
-    for (const [y, a, b] of inp.pools ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) hi[(y - box.y0) * bw + x - box.x0] = h0[(y - box.y0) * bw + x - box.x0];
-    const wet = hi.slice();
-    const ring = ringLevels(h0, bw, bh, inp.rim ?? null);
-    const w0 = new Int16Array(n);
-    const area = new Float64Array(n);
-    flood(h0, ring, bw, bh, w0, area);
-    for (let k = 0; k < n; k++) {
-      if (area[k] >= CHANNEL) hi[k] = h0[k];
-      // the shore of standing water: a dry tile beside it never comes down to within a level of it
-      // (water that flows stands a little over its lip, and would spread onto it)
-      const x = k % bw;
-      const y = (k - x) / bw;
-      if (x === 0 || y === 0 || x === bw - 1 || y === bh - 1 || w0[k] > h0[k]) continue;
-      for (const j of [k - 1, k + 1, k - bw, k + bw]) if (w0[j] > h0[j]) lo[k] = Math.max(lo[k], w0[j] + 1);
-    }
-    for (let k = 0; k < n; k++) {
-      lo[k] = Math.min(h0[k], lo[k]);
-      if (hi[k] < h0[k]) hi[k] = h0[k];
-      if (wet[k] < h0[k]) wet[k] = h0[k];
-    }
-    // a cliff of three levels or more, and the ground a few tiles round it, is left to shed: edges
-    // wander only away from cliffs
-    const still = new Uint8Array(n);
-    for (let y = 1; y < bh - 1; y++)
-      for (let x = 1; x < bw - 1; x++) {
-        const k = y * bw + x;
-        const v = h0[k];
-        if (Math.abs(v - h0[k + 1]) < 3 && Math.abs(v - h0[k + bw]) < 3) continue;
-        for (let yy = Math.max(0, y - CLIFF_ROOM); yy <= Math.min(bh - 1, y + 1 + CLIFF_ROOM); yy++)
-          for (let xx = Math.max(0, x - CLIFF_ROOM); xx <= Math.min(bw - 1, x + 1 + CLIFF_ROOM); xx++) still[yy * bw + xx] = 1;
-      }
+    // (the same rectangle as the last dab's: the same land and water before it, worked out once)
+    const key = `${box.x0},${box.y0},${box.x1},${box.y1}`;
+    const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key));
+    const { lo, hi, wet, shedHi, ring, w0, still } = p;
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, wet);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi);
+    settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water
     for (let y = 1; y < bh - 1; y++)
@@ -217,7 +213,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         v = Math.max(lo[k], Math.min(wet[k], v));
         h[k] = v;
       }
-    keepOrder(h, h0, I, bw, bh, ring, w0, lo, wet);
+    keepOrder(h, h0, I, bw, bh, ring, w0, lo, wet, p);
   }
   let changed: Rect | null = null;
   for (let y = 0; y < bh; y++)
@@ -236,6 +232,68 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
       }
     }
   return changed;
+}
+
+/** What a weathering must leave as it is in its rectangle, known before the land moves (it depends only
+ *  on the land before the stroke, the rectangle, and where the water stood). */
+interface Prepared {
+  key: string;
+  lo: Uint8Array;
+  hi: Uint8Array;
+  wet: Uint8Array;
+  shedHi: Uint8Array;
+  ring: Int16Array;
+  w0: Int16Array;
+  still: Uint8Array;
+  /** The ways water could leave it before the stroke, worked out when first asked. */
+  passages?: Passages;
+}
+
+function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key: string): Prepared {
+  const { box } = inp;
+  const n = bw * bh;
+  // what it must leave as it is, known before the land moves: where water stood (`wet`: a shore
+  // tile never below the water beside it, a wet tile never raised), and, for the wander, the way
+  // water runs (`hi`: a tile that drains CHANNEL tiles or more is never raised)
+  const lo = new Uint8Array(n);
+  const hi = new Uint8Array(n).fill(255);
+  for (const [y, a, b, level] of inp.shore ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) lo[(y - box.y0) * bw + x - box.x0] = Math.max(0, Math.min(255, level));
+  for (const [y, a, b] of inp.pools ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) hi[(y - box.y0) * bw + x - box.x0] = h0[(y - box.y0) * bw + x - box.x0];
+  const wet = hi.slice();
+  const shedHi = hi.slice();
+  const ring = ringLevels(h0, bw, bh, inp.rim ?? null);
+  const w0 = new Int16Array(n);
+  const area = new Float64Array(n);
+  flood(h0, ring, bw, bh, w0, area);
+  for (let k = 0; k < n; k++) {
+    if (area[k] >= CHANNEL) hi[k] = h0[k];
+    // (scree never falls into the way a stream runs either)
+    if (area[k] >= STREAM) shedHi[k] = h0[k];
+    // the shore of standing water: a dry tile beside it never comes down to within a level of it
+    // (water that flows stands a little over its lip, and would spread onto it)
+    const x = k % bw;
+    const y = (k - x) / bw;
+    if (x === 0 || y === 0 || x === bw - 1 || y === bh - 1 || w0[k] > h0[k]) continue;
+    for (const j of [k - 1, k + 1, k - bw, k + bw]) if (w0[j] > h0[j]) lo[k] = Math.max(lo[k], w0[j] + 1);
+  }
+  for (let k = 0; k < n; k++) {
+    lo[k] = Math.min(h0[k], lo[k]);
+    if (hi[k] < h0[k]) hi[k] = h0[k];
+    if (wet[k] < h0[k]) wet[k] = h0[k];
+    if (shedHi[k] < h0[k]) shedHi[k] = h0[k];
+  }
+  // a cliff of three levels or more, and the ground a few tiles round it, is left to shed: edges
+  // wander only away from cliffs
+  const still = new Uint8Array(n);
+  for (let y = 1; y < bh - 1; y++)
+    for (let x = 1; x < bw - 1; x++) {
+      const k = y * bw + x;
+      const v = h0[k];
+      if (Math.abs(v - h0[k + 1]) < 3 && Math.abs(v - h0[k + bw]) < 3) continue;
+      for (let yy = Math.max(0, y - CLIFF_ROOM); yy <= Math.min(bh - 1, y + 1 + CLIFF_ROOM); yy++)
+        for (let xx = Math.max(0, x - CLIFF_ROOM); xx <= Math.min(bw - 1, x + 1 + CLIFF_ROOM); xx++) still[yy * bw + xx] = 1;
+    }
+  return { key, lo, hi, wet, shedHi, ring, w0, still };
 }
 
 // ------------------------------------------------------------------------------------------ wander
@@ -275,8 +333,9 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
   const n = bw * bh;
   const W = cache.W;
   const m = wanderBlur(strength);
-  const cell = wanderCell(size);
-  const out = h0.slice();
+  const cell = wanderCell(size, strength);
+  const out = u8("wander.out", n);
+  out.set(h0);
   // where it acts
   let ax0 = bw;
   let ay0 = bh;
@@ -300,36 +359,95 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
       if (v < lo) lo = v;
       if (v > hi) hi = v;
     }
-  const delta = new Int8Array(n);
-  for (let lv = lo + 1; lv <= hi; lv++) {
-    const share = cache.share(lv, m);
-    for (let y = ay0; y <= ay1; y++)
-      for (let x = ax0; x <= ax1; x++) {
-        const k = y * bw + x;
-        const a = I[k] > 0 && !still[k] ? 0.5 + 0.5 * I[k] : 0;
-        if (!a) continue;
+  // each tile's lowest and highest level within the softening's reach (`m` tiles each way, inside the
+  // rectangle: the stroke's reach is at least that far from its edge): only a level between them has
+  // its edge near enough to move the tile
+  const near0 = u8("wander.lo", n);
+  const near1 = u8("wander.hi", n);
+  reachExtremes(h0, bw, bh, m, near0, near1);
+  const shares: Share[] = [];
+  for (let lv = lo + 1; lv <= hi; lv++) shares[lv] = cache.share(lv, m);
+  const noiseAt = cache.field(WANDER_SEED, cell);
+  for (let y = ay0; y <= ay1; y++)
+    for (let x = ax0; x <= ax1; x++) {
+      const k = y * bw + x;
+      const a = I[k] > 0 && !still[k] ? 0.5 + 0.5 * I[k] : 0;
+      if (!a || near0[k] === near1[k]) continue;
+      const gx = box.x0 + x;
+      const gy = box.y0 + y;
+      const g = gy * W + gx;
+      // one noise for every level: stacked edges wander together, so a cliff stays one (the shed
+      // turns it into a stepped slope)
+      let nz = noiseAt[g];
+      if (nz !== nz) nz = cache.noise(WANDER_SEED, cell, gx, gy);
+      nz *= 2.2;
+      if (nz > 1) nz = 1;
+      else if (nz < -1) nz = -1;
+      let d = 0;
+      for (let lv = near0[k] + 1; lv <= near1[k]; lv++) {
         const inside = h0[k] >= lv;
         // a cliff (three levels or more above the tile) only wears back, never spreads out over it
         if (!inside && (lv - h0[k] >= 3 || lv > cap[k])) continue;
-        const gx = box.x0 + x;
-        const gy = box.y0 + y;
-        const s = share.at(gy * W + gx);
+        const s = shares[lv].at(g);
         // far from this level's edge nothing can change
         if (inside ? s >= 1 - 1e-9 : s <= 1e-9) continue;
-        // one noise for every level: stacked edges wander together, so a cliff stays one (the slump
-        // turns it into a stepped slope)
-        let nz = 2.2 * cache.noise(WANDER_SEED, cell, gx, gy);
-        if (nz > 1) nz = 1;
-        else if (nz < -1) nz = -1;
         // faded toward the ring: the edge as it was, blended with the softened, pushed one (`a` from a
         // half: below that the blend would move nothing, so the edge's move follows the intensity)
         const v = (1 - a) * (inside ? 1 : 0) + a * (s + WANDER_PUSH * nz);
         const member = v > 0.5;
-        if (member !== inside) delta[k] += member ? 1 : -1;
+        if (member !== inside) d += member ? 1 : -1;
       }
-  }
-  for (let k = 0; k < n; k++) if (delta[k]) out[k] = Math.max(0, h0[k] + delta[k]);
+      if (d) out[k] = Math.max(0, h0[k] + d);
+    }
   return out;
+}
+
+/** Each tile's lowest (`lo`) and highest (`hi`) level among the tiles within `m` of it each way (a
+ *  square), within the rectangle: running minima and maxima along rows, then columns, a block of
+ *  2m + 1 at a time (each tile read a few times whatever `m`). */
+function reachExtremes(h: Uint8Array, bw: number, bh: number, m: number, lo: Uint8Array, hi: Uint8Array): void {
+  const w = 2 * m + 1;
+  const len = Math.max(bw, bh);
+  const line = u8("reach.line", len);
+  const fwd = u8("reach.fwd", len);
+  const back = u8("reach.back", len);
+  const out = u8("reach.out", len);
+  /** The running extreme of `line[0..count)` over windows of `w` centred on each item (clipped at the
+   *  ends), into `out`: the largest when `max`, else the smallest. */
+  const run = (count: number, max: boolean) => {
+    for (let i = 0; i < count; i++) {
+      const v = line[i];
+      fwd[i] = i % w === 0 ? v : max ? Math.max(fwd[i - 1], v) : Math.min(fwd[i - 1], v);
+    }
+    for (let i = count - 1; i >= 0; i--) {
+      const v = line[i];
+      back[i] = i === count - 1 || (i + 1) % w === 0 ? v : max ? Math.max(back[i + 1], v) : Math.min(back[i + 1], v);
+    }
+    for (let i = 0; i < count; i++) {
+      const a = Math.max(0, i - m);
+      const b = Math.min(count - 1, i + m);
+      // the window [a, b] is the end of one block (back[a]) and the start of the next (fwd[b]), or
+      // inside one block
+      const x = back[a];
+      const y = fwd[b];
+      out[i] = max ? Math.max(x, y) : Math.min(x, y);
+    }
+  };
+  for (const [dst, max] of [
+    [lo, false],
+    [hi, true],
+  ] as const) {
+    for (let y = 0; y < bh; y++) {
+      for (let x = 0; x < bw; x++) line[x] = h[y * bw + x];
+      run(bw, max);
+      for (let x = 0; x < bw; x++) dst[y * bw + x] = out[x];
+    }
+    for (let x = 0; x < bw; x++) {
+      for (let y = 0; y < bh; y++) line[y] = dst[y * bw + x];
+      run(bh, max);
+      for (let y = 0; y < bh; y++) dst[y * bw + x] = out[y];
+    }
+  }
 }
 
 // ------------------------------------------------------------------------------------------- shed
@@ -340,16 +458,23 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
 const LEVEL = 24;
 /** How far the scree's edges wander off a straight line, in levels (a tread's width each). */
 const WOBBLE = 1;
+/** How much farther the ground a cliff sheds runs out in its lobes, in levels (a tread each). */
+const LOBE = 2;
 const WOBBLE_SEED = 0x776f6262;
+const LOBE_SEED = 0x6c6f6265;
+const STEP_SEED = 0x73746570;
+const RETREAT_SEED = 0x72657472;
+const SETTLE_SEED = 0x73657474;
 /** The size of the noise's features that set the treads' width and the edges' wandering, in tiles. */
 const SHED_CELL = 12;
 
 /** A cliff of three levels or more sheds into the stepped slope scree makes: from the middle of the
  *  cliff its top steps up a level each tread back and its foot down a level each tread out (treads
- *  two tiles or more, as Strength and the map's noise say), the ground above that slope brought down
- *  to it and the ground below brought up to it: its top pulled back, its foot an irregular apron, cut
- *  and fill about balanced. Where its foot may not rise (water, where water runs) the whole cliff
- *  pulls back from its foot.
+ *  two tiles or more, as Strength and the map's noise say; in broad patches the steps are two levels
+ *  tall, a tread each), the ground above that slope brought down to it and the ground below brought
+ *  up to it: its top pulled back, its foot an apron that runs out farther in lobes. It sheds only so
+ *  far round the cliff (`screeReach`, more for a taller cliff, unevenly along it). Where its foot may
+ *  not rise (water, where a stream runs) the whole cliff pulls back from its foot.
  *
  *  Ground it may not move (outside where it sheds, or held by water) holds the slope round it: the
  *  ground cut beside it stays within two levels of it and comes down from there a level a tread, and
@@ -365,8 +490,11 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   // above), up from the middle at its top (the floor under the ground below); as keys, LEVEL a level
   // (a floor's negated, so both spread as least distances)
   const INF = 0x3fffffff;
-  const cut = new Int32Array(n).fill(INF);
-  const fill = new Int32Array(n).fill(INF);
+  const cut = i32("shed.cut", n).fill(INF);
+  const fill = i32("shed.fill", n).fill(INF);
+  // (a tall cliff sheds farther: its slope needs a tread a step, its steps two levels each)
+  const far = i32("shed.far", n).fill(INF);
+  const run = 5 * shedTread(strength)[0];
   let any = false;
   for (let y = 1; y < bh - 1; y++)
     for (let x = 1; x < bw - 1; x++) {
@@ -379,6 +507,9 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
         const top = D > 0 ? k : j;
         const foot = top === k ? j : k;
         const F = h[foot];
+        const room = -run * Math.ceil((D > 0 ? D : -D) / 2);
+        if (room < far[top]) far[top] = room;
+        if (room < far[foot]) far[foot] = room;
         if (hi[foot] <= F) {
           // a foot that may not rise: the top pulls back from it
           cut[foot] = Math.min(cut[foot], LEVEL * F);
@@ -391,20 +522,56 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
       }
     }
   if (!any) return;
+  // how far each tile is from a cliff, in fifths of a tile (a straight step 5, a diagonal 7): a cliff
+  // sheds only so far round it (farther with Strength, and as the map's noise says, so it retreats
+  // unevenly along its length); ground beyond is left as it is, and holds the slope as ground the
+  // stroke doesn't reach does
+  for (let y = 1; y < bh - 1; y++)
+    for (let x = 1; x < bw - 1; x++) {
+      const k = y * bw + x;
+      far[k] = Math.min(far[k], far[k - 1] + 5, far[k - bw] + 5, far[k - bw - 1] + 7, far[k - bw + 1] + 7);
+    }
+  for (let y = bh - 2; y >= 1; y--)
+    for (let x = bw - 2; x >= 1; x--) {
+      const k = y * bw + x;
+      far[k] = Math.min(far[k], far[k + 1] + 5, far[k + bw] + 5, far[k + bw + 1] + 7, far[k + bw - 1] + 7);
+    }
+  const reach = 5 * screeReach(strength);
   // each tile's cost, LEVEL / 2 / its tread (two tiles or more: the narrowest Strength allows, wider
   // where the map's noise says); ground that doesn't shed costs nothing and carries nothing
   const [narrow, more] = shedTread(strength);
-  const cost = new Int32Array(n);
+  const cost = i32("shed.cost", n).fill(0);
   // (and how far its edges wander off the straight lines a distance draws, as part of a level)
-  const wob = new Int32Array(n);
+  const wob = i32("shed.wob", n).fill(0);
+  // (and where its steps are two levels tall, in broad patches)
+  const step = u8("shed.step", n).fill(0);
+  // (and where the ground it sheds runs out farther below the foot, in lobes)
+  const lobe = i32("shed.lobe", n).fill(0);
+  const twoFrom = 0.5 - 0.11 * Math.max(1, Math.min(10, strength));
+  // (each the map's own at its tile, worked out once a stroke)
+  const at = cache.scree(strength);
   for (let y = 1; y < bh - 1; y++)
     for (let x = 1; x < bw - 1; x++) {
       const k = y * bw + x;
       if (!on(k)) continue;
-      const nz = cache.noise(SHED_SEED, SHED_CELL, box.x0 + x, box.y0 + y);
-      const tread = narrow + (more * (Math.max(-1, Math.min(1, 1.5 * nz)) + 1)) / 2;
-      cost[k] = Math.round(LEVEL / 2 / tread);
-      wob[k] = Math.round(LEVEL * WOBBLE * cache.noise(WOBBLE_SEED, SHED_CELL, box.x0 + x, box.y0 + y));
+      const gx = box.x0 + x;
+      const gy = box.y0 + y;
+      const g = gy * cache.W + gx;
+      if (!at.done[g]) {
+        at.done[g] = 1;
+        at.reach[g] = Math.round(10 * (0.6 + 0.4 * (1 + cache.noise(RETREAT_SEED, SHED_CELL, gx, gy))));
+        const nz = cache.noise(SHED_SEED, SHED_CELL, gx, gy);
+        const tread = narrow + (more * (Math.max(-1, Math.min(1, 1.5 * nz)) + 1)) / 2;
+        at.cost[g] = Math.round(LEVEL / 2 / tread);
+        at.lobe[g] = Math.round(LEVEL * LOBE * Math.max(0, cache.noise(LOBE_SEED, SHED_CELL, gx, gy)));
+        at.step[g] = cache.noise(STEP_SEED, SHED_CELL, gx, gy) > twoFrom ? 2 : 1;
+        at.wob[g] = Math.round(LEVEL * WOBBLE * cache.noise(WOBBLE_SEED, SHED_CELL, gx, gy));
+      }
+      if (far[k] * 10 > reach * at.reach[g]) continue;
+      cost[k] = at.cost[g];
+      lobe[k] = at.lobe[g];
+      step[k] = at.step[g];
+      wob[k] = at.wob[g];
     }
   // a key carried over the ground that sheds, its least over the ways there (a chamfer distance: a
   // straight step costs the two tiles' costs, a diagonal one about √2 times that; from ground that
@@ -416,7 +583,10 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     if (h[k] < minH) minH = h[k];
     if (h[k] > maxH) maxH = h[k];
   }
-  const link = new Int32Array(n);
+  const link = i32("shed.link", n);
+  const around = [-1, 1, -bw, bw, -bw - 1, -bw + 1, bw - 1, bw + 1];
+  const diagonal = new Int32Array(LEVEL + 1);
+  for (let c = 0; c <= LEVEL; c++) diagonal[c] = Math.round(c * 1.4142);
   const spread = (key: Int32Array, limit: number) => {
     let base = INF;
     for (let k = 0; k < n; k++) if (key[k] < base) base = key[k];
@@ -434,17 +604,14 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
         const kk = b + base;
         if (key[k] !== kk) continue;
         const ck = cost[k];
-        const x = k % bw;
+        // (every key is on a tile inside the ring, whose ring tiles cost nothing: no step leaves the
+        // rectangle or wraps a row)
         for (let e = 0; e < 8; e++) {
-          const dx = e === 0 || e === 4 || e === 6 ? -1 : e === 1 || e === 5 || e === 7 ? 1 : 0;
-          const dy = e === 2 || e === 4 || e === 5 ? -1 : e === 3 || e === 6 || e === 7 ? 1 : 0;
-          if (x + dx < 1 || x + dx > bw - 2) continue;
-          const j = k + dy * bw + dx;
-          if (j < bw || j >= n - bw) continue;
+          const j = k + around[e];
           const cj = cost[j];
           if (!cj) continue;
           const step = cj + (ck || cj);
-          const v = kk + (e < 4 ? step : Math.round(step * 1.4142));
+          const v = kk + (e < 4 ? step : diagonal[step]);
           if (v >= key[j] || v > limit) continue;
           key[j] = v;
           link[j] = head[v - base];
@@ -453,18 +620,25 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
       }
   };
   const level = (key: number) => Math.ceil(key / LEVEL);
-  const ceilAt = (k: number) => level(cut[k] + wob[k]);
-  const floorAt = (k: number) => -level(fill[k] - wob[k]);
+  const ceilAt = (k: number) => {
+    const v = level(cut[k] + wob[k]);
+    return step[k] === 2 ? v + (v & 1) : v;
+  };
+  const floorAt = (k: number) => {
+    const v = -level(fill[k] - wob[k] - lobe[k]);
+    return step[k] === 2 ? v - (v & 1) : v;
+  };
   const beside = (k: number) => cost[k - 1] || cost[k + 1] || cost[k - bw] || cost[k + bw];
   const inner = (k: number) => {
     const x = k % bw;
     return x > 0 && x < bw - 1 && k >= bw && k < n - bw;
   };
-  const v = h.slice();
+  const v = u8("shed.v", n);
+  v.set(h);
   // the cut: ground above the slope comes down to it, but no more than two levels below ground it
   // may not move (and a level less each tread from there)
   spread(cut, LEVEL * maxH);
-  const held = new Int32Array(n).fill(INF);
+  const held = i32("shed.held", n).fill(INF);
   for (let k = 0; k < n; k++) {
     if (!inner(k)) continue;
     if (!cost[k]) {
@@ -472,7 +646,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     } else if (cut[k] < INF && ceilAt(k) < h[k] && lo[k] > ceilAt(k)) held[k] = -LEVEL * (Math.min(h[k], lo[k]) - 1);
   }
   spread(held, -LEVEL * minH);
-  const moved = new Uint8Array(n);
+  const moved = u8("shed.moved", n).fill(0);
   for (let k = 0; k < n; k++) {
     if (!cost[k] || cut[k] >= INF) continue;
     let t = ceilAt(k);
@@ -484,7 +658,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   // the fill: ground below the slope comes up to it, but no more than two levels above ground it
   // may not move, nor above the ground just cut (and a level more each tread from there)
   spread(fill, -LEVEL * minH);
-  const capped = new Int32Array(n).fill(INF);
+  const capped = i32("shed.capped", n).fill(INF);
   for (let k = 0; k < n; k++) {
     if (!inner(k)) continue;
     if (!cost[k]) {
@@ -504,13 +678,108 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   h.set(v);
 }
 
+
+// ------------------------------------------------------------------------------------------ settle
+
+/** Old land has fewer terraces: where the stroke presses, a narrow stretch of a terrace (within
+ *  `settleWidth` / 2 of its edge, a tread or a knob or a spur) joins the level it borders most, whole,
+ *  where that takes away more of the land's edges than it adds (a stretch that is only the rim of a
+ *  wide terrace stays), leaves no step of three levels or more round it, and touches no ground the
+ *  stroke doesn't reach. The land keeps its shape in fewer, chunkier terraces. Changes `h` in place,
+ *  within `lo` and `hi`. */
+function settle(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array): void {
+  const n = bw * bh;
+  // each tile's distance to its terrace's edge, in fifths of a tile (a straight step 5, a diagonal 7)
+  const d = i32("settle.d", n);
+  for (let k = 0; k < n; k++) {
+    const x = k % bw;
+    const v = h[k];
+    d[k] = (x > 0 && h[k - 1] !== v) || (x < bw - 1 && h[k + 1] !== v) || (k >= bw && h[k - bw] !== v) || (k + bw < n && h[k + bw] !== v) ? 5 : 1 << 20;
+  }
+  for (let y = 1; y < bh - 1; y++)
+    for (let x = 1; x < bw - 1; x++) {
+      const k = y * bw + x;
+      d[k] = Math.min(d[k], d[k - 1] + 5, d[k - bw] + 5, d[k - bw - 1] + 7, d[k - bw + 1] + 7);
+    }
+  for (let y = bh - 2; y >= 1; y--)
+    for (let x = bw - 2; x >= 1; x--) {
+      const k = y * bw + x;
+      d[k] = Math.min(d[k], d[k + 1] + 5, d[k + bw] + 5, d[k + bw + 1] + 7, d[k + bw - 1] + 7);
+    }
+  const narrow = (k: number) => I[k] > 0 && 2 * d[k] <= 5 * settleWidth(strength) * (0.7 + 0.3 * (1 + cache.noise(SETTLE_SEED, SHED_CELL, box.x0 + (k % bw), box.y0 + Math.floor(k / bw))));
+  const seen = u8("settle.seen", n).fill(0);
+  const stack = i32("settle.stack", n);
+  const members = i32("settle.members", n);
+  const votes = new Int32Array(256);
+  for (let y0 = 1; y0 < bh - 1; y0++)
+    for (let x0 = 1; x0 < bw - 1; x0++) {
+      const s0 = y0 * bw + x0;
+      if (seen[s0] || !narrow(s0)) continue;
+      const v = h[s0];
+      // the stretch: this level's narrow tiles joined to it
+      let top = 0;
+      let count = 0;
+      let kept = 0;
+      let seam = false;
+      let lowest = 255;
+      let highest = 0;
+      votes.fill(0);
+      stack[top++] = s0;
+      seen[s0] = 1;
+      while (top) {
+        const k = stack[--top];
+        members[count++] = k;
+        for (let e = 0; e < 4; e++) {
+          const j = e === 0 ? k - 1 : e === 1 ? k + 1 : e === 2 ? k - bw : k + bw;
+          const u = h[j];
+          const x = j % bw;
+          const ring = x === 0 || x === bw - 1 || j < bw || j >= n - bw;
+          if (u === v) {
+            if (seen[j] === 1) continue;
+            if (!ring && narrow(j)) {
+              seen[j] = 1;
+              stack[top++] = j;
+            } else {
+              // the rest of its terrace: an edge it would add (and at the stroke's edge, a seam)
+              kept++;
+              if (ring || !(I[j] > 0)) seam = true;
+            }
+            continue;
+          }
+          votes[u]++;
+          if (u < lowest) lowest = u;
+          if (u > highest) highest = u;
+        }
+      }
+      if (seam) continue;
+      // the level it borders most (the nearer to its own on a tie), where every neighbour stays within
+      // two levels and the water allows, and it takes away more edges than it adds
+      let best = -1;
+      for (let u = 0; u < 256; u++) {
+        if (!votes[u] || Math.abs(u - v) > 2 || lowest < u - 2 || highest > u + 2) continue;
+        if (best < 0 || votes[u] > votes[best] || (votes[u] === votes[best] && Math.abs(u - v) < Math.abs(best - v))) best = u;
+      }
+      if (best < 0 || votes[best] <= kept) continue;
+      let ok = true;
+      for (let q = 0; q < count && ok; q++) if (best < lo[members[q]] || best > hi[members[q]]) ok = false;
+      if (!ok) continue;
+      for (let q = 0; q < count; q++) h[members[q]] = best;
+    }
+}
+
+/** The mean width under which a terrace joins its neighbour (`settle`), in tiles: wider with
+ *  Strength. */
+export function settleWidth(strength: number): number {
+  return 1.5 + 0.45 * Math.max(1, Math.min(10, strength));
+}
+
 // -------------------------------------------------------------------------------------------- tidy
 
 /** No small knobs or pits: a knob or a pit of under four tiles that holds a changed tile meets the
  *  nearest level round it (nothing one tile wide is the guard's: `keepOrder`). */
 function tidy(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number): void {
   const n = bw * bh;
-  const seen = new Int32Array(n).fill(-1);
+  const seen = i32("tidy.seen", n).fill(-1);
   const members = new Int32Array(8);
   const stack = new Int32Array(8);
   const votes = new Int32Array(256);
@@ -633,8 +902,8 @@ export function waterLevels(h: Uint8Array, W: number, H: number): Uint8Array {
 function flood(h: Uint8Array, ring: Int16Array, bw: number, bh: number, out: Int16Array, area?: Float64Array): void {
   const n = bw * bh;
   out.fill(-1);
-  const head = new Int32Array(257).fill(-1);
-  const next = new Int32Array(n);
+  const head = i32("flood.head", 257).fill(-1);
+  const next = i32("flood.next", n);
   let maxLv = 0;
   for (let k = 0; k < n; k++)
     if (ring[k] >= 0) {
@@ -679,12 +948,13 @@ function flood(h: Uint8Array, ring: Int16Array, bw: number, bh: number, out: Int
 const ROUNDS = 128;
 
 /** Take back, toward the land as it was, whatever breaks the downhill order (see the head). */
-function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array): void {
+function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array, prepared: Prepared): void {
   const n = bw * bh;
-  const w1 = new Int16Array(n);
+  const passages = () => (prepared.passages ??= passagesBefore(h0, ring, bw, bh));
+  const w1 = i16("keep.w1", n);
   const nbs = new Int32Array(4);
   const far: number[] = [];
-  const pool = new Int32Array(n).fill(-1);
+  const pool = i32("keep.pool", n).fill(-1);
   const around = (k: number): number => {
     const x = k % bw;
     let c = 0;
@@ -695,7 +965,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
     return c;
   };
   // only tiles it changed, and those beside them, can break anything
-  const inNear = new Uint8Array(n);
+  const inNear = u8("keep.near", n).fill(0);
   const near: number[] = [];
   const grow = (k: number) => {
     if (!inNear[k]) (inNear[k] = 1), near.push(k);
@@ -709,7 +979,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
   if (!near.length) return;
   // the tiles to look at in the next round: each one a change touched, and those beside it (in map
   // order, so a fix can carry on along a row within the round)
-  const queued = new Uint8Array(n);
+  const queued = u8("keep.queued", n).fill(0);
   let next: number[] = [];
   const touch = (k: number) => {
     grow(k);
@@ -761,19 +1031,12 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
     }
     return true;
   };
-  /** The neighbours of `k`, as a list of their own. */
-  const beside = (k: number): number[] => {
-    const c = around(k);
-    const out: number[] = [];
-    for (let q = 0; q < c; q++) out.push(nbs[q]);
-    return out;
-  };
   // (a tile is fixed for being one tile wide at most three times a pass: two tiles never trade back
   // and forth for ever)
-  const tries = new Uint8Array(n);
+  const tries = u8("keep.tries", n);
   // repair, then take back what is still broken (the broken tiles themselves, or a broken tile's
   // changed neighbours) and repair again; a tile taken back is never changed again, so it ends
-  const kept = new Uint8Array(n);
+  const kept = u8("keep.kept", n).fill(0);
   const moved: number[] = [];
   let gen = near.slice().sort((p, q) => p - q);
   for (let outer = 0; outer < 64; outer++) {
@@ -814,7 +1077,10 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
           }
           if (h0[k] > hi0 || h0[k] < lo0) continue;
           // a spike made by lowering round it: those back as they were; a pit made by raising: as well
-          for (const j of beside(k)) if ((h[k] > hi1 && h[j] < h0[j]) || (h[k] < lo1 && h[j] > h0[j])) set(j, h0[j]);
+          for (let q = 0; q < c; q++) {
+            const j = nbs[q];
+            if ((h[k] > hi1 && h[j] < h0[j]) || (h[k] < lo1 && h[j] > h0[j])) set(j, h0[j]);
+          }
           continue;
         }
         // a changed tile meets the nearest of them when that is back toward how it was, else goes back
@@ -840,16 +1106,11 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
           const vr = Math.abs(r - v);
           const first = vl < vr ? l : vr < vl ? r : Math.abs(l - h0[k]) <= Math.abs(r - h0[k]) ? l : r;
           const second = first === l ? r : l;
-          const options: [number, number][] = [
-            [k, first],
-            [k, second],
-            [k - st, v],
-            [k + st, v],
-          ];
           let done = false;
           for (let pass = 0; pass < 2 && !done && tries[k] < 3; pass++)
-            for (const [j, t] of options) {
-              if (pass === 1 && j !== k) continue;
+            for (let o = 0; o < (pass === 0 ? 4 : 2); o++) {
+              const j = o < 2 ? k : o === 2 ? k - st : k + st;
+              const t = o === 0 ? first : o === 1 ? second : v;
               if (!I[j] || kept[j] || !inside(j) || h[j] === t || !fits(j, t)) continue;
               if (pass === 0) {
                 const was = h[j];
@@ -868,11 +1129,13 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
               set(k, h0[k]);
               kept[k] = 1;
             } else
-              for (const j of [k - st, k + st])
+              for (let o = 0; o < 2; o++) {
+                const j = o === 0 ? k - st : k + st;
                 if (h[j] !== h0[j]) {
                   set(j, h0[j]);
                   kept[j] = 1;
                 }
+              }
           }
           break;
         }
@@ -890,7 +1153,11 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
         }
         // held in by raised ground round it: that ground back as it was
         let any = false;
-        for (const j of beside(k)) if (h[j] > h0[j] && h[j] >= w1[k]) (set(j, h0[j]), (any = true));
+        const c = around(k);
+        for (let q = 0; q < c; q++) {
+          const j = nbs[q];
+          if (h[j] > h0[j] && h[j] >= w1[k]) (set(j, h0[j]), (any = true));
+        }
         // else the way out is farther off
         if (!any) far.push(k);
       }
@@ -904,7 +1171,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
       // no way water could leave closes
       if (rose) {
         moved.length = 0;
-        rose = keepPassages(h, h0, ring, bw, bh, undefined, moved);
+        rose = keepPassages(h, h0, ring, bw, bh, passages(), undefined, moved);
         for (const k of moved) touch(k);
       }
       gen = take();
@@ -942,7 +1209,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
       far.length = 0;
       for (let k = 0; k < n; k++) if (w1[k] - h[k] > w0[k] - h0[k]) far.push(k);
       if (far.length) lowerRims(far, h, h0, w1, bw, pool, bad);
-      keepPassages(h, h0, ring, bw, bh, bad);
+      keepPassages(h, h0, ring, bw, bh, passages(), bad);
     }
     if (!bad.length) return;
     let any = false;
@@ -953,7 +1220,11 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
         any = true;
         continue;
       }
-      for (const j of beside(s)) if (h[j] !== h0[j]) (set(j, h0[j]), (kept[j] = 1), (any = true));
+      const c = around(s);
+      for (let q = 0; q < c; q++) {
+        const j = nbs[q];
+        if (h[j] !== h0[j]) (set(j, h0[j]), (kept[j] = 1), (any = true));
+      }
     }
     if (!any) break;
     gen = take();
@@ -1006,91 +1277,124 @@ function lowerRims(seeds: readonly number[], h: Uint8Array, h0: Uint8Array, w1: 
 }
 
 /** No way water could leave the area through it closes: any two ring tiles joined by ground at or
- *  below a level before are still joined at that level. Lowers a level the raised tiles in a passage
+ *  below a level before are still joined at that level. Lowers to that level the raised tiles in a passage
  *  that closed, naming them in `lowered` (or, with `collect`, only names them there); returns whether
  *  it found one. */
-function keepPassages(h: Uint8Array, h0: Uint8Array, ring: Int16Array, bw: number, bh: number, collect?: number[], lowered?: number[]): boolean {
+/** The ways water could leave the rectangle before the stroke (for `keepPassages`): for each level,
+ *  each ring tile's first ring tile (in ring order) joined to it by ground at or below that level, or
+ *  -1 where the tile itself stands above it. */
+interface Passages {
+  ring: Int32Array;
+  levels: number;
+  first: Int32Array;
+}
+
+function passagesBefore(h0: Uint8Array, ring: Int16Array, bw: number, bh: number): Passages {
   const n = bw * bh;
-  // tiles by level, before and after (a counting sort)
-  const maxLv = 256;
-  const c0 = new Int32Array(maxLv + 1);
-  const c1 = new Int32Array(maxLv + 1);
-  for (let k = 0; k < n; k++) {
-    c0[h0[k] + 1]++;
-    c1[h[k] + 1]++;
-  }
-  for (let l = 1; l <= maxLv; l++) {
-    c0[l] += c0[l - 1];
-    c1[l] += c1[l - 1];
-  }
-  const o0 = new Int32Array(n);
-  const o1 = new Int32Array(n);
-  {
-    const f0 = c0.slice();
-    const f1 = c1.slice();
-    for (let k = 0; k < n; k++) {
-      o0[f0[h0[k]]++] = k;
-      o1[f1[h[k]]++] = k;
-    }
-  }
-  const p0 = new Int32Array(n).fill(-1);
-  const p1 = new Int32Array(n).fill(-1);
-  const find = (p: Int32Array, k: number): number => {
-    let r = k;
-    while (p[r] !== r) r = p[r];
-    while (p[k] !== r) {
-      const nx = p[k];
-      p[k] = r;
-      k = nx;
-    }
-    return r;
-  };
-  const add = (p: Int32Array, k: number) => {
-    p[k] = k;
-    const x = k % bw;
-    for (let e = 0; e < 4; e++) {
-      const j = e === 0 ? (x > 0 ? k - 1 : -1) : e === 1 ? (x + 1 < bw ? k + 1 : -1) : e === 2 ? k - bw : k + bw;
-      if (j < 0 || j >= n || p[j] < 0) continue;
-      const a = find(p, k);
-      const b = find(p, j);
-      if (a !== b) {
-        if (a < b) p[b] = a;
-        else p[a] = b;
-      }
-    }
-  };
-  const ringList: number[] = [];
-  for (let k = 0; k < n; k++) if (ring[k] >= 0) ringList.push(k);
-  const first = new Int32Array(n).fill(-1);
+  const list: number[] = [];
+  for (let k = 0; k < n; k++) if (ring[k] >= 0) list.push(k);
+  const R = list.length;
   let hiLv = 0;
-  for (let k = 0; k < n; k++) hiLv = Math.max(hiLv, h0[k], h[k]);
-  for (let lv = 0; lv <= hiLv; lv++) {
-    let moved = false;
-    for (let q = c0[lv]; q < c0[lv + 1]; q++) (add(p0, o0[q]), (moved = true));
-    for (let q = c1[lv]; q < c1[lv + 1]; q++) (add(p1, o1[q]), (moved = true));
-    if (!moved) continue;
-    const used: number[] = [];
-    let bad = -1;
-    for (const r of ringList) {
+  for (let k = 0; k < n; k++) hiLv = Math.max(hiLv, h0[k]);
+  const levels = hiLv + 1;
+  const first = new Int32Array(levels * R).fill(-1);
+  const order = byLevel(h0, n);
+  const p = new Int32Array(n).fill(-1);
+  // (each set's first ring tile at this level, and the level it was found at)
+  const firstOf = new Int32Array(n);
+  const seenAt = new Int32Array(n).fill(-1);
+  for (let lv = 0; lv < levels; lv++) {
+    for (let q = order.start[lv]; q < order.start[lv + 1]; q++) unite(p, order.tiles[q], bw, n);
+    for (let q = 0; q < R; q++) {
+      const r = list[q];
       if (h0[r] > lv) continue;
-      const key = find(p0, r);
-      if (first[key] < 0) {
-        first[key] = r;
-        used.push(key);
-        continue;
+      const key = find(p, r);
+      if (seenAt[key] !== lv) {
+        seenAt[key] = lv;
+        firstOf[key] = q;
       }
-      if (find(p1, r) !== find(p1, first[key])) {
-        bad = key;
+      first[lv * R + q] = firstOf[key];
+    }
+  }
+  return { ring: Int32Array.from(list), levels, first };
+}
+
+/** The tiles in order of their level (a counting sort): `tiles`, each level's from `start[lv]`. */
+function byLevel(h: Uint8Array, n: number): { tiles: Int32Array; start: Int32Array } {
+  const start = new Int32Array(258);
+  for (let k = 0; k < n; k++) start[h[k] + 1]++;
+  for (let l = 1; l < 258; l++) start[l] += start[l - 1];
+  const at = start.slice();
+  const tiles = new Int32Array(n);
+  for (let k = 0; k < n; k++) tiles[at[h[k]]++] = k;
+  return { tiles, start };
+}
+
+/** The root of tile `k`'s set in `p` (a union-find; -1: not yet in any). */
+function find(p: Int32Array, k: number): number {
+  let r = k;
+  while (p[r] !== r) r = p[r];
+  while (p[k] !== r) {
+    const nx = p[k];
+    p[k] = r;
+    k = nx;
+  }
+  return r;
+}
+
+/** Tile `k` joins the sets of its neighbours already in `p`. */
+function unite(p: Int32Array, k: number, bw: number, n: number): void {
+  p[k] = k;
+  const x = k % bw;
+  for (let e = 0; e < 4; e++) {
+    const j = e === 0 ? (x > 0 ? k - 1 : -1) : e === 1 ? (x + 1 < bw ? k + 1 : -1) : e === 2 ? k - bw : k + bw;
+    if (j < 0 || j >= n || p[j] < 0) continue;
+    const a = find(p, k);
+    const b = find(p, j);
+    if (a !== b) {
+      if (a < b) p[b] = a;
+      else p[a] = b;
+    }
+  }
+}
+
+/** No way water could leave the area through it closes: any two ring tiles joined by ground at or
+ *  below a level before (`before`) are still joined at that level. Lowers to that level the raised
+ *  tiles in a passage that closed, naming them in `lowered` (or, with `collect`, only names them
+ *  there); returns whether it found one. */
+function keepPassages(h: Uint8Array, h0: Uint8Array, ring: Int16Array, bw: number, bh: number, before: Passages, collect?: number[], lowered?: number[]): boolean {
+  const n = bw * bh;
+  const order = byLevel(h, n);
+  const p1 = i32("pass.p1", n).fill(-1);
+  const list = before.ring;
+  const R = list.length;
+  let hiLv = before.levels - 1;
+  for (let k = 0; k < n; k++) if (h[k] > hiLv) hiLv = h[k];
+  for (let lv = 0; lv <= hiLv; lv++) {
+    for (let q = order.start[lv]; q < order.start[lv + 1]; q++) unite(p1, order.tiles[q], bw, n);
+    // (above every level before, the ground before is all joined as at its top)
+    const row = Math.min(lv, before.levels - 1) * R;
+    let bad = -1;
+    for (let q = 0; q < R; q++) {
+      const f = before.first[row + q];
+      if (f < 0 || f === q) continue;
+      if (find(p1, list[q]) !== find(p1, list[f])) {
+        bad = f;
         break;
       }
     }
-    for (const key of used) first[key] = -1;
     if (bad < 0) continue;
-    // the raised tiles in that passage, a level down (or, collecting, named)
-    for (let k = 0; k < n; k++) if (h[k] > lv && h0[k] <= lv && find(p0, k) === bad) {
-      if (collect) collect.push(k);
-      else h[k]--, lowered?.push(k);
-    }
+    // the ground joined to that ring tile at this level before
+    const p0 = i32("pass.p0", n).fill(-1);
+    const was = byLevel(h0, n);
+    for (let q = was.start[0]; q < was.start[lv + 1]; q++) unite(p0, was.tiles[q], bw, n);
+    const key = find(p0, list[bad]);
+    // the raised tiles in that passage, down to this level (or, collecting, named)
+    for (let k = 0; k < n; k++)
+      if (h[k] > lv && h0[k] <= lv && find(p0, k) === key) {
+        if (collect) collect.push(k);
+        else (h[k] = lv), lowered?.push(k);
+      }
     return true;
   }
   return false;
@@ -1107,8 +1411,22 @@ const BLOCK = 32;
  *  however much it has kept, so a stroke painted dab by dab and its replay give the same land. */
 export class WeatherCache {
   private readonly shares = new Map<number, Share>();
-  private readonly noises = new Map<string, Float64Array>();
-  private last: { seed: number; cell: number; a: Float64Array } | null = null;
+  private readonly noises = new Map<number, Float64Array>();
+  /** The last rectangle's `prepare`. */
+  prepared: Prepared | null = null;
+  private screeAt: { strength: number; done: Uint8Array; cost: Int8Array; lobe: Int8Array; step: Int8Array; wob: Int8Array; reach: Int8Array } | null = null;
+
+  /** The scree's own on each tile of the map for a Strength (`shed`): what each tile costs, how far
+   *  the ground shed runs out past it, how tall its steps are, how far its edges wander; filled in by
+   *  the shed as it reaches tiles (`done`). */
+  scree(strength: number): { done: Uint8Array; cost: Int8Array; lobe: Int8Array; step: Int8Array; wob: Int8Array; reach: Int8Array } {
+    const n = this.W * this.H;
+    if (this.screeAt?.strength !== strength) this.screeAt = { strength, done: new Uint8Array(n), cost: new Int8Array(n), lobe: new Int8Array(n), step: new Int8Array(n), wob: new Int8Array(n), reach: new Int8Array(n) };
+    return this.screeAt;
+  }
+  private lastSeed = -1;
+  private lastCell = -1;
+  private lastField: Float64Array | null = null;
 
   constructor(
     readonly before: Uint8Array,
@@ -1125,13 +1443,16 @@ export class WeatherCache {
     return v;
   }
 
-  private field(seed: number, cell: number): Float64Array {
-    const l = this.last;
-    if (l && l.seed === seed && l.cell === cell) return l.a;
-    const key = `${seed}:${cell}`;
+  /** The map's noise `seed` at features `cell` across, worked out where asked (NaN elsewhere: read
+   *  it through `noise`). */
+  field(seed: number, cell: number): Float64Array {
+    if (seed === this.lastSeed && cell === this.lastCell && this.lastField) return this.lastField;
+    const key = seed * 64 + cell;
     let a = this.noises.get(key);
     if (!a) this.noises.set(key, (a = new Float64Array(this.W * this.H).fill(NaN)));
-    this.last = { seed, cell, a };
+    this.lastSeed = seed;
+    this.lastCell = cell;
+    this.lastField = a;
     return a;
   }
 

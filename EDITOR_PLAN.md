@@ -318,12 +318,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   applies and recorded in it, so a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8),
   D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). It
   weathers like nature (D387 (4), D399; `raster/weather.ts`): edges, read softly, wander in and out along one
-  smooth noise fixed to the map's tiles, in curves the size of Size and as far as Strength lets them, never
-  fraying; a cliff of three levels or more sheds into a stepped slope, a level each tread (two tiles or more,
-  wider with Strength and where the noise says) up from the cliff's middle and down from it, its edges wandering:
-  the top pulls back and the foot becomes an irregular apron (where the foot is water the whole cliff pulls
-  back), and a slope once shed is left as it is; it sheds only where the stroke presses, narrowing into the
-  cliff beside it; flat tops stay flat; little knobs and pits wear away; the effect fades out across the ring's
+  smooth noise fixed to the map's tiles, in curves the size of Size (wider with Strength, so a strong stroke
+  bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
+  up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
+  with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
+  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
+  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
+  terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
+  edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
+  stay flat; little knobs and pits wear away; the effect fades out across the ring's
   outer part, so there is no seam; and painting the same spot again changes less and less. The water stays
   where it stood: from the settled water the session has when the stroke begins, a wet tile is never raised and
   a dry tile beside water never comes down below that water's surface (recorded in the stroke, `shore` and

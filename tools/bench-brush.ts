@@ -10,6 +10,9 @@
 // on a laptop-sized screen. Measures are information (D115), never a failure.
 //
 // Usage: npm run bench:brush [-- --configs 1] [-- --size 256] [-- --theme riverValley]
+//   [-- --tool naturalize --brush 64 --strength 10 --terracing 100] (another soft brush, its Size and
+//   Strength set with the keys as a player would; the Terracing in the map's link). Besides the frame
+//   times it reports the land's re-mesh per change; --profile prints where the drag's time goes.
 // Writes out/live/bench-brush.json.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -24,6 +27,12 @@ const SIZE = Number(arg("size") ?? 256);
 const THEME = arg("theme") ?? "riverValley";
 const CONFIGS = arg("configs")?.split(",").map(Number);
 const PORT = Number(arg("port") ?? 4394);
+const TOOL = arg("tool") ?? "raise";
+const BRUSH = arg("brush") ? Number(arg("brush")) : null;
+const STRENGTH = arg("strength") ? Number(arg("strength")) : null;
+const TERRACING = arg("terracing");
+/** The tool keys (the toolbar's order). */
+const TOOL_KEY: Record<string, string> = { raise: "1", lower: "2", flatten: "3", smooth: "4", naturalize: "5" };
 const OUT = ".scratch/bench-brush-dist";
 
 interface Gpu {
@@ -55,26 +64,36 @@ const round = (v: number) => Math.round(v * 10) / 10;
 
 const PROFILE = process.argv.includes("--profile");
 
+type Profile = { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number; children?: number[] }[]; samples: number[]; timeDeltas: number[] };
+
 async function measure(page: Page): Promise<Record<string, unknown>> {
-  await page.goto(`http://localhost:${PORT}/#s=1&z=${SIZE}&d=n&t=${THEME}`);
+  await page.goto(`http://localhost:${PORT}/#s=1&z=${SIZE}&d=n&t=${THEME}${TERRACING ? `&tr=${TERRACING}` : ""}`);
   await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 300_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
   // let the first checks finish, so painting is measured on its own
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 300_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.keyboard.press("1");
+  await page.keyboard.press(TOOL_KEY[TOOL]);
+  // the Size and Strength by their keys, from the brush as it opens (Size 5, Strength 5)
+  if (BRUSH !== null) for (const s of [6, 8, 10, 12, 15, 18, 21, 24, 32, 40, 48, 64, 80, 96, 112, 128]) if (s <= BRUSH) await page.keyboard.press("}");
+  if (STRENGTH !== null) for (let k = 5; k < STRENGTH; k++) await page.keyboard.press("]");
   // (a string, so the bundler's helpers stay out of the page)
   await page.evaluate(`(() => {
     const w = window;
     w.__b = { ev: [], mv: [], rend: [], raf: [], long: [] };
     const r = w.dgm3d.renderer;
     const u = r.updateTerrainRect.bind(r);
+    w.__b.mesh = [];
     r.updateTerrainRect = (...a) => {
       const ev = w.event;
       if (ev && ev.type === "pointermove") w.__b.mv.push([ev.timeStamp, performance.now()]);
-      return u(...a);
+      const t = performance.now();
+      const out = u(...a);
+      w.__b.mesh.push(performance.now() - t);
+      return out;
     };
+
     const rn = r.renderNow.bind(r);
     r.renderNow = () => { rn(); w.__b.rend.push(performance.now()); };
     new PerformanceObserver((l) => { for (const e of l.getEntries()) w.__b.long.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: "longtask" });
@@ -83,8 +102,14 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   })()`);
   const at = (await page.evaluate(`window.dgmEditor.tileToClient(${Math.round(SIZE * 0.3)}, ${Math.round(SIZE * 0.35)})`)) as { x: number; y: number };
   await page.mouse.move(at.x, at.y);
-  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; })()");
+  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; b.mesh = []; })()");
   const cdp = PROFILE ? await page.context().newCDPSession(page) : null;
+  // (--profile: the drag itself, from the press to just before the release)
+  if (cdp) {
+    await cdp.send("Profiler.enable");
+    await cdp.send("Profiler.setSamplingInterval", { interval: 100 });
+    await cdp.send("Profiler.start");
+  }
   await page.mouse.down();
   for (let k = 0; k < 480; k++) {
     const t = k / 480;
@@ -94,17 +119,11 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.waitForTimeout(700);
   const t0 = Date.now();
   await page.evaluate("window.__b.up = performance.now(); window.__b.down0 = window.__b.raf[0]");
-  if (cdp) {
-    await cdp.send("Profiler.enable");
-    await cdp.send("Profiler.setSamplingInterval", { interval: 100 });
-    await cdp.send("Profiler.start");
-  }
+  const profile = cdp ? ((await cdp.send("Profiler.stop")) as { profile: Profile }).profile : null;
   await page.mouse.up();
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 60_000 });
   const commitMs = Date.now() - t0;
-  if (cdp) await page.waitForTimeout(1500);
-  if (cdp) {
-    const { profile } = (await cdp.send("Profiler.stop")) as { profile: { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number; children?: number[] }[]; samples: number[]; timeDeltas: number[] } };
+  if (profile) {
     const self = new Map<string, number>();
     const byId = new Map(profile.nodes.map((n) => [n.id, n]));
     for (let k = 0; k < profile.samples.length; k++) {
@@ -116,7 +135,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     console.log("self time (ms) while painting:");
     for (const [k, v] of top) console.log(`  ${v.toFixed(1).padStart(8)}  ${k}`);
   }
-  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number };
+  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[] };
   const lat: number[] = [];
   for (const [e, u] of raw.mv) {
     const f = raw.rend.find((x) => x >= u);
@@ -139,12 +158,15 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 60_000 });
   const mismatches = await page.evaluate(() => window.dgmEditor!.strokeMismatches());
   const label = await page.evaluate(() => window.dgmEditor!.info().history.at(-1)?.label ?? "");
+  const last = (await page.evaluate("window.dgmEditor.lastStroke()")) as { tool: string; size: number; strength: number } | null;
   return {
     map: `${THEME} ${SIZE}² seed 1`,
     stroke: label,
+    brush: last ? `${last.tool}, Size ${last.size}, Strength ${last.strength}` : null,
     refreshMs: round(refresh),
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
     frameMs: { p50: round(pct(frames, 0.5)), p95: round(pct(frames, 0.95)), p99: round(pct(frames, 0.99)), max: round(Math.max(0, ...frames)), overTwoRefreshes: frames.filter((d) => d > 2 * refresh + 1).length, frames: frames.length },
+    remeshMs: { p50: round(pct(raw.mesh, 0.5)), p95: round(pct(raw.mesh, 0.95)), max: round(Math.max(0, ...raw.mesh)), samples: raw.mesh.length },
     longTasksWhilePainting: raw.long.filter(([t]) => t < raw.up).map(([, d]) => d),
     longTasksAfterRelease: raw.long.filter(([t]) => t >= raw.up).map(([t, d]) => `${d} ms at +${Math.round(t - raw.up)} ms`),
     commitAfterReleaseMs: commitMs,

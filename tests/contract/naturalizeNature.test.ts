@@ -10,6 +10,8 @@
 //   thick (above or below both its neighbours across it), and no tile it left as it was becomes such a
 //   sliver; a tile that was already one tile wide (a tile of a one-tile staircase it had) may stay so.
 // - Painting the same spot again changes less and less (repeating settles).
+// - An older map has fewer terraces: a Size 64, Strength 10 stroke leaves no more level edges than
+//   there were.
 // - The water stays where it stood (what you see is what you get): beside a river or a lake no dry
 //   tile comes down below the water's surface next to it, and no wet tile is raised.
 // - A new stroke records its rule, and the page's stroke is the stroke the session builds.
@@ -174,6 +176,37 @@ describe("painting the same spot again settles (D399)", () => {
       // less each time, but for a few tiles of jitter once nearly settled
       for (let k = 1; k < counts.length; k++) expect(counts[k], `stroke ${k + 1} of ${counts.join(", ")}`).toBeLessThanOrEqual(counts[k - 1] + Math.max(3, Math.round(0.1 * counts[0])));
       expect(counts[9], `the tenth stroke changes far less than the first: ${counts.join(", ")}`).toBeLessThanOrEqual(counts[0] / 4);
+    });
+});
+
+describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdict)", () => {
+  // Size 64 at Strength 10 dragged across the map: the land's level edges (neighbouring tiles at
+  // different levels) are no more than before: cliffs shed into a few chunky steps, not ladders, and
+  // narrow terraces join their neighbours. The maps of the captures Kyler judged (tools/capture-
+  // naturalize.ts), whose themes terrace cleanly at high Terracing
+  for (const [theme, seed] of [
+    ["riverValley", 3],
+    ["riverValley", 6],
+    ["lakeBasin", 1],
+    ["lakeBasin", 3],
+  ] as const)
+    it(`${theme} ${seed} at Terracing 100`, () => {
+      const s = session(theme, seed, 100);
+      const dabs: number[] = [];
+      for (let k = 0; k < 30; k++) dabs.push(4 * (W / 2 - 30 + 2 * k) + 2, 4 * (W / 2) + 2);
+      const edges = (h: Uint8Array) => {
+        let c = 0;
+        for (let i = 0; i < h.length; i++) {
+          if (i % W < W - 1 && h[i] !== h[i + 1]) c++;
+          if (i + W < h.length && h[i] !== h[i + W]) c++;
+        }
+        return c;
+      };
+      const before = edges(s.built.heights);
+      expect(s.apply({ op: "brush", params: { tool: "naturalize", size: 64, strength: 10, seed: 5, weathers: true, dabs } }, "user", "Naturalize").errors).toEqual([]);
+      const after = edges(s.built.heights);
+      console.log(`${theme} ${seed}: level edges ${before} → ${after} (information)`);
+      expect(after, "level edges after a Size 64, Strength 10 stroke").toBeLessThanOrEqual(before);
     });
 });
 
