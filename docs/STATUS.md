@@ -42,7 +42,6 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands and Delta redesign (D407: Kyler's verdict on the review set blocks the release); defaults accepted (D405, D406); then the measures, the D148 re-pins, 256² speed and Lake Basin round 2 |
 | The page | `feature/page` | #163 draft | `-page` | Page session; design stage |
 | Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
-| The settle: a sealed, only-evaporating basin counts as settled (D413) | `fix/sealed-settle` | none yet | `-settle` | Building; **blocks the release until it lands**; re-pins maps with oxbow lakes |
 | Naturalize | `feature/naturalize` | #170 draft | none | Round 3 in progress after Kyler's verdict on round 2 |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
@@ -94,8 +93,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: the settle fix (D413),
-water from nowhere (D385), and Islands and Delta (D407).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: water from nowhere (D385),
+and Islands (D417). The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 
