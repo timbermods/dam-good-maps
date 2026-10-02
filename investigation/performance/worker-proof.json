@@ -1,0 +1,20 @@
+{
+  "note": "Computation bundles are byte-identical; visual final state still requires scenario byte checks.",
+  "bundles": [
+    {
+      "name": "checks.worker-BJs1Aoyj.js",
+      "sha256": "0bb475dc8d661db0e79b14026c1802410da47be7afe966b360c9db00ffe3bd3e",
+      "identical": true
+    },
+    {
+      "name": "generator.worker-DnZzbBsp.js",
+      "sha256": "3c2bd099ac5ae098d0a93bc5054b9122b85ed3297c909d91af1cc6962012a3ab",
+      "identical": true
+    },
+    {
+      "name": "startCheck.worker-CBnBb98u.js",
+      "sha256": "1fa44bde02f8064688babbd2f6bd6fa4a39b828b890b00ca1d64179d4cd6cf32",
+      "identical": true
+    }
+  ]
+}

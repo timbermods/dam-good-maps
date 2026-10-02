@@ -1,0 +1,116 @@
+# Terrain smoothness windows
+
+**Round 3, October 1 daytime:** the latest explicit request authorizes profiling and repeated
+large-brush investigation on current released product, outside the expired overnight window.
+`brush-series.mjs` runs serially, qualifying other-process CPU once (≤25% for 60 seconds),
+retaining continuous sampling and repeating only load-discarded cases. It stops after a
+15-minute failed quiet wait. Round 3 evidence is separate in `local/round3/`; previous
+windows/protocols below remain frozen. No old qualified records are substituted for the
+new released-product proof. The one-window heartbeat remains paused. The daytime series ended at 18:43:52 UTC
+after two outside-load discards and a 15-minute quiet timeout; cleanup finished.
+No complete comparison passed. Timestamp/retry defects were corrected after diagnostics;
+see REPORT.md and the offline `node gate.mjs --brush` audit. No new measurements or
+automation are scheduled.
+
+**October 1, 02:00–05:00 PDT complete.** PID46928 finished cleanup at 04:59:45;
+controller and owned sampler stopped. No late or duplicate measurements.
+Trial 20/20 executions qualified. First hour outside-load discarded; retry completed
+3,613.4 seconds on Edge/CPU-proxy/High. Its final ~57.61 seconds of mixed-edit events
+were drained without saving, so complete hour event coverage remains unverified. Short work reached Craterize Fast, brush and
+Standard/native abuse. All 72 manifests audited: 67 qualified, two load discards,
+two Node heap failures, one deadline abort. 25/144 timing pairs, 6/48 capture pairs,
+one hour; coverage and pacing/byte/memory/manual-oracle budgets fail. PR #107 stays draft.
+One-window heartbeat pauses after reporting; further measurements require new explicit bounds.
+
+Frozen source: `local/windows/2026-10-01-0200/`: controller status/log, PID/stdout/stderr,
+actual continuous session, metadata and original 11 protocol files. Other-process CPU
+≤25% for 60 sampled seconds qualifies once; only load discards requalify. Total CPU is
+diagnostic. Every active interval, bracketing sample and all three generations were checked.
+Historical window-load.jsonl is never substituted.
+
+Offline regeneration from this directory (no browser launched):
+`node --max-old-space-size=8192 overnight-audit.mjs`,
+`node --max-old-space-size=8192 overnight-validation.mjs`,
+`python review-overnight.py`,
+`python gifs.py --proof overnight-proof.json --output local/overnight-gifs`.
+Pillow/NumPy required. Hour JSONL is streamed because it exceeds Node's single-string limit.
+Gate inputs are compacted one manifest at a time; raw evidence stays intact. Overlapping
+PCM refuses conversion. The review lists actual inspection and outstanding perceptual/aural checks.
+
+Earlier sections below retain their historical protocols/results.
+
+**Afternoon complete: 10:30–13:30 PDT (17:30–20:30 UTC).** Controller and continuous sampler
+finished at 13:29:45; neither remains active. No late or duplicate measurements. The single
+Edge/CPU-proxy/High hour went first and was retried twice while sufficient time remained;
+all three aborted during introductory brushes. All 57 manifests were audited: 44 CPU-discarded,
+13 Firefox setup failures, zero qualified completions. The 45 quiet generations and full
+continuous trace are frozen with controller logs in `local/windows/2026-09-30-1030/`.
+`node afternoon-audit.mjs` and `python review-afternoon.py` regenerate the offline indices.
+REPORT.md states exact missing coverage and review limits. PR #107 remains draft; this
+one-window follow-up stops, with no measurements authorized after 13:30.
+
+The sections below retain earlier window history; the afternoon's continuous lease supersedes
+morning per-case qualification. Its telemetry is the archived session, never window-load.jsonl.
+
+Completed morning window: **07:40–09:40 America/Los_Angeles (14:40–16:40 UTC)**.
+One serial runner uses `node window.mjs --suite=core --start=2026-09-30T14:40:00Z --end=2026-09-30T16:40:00Z --hour-first=true`.
+The latest user instruction puts the single hour first, then shorter paired work. Short-work
+priority spreads crater, brush and abuse across looks/platforms, with footage before each timing
+batch. Remaining cases stay queued; unfinished evidence fails the gate. A one-time 09:40
+follow-up reviews the evidence after deadline cleanup.
+
+Before measurement, CPU spikes restart the contiguous 60-second quiet wait without restarting
+the warmed browser. `load.samples` contains only the final qualifying suffix; `waitingSamples`
+retains the entire wait. Measured spikes still discard the attempt. Four initial morning attempts
+refused qualification before collecting frame statistics; that startup wait is corrected.
+The historical 02:00 status/load files are preserved in `local/windows/2026-09-30-0200/`.
+
+Authorized window: **2026-09-30 02:00–04:00 America/Los_Angeles (09:00–11:00 UTC)**.
+Existing draft PR: https://github.com/timbermods/dam-good-maps/pull/107, branch investigation/performance, base dev.
+Worktree: `investigation/performance/local/checkout` beneath the shared repository.
+All commands below run from this worktree's `investigation/performance` directory.
+
+This expired window is retained as history. For the next authorized window, run
+`node window.mjs --start=<UTC-ISO> --end=<UTC-ISO>` once; default suite is **core**.
+It qualifies 60 sampled seconds at CPU ≤25% before every measured run, uses the core's
+three Edge/native repeats and single Firefox/native and Edge/proxy passes, and requeues any
+attempt hit by a CPU spike. Capture pairs get one pass; `--hour-first=true` puts the hour first,
+otherwise one Edge/CPU-proxy/High hour goes last.
+`--suite=full` selects the optional long matrix. Short work continues if the hour cannot fit.
+Inspect the lock and `local/window-status.json` before starting another process.
+
+Preparation uses a pinned High renderer at 84fe4d363cabb958429c07c02fc6a25738a360f8 combined with the force-base presentation files in ignored copies only. `node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8`, then `node build.mjs before` and `node build.mjs after` regenerates it. Product source and computation workers are untouched. The CPU-constrained profile uses an aggregate one-logical-CPU Windows job quota and four-core affinity for this runner's browser processes, with native GPU/RAM. Report this proxy precisely; it is not a second physical machine.
+
+After the window: inspect all manifest/load evidence, generate paired GIFs with gifs.py, inspect captures and audio, run tests, worker verification and gate.mjs, update REPORT.md with qualified results and remaining coverage. Do not certify unavailable visual/audio oracles. Keep PR draft unless the full budgets hold. `git diff --check` before committing/pushing only investigation/performance. No new PR, merges, approvals or other branch pushes. The interface's 0% undo status is a recorded finding, not a gate blocker.
+
+One-window heartbeat id: terrain-smoothness-quiet-window. Do not create duplicate automation or duplicate runner.
+
+## Completed-window finding
+
+The original runner finished at 02:59:02 with zero attempts: 564 CPU samples, median 16%,
+longest ≤15% stretch 143.927 seconds. It stopped after the hour reservation failed and did
+not observe the remaining 61 minutes. The control-flow fallback is repaired after the window:
+it now keeps qualifying short work until the deadline if an hour cannot start. The historical
+result is unchanged; no late measurements are taken. `node window-summary.mjs` regenerates
+`window-proof.json`, bound to the retained raw files. Future authorized windows require
+explicit `--start=<UTC-ISO> --end=<UTC-ISO>` arguments; this expired window cannot restart.
+
+The hour uses the CPU proxy: native attempts had measured CPU spikes of 55% and 35%, despite low unrelated load (1.54% and 3.19%). A third native qualification was cancelled before measurement. Native core repetitions remain required; the single proxy hour keeps the same full duration and start/end regression checks.
+
+## Morning outcome
+
+The controller finished at 09:40:00.382. All 27 manifests and full traces were audited:
+four blocked, 22 CPU-discarded, one cancelled premeasurement; zero qualified completions.
+Twenty-two quiet prefixes passed, but measured CPU reached 28–100%. All five measured hour
+attempts aborted during their introductory brush, before the hour loop. Seventeen Standard
+before-capture attempts were discarded; their first-case requeue starved all other work.
+Post-window fixes rotate retries, catch asynchronous capture-abort failures and improve
+visibility/PCM context telemetry. No late validation run is taken.
+`node morning-audit.mjs` regenerates the bound morning index; `python review-morning.py`
+regenerates the diagnostic contact sheet/GIF. REPORT.md and morning-review.json distinguish
+discarded observations from missing qualified evidence. PR #107 remains draft; recurrence stops.
+Morning controller status/load/log are frozen in `local/windows/2026-09-30-0740/`.
+
+## New authorized window
+
+2026-09-30 10:30–13:30 PDT (17:30–20:30 UTC): qualify once, sample continuously, requalify only after a load-discarded case. The probe may finish after 10:30; the quiet prefix waits for it. Start one serial runner with these explicit bounds; the hour goes first. The morning evidence is archived and remains invalid. Afternoon source telemetry is the loadSession path in window-status.json, not the historical window-load.jsonl.

@@ -1,0 +1,226 @@
+{
+  "proofHash": "a0325fd13293cbdfddb36917f89c3fd121bbf4176654eb754758ba9471486e39",
+  "allOriginalPixelsDecoded": 15860,
+  "contactSheetsInspected": [
+    "2026-10-01T09-26-39.704Z-before-capture",
+    "2026-10-01T09-29-14.473Z-after-capture",
+    "2026-10-01T09-30-47.504Z-before-capture",
+    "2026-10-01T09-32-04.822Z-after-capture",
+    "2026-10-01T09-33-30.362Z-before-capture",
+    "2026-10-01T09-36-13.752Z-after-capture",
+    "2026-10-01T09-41-44.046Z-before-capture",
+    "2026-10-01T09-44-34.004Z-after-capture",
+    "2026-10-01T10-53-57.278Z-before-capture",
+    "2026-10-01T10-55-55.755Z-after-capture",
+    "2026-10-01T11-08-51.304Z-before-capture",
+    "2026-10-01T11-10-47.575Z-after-capture",
+    "2026-10-01T11-23-07.433Z-before-capture",
+    "2026-10-01T11-28-16.477Z-after-capture",
+    "2026-10-01T11-37-25.600Z-before-capture",
+    "2026-10-01T11-42-54.387Z-after-capture",
+    "2026-10-01T11-50-55.355Z-before-capture",
+    "2026-10-01T11-52-37.844Z-after-capture"
+  ],
+  "fullResolutionOriginalsInspected": [
+    {
+      "folder": "2026-10-01T09-30-47.504Z-before-capture",
+      "stem": "edge-native-256-high-craterize-fast-1",
+      "frames": [
+        17,
+        18
+      ],
+      "actualTimestampsMs": [
+        19177.30000001192,
+        19265.600000023842
+      ],
+      "intervalMs": 88.30000001192093
+    },
+    {
+      "folder": "2026-10-01T09-32-04.822Z-after-capture",
+      "stem": "edge-native-256-high-craterize-fast-1",
+      "frames": [
+        18,
+        19
+      ],
+      "actualTimestampsMs": [
+        19248.69999998808,
+        19341.80000001192
+      ],
+      "intervalMs": 93.10000002384186
+    },
+    {
+      "folder": "2026-10-01T09-33-30.362Z-before-capture",
+      "stem": "edge-laptop-256-standard-craterize-fast-1",
+      "frames": [
+        23,
+        24
+      ],
+      "actualTimestampsMs": [
+        30467.80000001192,
+        30782.30000001192
+      ],
+      "intervalMs": 314.5
+    },
+    {
+      "folder": "2026-10-01T09-36-13.752Z-after-capture",
+      "stem": "edge-laptop-256-standard-craterize-fast-1",
+      "frames": [
+        15,
+        16
+      ],
+      "actualTimestampsMs": [
+        29325.5,
+        29408.80000001192
+      ],
+      "intervalMs": 83.30000001192093
+    },
+    {
+      "folder": "2026-10-01T11-10-47.575Z-after-capture",
+      "stem": "edge-native-256-high-brush-large-1",
+      "frames": [
+        62,
+        63
+      ],
+      "actualTimestampsMs": [
+        22417.099999964237,
+        22563
+      ],
+      "intervalMs": 145.9000000357628
+    },
+    {
+      "folder": "2026-10-01T11-50-55.355Z-before-capture",
+      "stem": "edge-native-256-standard-abuse-1",
+      "frames": [
+        274,
+        275
+      ],
+      "actualTimestampsMs": [
+        33352.39999997616,
+        33412.30000001192
+      ],
+      "intervalMs": 59.90000003576279
+    },
+    {
+      "folder": "2026-10-01T11-52-37.844Z-after-capture",
+      "stem": "edge-native-256-standard-abuse-1",
+      "frames": [
+        743,
+        744
+      ],
+      "actualTimestampsMs": [
+        60005.69999998808,
+        60212.19999998808
+      ],
+      "intervalMs": 206.5
+    }
+  ],
+  "pixelConfirmed": [
+    "Large Craterize terrain-state pop: High/native before 17\u219218 and after 18\u219219; Standard/proxy before 23\u219224 and after 15\u219216. Seen in original frames, separate from later intentional impact flash.",
+    "Abuse recorded terrain/water-state jumps: before 274\u2192275 and after 743\u2192744. Exact triggering operation and ordinary-playback causality unproved."
+  ],
+  "candidates": [
+    "Brush High/after 62\u219263 changes shoreline while brush preview moves; preview rectangle/circle is intentional, water contact artifact not established.",
+    "15,141,826 qualified water-under-ground/state-mismatch geometry flags are repeated per-tile observations, not that many pixel-confirmed glitches."
+  ],
+  "pcm": {
+    "contexts": 18,
+    "qualifiedContexts": 15,
+    "qualifiedSeconds": 757.8826666666666,
+    "conversions": 11,
+    "qualifiedConversions": 8,
+    "qualifiedOverlapBlocks": 18,
+    "qualifiedTimestampGaps": 16,
+    "nonfinite": 0,
+    "maxQualifiedPeak": 0.4216095209121704,
+    "waveformInspected": "local/overnight-review/proxy-high-crater-pcm.png",
+    "auralVerdict": "unverified; no audio playback/analysis capability available. Gaps/overlaps are tap evidence, not proved audible dropouts."
+  },
+  "unverifiedOracles": [
+    "terrain-holes-seams",
+    "chunk-popping",
+    "water-hover-through-land",
+    "water-jumps",
+    "lighting-shadow-reflection-flicker",
+    "object-ground-following",
+    "all-flicker",
+    "audio-motion-sync",
+    "audio-crackle-dropout"
+  ],
+  "unverifiedChecks": [
+    "Exhaustive perceptual review of every frame, including topology holes/seams, chunk appearance, water contact and continuity, lighting/shadows/reflections, objects following terrain, all flicker. All 15,860 PNGs decoded; human review covered change sheets and 14 full-resolution originals only.",
+    "Audible crackle/dropout, motion synchronization and <=150ms held-texture release; seven qualified PCM streams refused overlapping frames.",
+    "Full export-file byte identity: no export files recorded.",
+    "Budgets calibration: provisional fingerprint preserved; repeated measurements already violate strict hitch/byte budgets.",
+    "Full-hour event coverage: final reference discards an estimated 57,610 ms of mixed-edit tail; elapsed session complete, tail pacing/foreground unavailable."
+  ],
+  "hitchAttribution": "Every observed hitch remains causally unattributed; renderer-method overlap alone is not proof.",
+  "qualifiedGifPairs": "Generated from offline-qualified rows only by gifs.py --proof; timestamps from original PNG metadata, 10ms GIF quantization. Raw originals remain authoritative.",
+  "generatedGifs": [
+    {
+      "path": "local\\overnight-gifs\\edge-laptop-256-high-craterize-fast-1.gif",
+      "sha256": "98837944aea2aca4366bcf867468b13f78c2953daa8ee617edae93c656209aa8",
+      "frames": 979,
+      "durationMs": 78860,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-laptop-256-high-craterize-fast-1.timestamps.json"
+    },
+    {
+      "path": "local\\overnight-gifs\\edge-laptop-256-standard-craterize-fast-1.gif",
+      "sha256": "6c69c2abcf66865022385e387fb172435c10ec2f04a424a84c74ae4ce1f48f94",
+      "frames": 1035,
+      "durationMs": 81330,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-laptop-256-standard-craterize-fast-1.timestamps.json"
+    },
+    {
+      "path": "local\\overnight-gifs\\edge-native-256-high-brush-large-1.gif",
+      "sha256": "95039481c6e45ef02acc042a16430ea98861b8a1f537e0fdb99a8b8f20fb4e35",
+      "frames": 1071,
+      "durationMs": 42850,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-native-256-high-brush-large-1.timestamps.json"
+    },
+    {
+      "path": "local\\overnight-gifs\\edge-native-256-high-craterize-fast-1.gif",
+      "sha256": "39127a4f4b52707cbe0077b4743b232054d5a3bd1ecdd51735ea8898635aa383",
+      "frames": 904,
+      "durationMs": 26310,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-native-256-high-craterize-fast-1.timestamps.json"
+    },
+    {
+      "path": "local\\overnight-gifs\\edge-native-256-standard-abuse-1.gif",
+      "sha256": "684ed0b8e8907f3cf78315978a688b86b7b770a0e0777430ef0cd9fff6618e4f",
+      "frames": 1402,
+      "durationMs": 63150,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-native-256-standard-abuse-1.timestamps.json"
+    },
+    {
+      "path": "local\\overnight-gifs\\edge-native-256-standard-brush-large-1.gif",
+      "sha256": "f3be2e9848545b2f40da4ffeb8894257d52b5215c3cdf07d6821722b53f07139",
+      "frames": 1102,
+      "durationMs": 36280,
+      "size": [
+        960,
+        384
+      ],
+      "originalTimestampSidecar": "local\\overnight-gifs\\edge-native-256-standard-brush-large-1.timestamps.json"
+    }
+  ]
+}
