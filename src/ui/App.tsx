@@ -700,10 +700,10 @@ export function App() {
           {version ? (
             <p class="note version-ready" role="status">
               {version.note}.{" "}
-              <button type="button" class="linkish" onClick={takeVersion}>
+              <button type="button" class="linkish" onClick={takeVersion} title="Show the version found in the background">
                 Show it
               </button>{" "}
-              <button type="button" class="linkish" onClick={() => setVersion(null)} aria-label="Dismiss">
+              <button type="button" class="linkish" onClick={() => setVersion(null)} title="Keep the map shown and hide this note">
                 Keep this map
               </button>
             </p>
@@ -788,7 +788,7 @@ export function App() {
                   Refine this map
                 </button>
                 {!fromSession ? (
-                  <button type="button" class="ghost" disabled={busy || !result.passed} onClick={() => void anotherLikeThis()} title="A new map with the same theme, settings and intentions, on different land">
+                  <button type="button" class="ghost" disabled={busy || !result.passed} onClick={() => void anotherLikeThis()} title="A new map like this one, on different land">
                     Another like this
                   </button>
                 ) : null}
