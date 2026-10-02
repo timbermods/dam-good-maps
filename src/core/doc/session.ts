@@ -843,7 +843,7 @@ export class MapSession {
     const b = this.baseStuff();
     if (this.cutCache?.key === this.gen.base) return this.cutCache.cut;
     const w = b.file.world;
-    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), w.sizeX, w.sizeY);
+    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), storedWetMask(storedWater(w.singletons, w.sizeX, w.sizeY), w.sizeX * w.sizeY), w.sizeX, w.sizeY);
     this.cutCache = { key: this.gen.base, cut };
     return cut;
   }

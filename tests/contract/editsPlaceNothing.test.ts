@@ -4,7 +4,7 @@
 // after every edit, and a change anywhere moved the whole network. Slopes are derived once, at
 // generation; an edited map keeps those that still stand and loses those an edit took away. An edit
 // that leaves something unreachable shows in the checks (the mine site's walk,
-// `resources.mine_reach`), for the player to fix; nothing is placed silently.
+// `resources.mine_site`, advisory in the editor), for the player to fix; nothing is placed silently.
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -125,7 +125,7 @@ describe("an edit never places an object (D368 (10))", () => {
 });
 
 describe("an edit that leaves the mine site out of reach shows in the checks, and places nothing (D368 (10))", () => {
-  it("walling the mine site off from the start adds no slope and reports resources.mine_reach", async () => {
+  it("walling the mine site off from the start adds no slope and reports resources.mine_site", async () => {
     // a generated map whose mine site the colony reaches
     let mine: { x: number; y: number; z: number } | null = null;
     for (const seed of [4, 2, 5, 6]) {
@@ -135,7 +135,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
       // (before any edit the check has nothing to say; a harmless first edit makes it apply)
       expect(ed.apply({ op: "brush", params: { tool: "raise", size: 1, strength: 1, target: 0, dabs: [8, 8] } }, "user", "touch").errors).toEqual([]);
       const c = ed.exportCheck();
-      if ([...c.advisory, ...c.warnings, ...c.blocking].some((i) => i.id === "resources.mine_reach")) {
+      if ([...c.advisory, ...c.warnings, ...c.blocking].some((i) => i.id === "resources.mine_site")) {
         ed.undo();
         continue;
       }
@@ -155,7 +155,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
     expect(r.errors).toEqual([]);
     expect(added(before, entities()).map((e) => `${e.template}@${e.x},${e.y}`)).toEqual([]);
     const c = ed.exportCheck();
-    const item = [...c.advisory, ...c.warnings, ...c.blocking].find((i) => i.id === "resources.mine_reach");
+    const item = [...c.advisory, ...c.warnings, ...c.blocking].find((i) => i.id === "resources.mine_site");
     expect(item, "the checks say the mine site is out of reach").toBeTruthy();
     expect(item!.message).toMatch(/mine site/);
   }, 300000);

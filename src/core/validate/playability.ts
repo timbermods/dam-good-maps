@@ -133,8 +133,9 @@ export interface PlayabilityInput {
   /** The soil rules (sim/soil.ts; the default when absent, D308). */
   soilRules?: SoilRules;
   /** The editor's: the first tile of each mine site that was out of the colony's reach when the map
-   *  was opened (`mineSitesCutAt`). Given, the check `resources.mine_reach` reports the sites an edit
-   *  has left out of reach since; absent (the generator, the oracle, Real places), it does not run. */
+   *  was opened (`mineSitesCutAt`). Given, `resources.mine_site` is advisory and also fails on a site
+   *  an edit has left out of reach since (D368 (10)); absent (the generator, the oracle, Real places),
+   *  it is the generator's check alone. */
   mineCutAtOpen?: ReadonlySet<number>;
 }
 
@@ -190,46 +191,15 @@ export function startMiddleTile(start: MapObject): [number, number] {
   return [Math.round(sumX / cells.length), Math.round(sumY / cells.length)];
 }
 
-/** The first tile of each mine site no walk reaches: its footprint and the ring round it lie off the
- *  start's walkable region (`labels`, `root`: analysis/regions.ts `walkRegions`). */
-function cutMineSites(objects: readonly MapObject[], W: number, H: number, labels: ArrayLike<number>, root: number): [number, number][] {
-  const cut: [number, number][] = [];
-  for (const o of objects) {
-    if (o.template !== "UndergroundRuins" || !FOOTPRINTS[o.template]) continue;
-    const tiles = footprintTiles(o.template, o).filter(([x, y]) => x >= 0 && x < W && y >= 0 && y < H);
-    let near = false;
-    for (const [x, y] of tiles) {
-      for (let dy = -1; dy <= 1 && !near; dy++)
-        for (let dx = -1; dx <= 1 && !near; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && xx < W && yy >= 0 && yy < H && root >= 0 && labels[yy * W + xx] === root) near = true;
-        }
-      if (near) break;
-    }
-    if (!near && tiles.length) cut.push(tiles[0]);
-  }
-  return cut;
-}
-
-/** The mine sites out of reach on a map as it stands, as the tile index of each one's first tile
- *  (the editor takes it once, when the map is opened: `PlayabilityInput.mineCutAtOpen`). Walking is
- *  the checks': the map's own ground and its slopes, round the objects that block. */
-export function mineSitesCutAt(objects: readonly MapObject[], h: Uint8Array, W: number, H: number): Set<number> {
+/** The mine sites out of the colony's reach on a map as it stands, as the tile index of each one's
+ *  first tile (the editor takes it once, when the map is opened: `PlayabilityInput.mineCutAtOpen`).
+ *  Reach is the checks' one reading (`colonyReach`, D342), on the map's own water (`wet`). */
+export function mineSitesCutAt(objects: readonly MapObject[], h: Uint8Array, wet: Uint8Array, W: number, H: number): Set<number> {
   const start = objects.find((o) => o.template === "StartingLocation");
   const out = new Set<number>();
   if (!start) return out;
-  const blocked = new Uint8Array(W * H);
-  const links: [number, number][] = [];
-  for (const o of objects) {
-    if (WALK_BLOCKERS.has(o.template) && FOOTPRINTS[o.template]) for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
-    if (o.template !== "Slope" || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
-    const [dx, dy] = slopeHighSide(o.orientation);
-    if (o.x + dx >= 0 && o.x + dx < W && o.y + dy >= 0 && o.y + dy < H) links.push([o.y * W + o.x, (o.y + dy) * W + o.x + dx]);
-  }
   const [sx, sy] = startMiddleTile(start);
-  const labels = walkRegions(h, W, H, blocked, links);
-  for (const [x, y] of cutMineSites(objects, W, H, labels, labels[sy * W + sx])) out.add(y * W + x);
+  for (const [x, y] of minesOutOfReach(objects, W, H, colonyReach(W, H, h, wet, objects, { x: sx, y: sy }))) out.add(y * W + x);
   return out;
 }
 
@@ -428,13 +398,15 @@ export function colonyReach(W: number, H: number, h: Uint8Array, wet: Uint8Array
   return out;
 }
 
-/** The mine sites the colony reaches: those with a tile beside their footprint on `reach`. */
-export function minesReached(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array): number {
-  let walked = 0;
+/** The mine sites the colony does not reach, as each one's first tile: a site is reached when a
+ *  tile beside its footprint is on `reach` (`colonyReach`). */
+export function minesOutOfReach(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array): [number, number][] {
+  const out: [number, number][] = [];
   for (const o of objects) {
     if (o.template !== "UndergroundRuins") continue;
+    const tiles = footprintTiles(o.template, o);
     const own = new Set<number>();
-    for (const [x, y] of footprintTiles(o.template, o)) own.add(y * W + x);
+    for (const [x, y] of tiles) own.add(y * W + x);
     let hit = false;
     for (const i of own) {
       const x = i % W;
@@ -447,27 +419,44 @@ export function minesReached(objects: readonly MapObject[], W: number, H: number
         }
       if (hit) break;
     }
-    if (hit) walked++;
+    if (!hit && tiles.length) out.push(tiles[0]);
   }
-  return walked;
+  return out;
 }
 
-function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector): void {
+/** The mine sites the colony reaches: those with a tile beside their footprint on `reach`. */
+export function minesReached(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array): number {
   let mines = 0;
   for (const o of objects) if (o.template === "UndergroundRuins") mines++;
-  const walked = reach ? minesReached(objects, W, H, reach) : 0;
+  return mines - minesOutOfReach(objects, W, H, reach).length;
+}
+
+/** `resources.mine_site`: at least two mine sites (one under 80²) the colony reaches from its start
+ *  (item 47, D325, D333 (7)). In the editor (`cutAtOpen`, D368 (10)) it is advisory, and it also
+ *  fails on a site an edit has cut off since the map was opened; the sites already out of reach then
+ *  are never blamed on the edits. Nothing is placed to join a site again: the player fixes it. */
+function checkMines(objects: readonly MapObject[], W: number, H: number, reach: Uint8Array | null, c: Collector, cutAtOpen?: ReadonlySet<number>): void {
+  let mines = 0;
+  for (const o of objects) if (o.template === "UndergroundRuins") mines++;
+  const out = reach ? minesOutOfReach(objects, W, H, reach) : [];
+  const walked = reach ? mines - out.length : 0;
   const n = reach ? walked : mines;
   const want = minesWanted(W, H);
   const every = want === MINES_WANTED ? "every map needs" : "a map this small needs";
+  const cut = cutAtOpen ? out.filter(([x, y]) => !cutAtOpen.has(y * W + x)) : [];
   c.add({
     id: "resources.mine_site",
     class: "playability",
-    ok: n >= want,
+    ...(cutAtOpen ? { advisory: true } : {}),
+    ok: n >= want && cut.length === 0,
     value: n,
     limit: want,
     message: !reach
       ? `${mines} mine site${mines === 1 ? "" : "s"} (${every} at least ${want}, the late game's lasting source of scrap metal)`
-      : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (${every} at least ${want})`,
+      : cut.length
+        ? `${cut.length === 1 ? "a mine site the colony reached is" : `${cut.length} mine sites the colony reached are`} out of its reach now: no way from the start without crossing water or climbing a cliff (place a slope or level the ground); ${walked} of ${mines} reached`
+        : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (${every} at least ${want})`,
+    ...(cut.length ? { where: { tiles: cut.slice(0, 20) } } : {}),
   });
 }
 
@@ -752,30 +741,6 @@ function checkStart(
     message: `${dry} dry tiles are walkable from the start through slopes (the target is ${rules.reachMin}; official p10 1,007)`,
   });
 
-  // a mine site is walkable from the start (D368 (10)): the colony must reach it over the map's own
-  // ground and slopes. An edit may cut it off, and nothing is placed to join it again: the dot says
-  // so, for the player to fix (a slope from the shelf, or the ground back). Advisory, like the
-  // start's reach, and only for the editor (`mineCutAtOpen`: the sites already out of reach when the
-  // map was opened are the generator's, or the file's, and are not blamed on the edits).
-  const cutAtOpen = inp.mineCutAtOpen;
-  if (cutAtOpen) {
-    const mineSites = objects.filter((o) => o.template === "UndergroundRuins" && FOOTPRINTS[o.template]);
-    const cut = cutMineSites(objects, W, H, labels, root).filter(([x, y]) => !cutAtOpen.has(y * W + x));
-    if (mineSites.length)
-      c.add({
-        id: "resources.mine_reach",
-        class: "playability",
-        advisory: true,
-        ok: cut.length === 0,
-        value: cut.length,
-        limit: 0,
-        message: cut.length
-          ? `${cut.length === 1 ? "a mine site is" : `${cut.length} mine sites are`} out of the colony's reach: no walk over the map's ground and slopes joins ${cut.length === 1 ? "it" : "them"} to the start (place a slope or level the ground)`
-          : `${mineSites.length === 1 ? "the mine site is" : "every mine site is"} walkable from the start, or was not when the map was opened`,
-        ...(cut.length ? { where: { tiles: cut.slice(0, 20) } } : {}),
-      });
-  }
-
   // requirement 3 (D85): living berry bushes within 20 tiles' walk of the start, slopes allowed;
   // living means alive and on soil where it survives at steady state. Requirement 2, starting wood
   // (D164): the logs of every grown tree within that walk, alive or dead (a tree keeps its logs when
@@ -819,7 +784,7 @@ function checkStart(
     else bushes++;
   }
   // (the mine sites the colony reaches, read with the one function the generator reads them with)
-  checkMines(objects, W, H, colonyReach(W, H, h, wet, objects, { x: sx, y: sy }), c);
+  checkMines(objects, W, H, colonyReach(W, H, h, wet, objects, { x: sx, y: sy }), c, inp.mineCutAtOpen);
   // the start's walk once more (items 24 and 47): the trees within the floor's walk and their logs,
   // and the farmland and level building land within 20 tiles' walk
   {

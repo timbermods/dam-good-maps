@@ -724,8 +724,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
   those that still stand (the high side one level up, the tile behind at their own level) and loses those an edit
   took away; it never derives again. The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
-  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
-  walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the
+  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
+  the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
   asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`

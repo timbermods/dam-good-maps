@@ -490,7 +490,7 @@ export interface ValidateOptions {
   /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
-   *  given, the playability check `resources.mine_reach` reports what edits cut off since. */
+   *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */
   mineCutAtOpen?: ReadonlySet<number>;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
