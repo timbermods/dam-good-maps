@@ -20,11 +20,12 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("generate → refine → back to settings → Generate → back to editing keeps the player's edits", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 4261 since D333, D148: on 4254's map the start moved two tiles west has little wood and
+  // (seed 4262 on M9b's maps, D148: the edited 4261 shows a geothermal field within 2 tiles of water, a
+  // thing to look at; seed 4261 since D333, D148: on 4254's map the start moved two tiles west has little wood and
   // its plants dry out in a drought, which the quiet dot rightly counts; seed 4254 since batch 5,
   // 4244's berries drying out; seed 4244 since M9a: on 0.7.0's 4242 the start stood on a floodplain
   // a level above the river's outlet, and the spring below flooded it)
-  await page.goto("./#s=4261&z=96&d=n&t=riverValley");
+  await page.goto("./#s=4262&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
   // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
   const name = (await page.locator(".card header h2").textContent())?.trim() ?? "";
@@ -112,7 +113,7 @@ test("generate → refine → back to settings → Generate → back to editing 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4261.timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4262.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // back to settings: the card shows the edited map; change a setting and generate: a new map

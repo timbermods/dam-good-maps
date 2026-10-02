@@ -26,37 +26,54 @@ async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
 }
 
 /** Dry ground far from the start where the map (not a bar over it) takes the pointer, with 14 tiles
- *  of map each side of it. */
+ *  of map each side of it. A tool's options row is a bar over the map too (D323 item 9) and its height
+ *  differs by tool, so the spot must be clear of the bar with each kind of tool picked (seed 4242 on
+ *  M9b's maps, D148: its best spot stood under the Raise row). */
 async function spot(page: Page): Promise<[number, number]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-  return page.evaluate(
-    ([s0, s1]) => {
+  const grid = () =>
+    page.evaluate(() => {
       const m = window.dgm3d!.renderer.mapState()!;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
-      let best: [number, number] = [0, 0];
-      let score = -Infinity;
+      const out: string[] = [];
       for (let y = 20; y < m.H - 20; y += 2)
         for (let x = 20; x < m.W - 20; x += 2) {
           if (m.surface.depth[y * m.W + x] > 0) continue;
           if (![[0, 0], [-14, 0], [14, 0], [0, -14], [0, 14], [14, 14], [-14, -14]].every(([dx, dy]) => onMap(x + dx, y + dy))) continue;
-          const s = Math.hypot(x - s0, y - s1) - Math.hypot(x - m.W / 2, y - m.H / 2) * 0.5;
-          if (s > score) {
-            score = s;
-            best = [x, y];
-          }
+          out.push(`${x},${y}`);
         }
-      return best;
-    },
-    [start[0], start[1]] as const,
-  );
+      return out;
+    });
+  let clear = new Set(await grid());
+  for (const key of ["1", "4", "7", "8", "9", "0", "-"]) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(150);
+    const here = new Set(await grid());
+    clear = new Set([...clear].filter((c) => here.has(c)));
+    await page.keyboard.press("x");
+  }
+  const dims = await page.evaluate(() => { const m = window.dgm3d!.renderer.mapState()!; return [m.W, m.H]; });
+  let best: [number, number] = [0, 0];
+  let score = -Infinity;
+  for (const c of clear) {
+    const [x, y] = c.split(",").map(Number);
+    const sc = Math.hypot(x - start[0], y - start[1]) - Math.hypot(x - dims[0] / 2, y - dims[1] / 2) * 0.5;
+    if (sc > score) {
+      score = sc;
+      best = [x, y];
+    }
+  }
+  expect(score, "a spot clear of every bar").toBeGreaterThan(-Infinity);
+  return best;
 }
 
 test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
   await refine(page);
+  const at = await spot(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   const size = row.locator(".size-control output");
@@ -64,7 +81,6 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   // numbers: Power's, and Size's on Auto as "Auto (n)"
   await expect(power).toHaveText(/^\d+$/);
   await expect(size).toHaveText(/^Auto \(\d+\)$/);
-  const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);

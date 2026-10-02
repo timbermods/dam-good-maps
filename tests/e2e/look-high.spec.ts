@@ -249,7 +249,9 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=3&z=128&d=n&t=lakeBasin");
+  // (seed 5 on M9b's maps, D148: seed 3's lake basin is nowhere 2 deep, its deepest water 1.8; seed 5 shows
+  // about a thousand tiles of each in view)
+  await page.goto("./#s=5&z=128&d=n&t=lakeBasin");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "3D", exact: true }).click();
   await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });

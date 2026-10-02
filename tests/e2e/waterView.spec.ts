@@ -23,7 +23,9 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // (seed 33 since D333, D148: seed 15's river now has a tributary above its 60%; seed 15 since M9a:
   // 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there one group of sources feeds
   // the water, where three rivers join on most maps)
-  await page.goto("./#s=33&z=96&d=n&t=riverValley");
+  // (seed 8 at 20% of its river on M9b's maps, D148: the water joins up, so past the
+  // first third of seed 8 three source groups feed a spot; at 0.1 to 0.3 of its path, one does)
+  await page.goto("./#s=8&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
@@ -32,7 +34,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const path = (i.features.find((f) => f.kind === "river")!.params as { path: [number, number][] }).path;
-  const mid = path[Math.floor(path.length * 0.6)];
+  const mid = path[Math.floor(path.length * 0.2)];
   const m: [number, number] = [Math.round(mid[0]), Math.round(mid[1])];
   const mp = await client(page, ...m);
 
