@@ -10,10 +10,10 @@ checkpoint.
 
 | # | Checkpoint | State |
 |---|---|---|
-| – | The Editor.tsx split, its own PR into dev (`feature/editor-split`), behaviour unchanged | in progress |
+| – | The Editor.tsx split, its own PR into dev (#169), behaviour unchanged | done: merged into dev |
 | 0 | The look: two directions as mockups on one real map | done: Lamplight's colours and theme accepted |
-| 0b | Lamplight v2, then v3: five mockups answering Kyler's reviews | v3 waits for Kyler's yes |
-| 1 | One workspace: the map fills the window, the panel, the rows, the cluster, Save | not started; needs 0b accepted |
+| 0b | Lamplight v2, then v3: five mockups answering Kyler's reviews | done: v3 accepted with six changes |
+| 1 | One workspace: the map fills the window, the panel, the rows, the cluster, Save | in progress |
 | 2 | The panel is the map: the map card, Generate's dot and lock, the candidates strip | waits for M9b's candidate events (else after 3 and 4) |
 | 3 | Your maps and replacing a map | |
 | 4 | Real places in the panel (Pick a place stays out of the switch until it's built) | |
@@ -50,6 +50,14 @@ checkpoint.
     everything below stays where it is in every state.
   - Undo, Redo and ⋯ stay icons, with tooltips naming them. Your maps may scroll at 768px. Variety appears when
     M9b brings the setting.
+- **Lamplight v3 accepted, with six changes built into checkpoint 1 and judged on the real page** (no new mockup
+  round): (1) the tools, the forces and the fourth line centred in the plate, the view bar as it is; (2) a
+  settings section opens as a sheet over the panel's lower part at its full remaining height, closing back to
+  the list, nothing underneath moving; (3) the pinned legend item gets the picked treatment (the dark well with
+  the cream bar); (4) the view draws every shelf and legend picture at its real size, Slope's showing its ramp;
+  (5) Generate reads as a button to press, never as disabled; (6) the view bar at 1366 wide on a map with roofed
+  water is checked on a real roofed map.
+- The message strip's × ("Dismiss") has the tooltip "Dismiss this message".
 - Meaning is a section of DESIGN.md, not its own document.
 - The Editor.tsx split goes first, as its own PR into dev, merged by the milestone session.
 - Pick a place stays out of the switch until it's built. If M9b isn't in when checkpoint 2 is due, 3 and 4 go first.

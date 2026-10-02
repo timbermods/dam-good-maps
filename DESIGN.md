@@ -19,10 +19,10 @@ The page session records its design decisions here; the work is logged in
 - **The panel:** the map as a whole (the switch, the settings, the candidates strip, the map card, Your maps). The one
   place the display face appears: the map's name.
 
-## The direction: Lamplight (v3)
+## The direction: Lamplight
 
-*Kyler accepted Lamplight's colours and theme at checkpoint 0; v3 answers his second review. Nothing is built until
-he accepts a checkpoint's mockup.*
+*Kyler accepted this look (v3 of its mockups, with six changes that are written in below) on 2026-10-02. No later
+checkpoint's look is built until he has accepted it.*
 
 **The goal (Kyler).** The layout feels seamless and easy to understand: a new player knows what everything is and
 where to find it at a glance, with nothing jumping, crowding or needing to be decoded.
@@ -39,8 +39,8 @@ the brightest, most colourful thing on screen, and the controls recede into warm
 - There is no hue accent: green and amber belong to the checks dot alone, and nothing in the interface borrows a
   water, badwater or contamination colour.
 
-**Mockups** (River Valley 4242 at 128², the High look; the shelf's and legend's pictures are the view's own renders).
-The first three share one framing, so flipping between them shows that nothing moves:
+**The accepted mockups** (River Valley 4242 at 128², the High look). The page as built differs from them where
+Kyler's six changes say so: the lines are centred, a settings section is a sheet, and the pinned legend line is Active:
 [Carve in hand](docs/design/lamplight-v3-1-carve.jpg) ·
 [a shelf object picked, its ghost on the map](docs/design/lamplight-v3-2-shelf.jpg) ·
 [the Water settings open](docs/design/lamplight-v3-3-settings.jpg) ·
@@ -63,13 +63,17 @@ The first three share one framing, so flipping between them shows that nothing m
 - **The rows have no clusters and no dividers** (this changes D352's three force clusters): every row is one evenly
   spaced line from the left, in the order the items have now.
 - **The panel never changes shape or jumps:** every part has a fixed place in every state.
+- **A settings section opens as a sheet** over the panel's lower part (the versions strip, the card and Your maps),
+  at the panel's full remaining height, and closes back to the list of sections. Nothing under it moves.
+- **The tools, the forces and what is held are centred in the rows' plate;** the view bar stays at the left.
+- **Every shelf and legend picture is drawn by the view at its real size,** never enlarged; Slope's shows its ramp.
 
 ### Two treatments, and buttons
 
 | Treatment | Looks like | Used for |
 |---|---|---|
 | **Lit** | cream fill, dark ink, a soft warm glow | the primary action, and nothing else |
-| **Active** | a dark well, cream words, a cream bar beneath | what is held (a tool, a force, a shelf object) and what is on (a view toggle); a pinned legend line has the bar |
+| **Active** | a dark well, cream words, a cream bar beneath | what is held (a tool, a force, a shelf object), what is on (a view toggle), the open settings section, a pinned legend line |
 | A button | a raised piece of the wood | something that acts when pressed: Top-down, Reset view, Try another, More, Drought, Badtide |
 
 A choice among a few (the switch, Designed for, Keep river · Dry canyon) is a segmented control: the chosen side is
@@ -77,7 +81,8 @@ raised. The shown version in the strip has a plain cream ring. Nothing changes w
 nothing shifts.
 
 **The primary action while editing is Save to Timberborn,** top right, and it is the only lit thing on the screen.
-**Generate is the panel's main button:** tall, full width of its line, bold, lighter wood with a cream outline, with
+**Generate is the panel's main button:** tall, bold, lighter wood with a cream outline and a raised edge that
+presses down, so it reads as a button to press and never as disabled (while a map is made it says what it is doing);
 Surprise me beside it as a plain underlined word; a small cream dot on it when the settings differ from the shown
 map. With the panel collapsed nothing changes: Save stays lit in the same place, and Generate comes back with the
 panel (it runs only from its button or Enter in the panel, brief §5).
@@ -91,10 +96,11 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
   1. "Dam Good Maps" in the system face, and the collapse button.
   2. The switch: Generate · Real places.
   3. Theme, Size, Seed and Designed for, two to a line, each under its name.
-  4. **The settings area:** an accordion in a fixed area that scrolls inside itself. Terrain, Water, Hazards,
-     Resources, Advanced: start rules and Limits for this size are six lines, each with a chevron; one opens at a
-     time, its fields directly under its own name, and the area scrolls to it. All six names show when none is open.
-     Reset to the theme's settings is the list's last line. Sources: Placed · None is Water's first field (brief §8).
+  4. **The sections:** Terrain, Water, Hazards, Resources, Advanced: start rules and Limits for this size, six
+     lines that always show, each with a chevron pointing on. One opens as a sheet over the panel's lower part, at
+     its full remaining height, with every field under its real name and its official-maps line; the sheet's head
+     names the section, goes back to the list (Esc too) and holds Reset all to the theme's. The open section's line
+     is Active. Sources: Placed · None will be Water's first field (brief §8, with M9b).
   5. Generate, and Surprise me.
   6. The versions strip (its place is kept when it is empty; More is always there).
   7. The map card: the name (Bitter 700, one line); the "how it plays" line (two lines); the legend, four lines in
@@ -102,9 +108,12 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
      trees in reach with their logs.
   8. Your maps takes what height is left and scrolls inside itself (at 768px high only its heading shows first).
 - **The rows** are one plate with one left edge beside the panel, four lines divided by hairlines: the view bar, the
-  tools, the forces, and what is held. Every line starts at the left with equal gaps. The plate is as wide as its
-  widest line (the view bar, 615px) and always four lines tall: the last shows the held tool's settings, or the held
-  object's name and what to do with it.
+  tools, the forces, and what is held. Every line is evenly spaced, with no clusters or dividers; the view bar
+  starts at the left, and the tools, the forces and what is held are centred. The view bar alone sets the plate's
+  width (615px); the other lines wrap inside it and never widen it. The plate is always at least four lines tall:
+  the last shows the held tool's settings (a long row takes a second line, D345), the held object's name and what
+  to do with it, or, with nothing held, "Pick a tool, a force or an object". The first run's hints sit under the
+  plate, never in it.
   - **The view bar** is the quietest line (12px). Top-down and Reset view are buttons; the rest are toggles: plain
     quiet words when off, Active when on.
 - **Top right:** Undo, Redo and ⋯, the checks dot with its words, Save to Timberborn. Beneath, the cluster as a grid
@@ -113,14 +122,15 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
 - **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
   in five groups divided by hairlines. The view draws each picture to fill its tile. Fifteen objects fit at 1366×768
   above the water bar; when more arrive it scrolls inside itself, names kept.
-- **Bottom left:** the hover readout. **Bottom right:** the water's status with Drought and Badtide.
+- **Bottom left:** the hover readout. **Bottom right:** the water bar (its status, Pause, Speed, Skip, Replay,
+  Drought, Badtide), and above it the look's menu as a small plate.
 - **The default view fits the whole map in the free space:** right of the panel, left of the shelf, under the rows
   and above the bottom bars, for the layout as it is when a map opens or Reset view is pressed. Collapsing or opening
   the panel never moves the camera by itself (D265).
 
 At 1366×768 the rows end 19px short of Save's plate. A map with roofed water adds an Under roofs toggle, which
-doesn't fit there: at that width the view bar then drops Minimap to its end and scrolls sideways inside the plate.
-This is checked on a real roofed map at checkpoint 1.
+doesn't fit on the line there: the plate stops 12px short of Save and the view bar takes a second line. Checked at
+checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was on the machine.
 
 ### Tokens
 
@@ -140,7 +150,12 @@ This is checked on a real roofed map at checkpoint 1.
 ### Still to come
 
 - Variety joins Theme, Size, Seed and Designed for when M9b brings the setting.
-- The mockups' pictures are the shelf's present renders enlarged; the build has the view draw them at 28px.
+- The shelf's pictures at their real size, and the default view fitted to the free space, need two small changes
+  in the renderer (`thumbnail()`'s framing, `frameMap()`'s insets); until then the pictures are the present renders
+  and the view is centred in the window.
+- The map's name is in Bitter once its font file is in the repository; until then it falls back to Georgia.
+- The versions strip, the legend and the trees line (checkpoint 2) and Your maps (checkpoint 3) are not built yet;
+  the card shows the name, the map's premise and a quiet line of facts.
 
 ## The direction not taken: Field notes
 

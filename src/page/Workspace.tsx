@@ -233,6 +233,7 @@ export function Workspace() {
     const id = ++runId.current;
     setBusy(true);
     setError(null);
+    performance.mark("dgm:generate");
     try {
       setProgress({ attempt: 0, stage: "land", land: null });
       const r = await generator.generate(
@@ -246,8 +247,10 @@ export function Workspace() {
         if (session) return;
       }
       setResult(r);
+      performance.mark("dgm:generated");
       // the map is the editor's from the start: there is no step between making it and shaping it
       enterEditor(await generator.refine());
+      performance.mark("dgm:opened");
     } catch (e) {
       setError(words(e));
     } finally {
