@@ -316,7 +316,17 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
   applies and recorded in it, so a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8),
-  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). Pen
+  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). It
+  weathers like nature (D387 (4), D399; `raster/weather.ts`): edges, read softly, wander in and out along one
+  smooth noise fixed to the map's tiles, in curves the size of Size and as far as Strength lets them, never
+  fraying; a cliff of three levels or more only wears back: its face sheds until it stands two levels tall and
+  the ground it sheds settles as an irregular apron at its foot (cut and fill balanced), a stepped slope; flat
+  tops stay flat; little knobs, spurs and one-tile walls wear away; the effect fades out across the ring's outer
+  part, so there is no seam; and painting the same spot again changes less and less. It keeps the downhill order: no tile it changes ends above or below all its
+  neighbours, no neighbouring pair swaps which is higher, nothing newly holds water and no way out for water
+  closes (where water stood round the stroke is recorded in it, `rim`); what would break one is taken back. A
+  new stroke records its rule (`weathering: 2`, added by the core); a stroke saved before D399 replays with the
+  old rule. Pen
   pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).

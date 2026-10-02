@@ -16,6 +16,8 @@ import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { weatherKeep } from "../features/raster/objectGround";
+import { weatherRim } from "../features/raster/brush";
+import { waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
@@ -516,6 +518,13 @@ export class MapSession {
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    // a new weathering Naturalize stroke weathers like nature (D399): its rule and where water stood
+    // round it are recorded in it, so it replays the same, and strokes saved before keep their rule
+    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && applied.params.weathering === undefined) {
+      const pre = this.cur.cache.terrain.pre7;
+      const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
+      applied.params = { ...applied.params, weathering: 2, ...(rim.length ? { rim } : {}) };
+    }
     // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
     // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
     if (applied.op === "brush") {

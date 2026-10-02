@@ -1,7 +1,7 @@
-// Naturalize on terraced land, before and after, for Kyler's eye (PLAN §20 D387 (4)): today it scatters
-// single-tile bumps and holes across clean terraces; these sheets show that as it is now. One sheet per
+// Naturalize on terraced land, before and after, for Kyler's eye (PLAN §20 D387 (4), D399). One sheet per
 // look (Standard, High): rows are a map and a setting (an oblique close view, then top-down), columns the
-// land before and after the stroke.
+// land before and after the stroke, and for River Valley 3 a reference: the same seed generated at the
+// theme's own Terracing, the generator's natural terraces, before any stroke.
 //
 //   npx tsx tools/capture-naturalize.ts [--out docs/progress/naturalize] [--scratch .scratch/naturalize]
 //     [--port 4977] [--only 0,2] [--explore] [--skip-build]
@@ -48,7 +48,9 @@ const CASES: Case[] = [
   { seed: 3, theme: "riverValley", setting: "max" },
 ];
 const EXPLORE_CASES: Case[] = ["highlands", "riverValley", "lakeBasin", "canyon"].flatMap((theme) => [1, 2, 3, 4, 5, 6].map((seed) => ({ seed, theme, setting: "default" as const })));
-const fragment = (c: Case) => `#s=${c.seed}&z=128&d=n&t=${c.theme}&tr=100`;
+const fragment = (c: Case, tr = 100) => `#s=${c.seed}&z=128&d=n&t=${c.theme}&tr=${tr}`;
+/** The reference column's Terracing: River Valley's own (D399: this project's natural terraces). */
+const REFERENCE_TERRACING = 45;
 
 type View = { mode: "top" | "orbit"; yaw: number; pitch: number; distance: number; target: [number, number, number] };
 interface Spot {
@@ -100,16 +102,23 @@ const SPOT_JS = `() => {
 }`;
 
 function views(s: Spot): { oblique: View; top: View; wide: View } {
+  // the wide view is framed on the map, never the sky: its width just inside the map's (the top-down
+  // view is orthographic, 0.84 × distance tall, the frame's aspect wide), centred across it and
+  // as near the stroke as the map's edges allow down it
+  const aspect = VIEWPORT.width / VIEWPORT.height;
+  const wide = (s.W - 4) / aspect / 0.84;
+  const tall = 0.84 * wide;
+  const cy = Math.max(tall / 2 + 1, Math.min(s.H - tall / 2 - 1, s.cy));
   return {
     oblique: { mode: "orbit", yaw: s.yaw, pitch: 0.5, distance: 40, target: [s.cx, s.h, -s.cy] },
     top: { mode: "top", yaw: 0, pitch: 0.5, distance: 36, target: [s.cx, s.h, -s.cy] },
-    wide: { mode: "top", yaw: 0, pitch: 0.5, distance: Math.max(s.W, s.H) * 1.25, target: [s.W / 2, s.h, -s.H / 2] },
+    wide: { mode: "top", yaw: 0, pitch: 0.5, distance: wide, target: [s.W / 2, s.h, -cy] },
   };
 }
 
-async function open(page: Page, c: Case): Promise<void> {
+async function open(page: Page, c: Case, tr = 100): Promise<void> {
   await page.goto("about:blank");
-  await page.goto(`http://localhost:${PORT}/${fragment(c)}`);
+  await page.goto(`http://localhost:${PORT}/${fragment(c, tr)}`);
   await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 600_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
@@ -136,10 +145,12 @@ async function shot(page: Page, v: View): Promise<Buffer> {
   await page.mouse.move(2, 2);
   await setView(page, v);
   await page.evaluate(`window.dgm3d.renderer.setClock(${CLOCK})`);
-  const style = await page.addStyleTag({ content: "body * { visibility: hidden !important; } .view3d > canvas { visibility: visible !important; }" });
+  // (no focus ring on the canvas: nothing focused, and no outline drawn)
+  await page.evaluate("document.activeElement && document.activeElement.blur && document.activeElement.blur()");
+  const style = await page.addStyleTag({ content: "body * { visibility: hidden !important; } .view3d > canvas { visibility: visible !important; } *, *:focus, *:focus-visible { outline: none !important; box-shadow: none !important; }" });
   await page.waitForTimeout(350);
   const png = await page.locator(".view3d > canvas").screenshot({ type: "png" });
-  await style.evaluate((e) => e.remove());
+  await style.evaluate((e) => (e as Element).remove());
   return png;
 }
 
@@ -187,11 +198,13 @@ async function paint(page: Page, s: Spot, setting: Case["setting"]): Promise<{ s
   return { size: last.size, strength: last.strength };
 }
 
-/** Page side: cells (two columns, before and after) with a label band over each, as a JPEG. */
+/** Page side: cells (three columns: before, after, reference; an empty cell stays dark) with a label
+ *  band over each, as a JPEG. */
 const SHEET_JS = `async ({ images, labels, scale, quality }) => {
-  const imgs = await Promise.all(images.map(async (b64) => { const i = new Image(); i.src = "data:image/png;base64," + b64; await i.decode(); return i; }));
-  const w = Math.round(imgs[0].width * scale), h = Math.round(imgs[0].height * scale);
-  const gap = 6, band = 26, cols = 2;
+  const imgs = await Promise.all(images.map(async (b64) => { if (!b64) return null; const i = new Image(); i.src = "data:image/png;base64," + b64; await i.decode(); return i; }));
+  const first = imgs.find((i) => i);
+  const w = Math.round(first.width * scale), h = Math.round(first.height * scale);
+  const gap = 6, band = 26, cols = 3;
   const rows = Math.ceil(imgs.length / cols);
   const c = document.createElement("canvas");
   c.width = cols * w + (cols - 1) * gap;
@@ -201,6 +214,7 @@ const SHEET_JS = `async ({ images, labels, scale, quality }) => {
   g.fillRect(0, 0, c.width, c.height);
   g.imageSmoothingQuality = "high";
   imgs.forEach((img, k) => {
+    if (!img) return;
     const x = (k % cols) * (w + gap), y = Math.floor(k / cols) * (h + band + gap);
     g.drawImage(img, x, y + band, w, h);
     g.fillStyle = "#f2f2f2";
@@ -210,13 +224,13 @@ const SHEET_JS = `async ({ images, labels, scale, quality }) => {
   return c.toDataURL("image/jpeg", quality / 100).split(",")[1];
 }`;
 
-async function sheet(tool: Page, cells: { png: Buffer; label: string }[], file: string, most = 1_450_000): Promise<void> {
+async function sheet(tool: Page, cells: { png: Buffer | null; label: string }[], file: string, most = 1_450_000): Promise<void> {
   let scale = 0.5;
   let q = 82;
   for (;;) {
-    const b64 = (await tool.evaluate(`(${SHEET_JS})(${JSON.stringify({ images: cells.map((c) => c.png.toString("base64")), labels: cells.map((c) => c.label), scale, quality: q })})`)) as string;
+    const b64 = (await tool.evaluate(`(${SHEET_JS})(${JSON.stringify({ images: cells.map((c) => (c.png ? c.png.toString("base64") : "")), labels: cells.map((c) => c.label), scale, quality: q })})`)) as string;
     const buf = Buffer.from(b64, "base64");
-    if (buf.length <= most || (q <= 55 && scale <= 0.4)) {
+    if (buf.length <= most || (q <= 55 && scale <= 0.3)) {
       writeFileSync(file, buf);
       console.log(`${file}: ${Math.round(buf.length / 1024)} KB (scale ${scale}, quality ${q})`);
       return;
@@ -263,7 +277,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const look = { standard: [] as { png: Buffer; label: string }[], high: [] as { png: Buffer; label: string }[] };
+    const look = { standard: [] as { png: Buffer | null; label: string }[], high: [] as { png: Buffer | null; label: string }[] };
     const log: string[] = [];
     for (const [k, c] of CASES.entries()) {
       if (ONLY && !ONLY.includes(k)) continue;
@@ -284,6 +298,16 @@ async function main(): Promise<void> {
         await setLook(page, lk);
         for (const [name, view] of frames) before[`${lk}-${name}`] = await shot(page, view);
       }
+      // the reference: the same seed at the theme's own Terracing, the same views, before any stroke
+      const reference: Record<string, Buffer> = {};
+      if (c.theme === "riverValley" && c.seed === 3) {
+        await open(page, c, REFERENCE_TERRACING);
+        for (const lk of ["standard", "high"] as const) {
+          await setLook(page, lk);
+          for (const [name, view] of frames) reference[`${lk}-${name}`] = await shot(page, view);
+        }
+        await open(page, c);
+      }
       const used = await paint(page, s, c.setting);
       log.push(`${c.theme} ${c.seed} ${c.setting}: Size ${used.size}, Strength ${used.strength}; slope window (${s.x0},${s.y0})-(${s.x1},${s.y1}), ${s.levels} levels`);
       for (const lk of ["standard", "high"] as const) {
@@ -294,7 +318,8 @@ async function main(): Promise<void> {
           writeFileSync(join(SCRATCH, `${c.theme}-${c.seed}-${c.setting}-${tag}-before.png`), before[tag]);
           writeFileSync(join(SCRATCH, `${c.theme}-${c.seed}-${c.setting}-${tag}-after.png`), after);
           const label = (when: string) => `${when}: seed ${c.seed}, ${c.theme}, ${lk === "high" ? "High" : "Standard"} look, Size ${used.size}, Strength ${used.strength}, ${name}`;
-          look[lk].push({ png: before[tag], label: label("Before") }, { png: after, label: label("After") });
+          const ref = reference[tag] ?? null;
+          look[lk].push({ png: before[tag], label: label("Before") }, { png: after, label: label("After") }, { png: ref, label: ref ? `Reference: seed ${c.seed}, ${c.theme} at Terracing ${REFERENCE_TERRACING}, ${lk === "high" ? "High" : "Standard"} look, ${name}` : "" });
         }
       }
     }

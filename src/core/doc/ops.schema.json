@@ -56,6 +56,8 @@
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
         "weathers": { "const": true },
+        "weathering": { "const": 2 },
+        "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square"] },
         "precise": { "type": "boolean" },

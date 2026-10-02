@@ -10,6 +10,7 @@ import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, padTile } from "./terrain";
+import { waterLevels } from "./weather";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -57,6 +58,11 @@ export class StrokePreview {
     // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
     // stroke is not yet an operation, hands in the same ones (D368 (8))
     if (settings.tool === "naturalize" && settings.weathers && ground?.length) settings = { ...settings, keep: [...(settings.keep ?? []), ...ground] };
+    // a new weathering stroke weathers like nature (D399), as the session records it when it applies,
+    // reading where water stands round it from the same land
+    let water: Uint8Array | undefined;
+    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 2 };
+    if (settings.weathering === 2 && !settings.rim) water = waterLevels(state.pre, W, H);
     this.W = W;
     this.H = H;
     this.state = state;
@@ -78,7 +84,7 @@ export class StrokePreview {
     // (a stroke from before D368 leaves every protected tile, as the build does)
     const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
     const prot = settings.tool === "naturalize" && !settings.weathers ? state.protect : null;
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))));
+    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), { water });
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;
