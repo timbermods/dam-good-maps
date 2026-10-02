@@ -1,0 +1,722 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "water": "d18a6f4d890d3f2e3f7b480e308242375c100e10",
+  "corpusFingerprint": "aa0eabf8a101be683b7fff7d1fbd76fd3173e82d1423ca429b44a0c58e2cdb55",
+  "browserFingerprint": "12d21893bdc343f9605df4d58be52f866b9abefab965bcefa4fda5aaf1919f6d",
+  "nativeFingerprint": "dea8ec0318aaa1baf5229356cb7ec964fa70d8c49b50eedceda82c037fc4b0eb",
+  "status": {
+    "corpus": 872,
+    "native": 872,
+    "browsers": {
+      "chromium": 872,
+      "firefox": 872,
+      "webkit": 872
+    },
+    "timed": {
+      "chromium": 21,
+      "firefox": 21,
+      "webkit": 21,
+      "native": 21
+    },
+    "generation": {
+      "chromium": 42,
+      "firefox": 42,
+      "webkit": 42,
+      "native": 42
+    },
+    "batch": 3,
+    "m9bBrowsers": {
+      "chromium": 840,
+      "firefox": 840,
+      "webkit": 840
+    }
+  },
+  "machine": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+  "engines": {
+    "chromium": "145.0.7632.6",
+    "firefox": "146.0.1",
+    "webkit": "26.0"
+  },
+  "sources": {
+    "analysis.rs": "44dfffbb24213eedf3a3144bc99ab3083dead10a0b7b38b33a9b3de3e3c3bc1c",
+    "api.ts": "e79a2a74098012ead9c52a05542eb689bead6af087e17963c9698f2285845c48",
+    "bench-generation.mjs": "581869adfaea55fa8993d93d20fd7c6f5bf59d3acef76f6388988c1670ac4d61",
+    "bench-m9b-native.mjs": "290b259842192b72737a2968134efd6fad6ae72fa918a23d7dae9dbc754bf7d4",
+    "bench-native.mjs": "ea09ab5b7da1b9cb280881f4cff6c19cefa9780b08716c3e75244ff9589fc863",
+    "bridge.ts": "0302bf32e6012874bb8527de4c13888435e33cdceff689df3a25568cfab6c29b",
+    "browser-m9b.mjs": "8a779544600ffee248da498539e19d49a9c4829b4ea6a8af3f648be2f129ca0b",
+    "browser-worker.mjs": "0323803ee0ad210d5745398ca5c5fc1c2815382520bca81fe20305a192271140",
+    "browser.mjs": "3cb0e7960b721c8af6f812bd64636d5dc881f54ee5dd59c867ed9d9c8231eb72",
+    "build-browser.mjs": "b31e47cc4f0be422d33ebc1b94841e08c36a7d5287fe65d0579236725b9c35d8",
+    "build-m9b-browser.mjs": "25793b7745fffb7f6ea970c1a43f47fd07b09d34f6237b083b7a80a284306484",
+    "build-native.mjs": "2f5d4b77bdc4bf564902637d6c7faed292e0bab215613de96fd753c62d1194ff",
+    "build.mjs": "2cc9ff6c8c68b9138ef00035c5825bce6a404cda96c73f46568126ead0e80105",
+    "codec.mjs": "745ccd60cf55c17a4b981649e2e2ea261c80feafdd1f86055410b78f6514e28d",
+    "common.mjs": "6c1faeed8ae2b12e3aabc0443784f030c135dba6484f7b114cc47001beff443b",
+    "compact.mjs": "33e38164ed7093bb6fb5525509aec88e9a5bd406fbf80500c68063ece6acf94f",
+    "compile.ps1": "3ba821f95d1cfe09b034a7c7114c37460442f0bff30dc6df8c1756037667031d",
+    "corpus.mjs": "2be7029779426d3ca9de427a22eb97dd03fdb3d7e0d06d915779726b49d3ed8d",
+    "exe-contract.mjs": "4398a080817bad4ba96cfbb6e747be8c610aedc0f6fa4acb40146b2e7f26ed7a",
+    "generation-profile.mjs": "f694fbaf04c708572ba2dc970e1983ea9a08361365248088831fd27c85c30e87",
+    "load.mjs": "d39127dc5e86d1c6bd1e308359531dda309db39f9c7f181fa183a45f6bd4c7a9",
+    "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
+    "m9b-worker.mjs": "c1e727955547ec2b61308288e563d6ef55725517eb32da17b952991cd829a0a5",
+    "native-export.mjs": "ae41bd5e7e4d102fe9397b81634078e444e4324dab7fa94213c11bcd317f1bd3",
+    "native-water.ts": "952da656a3e0a95c849f389da81ac4164d7c636a9db62b312e03a5c1591d800c",
+    "native.mjs": "c94b31be9435e979e39cd83a2dd7e09ce1365621717c934048a1790abdc80214",
+    "profile.mjs": "bb34305fda7467369f84b7b0bb50d1b29bc16f5c53214ed260179cc477039abe",
+    "replay.mjs": "f588f4fc938f4eb74c512af8e20ea1b4cd7bef643ba4e4f772eb77554ac22dee",
+    "rust-toolchain.toml": "7725cf57c3500aa4ab4b6faa795412c365ba341d73f09b69bc93358be6a935fe",
+    "smoke.mjs": "5a3bfb9b0db8908a0859d0ccbe18a343f6165e518090fe56f30a722c326973b7",
+    "summarize.mjs": "353356da7c655e1a5d8d0fcda19e29a684985f48a5981b984fe6b29129575ee2",
+    "typecheck.mjs": "92700549db98f57f554cfb81fe643add32482d19ae7a4f6e920db77418c078d8",
+    "verify-ir.mjs": "f222d26f754cc26593cd5be4fd16631c033d32345f84a513f22df98adeb51177",
+    "water-contract.mjs": "4be5a67a18f2bb5aebabc1d6c394637bcc9a802843630a08c5b60f4d83f90c3e",
+    "write-report.mjs": "a5a8318abb64c771d6be00ebb9d7ee57de1e7853ef4977019191619f96d07234"
+  },
+  "binaries": {
+    "analysis.wasm": {
+      "sha256": "57fe16bca27d4023b99cc03b1d9d9531de5acb46ee9617642682db44c36317b9",
+      "bytes": 1410108
+    },
+    "analysis.exe": {
+      "sha256": "e9517c589b7c0b2bb383c08d418905a4d217068a63fb9ee3f3369fdd34dd37fb",
+      "bytes": 2206720
+    },
+    "analysis.node": {
+      "sha256": "197504bb0d49ac011d6e9a31be0ac4b57660bdf4b572d15c37b5d0326ba41aa6",
+      "bytes": 2243072
+    }
+  },
+  "identity": {
+    "cases": 872,
+    "capturedKernelCalls": 257237,
+    "edgeComparisons": 1762,
+    "corpusRecords": "f75bcf7e458683115890c30cf1a16c568d64de00acba0d5c81528a18d0a4f238",
+    "nativeRecords": "c139c130b9f778e9822f2dd02879a682c801d102f7fde49d2300e152e610bc4f",
+    "browserRecords": {
+      "chromium": "a4a3c791c16bbc7bb0b4a494115ed2329a5a14424ce633576c8f177d7466f5e1",
+      "firefox": "9a2ce274ba85599cdab72f768bbecb2587a97a18417c66c216ae5b8d40c9d0c8",
+      "webkit": "c42a6abbf0d512871b2e4d169ac2a0931d121b44942b729b802cadc80c202625"
+    },
+    "method": "Paired complete M9b generation and every captured kernel call; cross-engine raw-byte replay and complete validation/measures/outcomes; native complete generation with Rust water. Only clock-derived fields excluded."
+  },
+  "strictIR": {
+    "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "rows": [
+      {
+        "target": "wasm",
+        "sha256": "6d460d3a12b0a1bbf5a830b582654c31ff94827b1b95ce24d4bd17f054677e24",
+        "bytes": 913899,
+        "status": "pass"
+      },
+      {
+        "target": "native",
+        "sha256": "1aa5b35ffff0bfd306084e72cb05a2e4b497390e69125bbac5d21bd312874070",
+        "bytes": 929944,
+        "status": "pass"
+      },
+      {
+        "target": "addon",
+        "sha256": "6569c8df3169431c76c7bf1a9175e3305e412ab091b2f8e5bcbf25372ec357b0",
+        "bytes": 1891413,
+        "status": "pass"
+      }
+    ]
+  },
+  "typecheck": {
+    "status": "pass",
+    "files": [
+      "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-analysis\\local\\checkout\\investigation\\rust-analysis\\bridge.ts",
+      "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-analysis\\local\\checkout\\investigation\\rust-analysis\\native-water.ts"
+    ],
+    "typescript": "5.9.3"
+  },
+  "generations": {
+    "chromium": {
+      "typescript": {
+        "generation": {
+          "median": 31786.05714284522,
+          "worst": 31960.699999996596
+        },
+        "analysis": {
+          "median": 3515.2857141324453,
+          "worst": 3781.8285714217595
+        },
+        "share": {
+          "median": 0.10998775728106143,
+          "worst": 0.11897759305051202
+        },
+        "load": {
+          "mean": [
+            100,
+            100,
+            100,
+            99.99971159605441,
+            99.99971159605441,
+            99.99971159605441,
+            99.99955437975389,
+            99.99955437975389,
+            99.99955437975389,
+            100,
+            100,
+            100,
+            99.9993284032931,
+            99.9993284032931,
+            99.9993284032931,
+            99.99976128563962,
+            99.99976128563962,
+            99.99976128563962,
+            99.99970633253362,
+            99.99970633253362,
+            99.99970633253362
+          ],
+          "max": 100
+        }
+      },
+      "wasm": {
+        "generation": {
+          "median": 30589.728571449006,
+          "worst": 30906.514285709178
+        },
+        "analysis": {
+          "median": 2761.5857144168444,
+          "worst": 3096.1428569214686
+        },
+        "share": {
+          "median": 0.09358234853357589,
+          "worst": 0.10121511374936686
+        },
+        "load": {
+          "mean": [
+            100,
+            100,
+            100,
+            99.99971159605441,
+            99.99971159605441,
+            99.99971159605441,
+            99.99955437975389,
+            99.99955437975389,
+            99.99955437975389,
+            100,
+            100,
+            100,
+            99.9993284032931,
+            99.9993284032931,
+            99.9993284032931,
+            99.99976128563962,
+            99.99976128563962,
+            99.99976128563962,
+            99.99970633253362,
+            99.99970633253362,
+            99.99970633253362
+          ],
+          "max": 100
+        }
+      }
+    },
+    "firefox": {
+      "typescript": {
+        "generation": {
+          "median": 30245.714285714286,
+          "worst": 31946.85714285714
+        },
+        "analysis": {
+          "median": 4032.5714285714284,
+          "worst": 4227.571428571428
+        },
+        "share": {
+          "median": 0.13287360665029285,
+          "worst": 0.13346761419783731
+        },
+        "load": {
+          "mean": [
+            100,
+            100,
+            100,
+            99.99958248485044,
+            99.99958248485044,
+            99.99958248485044,
+            100,
+            100,
+            100,
+            99.99908704315303,
+            99.99908704315303,
+            99.99908704315303,
+            100,
+            100,
+            100,
+            99.99919758786878,
+            99.99919758786878,
+            99.99919758786878,
+            99.99914563039896,
+            99.99914563039896,
+            99.99914563039896
+          ],
+          "max": 100
+        }
+      },
+      "wasm": {
+        "generation": {
+          "median": 31707.714285714286,
+          "worst": 33845
+        },
+        "analysis": {
+          "median": 7296.142857142857,
+          "worst": 7348.714285714285
+        },
+        "share": {
+          "median": 0.22376826575626918,
+          "worst": 0.23010623822954307
+        },
+        "load": {
+          "mean": [
+            100,
+            100,
+            100,
+            99.99958248485044,
+            99.99958248485044,
+            99.99958248485044,
+            100,
+            100,
+            100,
+            99.99908704315303,
+            99.99908704315303,
+            99.99908704315303,
+            100,
+            100,
+            100,
+            99.99919758786878,
+            99.99919758786878,
+            99.99919758786878,
+            99.99914563039896,
+            99.99914563039896,
+            99.99914563039896
+          ],
+          "max": 100
+        }
+      }
+    },
+    "webkit": {
+      "typescript": {
+        "generation": {
+          "median": 57534.99999999999,
+          "worst": 67922.28571428575
+        },
+        "analysis": {
+          "median": 16145.28571428637,
+          "worst": 17196.714285714013
+        },
+        "share": {
+          "median": 0.27051561570913696,
+          "worst": 0.28061676743349917
+        },
+        "load": {
+          "mean": [
+            99.99975133411894,
+            99.99975133411894,
+            99.99975133411894,
+            99.9994824606464,
+            99.9994824606464,
+            99.9994824606464,
+            99.99960780426542,
+            99.99960780426542,
+            99.99960780426542,
+            99.99896433428171,
+            99.99896433428171,
+            99.99896433428171,
+            99.99918538188986,
+            99.99918538188986,
+            99.99918538188986,
+            99.9989014032431,
+            99.9989014032431,
+            99.9989014032431,
+            99.99919783639449,
+            99.99919783639449,
+            99.99919783639449
+          ],
+          "max": 100
+        }
+      },
+      "wasm": {
+        "generation": {
+          "median": 50151.28571428572,
+          "worst": 53509.57142857143
+        },
+        "analysis": {
+          "median": 9812.571428571424,
+          "worst": 10479.428571428414
+        },
+        "share": {
+          "median": 0.18701470663855982,
+          "worst": 0.20895632927798147
+        },
+        "load": {
+          "mean": [
+            99.99975133411894,
+            99.99975133411894,
+            99.99975133411894,
+            99.9994824606464,
+            99.9994824606464,
+            99.9994824606464,
+            99.99960780426542,
+            99.99960780426542,
+            99.99960780426542,
+            99.99896433428171,
+            99.99896433428171,
+            99.99896433428171,
+            99.99918538188986,
+            99.99918538188986,
+            99.99918538188986,
+            99.9989014032431,
+            99.9989014032431,
+            99.9989014032431,
+            99.99919783639449,
+            99.99919783639449,
+            99.99919783639449
+          ],
+          "max": 100
+        }
+      }
+    },
+    "native": {
+      "typescript": {
+        "generation": {
+          "median": 68844.56994285718,
+          "worst": 69553.01222857145
+        },
+        "analysis": {
+          "median": 9963.565742857314,
+          "worst": 10401.628728571222
+        },
+        "share": {
+          "median": 0.145960194380756,
+          "worst": 0.14954965134203596
+        },
+        "load": {
+          "mean": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "max": 0
+        }
+      },
+      "native": {
+        "generation": {
+          "median": 55573.909842857094,
+          "worst": 64463.03232857146
+        },
+        "analysis": {
+          "median": 7167.4328142853965,
+          "worst": 7713.355814286651
+        },
+        "share": {
+          "median": 0.1198895967855637,
+          "worst": 0.1291426688898082
+        },
+        "load": {
+          "mean": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "max": 0
+        }
+      }
+    }
+  },
+  "nativeBatch": {
+    "threads": 16,
+    "samples": [
+      {
+        "rep": 0,
+        "ms": 1189221.6632,
+        "load": {
+          "mean": 99.99958649994267,
+          "max": 100,
+          "samples": 947,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      },
+      {
+        "rep": 1,
+        "ms": 1062740.3109000002,
+        "load": {
+          "mean": 99.99923795035099,
+          "max": 100,
+          "samples": 820,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      },
+      {
+        "rep": 2,
+        "ms": 1111422.1812,
+        "load": {
+          "mean": 99.9994175769218,
+          "max": 100,
+          "samples": 921,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      }
+    ],
+    "median": 1111422.1812,
+    "worst": 1189221.6632
+  },
+  "baselineExclusiveProfile": [
+    [
+      "gen/settler.ts:pickStart",
+      3649.949985714569
+    ],
+    [
+      "land/minePads.ts:roomMap",
+      2124.6213333333526
+    ],
+    [
+      "sim/prefill.ts:spillLevels",
+      1608.3840380952845
+    ],
+    [
+      "analysis/damsites.ts:damSites",
+      1439.5500047619018
+    ],
+    [
+      "validate/playability.ts:checkStart",
+      1065.170547618936
+    ],
+    [
+      "validate/checks.ts:validateMap",
+      872.2580047619753
+    ],
+    [
+      "land/minePads.ts:minePads",
+      847.2698333333138
+    ],
+    [
+      "analysis/walk.ts:walkDistance",
+      512.9530809522173
+    ],
+    [
+      "math/grid.ts:levelRegions",
+      488.6605095239305
+    ],
+    [
+      "validate/playability.ts:checkPlayability",
+      448.0702238094108
+    ],
+    [
+      "analysis/signature.ts:signatureOf",
+      395.8360380952631
+    ],
+    [
+      "math/grid.ts:distanceFrom",
+      362.65904761902146
+    ],
+    [
+      "analysis/regions.ts:walkRegions",
+      246.15800952370913
+    ],
+    [
+      "analysis/regions.ts:landRegions",
+      96.03315714287342
+    ],
+    [
+      "validate/playability.ts:checkSourcesInFlow",
+      76.74298571431116
+    ],
+    [
+      "validate/playability.ts:checkExtras",
+      76.59294285715859
+    ],
+    [
+      "analysis/regions.ts:components",
+      58.6584523810414
+    ],
+    [
+      "validate/playability.ts:checkOutflow",
+      46.21499999999824
+    ],
+    [
+      "validate/playability.ts:colonyReach",
+      41.2565523810467
+    ],
+    [
+      "analysis/story.ts:waterStory",
+      31.24631428571281
+    ],
+    [
+      "validate/playability.ts:checkContained",
+      4.398599999966488
+    ],
+    [
+      "validate/playability.ts:minesReached",
+      1.9014761904417397
+    ],
+    [
+      "gen/outcomes.ts:outcomesOf",
+      0.40838571431448234
+    ]
+  ],
+  "contracts": {
+    "smoke": {
+      "checks": 1762,
+      "status": "pass"
+    },
+    "water": {
+      "status": "pass",
+      "fixtures": 12,
+      "rules": [
+        "port",
+        "game"
+      ],
+      "comparisons": 744,
+      "mutableFields": [
+        "floor",
+        "dam",
+        "out",
+        "emitter strength",
+        "contamination"
+      ],
+      "fractionalTicks": true,
+      "independentHandles": true,
+      "dispose": true
+    },
+    "executable": {
+      "status": "pass",
+      "threads": 16,
+      "records": [
+        {
+          "id": "edge-contract",
+          "sha256": "0aeb179044a60d9506b4e32ac41ca772c56b4cbd64dbbc5844ec8210113c6b53"
+        },
+        {
+          "id": "golden-badwater_mix",
+          "sha256": "5dc52220e1dedc99302b3285cc10e7fa5e4a62d057d8e0a0747c664bf5e08fc4"
+        },
+        {
+          "id": "golden-channel_gap",
+          "sha256": "e787a6010f260af2149c567efdaa3e8fc4b901ff4a59572c580b09e72c7dceea"
+        },
+        {
+          "id": "golden-channel_sealed",
+          "sha256": "e787a6010f260af2149c567efdaa3e8fc4b901ff4a59572c580b09e72c7dceea"
+        },
+        {
+          "id": "golden-confluence",
+          "sha256": "71a269b825fa6bc6e140282a81a6b11c5d1e13c54429c5d941b7a590fdadf21a"
+        },
+        {
+          "id": "golden-evaporation",
+          "sha256": "aeaadcabcb86b3aeacd5e1b8115cb19a7e2569b69c7d407e4a90adc88fb0d3c4"
+        },
+        {
+          "id": "golden-flat_plain",
+          "sha256": "c6358301d5542250fe2d5bcb0c81f0f608edb64866b7ef58277cd84dae5f3cb3"
+        },
+        {
+          "id": "golden-lake_sill",
+          "sha256": "675eec95d6ae6a9e60e564d245f4772449a668828bb5dcee08fefa10c58319cd"
+        },
+        {
+          "id": "golden-seep_pit",
+          "sha256": "9085e8c8de70204a7e7517f33177de36278895d117b59e1b28801a74b45b3cc9"
+        },
+        {
+          "id": "golden-terraces",
+          "sha256": "b200f66bad19b5d2182b9e1b8785bfc80e02bf556a68a46658f9a50e51ab10ca"
+        },
+        {
+          "id": "golden-valley_basin",
+          "sha256": "036f724191d4b868bcb0dd2a495f1ed2c619fe396cfde018cc71ca9fe5ab846b"
+        },
+        {
+          "id": "golden-waterfall",
+          "sha256": "551607336f8479cd993c18eecacfe36ab66b7b40f2f50be55f13d7ba3eb93a20"
+        },
+        {
+          "id": "golden-weir",
+          "sha256": "b1a89e7e715a0ad1b0e00a0b8dc5a314e3a786a7e7f2e7c20512cd9aa2519c0d"
+        },
+        {
+          "id": "m9b-any-128-1",
+          "sha256": "d32755a929186cc432b4b3cde0883f09edd7a49ae5e854feaa516d02dc9e756a"
+        },
+        {
+          "id": "m9b-any-256-1",
+          "sha256": "575aafeb5b4334466ca4da024e3ad5adeb7db8885651b1f8bd6500d1215abfae"
+        },
+        {
+          "id": "m9b-any-96-1",
+          "sha256": "16afb0725205240edb3b9c22b22a864a4562b477c31fb85e1d27e1fe3fe32377"
+        }
+      ]
+    },
+    "nativeExports": {
+      "count": 840,
+      "recordsSha256": "22e2d415ad0eaa02bc79d290bd1c90e95348f52be326c41c6d48f09e04e79b4d",
+      "refusals": [
+        "m9b-any-96-31",
+        "m9b-islands-96-4"
+      ]
+    }
+  },
+  "generationWorkerFingerprints": {
+    "chromium": "e7adf83924dc52b51cfeed723fcad38abf52ae4efd1ff3babe1441ad08243b69",
+    "firefox": "e7adf83924dc52b51cfeed723fcad38abf52ae4efd1ff3babe1441ad08243b69",
+    "webkit": "e7adf83924dc52b51cfeed723fcad38abf52ae4efd1ff3babe1441ad08243b69"
+  },
+  "timingPolicy": "Fixed six kernels in all targets; three paired repetitions; total generation includes unchanged TypeScript water for shares. Full native batch additionally uses resident Rust water. Firefox performance fails adoption gate.",
+  "m9bDescription": {
+    "fingerprint": "4c76542b1ea6f3df827b07411f3f455e5ffbfe4f72e00ba311a50230b8f393ca",
+    "build": {
+      "source": "76dba7b03d5eb08c3bf24851e0ef0125f09f2b8c01d1fc8d667cae02b510ec51",
+      "body": "5965896d258f9ddc27576b27234041fc6cb0289c128032cd18e5741a5929420b",
+      "generationDiagnostics": [
+        "shown",
+        "changed"
+      ],
+      "excluded": "Generator callbacks and clocks are already verified natively; all post-generation descriptive arithmetic retains the original source."
+    },
+    "records": {
+      "chromium": "ff566ac648b1b30e987526e1dee96e7ba05c8cfa07a85a45a4e9d0b9c7cd0842",
+      "firefox": "64c06ba8cdf16163045939bcd8334c19e080b0e784e123d8e8b6dc0ddd689a8f",
+      "webkit": "0edddc9f83d392167375aa34949aed71f7af628be30c92dd3dbefdf7769fd49b"
+    }
+  }
+}
