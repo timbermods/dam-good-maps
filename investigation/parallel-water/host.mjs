@@ -4,7 +4,7 @@ import {resolve} from 'node:path';
 import os from 'node:os';
 import {HERE,LOCAL} from './common.mjs';
 export async function staticHost(worker='coordinator.js',persistent=false) {
-  const allowed=new Set(['coordinator.js','batch-coordinator.js','helper.js','fallback-coordinator.js','failure-coordinator.js','fault-helper.js','generation-coordinator.js','runtime-smoke.js','runtime-helper.js','reference-api.js','isolation-sw.js','isolation-register.js']);
+  const allowed=new Set(['coordinator.js','weather-coordinator.js','batch-coordinator.js','helper.js','fallback-coordinator.js','failure-coordinator.js','fault-helper.js','generation-coordinator.js','runtime-smoke.js','runtime-helper.js','reference-api.js','isolation-sw.js','isolation-register.js']);
   const server=http.createServer((req,res)=>{
     const path=new URL(req.url,'http://localhost').pathname;
     if(path==='/dam-good-maps/') {

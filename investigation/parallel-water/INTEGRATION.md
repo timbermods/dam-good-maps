@@ -121,8 +121,9 @@ On a static host with no server COOP/COEP, the worker wraps readable same-origin
 `COOP: same-origin` and `COEP: require-corp`. It does not invent CORP on third-party responses.
 Secure context is required (HTTPS on Pages; loopback is the test equivalent). The browser, not
 JavaScript, decides isolation. Same-origin dedicated-worker scripts also pass through the policy.
-The resource and opener requirements follow [COEP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy)
-and [COOP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy).
+The resource and opener requirements follow the HTML Standard's
+[embedder policies](https://html.spec.whatwg.org/multipage/browsers.html#cross-origin-embedder-policies)
+and [opener policies](https://html.spec.whatwg.org/multipage/browsers.html#cross-origin-opener-policies).
 
 Pinned source inventory (`index.html`, `src/styles/`, `src/platform/`, `src/editor/`, `src/places/`,
 `src/render3d/`): **no remotely loaded fonts, scripts, images, textures or audio**.
@@ -154,8 +155,10 @@ cannot read or delete each other's cache entries.
 network/cache selection at the marked `fetch(request)` point, then apply `isolate()` to the selected
 network **or cached** response, including navigation and worker scripts. Do not cache opaque cross-origin
 responses to manufacture permission. Put cache versioning and policy versioning in that same lifecycle.
-Registration refuses to replace a different active worker script; rename/merge into the agreed app
-worker first. This avoids accidentally replacing a caching worker with the isolation-only prototype.
+Registration refuses to replace a different active worker script in the same scope; rename/merge
+into the agreed app worker first. An inherited production worker stays registered when preview
+installs its own child-scope worker; tests cover both isolating and plain-caching parents.
+This avoids accidentally replacing a caching worker with the isolation-only prototype.
 The supplied worker intentionally provides no offline cache; offline behavior depends on that adoption.
 The composition test serves isolated cached navigations in all three engines while the origin returns
 503s. Chromium/Firefox also pass Playwright's offline emulation; Windows WebKit reports an internal
@@ -164,10 +167,17 @@ and check installed Safari/offline behavior when the startup cache is adopted.
 
 ## Regenerate
 
+Reproduce these findings on this investigation branch, whose product tree is pinned to `6c29b7e5`.
+Runs against a later milestone need their own base/provenance and are adoption validation.
 All bundles, maps, per-case records and browser dumps live in ignored `local/`. Use Node 24 and a
 dependency directory containing pinned esbuild 0.25.12, TypeScript 5.9.3, fflate 0.8.3 and Playwright
 1.58.2 (the prior determinism runtime can be reused). Install Chromium/Firefox/WebKit for that exact
 Playwright version. Keep an isolated installation under this investigation's `local/` if needed.
+For official inputs, reuse the water-speed archive selected by `DGM_INPUTS`. To regenerate it
+without rerunning that investigation, set `DGM_OFFICIAL` to a read-only directory containing
+the 19 official `.timber` files, run `node make-official.mjs` after `build.mjs`, and point
+`DGM_INPUTS` at this investigation's `local/official-inputs`. Saved-map parsing and
+`waterModelFromWorld` are unchanged between the archived base and this pinned M9b base.
 
 ```powershell
 cd investigation/parallel-water
@@ -183,27 +193,55 @@ node failure.mjs                # interrupted pass two; discard and fresh scalar
 node curve-probe.mjs
 node make-inputs.mjs             # seven themes, 1–100 at 128, 1–50 at 256
 node batch.mjs                   # actual current inputs; all three engines/counts
+node survey.mjs --bench --slow   # quiet paired timings on the batch's maximum-tick lakes
+$env:DGM_COUNTS = '1,2,3,4,7,8,16'
 node survey.mjs --forced         # zero cutoff, every tick on both golden rules
+Remove-Item Env:DGM_COUNTS
 node survey.mjs                  # all golden/official + representative/tiled models
+node build-weather.mjs
 node survey.mjs --weather        # live warm starts; full Normal 9/8-day cadence
 node survey.mjs --bench          # quiet machine; three pairs <=256, one long pair 512
 node generation.mjs --runtime    # private array identity and three consecutive maps
 node generation.mjs             # full generation/export; firstLook/firstWater timings
 node make-patch.mjs
 node summarize.mjs
+node report.mjs
 git diff --check
 ```
 
 This investigation's verification/input/timing runs are sequenced; other host activity is uncontrolled.
+Independent verification engines may run together within the logical CPU budget; timing pairs run
+one engine/count at a time. Numerical checks do not use elapsed time to decide when water stops.
 Timings use three paired samples at 128²/256² and one long paired screen at 512². Repeat on an idle
 adoption machine before setting browser-specific defaults. Optional `DGM_ENGINE` and
 `DGM_FILTER` select one engine/ID regex; clear them for the complete suite. The batch and survey
 resume only matching input, executable and engine fingerprints. Benchmarks are fresh by default;
 `--bench --resume` retains complete matching pairs from an interrupted screen.
 `--forced` shortens fixed-tick checks to 200; the regular golden survey checks all 975 ticks.
+Live probes lower the central 5×5 floor patch by two units (clamped at zero), carry momentum
+through `warmStart`, and compare each 17-tick preview slice. Weather runs use Normal's full
+9-day drought and 8-day badtide with the current 12/96-tick cadence; return previews compare
+every four ticks. These are core probes, not a claim to have exercised the integrated editor UI.
+Weather uses the original scalar implementation once per engine/model at one thread and compares
+its raw arrays and stopping results at every sampled frame. Every other count publishes the same
+ordered raw-byte hashes (including canonical and live preview slices); the host checks the full
+frame sequence across counts and engines. Separate direct-oracle and frame counts are recorded.
+This avoids repeating the original scalar forecast without removing any sampled-state check.
 Official inputs retain the prior investigation's input provenance; no official files are committed.
+Seed generation retains quality-refused outputs for water identity checks; their count is in the evidence.
 512² cases are explicitly tiled **water stress models**: today's schema caps generated maps at 256²,
 so neither valid 512² exports nor 512² first-land timings can be claimed yet.
+
+New-map timings use the current generator's `firstLook` and `firstWater` worker-side markers,
+plus measured helper startup before generation. Each of the three themes has one complete
+generation per engine/count; the report takes their median. UI transfer and painting are excluded.
+Recheck actual displayed-land/water latency through the milestone's integrated Comlink/UI path.
+Generation checks compare the complete export byte stream within each engine. The additional
+state hash covers spec, features, field, checks, attempts/failures, intentions/outcomes, labels,
+terrain, water, contamination and settle state; it excludes timings (including each failed attempt's
+elapsed `ms`) and is not a hash of every
+`GenerateResult` property. A separate raw-byte hash covers water/concentration, saturation,
+momentum and stop metadata. Cross-engine differences are reported rather than normalized away.
 
 After adoption, repeat against the milestone's actual compiled code, exercise its cancellation and
 task ownership, run the existing game/pinned/live-water contracts and update the living simulation

@@ -52,12 +52,17 @@ try {
         r.waiting?.postMessage({type:'ACTIVATE_WHEN_SAFE'});await changed;
         return {...before,loadsAfter:window.loads,isolated:crossOriginIsolated};
       });
+      await page.goto(url+'/dam-good-maps/preview/');
+      await page.waitForFunction(()=>window.ready&&navigator.serviceWorker.controller?.scriptURL.endsWith('/preview/isolation-sw.js'));
+      row.preview=await page.evaluate(async()=>({isolated:crossOriginIsolated,script:navigator.serviceWorker.controller.scriptURL,parent:(await navigator.serviceWorker.getRegistration('/dam-good-maps/')).active.scriptURL}));
       await page.goto(url+'/sibling/');await page.waitForFunction(()=>window.ready);row.sibling=await page.evaluate(()=>({isolated:crossOriginIsolated,controlled:!!navigator.serviceWorker.controller}));
       const fallback=await browser.newContext({serviceWorkers:'block'}),no=await fallback.newPage();
       await no.goto(url+'/dam-good-maps/');await no.waitForFunction(()=>window.ready);row.blocked=await no.evaluate(()=>({isolated:crossOriginIsolated,loads:window.loads}));await fallback.close();
       const conflict=await browser.newContext(),cp=await conflict.newPage();await cp.goto(url+'/sibling/');
       await cp.evaluate(async()=>{const r=await navigator.serviceWorker.register('/dam-good-maps/existing-cache.js');await new Promise(resolve=>{if(r.active)return resolve();r.installing.addEventListener('statechange',()=>{if(r.active)resolve()});});});
-      await cp.goto(url+'/dam-good-maps/');await cp.waitForFunction(()=>window.ready);row.existingWorker=await cp.evaluate(async()=>({isolated:crossOriginIsolated,loads:window.loads,script:(await navigator.serviceWorker.getRegistration()).active.scriptURL}));await conflict.close();
+      await cp.goto(url+'/dam-good-maps/');await cp.waitForFunction(()=>window.ready);row.existingWorker=await cp.evaluate(async()=>({isolated:crossOriginIsolated,loads:window.loads,script:(await navigator.serviceWorker.getRegistration()).active.scriptURL}));
+      await cp.goto(url+'/dam-good-maps/preview/');await cp.waitForFunction(()=>window.ready&&crossOriginIsolated&&navigator.serviceWorker.controller?.scriptURL.endsWith('/preview/isolation-sw.js'));
+      row.previewOverCache=await cp.evaluate(async()=>({isolated:crossOriginIsolated,script:navigator.serviceWorker.controller.scriptURL,parent:(await navigator.serviceWorker.getRegistration('/dam-good-maps/')).active.scriptURL}));await conflict.close();
       const cached=await browser.newContext(),cachePage=await cached.newPage();row.cacheAttempt='first visit';await cachePage.goto(url+'/cached/');await cachePage.waitForFunction(()=>window.ready&&crossOriginIsolated);
       row.cacheAttempt='cached online navigation';await cachePage.reload();await cachePage.waitForFunction(()=>window.ready);
       row.cacheAttempt='cached offline navigation';await cached.setOffline(true);
@@ -72,9 +77,11 @@ try {
       assert.equal(row.isolated,true);assert.equal(row.sab,true);assert.equal(row.loads,2);
       assert.deepEqual(row.resources,{denied:false,corp:true,cors:true});assert.equal(row.warm.isolated,true);
       assert.equal(row.update.waiting,true);assert.equal(row.update.loads,row.update.loadsAfter);
+      assert.equal(row.preview.isolated,true);assert.ok(row.preview.script.endsWith('/preview/isolation-sw.js'));assert.ok(row.preview.parent.endsWith('/dam-good-maps/isolation-sw.js'));
       assert.equal(row.sibling.controlled,false);assert.equal(row.sibling.isolated,false);
       assert.equal(row.blocked.isolated,false);assert.equal(row.blocked.loads,1);
       assert.equal(row.existingWorker.isolated,false);assert.equal(row.existingWorker.loads,1);assert.ok(row.existingWorker.script.endsWith('/existing-cache.js'));
+      assert.equal(row.previewOverCache.isolated,true);assert.ok(row.previewOverCache.script.endsWith('/preview/isolation-sw.js'));assert.ok(row.previewOverCache.parent.endsWith('/dam-good-maps/existing-cache.js'));
       assert.equal(row.networkFailureCached.isolated,true);if(!row.offlineEmulationError)assert.equal(row.cacheOffline.isolated,true);else assert.notEqual(row.plainOfflineControl,'passed');
       console.log(name,JSON.stringify(row));json('isolation.json',evidence);
     }catch(e){evidence.engines[name]={...evidence.engines[name],error:String(e)};console.error(name,String(e));process.exitCode=1;}

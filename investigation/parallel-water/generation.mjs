@@ -21,8 +21,8 @@ try{
       const output=await job(page,{...c,model:{W:1,H:1,floor:new Float64Array(1),dam:null,emitters:[]}},threads);
       if(output.error){evidence.errors.push({engine,...output});throw Error(output.error);}
       if(output.threads!==threads)throw Error('Unexpected scalar fallback');
-      const identity={hash:output.hash,bytes:output.bytes,passed:output.passed};
-      if(!reference)reference=identity;else if(JSON.stringify(reference)!==JSON.stringify(identity))row.crossEngine.push({id:c.id,engine,threads});
+      const identity={hash:output.hash,waterHash:output.waterHash,exportHash:output.exportHash,ticks:output.ticks,settled:output.settled,bytes:output.bytes,passed:output.passed};
+      if(!reference)reference=identity;else if(JSON.stringify(reference)!==JSON.stringify(identity))row.crossEngine.push({id:c.id,engine,threads,fullState:reference.hash!==identity.hash,water:reference.waterHash!==identity.waterHash,export:reference.exportHash!==identity.exportHash,ticks:reference.ticks!==identity.ticks});
       row.comparisons.push({engine,...output});
       console.log(mode,c.id,engine,threads,output.candidate??output);
     }

@@ -28,13 +28,19 @@ if(process.argv.includes('--after-bench')){
 }else await run('survey.mjs',['--bench']);
 await run('build-generation.mjs');
 await run('typecheck.mjs');
+await run('isolation-check.mjs');
+await run('fallback.mjs');
 await run('generation.mjs'); // quiet full generator timings, includes separate helper startup
 await run('generation.mjs',['--runtime']);
 await run('failure.mjs');
 await run('survey.mjs',['--forced'],{DGM_COUNTS:'1,2,3,4,7,8,16'});
 await run('survey.mjs');
+await run('build-weather.mjs');
 await run('survey.mjs',['--weather']);
 await run('batch.mjs');
+await run('survey.mjs',['--bench','--slow']); // measured maximum-tick lakes in the complete seed batch
 await run('make-patch.mjs');
 await run('summarize.mjs');
+await run('report.mjs');
+if(process.argv.includes('--publish'))await run('publish.mjs');
 console.log('PIPELINE COMPLETE',new Date().toISOString());
