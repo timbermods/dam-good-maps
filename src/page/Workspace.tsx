@@ -108,9 +108,20 @@ function savedEdits(): number {
     return 0;
   }
 }
-function noteEdits(n: number): void {
+const SPEC_KEY = "dgm.autosaveSpec";
+/** The autosaved map's own link (its spec's fragment; empty for an opened file): a link to the same map, a
+ *  reload say, opens the autosave with its edits and never asks to replace it with itself. */
+function savedSpec(): string {
   try {
-    localStorage.setItem(EDITS_KEY, String(n));
+    return localStorage.getItem(SPEC_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+function noteAutosave(edits: number, spec: MapSpec | null): void {
+  try {
+    localStorage.setItem(EDITS_KEY, String(edits));
+    localStorage.setItem(SPEC_KEY, spec ? encodeSpecFragment(spec) : "");
   } catch {
     // (a link then replaces the autosave without asking)
   }
@@ -244,7 +255,11 @@ export function Workspace() {
       if (id !== runId.current) return;
       if (!r.passed) {
         setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
-        if (session) return;
+        if (session) {
+          // the map on show stays: the seed box says its seed again, not the one that failed
+          if (session.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
+          return;
+        }
       }
       setResult(r);
       performance.mark("dgm:generated");
@@ -300,7 +315,9 @@ export function Workspace() {
         return;
       }
       if (init.fromLink) {
-        if (saved && savedEdits() > 0) replaces("this link's map", () => void run(init.spec), saved);
+        // the link is the autosaved map's own (a reload): it comes back as it was left, edits and views
+        if (saved && savedSpec() === encodeSpecFragment(init.spec)) await openBytes(saved.bytes, saved.name + ".damgoodmaps.json", true);
+        else if (saved && savedEdits() > 0) replaces("this link's map", () => void run(init.spec), saved);
         else await run(init.spec);
         return;
       }
@@ -374,7 +391,7 @@ export function Workspace() {
         setSaveState("saving…");
         const p = await generator.project(6);
         const ok = await storage.save({ bytes: p.bytes, name: p.name, savedAt: new Date().toISOString(), kind: info.kind, screen: "editor" });
-        if (ok) noteEdits(info.edits);
+        if (ok) noteAutosave(info.edits, info.kind === "generated" ? info.spec : null);
         setSaveState(ok ? "saved in this browser" : "autosave is off in this browser");
       } catch {
         setSaveState("autosave failed");

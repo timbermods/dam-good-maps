@@ -825,7 +825,8 @@ body {
   position: absolute;
   top: var(--edge);
   right: var(--edge);
-  z-index: 5;
+  /* (above the History panel: its menu and the checks' list open over it) */
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 1px;
