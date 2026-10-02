@@ -1187,6 +1187,9 @@ function importModel(s: MapSession, opened = false): WaterModel {
   // the oxbow lakes the map's carves sealed keep their water here too (as the build's model does)
   const kept = opened ? undefined : s.built.waterModel.retained;
   if (kept?.length) m.retained = kept;
+  // and the unfed water Remove unfed water took stays gone (D387 (2))
+  const drained = opened ? undefined : s.built.waterModel.drained;
+  if (drained?.length) m.drained = drained;
   return m;
 }
 

@@ -129,7 +129,10 @@ The editor's parts as they are now; their placement and styling are the design p
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
   `describeTile` (`core/doc/describeTile.ts`), returning data; the readout only words and shows it
-  (`tests/contract/describeTile.test.ts`).
+  (`tests/contract/describeTile.test.ts`). It refreshes whenever the water under the pointer changes, without
+  re-hovering (D347, D387 (1)): after each water state the page shows, it asks `readoutWater` for the hovered tile
+  (the readout's water words, as rounded and shown) and re-describes only when they differ
+  (`tests/contract/waterSignal.test.ts`).
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place or an opened file as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
@@ -462,6 +465,13 @@ Make a valley, drop a source, and there's a river.
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
   it (D196).
+- **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
+  pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
+  what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
+  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
+  level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
+  with the page session (D388).
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. Clear water still reads as water (a faint blue tint, ripples, a
@@ -764,9 +774,21 @@ opened, are listed but never blamed on the player's edits and do not block its e
     aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
-    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222), so
-    `water.settles` passes and the quiet dot settles once the rest of the water has; the water written is unchanged
-    (`PLAN.md` §10, §11.3).
+    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
+    the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
+    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
+  - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
+    water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
+    under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
+    `unfedWater(session, area?)` counts the unfed bodies holding water over 0.001 deep and builds the
+    `removeUnfedWater` operation, which stores their tiles as the water model's `drained`: once the canonical settle
+    has passed, the unfed water on them is taken and the settle runs on (at most a day), and the preview and the
+    carried-over water take it at once; fed water is never taken. `planFill(session, x, y, level)` builds the
+    `fillHollow` operation, a `RetainedWater` as a carve stores its oxbow lake, or a plain reason (it would spill
+    off the map, the level is at or below the ground); its `days` come from the game's evaporation
+    (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
+    takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -818,6 +840,11 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   page (`src/ui/`); the worker (`src/worker/`: water preview and background validation); `platform` adapters. M12
   adds a `claude-bridge` (summary builder, schema, tools, proposal loop) in `src/claude/`, with its Messages API
   adapter in `src/platform/claude/`.
+- **The editor's code** (`src/editor/`, its `README.md`): `Editor.tsx` is a thin shell that builds a bag afresh each
+  render and calls one hook per feature, in a fixed order, each in its feature folder (`session/`, `paint/`, `view/`,
+  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`);
+  the markup is plain functions in `render/`, and what the viewer last used is in `prefs/`. New behaviour goes in the
+  slice it belongs to; the `README.md` says how slices reach each other.
 - The operations engine and feature rasterization are headless and fully testable without the UI. Determinism: the
   same document always produces a byte-identical `.timber` file (`PLAN.md` §19.7). Keep worker messages small: send
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the

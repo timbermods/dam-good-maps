@@ -16,5 +16,5 @@
       "ajv": ["./local/node_modules/ajv"]
     }
   },
-  "include": ["engine.ts", "resident.ts", "wall.ts", "maps.ts", "check.ts", "demo.ts"]
+  "include": ["engine.ts", "resident.ts", "wall.ts", "maps.ts", "check.ts", "demo.ts", "worker.ts", "browser-client.ts", "control-client.ts", "profile-round2.ts", "calibration.ts", "round2-contracts.ts"]
 }

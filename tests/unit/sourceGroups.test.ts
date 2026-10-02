@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanCount,
+  groupIds,
   groupTiles,
   MAX_ROW,
   PAIR_CHANCE,
@@ -321,5 +322,58 @@ describe("determinism", () => {
     const counts = new Set<number>();
     for (let seed = 0; seed < 40; seed++) counts.add(placeSourceGroup(water(30, 30, 2.5, seed, { flow: [1, 0] }), flat()).sources.length);
     expect(counts.size).toBeGreaterThan(1);
+  });
+});
+
+describe("ids: a group placed again on changed ground keeps its sources' ids (PLAN §19.4)", () => {
+  /** A river's head: a level bed 9 tiles across (y 28-36) at level 5 between banks at 7, running
+   *  east; `lift` levels added to the rows from `from` on (a Quake Lift's fault between two rows). */
+  function head(lift = 0, from = 99): SourceGroundInput {
+    const h = new Uint8Array(S * S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) h[y * S + x] = (Math.abs(y - 32) <= 4 ? 5 : 7) + (y >= from ? lift : 0);
+    return { W: S, H: S, heights: h };
+  }
+  const ANCHOR = "8cc896aa-0000-4000-8000-000000000000";
+  const placed = (req: SourceGroupRequest, ground: SourceGroundInput) => {
+    const g = placeSourceGroup(req, ground);
+    const ids = groupIds(ANCHOR, req, g);
+    return new Map(g.sources.map((s, k) => [`${s.x},${s.y}`, ids[k]]));
+  };
+
+  it("a source the lift moves to the row's other end keeps its id, and one that stays keeps its own (seed 3 at 128², M9b's finding)", () => {
+    let moved = 0;
+    for (let seed = 0; seed < 60; seed++)
+      for (const strength of [1, 2, 2.5]) {
+        const req = water(16, 32, strength, seed, { flow: [1, 0] });
+        const before = placed(req, head());
+        // the fault just above or below the anchor: the lifted side's sources leave the row and
+        // the row grows on the other side as far as the rule's count
+        for (const from of [31, 32, 33, 34]) {
+          const after = placed(req, head(2, from));
+          const was = new Set(before.values());
+          expect([...after.values()].filter((id) => !was.has(id)), `seed ${seed}, strength ${strength}, lifted from y ${from}`).toEqual([]);
+          for (const [at, id] of after) if (before.has(at)) expect(id, `the source at (${at}) stayed`).toBe(before.get(at));
+          expect(after.get("16,32")).toBe(ANCHOR);
+          if ([...after.keys()].some((at) => !before.has(at))) moved++;
+        }
+      }
+    expect(moved, "the lift moved sources along their rows").toBeGreaterThan(50);
+  });
+
+  it("never gives two sources one id, on any ground, and the same group the same ids", () => {
+    const grounds = [flat(), valley(), head(), head(2, 33), head(-1, 30)];
+    for (let seed = 0; seed < 120; seed++)
+      for (const ground of grounds) {
+        const req = water(16, 32, 0.5 + (seed % 9) * 0.5, seed, seed % 3 ? { flow: [1, 0] } : {});
+        const g = placeSourceGroup(req, ground);
+        const ids = groupIds(ANCHOR, req, g);
+        expect(new Set(ids).size, `seed ${seed}`).toBe(g.sources.length);
+        expect(groupIds(ANCHOR, req, placeSourceGroup(req, ground))).toEqual(ids);
+        const b = bad(40, 20, 1 + (seed % 3), seed);
+        const pair = placeSourceGroup(b, flat());
+        const pairIds = groupIds(ANCHOR, b, pair);
+        expect(new Set(pairIds).size).toBe(pair.sources.length);
+        expect(pairIds[0]).toBe(ANCHOR);
+      }
   });
 });

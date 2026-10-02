@@ -3,7 +3,8 @@
 // map now, so almost all pass their check; the rest must be rejected cleanly. Since M5 the draw
 // also makes the land and water tools' edits: drawn rivers, lakes, landforms with gentle and
 // terraced edges, every set piece, and moving and deleting them, each a group of operations the
-// tools apply as one step.
+// tools apply as one step. Since #167 it fills hollows and removes unfed water too (D387 (2) and (3),
+// D394), the way the core's questions make those operations, and draws refused ones.
 
 import type { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
@@ -24,6 +25,8 @@ import type { Feature, LandformFeature, Point, RiverFeature } from "../../src/co
 import type { Orientation } from "../../src/core/format/footprints";
 import { tilesToRuns } from "../../src/core/math/grid";
 import type { Rng } from "../../src/core/math/rng";
+import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
+import { spillLevels } from "../../src/core/sim/prefill";
 
 const ORIENT: Orientation[] = ["Cw0", "Cw90", "Cw180", "Cw270"];
 
@@ -214,6 +217,45 @@ function randomForce(s: MapSession, rng: Rng): EditOp | null {
   return params ? { op: "forceResult", params } : null;
 }
 
+/** A Fill on a real hollow (D387 (3), D394), the way the editor's question makes one: a dry tile
+ *  whose spill level stands above its floor (a pit a sculpt, brush or carve left), filled to a
+ *  sensible level up to its spill level (`planFill`). Where no hollow holds it, or the question
+ *  refuses, a Fill the engine must refuse: the tile's own water to a level the hollow doesn't hold.
+ *  Null on a map with no dry tile at all. */
+function randomFill(s: MapSession, rng: Rng): EditOp | null {
+  const b = s.built;
+  const m = b.waterModel;
+  const { W, H, floor } = m;
+  const spill = spillLevels(m);
+  const hollows: number[] = [];
+  for (let i = 0; i < W * H; i++) if (b.water[i] === 0 && spill[i] > floor[i] + 0.25) hollows.push(i);
+  const i = pick(rng, hollows);
+  if (i !== undefined) {
+    const level = floor[i] + Math.min(spill[i] - floor[i], pick(rng, [0.5, 1, 1.5, 2])!);
+    const plan = planFill(s, i % W, Math.floor(i / W), level);
+    if (plan.op) return plan.op;
+  }
+  // refused: a one-tile lake on dry ground, to a level its hollow doesn't hold as stored
+  const dry: number[] = [];
+  for (let t = 0; t < W * H; t++) if (b.water[t] === 0) dry.push(t);
+  const t = i ?? pick(rng, dry);
+  if (t === undefined) return null;
+  const level = floor[t] + 1;
+  return { op: "fillHollow", params: { at: [t % W, Math.floor(t / W)], level, lake: { tiles: [t], floor: [floor[t]], depth: [1], contamination: [0] } } };
+}
+
+/** Remove unfed water (D387 (2)), the way the editor's question makes it: map-wide, or within a
+ *  random selection (a pool with a tile in it goes whole). Where there is none to take, the drawn
+ *  removal of a dry tile, which the engine must refuse. */
+function randomRemoval(s: MapSession, rng: Rng): EditOp | null {
+  const { x: W, y: H } = s.size;
+  const within = rng.float() < 0.5 ? rect(rng, W, H, Math.min(40, W - 4), Math.min(40, H - 4)) : null;
+  const take = unfedWater(s, within);
+  if (take.op) return take.op;
+  const dry = pick(rng, Array.from(s.built.water.keys()).filter((t) => s.built.water[t] === 0));
+  return dry === undefined ? null : { op: "removeUnfedWater", params: { tiles: [dry] } };
+}
+
 /** One random operation (or a tool's group of them) for the session's current map, or null when
  *  the drawn kind has no target. */
 export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
@@ -225,7 +267,7 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
   const features = s.features;
   const entities = s.built.entities;
   const byKind = (k: Feature["kind"]) => features.filter((f) => f.kind === k);
-  const roll = rng.int(0, 100);
+  const roll = rng.int(0, 104);
   if (roll < 12) {
     const f = pick(rng, [...byKind("forest"), ...byKind("berryPatch"), ...byKind("ruinField")]);
     if (!f) return null;
@@ -366,6 +408,8 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
   if (roll < 91) return { op: "pinSlope", params: { x: rng.int(1, W - 1), y: rng.int(1, H - 1), orientation: pick(rng, ORIENT)! } };
   if (roll < 96) return randomCarve(s, rng);
   if (roll < 98) return randomForce(s, rng);
+  if (roll >= 100 && roll < 102) return randomFill(s, rng);
+  if (roll >= 102 && roll < 104) return randomRemoval(s, rng);
   // an invalid operation: it must be rejected with a reason, and change nothing
   return pick(rng, [
     { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } },
@@ -374,5 +418,7 @@ export function randomOp(s: MapSession, rng: Rng): EditOp | EditOp[] | null {
     { op: "sculpt", params: { mode: "raise", cells: [[H + 3, 0, 4]], amount: 1 } },
     { op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [4 * W + 8, 10] } },
     { op: "placeEntity", params: { id: guid(rng), template: "Maple", x: 3, y: 3, orientation: "Cw0" } },
+    { op: "removeUnfedWater", params: { tiles: [5, 4] } },
+    { op: "fillHollow", params: { at: [3, 3], level: 2, lake: { tiles: [3 * W + 3], floor: [1], depth: [0.5], contamination: [0] } } },
   ] as EditOp[])!;
 }
