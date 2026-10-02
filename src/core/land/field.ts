@@ -140,8 +140,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // (the rim's inner line wanders, so the sea's shelf never runs parallel to the edges)
         // (D350: the rim is never breached: the outer third of it always keeps its land, where the
         // wandering line once reached the edge and the sea drained out there, Islands 256² seeds 1–3)
-        const rimW = 0.1 * Math.min(W, H);
-        const keepRim = sea ? smoothstep((Math.min(x, W - 1 - x, y, H - 1 - y) - rimW * (0.35 + 0.45 * (fbm(s + 17, x, y, Math.max(12, rimW * 2.2), 3) + 1))) / (0.6 * rimW)) : 1;
+        // (D410: a narrow rim, a shore along the edges rather than a frame of land)
+        const rimW = 0.05 * Math.min(W, H);
+        const keepRim = sea ? smoothstep((Math.min(x, W - 1 - x, y, H - 1 - y) - rimW * (0.2 + 0.7 * (fbm(s + 17, x, y, Math.max(12, rimW * 2.2), 3) + 1))) / (0.6 * rimW)) : 1;
         U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });
@@ -226,6 +227,32 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const along = (x - cx) * -uy + (y - cy) * ux + 0.3 * half * fbm(s + 4, x, y, 30, 2);
         const taper = along >= half ? 0 : along <= -half ? 0 : 1 - smoothstep((Math.abs(along) - 0.6 * half) / (0.4 * half));
         U[i] += p.height * (smoothstep(sd / p.soft + 0.5) - 0.5) * taper;
+      });
+      return;
+    }
+    case "isle": {
+      // an island (D410, Kyler's review): land rising from the sea's floor to high ground of its own,
+      // its coast wandering in bays and headlands (a warped ellipse, `extra` its aspect), its top
+      // broken into spurs and knolls by ridged noise, never a cone's rings or a table
+      const [ux, uy] = unit(p.turn);
+      const aspect = p.extra > 0 ? p.extra : 1.3;
+      const major = p.size * portable.sqrt(aspect);
+      const minor = p.size / portable.sqrt(aspect);
+      const cell = Math.max(6, p.size * 0.55);
+      each((x, y, i) => {
+        const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
+        const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
+        const dx = x - cx + wx;
+        const dy = y - cy + wy;
+        const a = (dx * ux + dy * uy) / major;
+        const b = (-dx * uy + dy * ux) / minor;
+        const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
+        if (d >= 1.15) return;
+        let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
+        n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
+        // (steep flanks into the sea, a broad top: no shallow shelf round it)
+        const t = smoothstep((1.15 - d) / 0.4);
+        U[i] += p.height * t * (0.72 + 0.4 * n);
       });
       return;
     }

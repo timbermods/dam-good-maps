@@ -1384,25 +1384,43 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     }
   }
 
-  // ---- a delta: near its mouth, the main river fans into two or three more mouths on its edge
+  // ---- a delta: the main river fans into several mouths on its edge. On a Delta map (D412, Kyler's
+  //      review) the fan is the map's own: its apex anywhere from a third to two thirds down the
+  //      river, three to five arms (one more with Braided) spread over a fan whose width and lean
+  //      vary by seed, the land between them left as islands; elsewhere it fans near the mouth.
   if (main && "edge" in main.params.exit && rng.float() < g.hydro.delta && (g.theme !== "riverValley" || g.hydro.braided)) {
     const m = exits.get(main.id)!;
     const e = main.params.exit.edge;
-    const s0 = Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    const fan = g.theme === "delta";
+    const s0 = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
     const { p: p0 } = pointAt(m.path, s0);
     const end = m.path[m.path.length - 2];
-    // (River style Braided: two or three more mouths, PLAN §5.3's 2–4 channels)
-    // (M9b: Delta's promise is several channels, D273 (2): its river fans into two or three more)
+    // (River style Braided: one more mouth, PLAN §5.3's 2–4 channels)
     const more = rng.float() < 0.5 ? 1 : 0;
-    const k = (g.theme === "delta" ? 2 : 1) + more + (g.hydro.braided ? 1 : 0);
+    const k = fan ? 3 + Math.floor(3 * rng.float()) + (g.hydro.braided ? 1 : 0) : 1 + more + (g.hydro.braided ? 1 : 0);
     const alongEdge = e === "west" || e === "east" ? 1 : 0;
+    const len = alongEdge ? H : W;
+    // the fan's spread along the edge: as wide as the reach below the apex allows, leaning to a side
+    const reach = alongEdge ? Math.abs((e === "west" ? 0 : W - 1) - p0[0]) : Math.abs((e === "south" ? 0 : H - 1) - p0[1]);
+    const spread = fan ? clamp(reach * (0.7 + 0.8 * rng.float()), 24, len * 0.8) : 0;
+    const lean = fan ? (rng.float() - 0.5) * 0.5 * spread : 0;
+    const centre = (alongEdge ? end[1] : end[0]) + lean;
     for (let a = 0; a < k; a++) {
-      const sgn = a % 2 === 0 ? 1 : -1;
-      // (D350: apart in proportion to the map's side, as the root: at 256² the mouths 13–22 tiles
-      // apart ran together at the edge, wider and wandering rivers there)
-      const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2)) * portable.sqrt(Math.max(1, Math.min(W, H) / 128));
-      const ex = alongEdge ? (e === "west" ? -1 : W) : clamp(end[0] + shift, 6, W - 7);
-      const ey = alongEdge ? clamp(end[1] + shift, 6, H - 7) : e === "south" ? -1 : H;
+      let along: number;
+      if (fan) {
+        // (spread evenly across the fan, the main river's own mouth among them, jittered)
+        const t = k > 1 ? a / (k - 1) - 0.5 : 0;
+        along = clamp(centre + t * spread + (rng.float() - 0.5) * (spread / Math.max(2, k)) * 0.35, 6, len - 7);
+        if (Math.abs(along - (alongEdge ? end[1] : end[0])) < 9 * portable.sqrt(Math.max(1, Math.min(W, H) / 128))) continue;
+      } else {
+        const sgn = a % 2 === 0 ? 1 : -1;
+        // (D350: apart in proportion to the map's side, as the root: at 256² the mouths 13–22 tiles
+        // apart ran together at the edge, wider and wandering rivers there)
+        const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2)) * portable.sqrt(Math.max(1, Math.min(W, H) / 128));
+        along = clamp((alongEdge ? end[1] : end[0]) + shift, 6, len - 7);
+      }
+      const ex = alongEdge ? (e === "west" ? -1 : W) : along;
+      const ey = alongEdge ? along : e === "south" ? -1 : H;
       const mid: Point = [(p0[0] + ex) / 2 + (rng.float() - 0.5) * 6, (p0[1] + ey) / 2 + (rng.float() - 0.5) * 6];
       const pts: Point[] = [];
       for (let q = 0; q <= 16; q++) {

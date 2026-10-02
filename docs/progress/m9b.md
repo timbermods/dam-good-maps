@@ -198,6 +198,60 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands and Delta redesigned, the shape first (D407–D412, 2026-10-02)
+
+Kyler's review (D407) found each theme one map with minor differences, worse than M9a. D370's two
+templates are gone (D408): `land/archipelago.ts` and `land/delta.ts`, with `generate.ts`'s island
+stage, its start rule and its badwater rule for Delta. Both themes now come from the field's own
+processes (uplift, erosion, terraces, relief noise, drainage, the water), like every other theme.
+The sheets, each seed at 128² beside M9a's (dev's 0.7.0), for Kyler's eye before any outcome counts
+are tuned: `docs/sheets/m9b-islands.png`, `docs/sheets/m9b-delta.png`.
+
+- **Islands** (D409–D411; `land/genome.ts` `addSea`, `land/field.ts` part `isle`):
+  - D209's six sea layouts are the starting points, each drawn with its own ranges: one large island
+    with three to six smaller ones round it; a sea off one edge with three to seven islands off the
+    mainland; a scatter of six to ten mid-sized islands, kept apart, the first big enough for a colony;
+    a chain of five to seven along an arc, largest in the middle; an atoll, a lobed ring of islets
+    with one to three passes and sometimes a high islet in the lagoon; two large islands parted by a
+    strait, with up to two small ones. On seeds 1–30: scatter 12, chain 5, edge 4, atoll 4, two islands
+    3, one large island 2 (the scatter passes first time more often than its weight, 0.24, says).
+  - Every island has relief of its own: a new `isle` part (a warped ellipse with bays and headlands, a
+    ridged top, steep flanks into the sea), a spine along it and one or two peaks, so the erosion cuts
+    valleys down it, the terraces step it and springs rise on it. The sea's bowl tilts 3–4 levels
+    (the edge layout 6–7.5) and its relief noise is halved, so the islands stand out.
+  - The sea's rim is half as wide (5% of the side): a shore along the edges. A sea still needs dry
+    land at every edge (the game drains every edge tile), so only the edge layout has a mainland.
+  - The sea's shelf at its spill level rises a level and is dry (`raiseSeaShelves`, groups of 8 tiles
+    or more): no pale sheet a few hundredths deep round the islands (seed 4: 3,000 tiles under 0.3
+    deep before, 1,000 after).
+  - Starts (D411): on a sea map other than the edge layout, when an island of 1,500 tiles or more
+    (at 128², in proportion to the area) stands clear of the edges, the settler tries the islands
+    first, any island that holds what the start needs; otherwise the shore.
+  - A sea map never draws Hanging valleys or Farmland past a gorge (`intentions.ts` `DRAINS_A_SEA`):
+    both cut the main river deep, and on a sea map that river is the sea's way out across its rim;
+    cut deeper it drained the sea (seeds 8, 10 and 12 in the sixth round had no sea).
+  - Seeds 1–30 at 128²: all 30 pass, the promise on 30, all three outcomes on 24.
+- **Delta** (D412; the Delta preset, `land/hydro.ts`'s delta):
+  - Relief across the whole map: the preset's tilt 1.6–4 levels (was 0.4–2.8), its linear share 0.55,
+    relief noise 3–6 (was 2–4.5) on 24–56-tile cells, ridged up to 0.35. The river comes down from
+    higher ground.
+  - The fan is the map's own: its apex anywhere from a third to two thirds down the main river, three
+    to five arms (one more with Braided), spread over a fan 0.7–1.5 times the reach below the apex
+    (24 tiles to 0.8 of the edge), leaning to a side; an arm too near the main river's own mouth is
+    left out. Other themes' fans are unchanged.
+  - Seeds 1–30 at 128²: all 30 pass, the promise on 22, all three outcomes on 18.
+- **Any moves too**: its ranges are the six themes' mean, so the Delta preset moves it, and its sea
+  maps take the new layouts.
+- **Tried and dropped**: larger seas (radius +0.12 of the side: the promise on 18 of 30, two maps lost
+  their sea, the larger floors stayed dry); Delta with two or three arms each as wide as its share of
+  the water (the promise on 17, the fans read as one broad river).
+- **Left for the tuning, after Kyler's look**: most starts still stand on the shore round the sea;
+  thin water across part of the fan on Delta seeds 4 and 23 (seed 4: 2,000 tiles under 0.1 deep);
+  the layouts' shares; outcome counts; the 840-map measures; the timings (D414); the re-pins. CI is
+  red on Islands', Delta's and Any's pinned maps until then.
+- On the sheets, the straight-edged green patches on flat shore are moist ground: the game's soil rule
+  spreads moisture a fixed distance over level land (D298); the land itself has no straight edges.
+
 ## Hand-over (2026-10-01): where M9b stood, and how to resume (history: the hand-over above is current)
 
 Written for a session with no memory of this one. Branch `feature/m9b`, draft PR #70 into `dev`, never

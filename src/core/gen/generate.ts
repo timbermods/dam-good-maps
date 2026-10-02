@@ -47,8 +47,6 @@ import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
-import { enableIslandPrototype, islandPrototypeEnabled, islandStage, islandStartAvoid } from "../land/archipelago";
-import { deltaBadwaterKeep, deltaField, deltaHydro } from "../land/delta";
 import { lakeRise, shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
@@ -443,10 +441,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
       genomes++;
       replans = 0;
-      // (Islands, Codex's sea-first prototype, D370: default Normal Islands draws its sea and islands
-      // first, land/archipelago.ts; the general field is not needed then)
-      // (Delta, Codex's alluvial plain and connected braids, D370: its own field)
-      const F = !opts.context && enableIslandPrototype(g, specIn) ? { E: new Float64Array(W * H), hard: new Float64Array(W * H) } : specIn.theme === "delta" && !opts.context ? deltaField(g, seed, W, H) : makeField(g, seed, W, H);
+      // (every theme's land from the field's processes: D370's Islands and Delta templates are
+      // retired, D408)
+      const F = makeField(g, seed, W, H);
       // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
       // way with it; everything after is found on the turned land
       const o = orientationOf(seed, genomes - 1, W, H);
@@ -511,6 +508,46 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     if (committed && st) markTried(committed.tried, st, W, H);
     return null;
   }
+}
+
+/** A sea's shelves (D410): on a sea's map, the tiles of the lakes the hydrology planned (its water 2:
+ *  the sea, and any lake on an island) that stand at the level their water spills at, in 4-connected
+ *  groups of 8 tiles or more, off the locks and the protected tiles, rise a level and are dry: the
+ *  water stands a level or more deep everywhere but at its shore. Returns how many rose. */
+function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
+  const N = W * H;
+  const spill = drainage(h, W, H, { eight: false }).filled;
+  const shelf = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i] && !locked?.[i] && !protect?.[i]) shelf[i] = 1;
+  const seen = new Uint8Array(N);
+  let rose = 0;
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!shelf[s0] || seen[s0]) continue;
+    const q = [s0];
+    seen[s0] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const t = q[k];
+      const x = t % W;
+      const y = (t - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (shelf[j] && !seen[j]) {
+          seen[j] = 1;
+          q.push(j);
+        }
+      }
+    }
+    if (q.length < 8) continue;
+    for (const t of q) {
+      h[t] += 1;
+      water[t] = 0;
+      rose++;
+    }
+  }
+  return rose;
 }
 
 /** A lake's shelves (D333): the tiles of a lake the hydrology planned (its water 2) that stand at the
@@ -1162,6 +1199,42 @@ function mouthBanks(hy: Hydro, W: number, H: number): Uint8Array {
   return keep;
 }
 
+/** D411: on a sea's map, the land the start may take when an island has room for a colony: every
+ *  dry mass that touches the map's edge (the shore holding the sea) is kept off, joined to `avoid`;
+ *  null when no island has the room (1,500 tiles at 128², by area). */
+function islandStarts(D: ArrayLike<number>, W: number, H: number, avoid: Uint8Array | null): Uint8Array | null {
+  const N = W * H;
+  const lab = new Int32Array(N).fill(-1);
+  const out = avoid ? avoid.slice() : new Uint8Array(N);
+  const room = 1500 * ((W * H) / (128 * 128));
+  let any = false;
+  for (let s0 = 0; s0 < N; s0++) {
+    if (lab[s0] >= 0 || D[s0] > 0.05) continue;
+    const q = [s0];
+    lab[s0] = s0;
+    let edge = false;
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (lab[j] < 0 && !(D[j] > 0.05)) {
+          lab[j] = s0;
+          q.push(j);
+        }
+      }
+    }
+    if (edge) for (const c of q) out[c] = 1;
+    else if (q.length >= room) any = true;
+  }
+  return any ? out : null;
+}
+
 /** The start's 5×5 stays dry. */
 function wetRing(b: BuildResult, p: StartPick): boolean {
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (b.water[(p.y + dy) * b.W + p.x + dx] > 0.001) return true;
@@ -1173,7 +1246,6 @@ function wetRing(b: BuildResult, p: StartPick): boolean {
  *  this land and never changes it but locally (the start's pad, the badwater hollows). */
 function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, ctx: PlanContext | null, protect: Uint8Array | null, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
   const g = land.g;
-  if (islandPrototypeEnabled(g) && !ctx) return islandStage(g, seed, W, H, attempt);
   const N = W * H;
   const h = land.h0.slice();
   // what a regeneration keeps under locks stands as it was; the water finds its way round it
@@ -1182,8 +1254,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  // (Delta's network: a feeder splitting round two islands, rejoining, and three mouths, D370)
-  const hy = g.theme === "delta" && !ctx ? deltaHydro(h, g, seed, W, H) : planHydro(land.E, h, g, seed, W, H, attempt, { protect });
+  const hy = planHydro(land.E, h, g, seed, W, H, attempt, { protect });
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   relaxEdges(h, W, H, mouthBanks(hy, W, H));
@@ -1301,6 +1372,9 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
   if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect, hash32(seed, "shelves", attempt));
+  // (D410: round a sea the shelf at its spill level rises a level instead, to the low shore it is, so no
+  // pale sheet of water a few hundredths deep lies round its islands and along its coast)
+  else raiseSeaShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect);
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -1499,8 +1573,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let allowLevel = true;
   let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
   const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null, reusePlanned = false): StartPick | null => {
-    // (Islands' start on its main island, D370)
-    avoid = islandStartAvoid(g, avoid);
+    // (D411: a sea's start goes on an island where one has room for a colony, not on the shore that
+    // holds the sea at the map's edge; where none of them has, anywhere, as before)
+    if (g.seaLayout && g.seaLayout !== "edge") {
+      const isles = islandStarts(D, W, H, avoid);
+      if (isles) {
+        const onIsle = pickOn(D, C, M, salt, isles, weight, near, reusePlanned);
+        if (onIsle) return onIsle;
+      }
+    }
+    return pickOn(D, C, M, salt, avoid, weight, near, reusePlanned);
+  };
+  const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
     let data = reusePlanned ? plannedStart : null;
     if (!data) {
       const model = waterModel(W, H, h, []);
@@ -1553,8 +1637,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
     keepOff: weir ? orMask(protect, pool) : protect,
   };
-  // (Delta's hollows on the outer catchment's shoulders, off its plain, D370)
-  if (shown.theme === "delta" && !ctx) badAsk.keepOff = deltaBadwaterKeep(h, hy.water, W, H, badAsk.keepOff);
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
   const mineWay = from ? from.mineWay : new Uint8Array(N);

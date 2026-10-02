@@ -319,8 +319,10 @@ Basin round 2 (only after a quiet-machine timing shows it is no slower than toda
 held: theme-outcome regressions, small lake gains, speed misses). Then the 96² start class (Any 31, Islands 4, Highlands 14),
 the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), the review set for Kyler
 and one pooled probe batch (his yes). Three contract tests were already failing on the base (#155 disclosed them): confirm
-what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained. Islands, Delta and River Valley
-are adopted on the strict D348 base (D370, D373).
+what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained. River Valley is adopted on the
+strict D348 base (D370, D373). Islands and Delta block the release (D407): D370's two templates are retired (D408) and both
+are redesigned from the field's own processes (D409–D412), shown to Kyler on 30-seed sheets beside M9a's before any
+outcome counts are tuned.
 
 **The agent guide** (Kyler, 2026-09-25; D142): how a Claude Code session generates, edits, validates and exports maps, and
 runs the contact sheet and the DGM Probe (under the probe rule, D117). Waits with M12 (D277, D283 (4)).
