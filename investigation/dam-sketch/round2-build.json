@@ -1,0 +1,23 @@
+{
+  "baseline": "bb5723f8",
+  "rust": "2ebeea87",
+  "wasmSha256": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+  "mapInputs": {
+    "riverValley-128-4242": "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309",
+    "lakeBasin-128-4242": "307b7578b9e4cb39798f9058b17a4336ff383c05d50f11361e5f59d619b886ac",
+    "riverValley-256-4242": "dec66f581ada99a2dee37e0e13d8c00e524c8b740dfccc203931dc0a376458ec",
+    "lakeBasin-256-4242": "63ce879ebb91e2ca996ae6fe714c581fb27b9ba46440b06046d7acfb1dc7e0a4"
+  },
+  "sourceHashes": {
+    "engine.ts": "f59708fda258c609fc8b6d116578f1d08347cec4d6c44d618225dd5fa0d35517",
+    "resident.ts": "264ed266c9db2709ca69c01c582f195dab69d0d209b326d269b394fb19d7a516",
+    "worker.ts": "3ba600abd2a24195e1cb4b827b35ed1849ac600d59fae729a82ec23ed098e618",
+    "browser-client.ts": "e597b2a30dabeb7b811c851239576be1b484ba4d9c2c75f3b40fc1d5b4061b90",
+    "profile-round2.ts": "f6a4e4ee2e99a6589903236bdac874fb4c70100e07acde90c83abea1003ce90d",
+    "calibration.ts": "886dbbafdd3bd9f5d62e93eca7ba0eb33389ef52fece19e0b1dbac89052c7a32"
+  },
+  "bundleHashes": {
+    "worker.js": "30328ff9d11b481b6b0cdce16cda376f366929ec7b0717a158f197062cccd6a2",
+    "browser-client.js": "8284db12fadeda548cffaa7f8fd7549caa4205ef4cd7aa551c3525e396a9a16e"
+  }
+}

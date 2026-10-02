@@ -1,4 +1,42 @@
-# Adopt the engine after Rust water and the Weather view
+# Adopt after Rust water, Weather and the live/calibration gates
+
+Round two starts from dev `c720cfe1` on `investigation/dam-sketch-2`; changes remain
+in this folder. It was rebased onto dev `071aa068`; rebuilding confirmed the measured
+worker/client bundle bytes stayed unchanged. Physics and stopping checks retain round-one
+result bytes. Duplicate reporting scans/temporaries are removed and constant weather
+forcing is applied once per frame. Keep supplied map/weather inputs immutable.
+`round2-identity.json` and `round2-contracts.json` bind the replay evidence.
+
+The harness uses one runtime per dedicated worker, eight fill ticks / 128 drought
+ticks per publication, request IDs, cancellation/disposal and queued-change
+coalescing. Draw the exact authored raster immediately; reject old result packets
+and mark earlier water pending when the wall changes. Capped fills stay visibly
+unsettled. Pool/worker lifetime is explicit.
+
+`browser-timings.json`/CSV and `wall-change-timings.csv` replace the Node-only
+responsiveness assumption. Markers are rAF canvas uploads, not compositor times.
+Callback work, rAF intervals, reference drags and supported long tasks are recorded
+separately. All cohorts exceed 20% CPU load: timings are provisional. Over-budget
+callbacks and superseded previews leave the live gate open. Measure the actual
+headed editor's texture/mesh uploads and presentation under low load. WebKit
+evidence is Windows Playwright WebKit; installed Safari remains unverified.
+
+At 256², measure the approved multi-core water path in Chromium/Firefox with pool
+budgeting, startup/copies/cancellation and full byte replay. No alternate backend
+or assumed speedup is installed here; Rust stepping remains the largest cost and
+Rust threads are a separate investigation. Stacked water has its own performance gate.
+
+`calibration.ts` writes six original scenes, predictions and a Probe schema-1 job
+template without launching/installing anything. Probe lacks finished-wall placement
+and initial-column restoration. Dedicated-machine staging must verify geometry,
+gate selection, all initial columns and zero momentum first. CALIBRATION.md and
+calibration-batch.json fix tolerances and observation clocks; every game field in
+calibration-measurements.csv remains NOT RUN. Roof measurements include lower
+columns/overflow. Binary64 replay alone does not establish “game-exact”.
+
+README.md gives exact regeneration and D195 placement. Raw logs/profiles, source
+archives, binaries, maps, dependencies and detailed columns remain in ignored
+local/. ATTRIBUTION.md records provenance; package.json uses AGPL-3.0-or-later.
 
 Base dev: `4aab909e23016902cbbe6ffaeddeece786176ab3`. All tracked changes are here.
 The product's water engine, generator, map format and interface were only read.
@@ -88,8 +126,9 @@ placement action may write the document, through the existing operation pipeline
 Pass job IDs through messages and discard cancelled/stale results.
 Render the drawn wall immediately while simulation progresses. Full fill and weather
 times in benchmarks.json must not be presented as a one-frame computation.
-Repeat the actual editor's smoothness harness and browser timings before adoption;
-this Node/Wasm study does not establish live browser responsiveness.
+Repeat the actual editor's smoothness/presentation harness under low CPU load
+before adoption. The round-two headless measurements have callback overruns and
+do not establish the strict live-frame gate.
 
 The binary64 engine has the previous investigations' float32-game, seep-frame-fade
 and contamination-diffusion limits. Forcing is explicit, not a full colony simulator.
@@ -99,6 +138,7 @@ the stacked model. Roofed real-map parity and arbitrary construction state remap
 need a dedicated game-calibration batch before claiming complete game fidelity.
 The included synthetic roof/stack checks do not replace that batch.
 
-Regeneration: README commands; compact checks.json, browser-checks.json,
-benchmarks.json and live-benchmarks.json are committed.
+Regeneration: README commands; checks.json, browser-checks.json, benchmarks.json
+and live-benchmarks.json preserve round one. Round-two timing, identity, load,
+reference-drag and calibration files are separate.
 Large maps, HTML, bundles, binaries and source/dependency provenance remain in local/.
