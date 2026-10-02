@@ -16,7 +16,7 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.carve());
 
-async function refine(page: Page, hash: string) {
+async function openTopDown(page: Page, hash: string) {
   await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
@@ -58,7 +58,7 @@ async function highGround(page: Page): Promise<[number, number]> {
 }
 
 test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path replaces it", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   // its row: Power, Size, Keep river or Dry canyon (D289), a mode is the gesture, and a More button
   // for its other settings (D309: wander, walls and depth, closed by default)
   const carve = page.getByRole("button", { name: "Carve (7)" });
@@ -156,7 +156,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
 });
 
 test("Carve's More (D309): closed by default; its details on Auto; pinning one keeps it through Try another", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Carve (7)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
@@ -194,7 +194,7 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
 });
 
 test("Carve: a drag draws its path, the line showing as it is drawn; on release the river carves along it from its higher end, whichever way it was drawn; undo while it runs takes it back", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Carve (7)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row.getByRole("button", { name: "Aim" })).toHaveCount(0);

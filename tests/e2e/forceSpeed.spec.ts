@@ -18,7 +18,7 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page, size: number) {
+async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
   await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
   await page.getByRole("button", { name: "Top-down" }).click();
@@ -105,7 +105,7 @@ const CASES: { name: string; key: string; mode?: string; go(page: Page, s: Await
 ];
 
 test("Fast (the default): each force's land is final within about two seconds of its gesture; Slow forces play about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
-  await refine(page, 96);
+  await openTopDown(page, 96);
   const watch = page.getByRole("button", { name: "Slow forces", exact: true });
   await expect(watch).toHaveAttribute("aria-pressed", "false");
   const s = await spots(page);
@@ -162,7 +162,7 @@ test("the forces' Fast timings at 128² and 256² (DGM_BENCH_FORCES=1: informati
   test.setTimeout(900_000);
   const rows: string[] = [];
   for (const size of [128, 256]) {
-    await refine(page, size);
+    await openTopDown(page, size);
     const s = await spots(page);
     for (const c of CASES) {
       await page.keyboard.press(c.key);

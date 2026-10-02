@@ -14,7 +14,7 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selection());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page) {
+async function openTopDown(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
@@ -31,7 +31,7 @@ async function box(page: Page, from: [number, number], to: [number, number]) {
 }
 
 test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level starting at the lowest, no Dig out (items 6 and 43)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
   // no old buttons
@@ -103,7 +103,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
 });
 
 test("Clear everything, a map without a start, and Z and C (items 44 and 16)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const objects = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
@@ -151,7 +151,7 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
 });
 
 test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only; the forces in their clusters by prominence, D352)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("1");
   const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
   const view = page.getByRole("button", { name: "Top-down" });

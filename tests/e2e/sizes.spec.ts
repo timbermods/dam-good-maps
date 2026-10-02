@@ -10,7 +10,7 @@ import { openEditor } from "./open";
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page) {
+async function openTopDown(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
 }
@@ -18,7 +18,7 @@ async function refine(page: Page) {
 test("the shelf's order; every brush's size in its row, up to half the map (D322); each force's size follows Power until it is set by hand (D226)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await refine(page);
+  await openTopDown(page);
 
   // the shelf: Water source, Badwater source, Start, Pine, then the rest
   const names = await page.getByRole("navigation", { name: "Place" }).getByRole("button").allTextContents();

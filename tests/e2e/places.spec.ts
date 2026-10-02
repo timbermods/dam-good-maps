@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, waitForEditor } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -112,12 +112,14 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("./real-places/");
   await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await waitForEditor(page);
   const info = await page.evaluate(() => window.dgmEditor!.info());
   expect(info.kind).toBe("import");
   expect(info.name).toBe(SMALL.name);
   expect([info.W, info.H]).toEqual([SMALL.size, SMALL.size]);
-  expect(new URL(page.url()).hash).toBe("#edit");
+  // (the address keeps the place's own link; the page's #edit is gone with the old page, D330)
+  expect(new URL(page.url()).hash).toBe(`#place=${SMALL.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: SMALL.name })).toBeVisible();
 
   // the menu's Download .timber (the primary button saves into Timberborn's folder)
   const download = page.waitForEvent("download", { timeout: 120_000 });
@@ -129,27 +131,42 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   expect(errors).toEqual([]);
 });
 
-test("the generator links to the gallery, and a place never replaces a saved map unasked", async ({ page }) => {
+test("the page links to the gallery, and a place never replaces a map with edits unasked", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // a map with an edit in the editor, autosaved
+  await page.getByRole("button", { name: "Top-down" }).click();
+  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));
+  const b = await page.evaluate(() => window.dgmEditor!.tileToClient(26, 20));
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await page.keyboard.press("Escape");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().edits)).toBe(1);
   await expect(page.getByText("saved in this browser")).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("dgm.autosaveEdits")), { timeout: 30_000 }).toBe("1");
   await page.goto("./");
   await page.getByRole("link", { name: "Real places" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
 
-  // Refine asks first; Cancel keeps the saved map
+  // Refine asks first; Cancel keeps the saved map, its edit with it
   await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
   const ask = page.getByRole("alertdialog");
-  await expect(ask).toContainText("Opening this real place replaces River Valley, which is saved in this browser.");
+  await expect(ask).toContainText("Opening this real place replaces River Valley, which is saved in this browser with its edits.");
   await expect(ask.getByRole("button", { name: "Save project file" })).toBeVisible();
   await ask.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByText("Continue editing")).toBeVisible();
-  await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
+  await waitForEditor(page);
+  const kept = await page.evaluate(() => window.dgmEditor!.info());
+  expect(kept.name).toBe("River Valley");
+  expect(kept.edits).toBe(1);
 
   // asked again and accepted: the place opens
   await page.goto("./real-places/");
   await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Open the real place" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Open this real place" }).click();
   await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
   expect(await page.evaluate(() => window.dgmEditor!.info().name)).toBe(SMALL.name);
 });
@@ -194,9 +211,10 @@ test.describe("on a phone", () => {
   });
 });
 
-test("an unknown place says so and shows the generator", async ({ page }) => {
+test("an unknown place says so and opens a generated map instead", async ({ page }) => {
   await page.goto("./#place=near-nowhere");
   await expect(page.getByRole("alert")).toContainText('there is no real place called "near-nowhere"', { timeout: 60_000 });
-  await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
+  await waitForEditor(page);
+  expect((await page.evaluate(() => window.dgmEditor!.info())).kind).toBe("generated");
   expect(entry("near-nowhere")).toBeUndefined();
 });
