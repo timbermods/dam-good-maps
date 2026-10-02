@@ -24,11 +24,26 @@ const local=new URL('./local/'+(runDir?runDir+'/':''),import.meta.url);
 const api=createRequire(import.meta.url)(fileURLToPath(new URL('api.cjs',local)));
 const bridge=await api.bridge(readFileSync(new URL('forces.wasm',local)));
 let comparisons=0;
-const same=(a:any,b:any,label:string)=>{
- // Equal typed arrays can be checked by their exact storage bytes. Avoid millions
- // of cold scalar protocol writes in per-frame large-map presentation tests.
- if(ArrayBuffer.isView(a)&&ArrayBuffer.isView(b)&&a.constructor===b.constructor){const x=new Uint8Array(a.buffer,a.byteOffset,a.byteLength),y=new Uint8Array(b.buffer,b.byteOffset,b.byteLength);if(x.length!==y.length||!x.every((v,i)=>v===y[i]))throw Error('Rust existing-suite typed bytes: '+label);comparisons++;return;}
- const x=Buffer.from(api.encode(a)),y=Buffer.from(api.encode(b));if(!x.equals(y)){const message='Rust existing-suite identity: '+label+' '+first(a,b);console.error(message);throw Error(message);}comparisons++;};
+// Diagnostic equality preserves canonical keys, sequence order, signed zero and
+// NaN bytes. Typed peers additionally compare their exact storage. This avoids
+// serializing an entire large editor map at every animation frame.
+function encodedSame(a:any,b:any):boolean {const x=Buffer.from(api.encode(a)),y=Buffer.from(api.encode(b));if(!x.equals(y))return false;return true;}
+function identical(a:any,b:any):boolean {
+ if(a===b)return a!==0||Object.is(a,b);
+ if(typeof a==='number'&&typeof b==='number')return Number.isNaN(a)&&Number.isNaN(b)&&encodedSame(a,b);
+ if(a==null||b==null||typeof a!=='object'||typeof b!=='object')return false;
+ const av=ArrayBuffer.isView(a),bv=ArrayBuffer.isView(b);
+ if(av&&bv&&a.constructor===b.constructor){const x=new Uint8Array(a.buffer,a.byteOffset,a.byteLength),y=new Uint8Array(b.buffer,b.byteOffset,b.byteLength);return x.length===y.length&&x.every((v,i)=>v===y[i]);}
+ const aa=Array.isArray(a)||av,ba=Array.isArray(b)||bv;
+ if(aa||ba){if(!aa||!ba||a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(!identical(a[i],b[i]))return false;return true;}
+ const ka=Object.keys(a).filter(k=>a[k]!==undefined).sort(),kb=Object.keys(b).filter(k=>b[k]!==undefined).sort();
+ if(ka.length!==kb.length||ka.some((k,i)=>k!==kb[i]))return false;
+ // The cold protocol can retain a scalar's original bytes on its parent object
+ // when Firefox normalizes a NaN while reading a typed view.
+ if(ka.some(k=>Number.isNaN(a[k])||Number.isNaN(b[k])))return encodedSame(a,b);
+ for(const k of ka)if(!identical(a[k],b[k]))return false;return true;
+}
+const same=(a:any,b:any,label:string)=>{if(!identical(a,b)){const message='Rust existing-suite identity: '+label+' '+first(a,b);console.error(message);throw Error(message);}comparisons++;};
 function first(a:any,b:any,path=''):string{if(Object.is(a,b))return '';if(a==null||b==null||typeof a!=='object'||typeof b!=='object')return path+': '+JSON.stringify(a)+' / '+JSON.stringify(b);if(Object.keys(a).sort().join()!==Object.keys(b).sort().join())return path+' keys';for(const key of Object.keys(a)){const d=first(a[key],b[key],path+'.'+key);if(d)return d;}return '';}
 function cloneFixture(v:any):any {if(v===null||typeof v!=='object')return v;if(v instanceof JsonFloat)return v;if(ArrayBuffer.isView(v))return v.slice();if(Array.isArray(v))return v.map(cloneFixture);return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,cloneFixture(x)]));}
 function rust(verb:string,before:any,settings:any,intent:any,keep:any=null,options:any={}){
