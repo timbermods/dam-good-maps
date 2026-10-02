@@ -154,7 +154,7 @@ export function lipOutflow(W: number, H: number, heights: Uint8Array, sw: Surfac
   const i = y * W + x;
   const s = sw.surface[i];
   if (!(s === s)) return 0;
-  if (sw.hasOutflow) return sw.outflow[i * 4 + SIM_SIDE[k]];
+  if (sw.outflow) return sw.top[i] >= 0 ? sw.outflow[sw.top[i] * 4 + SIM_SIDE[k]] : 0;
   let sum = 0;
   let mine = 0;
   for (let kk = 0; kk < 4; kk++) {

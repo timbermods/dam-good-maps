@@ -15,7 +15,7 @@ import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DRO
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
 import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
 import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
-import { outflowsOf } from "../../src/render3d/current";
+import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
 import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
@@ -204,8 +204,9 @@ describe("the water's flow (the settle's own current, D353)", () => {
   };
 
   it("runs with the settle's outflows in a channel and holds still in a level lake", () => {
-    const { W, sw } = scene();
-    const at = (x: number, y: number) => [sw.current[(y * W + x) * 2], sw.current[(y * W + x) * 2 + 1]];
+    const { W, H, sw } = scene();
+    const c = surfaceCurrent(W, H, sw);
+    const at = (x: number, y: number) => [c[(y * W + x) * 2], c[(y * W + x) * 2 + 1]];
     expect(at(5, 1)[0]).toBeGreaterThan(0.3);
     expect(Math.abs(at(5, 1)[1])).toBeLessThan(0.05);
     expect(at(5, 4)).toEqual([0, 0]);
@@ -218,7 +219,7 @@ describe("the water's flow (the settle's own current, D353)", () => {
     expect(outflowsOf(view, W, H, undefined)).toBeUndefined();
     expect(outflowsOf(view, W, H, new Float64Array(4))).toBeUndefined();
     const { outflow: _, ...plain } = view;
-    expect(surfaceWater(W, H, plain).current.every((v) => v === 0)).toBe(true);
+    expect(surfaceCurrent(W, H, surfaceWater(W, H, plain)).every((v) => v === 0)).toBe(true);
   });
 
   it("smooths contamination into a soft front, through water on the same surface only", () => {
@@ -237,7 +238,7 @@ describe("the water's flow (the settle's own current, D353)", () => {
 
   it("finds no rough water in a gentle river, and some below a fall", () => {
     const { W, H, heights, sw } = scene();
-    const drawn = (s: { current: Float32Array }) => s.current.map((v) => v * FLOW_DISPLAY);
+    const drawn = (s: ReturnType<typeof surfaceWater>) => surfaceCurrent(W, H, s).map((v) => v * FLOW_DISPLAY);
     const calm = roughWater(W, H, heights, sw, drawn(sw));
     expect(calm.counts.falls).toBe(0);
     // a fall: the channel's east half a level and a half lower

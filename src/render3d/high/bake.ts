@@ -4,6 +4,7 @@
 // motionShapes.ts). fields.ts and motion.ts turn them into textures and meshes.
 
 import type { SurfaceWater } from "../model";
+import { currentOf } from "../current";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { roughWater, surfaceContamination, type RoughCounts } from "./flow";
 
@@ -118,9 +119,9 @@ export function bakeAmbient(W: number, H: number, heights: Uint8Array, c: Canopi
 
 /** The water's textures (RGBA, one texel a tile): the flow (RG, the current as drawn, compressed to at
  *  most 2 tiles a second, 128 still) with the smoothed contamination (B); the rough water (R). */
-export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater): { flow: Uint8Array; rough: Uint8Array; counts: RoughCounts } {
+export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, current: Float32Array): { flow: Uint8Array; rough: Uint8Array; counts: RoughCounts } {
   const velocity = new Float32Array(W * H * 2);
-  for (let k = 0; k < velocity.length; k++) velocity[k] = sw.current[k] * FLOW_DISPLAY;
+  for (let k = 0; k < velocity.length; k++) velocity[k] = current[k] * FLOW_DISPLAY;
   const cont = surfaceContamination(W, H, sw);
   const r = roughWater(W, H, heights, sw, velocity);
   const flow = new Uint8Array(W * H * 4);
@@ -143,7 +144,7 @@ export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceW
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "ambient"; W: number; H: number; heights: Uint8Array; canopies: Canopies }
-  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater };
+  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null };
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
   | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; ms: number };
@@ -154,7 +155,9 @@ export function runBake(job: BakeJob): BakeResult {
     const { data, cover } = bakeAmbient(job.W, job.H, job.heights, job.canopies);
     return { id: job.id, kind: "ambient", data, cover, ms: performance.now() - t0 };
   }
-  const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw);
-  const shapes = motionShapes(job.W, job.H, job.sw, job.sw.current);
+  // the current from the outflows (current.ts), here rather than on the page's thread
+  const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
+  const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current);
+  const shapes = motionShapes(job.W, job.H, job.sw, current);
   return { id: job.id, kind: "flow", flow, rough, counts, shapes, ms: performance.now() - t0 };
 }

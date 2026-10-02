@@ -15,6 +15,7 @@ import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, Li
 import type { SceneUniforms } from "./materials";
 import type { SurfaceWater } from "./model";
 import { DT, STEPS, type MotionShapes } from "./motionShapes";
+import { outflowGrid } from "./current";
 import type { Baker } from "./high/fields";
 import type { RoughCounts } from "./high/flow";
 import { HIGH_WATER, WATER } from "./waterPalette";
@@ -249,10 +250,12 @@ export class WaterMotion {
     const id = ++this.latest;
     const sw = p.surface;
     // (copies the worker takes over: the view keeps its own)
-    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), current: sw.current.slice(), outflow: new Float32Array(0), hasOutflow: false, lower: [] };
+    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: new Int32Array(0), outflow: null, lower: [] };
     const heights = p.heights.slice();
-    const transfer = [copy.surface, copy.floor, copy.depth, copy.contamination, copy.current, heights].map((a) => a.buffer as ArrayBuffer);
-    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy }, transfer).then((r) => {
+    // (the outflows four a tile: the worker works out the current from them)
+    const out = outflowGrid(this.W, this.H, sw);
+    const transfer = [copy.surface, copy.floor, copy.depth, copy.contamination, heights, ...(out ? [out] : [])].map((a) => a.buffer as ArrayBuffer);
+    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out }, transfer).then((r) => {
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);

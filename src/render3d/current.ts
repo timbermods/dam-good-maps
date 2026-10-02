@@ -4,14 +4,15 @@
 // - the water worker sends, with every water view, the settle's own outflows of each column (four, in
 //   the simulation's order −y, −x, +y, +x, already a rate: the simulation multiplies by its time step):
 //   `outflowsOf`, a copy of four numbers a wet column, handed to the page with the view's other arrays;
-// - the renderer works out the current from them (`currentOf`): each face's net flow, averaged over the
+// - the renderer's bake worker works out the current from them (`currentOf`, a bake at a time, never with
+//   each water update on the page's thread): each face's net flow, averaged over the
 //   tile's two opposite faces and divided by the water's depth. It is the simulation's balanced
 //   momentum, not an exact transport flux, and there is no estimate from the surface's slope: water
 //   without outflows is still;
 // - a fall's lip pours the simulation's own outflow over that side (falls.ts `lipOutflow`).
 // Only drawn, never fed back into the water, a map or an operation.
 
-import type { WaterView } from "./model";
+import type { SurfaceWater, WaterView } from "./model";
 
 /** Below this depth a column has no current (a film of water). */
 const SHALLOW = 0.001;
@@ -54,4 +55,23 @@ export function currentOf(W: number, H: number, out: ArrayLike<number>, depth: A
     }
   }
   return c;
+}
+
+/** The surface water's outflows as four a tile (zero where dry or where the view has none), for
+ *  `currentOf`: made once a bake, not with every water update. */
+export function outflowGrid(W: number, H: number, sw: SurfaceWater): Float32Array | null {
+  const o = sw.outflow;
+  if (!o) return null;
+  const out = new Float32Array(W * H * 4);
+  for (let i = 0; i < W * H; i++) {
+    const k = sw.top[i];
+    if (k >= 0) out.set(o.subarray(k * 4, k * 4 + 4), i * 4);
+  }
+  return out;
+}
+
+/** The surface water's current (two a tile; zero without outflows). */
+export function surfaceCurrent(W: number, H: number, sw: SurfaceWater): Float32Array {
+  const out = outflowGrid(W, H, sw);
+  return out ? currentOf(W, H, out, sw.depth) : new Float32Array(W * H * 2);
 }

@@ -5,7 +5,6 @@
 // Coordinates: tile (x, y) with x east and y north, as in the game. The renderer's world space is
 // X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up.
 
-import { currentOf } from "./current";
 import { contaminationByte, moistureByte } from "./palette";
 
 export const LAYERS = 23;
@@ -128,12 +127,11 @@ export interface SurfaceWater {
   floor: Float32Array;
   depth: Float32Array;
   contamination: Float32Array;
-  /** The surface water's current (x, y: two a tile, tiles a second; current.ts); zero where still or
-   *  where the view has none. */
-  current: Float32Array;
-  /** The surface water's outflows (four a tile, current.ts), when the view has them (`hasOutflow`). */
-  outflow: Float32Array;
-  hasOutflow: boolean;
+  /** Each tile's surface column, as an index into the view (−1 where dry). */
+  top: Int32Array;
+  /** The view's outflows (four a column, current.ts), or null where it has none: read through `top`.
+   *  (Kept as the view sent them: a water update does no work for them on the page's thread.) */
+  outflow: Float32Array | null;
   /** Columns below the surface one (water in caves), as indices into the view. */
   lower: number[];
 }
@@ -144,8 +142,6 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
   const floor = new Float32Array(N).fill(NaN);
   const depth = new Float32Array(N);
   const contamination = new Float32Array(N);
-  const outflow = new Float32Array(N * 4);
-  const o = w.outflow;
   const top = new Int32Array(N).fill(-1);
   const lower: number[] = [];
   for (let k = 0; k < w.count; k++) {
@@ -161,10 +157,8 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
     depth[i] = w.depth[k];
     surface[i] = w.floor[k] + w.depth[k];
     contamination[i] = w.contamination[k];
-    if (o) outflow.set(o.subarray(k * 4, k * 4 + 4), i * 4);
   }
-  const current = o ? currentOf(W, H, outflow, depth) : new Float32Array(N * 2);
-  return { surface, floor, depth, contamination, current, outflow, hasOutflow: !!o, lower };
+  return { surface, floor, depth, contamination, top, outflow: w.outflow ?? null, lower };
 }
 
 /** The voxel columns as a map from tile index to its 23 voxels. */

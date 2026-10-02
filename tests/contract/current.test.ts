@@ -6,7 +6,7 @@ import { readTimber } from "../../src/core/format/timber";
 import { storedOutflows } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment } from "../../src/core/spec/codec";
-import { outflowsOf } from "../../src/render3d/current";
+import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
 const r = generate(decodeSpecFragment("s=4242&t=riverValley&z=128&d=n")!.spec);
@@ -16,7 +16,8 @@ const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
 view.outflow = outflowsOf(view, W, H, S.out)!;
 const sw0 = surfaceWater(W, H, view);
 /** The current of each column (the renderer's, from the outflows the worker sends). */
-const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => sw0.current[view.tile[n >> 1] * 2 + (n & 1)]);
+const c0 = surfaceCurrent(W, H, sw0);
+const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
 describe("the current of River Valley seed 4242 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
