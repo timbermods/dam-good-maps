@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D416), STATUS and HANDOFF.
+  free: D422), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft: its `DESIGN.md` and two directions so far. Its Editor.tsx split
   (#169) is merged into `dev` (dde77fb2). It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -42,7 +42,6 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands and Delta redesign (D407: Kyler's verdict on the review set blocks the release); defaults accepted (D405, D406); then the measures, the D148 re-pins, 256² speed and Lake Basin round 2 |
 | The page | `feature/page` | #163 draft | `-page` | Page session; design stage |
 | Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
-| The settle: a sealed, only-evaporating basin counts as settled (D413) | `fix/sealed-settle` | none yet | `-settle` | Building; **blocks the release until it lands**; re-pins maps with oxbow lakes |
 | Naturalize | `feature/naturalize` | #170 draft | none | Round 3 in progress after Kyler's verdict on round 2 |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
@@ -82,8 +81,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## Waiting for Kyler
 
 1. **The Naturalize round-3 sheets**, when ready (#170).
-2. **M9b's Islands and Delta redesign sheets** (D407): 30 seeds of each at 128² beside M9a's, when ready; his verdict on
-   the review set blocks M9b's release on these two themes. Both defaults are accepted (D405, D406).
+2. **M9b's next Islands sheet** (D417): Delta's shape is accepted (D416); Islands has another shape round, then 30 seeds
+   at 128² beside M9a's. Also pending #155 (sea maps draw no Hanging valleys or Farmland past a gorge), his to overrule.
 3. **Your yes on #165**, after your look at moving water and its gate passing (D415).
 4. **The quiet window** (about 2 hours): after you accept the Islands and Delta sheets, or at 2:00 on Saturday 2026-10-03
    (Pacific), whichever comes first (D414); this session pauses all heavy work for it.
@@ -94,8 +93,9 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: the settle fix (D413),
-water from nowhere (D385), and Islands and Delta (D407).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: water from nowhere (D385, #177),
+Islands (D417), and Real places in the gallery (D421: hide the 33 places whose start reaches no fed water; fix
+`tools/real-places.ts` and re-render the cards). The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 

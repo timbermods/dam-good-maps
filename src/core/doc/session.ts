@@ -161,7 +161,7 @@ export class MapSession {
     }
     this.cur = built ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. Show → Water under roofs marks them.");
+      this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
     }
     // the log is the history of an opened document: its operations undo one by one
     this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
