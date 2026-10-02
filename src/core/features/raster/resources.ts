@@ -27,6 +27,10 @@ export interface ResourceGround {
   channel?: Uint8Array | null;
   /** Tiles a regeneration kept (locks): generated features place nothing there. */
   locked: Uint8Array | null;
+  /** The tiles taken before the entity edits (an edited generated map's derived objects): what a
+   *  kept object (KeptTiles) yields to. An object a force carried onto a kept tile never keeps that
+   *  tile's own from standing: the force carried it away too, or removed it, and the edits say so. */
+  before?: Uint8Array | null;
 }
 
 /** An edited generated map's resources (PLAN §20 D368 (10), D404): the tiles where the generation
@@ -44,7 +48,7 @@ export interface Placed {
 
 function take(g: ResourceGround, f: Feature, i: number, out: Placed, kept: KeptTiles | null = null): boolean {
   if (kept && !kept.has(i)) return false;
-  if (g.occupied[i] || (!kept && g.water[i] > 0) || g.channel?.[i]) return false;
+  if ((kept ? (g.before ?? g.occupied)[i] : g.occupied[i]) || (!kept && g.water[i] > 0) || g.channel?.[i]) return false;
   if (g.locked && g.locked[i] && f.origin === "generated") return false;
   g.occupied[i] = 1;
   out.tiles.push(i);
