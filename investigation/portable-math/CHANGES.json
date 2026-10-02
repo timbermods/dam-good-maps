@@ -1,0 +1,1213 @@
+{
+  "generation": {
+    "firefox": {
+      "features": [
+        "m9b-delta-128-15",
+        "m9b-delta-128-18",
+        "m9b-delta-128-2",
+        "m9b-delta-128-21",
+        "m9b-delta-128-22",
+        "m9b-delta-128-27",
+        "m9b-delta-128-3",
+        "m9b-delta-128-32",
+        "m9b-delta-128-40",
+        "m9b-delta-128-7",
+        "m9b-delta-256-18",
+        "m9b-delta-256-2",
+        "m9b-delta-256-20",
+        "m9b-delta-256-22",
+        "m9b-delta-256-24",
+        "m9b-delta-256-25",
+        "m9b-delta-256-26",
+        "m9b-delta-256-29",
+        "m9b-delta-256-30",
+        "m9b-delta-256-32",
+        "m9b-delta-256-35",
+        "m9b-delta-256-40",
+        "m9b-delta-256-6",
+        "m9b-delta-256-7",
+        "m9b-delta-96-1",
+        "m9b-delta-96-10",
+        "m9b-delta-96-15",
+        "m9b-delta-96-25",
+        "m9b-delta-96-29",
+        "m9b-delta-96-3",
+        "m9b-delta-96-33",
+        "m9b-delta-96-39",
+        "m9b-delta-96-5",
+        "m9b-delta-96-6",
+        "m9b-delta-96-8"
+      ],
+      "built": [
+        "m9b-delta-128-15",
+        "m9b-delta-128-18",
+        "m9b-delta-128-2",
+        "m9b-delta-128-21",
+        "m9b-delta-128-22",
+        "m9b-delta-128-27",
+        "m9b-delta-128-3",
+        "m9b-delta-128-32",
+        "m9b-delta-128-40",
+        "m9b-delta-128-7",
+        "m9b-delta-256-18",
+        "m9b-delta-256-2",
+        "m9b-delta-256-20",
+        "m9b-delta-256-22",
+        "m9b-delta-256-24",
+        "m9b-delta-256-25",
+        "m9b-delta-256-26",
+        "m9b-delta-256-29",
+        "m9b-delta-256-30",
+        "m9b-delta-256-32",
+        "m9b-delta-256-35",
+        "m9b-delta-256-40",
+        "m9b-delta-256-6",
+        "m9b-delta-256-7",
+        "m9b-delta-96-1",
+        "m9b-delta-96-10",
+        "m9b-delta-96-15",
+        "m9b-delta-96-25",
+        "m9b-delta-96-29",
+        "m9b-delta-96-3",
+        "m9b-delta-96-33",
+        "m9b-delta-96-39",
+        "m9b-delta-96-5",
+        "m9b-delta-96-6",
+        "m9b-delta-96-8"
+      ]
+    },
+    "webkit": {
+      "features": [
+        "m9b-delta-128-15",
+        "m9b-delta-128-18",
+        "m9b-delta-128-2",
+        "m9b-delta-128-20",
+        "m9b-delta-128-21",
+        "m9b-delta-128-22",
+        "m9b-delta-128-27",
+        "m9b-delta-128-3",
+        "m9b-delta-128-32",
+        "m9b-delta-128-40",
+        "m9b-delta-128-7",
+        "m9b-delta-256-18",
+        "m9b-delta-256-2",
+        "m9b-delta-256-20",
+        "m9b-delta-256-22",
+        "m9b-delta-256-24",
+        "m9b-delta-256-25",
+        "m9b-delta-256-26",
+        "m9b-delta-256-29",
+        "m9b-delta-256-32",
+        "m9b-delta-256-35",
+        "m9b-delta-256-40",
+        "m9b-delta-256-7",
+        "m9b-delta-96-1",
+        "m9b-delta-96-10",
+        "m9b-delta-96-15",
+        "m9b-delta-96-23",
+        "m9b-delta-96-25",
+        "m9b-delta-96-28",
+        "m9b-delta-96-29",
+        "m9b-delta-96-3",
+        "m9b-delta-96-33",
+        "m9b-delta-96-39",
+        "m9b-delta-96-5",
+        "m9b-delta-96-6",
+        "m9b-delta-96-8"
+      ],
+      "built": [
+        "m9b-delta-128-15",
+        "m9b-delta-128-18",
+        "m9b-delta-128-2",
+        "m9b-delta-128-20",
+        "m9b-delta-128-21",
+        "m9b-delta-128-22",
+        "m9b-delta-128-27",
+        "m9b-delta-128-3",
+        "m9b-delta-128-32",
+        "m9b-delta-128-40",
+        "m9b-delta-128-7",
+        "m9b-delta-256-18",
+        "m9b-delta-256-2",
+        "m9b-delta-256-20",
+        "m9b-delta-256-22",
+        "m9b-delta-256-24",
+        "m9b-delta-256-25",
+        "m9b-delta-256-26",
+        "m9b-delta-256-29",
+        "m9b-delta-256-32",
+        "m9b-delta-256-35",
+        "m9b-delta-256-40",
+        "m9b-delta-256-7",
+        "m9b-delta-96-1",
+        "m9b-delta-96-10",
+        "m9b-delta-96-15",
+        "m9b-delta-96-23",
+        "m9b-delta-96-25",
+        "m9b-delta-96-28",
+        "m9b-delta-96-29",
+        "m9b-delta-96-3",
+        "m9b-delta-96-33",
+        "m9b-delta-96-39",
+        "m9b-delta-96-5",
+        "m9b-delta-96-6",
+        "m9b-delta-96-8"
+      ]
+    }
+  },
+  "fixtures": {},
+  "carve": {
+    "firefox": {
+      "head": 54,
+      "metrics": 13
+    },
+    "chromium": {
+      "head": 54,
+      "metrics": 13
+    },
+    "webkit": {
+      "head": 54,
+      "metrics": 13
+    }
+  },
+  "gestures": [
+    {
+      "engine": "firefox",
+      "revision": "legacy",
+      "id": "editor-96-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "legacy",
+      "id": "editor-128-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "legacy",
+      "id": "editor-256-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-0-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-3-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-3.6-4.8"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-5.99999999999999-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-6-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-6.00000000000001-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-4-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-96-0.25-0.5"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-0-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-3-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-3.6-4.8"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-5.99999999999999-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-6-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-6.00000000000001-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-4-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-128-0.25-0.5"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-0-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-3-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-3.6-4.8"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-5.99999999999999-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-6-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-6.00000000000001-0"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-4-4"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-4.25-4.25"
+    },
+    {
+      "engine": "firefox",
+      "revision": "dev",
+      "id": "editor-256-0.25-0.5"
+    },
+    {
+      "engine": "webkit",
+      "revision": "legacy",
+      "id": "editor-96-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "legacy",
+      "id": "editor-128-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "legacy",
+      "id": "editor-256-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-0-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-3-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-3.6-4.8"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-5.99999999999999-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-6-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-6.00000000000001-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-4-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-96-0.25-0.5"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-0-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-3-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-3.6-4.8"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-5.99999999999999-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-6-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-6.00000000000001-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-4-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-128-0.25-0.5"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-0-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-3-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-3.6-4.8"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-5.99999999999999-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-6-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-6.00000000000001-0"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-4-4"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-4.25-4.25"
+    },
+    {
+      "engine": "webkit",
+      "revision": "dev",
+      "id": "editor-256-0.25-0.5"
+    }
+  ],
+  "camera": {
+    "three": {
+      "cases": 1512,
+      "pin": "74afdb4263af37501bf9063ddddca2ac9453053fe13daea13a23c9127f1f6916",
+      "changes": {
+        "chromium": 756,
+        "firefox": 756,
+        "webkit": 756
+      },
+      "dependency": {
+        "version": "0.186.1",
+        "native": 504,
+        "remaining": 0
+      }
+    },
+    "three-dev": {
+      "cases": 1512,
+      "pin": "bd4c1b0266934e49fcdc37e6a1729c89be49e9b81f9a68ca7c289cc7071e6e3a",
+      "changes": {
+        "chromium": 756,
+        "firefox": 756,
+        "webkit": 756
+      },
+      "dependency": {
+        "version": "0.186.1",
+        "native": 504,
+        "remaining": 0
+      }
+    }
+  },
+  "weatherProbe": {
+    "chromium/native": 3,
+    "chromium/fractionalNative": 4,
+    "firefox/native": 3,
+    "firefox/fractionalNative": 4,
+    "webkit/native": 3,
+    "webkit/fractionalNative": 15
+  },
+  "weatherStates": {
+    "chromium": [
+      {
+        "id": "m9b-islands-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 81,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 74,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 126,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 114,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      }
+    ],
+    "firefox": [
+      {
+        "id": "m9b-islands-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 81,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 74,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 126,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 114,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      }
+    ],
+    "webkit": [
+      {
+        "id": "m9b-islands-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 81,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 79,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-islands-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 51,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 57,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 74,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 126,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-lakeBasin-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 114,
+        "stages": [
+          "badtide",
+          "badtide-return"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-128-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 29,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-256-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 53,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-easy",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-hard",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      },
+      {
+        "id": "m9b-riverValley-96-1-normal",
+        "canonicalChanged": false,
+        "changedSnapshots": 37,
+        "stages": [
+          "badtide"
+        ]
+      }
+    ]
+  },
+  "devForces": {
+    "source": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+    "cases": 316,
+    "engines": {
+      "chromium": {
+        "checkpoints": 1716,
+        "changed": 0,
+        "rows": []
+      },
+      "firefox": {
+        "checkpoints": 1716,
+        "changed": 0,
+        "rows": []
+      },
+      "webkit": {
+        "checkpoints": 1716,
+        "changed": 0,
+        "rows": []
+      }
+    }
+  },
+  "officialBatch": {
+    "officialMaps": 19,
+    "job": "tools/official-baselines.ts",
+    "baseline": {
+      "bundle": "57f35c521284c6b209e4a57f57ad94166e0966f753eb3a0e9bd134f0ca83e413",
+      "output": "8947c9552e3bdf655d71a7e3e8c3383514610f6c4f9a3ac6c292788a2319ed6e"
+    },
+    "adopted": {
+      "bundle": "3212b3e428cdf687179991105b00f5f2f93c045ed47c2264aa5ff755de16c592",
+      "output": "8947c9552e3bdf655d71a7e3e8c3383514610f6c4f9a3ac6c292788a2319ed6e"
+    },
+    "changedValues": 0,
+    "changes": []
+  }
+}

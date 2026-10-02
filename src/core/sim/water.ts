@@ -47,16 +47,67 @@ export interface WaterModel {
   /** Every emitter. The out-of-map sides of each emitter tile are walls, also for emitters that
    *  are switched off (WaterMapBoundary decorates every water source). */
   emitters: Emitter[];
-  /** Water sealed basins keep from before they were sealed (a carve's oxbow lakes), in order: the
-   *  canonical settle starts their tiles from it (prefill.ts). */
+  /** Water sealed basins keep from before they were sealed (a carve's oxbow lakes) and Fills, in
+   *  order: the canonical settle starts their tiles from it (prefill.ts). */
   retained?: readonly RetainedWater[];
+  /** Tiles whose unfed water the player removed (Remove unfed water, D387 (2)), ascending: once the
+   *  canonical settle has run, the water no source feeds on them is taken away and the water settles
+   *  on from there (prefill.ts `canonicalRun`), as the game's own would from a file without it. Water
+   *  a source feeds is never taken. */
+  drained?: readonly number[];
 }
 
-/** Water a sealed basin keeps from before it was sealed (a carve's oxbow lake, D199, D216). With no
- *  source feeding it, a basin cut off from its river would start the canonical settle dry; its
- *  tiles start with the water that stood there instead, up to the surface it had (`floor` plus
- *  `depth`) on the ground as it is now, and it evaporates as the game's water does. Stored with the
- *  operation that sealed it, so the same document always settles the same. */
+/** One stored change to a map's water, in the order its operations stand in the log: a lake that
+ *  keeps its water (a carve's oxbow lake, D216; a Fill, D394), or tiles whose unfed water was
+ *  removed (D387 (2)). */
+export type KeptWater = { lake: RetainedWater } | { drain: readonly number[] };
+
+/** A water model's `retained` and `drained` from the stored changes, in order: a lake keeps its
+ *  water; a removal takes the tiles it names out of every lake before it and drains them; a later
+ *  lake on those tiles keeps its water again. With lakes only, `retained` is the lakes as given (the
+ *  same objects), so maps without a removal settle exactly as before. */
+export function composeKept(list: readonly KeptWater[]): { retained?: RetainedWater[]; drained?: number[] } {
+  if (!list.some((k) => "drain" in k)) {
+    const lakes = list.map((k) => (k as { lake: RetainedWater }).lake);
+    return lakes.length ? { retained: lakes } : {};
+  }
+  let retained: RetainedWater[] = [];
+  const drained = new Set<number>();
+  for (const k of list) {
+    if ("lake" in k) {
+      retained.push(k.lake);
+      for (const i of k.lake.tiles) drained.delete(i);
+      continue;
+    }
+    const gone = new Set(k.drain);
+    for (const i of k.drain) drained.add(i);
+    retained = retained
+      .map((r) => {
+        if (!r.tiles.some((i) => gone.has(i))) return r;
+        const keep = r.tiles.map((i) => !gone.has(i));
+        return { tiles: r.tiles.filter((_, j) => keep[j]), floor: r.floor.filter((_, j) => keep[j]), depth: r.depth.filter((_, j) => keep[j]), contamination: r.contamination.filter((_, j) => keep[j]) };
+      })
+      .filter((r) => r.tiles.length > 0);
+  }
+  return { ...(retained.length ? { retained } : {}), ...(drained.size ? { drained: [...drained].sort((a, b) => a - b) } : {}) };
+}
+
+/** Two models keep the same stored water: their lakes (`retained`) and their drained tiles. */
+export function sameKeptWater(a: Pick<WaterModel, "retained" | "drained">, b: Pick<WaterModel, "retained" | "drained">): boolean {
+  if (!sameRetained(a.retained, b.retained)) return false;
+  const x = a.drained ?? [];
+  const y = b.drained ?? [];
+  if (x.length !== y.length) return false;
+  for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return false;
+  return true;
+}
+
+/** Water a sealed basin keeps from before it was sealed (a carve's oxbow lake, D199, D216; a Fill,
+ *  D394). With no source feeding it, a basin cut off from its river would start the canonical
+ *  settle dry; its tiles start with the water that stood there instead, up to the surface it had
+ *  (`floor` plus `depth`) on the ground as it is now, and it evaporates as the game's water does.
+ *  Stored with the operation that sealed (or filled) it, so the same document always settles the
+ *  same. */
 export interface RetainedWater {
   /** Tile indices, ascending. */
   tiles: readonly number[];

@@ -1,0 +1,429 @@
+{
+  "method": "Paired diagnostic runs, before then after; one pass per actual round-one map/wall. Includes lossless result/column hashing and profiler overhead: not a browser latency benchmark. runtimeMs alone is excluded. Distinct typed-array bytes, negative zero and nonfinite numbers are preserved by the digest. No physics or traversal-order changes.",
+  "load": {
+    "mean": 99.95583580983197,
+    "max": 100,
+    "samples": 253,
+    "provisional": true,
+    "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+    "start": 1790937779257,
+    "end": 1790938041874
+  },
+  "comparisons": 1252,
+  "allBytesEqual": true,
+  "rows": [
+    {
+      "started": 1790937779554,
+      "ended": 1790937804213,
+      "map": "riverValley-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 262,
+      "fillMs": 9188.629,
+      "droughtMs": 15468.022799999999,
+      "digest": "b76a0138f5781ef40627fb2b35ddeef7a58208e3dc902371cd9b7d1ead13682b",
+      "methodMs": {
+        "before.result": 1876.2864999999947,
+        "water.run": 21034.632300000198
+      },
+      "load": {
+        "mean": 99.88280172933202,
+        "max": 100,
+        "samples": 24,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937779554,
+        "end": 1790937804213
+      }
+    },
+    {
+      "started": 1790937804217,
+      "ended": 1790937828250,
+      "map": "riverValley-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 262,
+      "fillMs": 16855.3906,
+      "droughtMs": 7177.907299999999,
+      "digest": "b76a0138f5781ef40627fb2b35ddeef7a58208e3dc902371cd9b7d1ead13682b",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 19069.587099999855,
+        "after.result": 2747.2209999999614
+      },
+      "load": {
+        "mean": 99.99597542230586,
+        "max": 100,
+        "samples": 23,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937804217,
+        "end": 1790937828250
+      }
+    },
+    {
+      "started": 1790937828446,
+      "ended": 1790937854325,
+      "map": "riverValley-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 486,
+      "fillMs": 18876.6181,
+      "droughtMs": 7001.372399999993,
+      "digest": "e115ca264a155aec6183ce0b93d0c1392aef6b8d5e3997954d595e92001b2661",
+      "methodMs": {
+        "before.result": 3997.8467000001983,
+        "water.run": 18663.0825999999,
+        "after.result": 0
+      },
+      "load": {
+        "mean": 99.91118002530455,
+        "max": 100,
+        "samples": 25,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937828446,
+        "end": 1790937854325
+      }
+    },
+    {
+      "started": 1790937854327,
+      "ended": 1790937888732,
+      "map": "riverValley-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 486,
+      "fillMs": 20116.8116,
+      "droughtMs": 14287.55780000001,
+      "digest": "e115ca264a155aec6183ce0b93d0c1392aef6b8d5e3997954d595e92001b2661",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 27362.35479999811,
+        "after.result": 2531.9593000000386
+      },
+      "load": {
+        "mean": 99.97946114735515,
+        "max": 100,
+        "samples": 33,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937854327,
+        "end": 1790937888732
+      }
+    },
+    {
+      "started": 1790937888990,
+      "ended": 1790937906520,
+      "map": "riverValley-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 246,
+      "fillMs": 7661.065199999997,
+      "droughtMs": 9868.963600000003,
+      "digest": "feb3678aa71ba954f129972abf781d9a9acaa127691eac6f7eeb2d1c7d1e8028",
+      "methodMs": {
+        "before.result": 1618.6187000001955,
+        "water.run": 14310.558899998898,
+        "after.result": 0
+      },
+      "load": {
+        "mean": 99.83145262231405,
+        "max": 100,
+        "samples": 17,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937888990,
+        "end": 1790937906520
+      }
+    },
+    {
+      "started": 1790937906522,
+      "ended": 1790937931270,
+      "map": "riverValley-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 246,
+      "fillMs": 10866.824000000008,
+      "droughtMs": 13878.824899999978,
+      "digest": "feb3678aa71ba954f129972abf781d9a9acaa127691eac6f7eeb2d1c7d1e8028",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 19753.228399999076,
+        "after.result": 1845.7437999997637
+      },
+      "load": {
+        "mean": 99.96242720802776,
+        "max": 100,
+        "samples": 23,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937906522,
+        "end": 1790937931270
+      }
+    },
+    {
+      "started": 1790937931615,
+      "ended": 1790937956859,
+      "map": "lakeBasin-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 86,
+      "fillMs": 1311.6113000000187,
+      "droughtMs": 23932.38519999999,
+      "digest": "256f6796e71fc7a7f187f2804c9b681d6b39f0804c39af6b110642c994ef72d9",
+      "methodMs": {
+        "before.result": 502.63570000001346,
+        "water.run": 23738.23930000342,
+        "after.result": 0
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 24,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937931615,
+        "end": 1790937956859
+      }
+    },
+    {
+      "started": 1790937956865,
+      "ended": 1790937979542,
+      "map": "lakeBasin-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 86,
+      "fillMs": 2094.030299999984,
+      "droughtMs": 20583.006400000013,
+      "digest": "256f6796e71fc7a7f187f2804c9b681d6b39f0804c39af6b110642c994ef72d9",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 21386.55860000258,
+        "after.result": 498.09600000007777
+      },
+      "load": {
+        "mean": 99.98682074808771,
+        "max": 100,
+        "samples": 22,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937956865,
+        "end": 1790937979542
+      }
+    },
+    {
+      "started": 1790937980334,
+      "ended": 1790937994872,
+      "map": "lakeBasin-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 86,
+      "fillMs": 986.6621999999916,
+      "droughtMs": 13550.296900000016,
+      "digest": "195fa7c917739cba76625f54f86609b10c2875058c8ba95ae449fac9904d9509",
+      "methodMs": {
+        "before.result": 260.0124000000069,
+        "water.run": 13546.35109999741,
+        "after.result": 0
+      },
+      "load": {
+        "mean": 99.9930649452468,
+        "max": 100,
+        "samples": 14,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937980334,
+        "end": 1790937994872
+      }
+    },
+    {
+      "started": 1790937994892,
+      "ended": 1790938008915,
+      "map": "lakeBasin-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 86,
+      "fillMs": 1032.12460000001,
+      "droughtMs": 12990.894300000014,
+      "digest": "195fa7c917739cba76625f54f86609b10c2875058c8ba95ae449fac9904d9509",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 13130.242300000624,
+        "after.result": 213.69750000012573
+      },
+      "load": {
+        "mean": 99.94849141146962,
+        "max": 100,
+        "samples": 13,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790937994892,
+        "end": 1790938008915
+      }
+    },
+    {
+      "started": 1790938009173,
+      "ended": 1790938023289,
+      "map": "lakeBasin-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "before",
+      "publications": 86,
+      "fillMs": 1626.632099999988,
+      "droughtMs": 12489.30720000001,
+      "digest": "603f33fe8ac27b4c2fed33e6011ce04d9cda124e3e5377ed00740c7e77a1c8ff",
+      "methodMs": {
+        "before.result": 511.31949999992503,
+        "water.run": 12890.229900000675,
+        "after.result": 0
+      },
+      "load": {
+        "mean": 99.99259902152639,
+        "max": 100,
+        "samples": 13,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938009173,
+        "end": 1790938023289
+      }
+    },
+    {
+      "started": 1790938023307,
+      "ended": 1790938041533,
+      "map": "lakeBasin-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "backend": "rust-heightfield",
+      "mode": "after",
+      "publications": 86,
+      "fillMs": 1599.7569000000076,
+      "droughtMs": 16626.069200000027,
+      "digest": "603f33fe8ac27b4c2fed33e6011ce04d9cda124e3e5377ed00740c7e77a1c8ff",
+      "methodMs": {
+        "before.result": 0,
+        "water.run": 17046.24550000092,
+        "after.result": 433.6038999998127
+      },
+      "load": {
+        "mean": 99.97291130504662,
+        "max": 100,
+        "samples": 18,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938023307,
+        "end": 1790938041533
+      }
+    }
+  ],
+  "totals": {
+    "before.result": 8816.953200000367,
+    "water.run": 221931.31080000167,
+    "after.result": 8277.911099999736
+  },
+  "exclusiveSamples": [
+    [
+      "_ZN10rust_water3Sim7substep17h315a04866cd0d163E",
+      86300
+    ],
+    [
+      "result",
+      9665
+    ],
+    [
+      "update",
+      4270
+    ],
+    [
+      "digest",
+      2878
+    ],
+    [
+      "tileWater2",
+      1554
+    ],
+    [
+      "tileWater",
+      908
+    ],
+    [
+      "(anonymous)",
+      773
+    ],
+    [
+      "impoundedMask",
+      684
+    ],
+    [
+      "proto.<computed>",
+      438
+    ],
+    [
+      "volume",
+      431
+    ],
+    [
+      "SketchJob2",
+      411
+    ],
+    [
+      "SketchJob",
+      370
+    ],
+    [
+      "advance",
+      365
+    ],
+    [
+      "wetAt",
+      286
+    ],
+    [
+      "spillLevels",
+      234
+    ],
+    [
+      "(garbage collector)",
+      229
+    ],
+    [
+      "main",
+      177
+    ],
+    [
+      "(program)",
+      171
+    ],
+    [
+      "now",
+      163
+    ],
+    [
+      "inflt",
+      140
+    ]
+  ],
+  "rawProfileSha256": "74f345c000a60eb31d9740b59bd5fd9bafb4afb74a0fa3f4098e66144c8a8c9c",
+  "cpuSamples": 112138,
+  "rustSubstepSamples": 86300
+}

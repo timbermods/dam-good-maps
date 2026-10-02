@@ -12,10 +12,13 @@
 //   flow with, about 0.3·Q/w (Q the flow through the tile, w the channel width there; a lip tile
 //   passes all its water each substep, PLAN §9.2).
 // A basin sealed off from its river (a carve's oxbow lake) then starts with the water it kept
-// (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources.
+// (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources. A Fill
+// (D394) is stored and starts the same way. The tiles whose unfed water the player removed (the
+// model's `drained`, D387 (2)) lose it once the settle has passed, and the water settles on.
 
 import { MinHeap } from "../math/grid";
-import { sealedTiles, SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
+import { drainedSim } from "./fed";
+import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -188,7 +191,8 @@ export interface CanonicalWater extends SettleResult {
 }
 
 /** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks). The same input always gives the same bytes. A sealed oxbow
+ *  days, checked every 128 ticks), then, with drained tiles holding unfed water, once more after
+ *  taking it (at most `DRAIN_DAYS`). The same input always gives the same bytes. A sealed oxbow
  *  lake's evaporation never keeps it from counting as settled (`steadyTicks`, D222), and never
  *  changes where it stops. */
 export function canonicalSettle(m: WaterModel): CanonicalWater {
@@ -202,21 +206,47 @@ export function canonicalSettle(m: WaterModel): CanonicalWater {
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. */
 export function canonicalRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  const sim = new WaterSim(m, prefill(m));
-  const run = new SettleRun(sim, { sealed: sealedTiles(m) });
+  let sim = new WaterSim(m, prefill(m));
+  const sealed = sealedTiles(m);
+  let run = new SettleRun(sim, { sealed });
+  const first = run.maxTicks;
+  // Remove unfed water (the model's `drained`, D387 (2)): once the water has settled, the unfed water
+  // on those tiles is taken away and the water settles on from there, at most DRAIN_DAYS more
+  let drainNext = !!m.drained?.length;
   let done: CanonicalWater | null = null;
   return {
     advance(ticks: number): CanonicalWater | null {
       if (done) return done;
-      const r = run.advance(ticks);
-      if (r) done = { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice() };
-      return done;
+      let left = ticks;
+      for (;;) {
+        const t0 = sim.ticks;
+        const r = run.advance(left);
+        left -= sim.ticks - t0;
+        if (!r) return null;
+        if (drainNext) {
+          drainNext = false;
+          const next = drainedSim(m, sim);
+          if (next) {
+            sim = next;
+            run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
+            if (left > 0) continue;
+            return null;
+          }
+        }
+        done = { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice() };
+        return done;
+      }
     },
     get ticks() {
-      return run.ticks;
+      return sim.ticks;
     },
     get maxTicks() {
-      return run.maxTicks;
+      return first + (m.drained?.length ? DRAIN_DAYS * TICKS_PER_DAY : 0);
     },
   };
 }
+
+/** The most game days the canonical settle runs on after taking away the unfed water a removal
+ *  drained (`canonicalRun`): the water round it was settled, so it is steady again within a check or
+ *  two. */
+export const DRAIN_DAYS = 1;

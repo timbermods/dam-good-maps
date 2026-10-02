@@ -13,5 +13,6 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `base.ts` (the stored base map), `placing.ts` and `tools.ts` (turn a request into planned features and operations), `bake.ts` (old drawn landforms become plain terrain, D182).
+- `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
-**Tests**: `tests/contract/` (document, ops, bake, import, projects, views, sourcesUnderEdits, editor; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
+**Tests**: `tests/contract/` (document, ops, bake, import, projects, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

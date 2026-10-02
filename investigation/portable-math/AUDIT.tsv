@@ -1,0 +1,1133 @@
+revision	file	line	native reference	reach
+m9b	src/core/analysis/metrics.ts	168	Math.sqrt	deterministic core
+m9b	src/core/analysis/metrics.ts	174	Math.sqrt	deterministic core
+m9b	src/core/analysis/metrics.ts	174	(p[k][0] - p[k - 1][0]) ** 2	deterministic core
+m9b	src/core/analysis/metrics.ts	174	(p[k][1] - p[k - 1][1]) ** 2	deterministic core
+m9b	src/core/analysis/signature.ts	62	Math.sqrt	deterministic core
+m9b	src/core/analysis/startPlanting.ts	80	Math.sqrt	deterministic core
+m9b	src/core/analysis/startPlanting.ts	91	Math.atan2	deterministic core
+m9b	src/core/analysis/startPlanting.ts	104	Math.sqrt	deterministic core
+m9b	src/core/analysis/straight.ts	170	Math.sqrt	deterministic core
+m9b	src/core/analysis/straight.ts	180	Math.sqrt	deterministic core
+m9b	src/core/analysis/straight.ts	253	Math.sqrt	deterministic core
+m9b	src/core/doc/document.ts	18	gzipSync	deterministic core
+m9b	src/core/doc/placing.ts	158	Math.sqrt	deterministic core
+m9b	src/core/doc/tools.ts	126	Math.sqrt	deterministic core
+m9b	src/core/doc/tools.ts	126	(path[i + 1][0] - path[i][0]) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	126	(path[i + 1][1] - path[i][1]) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	198	Math.sqrt	deterministic core
+m9b	src/core/doc/tools.ts	240	(x - p[0]) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	240	(y - p[1]) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	294	(x - ex) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	294	(y - ey) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	374	Math.sqrt	deterministic core
+m9b	src/core/doc/tools.ts	402	Math.sqrt	deterministic core
+m9b	src/core/doc/tools.ts	1017	(a[0] - fromX) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	1017	(a[1] - fromY) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	1017	(b2[0] - fromX) ** 2	deterministic core
+m9b	src/core/doc/tools.ts	1017	(b2[1] - fromY) ** 2	deterministic core
+m9b	src/core/features/geometry.ts	25	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	107	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	122	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	138	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	214	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	222	Math.sqrt	deterministic core
+m9b	src/core/features/geometry.ts	240	10 ** decimals	deterministic core
+m9b	src/core/features/raster/resources.ts	148	Math.sqrt	deterministic core
+m9b	src/core/features/raster/terrain.ts	274	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/badwaterBasin.ts	104	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/damSite.ts	116	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/damSite.ts	190	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/damSite.ts	233	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/gorge.ts	57	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/gorge.ts	70	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/gorge.ts	159	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/gorge.ts	159	(path[i + 1][0] - path[i][0]) ** 2	deterministic core
+m9b	src/core/features/setpieces/gorge.ts	159	(path[i + 1][1] - path[i][1]) ** 2	deterministic core
+m9b	src/core/features/setpieces/naturalNarrows.ts	62	Math.hypot	deterministic core
+m9b	src/core/features/setpieces/naturalNarrows.ts	67	Math.hypot	deterministic core
+m9b	src/core/features/setpieces/secondDistrict.ts	44	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/secondDistrict.ts	65	Math.sqrt	deterministic core
+m9b	src/core/features/setpieces/waterfall.ts	175	Math.sqrt	deterministic core
+m9b	src/core/features/slopes.ts	153	(x - start.x) ** 2	deterministic core
+m9b	src/core/features/slopes.ts	153	(y - start.y) ** 2	deterministic core
+m9b	src/core/forces/carve/character.ts	47	Math.sqrt	deterministic core
+m9b	src/core/forces/carve/character.ts	64	Math.hypot	deterministic core
+m9b	src/core/forces/carve/character.ts	65	Math.hypot	deterministic core
+m9b	src/core/forces/carve/character.ts	69	Math.hypot	deterministic core
+m9b	src/core/forces/carve/character.ts	75	Math.sin	deterministic core
+m9b	src/core/forces/carve/character.ts	75	Math.sin	deterministic core
+m9b	src/core/forces/carve/character.ts	76	Math.pow	deterministic core
+m9b	src/core/forces/carve/character.ts	76	Math.sin	deterministic core
+m9b	src/core/forces/carve/character.ts	87	Math.atan	deterministic core
+m9b	src/core/forces/carve/character.ts	87	Math.cos	deterministic core
+m9b	src/core/forces/carve/character.ts	87	Math.cos	deterministic core
+m9b	src/core/forces/carve/character.ts	111	Math.hypot	deterministic core
+m9b	src/core/forces/carve/character.ts	123	Math.sin	deterministic core
+m9b	src/core/forces/carve/course.ts	16	Math.atan2	deterministic core
+m9b	src/core/forces/carve/course.ts	16	Math.sin	deterministic core
+m9b	src/core/forces/carve/course.ts	16	Math.cos	deterministic core
+m9b	src/core/forces/carve/course.ts	47	Math.hypot	deterministic core
+m9b	src/core/forces/carve/course.ts	59	Math.hypot	deterministic core
+m9b	src/core/forces/carve/course.ts	74	Math.atan2	deterministic core
+m9b	src/core/forces/carve/course.ts	78	Math.atan2	deterministic core
+m9b	src/core/forces/carve/course.ts	92	Math.cos	deterministic core
+m9b	src/core/forces/carve/oxbow.ts	39	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	220	Math.cos	deterministic core
+m9b	src/core/forces/carve/run.ts	220	Math.sin	deterministic core
+m9b	src/core/forces/carve/run.ts	285	Math.cos	deterministic core
+m9b	src/core/forces/carve/run.ts	286	Math.sin	deterministic core
+m9b	src/core/forces/carve/run.ts	290	Math.atan2	deterministic core
+m9b	src/core/forces/carve/run.ts	325	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	356	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	400	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	400	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	413	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	418	Math.atan2	deterministic core
+m9b	src/core/forces/carve/run.ts	419	Math.hypot	deterministic core
+m9b	src/core/forces/carve/run.ts	434	Math.cos	deterministic core
+m9b	src/core/forces/carve/run.ts	435	Math.sin	deterministic core
+m9b	src/core/forces/carve/run.ts	452	Math.cos	deterministic core
+m9b	src/core/forces/carve/run.ts	452	Math.cos	deterministic core
+m9b	src/core/forces/carve/run.ts	564	Math.hypot	deterministic core
+m9b	src/core/format/timber.ts	7	zipSync	deterministic core
+m9b	src/core/gen/extras.ts	369	Math.sqrt	deterministic core
+m9b	src/core/gen/extras.ts	441	Math.sqrt	deterministic core
+m9b	src/core/gen/generate.ts	611	Math.sqrt	deterministic core
+m9b	src/core/gen/generate.ts	611	(x - b.start.x) ** 2	deterministic core
+m9b	src/core/gen/generate.ts	611	(y - b.start.y) ** 2	deterministic core
+m9b	src/core/gen/generate.ts	757	Math.sqrt	deterministic core
+m9b	src/core/gen/generate.ts	770	Math.hypot	deterministic core
+m9b	src/core/gen/generate.ts	2393	Math.sqrt	deterministic core
+m9b	src/core/gen/generate.ts	2487	Math.sqrt	deterministic core
+m9b	src/core/gen/names.ts	122	Math.sqrt	deterministic core
+m9b	src/core/gen/names.ts	122	(f.bestDam.x - f.start.x) ** 2	deterministic core
+m9b	src/core/gen/names.ts	122	(f.bestDam.y - f.start.y) ** 2	deterministic core
+m9b	src/core/gen/outcomes.ts	20	Math.sqrt	deterministic core
+m9b	src/core/gen/outcomes.ts	23	Math.sqrt	deterministic core
+m9b	src/core/gen/outcomes.ts	23	Math.sqrt	deterministic core
+m9b	src/core/gen/outcomes.ts	25	Math.sqrt	deterministic core
+m9b	src/core/gen/resources.ts	477	Math.sqrt	deterministic core
+m9b	src/core/gen/resources.ts	643	Math.sqrt	deterministic core
+m9b	src/core/gen/resources.ts	813	Math.sqrt	deterministic core
+m9b	src/core/gen/settler.ts	532	Math.hypot	deterministic core
+m9b	src/core/land/archipelago.ts	67	Math.sqrt	deterministic core
+m9b	src/core/land/archipelago.ts	67	(a/(p.rx+rx+gap))**2	deterministic core
+m9b	src/core/land/archipelago.ts	67	(b/(p.ry+rx+gap))**2	deterministic core
+m9b	src/core/land/archipelago.ts	78	Math.sqrt	deterministic core
+m9b	src/core/land/archipelago.ts	78	(x/(0.29*side))**2	deterministic core
+m9b	src/core/land/archipelago.ts	78	(y/(0.27*side))**2	deterministic core
+m9b	src/core/land/archipelago.ts	86	Math.sqrt	deterministic core
+m9b	src/core/land/archipelago.ts	100	Math.sqrt	deterministic core
+m9b	src/core/land/archipelago.ts	100	((a-0.12)*p.rx)**2	deterministic core
+m9b	src/core/land/archipelago.ts	100	((b+0.05)*p.ry)**2	deterministic core
+m9b	src/core/land/delta.ts	78	Math.sqrt	deterministic core
+m9b	src/core/land/delta.ts	80	Math.sqrt	deterministic core
+m9b	src/core/land/delta.ts	88	Math.hypot	deterministic core
+m9b	src/core/land/delta.ts	101	Math.hypot	deterministic core
+m9b	src/core/land/delta.ts	108	(x - cx) ** 2	deterministic core
+m9b	src/core/land/delta.ts	108	(y - cy) ** 2	deterministic core
+m9b	src/core/land/field.ts	95	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	107	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	108	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	127	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	171	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	199	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	295	Math.sqrt	deterministic core
+m9b	src/core/land/field.ts	354	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	540	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	548	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	590	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	646	Math.pow	deterministic core
+m9b	src/core/land/genome.ts	647	Math.pow	deterministic core
+m9b	src/core/land/genome.ts	661	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	664	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	916	Math.sqrt	deterministic core
+m9b	src/core/land/genome.ts	917	Math.log2	deterministic core
+m9b	src/core/land/genome.ts	957	0.5 ** -dl	deterministic core
+m9b	src/core/land/genome.ts	958	0.6 ** -dl	deterministic core
+m9b	src/core/land/hazards.ts	113	Math.sqrt	deterministic core
+m9b	src/core/land/hazards.ts	177	Math.hypot	deterministic core
+m9b	src/core/land/hazards.ts	323	Math.sqrt	deterministic core
+m9b	src/core/land/hazards.ts	337	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	133	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	163	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	175	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	196	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	206	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	215	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	270	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	404	Math.pow	deterministic core
+m9b	src/core/land/hydro.ts	786	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	1086	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	1235	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	1236	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	1265	Math.sqrt	deterministic core
+m9b	src/core/land/hydro.ts	1401	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	469	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	485	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	583	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	607	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	613	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	788	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	789	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	822	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	852	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	990	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1212	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1213	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1254	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1352	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1358	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1359	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1517	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1517	(tall[a].x - tall[b].x) ** 2	deterministic core
+m9b	src/core/land/intentions.ts	1517	(tall[a].y - tall[b].y) ** 2	deterministic core
+m9b	src/core/land/intentions.ts	1624	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1624	(t.x - sx) ** 2	deterministic core
+m9b	src/core/land/intentions.ts	1624	(t.y - sy) ** 2	deterministic core
+m9b	src/core/land/intentions.ts	1692	Math.sqrt	deterministic core
+m9b	src/core/land/intentions.ts	1692	(o.x - sx) ** 2	deterministic core
+m9b	src/core/land/intentions.ts	1692	(o.y - sy) ** 2	deterministic core
+m9b	src/core/land/islands.ts	94	Math.hypot	deterministic core
+m9b	src/core/land/islands.ts	103	Math.hypot	deterministic core
+m9b	src/core/land/minePads.ts	252	Math.hypot	deterministic core
+m9b	src/core/land/narrows.ts	48	Math.sqrt	deterministic core
+m9b	src/core/land/narrows.ts	58	Math.sqrt	deterministic core
+m9b	src/core/land/narrows.ts	67	Math.sqrt	deterministic core
+m9b	src/core/land/narrows.ts	123	Math.sqrt	deterministic core
+m9b	src/core/land/num.ts	8	Math.sqrt	deterministic core
+m9b	src/core/land/num.ts	43	Math.sqrt	deterministic core
+m9b	src/core/land/sheets.ts	41	Math.sqrt	deterministic core
+m9b	src/core/land/sheets.ts	96	Math.sqrt	deterministic core
+m9b	src/core/land/wind.ts	54	Math.sqrt	deterministic core
+m9b	src/core/resources/baseline.ts	73	Math.sqrt	deterministic core
+m9b	src/core/resources/baseline.ts	449	Math.sqrt	deterministic core
+m9b	src/core/resources/baseline.ts	450	Math.sqrt	deterministic core
+m9b	src/core/resources/measure.ts	277	Math.hypot	deterministic core
+m9b	src/core/resources/measure.ts	439	Math.sqrt	deterministic core
+m9b	src/core/sim/columns.ts	61	2 ** Math.min(TERRAIN_LAYERS, Math.max(0, heights[i]))	deterministic core
+m9b	src/core/sim/weather.ts	37	Math.exp	deterministic core
+m9b	src/core/sim/weather.ts	37	Math.exp	deterministic core
+m9b	src/core/terrain/runs.ts	19	2 ** TERRAIN_LAYERS	deterministic core
+m9b	src/core/terrain/runs.ts	91	2 ** h[i]	deterministic core
+m9b	src/core/water/outletWear.ts	244	Math.hypot	deterministic core
+m9b	src/editor/Editor.tsx	1532	Math.hypot	gesture/input or presentation
+m9b	src/editor/Editor.tsx	1866	Math.sqrt	gesture/input or presentation
+m9b	src/editor/brushes.ts	325	Math.hypot	gesture/input or presentation
+m9b	src/editor/brushes.ts	449	Math.hypot	gesture/input or presentation
+m9b	src/editor/brushes.ts	477	Math.hypot	gesture/input or presentation
+m9b	src/editor/carveDriver.ts	197	Math.exp	gesture/input or presentation
+m9b	src/editor/features.ts	486	(i % index.W - mx) ** 2	gesture/input or presentation
+m9b	src/editor/features.ts	486	(Math.floor(i / index.W) - my) ** 2	gesture/input or presentation
+m9b	src/editor/features.ts	687	Math.hypot	gesture/input or presentation
+m9b	src/editor/features.ts	704	Math.hypot	gesture/input or presentation
+m9b	src/editor/shelfItems.ts	71	Math.hypot	gesture/input or presentation
+m9b	src/editor/shelfItems.ts	74	(d / Math.max(0.5, r)) ** 2	gesture/input or presentation
+m9b	src/editor/startHint.ts	62	(x - sx / n) ** 2	gesture/input or presentation
+m9b	src/editor/startHint.ts	62	(y - sy / n) ** 2	gesture/input or presentation
+m9b	src/render3d/brushCursor.ts	100	(x + 0.5 - s.x) ** 2	presentation/worker
+m9b	src/render3d/brushCursor.ts	100	(y + 0.5 - s.y) ** 2	presentation/worker
+m9b	src/render3d/brushCursor.ts	100	(x + 0.5 - s.x) ** 2	presentation/worker
+m9b	src/render3d/brushCursor.ts	100	(y + 0.5 - s.y) ** 2	presentation/worker
+m9b	src/render3d/brushCursor.ts	102	(1 - d2 / R2) ** 2	presentation/worker
+m9b	src/render3d/brushCursor.ts	118	Math.cos	presentation/worker
+m9b	src/render3d/brushCursor.ts	119	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	60	Math.cos	presentation/worker
+m9b	src/render3d/effects.ts	60	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	61	Math.cos	presentation/worker
+m9b	src/render3d/effects.ts	61	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	74	(1 - t) ** 3	presentation/worker
+m9b	src/render3d/effects.ts	78	(1 - t) ** 1.5	presentation/worker
+m9b	src/render3d/effects.ts	103	(1 - Math.max(0, t)) ** 2	presentation/worker
+m9b	src/render3d/effects.ts	245	Math.sqrt	presentation/worker
+m9b	src/render3d/effects.ts	246	Math.cos	presentation/worker
+m9b	src/render3d/effects.ts	246	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	246	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	248	Math.atan2	presentation/worker
+m9b	src/render3d/effects.ts	258	Math.cos	presentation/worker
+m9b	src/render3d/effects.ts	258	Math.sin	presentation/worker
+m9b	src/render3d/effects.ts	258	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	140	Math.hypot	presentation/worker
+m9b	src/render3d/entities3d.ts	140	Math.atan2	presentation/worker
+m9b	src/render3d/entities3d.ts	171	Math.cos	presentation/worker
+m9b	src/render3d/entities3d.ts	172	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	298	Math.cos	presentation/worker
+m9b	src/render3d/entities3d.ts	298	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	376	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	403	Math.cos	presentation/worker
+m9b	src/render3d/entities3d.ts	403	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	787	Math.sqrt	presentation/worker
+m9b	src/render3d/entities3d.ts	788	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	792	Math.cos	presentation/worker
+m9b	src/render3d/entities3d.ts	795	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	795	Math.sin	presentation/worker
+m9b	src/render3d/entities3d.ts	999	Math.cos	presentation/worker
+m9b	src/render3d/entities3d.ts	1000	Math.sin	presentation/worker
+m9b	src/render3d/falls.ts	176	Math.pow	presentation/worker
+m9b	src/render3d/falls.ts	176	Math.pow	presentation/worker
+m9b	src/render3d/falls.ts	178	Math.exp	presentation/worker
+m9b	src/render3d/falls.ts	194	Math.sqrt	presentation/worker
+m9b	src/render3d/falls.ts	219	Math.hypot	presentation/worker
+m9b	src/render3d/falls.ts	234	Math.sqrt	presentation/worker
+m9b	src/render3d/falls.ts	235	Math.asinh	presentation/worker
+m9b	src/render3d/falls.ts	389	(s / segments) ** 2	presentation/worker
+m9b	src/render3d/light.ts	63	Math.atan	presentation/worker
+m9b	src/render3d/light.ts	111	Math.tan	presentation/worker
+m9b	src/render3d/light.ts	132	Math.tan	presentation/worker
+m9b	src/render3d/materials.ts	71	Math.cos	presentation/worker
+m9b	src/render3d/materials.ts	73	Math.sin	presentation/worker
+m9b	src/render3d/materials.ts	1208	Math.sqrt	presentation/worker
+m9b	src/render3d/renderer.ts	685	Math.hypot	presentation/worker
+m9b	src/render3d/renderer.ts	960	Math.hypot	presentation/worker
+m9b	src/render3d/renderer.ts	963	Math.sin	presentation/worker
+m9b	src/render3d/renderer.ts	1090	Math.cos	presentation/worker
+m9b	src/render3d/renderer.ts	1090	(1 - t) ** 2	presentation/worker
+m9b	src/render3d/renderer.ts	1199	(x + 0.5 - at.x) ** 2	presentation/worker
+m9b	src/render3d/renderer.ts	1199	(y + 0.5 - at.y) ** 2	presentation/worker
+m9b	src/render3d/renderer.ts	1319	(-2 * t + 2) ** 2	presentation/worker
+m9b	src/render3d/renderer.ts	1324	Math.exp	presentation/worker
+m9b	src/render3d/renderer.ts	1324	Math.log	presentation/worker
+m9b	src/render3d/renderer.ts	1324	Math.log	presentation/worker
+m9b	src/render3d/renderer.ts	1324	Math.log	presentation/worker
+m9b	src/render3d/renderer.ts	1364	Math.cos	presentation/worker
+m9b	src/render3d/renderer.ts	1366	Math.sin	presentation/worker
+m9b	src/render3d/renderer.ts	1366	Math.sin	presentation/worker
+m9b	src/render3d/renderer.ts	1366	Math.cos	presentation/worker
+m9b	src/render3d/renderer.ts	1606	Math.exp	presentation/worker
+m9b	src/render3d/renderer.ts	1685	Math.cos	presentation/worker
+m9b	src/render3d/renderer.ts	1686	Math.sin	presentation/worker
+m9b	src/render3d/renderer.ts	1687	Math.sin	presentation/worker
+m9b	src/render3d/renderer.ts	1688	Math.cos	presentation/worker
+m9b	src/render3d/waterPalette.ts	229	((v + 0.055) / 1.055) ** 2.4	presentation/worker
+m9b	src/render3d/waterPalette.ts	230	v ** (1 / 2.4)	presentation/worker
+m9b	src/render3d/waterPalette.ts	243	Math.exp	presentation/worker
+m9b	src/render3d/waterPalette.ts	254	Math.exp	presentation/worker
+m9b	src/render3d/waterPalette.ts	263	s ** B.darken	presentation/worker
+m9b	src/render3d/waterPalette.ts	263	(1 - s) ** B.hue	presentation/worker
+m9b	src/render3d/waterPalette.ts	263	s ** B.opacity	presentation/worker
+m9b	src/render3d/waterPalette.ts	263	s ** B.surface	presentation/worker
+m9b	tools/batch.ts	118	Math.hypot	CLI data/batch
+m9b	tools/batch.ts	120	Math.atan2	CLI data/batch
+m9b	tools/bench-brush.ts	91	Math.sin	CLI data/batch
+m9b	tools/bench-preview.ts	40	Math.hypot	CLI data/batch
+m9b	tools/capture-live-editing.ts	73	Math.hypot(x - W / 2, y - H / 2); if (ok && s < best) { best = s; river = [x, y]; } } if (!river) return null; let dry = null; best = 1e9; for (	CLI data/batch
+m9b	tools/capture-live-editing.ts	85	Math.hypot(x - river[0], y - river[1]); if (clear && near && s < best) { best = s; dry = [x, y]; } } let bad = null; best = 1e9; for (let i = 0; i	CLI data/batch
+m9b	tools/capture-live-editing.ts	92	Math.hypot(x - river[0], y - river[1]); if (s < best) { best = s; bad = [x, y]; } } const h = (t) => m.heights[t[1] * W + t[0]]; return { river, dry, 	CLI data/batch
+m9b	tools/capture-live-editing.ts	186	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+m9b	tools/capture-live-editing.ts	187	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+m9b	tools/capture-objects.ts	439	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return 	CLI data/batch
+m9b	tools/capture-objects.ts	440	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; return Object.keys(M).map((name) => { const m = 	CLI data/batch
+m9b	tools/capture-waterfalls.ts	175	Math.cos(pitch); const cam = [target[0] + Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (le	CLI data/batch
+m9b	tools/capture-waterfalls.ts	176	Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { 	CLI data/batch
+m9b	tools/capture-waterfalls.ts	176	Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { const X = target[0] + (cam[0] - t	CLI data/batch
+m9b	tools/capture-waterfalls.ts	176	Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { const X = target[0] + (cam[0] - target[0]) * q, Y = target[1] + (cam[	CLI data/batch
+m9b	tools/capture-waterfalls.ts	188	Math.atan2(ox, -oy); const d = Math.max(15, f.drop * 2.2 + 9); const turns = [0, -0.5, 0.5, -0.9, 0.9, -0.25, 0.25]; let def = null; for (const 	CLI data/batch
+m9b	tools/capture-waterfalls.ts	204	Math.sqrt(f.drop); else if (what === "cascade") { let n = 1, cx = f.x + SX[f.k], cy = f.y + SY[f.k]; for (let g = 0; g < 12; g++) { cons	CLI data/batch
+m9b	tools/capture-waterfalls.ts	227	Math.atan2(SX[best.k], -SY[best.k]) - 0.5, pitch: vs.low ? vs.low[1] : lowPitch, distance: vs.d, target: vs.target } }, ] }; }`	CLI data/batch
+m9b	tools/capture-waterfalls.ts	289	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+m9b	tools/capture-waterfalls.ts	290	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+m9b	tools/carve-equiv.ts	53	Math.hypot	CLI data/batch
+m9b	tools/ingame-files.ts	377	Math.hypot	CLI data/batch
+m9b	tools/ingame-files.ts	424	Math.hypot	CLI data/batch
+m9b	tools/ingame-files.ts	540	Math.sqrt	CLI data/batch
+m9b	tools/ingame-files.ts	546	Math.hypot	CLI data/batch
+m9b	tools/ingame-files.ts	558	Math.cos	CLI data/batch
+m9b	tools/ingame-files.ts	559	Math.sin	CLI data/batch
+m9b	tools/ingame-files.ts	680	Math.cos	CLI data/batch
+m9b	tools/ingame-files.ts	681	Math.sin	CLI data/batch
+m9b	tools/ingame-files.ts	708	Math.hypot	CLI data/batch
+m9b	tools/ingame-files.ts	743	Math.hypot	CLI data/batch
+m9b	tools/official-baselines.ts	44	10 ** d	CLI data/batch
+m9b	tools/official-baselines.ts	44	10 ** d	CLI data/batch
+m9b	tools/official-baselines.ts	65	Math.log	CLI data/batch
+m9b	tools/official-baselines.ts	66	Math.log	CLI data/batch
+m9b	tools/official-baselines.ts	74	Math.log	CLI data/batch
+m9b	tools/official-baselines.ts	75	Math.log	CLI data/batch
+m9b	tools/official-baselines.ts	85	Math.exp	CLI data/batch
+m9b	tools/official-baselines.ts	85	Math.log	CLI data/batch
+m9b	tools/official-baselines.ts	140	Math.log	CLI data/batch
+m9b	tools/png.ts	3	zlibSync	CLI data/batch
+m9b	tools/probe-maps/sizes.ts	116	(u - ul) ** 2	CLI data/batch
+m9b	tools/probe-maps/sizes.ts	116	(v - vl) ** 2	CLI data/batch
+m9b	tools/probe-maps/sizes.ts	118	(r + 2) ** 2	CLI data/batch
+m9b	tools/probe-maps/tall.ts	90	(x - start.x) ** 2	CLI data/batch
+m9b	tools/probe-maps/tall.ts	90	(y - start.y) ** 2	CLI data/batch
+m9b	tools/real-places.ts	25	gzipSync	CLI data/batch
+m9b	tools/resources-sheet.ts	11	zlibSync	CLI data/batch
+m9b	tools/capture-look.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+m9b	tools/capture-badwater.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+m9b	tools/bench3d.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+dev	src/core/doc/document.ts	18	gzipSync	deterministic core
+dev	src/core/format/timber.ts	7	zipSync	deterministic core
+dev	src/core/math/portable.ts	36	Math.sqrt	deterministic core
+dev	src/editor/Editor.tsx	851	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	1635	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	1759	Math.sqrt	gesture/input or presentation
+dev	src/editor/Editor.tsx	2052	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	2324	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	2458	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	2511	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	2555	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	2586	Math.hypot	gesture/input or presentation
+dev	src/editor/Editor.tsx	3309	Math.sqrt	gesture/input or presentation
+dev	src/editor/Shelf.tsx	47	Math.hypot	gesture/input or presentation
+dev	src/editor/brushes.ts	441	Math.hypot	gesture/input or presentation
+dev	src/editor/brushes.ts	653	Math.hypot	gesture/input or presentation
+dev	src/editor/brushes.ts	686	Math.hypot	gesture/input or presentation
+dev	src/editor/features.ts	485	(i % index.W - mx) ** 2	gesture/input or presentation
+dev	src/editor/features.ts	485	(Math.floor(i / index.W) - my) ** 2	gesture/input or presentation
+dev	src/editor/features.ts	684	Math.hypot	gesture/input or presentation
+dev	src/editor/features.ts	701	Math.hypot	gesture/input or presentation
+dev	src/editor/freehand.ts	53	Math.hypot	gesture/input or presentation
+dev	src/editor/freehand.ts	95	Math.hypot	gesture/input or presentation
+dev	src/editor/juice.ts	72	Math.log2	gesture/input or presentation
+dev	src/editor/juice/engine.ts	58	Math.tanh	gesture/input or presentation
+dev	src/editor/juice/engine.ts	348	2 ** (step / 12)	gesture/input or presentation
+dev	src/editor/juice/palette.ts	119	2 ** ((semitones + (random() - 0.5) * 0.22 - p.size * 0.6) / 12)	gesture/input or presentation
+dev	src/editor/select.ts	161	(x - cx) ** 2	gesture/input or presentation
+dev	src/editor/select.ts	161	(y - cy) ** 2	gesture/input or presentation
+dev	src/editor/select.ts	244	Math.hypot	gesture/input or presentation
+dev	src/editor/select.ts	268	Math.hypot	gesture/input or presentation
+dev	src/editor/select.ts	320	Math.hypot	gesture/input or presentation
+dev	src/editor/shelfItems.ts	77	Math.hypot	gesture/input or presentation
+dev	src/editor/shelfItems.ts	80	(d / Math.max(0.5, r)) ** 2	gesture/input or presentation
+dev	src/editor/startHint.ts	62	(x - sx / n) ** 2	gesture/input or presentation
+dev	src/editor/startHint.ts	62	(y - sy / n) ** 2	gesture/input or presentation
+dev	src/render3d/brushCursor.ts	113	(cx - s.x) ** 2	presentation/worker
+dev	src/render3d/brushCursor.ts	113	(cy - s.y) ** 2	presentation/worker
+dev	src/render3d/brushCursor.ts	113	(cx - s.x) ** 2	presentation/worker
+dev	src/render3d/brushCursor.ts	113	(cy - s.y) ** 2	presentation/worker
+dev	src/render3d/brushCursor.ts	115	(1 - d2 / R2) ** 2	presentation/worker
+dev	src/render3d/brushCursor.ts	131	Math.cos	presentation/worker
+dev	src/render3d/brushCursor.ts	132	Math.sin	presentation/worker
+dev	src/render3d/brushCursor.ts	147	Math.cos	presentation/worker
+dev	src/render3d/brushCursor.ts	148	Math.sin	presentation/worker
+dev	src/render3d/brushCursor.ts	231	Math.cos	presentation/worker
+dev	src/render3d/brushCursor.ts	231	Math.sin	presentation/worker
+dev	src/render3d/brushCursor.ts	248	Math.cos	presentation/worker
+dev	src/render3d/brushCursor.ts	249	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	60	Math.cos	presentation/worker
+dev	src/render3d/effects.ts	60	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	61	Math.cos	presentation/worker
+dev	src/render3d/effects.ts	61	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	74	(1 - t) ** 3	presentation/worker
+dev	src/render3d/effects.ts	78	(1 - t) ** 1.5	presentation/worker
+dev	src/render3d/effects.ts	103	(1 - Math.max(0, t)) ** 2	presentation/worker
+dev	src/render3d/effects.ts	248	Math.sqrt	presentation/worker
+dev	src/render3d/effects.ts	249	Math.cos	presentation/worker
+dev	src/render3d/effects.ts	249	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	249	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	251	Math.atan2	presentation/worker
+dev	src/render3d/effects.ts	261	Math.cos	presentation/worker
+dev	src/render3d/effects.ts	261	Math.sin	presentation/worker
+dev	src/render3d/effects.ts	261	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	140	Math.hypot	presentation/worker
+dev	src/render3d/entities3d.ts	140	Math.atan2	presentation/worker
+dev	src/render3d/entities3d.ts	204	Math.cos	presentation/worker
+dev	src/render3d/entities3d.ts	205	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	431	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	458	Math.cos	presentation/worker
+dev	src/render3d/entities3d.ts	458	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	847	Math.sqrt	presentation/worker
+dev	src/render3d/entities3d.ts	848	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	852	Math.cos	presentation/worker
+dev	src/render3d/entities3d.ts	855	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	855	Math.sin	presentation/worker
+dev	src/render3d/entities3d.ts	1059	Math.cos	presentation/worker
+dev	src/render3d/entities3d.ts	1060	Math.sin	presentation/worker
+dev	src/render3d/falls.ts	176	Math.pow	presentation/worker
+dev	src/render3d/falls.ts	176	Math.pow	presentation/worker
+dev	src/render3d/falls.ts	178	Math.exp	presentation/worker
+dev	src/render3d/falls.ts	194	Math.sqrt	presentation/worker
+dev	src/render3d/falls.ts	219	Math.hypot	presentation/worker
+dev	src/render3d/falls.ts	234	Math.sqrt	presentation/worker
+dev	src/render3d/falls.ts	235	Math.asinh	presentation/worker
+dev	src/render3d/falls.ts	389	(s / segments) ** 2	presentation/worker
+dev	src/render3d/forces.ts	114	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	115	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	137	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	137	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	137	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	149	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	149	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	226	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	226	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	255	p ** 1.3	presentation/worker
+dev	src/render3d/forces.ts	321	Math.hypot	presentation/worker
+dev	src/render3d/forces.ts	326	Math.hypot	presentation/worker
+dev	src/render3d/forces.ts	366	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	366	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	366	Math.sin	presentation/worker
+dev	src/render3d/forces.ts	487	Math.hypot	presentation/worker
+dev	src/render3d/forces.ts	550	Math.cos	presentation/worker
+dev	src/render3d/forces.ts	550	Math.sin	presentation/worker
+dev	src/render3d/high/bake.ts	42	Math.hypot	presentation/worker
+dev	src/render3d/high/bake.ts	45	(1 - d * d) ** 2	presentation/worker
+dev	src/render3d/high/bake.ts	62	Math.cos	presentation/worker
+dev	src/render3d/high/bake.ts	63	Math.sin	presentation/worker
+dev	src/render3d/high/bake.ts	70	Math.hypot	presentation/worker
+dev	src/render3d/high/bake.ts	104	Math.hypot	presentation/worker
+dev	src/render3d/high/bake.ts	105	Math.exp	presentation/worker
+dev	src/render3d/high/flow.ts	52	Math.hypot	presentation/worker
+dev	src/render3d/high/flow.ts	129	Math.hypot	presentation/worker
+dev	src/render3d/high/flow.ts	170	Math.hypot	presentation/worker
+dev	src/render3d/high/flow.ts	181	Math.pow	presentation/worker
+dev	src/render3d/high/landmarks.ts	16	Math.sin	presentation/worker
+dev	src/render3d/high/landmarks.ts	140	Math.atan2	presentation/worker
+dev	src/render3d/high/landmarks.ts	186	Math.sin	presentation/worker
+dev	src/render3d/high/landmarks.ts	187	Math.cos	presentation/worker
+dev	src/render3d/high/mist.ts	153	Math.sin	presentation/worker
+dev	src/render3d/high/mist.ts	157	Math.sqrt	presentation/worker
+dev	src/render3d/high/models.ts	76	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	76	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	78	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	78	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	97	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	97	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	126	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	143	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	143	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	144	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	144	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	144	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	144	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	158	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	158	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	163	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	163	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	169	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	169	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	172	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	172	Math.sin	presentation/worker
+dev	src/render3d/high/models.ts	174	Math.cos	presentation/worker
+dev	src/render3d/high/models.ts	174	Math.sin	presentation/worker
+dev	src/render3d/light.ts	63	Math.atan	presentation/worker
+dev	src/render3d/light.ts	111	Math.tan	presentation/worker
+dev	src/render3d/light.ts	132	Math.tan	presentation/worker
+dev	src/render3d/materials.ts	71	Math.cos	presentation/worker
+dev	src/render3d/materials.ts	73	Math.sin	presentation/worker
+dev	src/render3d/materials.ts	1383	Math.sqrt	presentation/worker
+dev	src/render3d/renderer.ts	1043	Math.hypot	presentation/worker
+dev	src/render3d/renderer.ts	1240	(cx + 0.5 - tx) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1240	(cy + 0.5 - ty) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1388	Math.hypot	presentation/worker
+dev	src/render3d/renderer.ts	1391	Math.sin	presentation/worker
+dev	src/render3d/renderer.ts	1587	Math.cos	presentation/worker
+dev	src/render3d/renderer.ts	1587	(1 - t) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1716	(x + 0.5 - at.x) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1716	(y + 0.5 - at.y) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1839	(-2 * t + 2) ** 2	presentation/worker
+dev	src/render3d/renderer.ts	1844	Math.exp	presentation/worker
+dev	src/render3d/renderer.ts	1844	Math.log	presentation/worker
+dev	src/render3d/renderer.ts	1844	Math.log	presentation/worker
+dev	src/render3d/renderer.ts	1844	Math.log	presentation/worker
+dev	src/render3d/renderer.ts	1932	Math.cos	presentation/worker
+dev	src/render3d/renderer.ts	1934	Math.sin	presentation/worker
+dev	src/render3d/renderer.ts	1934	Math.sin	presentation/worker
+dev	src/render3d/renderer.ts	1934	Math.cos	presentation/worker
+dev	src/render3d/renderer.ts	2215	Math.exp	presentation/worker
+dev	src/render3d/renderer.ts	2303	Math.cos	presentation/worker
+dev	src/render3d/renderer.ts	2304	Math.sin	presentation/worker
+dev	src/render3d/renderer.ts	2305	Math.sin	presentation/worker
+dev	src/render3d/renderer.ts	2306	Math.cos	presentation/worker
+dev	src/render3d/waterPalette.ts	302	((v + 0.055) / 1.055) ** 2.4	presentation/worker
+dev	src/render3d/waterPalette.ts	303	v ** (1 / 2.4)	presentation/worker
+dev	src/render3d/waterPalette.ts	316	Math.exp	presentation/worker
+dev	src/render3d/waterPalette.ts	327	Math.exp	presentation/worker
+dev	src/render3d/waterPalette.ts	336	s ** B.darken	presentation/worker
+dev	src/render3d/waterPalette.ts	336	(1 - s) ** B.hue	presentation/worker
+dev	src/render3d/waterPalette.ts	336	s ** B.opacity	presentation/worker
+dev	src/render3d/waterPalette.ts	336	s ** B.surface	presentation/worker
+dev	tools/batch.ts	118	Math.hypot	CLI data/batch
+dev	tools/batch.ts	120	Math.atan2	CLI data/batch
+dev	tools/bench-brush.ts	91	Math.sin	CLI data/batch
+dev	tools/bench-forces.ts	75	Math.hypot	CLI data/batch
+dev	tools/bench-forces.ts	90	Math.cos	CLI data/batch
+dev	tools/bench-forces.ts	90	Math.sin	CLI data/batch
+dev	tools/bench-preview.ts	40	Math.hypot	CLI data/batch
+dev	tools/capture-crisp.ts	44	Math.hypot(x - W / 2, y - H / 2); if (d < bd) { bd = d; best = { x: x + 1, y: y + 2.5 }; } } if (!best) return null; return { mode: "orbit", yaw: -0.5	CLI data/batch
+dev	tools/capture-d324.ts	130	Math.atan2(dx, -dy) - 0.5, pitch: 0.42, distance: Math.max(18, drop * 2.4 + 9), target: [x + 0.5 + dx * 1.2, s.surface[j] + drop * 0.3, -(y + 0.5 + dy * 1.2)] }	CLI data/batch
+dev	tools/capture-d324.ts	135	Math.atan2(dx, -dy); } } } return { mode: "orbit", yaw: byaw, pitch: 0.28, distance: 32, target: [bx + 0.5, h[by * W + bx] + best * 0.5, -(by + 0.5)] }; }	CLI data/batch
+dev	tools/capture-forces.ts	211	Math.hypot	CLI data/batch
+dev	tools/capture-forces.ts	212	Math.hypot	CLI data/batch
+dev	tools/capture-high.ts	101	Math.atan2(dx, -dy) - 0.5, pitch: 0.42, distance: Math.max(18, drop * 2.4 + 9), target: [x + 0.5 + dx * 1.2, s.surface[j] + drop * 0.3, -(y + 0.5 + dy * 1.2)] }	CLI data/batch
+dev	tools/capture-high.ts	110	Math.atan2(dx, -dy); } } } out[w] = { mode: "orbit", yaw: byaw, pitch: 0.28, distance: 32, target: [bx + 0.5, h[by * W + bx] + best * 0.5, -(by + 0.5)] };	CLI data/batch
+dev	tools/capture-high.ts	189	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+dev	tools/capture-high.ts	190	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+dev	tools/capture-live-editing.ts	73	Math.hypot(x - W / 2, y - H / 2); if (ok && s < best) { best = s; river = [x, y]; } } if (!river) return null; let dry = null; best = 1e9; for (	CLI data/batch
+dev	tools/capture-live-editing.ts	85	Math.hypot(x - river[0], y - river[1]); if (clear && near && s < best) { best = s; dry = [x, y]; } } let bad = null; best = 1e9; for (let i = 0; i	CLI data/batch
+dev	tools/capture-live-editing.ts	92	Math.hypot(x - river[0], y - river[1]); if (s < best) { best = s; bad = [x, y]; } } const h = (t) => m.heights[t[1] * W + t[0]]; return { river, dry, 	CLI data/batch
+dev	tools/capture-live-editing.ts	186	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+dev	tools/capture-live-editing.ts	187	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+dev	tools/capture-objects.ts	444	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return 	CLI data/batch
+dev	tools/capture-objects.ts	445	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; return Object.keys(M).map((name) => { const m = 	CLI data/batch
+dev	tools/capture-ruins-d305.ts	75	Math.sqrt(best); const ground = (x, y) => h[Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)))]; const near = { m	CLI data/batch
+dev	tools/capture-ruins-d305.ts	67	`() => { const r = window.dgm3d.renderer; const m = r.map, s = m.surface, W = m.W, H = m.H, h = m.heights, e = m.entities; const ruins = []; for (let j = 0; j <	CLI data/batch
+dev	tools/capture-ruins-d305.ts	67	`() => { const r = window.dgm3d.renderer; const m = r.map, s = m.surface, W = m.W, H = m.H, h = m.heights, e = m.entities; const ruins = []; for (let j = 0; j <	CLI data/batch
+dev	tools/capture-water-d304.ts	115	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+dev	tools/capture-water-d304.ts	116	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+dev	tools/capture-water-d304.ts	166	Math.pow((v + 0.055) / 1.055, 2.4)); const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Mat	CLI data/batch
+dev	tools/capture-water-d304.ts	167	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; const apply = (hex, t) => { const r = parseInt(hex.s	CLI data/batch
+dev	tools/capture-waterfalls.ts	175	Math.cos(pitch); const cam = [target[0] + Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (le	CLI data/batch
+dev	tools/capture-waterfalls.ts	176	Math.sin(yaw) * cp * dist, target[1] + Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { 	CLI data/batch
+dev	tools/capture-waterfalls.ts	176	Math.sin(pitch) * dist, target[2] + Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { const X = target[0] + (cam[0] - t	CLI data/batch
+dev	tools/capture-waterfalls.ts	176	Math.cos(yaw) * cp * dist]; for (let q = 1.6 / dist; q <= 1; q += 0.25 / dist) { const X = target[0] + (cam[0] - target[0]) * q, Y = target[1] + (cam[	CLI data/batch
+dev	tools/capture-waterfalls.ts	188	Math.atan2(ox, -oy); const d = Math.max(15, f.drop * 2.2 + 9); const turns = [0, -0.5, 0.5, -0.9, 0.9, -0.25, 0.25]; let def = null; for (const 	CLI data/batch
+dev	tools/capture-waterfalls.ts	204	Math.sqrt(f.drop); else if (what === "cascade") { let n = 1, cx = f.x + SX[f.k], cy = f.y + SY[f.k]; for (let g = 0; g < 12; g++) { cons	CLI data/batch
+dev	tools/capture-waterfalls.ts	227	Math.atan2(SX[best.k], -SY[best.k]) - 0.5, pitch: vs.low ? vs.low[1] : lowPitch, distance: vs.d, target: vs.target } }, ] }; }`	CLI data/batch
+dev	tools/capture-waterfalls.ts	289	Math.pow((s + 0.055) / 1.055, 2.4); } const enc = (v) => { const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Ma	CLI data/batch
+dev	tools/capture-waterfalls.ts	290	Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(s * 255))); }; imgs.forEach((img, k) => { const x = (k % cols) * (w	CLI data/batch
+dev	tools/carve-equiv.ts	53	Math.hypot	CLI data/batch
+dev	tools/gif.ts	95	Math.sqrt	CLI data/batch
+dev	tools/gif.ts	189	(pal[k][0] - r) ** 2	CLI data/batch
+dev	tools/gif.ts	189	(pal[k][1] - g) ** 2	CLI data/batch
+dev	tools/gif.ts	189	(pal[k][2] - b) ** 2	CLI data/batch
+dev	tools/ingame-files.ts	377	Math.hypot	CLI data/batch
+dev	tools/ingame-files.ts	424	Math.hypot	CLI data/batch
+dev	tools/ingame-files.ts	540	Math.sqrt	CLI data/batch
+dev	tools/ingame-files.ts	546	Math.hypot	CLI data/batch
+dev	tools/ingame-files.ts	558	Math.cos	CLI data/batch
+dev	tools/ingame-files.ts	559	Math.sin	CLI data/batch
+dev	tools/ingame-files.ts	680	Math.cos	CLI data/batch
+dev	tools/ingame-files.ts	681	Math.sin	CLI data/batch
+dev	tools/ingame-files.ts	708	Math.hypot	CLI data/batch
+dev	tools/ingame-files.ts	743	Math.hypot	CLI data/batch
+dev	tools/measure-ceiling.ts	172	Math.sin	CLI data/batch
+dev	tools/measure-ceiling.ts	243	Math.hypot(x - st[0], y - st[1]) < 40) continue; let ok = true; for (let yy = y - r; yy <= y + r && ok; yy++) for (let xx = x - r; xx <= x + r &	CLI data/batch
+dev	tools/measure-ceiling.ts	247	Math.hypot(x - ${	CLI data/batch
+dev	tools/measure-high.ts	139	Math.sin	CLI data/batch
+dev	tools/official-baselines.ts	44	10 ** d	CLI data/batch
+dev	tools/official-baselines.ts	44	10 ** d	CLI data/batch
+dev	tools/official-baselines.ts	65	Math.log	CLI data/batch
+dev	tools/official-baselines.ts	66	Math.log	CLI data/batch
+dev	tools/official-baselines.ts	74	Math.log	CLI data/batch
+dev	tools/official-baselines.ts	75	Math.log	CLI data/batch
+dev	tools/official-baselines.ts	85	Math.exp	CLI data/batch
+dev	tools/official-baselines.ts	85	Math.log	CLI data/batch
+dev	tools/official-baselines.ts	140	Math.log	CLI data/batch
+dev	tools/png.ts	3	zlibSync	CLI data/batch
+dev	tools/probe-maps/sizes.ts	116	(u - ul) ** 2	CLI data/batch
+dev	tools/probe-maps/sizes.ts	116	(v - vl) ** 2	CLI data/batch
+dev	tools/probe-maps/sizes.ts	118	(r + 2) ** 2	CLI data/batch
+dev	tools/probe-maps/tall.ts	90	(x - start.x) ** 2	CLI data/batch
+dev	tools/probe-maps/tall.ts	90	(y - start.y) ** 2	CLI data/batch
+dev	tools/real-places.ts	25	gzipSync	CLI data/batch
+dev	tools/resources-sheet.ts	11	zlibSync	CLI data/batch
+dev	tools/capture-look.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+dev	tools/capture-badwater.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+dev	tools/bench3d.ts	-	excluded presentation probe	image capture / renderer timing; no operation output
+three@0.186.1	src/cameras/PerspectiveCamera.js	169	Math.atan	upstream camera/ray or renderer
+three@0.186.1	src/cameras/PerspectiveCamera.js	182	Math.tan	upstream camera/ray or renderer
+three@0.186.1	src/cameras/PerspectiveCamera.js	195	Math.atan	upstream camera/ray or renderer
+three@0.186.1	src/cameras/PerspectiveCamera.js	196	Math.tan	upstream camera/ray or renderer
+three@0.186.1	src/cameras/PerspectiveCamera.js	356	Math.tan	upstream camera/ray or renderer
+three@0.186.1	src/cameras/StereoCamera.js	109	Math.tan	upstream camera/ray or renderer
+three@0.186.1	src/core/BufferGeometry.js	818	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/extras/PMREMGenerator.js	228	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/extras/PMREMGenerator.js	229	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/extras/PMREMGenerator.js	532	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/extras/PMREMGenerator.js	630	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/extras/core/Curve.js	411	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/extras/core/Curve.js	425	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/CatmullRomCurve3.js	230	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/CatmullRomCurve3.js	231	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/CatmullRomCurve3.js	232	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/EllipseCurve.js	172	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/EllipseCurve.js	173	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/EllipseCurve.js	177	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/extras/curves/EllipseCurve.js	178	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	89	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	90	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	91	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	109	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	110	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	111	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	139	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CapsuleGeometry.js	140	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CircleGeometry.js	81	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CircleGeometry.js	82	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CylinderGeometry.js	123	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CylinderGeometry.js	124	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CylinderGeometry.js	244	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/CylinderGeometry.js	245	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/DodecahedronGeometry.js	26	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/EdgesGeometry.js	56	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/geometries/EdgesGeometry.js	57	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	266	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	267	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	297	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	342	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	349	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	416	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	417	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	522	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/ExtrudeGeometry.js	523	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/IcosahedronGeometry.js	26	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/LatheGeometry.js	141	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/LatheGeometry.js	142	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/PolyhedronGeometry.js	308	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/geometries/PolyhedronGeometry.js	317	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/geometries/PolyhedronGeometry.js	317	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/RingGeometry.js	82	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/RingGeometry.js	83	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/SphereGeometry.js	81	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/SphereGeometry.js	82	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/geometries/SphereGeometry.js	105	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/SphereGeometry.js	107	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	82	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	82	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	83	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	83	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	84	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	90	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusGeometry.js	91	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	108	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	109	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	168	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	169	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	171	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TorusKnotGeometry.js	175	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TubeGeometry.js	144	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/geometries/TubeGeometry.js	145	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/ArrowHelper.js	107	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	51	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	52	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	80	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	81	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	90	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/helpers/PolarGridHelper.js	91	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/SpotLightHelper.js	75	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/SpotLightHelper.js	75	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/helpers/SpotLightHelper.js	76	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/helpers/SpotLightHelper.js	76	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/helpers/SpotLightHelper.js	133	Math.tan	upstream camera/ray or renderer
+three@0.186.1	src/math/ColorManagement.js	207	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/math/ColorManagement.js	213	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/math/Cylindrical.js	99	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Cylindrical.js	100	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	200	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	204	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	205	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	209	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	218	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	222	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	223	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	227	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	236	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	240	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	241	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	246	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	254	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	258	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	259	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	264	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	272	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	276	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	277	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	282	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	290	Math.asin	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	294	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	295	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Euler.js	299	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	136	Math.exp	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	290	2 ** Math.round( Math.log2( value ) )	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	290	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	302	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	302	Math.log	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	314	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	314	Math.log	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	333	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/MathUtils.js	334	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix3.js	396	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix3.js	397	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix3.js	509	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix3.js	510	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	343	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	343	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	344	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	344	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	345	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	345	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	821	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	872	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	872	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	896	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	896	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	920	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	920	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	945	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Matrix4.js	946	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	93	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	94	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	96	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	97	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	113	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	305	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	306	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	380	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	385	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	413	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	422	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	431	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	440	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	514	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	617	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	732	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	733	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	735	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	736	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	792	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	793	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	796	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	797	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	798	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Quaternion.js	799	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Ray.js	143	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Ray.js	318	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Sphere.js	95	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Sphere.js	313	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Spherical.js	116	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Spherical.js	125	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Spherical.js	126	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Triangle.js	75	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	614	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	648	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	662	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	670	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	682	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	834	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector2.js	834	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	771	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	935	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	943	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	955	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1009	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1011	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1012	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1013	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1041	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1043	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1240	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1242	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector3.js	1244	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	498	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	500	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	585	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	603	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	621	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	637	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	649	Math.acos	upstream camera/ray or renderer
+three@0.186.1	src/math/Vector4.js	886	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/nodes/accessors/MaterialNode.js	806	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/nodes/accessors/MaterialNode.js	806	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/nodes/functions/PhysicalLightingModel.js	223	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/nodes/lighting/ProjectorLightNode.js	36	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/nodes/lighting/SpotLightNode.js	79	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/nodes/lighting/SpotLightNode.js	80	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/nodes/math/Hash.js	19	2 ** 32	upstream camera/ray or renderer
+three@0.186.1	src/nodes/pmrem/PMREMNode.js	24	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/nodes/pmrem/PMREMNode.js	28	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/nodes/utils/MaxMipLevelNode.js	85	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/objects/BatchedMesh.js	344	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/BatchedMesh.js	357	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/BatchedMesh.js	369	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/BatchedMesh.js	1057	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/Mesh.js	261	( raycaster.far - raycaster.near ) ** 2	upstream camera/ray or renderer
+three@0.186.1	src/objects/Points.js	226	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/Skeleton.js	252	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/objects/Sprite.js	167	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/objects/Sprite.js	168	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/renderers/WebGLRenderer.js	2621	Math.log	upstream camera/ray or renderer
+three@0.186.1	src/renderers/WebGLRenderer.js	3307	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/WebGLRenderer.js	3353	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/Textures.js	522	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/XRManager.js	1604	Math.atan	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/extras/PMREMGenerator.js	362	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/extras/PMREMGenerator.js	363	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/extras/PMREMGenerator.js	634	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/renderers/common/extras/PMREMGenerator.js	751	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl-fallback/nodes/GLSLNodeBuilder.js	425	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl-fallback/nodes/GLSLNodeBuilder.js	425	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl-fallback/nodes/GLSLNodeBuilder.js	425	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl-fallback/utils/WebGLTextureUtils.js	852	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLLights.js	367	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLLights.js	368	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLMaterials.js	548	Math.cos	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLMaterials.js	548	Math.sin	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLProgram.js	404	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLProgram.js	408	Math.pow	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webgl/WebGLTextures.js	300	Math.log2	upstream camera/ray or renderer
+three@0.186.1	src/renderers/webxr/WebXRManager.js	831	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2436	Math.exp	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2590	2 ** Math.round( Math.log2( value ) )	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2590	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2602	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2602	Math.log	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2614	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2614	Math.log	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2633	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	2634	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3638	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3672	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3686	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3694	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3706	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3858	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3858	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3983	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3984	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3986	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	3987	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4003	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4195	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4196	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4270	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4275	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4303	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4312	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4321	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4330	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4404	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4507	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4622	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4623	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4625	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4626	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4682	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4683	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4686	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4687	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4688	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	4689	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5565	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5729	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5737	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5749	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5803	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5805	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5806	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5807	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5835	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	5837	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6034	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6036	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6038	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6450	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6451	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6563	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6564	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6884	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	6890	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8570	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8572	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8657	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8675	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8693	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8709	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8721	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	8958	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10351	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10351	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10352	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10352	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10353	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10353	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10829	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10880	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10880	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10904	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10904	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10928	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10928	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10953	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	10954	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11534	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11538	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11539	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11543	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11552	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11556	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11557	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11561	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11570	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11574	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11575	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11580	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11588	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11592	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11593	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11598	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11606	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11610	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11611	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11616	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11624	Math.asin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11628	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11629	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	11633	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	15444	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	18049	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	18267	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	19179	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	22587	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	22588	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	23141	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	23316	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	24220	( raycaster.far - raycaster.near ) ** 2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	25188	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	26624	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	26637	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	26649	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	27337	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	28889	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30113	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30114	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30115	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30133	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30134	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30135	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30163	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30164	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30317	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30318	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30494	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30495	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30615	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	30616	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31072	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31081	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31081	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31135	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31256	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31257	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31784	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	31798	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32057	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32058	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32062	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32063	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32405	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32406	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	32407	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35317	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35318	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35348	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35393	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35400	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35467	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35468	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35573	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35574	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	35968	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36150	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36151	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36510	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36511	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36894	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36895	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36918	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	36920	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37134	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37134	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37135	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37135	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37136	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37142	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37143	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37316	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37317	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37376	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37377	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37379	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37383	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37551	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	37552	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	46914	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	46927	Math.tan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	46940	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	46941	Math.tan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	47101	Math.tan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	50764	Math.tan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	57019	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	57028	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	57029	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	57148	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	57149	Math.atan2	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58076	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58076	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58077	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58077	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58134	Math.tan	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58695	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58696	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58724	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58725	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58734	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	58735	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.core.js	59659	Math.acos	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	2843	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	2844	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	3147	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	3245	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	6563	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	6567	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	8662	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	8663	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	11318	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	14712	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	15549	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	15549	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	18658	Math.log	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	19344	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.module.js	19390	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	12768	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	18069	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	18069	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	25593	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	26984	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	26985	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	27256	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	27373	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	27584	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	27588	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	35523	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	37782	2 ** 32	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	56754	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	56755	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	57018	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	60962	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	67365	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	67365	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	67365	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.js	72644	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	12768	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	18069	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	18069	Math.sin	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	25593	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	26984	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	26985	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	27256	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	27373	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	27584	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	27588	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	35523	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	37782	2 ** 32	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	56754	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	56755	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	57018	Math.cos	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	60962	Math.atan	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	67365	Math.pow	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	67365	Math.log2	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	67365	Math.sqrt	upstream camera/ray or renderer
+three@0.186.1	build/three.webgpu.nodes.js	72644	Math.pow	upstream camera/ray or renderer
+rust/rust-forces	investigation/rust-forces/src/lib.rs	1126	scale * sum.sqrt()	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	1208	let floor = (natural / size).sqrt();	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	3177	* (crater_size(power) / diameter).sqrt()	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	3757	intensity: (s.natural_width() / width).sqrt(),	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	4775	if (level + self.seed as f64 % 4.0) % 4.0 == 0.0 {	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	5817	% 1000.0	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	9643	(((atan2(dy as f64, dx as f64) + PI) / (PI * 2.0)) * 12.0).floor() % 12.0;	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	9701	min(1.25, 1.0 / k.sqrt()),	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	10014	let l = (pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0)).sqrt();	native/libm lowering; replaced by shared portable.rs
+rust/rust-forces	investigation/rust-forces/src/lib.rs	10094	let l = (pow(b.x - a.x, 2.0) + pow(b.y - a.y, 2.0)).sqrt();	native/libm lowering; replaced by shared portable.rs

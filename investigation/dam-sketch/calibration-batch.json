@@ -1,0 +1,4029 @@
+{
+  "status": "WRITTEN, NOT RUN; scene staging required",
+  "gameVersion": "1.1.2.4",
+  "probeSchema": 1,
+  "initialDay": 1.1666666666666667,
+  "ticksPerDay": 768,
+  "recipes": [
+    {
+      "id": "dam",
+      "sceneFile": "dam-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": null
+    },
+    {
+      "id": "levee",
+      "sceneFile": "levee-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": null
+    },
+    {
+      "id": "gate-1.5",
+      "sceneFile": "gate-1.5-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": null
+    },
+    {
+      "id": "stacked-dams",
+      "sceneFile": "stacked-dams-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": null
+    },
+    {
+      "id": "bent-foundations",
+      "sceneFile": "bent-foundations-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": null
+    },
+    {
+      "id": "roofed",
+      "sceneFile": "roofed-scene.json",
+      "placement": "Completed real dam/levee/floodgate pieces at listed x/y/z, bottom to top; gate selected height exactly 1.5. No construction delay or colony consumption.",
+      "initialWater": "Apply the explicitly supplied columns AFTER wall topology is present, clipping/remapping exactly as SketchJob initialization does. Before advancing, record and compare every water column, zero momentum and actual object placement.",
+      "roof": "Keep the lower .2-depth chamber at floor 1 and the independent upper pool at floor 4. Compare both; a visible top-column snapshot alone cannot prove the roof case."
+    }
+  ],
+  "predictions": [
+    {
+      "id": "dam",
+      "inputSha256": "d7e7f8b8e2df0496404d5d682fcc5ee84ab255da744b601fd98892b646557209",
+      "filled": {
+        "ticks": 4608,
+        "settled": false,
+        "volumeM3": 0.8696766761504084,
+        "totalWaterM3": 0.8696766761504083,
+        "surfaceRanges": [
+          [
+            1.0310597575418614,
+            1.0310599479713698
+          ]
+        ],
+        "tiles": [
+          38,
+          54,
+          39,
+          70,
+          55,
+          40,
+          86,
+          71,
+          56,
+          41,
+          102,
+          87,
+          72,
+          57,
+          118,
+          103,
+          88,
+          73,
+          134,
+          119,
+          104,
+          89,
+          135,
+          120,
+          105,
+          136,
+          121,
+          137
+        ],
+        "pieces": {
+          "dam": 4,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "backend": "rust-heightfield"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 0.20442708333333334,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 11.269548676150404,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.40248419258967355,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 11.120979076150405,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.39717944746104195,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 10.675270276150407,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.3812595710676706,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 9.783852676150405,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.3494232989411618,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 1536,
+          "totalWaterM3": 8.001017476150404,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.28575063986741467,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ],
+      "sampledChecks": [
+        {
+          "tick": 4608,
+          "reservoirM3": 0.8696766761504083
+        },
+        {
+          "tick": 5376,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 6144,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 6912,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 7680,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 8448,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 9216,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 9984,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 10752,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 11520,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 12288,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13056,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13824,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 14592,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38400,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39168,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39936,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40704,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41472,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42240,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43008,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43776,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44544,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45312,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46080,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46848,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47616,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48384,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49152,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49920,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50688,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51456,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52224,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52992,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53760,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54528,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55296,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56064,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56832,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57600,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58368,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59136,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59904,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60672,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61440,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62208,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62976,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63744,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64512,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 71424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 73728,
+          "reservoirM3": 0
+        }
+      ]
+    },
+    {
+      "id": "levee",
+      "inputSha256": "0f4e53330c9ac0d9f3a87ddc299e0e39aee469b588fff0a31bd1440de6380e88",
+      "filled": {
+        "ticks": 4608,
+        "settled": false,
+        "volumeM3": 16.59762294220291,
+        "totalWaterM3": 16.59762294220291,
+        "surfaceRanges": [
+          [
+            1.5927721226325973,
+            1.5927723153872844
+          ]
+        ],
+        "tiles": [
+          38,
+          54,
+          39,
+          70,
+          55,
+          40,
+          86,
+          71,
+          56,
+          41,
+          102,
+          87,
+          72,
+          57,
+          118,
+          103,
+          88,
+          73,
+          134,
+          119,
+          104,
+          89,
+          135,
+          120,
+          105,
+          136,
+          121,
+          137
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 4,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "backend": "rust-heightfield"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 9.02734375,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 26.99749494220292,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.964193093978682,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 26.848925342202904,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.9588896942131289,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 26.403216542202905,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.9429720036458795,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 25.511798942202923,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.9111356440728272,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 1536,
+          "totalWaterM3": 23.728963742202907,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.8474630137181819,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ],
+      "sampledChecks": [
+        {
+          "tick": 4608,
+          "reservoirM3": 16.59762294220291
+        },
+        {
+          "tick": 5376,
+          "reservoirM3": 14.814787742202919
+        },
+        {
+          "tick": 6144,
+          "reservoirM3": 13.031952542202923
+        },
+        {
+          "tick": 6912,
+          "reservoirM3": 11.249117342202922
+        },
+        {
+          "tick": 7680,
+          "reservoirM3": 9.46628214220292
+        },
+        {
+          "tick": 8448,
+          "reservoirM3": 7.6834469422029175
+        },
+        {
+          "tick": 9216,
+          "reservoirM3": 5.9006117422029165
+        },
+        {
+          "tick": 9984,
+          "reservoirM3": 4.117776542202921
+        },
+        {
+          "tick": 10752,
+          "reservoirM3": 2.3349413422029217
+        },
+        {
+          "tick": 11520,
+          "reservoirM3": 0.48942834220292175
+        },
+        {
+          "tick": 12288,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13056,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13824,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 14592,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38400,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39168,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39936,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40704,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41472,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42240,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43008,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43776,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44544,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45312,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46080,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46848,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47616,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48384,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49152,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49920,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50688,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51456,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52224,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52992,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53760,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54528,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55296,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56064,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56832,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57600,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58368,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59136,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59904,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60672,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61440,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62208,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62976,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63744,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64512,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 71424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 73728,
+          "reservoirM3": 0
+        }
+      ]
+    },
+    {
+      "id": "gate-1.5",
+      "inputSha256": "d22cc4f4e631976fd7594bfe8dc97f387ec96a60e4a328c4f94eb37e3ab8299d",
+      "filled": {
+        "ticks": 4608,
+        "settled": false,
+        "volumeM3": 20.508359827080536,
+        "totalWaterM3": 20.508359827080536,
+        "surfaceRanges": [
+          [
+            1.732441298513871,
+            1.7324414889353719
+          ]
+        ],
+        "tiles": [
+          38,
+          54,
+          39,
+          70,
+          55,
+          40,
+          86,
+          71,
+          56,
+          41,
+          102,
+          87,
+          72,
+          57,
+          118,
+          103,
+          88,
+          73,
+          134,
+          119,
+          104,
+          89,
+          135,
+          120,
+          105,
+          136,
+          121,
+          137
+        ],
+        "pieces": {
+          "dam": 0,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 4,
+          "floodgate3": 0
+        },
+        "backend": "rust-heightfield"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 11.220052083333334,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 30.908231827080524,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.1038661921802908,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 30.759662227080526,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.0985614380156377,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 30.313953427080524,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.0826412797041314,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 29.422535827080527,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.0508048740290703,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 1536,
+          "totalWaterM3": 27.639700627080526,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.9871321742848419,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ],
+      "sampledChecks": [
+        {
+          "tick": 4608,
+          "reservoirM3": 20.508359827080536
+        },
+        {
+          "tick": 5376,
+          "reservoirM3": 18.72552462708052
+        },
+        {
+          "tick": 6144,
+          "reservoirM3": 16.94268942708052
+        },
+        {
+          "tick": 6912,
+          "reservoirM3": 15.159854227080515
+        },
+        {
+          "tick": 7680,
+          "reservoirM3": 13.377019027080523
+        },
+        {
+          "tick": 8448,
+          "reservoirM3": 11.594183827080531
+        },
+        {
+          "tick": 9216,
+          "reservoirM3": 9.811348627080527
+        },
+        {
+          "tick": 9984,
+          "reservoirM3": 8.028513427080533
+        },
+        {
+          "tick": 10752,
+          "reservoirM3": 6.245678227080527
+        },
+        {
+          "tick": 11520,
+          "reservoirM3": 4.4628430270805275
+        },
+        {
+          "tick": 12288,
+          "reservoirM3": 2.680007827080528
+        },
+        {
+          "tick": 13056,
+          "reservoirM3": 0.8971726270805287
+        },
+        {
+          "tick": 13824,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 14592,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38400,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39168,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39936,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40704,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41472,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42240,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43008,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43776,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44544,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45312,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46080,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46848,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47616,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48384,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49152,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49920,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50688,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51456,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52224,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52992,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53760,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54528,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55296,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56064,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56832,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57600,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58368,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59136,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59904,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60672,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61440,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62208,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62976,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63744,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64512,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 71424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 73728,
+          "reservoirM3": 0
+        }
+      ]
+    },
+    {
+      "id": "stacked-dams",
+      "inputSha256": "58d69f9c46f5ebaa1a37ddb4d51e59886bd2df7b65a3f354d60dd4719f644f25",
+      "filled": {
+        "ticks": 1280,
+        "settled": true,
+        "volumeM3": 0,
+        "totalWaterM3": 0,
+        "surfaceRanges": [],
+        "tiles": [],
+        "pieces": {
+          "dam": 8,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "backend": "typescript-stacked"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 0,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 2.8704775770255324,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.10257809495049784,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 2.721907977025532,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.09721237837356808,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 2.2761991770255317,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.08129288133723564,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 1.384781577025532,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.04945651907996091,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [],
+      "sampledChecks": [
+        {
+          "tick": 1280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 2048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 2816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 3584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 4352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 5120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 5888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 6656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 7424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 8192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 8960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 9728,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 10496,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 11264,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 12032,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 12800,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13568,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 14336,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15104,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15872,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16640,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17408,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18176,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18944,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19712,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20480,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21248,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22016,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22784,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23552,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24320,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25088,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25856,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26624,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27392,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28160,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28928,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29696,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30464,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31232,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32000,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32768,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33536,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34304,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35072,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35840,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36608,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37376,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38144,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38912,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39680,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40448,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41216,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41984,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42752,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43520,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44288,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45056,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45824,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46592,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70400,
+          "reservoirM3": 0
+        }
+      ]
+    },
+    {
+      "id": "bent-foundations",
+      "inputSha256": "20505ea34be9e9066b1a53a991ba29cdfa85e4bab28ea2d9f1b93aa88ddbd62c",
+      "filled": {
+        "ticks": 4608,
+        "settled": false,
+        "volumeM3": 24.83591561383256,
+        "totalWaterM3": 24.835915613832565,
+        "surfaceRanges": [
+          [
+            1.8869968779991242,
+            1.8869970302022998
+          ]
+        ],
+        "tiles": [
+          38,
+          54,
+          39,
+          70,
+          55,
+          40,
+          86,
+          71,
+          56,
+          41,
+          102,
+          87,
+          72,
+          57,
+          118,
+          103,
+          88,
+          73,
+          134,
+          119,
+          104,
+          89,
+          135,
+          120,
+          105,
+          136,
+          121,
+          137
+        ],
+        "pieces": {
+          "dam": 5,
+          "levee": 5,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "backend": "rust-heightfield"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 13.647135416666666,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 36.02011399944992,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.2639248410933868,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  2,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 35.86108231944993,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.2588278966579611,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  2,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 35.38398727944991,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.243522467840129,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  2,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 34.42979719944992,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.2129129306470563,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  2,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 1536,
+          "totalWaterM3": 32.51091385219673,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  1.1503638765189899,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  2,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ],
+      "sampledChecks": [
+        {
+          "tick": 4608,
+          "reservoirM3": 24.835915613832565
+        },
+        {
+          "tick": 5376,
+          "reservoirM3": 23.053080413832557
+        },
+        {
+          "tick": 6144,
+          "reservoirM3": 21.270245213832567
+        },
+        {
+          "tick": 6912,
+          "reservoirM3": 19.487410013832562
+        },
+        {
+          "tick": 7680,
+          "reservoirM3": 17.70457481383256
+        },
+        {
+          "tick": 8448,
+          "reservoirM3": 15.921739613832552
+        },
+        {
+          "tick": 9216,
+          "reservoirM3": 14.138904413832552
+        },
+        {
+          "tick": 9984,
+          "reservoirM3": 12.356069213832553
+        },
+        {
+          "tick": 10752,
+          "reservoirM3": 10.573234013832545
+        },
+        {
+          "tick": 11520,
+          "reservoirM3": 8.790398813832546
+        },
+        {
+          "tick": 12288,
+          "reservoirM3": 7.007563613832547
+        },
+        {
+          "tick": 13056,
+          "reservoirM3": 5.224728413832544
+        },
+        {
+          "tick": 13824,
+          "reservoirM3": 3.441893213832546
+        },
+        {
+          "tick": 14592,
+          "reservoirM3": 1.6590580138325453
+        },
+        {
+          "tick": 15360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38400,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39168,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39936,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40704,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41472,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42240,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43008,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43776,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44544,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45312,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46080,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46848,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47616,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48384,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49152,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49920,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50688,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51456,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52224,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52992,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53760,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54528,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55296,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56064,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56832,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57600,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58368,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59136,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59904,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60672,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61440,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62208,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62976,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63744,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64512,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 71424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 73728,
+          "reservoirM3": 0
+        }
+      ]
+    },
+    {
+      "id": "roofed",
+      "inputSha256": "cf5e2ef8124b020b940b2f970297e0068b70f44f936b16d20aa36a8a3ec59966",
+      "filled": {
+        "ticks": 4608,
+        "settled": false,
+        "volumeM3": 0.8696766761504113,
+        "totalWaterM3": 0.8696766761504113,
+        "surfaceRanges": [
+          [
+            4.0310597575418665,
+            4.031059947971368
+          ]
+        ],
+        "tiles": [
+          38,
+          54,
+          39,
+          70,
+          55,
+          40,
+          86,
+          71,
+          56,
+          41,
+          102,
+          87,
+          72,
+          57,
+          118,
+          103,
+          88,
+          73,
+          134,
+          119,
+          104,
+          89,
+          135,
+          120,
+          105,
+          136,
+          121,
+          137
+        ],
+        "pieces": {
+          "dam": 4,
+          "levee": 0,
+          "floodgate1": 0,
+          "floodgate2": 0,
+          "floodgate3": 0
+        },
+        "backend": "typescript-stacked"
+      },
+      "drought": {
+        "provenance": "Calibration: no emitters, no colony consumption; explicit 90-day drought observation",
+        "coveredDays": 0.20442708333333334,
+        "observedDays": 90,
+        "exhausted": true,
+        "censored": false,
+        "meaning": "Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred."
+      },
+      "finalTotalM3": 0,
+      "earlyChecks": [
+        {
+          "tick": 128,
+          "totalWaterM3": 16.45936152615041,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.12974291885747627,
+                  0
+                ],
+                [
+                  4,
+                  0.4024841925896729,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0.12974779430766634,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 192,
+          "totalWaterM3": 16.108769526150407,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.12469688190841004,
+                  0
+                ],
+                [
+                  4,
+                  0.3971794474610433,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0.1246928616231958,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 384,
+          "totalWaterM3": 15.056993526150404,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.10954353447421347,
+                  0
+                ],
+                [
+                  4,
+                  0.3812595710676683,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0.10954286017277436,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 768,
+          "totalWaterM3": 12.953441526150403,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.07923975378349296,
+                  0
+                ],
+                [
+                  4,
+                  0.34942329894115615,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0.07923972420718865,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "tick": 1536,
+          "totalWaterM3": 8.263377726150411,
+          "columns": [
+            {
+              "tile": 119,
+              "water": [
+                [
+                  1,
+                  0.006416338229679677,
+                  0
+                ],
+                [
+                  4,
+                  0.2857506398674088,
+                  0
+                ]
+              ]
+            },
+            {
+              "tile": 167,
+              "water": [
+                [
+                  1,
+                  0.006654263158387811,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  0
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "measurementTiles": [
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ],
+      "sampledChecks": [
+        {
+          "tick": 4608,
+          "reservoirM3": 0.8696766761504113
+        },
+        {
+          "tick": 5376,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 6144,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 6912,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 7680,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 8448,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 9216,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 9984,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 10752,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 11520,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 12288,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13056,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 13824,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 14592,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 15360,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16128,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 16896,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 17664,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 18432,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19200,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 19968,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 20736,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 21504,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 22272,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23040,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 23808,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 24576,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 25344,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26112,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 26880,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 27648,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 28416,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29184,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 29952,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 30720,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 31488,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 32256,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33024,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 33792,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 34560,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 35328,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36096,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 36864,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 37632,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 38400,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39168,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 39936,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 40704,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 41472,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 42240,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43008,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 43776,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 44544,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 45312,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46080,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 46848,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 47616,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 48384,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49152,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 49920,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 50688,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 51456,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52224,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 52992,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 53760,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 54528,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 55296,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56064,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 56832,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 57600,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 58368,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59136,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 59904,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 60672,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 61440,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62208,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 62976,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 63744,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 64512,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 65280,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66048,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 66816,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 67584,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 68352,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69120,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 69888,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 70656,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 71424,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72192,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 72960,
+          "reservoirM3": 0
+        },
+        {
+          "tick": 73728,
+          "reservoirM3": 0
+        }
+      ]
+    }
+  ],
+  "tolerances": {
+    "waterLevelAbsolute": 0.01,
+    "reservoirVolume": "max(0.05 m3, 1% of predicted volume)",
+    "dryOutDayAbsolute": 0.010416666666666666,
+    "wetDefinition": "depth + overflow > 0; no .05 pump/plant threshold",
+    "censored": "Must remain wet through all 90 observed days; never score the censoring horizon as a dry-out day",
+    "roof": "Compare all columns, including lower chamber; volume counts depth + overflow exactly once"
+  },
+  "requiredProbeBridge": "The current Probe JobMap actions only delete entities; it cannot place finished player walls or restore specified column state. On the dedicated machine, stage verified scenes through a construction/state adapter before using this job template. Reject unstaged files or differing initial columns; do not run the unchanged terrain as if it contained a wall."
+}
