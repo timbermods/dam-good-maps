@@ -110,18 +110,40 @@ export function describeObject(o: TileObject): DescribedObject {
   return { template, name, fact, text: fact ? `${name}, ${fact}` : name };
 }
 
-/** What is on tile (x, y): its ground and each object standing on it. */
-export function describeTile(f: TileFacts, x: number, y: number): TileDescription | null {
-  if (x < 0 || y < 0 || x >= f.W || y >= f.H) return null;
-  const i = y * f.W + x;
+/** The ground of tile i: its height, its water, and its soil once dry. */
+function groundOf(f: TileFacts, i: number): TileGround {
   const w = f.water(i);
   const percent = w ? Math.round(w.contamination * 100) : 0;
-  const ground: TileGround = {
+  return {
     height: f.height(i),
     water: w ? { depth: w.depth, badwater: w.contamination >= 0.95, percentBad: w.contamination > 0.05 && w.contamination < 0.95 ? percent : 0 } : null,
     soil: w ? null : f.soil(i),
   };
-  return { x, y, ground, objects: f.objects(i).map(describeObject) };
+}
+
+/** What is on tile (x, y): its ground and each object standing on it. */
+export function describeTile(f: TileFacts, x: number, y: number): TileDescription | null {
+  if (x < 0 || y < 0 || x >= f.W || y >= f.H) return null;
+  const i = y * f.W + x;
+  return { x, y, ground: groundOf(f, i), objects: f.objects(i).map(describeObject) };
+}
+
+// ------------------------------------------------------------------- the water-changed signal
+
+/** The water-changed signal (D347, D387 (1)): the readout's water words for tile (x, y) exactly as
+ *  shown ("Water 0.6 deep, bed level 4"; "Height 5, moist soil" once dry), or null off the map. For the
+ *  page: keep it with the readout's text; after each water state it shows (a stroke's water, the
+ *  journey's frames, the settled water, the weather's days, an edit's, undo's or redo's answer, an
+ *  opened map) ask again for the hovered tile and re-describe only when it differs. One tile, about
+ *  a microsecond (tests/contract/waterSignal.test.ts covers each path). */
+export function readoutWater(f: TileFacts, x: number, y: number): string | null {
+  if (x < 0 || y < 0 || x >= f.W || y >= f.H) return null;
+  return groundWords(groundOf(f, y * f.W + x));
+}
+
+/** Whether the readout's water words for tile (x, y) differ between two water states. */
+export function readoutWaterChanged(before: TileFacts, after: TileFacts, x: number, y: number): boolean {
+  return readoutWater(before, x, y) !== readoutWater(after, x, y);
 }
 
 /** The ground in words: "Height 5, dry soil", "Water 0.6 deep, bed level 4". */

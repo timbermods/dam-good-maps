@@ -10,7 +10,7 @@ of [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01
 Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, the High look) and `licence-agpl-done`
 (D379, `main` at 87c73a0, generator 0.7.0). Every released step's tag: `git tag -l '*-done'`.
 
-## The two sessions (D388)
+## The three sessions (D388, D398)
 
 - **The milestone session** (Opus 5.5, high; the main clone) does everything except the page: the core, the water, the
   generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering, STATUS and HANDOFF.
@@ -20,6 +20,9 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
   and records its decisions in its own `DESIGN.md` and `docs/progress/page.md`; the milestone session folds them into PLAN
   when its work merges. Neither session touches the other's files; a control the core's items need (Remove unfed water,
   Fill) is agreed with the page session through Kyler.
+- **The renderer session** (Opus 5.5, high; on Kyler's PC, not the dedicated machine; branch `feature/moving-water`) builds
+  moving water and the Flow view, then renderer R1. Its gate is the shared runner in `tools/smooth/`. It never edits PLAN,
+  STATUS or HANDOFF.
 
 ## In flight
 
@@ -28,9 +31,9 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | Work | Branch | PR | Worktree | Session | State |
 |---|---|---|---|---|---|
 | The editor-core items (D387) | none yet | none | main clone | milestone | Next, alongside the page |
-| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in ROADMAP ("M9b"); held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
+| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | `dev` merged in (no land moved); small starts and generation speed rounds 1 and 2 adopted: failing absolutes 0/0/0, all three outcomes 220/230/230 of 280; Lake Basin round 2 waits for the quiet window, settings round 2 held; next the D148 re-pins (CI red on maps that moved), 256² speed, the review set; two defaults for Kyler in `docs/progress/m9b.md` ("Hand-over (2026-10-02)"); held for Kyler's eye (D252, D273) |
 | The page, "The page is the editor" with the design pass | `feature/page` (from `dev` at the salvaged core) | none yet | `-page` | page | Worktree ready; Kyler starts the session |
-| Moving water and the Flow view, then renderer R1 (D398) | `feature/moving-water` | none yet | another machine | renderer | Built there; this session merges its PR when green and Kyler says yes |
+| Moving water and the Flow view, then renderer R1 (D398) | `feature/moving-water` | none yet | another machine | renderer | Plan approved (2026-10-02): the `tools/smooth/` gate, then moving water, the Flow view and renderer R1; one draft PR into `dev`, merged when green on Kyler's yes |
 | The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 closed; the branch is kept as a record until the new page ships |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | milestone | D337–D339; follows M9b |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | milestone | Held for Kyler's sitting; after the page |
@@ -44,7 +47,7 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 | PR | Investigation | State |
 |---|---|---|
 | #159 | dam-sketch (D383's engine) | Merged as an investigation, not adopted (D392); its adoption gates are in ROADMAP, "The dam sketch tool" |
-| #158 | rust-forces | Draft; still round 1 (not adoptable); round 2 in flight, nothing to do until it lands |
+| #158 | rust-forces | Draft; round 1 not adoptable; round 2 in flight, nothing to do until it lands |
 | #157 | rust-analysis | Merged through #160, approved; adopted after M9b's release (D391) |
 | #156 | rust-water | Draft; approved (D381) |
 | #155 | gen-speed | Approved; adopt round 1, then round 2, on M9b |
@@ -54,14 +57,15 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 | #132 | scaling | Draft; round 4 approved for adoption |
 | #130 | parallel-water | Draft; approved |
 | #107 | performance | Merged as an investigation (b4b8af66): its harness is the renderer session's gate; none of its fixes adopted |
+| none yet | dam-sketch-2 (round 2, branch `investigation/dam-sketch-2`, new PR into `dev`) | In flight with Codex: browser timings in a worker in all three engines while dragging, the 256² profile, a "does it feel live" verdict, and a written in-game calibration batch. #159 stays as round 1 |
 | none | portable-math, rust-threads | In flight with Codex, no PR yet |
 
 ## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
 
-1. **The water-changed signal** for the hover readout (D387 (1)): `feature/water-signal`, building. `describeTile` follows
+1. **The water-changed signal** for the hover readout (D387 (1)): on `dev` (#164): `readoutWater` and `readoutWaterChanged` in `src/core/doc/describeTile.ts`. `describeTile` follows
    the water (contract test #162).
 2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): `feature/editor-core`, building.
-3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix.
+3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix: built on `feature/m9b` (APIs in `docs/progress/m9b.md`), on `dev` with M9b's release.
 4. **The service worker** for startup part 2 (D397), with multi-core water's adoption.
 
 The page session's first PR, Editor.tsx split into feature folders (behaviour unchanged), merges as soon as it's green,
