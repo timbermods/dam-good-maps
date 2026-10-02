@@ -1,6 +1,118 @@
 # M9b: composition and variety
 
-## Hand-over (2026-10-01): where M9b stands, and how to resume
+## Hand-over (2026-10-02): dev merged, the adoption order through generation speed round 2
+
+Written for a session with no memory of this one. Branch `feature/m9b`, draft PR #70 into `dev`, never
+merged by Claude. The hand-over of 2026-10-01 below is history where this one differs.
+
+### What this round did, in order (each measured on the 840 maps: seeds 1–40, seven themes, 96², 128², 256²)
+
+1. **`dev` merged** (bfc5ed80): the forces, the High look, the salvaged page core. Living docs took
+   `dev`'s pruned text with M9b's still-true additions re-applied (PLAN §5.2–§5.5, §7, §7.9, §10,
+   §13, §14.3, §19.1; EDITOR_PLAN's header menu); `docs/decisions-pending.md` keeps `dev`'s open rows
+   plus M9b's open #100–#154, the six Kyler settled moved to the archive. M9b's own code now uses the
+   portable maths (D366, 7beda126: every native approximate call and `**` in `src/core` replaced; a
+   square is a product, which fdlibm's pow returns for y = 2). **The merge moved no land at any
+   size** (measure `m1-merge` against `13d1f1a2`: same 2/0/0 failing, same 213/228/229).
+2. **One mine-site check** (f3706e62): `resources.mine_reach` folded into `resources.mine_site`, read
+   with `colonyReach` everywhere (D342); in the editor (`mineCutAtOpen`) it is advisory and also fails
+   on a site an edit cut off since the map was opened (`minesOutOfReach`, `mineSitesCutAt` on the
+   stored water).
+3. **The three contract tests failing on the base** (#155), explained and re-pinned (4a785170):
+   `resources`' grove fill is read on the map's own groves beyond the start's 25 tiles (item 26's
+   living-only start planting packs the walk's scarce moist ground: Canyon 96² seed 5's start 308 trees
+   at a fill of 0.76, its own groves 0.36); `rivers`' two drawn-river cases join D277's skip (the
+   drawn-river planner, unmaintained until M12, gets the source rule's narrowed mouth row but not the
+   edge lip, so water beside its row runs off; when M12 resumes, `planRiver` lays the lip).
+4. **Small starts** (#153, affe89b9), then **generation speed round 1** (#155, 37e144b2), measured
+   together (`m2-small-r1`): failing **0 / 0 / 0**, all three **215 / 229 / 229**, exactly the
+   investigation's own result, every land changed among its changed maps (round 1 byte-identical, as
+   built). Any 96² seed 31 and Islands 96² seed 4 pass; Canyon 128² seed 5 gains all three.
+5. **The 128² gate on small starts' hidden land** (3569e67c, a default for Kyler, below).
+6. **Generation speed round 2** (#155, 892cc5c2), measured with the gate (`m3-r2`): failing **0 / 0 / 0**, all three
+   **220 / 230 / 230**, per theme exactly the investigation's round 2 (at 96² Canyon 26 → 28,
+   Highlands 21 → 23, Lake Basin 23 → 24; Canyon 128² 32 → 33; Lake Basin 256² 23 → 24); no theme's
+   share fell. No map was worn (`fixes`: one "rising basin fed gently" at 256²).
+
+   | Theme, seeds 1–20 (target 14) | 96² | 128² | 256² |
+   |---|---|---|---|
+   | Any | 19, water (1) | 18, water (2) | 17, water (3) |
+   | River Valley | 18, promise (1) | 18, promise (1) | 16, water (3) |
+   | Canyon | 14, promise (4) | 17, promise (3) | 15, water (4) |
+   | Highlands | **10**, promise (8) | 15, promise (5) | 17, promise (3) |
+   | Lake Basin | **13**, promise (7) | **13**, water (6) | **12**, promise (7) |
+   | Delta | 19, standout (1) | 18, standout (2) | 17, standout (2) |
+   | Islands | 20 | 20 | 20 |
+
+   Under the target: Highlands 96², Lake Basin at every size (Lake Basin round 2 is the planned
+   fix). The rows are committed as the new baseline,
+   `investigation/m9b/baseline/3569e67c-*.jsonl.gz` (`compare.py 3569e67c <run>`; nothing since
+   3569e67c changes a map).
+7. **A generation's record holds no wall-clock time** (10cd7063): CI's cross-engine check (`engines`)
+   failed on every map with a failed attempt, because `failures` carried each attempt's milliseconds;
+   they moved to `timings.failed`. Terrain, water, objects and file bytes already matched in all four
+   engines.
+8. **Tooltips** on M9b's settings-page controls (8dbb1943, D351).
+
+### CI on #70 (8dbb1943)
+
+`oracle`, `generation`, `engines` (fixed by item 7) and browser shard 3 pass. Red, all expected:
+`test` (31 tests in 20 files, every one bound to a map that moved: dev's new force and editor tests
+on M9b's maps and the earlier list; the D148 re-pins are step 4) and browser shards 1, 2 and 4 (map
+seeds, and the two tooltips in the page session's files below).
+
+### Defaults this round chose, for the milestone session to number and put to Kyler
+
+- **Small starts' hidden land holds at 128² and under only** (`SHOW_PROVED_MOST`). #153 shows a land
+  only once its actual settled start reaches its mine pair, so the first look waits for the settle:
+  under the same load the first look moved from 34% to 83% of the time to the map at 256² (46% to
+  73% at 96², 41% to 77% at 128²), which would put 256²'s editable land near 7–8 s on a quiet machine against D278's
+  3 s typical. 128² is judged by its settled map (2 s / 5 s), and every land #153 redrew was at 96² or
+  128² (none at 256²). Above 128² the land shows at the land stage, as D348 had it.
+- **Round 2 ends the worn way out on generated maps** (D350 (b)): `wearFix` never runs (a prepared
+  land keeps its heights); the two maps that needed it (River Valley 256² seed 39, Lake Basin 256²
+  seed 24) are fed more gently instead (`drainFix`: 0.7, 0.49, 0.343 of the feeders). `water/outletWear.ts`
+  stays for now, unused by the generator. Adopted as approved; it removes D348's one exception.
+- The grove-fill re-pin and the drawn-river skip (item 3 above).
+
+### Timings that wait for the quiet window (none was taken: the machine ran three other sessions' suites)
+
+- Small starts' first look at 96² and 128² against `m1-merge`'s (the gate keeps 256² as it was).
+- Generation speed round 1's CPU saving (Codex: about 6% at 256²) and round 2's time per map.
+- **Lake Basin round 2**: its adoption waits for a quiet-machine timing showing it is no slower than
+  today (its own report: revised first land 4.8 / 8.4 / 15.3 s median at 96² / 128² / 256² under load).
+- Speed at 256² against `dev` (D380: M9b must not release slower).
+
+### For the page session (its three dependencies, all on `feature/m9b`)
+
+- **Candidate events** (item 22): `generate(spec, { onCandidate })` (`gen/generate.ts`) calls
+  `onCandidate({ attempt, candidate, of, result, outcomes })` for the map; the worker forwards it as
+  the progress event `{ kind: "candidate", attempt, candidate, of, met, W, H, heights, water }`
+  (`worker/api.ts` `runGenerate`). The other versions: `findVersion({ spec, intentions, heights },
+  { stop })` (`gen/versions.ts`, the worker's `runFindVersion`/`stopVersionSearch`) returns the first
+  sibling meeting all three outcomes (`variation` 1, 2, … on the spec, its own share link), with
+  `missesOf`, `worthSearching`, `notifies` and `versionNote` as plain functions.
+- **Sources: Placed · None**: `spec.settings.water.sources?: "placed" | "none"` (share link `so=n`);
+  `withoutSources(result)` (`gen/generate.ts`) gives the map without its sources and their water.
+- **The automatic water fix** (D330, the UI brief §5): `waterFix(session)` (`doc/waterFix.ts`)
+  returns `{ ops, label, fixes, at }` or null, the operations to apply as one step (a spring by the
+  start); the worker's `waterFixOps()`.
+
+### Two edits M9b needs in the page session's files (not made here, D388)
+
+- `src/editor/Header.tsx`: M9b's **Another like this** menu item's title is 73 characters; D351 asks
+  for one short phrase (the settings page now says "A new map like this one, on different land").
+- `src/editor/Editor.tsx`: the message strip's **×** (`aria-label="Dismiss"`) has no tooltip. M9b's
+  maps show a message when the editor opens, so `tests/e2e/tooltips.spec.ts` meets it in every state.
+
+### Next (step 4 of the plan)
+
+The D148 re-pins of every map-bound test once the maps settle (31 quick tests in 20 files, the
+browser specs, the 4242 sha), the 96² start class's last map (Highlands 14), the canyon measure's
+separate effect, speed at 256², the contact sheet, the review set for Kyler and one pooled probe
+batch. Then Lake Basin round 2 after its quiet timing, and the settings round 2, held, last.
+
+## Hand-over (2026-10-01): where M9b stood, and how to resume (history: the hand-over above is current)
 
 Written for a session with no memory of this one. Branch `feature/m9b`, draft PR #70 into `dev`, never
 merged by Claude. The round's full account is "Mine-site pads (D363, 2026-10-01)" below; this is
@@ -1093,6 +1205,15 @@ check, the start, the water settling).
 
 ## Tests updated because a decision changed what they tested
 
+- 2026-10-02, the merge with `dev`: `tests/contract/editsPlaceNothing.test.ts` looks for
+  `resources.mine_site` (the editor's advisory, `resources.mine_reach` folded into it, D342) and
+  `parity.test.ts` compares every check again; `resources.test.ts`' grove fill is read on the map's
+  own groves beyond the start's 25 tiles (item 26: the start's living-only planting packs scarce
+  moist ground); `rivers.test.ts`' drawn rivers skip every size under D277 (the drawn-river planner
+  gets the source rule's mouth row, not the edge lip); `brush.test.ts` keeps `dev`'s D270 name with
+  M9b's seed 1; `tests/e2e/editor.spec.ts` keeps `dev`'s file name (`dgm-river-valley-4261.timber`)
+  and its Delete on the river (one level of ground) with M9b's seed and hover tile. New:
+  `tests/contract/smallStarts.test.ts`, `tests/unit/mineGround.test.ts` (#153).
 - `tests/contract/spec.test.ts`: the codec's round trip draws Variety too (D276: a setting).
 - `tests/unit/genome.test.ts`: "draws zero, one or two intentions" is now "draws one or two
   intentions, never none" (D273 (3): every map has a character).
