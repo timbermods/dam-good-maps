@@ -50,6 +50,8 @@ export type DroughtPolicy = "off" | "prefer" | "require";
 export const BANK_FOOT = 800;
 
 export interface SettlerOptions {
+  /** Only for repeated picks before terrain/water changes; no cross-attempt cache. */
+  prepared?: StartPreparation;
   avoid?: Uint8Array | null;
   /** Whether a start may need its ground levelled (a 5×5 within a level, or the last resort's pad
    *  and path to the shore); false on a shown land, where only a start that needs no levelling
@@ -217,18 +219,12 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
   return d;
 }
 
-export function pickStart(
-  h: Uint8Array,
-  W: number,
-  H: number,
+/** Read-only fields for picks on identical terrain/water. Discard before either changes.
+ * Avoid masks, scores, random draws and candidate walks remain private to each pick. */
+export function prepareStart(h: Uint8Array, W: number, H: number,
   water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; moisture: ArrayLike<number> },
   hydro: Pick<Hydro, "water" | "lakes" | "falls" | "rivers">,
-  prefs: number[],
-  rng: Rng,
-  waterRule: number,
-  opts: SettlerOptions = {},
-): StartPick | null {
-  const avoid = opts.avoid ?? null;
+  waterRule: number, opts: SettlerOptions = {}) {
   const N = W * H;
   const D = water.depth;
   const walk = shoreWalkFrom(h, W, H, D, water.contamination, waterRule);
@@ -289,8 +285,15 @@ export function pickStart(
         if (x >= 0 && y >= 0 && x < W && y < H) springT[y * W + x] = 1;
       }
   const dSpring = distanceFrom(springT, W, H);
-  const sorted = Array.from(h).sort((a, b) => a - b);
-  const medianLevel = sorted[N >> 1];
+  // Heights are Uint8: count levels without changing the upper median.
+  const counts = new Uint32Array(256);
+  for (let i = 0; i < N; i++) counts[h[i]]++;
+  let medianLevel = 0;
+  let seen = 0;
+  for (; medianLevel < 256; medianLevel++) {
+    seen += counts[medianLevel];
+    if (seen > (N >> 1)) break;
+  }
   const margin = Math.max(8, Math.round(Math.min(W, H) * 0.08));
   // stored water within 40 tiles (a box of 81), from a summed-area table of what the drought keeps
   let storeSum: Float64Array | null = null;
@@ -300,6 +303,26 @@ export function pickStart(
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
   }
+  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum };
+}
+
+export type StartPreparation = ReturnType<typeof prepareStart>;
+
+export function pickStart(
+  h: Uint8Array,
+  W: number,
+  H: number,
+  water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; moisture: ArrayLike<number> },
+  hydro: Pick<Hydro, "water" | "lakes" | "falls" | "rivers">,
+  prefs: number[],
+  rng: Rng,
+  waterRule: number,
+  opts: SettlerOptions = {},
+): StartPick | null {
+  const avoid = opts.avoid ?? null;
+  const N = W * H;
+  const D = water.depth;
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
     const x0 = Math.max(0, x - 40);

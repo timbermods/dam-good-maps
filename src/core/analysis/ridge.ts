@@ -120,6 +120,8 @@ export function damWalls(h: ArrayLike<number>, W: number, H: number, depth: Arra
           } else if (++miss > 1) break;
         }
         sides.push(pts);
+        // No second side can make an insufficient first side into a wall.
+        if (pts.length < 6) break;
       }
       if (sides[0].length < 6 || sides[1].length < 6) continue;
       const all = [...sides[0], ...sides[1]];

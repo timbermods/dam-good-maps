@@ -418,6 +418,8 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
       if (cx > x1) x1 = cx;
       if (cy < y0) y0 = cy;
       if (cy > y1) y1 = cy;
+      // The answer is monotone for one/two sites; more squares cannot undo it.
+      if (opts.want <= 1 || (opts.want === 2 && (x1 - x0 >= APART || y1 - y0 >= APART))) break;
     }
     if (!n) continue;
     if (opts.want <= 1) out[i] = 1;

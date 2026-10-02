@@ -27,7 +27,7 @@ export interface IntentionResult {
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** The land and water the settler scores places on, for the intentions' preferences. */
-export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
+export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, kept9?: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
   const N = W * H;
   const joinT = new Uint8Array(N);
   for (const r of hy.rivers) {
@@ -41,7 +41,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
   for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
   const sorted = Array.from(h).sort((a, b) => a - b);
   // clean bodies of 60+ tiles, their surface and what a 9-day drought leaves
-  const kept = droughtStorage(waterModel(W, H, h, []), D, 9);
+  const kept = kept9 ?? droughtStorage(waterModel(W, H, h, []), D, 9);
   const lab = new Int32Array(N).fill(-1);
   const lakes: SettlerView["lakes"] = [];
   for (let s0 = 0; s0 < N; s0++) {

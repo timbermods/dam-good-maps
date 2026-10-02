@@ -91,7 +91,7 @@ import { ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { dryStart, padFloods, pickStart, type DroughtPolicy, type StartPick } from "./settler";
+import { dryStart, padFloods, pickStart, prepareStart, type DroughtPolicy, type StartPick } from "./settler";
 
 export type { IntentionResult };
 
@@ -1484,16 +1484,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
   // levelling is part of shaping the land; never on a shown land, D348)
   let allowLevel = true;
-  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null): StartPick | null => {
+  let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
+  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null, reusePlanned = false): StartPick | null => {
     // (Islands' start on its main island, D370)
     avoid = islandStartAvoid(g, avoid);
-    const model = waterModel(W, H, h, []);
-    const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
-    const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
-    const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
+    let data = reusePlanned ? plannedStart : null;
+    if (!data) {
+      const model = waterModel(W, H, h, []);
+      const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
+      const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
+      const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M, DROUGHT[spec.designedFor].days === 9 ? storage.kept : undefined) : null;
+      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage });
+      data = { kept, storage, view, prepared };
+      if (reusePlanned) plannedStart = data;
+    }
+    const { kept, storage, view, prepared } = data;
     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -1644,7 +1652,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const prepared: StartPick[] = [];
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
-    guess = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 0, avoidOf(null));
+    const heldMoist = moisture(h, held, zero, W, H, null);
+    guess = settlerOn(held, zero, heldMoist, 0, avoidOf(null), 1, null, true);
     allowLevel = true;
     if (!from) {
       if (!guess && !lastAttempt) return fail("no start", null, true);
@@ -1654,18 +1663,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (guess && !lastAttempt && opts.secondStart !== false) {
         const off = avoidOf(null);
         markTried(off, guess, W, H);
-        second = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 5, off);
+        second = settlerOn(held, zero, heldMoist, 5, off, 1, null, true);
         if (!second) return fail("one place for a start", null, true);
         // (and the places after it, apart from each other: every start a shown land may fall back
         // on has its pad ready, levelled now if it needs it, D373 (3))
         markTried(off, second, W, H);
         for (let k = 0; k < PREPARED_MORE; k++) {
-          const more = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 9 + k, off);
+          const more = settlerOn(held, zero, heldMoist, 9 + k, off, 1, null, true);
           if (!more) break;
           prepared.push(more);
           markTried(off, more, W, H);
         }
       }
+      // The shared fields expire before any levelling or mine-pad shaping.
+      plannedStart = null;
       // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
       // is shown rather than failing every attempt on it)
       if (!lastAttempt && edgeRuleApplies(W, H) && edgeWalls(h, W, H).some((e) => e.share >= EDGE_SHARE)) return fail("an edge wall", null, true);
