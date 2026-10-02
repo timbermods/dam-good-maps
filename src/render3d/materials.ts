@@ -947,13 +947,11 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       }
       /** The water's current here as drawn (tiles a second; motion.ts), 0 where still. */
       vec2 waterCurrent(vec2 g) { return (texture2D(flowTex, g / mapSize).rg * 255.0 - 128.0) / 63.5; }
-      /** The surface's own textures at p (carried by the current): the ripples' slope, the broken
-       *  foam's noise, the glints, the pale streaks and badwater's bubbles. */
-      void surfaceAt(vec2 p, float t, float slow, float bad, float fine, out vec2 sl, out float fn, out float glints, out float pale, out float bubbles) {
-        vec2 q2 = p * 1.6 + vec2(sin(p.y * 0.5), sin(p.x * 0.43)) * 1.5;
-        sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
+      /** The textures the current carries, at p: the broken foam's noise, the pale streaks and
+       *  badwater's bubbles (the ripples and glints stay where they are: a few noise lookups twice over,
+       *  not the whole surface, which a modest GPU felt). */
+      void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles) {
         fn = vnoise(p * 4.0 + vec2(t * 0.3, -t * 0.2));
-        glints = fine * smoothstep(0.8, 0.9, vnoise(p * 17.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p * 13.0 - vec2(t * 0.3, t * 0.7)) * 1.6);
         pale = smoothstep(0.6, 0.82, vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5)));
         bubbles = bad > 0.01 ? fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04))) : 0.0;
       }
@@ -998,24 +996,23 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float slow = mix(1.0, 0.5, bad);
             // (small and sparse, and gone where a pixel covers more than a few of them)
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
-            // the surface moves with the water's current (D353): its textures drawn at two points
+            vec2 q2 = g * 1.6 + vec2(sin(g.y * 0.5), sin(g.x * 0.43)) * 1.5;
+            vec2 sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
+            glints = fine * smoothstep(0.8, 0.9, vnoise(g * 17.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 13.0 - vec2(t * 0.3, t * 0.7)) * 1.6);
+            // the foam and pale streaks move with the water's current (D353): drawn at two points
             // carried back along it, each fading in as the other is carried furthest, so neither is
             // seen to start again; still water draws them where they are, as always
-            vec2 sl;
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
-            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) surfaceAt(g, t, slow, bad, fine, sl, fn, glints, pale, bubbles);
+            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);
               float blend = abs(phase * 2.0 - 1.0);
-              vec2 sl2;
-              float fn2, glints2, pale2, bubbles2;
-              surfaceAt(g - drift * (phase * 12.0), t, slow, bad, fine, sl, fn, glints, pale, bubbles);
-              surfaceAt(g - drift * (second * 12.0), t, slow, bad, fine, sl2, fn2, glints2, pale2, bubbles2);
-              sl = mix(sl, sl2, blend);
+              float fn2, pale2, bubbles2;
+              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles);
+              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2);
               fn = mix(fn, fn2, blend);
-              glints = mix(glints, glints2, blend);
               pale = mix(pale, pale2, blend);
               bubbles = mix(bubbles, bubbles2, blend);
             }
