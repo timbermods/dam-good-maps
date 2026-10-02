@@ -13,12 +13,22 @@
 //   passes all its water each substep, PLAN §9.2).
 // A basin sealed off from its river (a carve's oxbow lake) then starts with the water it kept
 // (water.ts `RetainedWater`, stored with the carve): it is part of the map, like its sources. A Fill
-// (D394) is stored and starts the same way. The tiles whose unfed water the player removed (the
-// model's `drained`, D387 (2)) lose it once the settle has passed, and the water settles on.
+// (D394) is stored and starts the same way.
+//
+// The walk spreads level over flat ground in every direction, further than a source's water goes:
+// a hollow on a dry plateau the walk crossed starts full, and the thin start on the plateau drains
+// into a hollow that started empty. That water would come from nowhere (D385). So once the water has
+// settled, the water no running source and no kept stored lake reaches (sim/fed.ts `withoutUnfed`) is
+// taken away, with the unfed water the player removed (the model's `drained`, D387 (2)), and the
+// water settles on from there (`DRAIN_DAYS`); a map with none keeps its bytes.
+//
+// A sealed basin only evaporating is settled water (D222, D413): the settle stops once nothing else
+// changes, and the basin is stored with the water it started with, so a Fill is stored at exactly
+// its level and an oxbow lake with the water its carve kept; the game evaporates them from there.
 
 import { MinHeap } from "../math/grid";
-import { drainedSim } from "./fed";
-import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
+import { withoutUnfed } from "./fed";
+import { sealedTiles, SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -191,10 +201,12 @@ export interface CanonicalWater extends SettleResult {
 }
 
 /** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks), then, with drained tiles holding unfed water, once more after
- *  taking it (at most `DRAIN_DAYS`). The same input always gives the same bytes. A sealed oxbow
- *  lake's evaporation never keeps it from counting as settled (`steadyTicks`, D222), and never
- *  changes where it stops. */
+ *  days, checked every 128 ticks), then, when unfed water is left (the pre-fill's water nothing
+ *  reaches, or water a removal drained; see the file comment), once more after taking it (at most
+ *  `DRAIN_DAYS`). The same input always gives the same bytes. A sealed basin's
+ *  evaporation is not the water changing: the settle stops at the first check where only that
+ *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
+ *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
 export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
   const run = canonicalRun(m, opts);
   let r = run.advance(Infinity);
@@ -206,13 +218,14 @@ export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): Cano
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. */
 export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  let sim = new WaterSim(m, prefill(m), opts);
+  const start = prefill(m);
+  let sim = new WaterSim(m, start, opts);
   const sealed = sealedTiles(m);
   let run = new SettleRun(sim, { sealed });
-  const first = run.maxTicks;
-  // Remove unfed water (the model's `drained`, D387 (2)): once the water has settled, the unfed water
-  // on those tiles is taken away and the water settles on from there, at most DRAIN_DAYS more
-  let drainNext = !!m.drained?.length;
+  let maxTicks = run.maxTicks;
+  // once the water has settled, its unfed water is taken away and the water settles on from there,
+  // at most DRAIN_DAYS more (D385, D387 (2))
+  let drainNext = true;
   let done: CanonicalWater | null = null;
   return {
     advance(ticks: number): CanonicalWater | null {
@@ -225,15 +238,17 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
         if (!r) return null;
         if (drainNext) {
           drainNext = false;
-          const next = drainedSim(m, sim, opts);
+          const next = withoutUnfed(m, sim, opts);
           if (next) {
             sim = next;
             run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
+            maxTicks = sim.ticks + run.maxTicks;
             if (left > 0) continue;
             return null;
           }
         }
-        done = { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice() };
+        const kept = keepSealed(sim, run.closedBasins(), start, m.drained);
+        done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts).saturation() : sim.saturation(), out: sim.out.slice() };
         return done;
       }
     },
@@ -241,12 +256,32 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
       return sim.ticks;
     },
     get maxTicks() {
-      return first + (m.drained?.length ? DRAIN_DAYS * TICKS_PER_DAY : 0);
+      return maxTicks;
     },
   };
 }
 
-/** The most game days the canonical settle runs on after taking away the unfed water a removal
- *  drained (`canonicalRun`): the water round it was settled, so it is steady again within a check or
- *  two. */
-export const DRAIN_DAYS = 1;
+/** A sealed basin only evaporating is stored as it started (D413): every tile of the sealed basins
+ *  at the settle's last check (`closed`, water.ts `sealedBasins`) but a drained one gets back its
+ *  pre-fill depth and badwater share (`start`: the water its lake kept, a Fill's level), its
+ *  outflows still. What the settle's days evaporated is the game's to evaporate, from the file.
+ *  Whether any tile was given back. */
+function keepSealed(sim: WaterSim, closed: Uint8Array | null, start: WaterState, drained: readonly number[] | undefined): boolean {
+  if (!closed) return false;
+  const skip = new Set(drained ?? []);
+  let any = false;
+  for (let i = 0; i < sim.N; i++) {
+    if (!closed[i] || skip.has(i)) continue;
+    sim.D[i] = start.depth[i];
+    sim.C[i] = start.contamination[i];
+    for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
+    any = true;
+  }
+  return any;
+}
+
+/** The most game days the canonical settle runs on after taking away its unfed water
+ *  (`canonicalRun`): the first settle's own limit. The water round it had settled, so it is mostly
+ *  steady again within a check or two; a map whose water passed the settle's test while a slow surge
+ *  still moved (Near Bardenas Reales) takes longer. */
+export const DRAIN_DAYS = 4;

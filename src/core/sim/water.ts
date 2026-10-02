@@ -736,13 +736,10 @@ export interface SettleOptions {
   checkEvery?: number;
   /** Share of tiles that may still move by more than `tol` (PLAN §11.3: 0.005). */
   movedShare?: number;
-  /** The kept tiles of the map's sealed basins (`sealedTiles`: a carve's oxbow lakes). What they
-   *  lose to evaporation is not the water changing (D222): see `steadyApartFromSealed`. */
+  /** The kept tiles of the map's sealed basins (`sealedTiles`: a carve's oxbow lakes, Fills). What
+   *  they lose to evaporation is not the water changing (D222, D413): the settle stops at the first
+   *  check where only that still changed (`steadyApartFromSealed`). */
   sealed?: readonly number[];
-  /** Stop at the first check where the water is steady apart from sealed basins evaporating (the
-   *  editor's preview). The canonical settle runs on to its own test instead: the water a file
-   *  gets is the water at the tick that test gives (§19.7), so this never changes it. */
-  untilSteady?: boolean;
 }
 
 export interface SettleResult {
@@ -750,9 +747,9 @@ export interface SettleResult {
   settled: boolean;
   /** Ticks run: the water is the water at this tick. */
   ticks: number;
-  /** When the settle's test had not passed but, at a check, the water was steady apart from sealed
-   *  basins evaporating (D222): that check's tick. Such water has settled: only real flow is the
-   *  water still changing (`waterSteady`). */
+  /** When the settle stopped because, at a check, the water was steady apart from sealed basins
+   *  evaporating (D222, D413), though its own test had not passed: that check's tick (`ticks` too).
+   *  Such water has settled: only real flow is the water still changing (`waterSteady`). */
   steadyTicks?: number;
 }
 
@@ -771,17 +768,19 @@ export function sealedTiles(m: WaterModel): number[] | undefined {
   return [...all].sort((a, b) => a - b);
 }
 
-/** Whether the water changed between two checks only by sealed basins evaporating (D222). A sealed
- *  basin is the water round a basin's kept tiles (4-connected tiles wet at either check) while it
- *  holds no running source's tile and reaches no map edge: nothing flows in or out, so all it can
- *  lose is what evaporates. Its tiles that lost water are left out of the settle's test (the tiles
- *  moved and the volume change); its tiles that rose (water still running inside it) and every
- *  other tile count as before. `prototype/watersim.py` (`steady_apart_from_sealed`) is the same. */
-export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: number, sealed: readonly number[], tol: number, movedShare: number): boolean {
+/** The sealed basins at a check (D222): the water round each of a basin's kept tiles (4-connected
+ *  tiles wet at either check, `prev` or now) while it holds no running source's tile and reaches no
+ *  map edge: nothing flows in or out, so all it can lose is what evaporates. `closed` marks every
+ *  tile of such a basin; `drying` those of its tiles that did not rise (only lost water). The one
+ *  definition: the settle's stopping test (`steadyApartFromSealed`), `water.settles` and the water
+ *  the canonical settle stores (prefill.ts `canonicalRun`) all use it. `prototype/watersim.py`
+ *  (`sealed_basins`) is the same. */
+export function sealedBasins(sim: WaterSim, prev: Float64Array, sealed: readonly number[]): { closed: Uint8Array; drying: Uint8Array } {
   const { W, H, N, D } = sim;
   const feeds = new Uint8Array(N);
   for (const e of sim.emitters) if (e.strength > 0) for (const i of e.cells) feeds[i] = 1;
   const wet = (i: number) => D[i] > 0 || prev[i] > 0;
+  const closed = new Uint8Array(N);
   const drying = new Uint8Array(N);
   const seen = new Uint8Array(N);
   const queue = new Int32Array(N);
@@ -810,9 +809,22 @@ export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: nu
     if (open) continue;
     for (let h = 0; h < tail; h++) {
       const i = queue[h];
+      closed[i] = 1;
       if (!(D[i] > prev[i])) drying[i] = 1;
     }
   }
+  return { closed, drying };
+}
+
+/** Whether the water changed between two checks only by sealed basins evaporating (D222, D413):
+ *  the settle's test on everything but the tiles of a sealed basin (`sealedBasins`) that lost water
+ *  (its tiles that rose, water still running inside it, count as before): the rest's volume changes
+ *  by under 0.2% of the rest and at most `movedShare` of the map's tiles move by over `tol`. So the
+ *  water that flows stops on the same check as on the map without the basin. `prototype/watersim.py`
+ *  (`steady_apart_from_sealed`) is the same. */
+export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, sealed: readonly number[], tol: number, movedShare: number): boolean {
+  const { N, D } = sim;
+  const { drying } = sealedBasins(sim, prev, sealed);
   // the settle's test on everything else, summed in index order as the Python does
   let rest = 0;
   let restPrev = 0;
@@ -823,7 +835,7 @@ export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: nu
     restPrev += prev[i];
     if (Math.abs(D[i] - prev[i]) > tol) moved++;
   }
-  const dv = Math.abs(rest - restPrev) / Math.max(vol, 1e-9);
+  const dv = Math.abs(rest - restPrev) / Math.max(rest, 1e-9);
   return dv < 0.002 && moved <= movedShare * N;
 }
 
@@ -842,15 +854,14 @@ export function settle(sim: WaterSim, opts: SettleOptions = {}): SettleResult {
  *  check that settles, so the editor's worker can run the canonical settle a slice at a time,
  *  answer the page between slices, and give up when a newer edit arrives (EDITOR_PLAN §6). The
  *  ticks and the checks are the same whatever the slices, so the result is too. With sealed basins
- *  it also notes the first check where only their evaporation still changed (`steadyTicks`). */
+ *  it also stops at the first check where only their evaporation still changed (`steadyTicks`,
+ *  D222, D413). */
 export class SettleRun {
   readonly every: number;
   readonly checks: number;
   private readonly tol: number;
   private readonly movedShare: number;
   private readonly sealed: readonly number[] | null;
-  private readonly untilSteady: boolean;
-  private steadyTicks: number | undefined;
   private prev: Float64Array;
   private prevVol: number;
   private k = 0;
@@ -865,7 +876,6 @@ export class SettleRun {
     this.tol = opts.tol ?? 0.005;
     this.movedShare = opts.movedShare ?? 0.005;
     this.sealed = opts.sealed?.length ? opts.sealed : null;
-    this.untilSteady = opts.untilSteady ?? false;
     this.every = opts.checkEvery ?? 128;
     this.checks = Math.floor((maxDays * TICKS_PER_DAY) / this.every);
     this.prev = sim.D.slice();
@@ -887,6 +897,14 @@ export class SettleRun {
     return this.result;
   }
 
+  /** Once it has finished, the sealed basins at its last check (`sealedBasins`' `closed`: the
+   *  water round the kept tiles that nothing flows into or out of); null without sealed basins or
+   *  before it has finished. */
+  closedBasins(): Uint8Array | null {
+    if (!this.result || !this.sealed) return null;
+    return sealedBasins(this.sim, this.prev, this.sealed).closed;
+  }
+
   /** Run at most `ticks` more ticks; the result when the settle has finished, else null. */
   advance(ticks: number): SettleResult | null {
     const sim = this.sim;
@@ -906,15 +924,9 @@ export class SettleRun {
       for (let i = 0; i < sim.N; i++) if (Math.abs(D[i] - prev[i]) > this.tol) moved++;
       this.k++;
       if (dv < 0.002 && moved <= this.movedShare * sim.N) this.result = { settled: true, ticks: sim.ticks };
-      else {
-        // only sealed basins evaporating: steady (D222); the canonical settle still runs on to its
-        // own test, so its water is what it always was
-        if (this.sealed && this.steadyTicks === undefined && steadyApartFromSealed(sim, prev, vol, this.sealed, this.tol, this.movedShare)) {
-          this.steadyTicks = sim.ticks;
-          if (this.untilSteady) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
-        }
-        if (!this.result && this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks, ...(this.steadyTicks !== undefined ? { steadyTicks: this.steadyTicks } : {}) };
-      }
+      // only sealed basins evaporating: the water has settled (D222, D413)
+      else if (this.sealed && steadyApartFromSealed(sim, prev, this.sealed, this.tol, this.movedShare)) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
+      else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
       if (!this.result) {
         this.prev = D.slice();
         this.prevVol = vol;

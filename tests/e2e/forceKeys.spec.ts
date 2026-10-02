@@ -16,10 +16,9 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const note = (page: Page) => page.locator(".shape-note");
-/** The note beside the pointer as it is this instant, "" when there is none: one read in the page. (Not count() then
- *  textContent(): the note fades after a moment, and textContent() of one that has just gone waits for it to come back,
- *  so a poll on a slow machine sat on its last value until it timed out.) */
-const noteText = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
+/** The note's words now, "" when there is none. One read in the page: a count() then a textContent() would wait for a note's return
+    when it timed out between them (it lasts about a second), and hang the poll that asked. */
+const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
 async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await page.goto(`./#${hash}`);
@@ -313,7 +312,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     // [ ]: the strength on Smooth and Naturalize; nothing on the height brushes (their target level is theirs)
     const s0 = (await saved()).strength!;
     // (the size's word gone: the brush's own words are back)
-    const words = () => noteText(page);
+    const words = () => noteWords(page);
     await expect.poll(words, { timeout: 5_000 }).not.toMatch(/^(size|strength|power) /);
     await page.keyboard.press(s0 >= 10 ? "[" : "]");
     if (strength) {
@@ -363,7 +362,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
       // (Quake has no Size: F and { } leave it as it is)
       await page.keyboard.press("}");
       await page.waitForTimeout(300);
-      expect(await noteText(page)).not.toMatch(/size|power/);
+      expect(await noteWords(page)).not.toMatch(/size|power/);
       await expect(power).toHaveValue("50");
     }
     // [ ]: its Power by five
@@ -385,7 +384,7 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
   const p = await client(page, at[0], at[1]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
   const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
-  const words = () => noteText(page);
+  const words = () => noteWords(page);
   /** The pointer on the map (a slider just set lets go of the keys first). */
   const point = async () => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -399,10 +398,25 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     await page.mouse.wheel(0, up ? -120 : 120);
     await page.waitForTimeout(150);
   };
-  /** The words beside the pointer: near it. */
-  const besidePointer = async () => {
-    const b = (await note(page).boundingBox())!;
-    expect(Math.hypot(b.x - p.x, b.y - p.y), "the number beside the pointer").toBeLessThan(120);
+  /** The words beside the pointer: near it. The note lasts about a second, so its place is read in
+   *  the same step as its words (a box asked for after other waits finds it gone, or waits for its
+   *  return); the poll runs until a note with these words is there and near the pointer. */
+  const besidePointer = async (words: RegExp) => {
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            ([src, x, y]) => {
+              const el = document.querySelector(".shape-note");
+              if (!el || !new RegExp(src).test(el.textContent ?? "")) return null;
+              const r = el.getBoundingClientRect();
+              return Math.hypot(r.x - (x as number), r.y - (y as number));
+            },
+            [words.source, p.x, p.y] as const,
+          ),
+        { message: "the number beside the pointer" },
+      )
+      .toBeLessThan(120);
   };
 
   // the brushes
@@ -420,8 +434,8 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     await fWheel(s0 < 10);
     if (strength) {
       await expect(note(page), `${name}: F+scroll sets its strength`).toHaveText(/^strength \d+$/);
+      await besidePointer(/^strength \d+$/);
       await expect.poll(async () => (await saved()).strength, `${name}: its strength changed`).toBe(s0 < 10 ? s0 + 1 : s0 - 1);
-      await besidePointer();
       await page.mouse.wheel(0, s0 < 10 ? 120 : -120);
       await expect.poll(async () => (await saved()).strength).toBe(s0);
     } else {
@@ -449,8 +463,8 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     const v0 = await view();
     await fWheel(true);
     await expect(note(page), `${name}: F+scroll sets its Power`).toHaveText("power 55");
+    await besidePointer(/^power 55$/);
     await expect(power).toHaveValue("55");
-    await besidePointer();
     await page.mouse.wheel(0, 120);
     await page.mouse.wheel(0, 120);
     await expect(power).toHaveValue("45");

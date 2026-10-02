@@ -117,6 +117,17 @@ def fixtures():
     h[9:13, 20:] = 4
     h[5:17, 10:18] = 3                    # a depression the river crosses
     out.append(("valley_basin", h, None, [src([(y, 0)], 0.5) for y in (9, 10, 11, 12)]))
+
+    # 13. a pit on a dry plateau (D385): a spring's channel drops onto the plateau's lip and on into
+    # a gorge; the pre-fill's walk spreads over the whole plateau and fills the pit, but no water
+    # goes there, so the canonical settle takes that water away and the pit is dry
+    W, H = 30, 20
+    h = np.full((H, W), 4)
+    h[:, :6] = 8
+    h[9:12, :6] = 6
+    h[9:12, 7:] = 2
+    h[3:6, 18:21] = 2                     # the pit
+    out.append(("plateau_pit", h, None, [src([(10, 1)], 1.5)]))
     return out
 
 

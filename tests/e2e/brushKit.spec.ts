@@ -63,11 +63,10 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // (seed 34 since batch 5, seed 35 since D252's start planting, D148: the test needs four stretches
   // of flat, dry, empty ground at level 4 or above for the pits, the stroke, the plateau and the
   // Select tool, and a mine site standing unturned; seed 24, used since M9a's first maps, had room for
-  // only two, and 0.7.0's 4242 for none; seed 36 on M9b's maps, D148: seed 34's two flat pits fill with water
-  // about three seconds after the stroke (1.9 deep in both), so the pit's "Free" words became "channel"
-  // and the test passed only where the page was quicker than that; seed 36's pits stay dry, checked
-  // under a page slowed six and twenty-five times)
-  await page.goto("./#s=36&z=96&d=n&t=riverValley");
+  // only two, and 0.7.0's 4242 for none. Seed 34 on M9b's maps: its two flat pits once filled with
+  // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
+  // stays)
+  await page.goto("./#s=34&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

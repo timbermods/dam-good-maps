@@ -344,7 +344,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Lower, §5). Inside an open selection the mode applies within it.
 - **Sources: Ride · Keep · Clear** (D322, item 31; D249): in every brush's row. **Ride** (default): the sources the
   stroke passes over ride the ground like trees and bushes (a 3 × 3 source as one level piece). **Keep**: every
-  source under the stroke and the ground it stands on stay exactly where they were. **Clear**: the sources the
+  source under the stroke and the ground it stands on stay exactly where they were, at the level the map showed
+  (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
@@ -754,9 +755,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
     aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
-    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222), so
-    `water.settles` passes and the quiet dot settles once the rest of the water has; the water written is unchanged
-    (`PLAN.md` §10, §11.3).
+    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
+    the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
+    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
@@ -767,8 +768,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     `fillHollow` operation, a `RetainedWater` as a carve stores its oxbow lake, or a plain reason (it would spill
     off the map, the level is at or below the ground); its `days` come from the game's evaporation
     (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
-    takes the lakes before it; a later Fill keeps its water). A Fill over 0.5% of the map keeps the settle's own
-    test from passing, so the canonical settle runs to its cap (D222 runs on).
+    takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -777,6 +778,12 @@ opened, are listed but never blamed on the player's edits and do not block its e
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
     settle's, except under roofs.
+  - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
+    stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
+    settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
+    pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
+    (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
+    §10; `tests/contract/waterFromNowhere.test.ts`).
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

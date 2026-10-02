@@ -54,6 +54,9 @@ const FIXTURES: Record<string, string> = {
   confluence: "88f18f70071953e4",
   evaporation: "f0be98676869fc36",
   valley_basin: "df68c726b64d9399",
+  // (D385: the pit on a dry plateau, its pre-filled water taken away; pinned on M9b's settle, up to
+  // SETTLE_DAYS, D358, where dev's ran four days: ac272af8e5a118a0)
+  plateau_pit: "a52eb95dcb477200",
 };
 
 const GRIDS: [number, number, string][] = [
@@ -81,6 +84,8 @@ const GAME_FIXTURES: Record<string, string> = {
   confluence: "3dee22750da62ea7",
   evaporation: "201c1efea94586f5",
   valley_basin: "00b29d342e1aa6c8",
+  // (D385, as above)
+  plateau_pit: "2ffa3f9665725d1f",
 };
 
 const GAME_GRIDS: [number, number, string][] = [

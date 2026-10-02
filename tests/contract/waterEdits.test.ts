@@ -75,9 +75,11 @@ describe("Remove unfed water (D387 (2))", () => {
   let fileBefore: Uint8Array;
 
   beforeAll(() => {
-    // Lake Basin 1: rows of grouped sources (D314), two badwater sources, and pools the canonical
-    // settle's pre-fill leaves in hollows no source's water reaches
+    // Lake Basin 1: rows of grouped sources (D314), two badwater sources, and two Fills, pools no
+    // source's water reaches (the canonical settle's pre-fill left such pools in hollows until
+    // D385, which takes that water from nowhere away; a stored lake is the unfed water a map keeps)
     s = session("lakeBasin", 1);
+    for (const p of digPits(s, 2)) expect(s.apply(planFill(s, p.at[0], p.at[1], p.level).op!).errors).toEqual([]);
     before = s.built.water.slice();
     fedBefore = fedTiles(s.built.waterModel, before);
     fileBefore = bytesOf(s);
@@ -189,7 +191,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     expect(planFill(s, N, 3, level).reason).toBe(`(${N}, 3) is off the map`);
   });
 
-  it("is one operation and one undo step, says how long it lasts, and evaporates by the game's rules (D222 holds)", () => {
+  it("is one operation and one undo step, says how long it lasts, and is stored at its level and evaporates from there by the game's rules (D222, D413)", () => {
     // (a level below the rim: the pit filled one level deep)
     const at = pits[0].at;
     const level = pits[0].level - 1;
@@ -207,17 +209,15 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     expect(s.history().at(-1)!.label).toBe("Fill a hollow");
     const lake = plan.op!.params.lake;
     const floor = s.built.waterModel.floor;
-    // the water stands in the hollow, at most at its level (the settle's days evaporated some)
-    for (const i of lake.tiles) {
-      expect(s.built.water[i]).toBeGreaterThan(0.7);
-      expect(floor[i] + s.built.water[i]).toBeLessThanOrEqual(level + 1e-9);
-    }
-    // a sealed lake only evaporating: the water has settled (D222), and the check says so
+    // the water stands in the hollow at exactly its level: a sealed lake only evaporating has
+    // settled, so the settle stores it as it started (D222, D413), and the check says so
+    for (const i of lake.tiles) expect(floor[i] + s.built.water[i]).toBe(level);
     expect(waterSteady(s.built.settle)).toBe(true);
     const settles = s.validate().report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok).toBe(true);
-    // the game's rules: it sinks a day at a time and is gone in about the days the question said
-    let days = s.built.settle.ticks / TICKS_PER_DAY;
+    // the game's rules from the stored level: it sinks a day at a time and is gone in about the days
+    // the question said
+    let days = 0;
     const b = s.built;
     const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
     if (b.settle.out) sim.out.set(b.settle.out);
