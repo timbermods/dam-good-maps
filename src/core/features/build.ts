@@ -22,9 +22,9 @@ import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
-import { sameRetained, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
+import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
 import { isForce } from "../forces/op";
-import { groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
+import { groupIds, groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
 import { hash32 } from "../math/hash";
 import { DERIVED_SLOPES, entityId, RIM_SLOPES } from "./ids";
 import { keptSlopes, placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
@@ -60,6 +60,10 @@ export { assignRuinHeights } from "./raster/resources";
 export { MAX_TERRAIN } from "./raster/terrain";
 
 export { START_CLEAR_RADIUS }; // PLAN §7.7: nothing within Chebyshev 3 of the start centre (features/slopes.ts)
+
+/** An edit that changes only the water (`BuildInput.waterEdits`): a Fill's lake, kept as a carve's
+ *  oxbow lake is (D216, D394), or the tiles whose unfed water a removal took (D387 (2)). */
+export type WaterEdit = { seq: number; params: { lake: RetainedWater } | { tiles: readonly number[] } };
 
 export interface PlacedSource {
   x: number;
@@ -125,6 +129,10 @@ export interface BuildInput {
   /** A generated map's field (M9a): step 1's ground. */
   field?: GeneratedField | null;
   sculpts?: readonly SculptEdit[];
+  /** The edits that change only the water, in log order (Remove unfed water and Fill, D387 (2) and
+   *  (3)): with the forces' sealed oxbow lakes, they make the water model's stored water
+   *  (`composeKept`), in the order of their operations (`seq`). */
+  waterEdits?: readonly WaterEdit[];
   slopeEdits?: readonly SlopeEdit[];
   entityEdits?: readonly EntityEdit[];
   locked?: LockedLayer | null;
@@ -235,7 +243,7 @@ function sameModel(a: WaterModel, aEmitters: string, m: WaterModel, mEmitters = 
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
-  return sameRetained(a.retained, m.retained);
+  return sameKeptWater(a, m);
 }
 
 /** A built entity as a map object (for the water model and validation). */
@@ -610,7 +618,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    springs: a river that starts inland, a lake fed by a spring: a group of sources as the
   //    official maps have them (D314, water/sourceGroups.ts), a row across the flow at the river's
   //    head (its course's first step the flow) or round the lake's spring tile
-  const springs = new Map<string, GroupedSource[]>();
+  // (each row keeps its ids as it moves with the land: water/sourceGroups.ts `groupIds`, #172)
+  const springs = new Map<string, { sources: GroupedSource[]; ids: string[] }>();
   for (const f of features) {
     if (!live(f)) continue;
     let at: number | null = null;
@@ -629,9 +638,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       strength = "spring" in f.params.inflow ? f.params.inflow.spring : 0;
     }
     if (at === null || !(strength > 0)) continue;
-    const g = placeSourceGroup({ kind: "water", x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) }, { W, H, heights, occupied: reserved });
+    const req = { kind: "water" as const, x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) };
+    const g = placeSourceGroup(req, { W, H, heights, occupied: reserved });
     if (!g.sources.length) continue;
-    springs.set(f.id, g.sources);
+    springs.set(f.id, { sources: g.sources, ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
     for (const i of groupTiles(g)) reserved[i] = 1;
   }
   //    map objects (mine sites, relics, thorn belts, weirs, plugs, ...) take their tiles now, so the
@@ -807,11 +817,11 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   for (const f of features) {
     const group = springs.get(f.id);
     if (!group || (f.kind !== "river" && f.kind !== "lake")) continue;
-    for (const src of group) {
+    group.sources.forEach((src, k) => {
       const i = src.y * W + src.x;
       sources.push({ x: src.x, y: src.y, z: heights[i], strength: src.strength, owner: f.id, template: "WaterSource" });
-      entities.push(waterSource({ id: entityId(f.id, "WaterSource", i), owner: f.id, x: src.x, y: src.y, z: heights[i], strength: src.strength }));
-    }
+      entities.push(waterSource({ id: group.ids[k], owner: f.id, x: src.x, y: src.y, z: heights[i], strength: src.strength }));
+    });
   }
   //    set pieces add theirs (a waterfall's springs, badwater)
   for (const { feature, src } of pieceSources) {
@@ -898,10 +908,19 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // 10. the canonical water settle (PLAN §19.7), then soil moisture and contamination on it
   const objects = entities.map(toMapObject);
   const model = waterModel(W, H, heights, objects);
-  // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater)
-  const retained: RetainedWater[] = [];
-  for (const s of input.sculpts ?? []) if (isForce(s.params) && s.params.lake) retained.push(s.params.lake);
-  if (retained.length) model.retained = retained;
+  // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater), and so do the
+  // Fills; Remove unfed water drains its tiles: all in the order of their operations
+  const kept: (KeptWater & { seq: number })[] = [];
+  (input.sculpts ?? []).forEach((s, k) => {
+    if (isForce(s.params) && s.params.lake) kept.push({ seq: (s as { seq?: number }).seq ?? k, lake: s.params.lake });
+  });
+  if (input.waterEdits?.length) {
+    for (const w of input.waterEdits) kept.push("lake" in w.params ? { seq: w.seq, lake: w.params.lake } : { seq: w.seq, drain: w.params.tiles });
+    kept.sort((a, b) => a.seq - b.seq);
+  }
+  const keptWater = composeKept(kept);
+  if (keptWater.retained) model.retained = keptWater.retained;
+  if (keptWater.drained) model.drained = keptWater.drained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change

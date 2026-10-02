@@ -49,7 +49,14 @@ function heightSim(m: WaterModel, water: WaterState, out?: Float64Array): Sim {
     get ticks() { return sim.ticks; },
     run(n) { sim.run(n); }, volume() { return sim.volume(); },
     columns() { return { floor: sim.F, depth: sim.D, N: sim.N }; },
-    tileWater() { return tileWater(sim.F, sim.D, undefined, sim.N); },
+    tileWater() {
+      const depth = sim.D.slice(), floor = sim.F, surface = new Float64Array(sim.N);
+      for (let i = 0; i < sim.N; i++) {
+        depth[i] = 0 + depth[i]; // Preserve the original accumulator's normalization of negative zero.
+        surface[i] = depth[i] > 0 ? floor[i] + depth[i] : -Infinity;
+      }
+      return { depth, surface };
+    },
     force(f) {
       if (sim instanceof ResidentWater) sim.force(f.strengths, f.contamination);
       else for (let k = 0; k < sim.emitters.length; k++) {
@@ -287,7 +294,8 @@ export class SketchJob {
           this.storedTiles = [...this.reservoirMask.keys()].filter(i => this.reservoirMask![i]);
           if (!this.hasStoredWater()) this.firstDry = 0;
         }
-        this.sim.force(f); this.control.force(f);
+        // The supplied frame is constant. Reapplying identical forcing per tick only repeats FFI work.
+        if (this.inFrame === 0) { this.sim.force(f); this.control.force(f); }
         // One tick checks for exhaustion exactly; no inferred evaporation rate or drain estimate.
         this.sim.run(1); this.control.run(1); maxTicks--; this.inFrame++;
         if (f.kind === 'drought') {
@@ -304,6 +312,11 @@ export class SketchJob {
     return this.result();
   }
   private impoundedMask(): Uint8Array {
+    if (this.backend !== 'typescript-stacked') {
+      const depth = this.sim.columns().depth, mask = new Uint8Array(depth.length);
+      for (let i = 0; i < mask.length; i++) if (depth[i] > 0 && this.storageMask[i]) mask[i] = 1;
+      return mask;
+    }
     const water = this.sim.tileWater(), control = this.control.tileWater();
     const mask = new Uint8Array(water.depth.length);
     for (let i = 0; i < mask.length; i++) if (water.depth[i] > 0 &&
@@ -328,14 +341,15 @@ export class SketchJob {
       if (water.depth[i] > 0 && control.depth[i] === 0) newly.push(i);
       if (!mask[i] || seen[i]) continue;
       const tiles = [i]; seen[i] = 1; let volumeM3 = 0, lo = Infinity, hi = -Infinity;
+      const visit = (n: number) => { if (mask[n] && !seen[n]) { seen[n] = 1; tiles.push(n); } };
       for (let k = 0; k < tiles.length; k++) {
         const c = tiles[k], x = c % W, y = Math.floor(c / W);
         volumeM3 += water.depth[c];
         if (water.depth[c] > 0) { lo = Math.min(lo, water.surface[c]); hi = Math.max(hi, water.surface[c]); }
-        for (const n of [y > 0 ? c - W : -1, x > 0 ? c - 1 : -1,
-          y < this.map.model.H - 1 ? c + W : -1, x < W - 1 ? c + 1 : -1]) {
-          if (n >= 0 && mask[n] && !seen[n]) { seen[n] = 1; tiles.push(n); }
-        }
+        if (y > 0) visit(c - W);
+        if (x > 0) visit(c - 1);
+        if (y < this.map.model.H - 1) visit(c + W);
+        if (x < W - 1) visit(c + 1);
       }
       reservoir.push({ tiles, volumeM3, surfaceRange: lo < Infinity ? [lo, hi] : null });
     }
@@ -356,9 +370,10 @@ export class SketchJob {
       meaning: 'Water remains on the wall-impounded tiles. Hydrological persistence; no colony demand or pump reach inferred.'
     } : null;
     this.runtimeMs += performance.now() - t0;
+    const totalWaterM3 = this.sim.volume(), controlWaterM3 = this.control.volume();
     return { phase: this.phase, backend: this.backend, fill: { ...this.fill }, ticks: this.sim.ticks, wall: this.wall,
-      totalWaterM3: this.sim.volume(), controlWaterM3: this.control.volume(),
-      additionalWaterM3: this.sim.volume() - this.control.volume(), reservoir,
+      totalWaterM3, controlWaterM3,
+      additionalWaterM3: totalWaterM3 - controlWaterM3, reservoir,
       floods: { all, newly, start: this.map.startTiles.filter(i => wetAt(i, this.map.model.floor[i])),
         farmland: this.map.farmland ? all.filter(i => this.map.farmland![i] && wetAt(i, this.map.model.floor[i])) : null, objects },
       conflicts: this.conflicts, drought, runtimeMs: this.runtimeMs };

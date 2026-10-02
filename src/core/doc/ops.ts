@@ -27,6 +27,9 @@ import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { carveProblems, type CarveParams } from "../forces/carve/op";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
+import { fedTiles } from "../sim/fed";
+import { fillProblem } from "../sim/fill";
+import type { RetainedWater, WaterModel } from "../sim/water";
 import opsSchema from "./ops.schema.json" with { type: "json" };
 
 export type OpOrigin = "user" | "claude" | "fix";
@@ -61,6 +64,33 @@ export interface OpParams {
   setEntityProps: { id: string; components: Record<string, unknown>; quiet?: boolean };
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
+  /** Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, as
+   *  the core question found it (doc/water.ts `unfedWater`). */
+  removeUnfedWater: RemoveUnfedWaterParams;
+  /** Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source, stored
+   *  as a sealed oxbow lake's water is (D216; doc/water.ts `planFill`). */
+  fillHollow: FillHollowParams;
+}
+
+export interface RemoveUnfedWaterParams {
+  /** The tiles of the unfed bodies of water taken (y·W + x), ascending: once the water settles, the
+   *  water no source feeds on them is taken away (sim/water.ts WaterModel `drained`). */
+  tiles: number[];
+  /** Where it was asked: the selection's tiles as runs [y, x0, x1]; absent, the whole map. A body of
+   *  water with a tile inside goes whole. */
+  area?: Runs;
+  /** How many bodies of water (pools) it takes, for the history. */
+  pools?: number;
+}
+
+export interface FillHollowParams {
+  /** The tile the fill was asked at, [x, y]. */
+  at: [number, number];
+  /** The water's surface. */
+  level: number;
+  /** The hollow's water (its tiles ascending, their floors, depths to the level, clean), as a carve
+   *  stores its oxbow lake's: every settle starts the hollow from it. */
+  lake: RetainedWater;
 }
 
 export type OpName = keyof OpParams;
@@ -93,10 +123,11 @@ export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 /** Operations kept in the document's log and replayed on every generation. */
 export const LOG_OPS: readonly OpName[] = [
   "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
-  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope",
+  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
 ];
 export const ENTITY_OPS: readonly OpName[] = ["placeEntity", "moveEntity", "deleteEntities", "setEntityProps"];
 export const SLOPE_OPS: readonly OpName[] = ["pinSlope", "removeSlope"];
+export const WATER_OPS: readonly OpName[] = ["removeUnfedWater", "fillHollow"];
 
 export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
 /** A force's operation: the shared `forceResult`, or a `carve` of before it. */
@@ -104,6 +135,8 @@ export type ForceOp = AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "carve" || op.op === "forceResult";
 export type SlopeOp = AppliedOpOf<"pinSlope"> | AppliedOpOf<"removeSlope">;
 export type EntityOp = AppliedOpOf<"placeEntity"> | AppliedOpOf<"moveEntity"> | AppliedOpOf<"deleteEntities"> | AppliedOpOf<"setEntityProps">;
+/** An operation that changes only the water (D387 (2) and (3)). */
+export type WaterOp = AppliedOpOf<"removeUnfedWater"> | AppliedOpOf<"fillHollow">;
 
 /** The document's current state: the generation's features with the log applied. */
 export interface DocState {
@@ -111,10 +144,13 @@ export interface DocState {
   sculpts: SculptOp[];
   slopeEdits: SlopeOp[];
   entityEdits: EntityOp[];
+  /** Remove unfed water and Fill, in log order (the build makes the water model's stored water of
+   *  them and the forces' oxbow lakes, by `seq`). */
+  waterEdits: WaterOp[];
 }
 
 export function emptyState(features: readonly Feature[]): DocState {
-  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [] };
+  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [] };
 }
 
 // ----------------------------------------------------------------------------------- dependencies
@@ -272,6 +308,10 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "setEntityProps":
       state.entityEdits.push(op);
       return;
+    case "removeUnfedWater":
+    case "fillHollow":
+      state.waterEdits.push(op);
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
@@ -350,6 +390,10 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "setEntityProps":
       removeFromList(state.entityEdits, op.seq);
       return;
+    case "removeUnfedWater":
+    case "fillHollow":
+      removeFromList(state.waterEdits, op.seq);
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
@@ -390,6 +434,9 @@ export interface OpContext {
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
   placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  /** The map's water model and its settled water now: Remove unfed water and Fill are checked
+   *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
+  water?: { model: WaterModel; depth: ArrayLike<number> };
 }
 
 /** Kinds a player can add in this version. */
@@ -618,5 +665,59 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
+    case "removeUnfedWater": {
+      const p = op.params;
+      const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");
+      if (errors.length) return errors;
+      if (p.area) {
+        const e = runsProblems(p.area, W, H, "the selection");
+        if (e.length) return e;
+      }
+      if (ctx.water) {
+        const fed = fedTiles(ctx.water.model, ctx.water.depth);
+        const d = ctx.water.depth;
+        let fedCount = 0;
+        let unfed = 0;
+        for (const i of p.tiles) {
+          if (!(d[i] > 0)) continue;
+          if (fed[i]) fedCount++;
+          else unfed++;
+        }
+        if (fedCount) return [`${fedCount === 1 ? "one of those tiles holds" : `${fedCount} of those tiles hold`} water a source feeds: look again at what it would remove`];
+        if (!unfed) return ["no unfed water stands there"];
+      }
+      return [];
+    }
+    case "fillHollow": {
+      const p = op.params;
+      const [x, y] = p.at;
+      if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];
+      const l = p.lake;
+      if (l.floor.length !== l.tiles.length || l.depth.length !== l.tiles.length || l.contamination.length !== l.tiles.length) return ["the fill's tiles, floors, depths and contamination must match one for one"];
+      const errors = ascendingTiles(l.tiles, W, H, "the fill's tiles");
+      if (errors.length) return errors;
+      if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold (${x}, ${y}), where it was asked`];
+      for (let k = 0; k < l.tiles.length; k++) {
+        if (!(l.depth[k] > 0) || Math.abs(l.floor[k] + l.depth[k] - p.level) > 1e-9) return ["the fill's water must stand at its level on every tile"];
+        if (l.contamination[k] !== 0) return ["a fill is clean water"];
+      }
+      if (ctx.lockedColumns?.size) for (const i of l.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a fill leaves as it is`];
+      if (ctx.water) {
+        const why = fillProblem(ctx.water.model, p.at, p.level, l);
+        if (why) return [why];
+      }
+      return [];
+    }
   }
+}
+
+/** Tile indices on a W×H map, ascending, each once. */
+function ascendingTiles(tiles: readonly number[], W: number, H: number, what: string): string[] {
+  if (!tiles.length) return [`${what} are none`];
+  for (let k = 0; k < tiles.length; k++) {
+    const i = tiles[k];
+    if (!Number.isInteger(i) || i < 0 || i >= W * H) return [`${what}: ${i} is not a tile of the ${W}×${H} map`];
+    if (k > 0 && i <= tiles[k - 1]) return [`${what} must be ascending, each once`];
+  }
+  return [];
 }

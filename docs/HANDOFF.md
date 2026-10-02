@@ -26,7 +26,7 @@ backup before the first batch; and the local-only data: the decompiled game code
 official maps (`investigation/extract_builtin_maps.py`), Real places' land cache, and each investigation's gitignored
 `local/` folder (its report says how).
 
-## 2. The two sessions (D388)
+## 2. The three sessions (D388, D398)
 
 - **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
   the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns PLAN
@@ -36,7 +36,14 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
 - **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release item 3: moving
   water and the Flow view, then renderer R1. This session doesn't build them; it merges that PR when it is green and Kyler
-  says yes. Its gate is the smoothness harness (`investigation/performance`, #107, merged as an investigation).
+  says yes. Its gate is the smoothness harness (`investigation/performance`, #107, merged as an investigation), built into
+  a shared runner in `tools/smooth/` that every later force can use. It runs on Kyler's PC (Opus 5.5, high) and never edits
+  PLAN.md, STATUS.md or HANDOFF.md: when its PR merges, this session folds its decisions into PLAN §20, EDITOR_PLAN's view
+  section and STATUS. Its plan (Kyler's yes, 2026-10-02) changes `src/worker/session.ts` (WaterView gains an optional
+  per-wet-tile current; the Flow view's lanes are built in the worker after a settle) and `src/editor/waterPlayer.ts` /
+  `waterJourney.ts`: keep this session's changes there small, and tell Kyler before large ones. The water's bytes, when
+  it settles and the pinned digests don't change; High's surface-gradient flow estimate (pending #111) is replaced by the
+  simulation's current; the Rust water must keep exposing `out`.
 - **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler
   ([his message](archive/feedback/2026-10-02-two-sessions.md)).
 
@@ -109,7 +116,7 @@ round 2 lands.
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into `PLAN.md` §20 (the next is **D399**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into `PLAN.md` §20 (the next is **D416**) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

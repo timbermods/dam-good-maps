@@ -3,7 +3,9 @@
 // described here, on the map that holds it, and with the ground it stands on.
 
 import { describe, expect, it } from "vitest";
-import { describeObject, describeTile, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
+import { describeObject, describeTile, describeTileOf, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
+import { decodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
 import { footprintTiles } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -109,4 +111,75 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     expect(tileWords(describeTile(facts, 2, 1))).toBe("Badwater 2.0 deep, bed level 4");
     expect(tileWords(describeTile(facts, 1, 2))).toBe("Pine, grown; Ruin, 2 levels, 30 scrap metal · Height 4, moist soil");
   });
+
+  it("the description follows the water: re-asking after the water under a tile changes gives the new depth, with nothing else to refresh", async () => {
+    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    ed.setEditorWaterMode("defer");
+    ed.refine();
+    const s = MapSession.open(decodeProject(ed.project().bytes));
+    const b0 = s.built;
+    // dry, flat ground far from any water and anything standing
+    let at: [number, number] | null = null;
+    for (let y = 12; y < W - 12 && !at; y++)
+      for (let x = 12; x < W - 12 && !at; x++) {
+        const h0 = b0.heights[y * W + x];
+        let ok = h0 >= 5;
+        for (let yy = y - 6; yy <= y + 6 && ok; yy++) for (let xx = x - 6; xx <= x + 6 && ok; xx++) if (b0.water[yy * W + xx] > 0 || b0.channel[yy * W + xx]) ok = false;
+        for (let yy = y - 3; yy <= y + 3 && ok; yy++) for (let xx = x - 3; xx <= x + 3 && ok; xx++) if (b0.heights[yy * W + xx] !== h0) ok = false;
+        if (ok && b0.entities.some((e) => Math.abs(e.x - x) <= 5 && Math.abs(e.y - y) <= 5)) ok = false;
+        if (ok) at = [x, y];
+      }
+    expect(at).not.toBeNull();
+    const [x, y] = at!;
+    const i = y * W + x;
+    /** The description, checked against the session's own water arrays. */
+    const ask = () => {
+      const d = describeTileOf(s, x, y)!;
+      const depth = s.built.water[i];
+      if (depth > 0.001) {
+        expect(d.ground.water, "wet in the arrays, wet in the description").not.toBeNull();
+        expect(d.ground.water!.depth).toBe(depth);
+        expect(tileWords(d)).toMatch(/(Water|Badwater) [\d.]+ deep, bed level \d+$/);
+      } else {
+        expect(d.ground.water, "dry in the arrays, dry in the description").toBeNull();
+        expect(tileWords(d)).toMatch(/Height \d+/);
+      }
+      expect(d.ground.height).toBe(s.built.heights[i]);
+      return d;
+    };
+    expect(ask().ground.water).toBeNull();
+
+    // an edit: a source on the tile floods it
+    const SRC = "d3870000-0000-4000-8000-000000000001";
+    const source = { id: SRC, template: "WaterSource", x, y, orientation: "Cw0" as const, components: { WaterSource: { SpecifiedStrength: 4, CurrentStrength: 4 } } };
+    expect(s.apply({ op: "placeEntity", params: source }).errors).toEqual([]);
+    const wet = ask();
+    expect(wet.ground.water, "the source's tile is under water").not.toBeNull();
+    expect(wet.ground.water!.depth).toBeGreaterThan(0.001);
+
+    // another edit: the source goes again, and the tile is dry as it was
+    expect(s.apply({ op: "deleteEntities", params: { entities: [SRC] } }).errors).toEqual([]);
+    expect(ask().ground.water).toBeNull();
+
+    // the water settling, on the open session: between the two questions nothing changes but the settle
+    const depthIn = (tile: number) => {
+      const w = ed.sessionView().view.water;
+      let d = 0;
+      for (let k = 0; k < w.count; k++) if (w.tile[k] === tile && w.depth[k] > d) d = w.depth[k];
+      return d;
+    };
+    expect(ed.apply({ op: "placeEntity", params: source }).errors).toEqual([]);
+    const before = ed.describeTileAt(x, y)!;
+    ed.settleWater();
+    const after = ed.describeTileAt(x, y)!;
+    const settled = depthIn(i);
+    expect(settled).toBeGreaterThan(0.001);
+    expect(after.ground.water, "the settled water is reported").not.toBeNull();
+    expect(after.ground.water!.depth).toBeCloseTo(settled, 6);
+    expect(before.ground.water?.depth ?? 0, "the settle changed the answer").not.toBe(after.ground.water!.depth);
+    // the source removed and the water settled again: dry once more
+    expect(ed.apply({ op: "deleteEntities", params: { entities: [SRC] } }).errors).toEqual([]);
+    ed.settleWater();
+    expect(ed.describeTileAt(x, y)!.ground.water).toBeNull();
+  }, 120000);
 });
