@@ -62,7 +62,7 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 
 ## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
 
-1. **The water-changed signal** for the hover readout (D387 (1)): `feature/water-signal`, building. `describeTile` follows
+1. **The water-changed signal** for the hover readout (D387 (1)): on `dev` (#164): `readoutWater` and `readoutWaterChanged` in `src/core/doc/describeTile.ts`. `describeTile` follows
    the water (contract test #162).
 2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): `feature/editor-core`, building.
 3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix.
