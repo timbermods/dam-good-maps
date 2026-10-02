@@ -440,6 +440,13 @@ Make a valley, drop a source, and there's a river.
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
   it (D196).
+- **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
+  pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
+  what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
+  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
+  level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
+  with the page session (D388).
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. Clear water still reads as water (a faint blue tint, ripples, a
@@ -745,6 +752,18 @@ opened, are listed but never blamed on the player's edits and do not block its e
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222), so
     `water.settles` passes and the quiet dot settles once the rest of the water has; the water written is unchanged
     (`PLAN.md` §10, §11.3).
+  - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
+    water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
+    under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
+    `unfedWater(session, area?)` counts the unfed bodies holding water over 0.001 deep and builds the
+    `removeUnfedWater` operation, which stores their tiles as the water model's `drained`: once the canonical settle
+    has passed, the unfed water on them is taken and the settle runs on (at most a day), and the preview and the
+    carried-over water take it at once; fed water is never taken. `planFill(session, x, y, level)` builds the
+    `fillHollow` operation, a `RetainedWater` as a carve stores its oxbow lake, or a plain reason (it would spill
+    off the map, the level is at or below the ground); its `days` come from the game's evaporation
+    (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
+    takes the lakes before it; a later Fill keeps its water). A Fill over 0.5% of the map keeps the settle's own
+    test from passing, so the canonical settle runs to its cap (D222 runs on).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
