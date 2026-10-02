@@ -116,3 +116,22 @@ the branch's last one. To restore one: `git push origin <commit>:refs/heads/<bra
 | `release/map-look` | `70a251cc1a` |
 | `release/real-places` | `03874a6533` |
 | `feature/forces` | `e8a95dd637` |
+
+# Investigation branches deleted on 2026-10-02 (D390)
+
+Each branch below had no open PR, and every commit on it not reachable from `origin/dev` has an identical patch on
+`dev` (`git cherry origin/dev <branch>` lists only `-` lines): its work reached `dev` by cherry-pick, so deleting it
+lost no work. The commit is the branch's last one, in full; GitHub keeps unreferenced commits only for a while, so
+restore from `dev`'s copies of the patches if the commit is gone (`git push origin <commit>:refs/heads/<branch>`).
+
+| Branch | Last commit | Date | Last commit message |
+| --- | --- | --- | --- |
+| `investigation/3d-view` | `a65714fe4f724ad83fdd61a956fa1da0555ad623` | 2026-09-30 | Investigate 3D terrain views in High and Standard |
+| `investigation/collab-architecture` | `6861c0414e41d8d155f225e194b7d5bc370537b9` | 2026-09-30 | Investigate collaborative patches, claims, footprints and checkpoints |
+| `investigation/deposit` | `e06d4c2b8e4bbfb4832fcfc388b8320c2a6ba709` | 2026-09-30 | Make Deposit relief visible and adapt clicks to the terrain |
+| `investigation/determinism` | `f306fd495c713e19278c507686102b2c603cdef8` | 2026-09-30 | Investigate cross-browser map determinism and propose portable fixes |
+| `investigation/flow-arrows` | `5e3dc29ad1ef92853633cd91c8a08dd603e76729` | 2026-09-29 | Shape flow into sparse luminous lanes with surface foam and wakes |
+| `investigation/high-soul` | `427150ddb920f0d33fa1fb3c210db9f492b951c8` | 2026-09-29 | Refine High contamination, stone relief, clouds and channel waves |
+| `investigation/landslide` | `17978d26fe01e84e70b8b9b424c2be6fabdefc43` | 2026-09-29 | Add standalone Landslide force investigation |
+| `investigation/meander` | `0ce6785f896d0f08a1a764583b04f1f3f6697a60` | 2026-09-30 | Add standalone Meander river-aging investigation |
+| `investigation/rift` | `9cc478ec22d99fd80dc93bd18747b3e10a5324aa` | 2026-09-29 | Add standalone Rift fault-valley investigation |
