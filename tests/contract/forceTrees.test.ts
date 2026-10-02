@@ -44,7 +44,9 @@ describe("trees after the forces (D321, item 7)", () => {
     run({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 90 }, origin: [40, 40], cut: null });
     const s = run({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 90 }, origin: [60, 60], cut: null });
     const trees = s.built.entities.filter((e) => TREES.test(e.template));
-    expect(trees.length).toBeGreaterThan(50);
+    // (the crater takes most of the map's trees, and none grows back on its new ground: D368 (10),
+    // D404; enough stand to check)
+    expect(trees.length).toBeGreaterThan(20);
     for (const e of trees) expect(e.z, `${e.template} at ${e.x}, ${e.y}`).toBe(s.built.heights[e.y * W + e.x]);
     // the view draws each of them standing: no heading to lie along
     const view = ed.sessionView().view.entities!;
