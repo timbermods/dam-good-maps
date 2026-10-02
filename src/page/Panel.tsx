@@ -78,8 +78,8 @@ export function Panel(p: PanelProps) {
           <Chevron d="m14 6-6 6 6 6" />
         </button>
       </div>
-      <div class="segmented panel-switch" role="group" aria-label="Where the map comes from">
-        <button type="button" aria-pressed={true} title="Make a map from a seed and settings">
+      <div class="segmented panel-switch" role="tablist" aria-label="Where the map comes from">
+        <button type="button" role="tab" aria-selected={true} title="Make a map from a seed and settings">
           Generate
         </button>
         <a class="segment" href={PLACES_URL} title="Maps shaped from the land of real places">

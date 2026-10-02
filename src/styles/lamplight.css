@@ -152,7 +152,8 @@ body {
   font-size: 12.5px;
 }
 
-.workspace .segmented button[aria-pressed="true"] {
+.workspace .segmented button[aria-pressed="true"],
+.workspace .segmented button[aria-selected="true"] {
   background: var(--raised);
   color: var(--cream);
   box-shadow: 0 1px 0 rgba(255, 236, 200, 0.1) inset;
@@ -655,7 +656,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  width: min-content;
+  width: fit-content;
   max-width: calc(100% - var(--rows-left) - 380px);
   padding: 0 5px;
   pointer-events: auto;
@@ -676,14 +677,18 @@ body {
   border-top: 0;
 }
 
+/* the view bar alone sets the plate's width: the other lines wrap inside it and never widen it */
+.workspace .rows-plate > .map-bar:not(.view-row) {
+  contain: inline-size;
+}
+
 .workspace .rows-plate > .view-row {
-  flex-wrap: nowrap;
+  /* one line wherever it fits; where the window is too narrow for it (a ninth toggle at 1366 wide), a second */
+  flex-wrap: wrap;
   justify-content: flex-start;
   gap: 3px;
   min-height: 32px;
   padding: 3px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .workspace .view-row button {
