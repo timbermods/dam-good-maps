@@ -120,7 +120,7 @@ settings experiment 30 of 34 (below), the rest green.
   Kyler's installed mods): the M9b group, 23 maps (two per theme at 128², two chaos maps at 256², two
   Sources: None, D358's four slow-settling maps and Lake Basin 256² seed 24 fed gently by round 2).
   **142 checks passed, 0 failed**, 23 screenshot sets recorded; the restore clean (only Steam's
-  `steam_autocloud.vdf` files changed). Results in `C:\dgm-probeesults61002-1610-batch\`
+  `steam_autocloud.vdf` files changed). Results in `C:\dgm-probe\results\20261002-1610-batch\`
   (local; `summary.md`, `verdicts.json`). For STATUS and #57. Two runner fixes on the way: the in-game
   log's path after the prune (383c3442; `dev` has the same stale path), and a launch from this
   session's shell needs the per-user .NET 8 first on PATH (a first try, `20261002-1555-batch`, failed
