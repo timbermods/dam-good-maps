@@ -8,6 +8,7 @@
 // island is the mainland's own), nothing changes.
 
 import { edgeSpill } from "./levels";
+import * as portable from "../math/portable";
 
 const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -91,7 +92,7 @@ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: re
     const R = isle.r + 4;
     for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
       for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
-        const d = Math.hypot(x - cx, y - cy);
+        const d = portable.hypot(x - cx, y - cy);
         if (d <= 0.75 * isle.r && h[y * W + x] > S) core.push(y * W + x);
       }
     if (!core.length || !core.some((i) => lab[i] === main)) continue;
@@ -100,7 +101,7 @@ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: re
     for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
       for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
         const i = y * W + x;
-        const d = Math.hypot(x - cx, y - cy);
+        const d = portable.hypot(x - cx, y - cy);
         if (d <= 0.75 * isle.r || d > R || lab[i] !== main || keep?.[i] || h[i] > S + 2) continue;
         before.push([i, h[i]]);
         h[i] = cutTo;

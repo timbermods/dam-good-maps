@@ -439,7 +439,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
     for (let x = r; x < W - r; x += 2) {
       const i = y * W + x;
       // (60–120 tiles from the start's middle, as the site's plan measures it, or the band asked)
-      const e = Math.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
+      const e = portable.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
       if (e < band.lo || e > band.hi || b.water[i] > 0.05 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i]) continue;
       if (regions.size[regions.labels[i]] < DISTRICT_LAND || (ok && !ok(i))) continue;
       const p = pumpFor(h[i]);

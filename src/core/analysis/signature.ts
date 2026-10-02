@@ -19,6 +19,7 @@
 import type { Feature, RiverFeature } from "../features/schema";
 import { wetSystems } from "./story";
 import { polygonMask } from "../features/geometry";
+import * as portable from "../math/portable";
 
 export interface Signature {
   /** River Valley: the median width of the main river's valley floor, as a share of the side. */
@@ -59,7 +60,7 @@ function samples(r: RiverFeature, W: number, H: number): { x: number; y: number;
   for (let k = 0; k + 1 < p.length; k++) {
     const [ax, ay] = p[k];
     const [bx, by] = p[k + 1];
-    const L = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+    const L = portable.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
     if (L <= 0) continue;
     const n = Math.max(1, Math.ceil(L));
     for (let t = 0; t < n; t++) {

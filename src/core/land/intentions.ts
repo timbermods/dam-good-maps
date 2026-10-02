@@ -467,7 +467,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
             if (!b.n[k]) continue;
             const cx = (bx + 0.5) * b.B - 0.5 - x;
             const cy = (by + 0.5) * b.B - 0.5 - y;
-            const e = Math.sqrt(cx * cx + cy * cy);
+            const e = portable.sqrt(cx * cx + cy * cy);
             if (e < 12 || e > 60) continue;
             const dot = cx * ux + cy * uy;
             if (Math.abs(dot) < 3) continue;
@@ -786,8 +786,8 @@ function shapeOf(tiles: readonly number[], W: number): { axes: number } {
   d /= tiles.length;
   b /= tiles.length;
   const tr = (a + d) / 2;
-  const disc = Math.sqrt(((a - d) * (a - d)) / 4 + b * b);
-  return { axes: tr + disc > 0 ? Math.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 1 };
+  const disc = portable.sqrt(((a - d) * (a - d)) / 4 + b * b);
+  return { axes: tr + disc > 0 ? portable.sqrt(Math.max(0, tr - disc) / (tr + disc)) : 1 };
 }
 
 /** The falls of the settled water, grouped (tiles within 2 of each other): each group's tallest
@@ -820,7 +820,7 @@ function valleyWidth(c: FinalCtx, path: [number, number][]): number {
     const [x, y] = pts[k];
     const dx = pts[k + 3][0] - pts[k - 3][0];
     const dy = pts[k + 3][1] - pts[k - 3][1];
-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
     const i0 = Math.round(y) * W + Math.round(x);
     const surf = h[i0] + D[i0];
     let w = 0;
@@ -1515,7 +1515,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       const tall = groups.filter((g) => g.drop >= 3);
       for (let a = 0; a < tall.length; a++)
         for (let b = a + 1; b < tall.length; b++) {
-          const d = Math.sqrt((tall[a].x - tall[b].x) ** 2 + (tall[a].y - tall[b].y) ** 2);
+          const d = portable.sqrt((tall[a].x - tall[b].x) * (tall[a].x - tall[b].x) + (tall[a].y - tall[b].y) * (tall[a].y - tall[b].y));
           if (d < 4 || d > 15 || Math.abs(tall[a].top - tall[b].top) > 1) continue;
           if (nearestCourse(tall[a].x, tall[a].y) === nearestCourse(tall[b].x, tall[b].y)) continue;
           return { ok: true, note: `two falls of ${Math.round(tall[a].drop)} and ${Math.round(tall[b].drop)} levels, ${Math.round(d)} tiles apart`, say: `Two waterfalls of ${Math.round(tall[a].drop)} and ${levels(tall[b].drop)} pour side by side, ${Math.round(d)} tiles apart.` };
@@ -1622,7 +1622,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (c.moist[i] > 0 && C[i] < 0.05) s.farm++;
         }
         for (const t of trees) {
-          const e = Math.sqrt((t.x - sx) ** 2 + (t.y - sy) ** 2);
+          const e = portable.sqrt((t.x - sx) * (t.x - sx) + (t.y - sy) * (t.y - sy));
           if (e < 12 || e > 60) continue;
           const dot = (t.x - sx) * ux + (t.y - sy) * uy;
           if (Math.abs(dot) < 3) continue;
@@ -1690,7 +1690,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (!touches || L.surf < base + 0.5) continue;
           let held = 0;
           for (const i of L.tiles) held += Math.max(0, L.surf - Math.max(h[i], base));
-          const clear = z >= L.surf || Math.sqrt((o.x - sx) ** 2 + (o.y - sy) ** 2) > 25;
+          const clear = z >= L.surf || portable.sqrt((o.x - sx) * (o.x - sx) + (o.y - sy) * (o.y - sy)) > 25;
           if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: `A plug holds back ${an(L.tiles.length)} ${L.tiles.length}-tile lake: open it when you are ready.` };
         }
       }

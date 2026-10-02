@@ -402,7 +402,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // A few fed tributaries read better than many shallow fragments at large sizes.
   // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
   const headCap = g.theme === "riverValley" && !g.hydro.exactInflows ? (side >= 256 ? 5 : 4) : Infinity;
-  const maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * Math.pow(areaK, 0.75))) : Infinity;
+  const maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * portable.pow(areaK, 0.75))) : Infinity;
   const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
@@ -1084,7 +1084,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const vx = bx - ax;
         const vy = by - ay;
         const l2 = vx * vx + vy * vy;
-        const l = Math.sqrt(l2);
+        const l = portable.sqrt(l2);
         let u = l2 > 0 ? ((ex - ax) * vx + (ey - ay) * vy) / l2 : 0;
         u = u < 0 ? 0 : u > 1 ? 1 : u;
         const dx = ax + u * vx - ex;
@@ -1233,8 +1233,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const uy = b[1] - a[1];
       const vx = c[0] - b[0];
       const vy = c[1] - b[1];
-      const lu = Math.sqrt(ux * ux + uy * uy) || 1;
-      const lv = Math.sqrt(vx * vx + vy * vy) || 1;
+      const lu = portable.sqrt(ux * ux + uy * uy) || 1;
+      const lv = portable.sqrt(vx * vx + vy * vy) || 1;
       // (only where the bed stands a level or more above the map's bottom: the lake's floor lies a
       // level below the bed, and in a drought it keeps the water below its join)
       const jb = Math.min(m.n, Math.max(0, Math.round((k / (n - 1)) * m.n)));
@@ -1263,7 +1263,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const [px, py] = pts[k];
         const dx = pts[k + 3][0] - pts[k - 3][0];
         const dy = pts[k + 3][1] - pts[k - 3][1];
-        const l = Math.sqrt(dx * dx + dy * dy) || 1;
+        const l = portable.sqrt(dx * dx + dy * dy) || 1;
         const nx = (-dy / l) * out;
         const ny = (dx / l) * out;
         // its middle stands off the channel by its bank and a little more, its ends closer
@@ -1399,7 +1399,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const sgn = a % 2 === 0 ? 1 : -1;
       // (D350: apart in proportion to the map's side, as the root: at 256² the mouths 13–22 tiles
       // apart ran together at the edge, wider and wandering rivers there)
-      const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2)) * Math.sqrt(Math.max(1, Math.min(W, H) / 128));
+      const shift = sgn * (13 + 9 * rng.float()) * (1 + Math.floor(a / 2)) * portable.sqrt(Math.max(1, Math.min(W, H) / 128));
       const ex = alongEdge ? (e === "west" ? -1 : W) : clamp(end[0] + shift, 6, W - 7);
       const ey = alongEdge ? clamp(end[1] + shift, 6, H - 7) : e === "south" ? -1 : H;
       const mid: Point = [(p0[0] + ex) / 2 + (rng.float() - 0.5) * 6, (p0[1] + ey) / 2 + (rng.float() - 0.5) * 6];

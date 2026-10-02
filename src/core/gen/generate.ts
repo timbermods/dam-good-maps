@@ -609,7 +609,7 @@ function playFacts(r: GenerateResult): PlayFacts {
       if (!(b.soilContamination[i] > 0 || (b.water[i] > 0.05 && b.contamination[i] >= 0.05))) continue;
       const x = i % W;
       const y = (i - x) / W;
-      const d = Math.sqrt((x - b.start.x) ** 2 + (y - b.start.y) ** 2);
+      const d = portable.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
       if (d < best) {
         best = d;
         badwater = { x, y, distance: d };
@@ -768,7 +768,7 @@ function spreadWidth(h: Uint8Array, W: number, H: number, x: number, y: number, 
   const cx = Math.round(x);
   const cy = Math.round(y);
   if (cx < 0 || cy < 0 || cx >= W || cy >= H) return width;
-  const len = Math.hypot(vx, vy);
+  const len = portable.hypot(vx, vy);
   if (!(len > 0)) return width;
   const bed = h[cy * W + cx];
   const px = -vy / len;
@@ -2485,7 +2485,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
 }
 
 /** A generation's field as the document stores it (format 3). */
-export function fieldData(f: GeneratedField, W = Math.round(Math.sqrt(f.heights.length))): FieldData {
+export function fieldData(f: GeneratedField, W = Math.round(portable.sqrt(f.heights.length))): FieldData {
   const out: FieldData = { ...terrainData(f.heights), contains: [...f.contains].sort() };
   if (f.ramps?.length) out.ramps = f.ramps.flatMap(([a, b]) => [a, b]);
   if (f.top !== undefined) out.top = f.top;

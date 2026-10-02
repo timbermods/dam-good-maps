@@ -11,6 +11,7 @@
 import { hash32 } from "../math/hash";
 import { distanceFrom, MinHeap } from "../math/grid";
 import { fbm } from "../math/noise";
+import * as portable from "../math/portable";
 
 const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -241,7 +242,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
         const xx = rx + dx;
         const yy = ry + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const d = Math.hypot(dx, dy);
+        const d = portable.hypot(dx, dy);
         const t = bed + Math.max(0, Math.ceil(d - R));
         const j = yy * W + xx;
         if (d < nearD[j]) {

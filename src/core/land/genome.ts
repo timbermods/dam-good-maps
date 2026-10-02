@@ -538,7 +538,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
       inflows: Math.max(theme === "riverValley" ? 1 : 0, p.inflows[rng.int(0, p.inflows.length)]),
       // (M9b: more springs on a larger map, as the square root of its area: a 256² map had a 128²'s,
       // and most of its land lay far from water)
-      springs: Math.round(Math.max(0, d(p.springs)) * Math.max(1, Math.sqrt(areaK))),
+      springs: Math.round(Math.max(0, d(p.springs)) * Math.max(1, portable.sqrt(areaK))),
       flowMul: Math.max(0.8, d(p.flowMul)),
       lakeBudget: clamp(d(p.lakeBudget), 0.01, 0.45),
       split: p.split,
@@ -546,7 +546,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
       incise: Math.max(0, d(p.incise)) + 3 * v * v,
       // (M9b: a valley floor grows with the map, as the square root of its side: at 256² River
       // Valley's floor was a 128²'s, a narrow strip across a large map, and never kept its promise)
-      floor: Math.max(0, d(p.floor)) * Math.sqrt(Math.min(W, H) / 128),
+      floor: Math.max(0, d(p.floor)) * portable.sqrt(Math.min(W, H) / 128),
     },
     hazards: { badwater: (["none", "pit", "stream"] as const)[rng.weighted(p.badwater)], ratio: 0.3 + 0.7 * rng.float(), thorns: rng.float() < p.thorns },
     resources: {
@@ -644,8 +644,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const shrink = Math.max(0.75, 1 - 0.05 * attempt);
   // (D350: on a larger map fewer, larger islands, the same share of the land: count × area^0.3, size
   // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
-  const n = (k: number) => Math.max(1, Math.round(k * Math.pow(Math.max(1, areaK), 0.3)));
-  const isleK = Math.pow(Math.max(1, areaK), 0.35);
+  const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
+  const isleK = portable.pow(Math.max(1, areaK), 0.35);
   const isle = (at: [number, number], size: number, rise: number, depth: number, kind?: PartKind) => {
     const k: PartKind = kind ?? (rng.float() < 0.35 ? "cone" : "mesa");
     g.parts.push({ kind: k, at, size: size * isleK, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK, isle: true });
@@ -659,10 +659,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // elongated sea's islands stood on its shores, joined to the land), of mixed sizes
   const scatter = (cx: number, cy: number, R: number, count: number, depth: number, big = 0.1) => {
     const [tx, ty] = unit(seaShape.turn);
-    const sa = Math.sqrt(seaShape.aspect);
+    const sa = portable.sqrt(seaShape.aspect);
     for (let k = 0; k < count; k++) {
       const [vx, vy] = unit(rng.float());
-      const r = 0.85 * Math.sqrt(rng.float()) * R;
+      const r = 0.85 * portable.sqrt(rng.float()) * R;
       const a = vx * sa;
       const b = vy / sa;
       const ux = a * tx - b * ty;

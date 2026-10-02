@@ -93,7 +93,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
           const along = dx0 * bx + dy0 * by;
           const across = -dx0 * by + dy0 * bx;
           const lobes = 1 + a1 * sinDet(TWO_PI * (k1 * pseudoAngle(dx0, dy0) + p1));
-          const d = Math.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
+          const d = portable.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
           U[i] += p.height * bump(d) + p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45);
           if (p.soft > 0) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (p.size * 0.3 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
         });
@@ -105,8 +105,8 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const drawn = r.float();
       // (M9b: a sea layout may set the sea's aspect, as `extra`)
       const aspect = sea ? (p.extra > 0 ? p.extra : 1 + 0.4 * drawn) : 1.6 + 1.8 * drawn;
-      const major = p.size * Math.sqrt(aspect);
-      const minor = p.size / Math.sqrt(aspect);
+      const major = p.size * portable.sqrt(aspect);
+      const minor = p.size / portable.sqrt(aspect);
       const bend = sea ? 0 : (r.float() * 2 - 1) * 0.6;
       const cell = Math.max(5, p.size * 0.32);
       const arms: { ax: number; ay: number; bx: number; by: number; w: number }[] = [];
@@ -169,7 +169,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const t = pseudoAngle(dx0, dy0);
         const lobes = 1 + a1 * sinDet(TWO_PI * (k1 * t + p1)) + a2 * sinDet(TWO_PI * (k2 * t + p2));
         const r = p.size * lobes * (1 + 0.22 * fbm(s, x, y, 12, 2));
-        const d = Math.sqrt((along / stretch) * (along / stretch) + across * across);
+        const d = portable.sqrt((along / stretch) * (along / stretch) + across * across);
         const ring = bump(Math.abs(d - r) / (p.soft * (3.2 + 1.0 * fbm(s + 2, x, y, 10, 2))));
         const inside = d < r ? smoothstep((r - d) / 5) : 0;
         U[i] += p.height * (0.65 + 0.35 * (fbm(s + 3, x, y, 8, 2) + 1)) * ring - (p.height + 1.5) * inside;

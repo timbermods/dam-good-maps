@@ -9,6 +9,7 @@ import { stream } from '../math/rng';
 import { sinDet } from '../math/detmath';
 import { distanceFrom } from '../math/grid';
 import { straightness, STRAIGHT_LIMITS } from '../analysis/straight';
+import * as portable from "../math/portable";
 
 const TWO_PI = 6.283185307179586;
 const smooth = (v: number) => { const t = Math.max(0, Math.min(1, v)); return t * t * (3 - 2 * t); };
@@ -75,9 +76,9 @@ function shapeDeltaHydro(h: Uint8Array, g: Genome, seed: number, W: number, H: n
     const turn = (pt: Point): Point => orientXY(pt[0], pt[1], W, H, o);
     const edge = (u: number): Edge => { const [x, y] = turn([u * (W - 1), p.centre * (H - 1)]); return x < 0 ? 'west' : x > W - 1 ? 'east' : y < 0 ? 'south' : 'north'; };
     const water = new Uint8Array(W * H), arms: Hydro['arms'] = [];
-    const side = Math.min(W, H), width = Math.min(8.8, 5.5 * Math.sqrt(side / 96));
+    const side = Math.min(W, H), width = Math.min(8.8, 5.5 * portable.sqrt(side / 96));
     // Sufficient head for all arms, with room below one-level floodplain banks.
-    const flow = Math.min(9, 7.5 * Math.sqrt(side / 96)) * Math.max(.8, Math.min(1.15, g.hydro.flowMul / 2));
+    const flow = Math.min(9, 7.5 * portable.sqrt(side / 96)) * Math.max(.8, Math.min(1.15, g.hydro.flowMul / 2));
     const path: Point[] = [];
     for (let k = -1; k <= W; k++)
         path.push(turn(canonical(k / (W - 1))));
@@ -85,7 +86,7 @@ function shapeDeltaHydro(h: Uint8Array, g: Genome, seed: number, W: number, H: n
     const steps: RiverFeature['params']['bedProfile']['steps'] = [];
     let length = 0, lastBed = 7;
     for (let k = 1; k < path.length; k++) {
-        length += Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+        length += portable.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
         const u = (k - 1) / (W - 1), bed = bedFor(u);
         if (bed < lastBed) {
             steps.push({ at: length, drop: lastBed - bed });
@@ -98,14 +99,14 @@ function shapeDeltaHydro(h: Uint8Array, g: Genome, seed: number, W: number, H: n
     const carve = (pts: Point[], w: number, from = -1 / (W - 1), to = W / (W - 1)) => {
         for (let k = 0; k + 1 < pts.length; k++) {
             const [ax, ay] = pts[k], [bx, by] = pts[k + 1];
-            const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) * 2));
+            const n = Math.max(1, Math.ceil(portable.hypot(bx - ax, by - ay) * 2));
             for (let q = 0; q <= n; q++) {
                 const t = q / n, cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t;
                 const u = from + (to - from) * (k + t) / (pts.length - 1), bed = bedFor(u);
                 const half = w * .5 * (1 + .36 * sinDet(u * (W - 1) / (10 + pose % 5) * TWO_PI + p.phase) + .09 * sinDet(u * (W - 1) / 7 * TWO_PI + p.phase * .3));
                 for (let y = Math.max(0, Math.floor(cy - half)); y <= Math.min(H - 1, Math.ceil(cy + half)); y++)
                     for (let x = Math.max(0, Math.floor(cx - half)); x <= Math.min(W - 1, Math.ceil(cx + half)); x++) {
-                        if ((x - cx) ** 2 + (y - cy) ** 2 > half * half)
+                        if ((x - cx) * (x - cx) + (y - cy) * (y - cy) > half * half)
                             continue;
                         const i = y * W + x;
                         h[i] = water[i] ? Math.min(h[i], bed) : bed;

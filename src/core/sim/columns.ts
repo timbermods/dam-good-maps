@@ -58,7 +58,7 @@ export function masksToVoxels(t: VoxelMasks, layers = TERRAIN_LAYERS): Uint8Arra
 export function heightMasks(W: number, H: number, heights: ArrayLike<number>): VoxelMasks {
   const N = W * H;
   const mask = new Uint32Array(N);
-  for (let i = 0; i < N; i++) mask[i] = 2 ** Math.min(TERRAIN_LAYERS, Math.max(0, heights[i])) - 1;
+  for (let i = 0; i < N; i++) mask[i] = (1 << Math.min(TERRAIN_LAYERS, Math.max(0, heights[i]))) - 1;
   return { W, H, mask };
 }
 

@@ -15,6 +15,7 @@ import { orientXY } from '../land/orient';
 import { unit } from '../land/num';
 import { blockedCourses } from '../land/courses';
 import { makeSpec, type MapSpec } from '../spec/mapspec';
+import * as portable from "../math/portable";
 
 const TWO_PI = 6.283185307179586;
 
@@ -64,7 +65,7 @@ export function islandStage(g: Genome, seed: number, W: number, H: number, attem
     for(const p of isles) {
       const dx=x-p.x,dy=y-p.y;
       const a=dx*p.ux+dy*p.uy,b=-dx*p.uy+dy*p.ux;
-      if(Math.sqrt((a/(p.rx+rx+gap))**2+(b/(p.ry+rx+gap))**2)<1.12) {clear=false;break;}
+      if(portable.sqrt((a/(p.rx+rx+gap)) * (a/(p.rx+rx+gap))+(b/(p.ry+rx+gap)) * (b/(p.ry+rx+gap)))<1.12) {clear=false;break;}
     }
     if(clear) isles.push({x,y,rx,ry,ux:ax,uy:ay,key:hash32(key,'isle',draw),high:7+Math.floor(rng.float()*5)});
   }
@@ -75,7 +76,7 @@ export function islandStage(g: Genome, seed: number, W: number, H: number, attem
     const edge=Math.min(x,W-1-x,y,H-1-y);
     const coast=Math.max(3,side*(0.008+0.006*(fbm(key+1,x,y,side*0.16,2)+1)));
     let L=edge<coast?5:edge<coast+2?4:3;
-    const headland=Math.sqrt((x/(0.29*side))**2+(y/(0.27*side))**2)/(1+0.12*fbm(key+31,x,y,12,2));
+    const headland=portable.sqrt((x/(0.29*side)) * (x/(0.29*side))+(y/(0.27*side)) * (y/(0.27*side)))/(1+0.12*fbm(key+31,x,y,12,2));
     if(headland<1.10) L=Math.max(L,headland<0.94?6:headland<1?5:4);
     for(let k=0;k<isles.length;k++) {
       const p=isles[k];
@@ -83,7 +84,7 @@ export function islandStage(g: Genome, seed: number, W: number, H: number, attem
       const dy=y-p.y+0.22*p.ry*fbm(p.key+3,x,y,Math.max(6,p.ry*0.8),2);
       const a=(dx*p.ux+dy*p.uy)/p.rx,b=(-dx*p.uy+dy*p.ux)/p.ry;
       const wiggle=1+0.18*fbm(p.key,x,y,Math.max(7,p.rx*0.7),3)+0.08*fbm(p.key+1,x,y,Math.max(4,p.rx*0.22),2);
-      const d=Math.sqrt(a*a+b*b)/wiggle;
+      const d=portable.sqrt(a*a+b*b)/wiggle;
       if(k===0) {
         const [ox,oy]=orientXY(x,y,W,H,o),j=oy*W+ox;
         mainDistance[j]=d;
@@ -97,7 +98,7 @@ export function islandStage(g: Genome, seed: number, W: number, H: number, attem
         const spine=(0.47-d)+0.12*fbm(p.key+9,x,y,Math.max(5,p.rx*0.4),2)+0.13*a;
         if(spine>0) L=Math.max(L,Math.min(p.high,6+Math.floor(spine*(p.high-5)*3)));
         if(k===1) {
-          const stack=Math.sqrt(((a-0.12)*p.rx)**2+((b+0.05)*p.ry)**2);
+          const stack=portable.sqrt(((a-0.12)*p.rx) * ((a-0.12)*p.rx)+((b+0.05)*p.ry) * ((b+0.05)*p.ry));
           const reach=3.5+1.1*fbm(p.key+33,x,y,4,2);
           if(stack<reach) L=Math.max(L,Math.min(Math.floor(g.top),14));
         }

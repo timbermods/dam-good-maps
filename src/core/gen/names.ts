@@ -14,6 +14,7 @@ import { INTENTION_TEXT } from "../land/intentions";
 import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
 import type { ThemeId } from "../spec/mapspec";
+import * as portable from "../math/portable";
 
 /** Titles per standout, five each (two maps of one standout seldom share one); `{land}` is the
  *  land's noun. */
@@ -119,7 +120,7 @@ function compass(ax: number, ay: number, bx: number, by: number): string {
 export function playHint(f: PlayFacts): string {
   if (f.start && f.startDrought === false) return "The start's water runs low in the first drought: store some early.";
   if (f.start && f.bestDam && f.bestDam.volume >= 300) {
-    const d = Math.round(Math.sqrt((f.bestDam.x - f.start.x) ** 2 + (f.bestDam.y - f.start.y) ** 2));
+    const d = Math.round(portable.sqrt((f.bestDam.x - f.start.x) * (f.bestDam.x - f.start.x) + (f.bestDam.y - f.start.y) * (f.bestDam.y - f.start.y)));
     const len = f.bestDam.length;
     const article = String(len).startsWith("8") || len === 11 || len === 18 ? "An" : "A";
     const held = String(Math.round(f.bestDam.volume / 100) * 100).replace(/\B(?=(\d{3})+(?!\d))/g, ",");

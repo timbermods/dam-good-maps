@@ -111,7 +111,7 @@ export function straightStretch(tiles: readonly number[], W: number): number {
     for (let b = a + best; b < n; b++) {
       const vx = px[b] - px[a];
       const vy = py[b] - py[a];
-      const l = Math.sqrt(vx * vx + vy * vy);
+      const l = portable.sqrt(vx * vx + vy * vy);
       if (!(l > 0)) continue;
       let ok = true;
       for (let k = a + 1; k < b && ok; k++) if (Math.abs((px[k] - px[a]) * vy - (py[k] - py[a]) * vx) / l > 0.75) ok = false;
@@ -175,7 +175,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       let s = 0;
       const reach = r.params.width / 2 + 1.5;
       for (let k = p.length - 1; k >= 0 && s <= lastStretch; k--) {
-        if (k < p.length - 1) s += Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
+        if (k < p.length - 1) s += portable.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
         const [px, py] = p[k];
         for (let y = Math.max(0, Math.floor(py - reach)); y <= Math.min(H - 1, Math.ceil(py + reach)); y++)
           for (let x = Math.max(0, Math.floor(px - reach)); x <= Math.min(W - 1, Math.ceil(px + reach)); x++) if ((x - px) * (x - px) + (y - py) * (y - py) <= reach * reach) exitEnd[y * W + x] = 1;
@@ -321,7 +321,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         gx -= dx * hh[y * W + x];
         gy -= dy * hh[y * W + x];
       }
-    const gl = Math.sqrt(gx * gx + gy * gy);
+    const gl = portable.sqrt(gx * gx + gy * gy);
     const fx = gl > 0 ? gx / gl : 1;
     const fy = gl > 0 ? gy / gl : 0;
     const elong = 1.5 + 0.6 * rng.float();
@@ -335,7 +335,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         // ground, 1.5–2.1 times as long as wide, so the soil it stains runs down toward its ditch)
         const along = (x - cx) * fx + (y - cy) * fy;
         const across = -(x - cx) * fy + (y - cy) * fx;
-        const e = Math.sqrt((along / elong) * (along / elong) + across * across * elong * 0.5);
+        const e = portable.sqrt((along / elong) * (along / elong) + across * across * elong * 0.5);
         if (inCore || e < r0 * (1 + 0.35 * fbm(s, x, y, 4, 2))) pit[y * W + x] = 1;
       }
     // the ditch: from the pit's edge to a river channel (not the start's reach) or the map edge

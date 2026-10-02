@@ -105,7 +105,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
             }
           }
           const idx = y * W + x;
-          d[idx] = Math.sqrt(best);
+          d[idx] = portable.sqrt(best);
           s[idx] = bestS;
           side[idx] = bestSide;
         }

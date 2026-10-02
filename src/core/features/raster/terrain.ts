@@ -14,6 +14,7 @@ import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 import { wantedCount } from "../../water/sourceGroups";
+import * as portable from "../../math/portable";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -275,7 +276,7 @@ export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
       const dd = px * px + py * py;
       if (dd < best) best = dd;
     }
-    return Math.sqrt(best) < half;
+    return portable.sqrt(best) < half;
   });
 }
 

@@ -8,6 +8,7 @@
 // banks hold is no sheet, and a river in its channel is none.
 
 import type { Hydro } from "./hydro";
+import * as portable from "../math/portable";
 
 /** The most of the map a shallow sheet may cover (D372: about 5%). */
 export const SHEET_MOST = 0.05;
@@ -38,7 +39,7 @@ export function shallowSheet(h: ArrayLike<number>, W: number, H: number, hy: Pic
   hy.lakes.forEach((lk, k) => {
     const r = hy.rivers.find((x) => x.id === lk.river);
     const width = r ? Math.max(1, r.params.width) : 3;
-    const level = lk.outletBed + Math.max(LAKE_TOP, 0.44 * Math.sqrt(flowInto(lk.river) / width / 0.82));
+    const level = lk.outletBed + Math.max(LAKE_TOP, 0.44 * portable.sqrt(flowInto(lk.river) / width / 0.82));
     let head = 0;
     let tail = 0;
     let shallow = 0;
@@ -93,7 +94,7 @@ export function lakeRise(hy: Pick<Hydro, "lakes" | "rivers">): number {
     const r = hy.rivers.find((x) => x.id === lk.river);
     const q = total(lk.river);
     if (!r || !(q > 0)) continue;
-    const d = 0.44 * Math.sqrt(q / Math.max(1, r.params.width) / 0.82);
+    const d = 0.44 * portable.sqrt(q / Math.max(1, r.params.width) / 0.82);
     const t = (lk.tiles.length * d) / q;
     if (t > most) most = t;
   }

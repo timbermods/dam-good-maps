@@ -21,6 +21,7 @@ import type { Hydro } from "../land/hydro";
 import { distanceFrom, levelRegions, MinHeap } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
+import * as portable from "../math/portable";
 
 const N4: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -529,7 +530,7 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
             const yy = y + dy;
             if (dx * dx + dy * dy <= 64 && xx >= 0 && yy >= 0 && xx < W && yy < H && h[yy * W + xx] === L) bench++;
           }
-        const near = opts.near ? Math.hypot(x - opts.near.x, y - opts.near.y) : 0;
+        const near = opts.near ? portable.hypot(x - opts.near.x, y - opts.near.y) : 0;
         const score = Math.min(1, bench / 150) + Math.min(1, foot / (0.2 * N)) - 0.02 * Math.min(40, dWet[i]) - 0.002 * near;
         if (score > bestScore) {
           bestScore = score;

@@ -15,6 +15,7 @@ import { landRegions } from "../analysis/regions";
 import { distanceFrom } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
+import * as portable from "../math/portable";
 
 /** A mine site's square: its footprint (5×5) and the ring round it, all at one level. */
 const SIDE = 7;
@@ -249,7 +250,7 @@ export function minePads(h: Uint8Array, W: number, H: number, opts: SiteOptions 
         if (x < 0 || y < 0 || x >= W || y >= H) continue;
         const j = y * W + x;
         if (h[j] !== cand.L + 1 || padBlocked[j]) continue;
-        const d = Math.hypot(dx, dy);
+        const d = portable.hypot(dx, dy);
         const edge = PAD_R + 0.9 * (fbm(ns, x, y, 3, 2) + 1);
         if (d > PAD_R && (d > edge || land[j] !== root)) continue;
         // (a tile off the square beside ground two levels over the pad stays: taken down, it would
