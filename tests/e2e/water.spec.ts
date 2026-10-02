@@ -1,26 +1,23 @@
-// M2 in the page: the settled water, its layers, the map card's water facts, and the download
-// without pre-filled water. Also logs the browser's generation time at 256², for the water budget
+// M2 in the page: the settled water and the checks that read it (the dot beside Save). Also logs the browser's generation time at 256², for the water budget
 // recorded in PLAN §10.
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 import { encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
-test("the map card shows the water facts, the layers toggle, and both water variants download", async ({ page }) => {
+test("the page settles the water, its checks pass, and no dam site is shown", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=4242&z=128&d=n&t=riverValley");
+  await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
   // (water storage near the start is information since generator 0.7.0, #67: the map may pass with
-  // warnings; and no dam site on the card or the map, D287)
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
+  // warnings; and no dam site on the map, D287)
+  await expect(page.getByText("Water settled")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Best dam site", { exact: true })).toHaveCount(0);
-  for (const layer of ["Moist soil", "Contaminated soil", "Walkable from start", "Feature outlines"]) await page.getByLabel(layer, { exact: true }).check();
-  await page.getByLabel("Water", { exact: true }).uncheck();
-  await page.getByText(/checks passed/).click();
-  await expect(page.getByText(/^Start and resources/)).toBeVisible();
-  await expect(page.getByText(/plants\.drought/)).toBeVisible();
-  const empty = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Without pre-filled water" }).click();
-  expect((await empty).suggestedFilename()).toBe("dgm-river-valley-4242-empty-water.timber");
+  const dot = page.getByRole("button", { name: /^Checks:/ });
+  await expect(dot).toHaveAccessibleName(/^Checks: Ready to play/, { timeout: 60_000 });
+  await dot.click();
+  await expect(page.getByRole("region", { name: "Checks" })).toContainText(/All \d+ checks pass/);
+  expect((await page.evaluate(() => window.dgm!.current!()))!.passed).toBe(true);
   expect(errors).toEqual([]);
 });
 

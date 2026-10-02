@@ -1,9 +1,10 @@
-// ROADMAP M4 acceptance, as D336 has it: generate → refine → back to settings → Generate makes a
-// new map, and the edited one stays one step away with its edits, through the page itself. Also: the editor's tools, the start dragged on the map,
-// undo and redo, the history, export from both screens, and the autosave after a reload.
+// ROADMAP M4 acceptance, as D336 and D330 have it: the page opens a generated map in the editor at once;
+// Generate over an edited map asks first, and Cancel keeps it with its edits, through the page itself. Also:
+// the editor's tools, the start dragged on the map, undo and redo, the history, the export and the autosave
+// on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, waitForEditor } from "./open";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -18,18 +19,14 @@ async function drag(page: Page, from: [number, number], to: [number, number]) {
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 
-test("generate → refine → back to settings → Generate → back to editing keeps the player's edits", async ({ page }) => {
+test("open → edit → Generate asks first and Cancel keeps the player's edits → the autosave brings them back", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
   // river's outlet, and the spring below floods it, halving the land it walks to: the checks then
   // warn of its berries and wood, rightly)
-  await page.goto("./#s=4244&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-
-  // refine: the editor opens the generated map in 3D
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  // the editor opens the generated map in 3D at once
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
   await expect(page.getByRole("heading", { name: "River Valley" })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Top-down" }).click();
@@ -112,24 +109,17 @@ test("generate → refine → back to settings → Generate → back to editing 
   expect((await download).suggestedFilename()).toBe("dgm-river-valley-4244.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
-  // back to settings: the card shows the edited map; change a setting and generate: a new map
-  // (edits never replay onto new land, D336)
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Back to settings" }).click();
-  await expect(page.getByText("Generate makes a new map. Yours stays saved, with its edits.")).toBeVisible({ timeout: 60_000 });
-  // export from the settings page too (the edited map)
-  await page.getByRole("button", { name: /^Export dgm-river-valley/ }).click();
-  await expect(page.getByRole("dialog").getByText(/checks pass|Warnings/)).toBeVisible({ timeout: 60_000 });
-  await page.keyboard.press("Escape");
-  await page.locator("summary", { hasText: /^Resources$/ }).click();
-  await page.getByLabel("Grove size").selectOption("bigWoods");
-  await page.getByRole("button", { name: /^Generate/ }).click();
-  await expect(page.getByText(/New map from these settings/)).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByRole("button", { name: /^Generate/ })).toBeEnabled({ timeout: 120_000 });
+  // Generate over the edited map asks first, and Cancel keeps the map exactly as it was (edits never replay
+  // onto new land, D336; a new map would need "Close it")
+  await page.getByRole("button", { name: "Resources", exact: true }).click();
+  await page.getByRole("dialog", { name: "Resources settings" }).getByLabel("Grove size").selectOption("bigWoods");
+  await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
+  const ask = page.getByRole("alertdialog");
+  await expect(ask).toContainText("closes River Valley and its 3 edits");
+  await ask.getByRole("button", { name: "Cancel" }).click();
+  await expect(ask).toHaveCount(0);
 
-  // back to editing: the edited map as it was, its edits all there
-  await page.getByRole("status").filter({ hasText: /You're editing/ }).getByRole("button", { name: "Back to editing" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
+  // the edited map as it was, its edits all there
   i = await info(page);
   expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
   expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
@@ -139,10 +129,11 @@ test("generate → refine → back to settings → Generate → back to editing 
   expect(await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered)).toBeLessThan(ground);
   expect(await springs()).toBe(1);
 
-  // the autosave: a reload in the editor opens the same map with its edits
+  // the autosave: the next visit (no link in the address) opens the same map with its edits
   await page.waitForTimeout(2500);
-  await page.reload();
-  await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 60_000 });
+  await page.goto("about:blank");
+  await page.goto("./");
+  await waitForEditor(page);
   const again = await info(page);
   expect(again.history.length).toBe(3); // a reopened document's history starts at its generation
   expect(again.edits).toBe(3);

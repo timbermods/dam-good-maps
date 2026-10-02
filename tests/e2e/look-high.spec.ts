@@ -8,6 +8,7 @@
 // (software frames are slow) until a test reports them slow.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, waitForEditor } from "./open";
 
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -22,10 +23,7 @@ async function open(page: Page, errors: string[]): Promise<void> {
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 }
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
@@ -60,9 +58,7 @@ test("High is the default where it can be drawn, and the look's menu switches it
   // a new page keeps the choice
   await menu.getByRole("radio", { name: /^Standard/ }).check();
   await page.reload();
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await waitForEditor(page);
   expect(await look(page)).toBe("standard");
   // (no shader failed to compile, nothing threw)
   expect(errors).toEqual([]);
@@ -166,9 +162,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   await expect(page.getByRole("group", { name: "Look" })).toContainText("High was too slow on this computer");
   // the next page starts in Standard on this computer
   await page.reload();
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await waitForEditor(page);
   expect(await look(page)).toBe("standard");
   // choosing Automatic again gives High another try
   await page.getByRole("button", { name: "Look: Standard" }).click();
@@ -249,10 +243,7 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=3&z=128&d=n&t=lakeBasin");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=3&z=128&d=n&t=lakeBasin");
   const depths = await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     r.setLookChoice("high", false);
