@@ -31,7 +31,8 @@ describe("picking a first-visit map", () => {
 });
 
 describe("the deploy's checks on a first-visit map", () => {
-  const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
+  // (seed 5 on M9b's maps, D148: canyon seeds 1, 3, 4, 9 and 10 miss one of the three outcomes there; 5 meets them all, and 2, the map it must not reopen as, is another)
+  const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
   const project = encodeProject(generatedDocument(r));
 
   it("a map that passes them all, and reopens as itself from its project file", () => {

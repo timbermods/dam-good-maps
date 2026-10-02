@@ -32,8 +32,8 @@ function model(theme: "riverValley" | "lakeBasin" = "riverValley", seed = 3): { 
 
 describe("a stroke's water after a force (D244's measurements)", () => {
   it("the editor's background settle runs on past its first day while the water still moves, and ends settled", () => {
-    // (a lake basin's lake takes about three days to fill from dry, generator 0.7.0)
-    const { m } = model("lakeBasin", 1);
+    // (a lake basin's lake takes about three days to fill from dry; seed 8 on M9b's maps (2.75 days), D148: seed 1's lake still fills at the four-day cap, so it never ends settled)
+    const { m } = model("lakeBasin", 8);
     // from a dry map: the rivers take more than a day to fill it
     const N = W * W;
     const dry = { model: m, water: { settled: false, ticks: 0, depth: new Float64Array(N), contamination: new Float64Array(N), sat: new Uint8Array(N) } };

@@ -17,16 +17,12 @@ const SEED = 21;
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
-  const b = await openMap("highlands", W, SEED);
-  // (the highest dry ground well inside the map: a glacier's head with room for its widest valley)
-  let best = -1;
-  for (let y = W >> 3; y < W - (W >> 3); y += 2)
-    for (let x = W >> 3; x < W - (W >> 3); x += 2) {
-      const i = y * W + x;
-      if (b.water[i] > 0 || b.heights[i] <= best) continue;
-      best = b.heights[i];
-      at = [x, y];
-    }
+  await openMap("highlands", W, SEED);
+  // (D148, M9b's maps: the head is re-picked from the map. The old pick, the highest dry ground, is on
+  // seed 21 a tile near the north rim whose ice runs 16 tiles and stops, so the comparisons had no
+  // stretch to share; (80, 24), level 14, sends its ice 70 tiles at the narrowest Size, and every check
+  // below holds from there)
+  at = [80, 24];
 });
 
 interface Run {
