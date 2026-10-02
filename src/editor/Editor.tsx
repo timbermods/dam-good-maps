@@ -9,16 +9,16 @@
 // every edit the instant checks come back with it; the problems it made are shown at once with
 // their fixes.
 
-import { proxy, type Remote } from "comlink";
+import type { Remote } from "comlink";
 import { useEffect, useRef } from "preact/hooks";
-import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
+import { canSaveToTimberborn } from "../platform";
 import type { TileHit } from "../render3d";
 import { View3D } from "../ui/View3D";
 import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
-import type { CheckProgress, SessionInfo, SessionOpen } from "../worker/session";
+import type { SessionInfo, SessionOpen } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords } from "../core/doc/describeTile";
-import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, type LayerKind } from "./panels";
+import { HistoryPanel, LayerLegend, LAYER_NAMES, StartIndicators, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
 import { FirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
@@ -48,6 +48,7 @@ import { useViewSync } from "./view/useViewSync";
 import { useStart } from "./start/useStart";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
+import { useSave } from "./save/useSave";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -60,9 +61,6 @@ export interface EditorProps {
   onOpenFile(file: File): void;
   saveState: string;
 }
-
-/** What the editor says once the map's last badwater spring is gone (D213). */
-const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
 
 /** The overlays' words on their view buttons. */
 const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
@@ -132,60 +130,20 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useStart(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
+  Object.assign(ed, useSave(ed));
 
   const {
-    api, info, view, mirror, renderer, ready, tool, shelf, icons, startDrag, busy, setMessage, message, setHover,
+    api, info, view, mirror, renderer, ready, tool, shelf, icons, startDrag, busy, message, setMessage, setHover,
     hover, showHistory, setShowHistory, check, progress, layer, setLayer, waterLayers, waterTick, flowing,
     clearWater, setClearWater, sliceLevel, selecting, selectingRef, selection, setHoverObject, player, sound,
-    setSound, weather, instant, firstRun, setFirstRun, minimap, setMinimap, setDotOpen, dotOpen, saving, setSaving,
-    noticesOpen, setNoticesOpen, viewTick, shapeNote, shelfRef, needs, enqueue, run, toggleWeather, brushTool, brush,
-    brushRef, brushToolRef, setBrush, localUndo, localRedo, undo, redo, pickTop, pickShelf, targetAt, targetSpot,
-    setTargeted, startHere, objectUnder, objectTiles, hoverSources, sourceMarkers, startHintTag, flashNote,
-    dropShelf, pageTileFacts, watch, setWatch, floorContext, forcer, unleashRow, pickedRow, shelfRow, forceRow,
-    onReady, openSelect, closeSelect, selectChip, selectRow, toolRef, actions, startReach, hoverStart
+    setSound, weather, instant, firstRun, setFirstRun, minimap, setMinimap, dotOpen, setDotOpen, saving, noticesOpen,
+    setNoticesOpen, viewTick, shapeNote, shelfRef, needs, run, toggleWeather, brushTool, brush, brushRef,
+    brushToolRef, setBrush, localUndo, localRedo, undo, redo, pickTop, pickShelf, targetAt, targetSpot, setTargeted,
+    startHere, objectUnder, objectTiles, hoverSources, sourceMarkers, startHintTag, flashNote, dropShelf,
+    pageTileFacts, watch, setWatch, floorContext, forcer, unleashRow, pickedRow, shelfRow, forceRow, onReady,
+    openSelect, closeSelect, selectChip, selectRow, toolRef, actions, startReach, hoverStart, exportProject, saveMap,
+    notices, flags, importChanges
   } = ed;
-
-  // ------------------------------------------------------------------------------ export
-
-  async function exportProject() {
-    const p = await api.project();
-    saveFile(p.bytes, p.fileName, "application/gzip");
-  }
-
-  /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
-   *  button; problems that would stop the map loading open the quiet dot's list instead; warnings
-   *  go into the map's description (never a confirmation). Into the game's Maps folder where the
-   *  browser can, else a download. */
-  async function saveMap(kind: "timberborn" | "download") {
-    if (saving) return;
-    setSaving({ kind, progress: null });
-    setMessage(null);
-    try {
-      const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
-      const r = await enqueue(() => api.exportTimber(true, onProgress));
-      if (!r.ok) {
-        setDotOpen(true);
-        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
-        return;
-      }
-      if (kind === "download") {
-        saveFile(r.bytes, r.fileName);
-        setMessage({ kind: "info", text: `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
-        return;
-      }
-      const v = await saveToTimberborn(r.bytes, r.fileName);
-      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? r.fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
-    } catch (e) {
-      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  // D213: removing the map's last badwater spring makes it a No badwater map, said in a quiet line
-  const notices = [...(info.badwaterRemoved ? [NO_BADWATER_LINE] : []), ...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
-  const flags = info.importReport?.flags ?? [];
-  const importChanges = info.importReport?.changes.length ?? 0;
 
   return (
     <ForceFloor.Provider value={floorContext}>
