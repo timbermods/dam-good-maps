@@ -12,7 +12,7 @@ checkpoint.
 |---|---|---|
 | – | The Editor.tsx split, its own PR into dev (`feature/editor-split`), behaviour unchanged | in progress |
 | 0 | The look: two directions as mockups on one real map | done: Lamplight's colours and theme accepted |
-| 0b | Lamplight v2: five mockups answering Kyler's review | waits for Kyler's yes |
+| 0b | Lamplight v2, then v3: five mockups answering Kyler's reviews | v3 waits for Kyler's yes |
 | 1 | One workspace: the map fills the window, the panel, the rows, the cluster, Save | not started; needs 0b accepted |
 | 2 | The panel is the map: the map card, Generate's dot and lock, the candidates strip | waits for M9b's candidate events (else after 3 and 4) |
 | 3 | Your maps and replacing a map | |
@@ -39,6 +39,17 @@ checkpoint.
 - The rows read as one instrument with one left edge; picked and primary get different treatments; the wordmark
   isn't in the display face; the legend isn't boxed tags; the levers are readable; the cluster has one height and
   one gap.
+- **Checkpoint 0b review** (the goal: seamless and easy to understand; a new player knows what everything is and
+  where to find it at a glance, with nothing jumping, crowding or needing to be decoded):
+  - *For the milestone session to number (changes UI-BRIEF §3's difficulty levers):* the map card has no
+    ratings; every legend picture has its count and name, in aligned columns, only for what's on this map;
+    hover still highlights and a click still pins; the trees in reach and logs line stays.
+  - *For the milestone session to number (changes D352's force clusters):* the rows have no clusters and no
+    dividers; every row is one evenly spaced line from the left, in the order the items have now.
+  - The panel never changes shape or jumps: the settings have a fixed area that scrolls inside itself, and
+    everything below stays where it is in every state.
+  - Undo, Redo and ⋯ stay icons, with tooltips naming them. Your maps may scroll at 768px. Variety appears when
+    M9b brings the setting.
 - Meaning is a section of DESIGN.md, not its own document.
 - The Editor.tsx split goes first, as its own PR into dev, merged by the milestone session.
 - Pick a place stays out of the switch until it's built. If M9b isn't in when checkpoint 2 is due, 3 and 4 go first.
@@ -72,3 +83,9 @@ checkpoint.
   alone, with In hand and On as separate treatments; the panel holds every generation setting (six sections, one
   open at a time, only the settings scrolling); the legend uses the view's pictures unboxed and the levers are
   words; the cluster is one height and one gap. Four points are open for Kyler (DESIGN.md, "Open for Kyler").
+- **2026-10-02, Lamplight v3** (`docs/design/lamplight-v3-*.jpg`; v2's images removed). What changed: the card's
+  ratings are gone and the legend is picture, count, name in two aligned columns; the rows are evenly spaced
+  lines with no dividers, always four lines tall; the panel's parts have fixed places, with the settings as an
+  accordion in a fixed area that scrolls inside itself; the view bar's two actions are buttons and an on toggle
+  is a well with a bar; pictures are 28px; Generate is the panel's main button; the default view fits the whole
+  map in the free space, open and collapsed. One limit noted in DESIGN.md: Under roofs at 1366 wide.
