@@ -1,0 +1,1939 @@
+{
+  "schema": 1,
+  "experimentalSource": "e292cefe30469033a922650f0455f87297c051d5",
+  "devOracle": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+  "latestDevChecked": "b4c211b07db8bcc50dff62be66e2042f10262137",
+  "m9bPublishedDuringRun": {
+    "experimental": "e292cefe30469033a922650f0455f87297c051d5",
+    "latest": "523f6d58c48b0da279a05207cee60569d1e12acd",
+    "nativeReferences": 256,
+    "remaining": [],
+    "weather": {
+      "sourceIdenticalToDev": true,
+      "mathSourceIdenticalToDev": true,
+      "sha256": "7d2e086316d4391cbc3129b9fee28e1325999314167f46807df64f55f5f99b68"
+    },
+    "files": 332
+  },
+  "engines": {
+    "chromium": {
+      "version": "145.0.7632.6"
+    },
+    "firefox": {
+      "version": "146.0.1"
+    },
+    "webkit": {
+      "version": "26.0"
+    }
+  },
+  "platform": {
+    "os": "win32",
+    "arch": "x64",
+    "node": "v24.13.0",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           "
+  },
+  "scope": {
+    "m9bReferences": 356,
+    "devReferences": 256,
+    "threeReferences": 504,
+    "rustReferences": 10,
+    "remaining": 0
+  },
+  "generation": {
+    "cases": 840,
+    "refusals": [
+      "m9b-any-96-31",
+      "m9b-islands-96-4"
+    ],
+    "pins": {
+      "all": "c43ff0577988389b7b84d0c3c91e3245646ffa46d7941fe3a0022793097549cb",
+      "sizes": {
+        "96": "ed6f3b00fd1479b3f1e6412b51f428af4d28d1c9c5cce560b9ca913300e4fbfb",
+        "128": "4ef8f2111f85e329d770fff5519f9fbbc3c7406129a8ff8e43575eb24e6bdaf3",
+        "256": "d9b2ba33939d6b0ae601752386e6be469cdd32e5bc2015cb90455890737c95ee"
+      }
+    },
+    "changes": {
+      "firefox": {
+        "features": 35,
+        "built": 35
+      },
+      "webkit": {
+        "features": 36,
+        "built": 36
+      }
+    }
+  },
+  "water": {
+    "forced": {
+      "cases": 24,
+      "comparisons": 504,
+      "checks": 491400,
+      "directChecks": 70200,
+      "helperDispatches": 1684800,
+      "pin": "3e194d58c9cf11fbaf83a0aa33973b0387a725334349ed0f638636a745398f1d"
+    },
+    "official": {
+      "cases": 19,
+      "comparisons": 399,
+      "checks": 8673,
+      "directChecks": 1239,
+      "helperDispatches": 3006111,
+      "pin": "575fc7c2ab5f99e67a9da7266254d7fc8f01c9bab4b29bfd4fb6b8dee3d5f848"
+    },
+    "map-water": {
+      "cases": 840,
+      "comparisons": 17640,
+      "checks": 236313,
+      "directChecks": 33759,
+      "helperDispatches": 47108970,
+      "pin": "dd1a47b39d88bd936fa52fed7cc8b4768780e1f674f7cef631501afbeddf2f65"
+    },
+    "weather": {
+      "cases": 27,
+      "comparisons": 567,
+      "checks": 324702,
+      "directChecks": 46386,
+      "helperDispatches": 19317372,
+      "pin": "0c588052225bc12887a104ee8134d0ba701e08f7e7c49176c93fb17f7bd3c748"
+    }
+  },
+  "fixtures": {
+    "cases": 43,
+    "pins": {
+      "official": "56a2a487d0321bf6004b03c4e8f60cad8e1792e907e21259789c236b7e7c25f6",
+      "golden": "f5903dd87392eec778f71b3a4054395d9f84a66f0781f30a9d111867656945c4"
+    },
+    "changes": {},
+    "originalArchives": [
+      {
+        "id": "official-Beaverome",
+        "sha256": "76350343b0a986f6e32041bfd6855667d7cd9f414df804c476d4ebc9e1fbdb0d"
+      },
+      {
+        "id": "official-Canyon",
+        "sha256": "f955a21ef4210bef348a2fca7085a943d9d86f7dbfb5da46da3dc1f033649412"
+      },
+      {
+        "id": "official-Cliffside",
+        "sha256": "3d2d8224ab38a560d0329b277224ffe76a237c554f06416281afb6ff767a4939"
+      },
+      {
+        "id": "official-Craters",
+        "sha256": "0c0873d3111c7bbb9fdaafcf23f38c0e719631f35debf8b3f829ced4cda685ee"
+      },
+      {
+        "id": "official-Diorama",
+        "sha256": "80938c925901139dbc20a0e5c947fc685648a56c7fdda50731d857032c086f93"
+      },
+      {
+        "id": "official-HelixMountain",
+        "sha256": "c5bc6c264e7ed1dc7119f2c16a84921d4d59206f1c3c45c56d922b62241b2e64"
+      },
+      {
+        "id": "official-Hollows",
+        "sha256": "a45dffa53bd4683836a972dae68ce3f5caf489983d739360408ebab3545f3016"
+      },
+      {
+        "id": "official-Lakes",
+        "sha256": "37cbddf1b4c4defeffa0015a7de7772ca15621e884d577615fecee02c6dd0f9a"
+      },
+      {
+        "id": "official-Meander",
+        "sha256": "ac82088ffc6a0ad5d6c4c937fe080e35dc8cd532a844c4ae55b4a71b90563dc2"
+      },
+      {
+        "id": "official-MountainRange",
+        "sha256": "c8d44c141efc940e61cbaa3a1d21fd1fe4b6b7c16a55acb020b125a85c2fcf17"
+      },
+      {
+        "id": "official-Nomads",
+        "sha256": "ad767258bfc6867d946b1891aabdd0aa1f2f188b974c7c404a472c55a5be64b7"
+      },
+      {
+        "id": "official-Oasis",
+        "sha256": "af19a95803aa18d31385ff112e4e14b38a06fe5199004fe0d1563ae1c9d6e8ff"
+      },
+      {
+        "id": "official-Pillars",
+        "sha256": "ce30aab48627173912cef14e610ac92b0a67be8d632ba846efa1df756e2d84d1"
+      },
+      {
+        "id": "official-Plains",
+        "sha256": "77b5c9720673b764b8b4028a9c9cb17c8276332af6ca382cb824c9f8bd6b360c"
+      },
+      {
+        "id": "official-Pressure",
+        "sha256": "58a15113692045eb082ec673ecd2cdb482d8b8ac4d48d621cd6de979ea3ad9f4"
+      },
+      {
+        "id": "official-Spillage",
+        "sha256": "ee287da3d8e9ad55228b073d3e478b12468cf9715da277682e2b41186671a03e"
+      },
+      {
+        "id": "official-Terraces",
+        "sha256": "71417b5615352558fe49bbbf196a996f88205d638214a7a6ed3a6d2c8c0fdeca"
+      },
+      {
+        "id": "official-ThousandIslands",
+        "sha256": "2e330bd489afeb669911bb0974d2e6a6a68d8723a084b68b09e560fca0220338"
+      },
+      {
+        "id": "official-Waterfalls",
+        "sha256": "6da2e025bcec9af0fef95b681f5874523bf71605c33b5c1a7a1d641b36168ee7"
+      }
+    ]
+  },
+  "forces": {
+    "cases": 316,
+    "checkpointsPerEngine": 1716,
+    "pin": "fbdc7a193bb39388621613cc0ba54fae652e7710d57a1c50d1fbfe3c52022a07"
+  },
+  "carve": {
+    "cases": 54,
+    "pin": "1c9d673a4790bb4677e396d725c27c4a731d2c0fc2d3fccb9a32f8f61c62adec",
+    "changes": {
+      "firefox": {
+        "head": 54,
+        "metrics": 13
+      },
+      "chromium": {
+        "head": 54,
+        "metrics": 13
+      },
+      "webkit": {
+        "head": 54,
+        "metrics": 13
+      }
+    }
+  },
+  "gestures": {
+    "cases": 396,
+    "pins": {
+      "legacy": "e28d9ff4cc946f2262a6d32c64b6b20db7e549275275bda32cd787cc669d40cc",
+      "dev": "91d67874aa5540f39d0a96a2379423180459c2f82325a4325cd9f89ca2c94c6d"
+    },
+    "changes": {
+      "firefox/legacy/editor": 3,
+      "firefox/dev/editor": 27,
+      "webkit/legacy/editor": 3,
+      "webkit/dev/editor": 27
+    }
+  },
+  "camera": {
+    "three": {
+      "cases": 1512,
+      "pin": "74afdb4263af37501bf9063ddddca2ac9453053fe13daea13a23c9127f1f6916",
+      "changes": {
+        "chromium": 756,
+        "firefox": 756,
+        "webkit": 756
+      },
+      "dependency": {
+        "version": "0.186.1",
+        "native": 504,
+        "remaining": 0
+      }
+    },
+    "three-dev": {
+      "cases": 1512,
+      "pin": "bd4c1b0266934e49fcdc37e6a1729c89be49e9b81f9a68ca7c289cc7071e6e3a",
+      "changes": {
+        "chromium": 756,
+        "firefox": 756,
+        "webkit": 756
+      },
+      "dependency": {
+        "version": "0.186.1",
+        "native": 504,
+        "remaining": 0
+      }
+    }
+  },
+  "weather": {
+    "nativeStateOracle": {
+      "cases": 27,
+      "fingerprint": "6e2315d526a13fc2bba800ac3bbacc6ef5bc04dfff01e6d1e307a5474627e1e3",
+      "pins": {
+        "chromium": "5a7455dfcb8be491741144ae0f92323f581816b041edb1b302f872e0e3268057",
+        "firefox": "5a7455dfcb8be491741144ae0f92323f581816b041edb1b302f872e0e3268057",
+        "webkit": "5a7455dfcb8be491741144ae0f92323f581816b041edb1b302f872e0e3268057"
+      },
+      "changes": {
+        "chromium": [
+          {
+            "id": "m9b-islands-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 81,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 74,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 126,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 114,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          }
+        ],
+        "firefox": [
+          {
+            "id": "m9b-islands-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 81,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 74,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 126,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 114,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          }
+        ],
+        "webkit": [
+          {
+            "id": "m9b-islands-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 81,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 79,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-islands-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 51,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 57,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 74,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 126,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-lakeBasin-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 114,
+            "stages": [
+              "badtide",
+              "badtide-return"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-128-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 29,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-256-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 53,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-easy",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-hard",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          },
+          {
+            "id": "m9b-riverValley-96-1-normal",
+            "canonicalChanged": false,
+            "changedSnapshots": 37,
+            "stages": [
+              "badtide"
+            ]
+          }
+        ]
+      }
+    },
+    "revisions": {
+      "m9b": "e292cefe30469033a922650f0455f87297c051d5",
+      "dev": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+      "engines": {
+        "chromium": "145.0.7632.6",
+        "firefox": "146.0.1",
+        "webkit": "26.0"
+      },
+      "revisions": {
+        "m9b": {
+          "chromium": {
+            "forcingDifferences": 0,
+            "firstForcingDifference": null,
+            "waterDifferences": 0
+          },
+          "firefox": {
+            "forcingDifferences": 0,
+            "firstForcingDifference": null,
+            "waterDifferences": 0
+          },
+          "webkit": {
+            "forcingDifferences": 1,
+            "firstForcingDifference": {
+              "k": 21,
+              "day": 0.35,
+              "tick": 22,
+              "x": -2.5500000000000003,
+              "chromium": "cc52b8d5c47be23f",
+              "engine": "cb52b8d5c47be23f"
+            },
+            "waterDifferences": 13
+          }
+        },
+        "dev": {
+          "chromium": {
+            "forcingDifferences": 0,
+            "firstForcingDifference": null,
+            "waterDifferences": 0
+          },
+          "firefox": {
+            "forcingDifferences": 0,
+            "firstForcingDifference": null,
+            "waterDifferences": 0
+          },
+          "webkit": {
+            "forcingDifferences": 0,
+            "firstForcingDifference": null,
+            "waterDifferences": 0
+          }
+        }
+      }
+    },
+    "terms": {
+      "chromium": {
+        "x": {
+          "value": -2.5500000000000003,
+          "bits": "c004666666666667"
+        },
+        "positive": {
+          "value": 0.07808166600115313,
+          "bits": "3fb3fd28f9e463cc"
+        },
+        "negative": {
+          "value": 12.807103782663035,
+          "bits": "40299d3cb4fe0800"
+        },
+        "sum": {
+          "value": 12.885185448664188,
+          "bits": "4029c53706f1d0c8"
+        },
+        "forcing": {
+          "value": 0.577608506605054,
+          "bits": "3fe27bc4d5b852cc"
+        }
+      },
+      "firefox": {
+        "x": {
+          "value": -2.5500000000000003,
+          "bits": "c004666666666667"
+        },
+        "positive": {
+          "value": 0.07808166600115313,
+          "bits": "3fb3fd28f9e463cc"
+        },
+        "negative": {
+          "value": 12.807103782663035,
+          "bits": "40299d3cb4fe0800"
+        },
+        "sum": {
+          "value": 12.885185448664188,
+          "bits": "4029c53706f1d0c8"
+        },
+        "forcing": {
+          "value": 0.577608506605054,
+          "bits": "3fe27bc4d5b852cc"
+        }
+      },
+      "webkit": {
+        "x": {
+          "value": -2.5500000000000003,
+          "bits": "c004666666666667"
+        },
+        "positive": {
+          "value": 0.07808166600115313,
+          "bits": "3fb3fd28f9e463cc"
+        },
+        "negative": {
+          "value": 12.807103782663036,
+          "bits": "40299d3cb4fe0801"
+        },
+        "sum": {
+          "value": 12.88518544866419,
+          "bits": "4029c53706f1d0c9"
+        },
+        "forcing": {
+          "value": 0.5776085066050539,
+          "bits": "3fe27bc4d5b852cb"
+        }
+      }
+    },
+    "probePin": "3d2e1ed0bd32121ed1fd2a662b076d4dae1a8bc483159d29315969d4a61b7d61",
+    "changes": {
+      "chromium/native": 3,
+      "chromium/fractionalNative": 4,
+      "firefox/native": 3,
+      "firefox/fractionalNative": 4,
+      "webkit/native": 3,
+      "webkit/fractionalNative": 15
+    }
+  },
+  "math": {
+    "nodeChecks": 108198,
+    "browserChecks": 75288,
+    "rustChecksPerTarget": 47074,
+    "rustSource": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
+    "rustArtifacts": {
+      "wasm": {
+        "sha256": "48b9ebcc5d6694219b301ef2b78bd6206af05f2075c0e9a965522886115e7222",
+        "ir": "6aead8ee6c7257e8285add61fcd1699164cbde3a1e7fa7e19c51887283294d4d",
+        "assembly": "a84ac70dc1348d43c1ade75a10a75753e566b3fadc0bc0deb1f59c17aee255e3"
+      },
+      "native": {
+        "sha256": "db985ff3fe0cb7f880820ee5a5b6154b98cb0a2fa428357f6c68153b399be65b",
+        "ir": "3258d6ac677bfe3fbb9665c852ed5256a6419c627aa127d36d979c3da373f72b",
+        "assembly": "589cae080f1f0ba9154e1abee926c9d6524065e72725f16cb20917f4b621340b"
+      }
+    }
+  },
+  "rust": {
+    "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "portableSha256": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
+    "sources": {
+      "rust-water": {
+        "inputs": {
+          "Cargo.toml": "59b4d30046fdd4e682c3a351b35438bbb8e23c369172e1f766aa8574aebb849c",
+          "Cargo.lock": "cff6c81145bf23e85f4641d9629b9570c0c7cdb6ce1713e620fcf671d443a27b",
+          "src/lib.rs": "850a46ce9ecacde71784c7a43758269f1e9f4004804c5e72bf887649dc0b8b9d",
+          "rust/main.rs": "e66cd1551a2319068a5b00bd6c224c347220f0a311c2bf8e41ca236bd579d340"
+        },
+        "nativeReferences": 0,
+        "remaining": 0
+      },
+      "rust-analysis": {
+        "inputs": {
+          "analysis.rs": "211949116cbc2fbd24c03b536d9c8a3d12894ebc9f49ad11f431f57b934895c0",
+          "local/rust-water.rs": "386f6ffbcf9a3c9b8114801a4abdd56bf593566acdcd36b020407de425e9029b"
+        },
+        "nativeReferences": 0,
+        "remaining": 0
+      },
+      "rust-forces": {
+        "inputs": {
+          "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
+          "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
+          "src/lib.rs": "bfdec7b47beb39ea5bafef87b4e841f53fde4a379d5c8fb71ebebdc6d654b111",
+          "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467"
+        },
+        "nativeReferences": 10,
+        "remaining": 0
+      },
+      "dam-sketch": {
+        "inputs": {
+          "Cargo.toml": "20017c2dc54f4ba2b9b81d5545c15c04ced20c7ba2ce28754b121c00ffbfcc3d",
+          "Cargo.lock": "cff6c81145bf23e85f4641d9629b9570c0c7cdb6ce1713e620fcf671d443a27b",
+          "src/lib.rs": "850a46ce9ecacde71784c7a43758269f1e9f4004804c5e72bf887649dc0b8b9d",
+          "rust/main.rs": "e66cd1551a2319068a5b00bd6c224c347220f0a311c2bf8e41ca236bd579d340"
+        },
+        "nativeReferences": 0,
+        "remaining": 0,
+        "rustPin": "2ebeea87c55d5f728c735d79a6d24bde78999db7"
+      }
+    },
+    "builds": [
+      {
+        "study": "rust-water",
+        "target": "wasm32-unknown-unknown",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "171d5a9ecb07d878175f40d263a973874fddfc3c1f2565b612b2f8fcee1a21f2"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "460264c39561dbee00500b671a4d773745fbe3182153b7bf5627a5d376f485d1"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          },
+          {
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          }
+        ]
+      },
+      {
+        "study": "rust-water",
+        "target": "x86_64-pc-windows-gnu",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "e01196be208c13f4e2f07c850f5fd43b7a370d70014b5159e74ef0ec33bd8797"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "de7f87032dae5b49f6a5e3b2ebaa8991e5543a7009431a831fcfbcb73587f51a"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "e8142d09a0eac0271a3512f6a45d7a3f9f2e4aa884963b87a661cc1e546d0001"
+          },
+          {
+            "sha256": "e8142d09a0eac0271a3512f6a45d7a3f9f2e4aa884963b87a661cc1e546d0001"
+          }
+        ]
+      },
+      {
+        "study": "rust-analysis",
+        "target": "wasm32-unknown-unknown",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "e919391f4c68d3580191fdc1ab81aa07042f81d62ac7c6d86e5408e8c177c8b9"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "cd1df33919cab3708b3d46b4ef4ac476b7a1b47a99aaf49c8ef4835c83492949"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "6cefde7a1188bf2c6cef26618c2daf621a6f208e50eb39d9396b32cca294d843"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "6cefde7a1188bf2c6cef26618c2daf621a6f208e50eb39d9396b32cca294d843"
+          }
+        ]
+      },
+      {
+        "study": "rust-analysis",
+        "target": "x86_64-pc-windows-gnu",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "f84c947939072d51bc9c655be26d7b5ddcf23dec659ef4d0e0e95fcb65d96735"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "eb8433912812ecf807a31a4555f032e04e4a96c36d7fbc08c6fbe3d827f7bf1a"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "225092bb4a3fc91d851bd9870b9198fafb43c2b0d9b3f6c24977022d3fb64359"
+          }
+        ]
+      },
+      {
+        "study": "rust-forces",
+        "target": "wasm32-unknown-unknown",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "011b3eaa1e313770718571c6a458711d4ff963436b72e7d92309641a4801f2a6"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "248df7b778acbd91133c9371abbd0b4a3f8f65bc4d8d0e9e44fac3d17d9e7a43"
+          },
+          {
+            "kind": "ir",
+            "sha256": "8c720b315a91e52a935f6513d64243fdd8d30d3c238a7abec8ea26adaaad7b5c"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "ac6431187b6051e4a0b46eb8d25f3b682d768588d88012432b46286c6b4d0620"
+          },
+          {
+            "kind": "ir",
+            "sha256": "c76f720ca31a67a2176b62b4f031e2f4c60ab452eafe4aea428cefbed36c4059"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "861e5a00f667db5403ecbda140a984ee765aada21cb430c4125c30e9b2f5e133"
+          },
+          {
+            "kind": "ir",
+            "sha256": "1c0fe67a9c495248b5a65043cf624c4f565b90c45b73fa6cd56c3a81c600b50f"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "f62a808d35c2203ab47859b4f4e39d7ab474a22ab42e033de118c9a4fce6f363"
+          },
+          {
+            "kind": "ir",
+            "sha256": "db6238f4d0932d0457a4e80ea8cd1f267daf47bb2a589dfbadbff066b61dcd67"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "c2402320f557e13f85a521319a1fa0541cd4bba105b4c2878d751f04b5002e2f"
+          },
+          {
+            "kind": "ir",
+            "sha256": "1df9af797cca13d59ebd6d2623e45468798347467d89dff2ff85bbb75bcee9b7"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "74428ef93fde192fa426350a94bd53bef5ae65c4c607577e6dd5139d84c29e3c"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "967500e4fb48ca10350151ed58ec67e4f255abae57404df67672f365b9e2887c"
+          },
+          {
+            "kind": "ir",
+            "sha256": "91a56c424cc416f017508b76da9f15f67b9a574cb4fd61e7ecb3dbfa474f784f"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "9b64174c0e85189bc7675faeac361a47a61d4d02f42b8daf251dad1906a0fd19"
+          },
+          {
+            "kind": "ir",
+            "sha256": "73408da048e8b9d675f841175069e23dd781feab0e774e8ec3527b79f4d3ee7f"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "4015104f6f7089063eaa42ddc07194139e0782e0552e05f7609aa3d86eb04bcf"
+          },
+          {
+            "kind": "ir",
+            "sha256": "0797a20c69a24c0cfa1879d94cf0d22f5a9fc87ead469615c51de7b914b9d12f"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "0f461eda989f6879bd21ffffd344c22a3678c05a1986509296fa7fef92c07255"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "967500e4fb48ca10350151ed58ec67e4f255abae57404df67672f365b9e2887c"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "967500e4fb48ca10350151ed58ec67e4f255abae57404df67672f365b9e2887c"
+          },
+          {
+            "sha256": "967500e4fb48ca10350151ed58ec67e4f255abae57404df67672f365b9e2887c"
+          }
+        ]
+      },
+      {
+        "study": "rust-forces",
+        "target": "x86_64-pc-windows-gnu",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "6eabade8f4c6047deefaa4e065503019f3a333e5b8613ae14c85a1e4cbfd2cec"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "e69d119da747371de2f07d7feffa573ad2720671d2751e147598610f19a68e1f"
+          },
+          {
+            "kind": "ir",
+            "sha256": "d4ae8b0971b19e0080d260c351ff285e19d8196ef7004eb88c8743edb11ffc89"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "a0013c54145721af12d9615fc8b91c9d309ec855e6ba9d6f29818d5e9f1faeb3"
+          },
+          {
+            "kind": "ir",
+            "sha256": "6aac2efa2d0d3f8d08af9bba5c0a00cb10324b1489ded67d93f4ce81bf44b827"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "399defd7ddd234a1eaea384819f7b7dd2938a0eec08642dca1a38eae2ca63a64"
+          },
+          {
+            "kind": "ir",
+            "sha256": "3b7eec37e4eaebb4d452bd6fefc78d17a1a4fc7ca2d44edaa362b5c99d11358a"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "768cbae9539e8671df0d69fb0e977dde90d72347e5c74423189f76dadfa9b2f8"
+          },
+          {
+            "kind": "ir",
+            "sha256": "96ae8790dace8865de4c9f045f68efa04abd8fcb210528b30bc9cb33555637de"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "83b1cf2abf945602e95241d01d9b6efc9aa506223c97a19d29ea9a4dc20db537"
+          },
+          {
+            "kind": "ir",
+            "sha256": "3a1d60d6e6db2356ba5732dd29f49d86c8b5b46190505df5c6022abce7318a16"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "e286ad061ab96318f5eaff5955d9ebc9d513c38cfccfc24f5fc6f9cd08b5ddec"
+          },
+          {
+            "kind": "ir",
+            "sha256": "85db4da90ca901852e39afec620b72448d53f9e04bf2c9fb3fdaa8f62df35596"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "620aea7317770d879a737d848d869b6bbf79acaa8b4e34dc62e3f4948ef9b4be"
+          },
+          {
+            "kind": "ir",
+            "sha256": "87c51545d2b8d98c67c518a3c47c499e09e2d5eccc0004af49d3f9660827324f"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "ead203f298258d5987e0058d28f928801a2a5eff10853d24a23b583cce15df8b"
+          },
+          {
+            "kind": "ir",
+            "sha256": "96eb5f83f9b1e6150fef40bf63d8d0bfd0affb7f7e271d8ee8eefdbec06485fb"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "a54d06120602e3ae95052de6dc3f81df0678189d6cbb5f23620ccdfe9b204ea6"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "990511bfd26495dbc7ad58c5cffdf13472841a8f6526b2d28ed5c4b69b9d0b65"
+          },
+          {
+            "sha256": "990511bfd26495dbc7ad58c5cffdf13472841a8f6526b2d28ed5c4b69b9d0b65"
+          }
+        ]
+      },
+      {
+        "study": "dam-sketch",
+        "target": "wasm32-unknown-unknown",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "171d5a9ecb07d878175f40d263a973874fddfc3c1f2565b612b2f8fcee1a21f2"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "460264c39561dbee00500b671a4d773745fbe3182153b7bf5627a5d376f485d1"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          },
+          {
+            "kind": "wasm",
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          },
+          {
+            "sha256": "63594476f34214d68fcaaa3c09e1d3a30bc814d41e5ab67d36b8c8d5793cd0ae"
+          }
+        ]
+      },
+      {
+        "study": "dam-sketch",
+        "target": "x86_64-pc-windows-gnu",
+        "artifacts": [
+          {
+            "kind": "ir",
+            "sha256": "e01196be208c13f4e2f07c850f5fd43b7a370d70014b5159e74ef0ec33bd8797"
+          },
+          {
+            "kind": "assembly",
+            "sha256": "de7f87032dae5b49f6a5e3b2ebaa8991e5543a7009431a831fcfbcb73587f51a"
+          }
+        ],
+        "linked": [
+          {
+            "sha256": "ff6efbb030ff57721944abdafd7aff6986ca04a9c195a7ff012960080fe11427"
+          },
+          {
+            "sha256": "ff6efbb030ff57721944abdafd7aff6986ca04a9c195a7ff012960080fe11427"
+          }
+        ]
+      }
+    ]
+  },
+  "guards": {
+    "plantedFailures": [
+      {
+        "guard": "Minified product output native call",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"planted.min.js\",\"text\":\"Math.exp\"}]"
+      },
+      {
+        "guard": "JavaScript src/core/planted.ts",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"src/core/planted.ts\",\"line\":1,\"start\":33,\"text\":\"Math.exp\"}]"
+      },
+      {
+        "guard": "JavaScript src/editor/planted.tsx",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"src/editor/planted.tsx\",\"line\":1,\"start\":33,\"text\":\"Math.exp\"}]"
+      },
+      {
+        "guard": "JavaScript src/worker/planted.ts",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"src/worker/planted.ts\",\"line\":1,\"start\":33,\"text\":\"Math.exp\"}]"
+      },
+      {
+        "guard": "JavaScript tools/planted.ts",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":33,\"text\":\"Math.exp\"}]"
+      },
+      {
+        "guard": "Evaluated script native maths",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":17,\"text\":\"Math.exp(x)`\"}]"
+      },
+      {
+        "guard": "Evaluated script native power",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":11,\"text\":\"`x => x ** 0.5`\"}]"
+      },
+      {
+        "guard": "Tool dependency native call",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":0,\"text\":\"import {exp} from \\\"unreviewed-numerics\\\";\"}]"
+      },
+      {
+        "guard": "Editor dependency native call",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"src/editor/planted.tsx\",\"line\":1,\"start\":0,\"text\":\"import {hypot} from \\\"unreviewed-numerics\\\";\"}]"
+      },
+      {
+        "guard": "Re-exported native dependency",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":0,\"text\":\"export {exp} from \\\"unreviewed-numerics\\\";\"}]"
+      },
+      {
+        "guard": "Dynamic native dependency",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":24,\"text\":\"import(\\\"unreviewed-numerics\\\")\"}]"
+      },
+      {
+        "guard": "Unaudited Wasm maths binding",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"src/core/planted.ts\",\"line\":1,\"start\":17,\"text\":\"WebAssembly.Module\"}]"
+      },
+      {
+        "guard": "CommonJS native dependency",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":12,\"text\":\"require(\\\"unreviewed-numerics\\\")\"}]"
+      },
+      {
+        "guard": "Indirect eval native escape",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":6,\"text\":\"f=eval\"}]"
+      },
+      {
+        "guard": "Three dependency native call",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"dependency/three/planted.js\",\"line\":1,\"start\":25,\"text\":\"Math.sqrt\"}]"
+      },
+      {
+        "guard": "dependency gzipSync",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":8,\"text\":\"gzipSync\"}]"
+      },
+      {
+        "guard": "dependency zipSync",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":8,\"text\":\"zipSync\"}]"
+      },
+      {
+        "guard": "dependency zlibSync",
+        "status": "expected rejection",
+        "reason": "Error: [{\"file\":\"tools/planted.ts\",\"line\":1,\"start\":8,\"text\":\"zlibSync\"}]"
+      },
+      {
+        "guard": "Rust source sin_cos",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"fn plant(x:f64){let _=x.sin_cos();}\"}]"
+      },
+      {
+        "guard": "Rust source exp_m1",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"fn plant(x:f64){let _=x.exp_m1();}\"}]"
+      },
+      {
+        "guard": "Rust source ln_1p",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"fn plant(x:f64){let _=x.ln_1p();}\"}]"
+      },
+      {
+        "guard": "Rust source floating remainder",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"fn planted(x:f64)->f64{x % 12.0}\"}]"
+      },
+      {
+        "guard": "Rust source sin",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"#[no_mangle]pub extern \\\"C\\\" fn planted(x:f64,y:f64,z:f64)->f64{x.sin()}\"}]"
+      },
+      {
+        "guard": "LLVM wasm sin",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %0 = tail call double @llvm.sin.f64(double %x)\",\"declare double @llvm.sin.f64(double) #1\"]"
+      },
+      {
+        "guard": "Wasm imports sin",
+        "status": "expected rejection",
+        "reason": "Error: wasm forbidden maths: [{\"index\":1,\"name\":\"_ZN17compiler_builtins4math9libm_math14rem_pio2_large14rem_pio2_large17h8ec027ed647b7c2fE\"},{\"index\":2,\"name\":\"_ZN17compiler_builtins4math9libm_math8rem_pio28rem_pio217ha481a79d7879115dE\"},{\"index\":3,\"name\":\"_ZN17compiler_builtins4math9libm_math3sin3sin17hfd5f280600bf8c2bE\"},{\"index\":4,\"name\":\"sin\"}]"
+      },
+      {
+        "guard": "LLVM native sin",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %0 = tail call double @llvm.sin.f64(double %x)\",\"declare double @llvm.sin.f64(double) #1\"]"
+      },
+      {
+        "guard": "native assembly sin",
+        "status": "expected rejection",
+        "reason": "Error: assembly forbidden maths: [\"\\tjmp\\tsin\"]"
+      },
+      {
+        "guard": "Rust source fma",
+        "status": "expected rejection",
+        "reason": "Error: source forbidden maths: [{\"line\":1,\"text\":\"#[no_mangle]pub extern \\\"C\\\" fn planted(x:f64,y:f64,z:f64)->f64{x.mul_add(y,z)}\"}]"
+      },
+      {
+        "guard": "LLVM wasm fma",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %0 = tail call double @llvm.fma.f64(double %x, double %y, double %z)\",\"declare double @llvm.fma.f64(double, double, double) #1\"]"
+      },
+      {
+        "guard": "Wasm imports fma",
+        "status": "expected rejection",
+        "reason": "Error: wasm forbidden maths: [{\"index\":2,\"name\":\"_ZN17compiler_builtins4math9libm_math3fma3fma17hac3b2063ad45594bE\"},{\"index\":3,\"name\":\"fma\"}]"
+      },
+      {
+        "guard": "LLVM native fma",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %0 = tail call double @llvm.fma.f64(double %x, double %y, double %z)\",\"declare double @llvm.fma.f64(double, double, double) #1\"]"
+      },
+      {
+        "guard": "native assembly fma",
+        "status": "expected rejection",
+        "reason": "Error: assembly forbidden maths: [\"\\tjmp\\tfma\"]"
+      },
+      {
+        "guard": "LLVM wasm fmod",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %_0 = frem double %x, %y\"]"
+      },
+      {
+        "guard": "Wasm imports fmod",
+        "status": "expected rejection",
+        "reason": "Error: wasm forbidden maths: [{\"index\":1,\"name\":\"fmod\"}]"
+      },
+      {
+        "guard": "LLVM native fmod",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"  %_0 = frem double %x, %y\"]"
+      },
+      {
+        "guard": "native assembly fmod",
+        "status": "expected rejection",
+        "reason": "Error: assembly forbidden maths: [\"\\tjmp\\tfmod\"]"
+      },
+      {
+        "guard": "native fused instruction",
+        "status": "expected rejection",
+        "reason": "Error: assembly forbidden maths: [\"vfmadd213sd %xmm1, %xmm2, %xmm0\"]"
+      },
+      {
+        "guard": "native ARM fused instruction",
+        "status": "expected rejection",
+        "reason": "Error: assembly forbidden maths: [\"fmadd d0, d1, d2, d3\"]"
+      },
+      {
+        "guard": "Wasm relaxed FMA intrinsic",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"call @llvm.wasm.relaxed.madd.f64x2()\"]"
+      },
+      {
+        "guard": "relaxed LLVM arithmetic",
+        "status": "expected rejection",
+        "reason": "Error: ir forbidden maths: [\"%z = fadd reassoc double %x, %y\"]"
+      }
+    ]
+  },
+  "embedded": {
+    "cases": 58,
+    "engines": {
+      "chromium": "145.0.7632.6",
+      "firefox": "146.0.1",
+      "webkit": "26.0"
+    },
+    "mismatches": [],
+    "pins": {
+      "chromium": "a95bf6dd02ecef48ca3b1d0b78a8f1e44813ae8d150f9bf10669a6a1a2dea8eb",
+      "firefox": "a95bf6dd02ecef48ca3b1d0b78a8f1e44813ae8d150f9bf10669a6a1a2dea8eb",
+      "webkit": "a95bf6dd02ecef48ca3b1d0b78a8f1e44813ae8d150f9bf10669a6a1a2dea8eb"
+    },
+    "bindings": "9eee66bbaeb07cd52a12596ac80b99ad1e8b7efd670d86235964936678339a6b"
+  },
+  "productQuickChecks": {
+    "source": "e292cefe30469033a922650f0455f87297c051d5",
+    "tests": 864,
+    "passed": 836,
+    "pending": 13,
+    "baselineFailures": 15,
+    "newFailures": 0,
+    "failureNames": [
+      "Flatten: cut and fill, cliff or ramped edges, objects ride the ground (D204) on a map: a ramped flatten gets the natural slopes on its rim, and the trees on it ride the ground",
+      "a carve in the document (breakage rule) an oxbow lake's water is kept with its carve: the map settles with it, the project and the file keep it, and undo takes it away",
+      "a natural narrows on a generated river raises spurs from both banks, keeps the channel's gap, never a dam wall, and undoes",
+      "generated outlines past the map edge are edited and locked (decisions-pending #30, D103) a natural lake at the map's edge: locked, changed and moved in the editor; the unedited map keeps its bytes",
+      "hold to dig, terraces and walkable ground (D184, D193) a precise one-tile pit stays a pit through the build, and the page paints what the build makes",
+      "mine sites and ruins, models of our own leave the map's bytes as they were: the live check's download for seed 4242 is unchanged",
+      "spillways and badwater rivers in the editor (ROADMAP M7) a plugged spillway drains a lake only over its plug",
+      "the first map that passes is the map (D329) the background search finds a sibling that meets all three, with its own share link",
+      "the flow over a fall's lip highlands 5: is the simulation's own outflow over that side",
+      "the flow over a fall's lip lakeBasin 3: is the simulation's own outflow over that side",
+      "the generator's M7 set pieces keep their rules (ROADMAP M7) a generated weir holds its river about 0.65 above the bed, inside the channel",
+      "the generator's M7 set pieces keep their rules (ROADMAP M7) a second district's site: 60–120 tiles out, 600+ tiles of level land, its own water, joined by slopes, with trees and bushes",
+      "the generator's M7 set pieces keep their rules (ROADMAP M7) ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own",
+      "the resource baseline (Kyler, 2026-09-25) generated maps carry the official amounts for their size, living trees only, in groves with clearings and patches (item 26; D148)",
+      "the start's own planting on generated maps (PLAN §20 D252) no two starts get the same ring: the planting leans to a side instead of surrounding the start"
+    ]
+  },
+  "compression": {
+    "memoryDecisions": 500001,
+    "byteFixtures": 65,
+    "changed": 0,
+    "nativeLogTrapped": true,
+    "fflate": "0.8.3"
+  },
+  "timing": {
+    "records": 27,
+    "provisional": 27,
+    "cpuMeanRange": [
+      46.527455309985385,
+      85.32172933719814
+    ],
+    "runtime": {
+      "executableSha256": "d43cbdb5c898004d9b34aca96ae19a3a96ad65477ad7d71e179bb34ceed2b50a",
+      "archiveSha256": "b128de9a942e56f4ef6bd1b2dc7a4eb136c45af6cf613638cf44fda11732ba35",
+      "runtimeSha256": "4cbb28caecedc98fd98a5af0590d4aade4e66610e25befc23694410127835c19",
+      "firefoxUserPrefs": {
+        "javascript.options.wasm_baselinejit": false,
+        "javascript.options.wasm_optimizingjit": true,
+        "javascript.options.wasm_lazy_tiering": false
+      },
+      "upstream": "https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/firefox/juggler/content/Runtime.js"
+    }
+  },
+  "bundles": {
+    "generationFingerprint": "71b0259e23c7574afb83f0b5fe11a1ed5887b7b2eb00e3690e42b8e74d688df6",
+    "finalSourceBuild": {
+      "esbuild": "0.25.12",
+      "fingerprint": "6ed17cddc64768b2c6364c61a73060d4d53ccbba8e2ae4b039a2159b2aba2dcc"
+    },
+    "reconciliation": [
+      {
+        "file": "baseline-api.js",
+        "before": "0eeb6fe7f635da44188628d548d8c1f1bcfb023431efb911e249c0c427d1b84b",
+        "after": "0eeb6fe7f635da44188628d548d8c1f1bcfb023431efb911e249c0c427d1b84b",
+        "identical": true
+      },
+      {
+        "file": "adopted-api.js",
+        "before": "212d616b4dae7bdbcece21838c52158e1d9abadadb8fc5955212b9aa0c2385e0",
+        "after": "212d616b4dae7bdbcece21838c52158e1d9abadadb8fc5955212b9aa0c2385e0",
+        "identical": true
+      },
+      {
+        "file": "generation-worker.js",
+        "before": "ec4428db475048d02bb26d1ea61b1347ec39899108f61075c59da806d7e78758",
+        "after": "ec4428db475048d02bb26d1ea61b1347ec39899108f61075c59da806d7e78758",
+        "identical": true
+      },
+      {
+        "file": "coordinator.js",
+        "before": "5f7e6a27739db03e58165108adbc3eccd68492864d4908e102644a670cab3710",
+        "after": "5f7e6a27739db03e58165108adbc3eccd68492864d4908e102644a670cab3710",
+        "identical": true
+      },
+      {
+        "file": "weather-coordinator.js",
+        "before": "517969ce29b51ae1399a6fe5ce7e48329ed746a10ad354ae07e2c626a687bd6e",
+        "after": "517969ce29b51ae1399a6fe5ce7e48329ed746a10ad354ae07e2c626a687bd6e",
+        "identical": true
+      },
+      {
+        "file": "helper.js",
+        "before": "6aa2e00c95051fc6b92d118a2e4c7b70dfbf72a6cba9005773be773fc2d69e49",
+        "after": "6aa2e00c95051fc6b92d118a2e4c7b70dfbf72a6cba9005773be773fc2d69e49",
+        "identical": true
+      },
+      {
+        "file": "curve-baseline.js",
+        "before": "014b73f0477f107a5a4e47e27bf400595a9abebb7b054f822707ced49f46f3fb",
+        "after": "014b73f0477f107a5a4e47e27bf400595a9abebb7b054f822707ced49f46f3fb",
+        "identical": true
+      },
+      {
+        "file": "curve-adopted.js",
+        "before": "1378122015070bee17d88c8a7748f4e8b3ae24e7bf0895d33180f0df2ac4ba24",
+        "after": "1378122015070bee17d88c8a7748f4e8b3ae24e7bf0895d33180f0df2ac4ba24",
+        "identical": true
+      }
+    ]
+  },
+  "productionOutput": {
+    "rows": [
+      {
+        "file": "assets\\app-BV8gPIK3.js",
+        "sha256": "b4bb5dbadbdf32cfc67f5043fd85e92800c02b2d09e07c7bb811ed428919be32",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\calibrated-DLQJEEOr.js",
+        "sha256": "30d9eb7483423cc2b41ebf74475aabad482a8a26da0114cbdf0a22b44199bd82",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\checks.worker-DsYrlwUL.js",
+        "sha256": "be1c0cced4931b5bfc144ec5f41f9ebad55ac488cabe0ba5496b4426a36c0d16",
+        "bad": [],
+        "exceptions": [
+          {
+            "kind": "exact Comlink host request-ID constant",
+            "text": "2**53"
+          },
+          {
+            "kind": "unreachable pinned fflate memory fallback",
+            "text": "Math.log"
+          }
+        ]
+      },
+      {
+        "file": "assets\\Editor-njsezDCU.js",
+        "sha256": "ce62c4c4ac33aea2fd631dd1032221a791494d3eebb49004715b1bee6aec3bd4",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\features-sxcS9Bvp.js",
+        "sha256": "365f0d243371a0af80fa711ff03a865b3e909d61482cf906412560bfb0d1c041",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\generator.worker-WNe-99MB.js",
+        "sha256": "cec1d1709cbad769ea9943016c2162741005452e2b02c27735e27ea58ba8c898",
+        "bad": [],
+        "exceptions": [
+          {
+            "kind": "exact Comlink host request-ID constant",
+            "text": "2**53"
+          },
+          {
+            "kind": "unreachable pinned fflate memory fallback",
+            "text": "Math.log"
+          }
+        ]
+      },
+      {
+        "file": "assets\\jsxRuntime.module-Cy0zTUnQ.js",
+        "sha256": "c6de726da4255c21aaa188ee473d6045088bfc0dca36cf46a82a75caa554c148",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\main-D6L9X6nf.js",
+        "sha256": "2fb3b35dede9a38b918b483ad331f6c62aaaa57cfe13572234bfb9debfd02798",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\num-CrlNsWmr.js",
+        "sha256": "ae592a6b6349c20f36377f9e6e6a55c4e664a37b199c3a496ef75e47a580d94e",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\panels-Dqr8mTAM.js",
+        "sha256": "1ea6e3d8a2ff40fce368a4ac2bf10b2781483c86ab48d87f3244eda8d6398b94",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\place.worker-BjqemQY5.js",
+        "sha256": "09cadf84ac5c529ece315a7d495ffd77015c455793d9df988503b76611871493",
+        "bad": [],
+        "exceptions": [
+          {
+            "kind": "exact Comlink host request-ID constant",
+            "text": "2**53"
+          },
+          {
+            "kind": "unreachable pinned fflate memory fallback",
+            "text": "Math.log"
+          }
+        ]
+      },
+      {
+        "file": "assets\\places-BUZ-c6HG.js",
+        "sha256": "976eb92107ea7cc4bd6ff108ddc6d0a68f98a83de2ea3f910891b21bbdedb870",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\platform-DgbhPq5M.js",
+        "sha256": "920aa410f6a94026abdcf9a604a8b99f161c8113bafa488f24bacfbb57384ea6",
+        "bad": [],
+        "exceptions": [
+          {
+            "kind": "exact Comlink host request-ID constant",
+            "text": "2**53"
+          }
+        ]
+      },
+      {
+        "file": "assets\\Preview3D-Dnreg5vJ.js",
+        "sha256": "be3c33e5792766604295c1463565dae039e9e4c556e1fa0153ed1d31ca42b7da",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\shade-BuY_4QSd.js",
+        "sha256": "2ad6c8b92694d03382313771628e4bfa72e6f2e600dd00d2f612a5f657dd5266",
+        "bad": [],
+        "exceptions": []
+      },
+      {
+        "file": "assets\\startCheck.worker-BHCftZyE.js",
+        "sha256": "b58f34cffc947f34d500ee35466f15ef307b80361d3d8be11481cabb0622bb92",
+        "bad": [],
+        "exceptions": [
+          {
+            "kind": "exact Comlink host request-ID constant",
+            "text": "2**53"
+          }
+        ]
+      }
+    ],
+    "remaining": []
+  },
+  "adoptionIntegration": {
+    "scope": "isolated M9b adoption source copy; product untouched",
+    "fullTypeScriptDiagnostics": 0,
+    "actualSourceGuardViolations": 0,
+    "cameraCases": 1512,
+    "cameraMismatches": 0,
+    "sourceHashes": {
+      "src/core/math/portable.ts": "89b70e117bae5d2484a24c73ec5a95f0c7b9cf0d58a2dd718741af45e8b541b2",
+      "src/core/format/compression.ts": "335043f3198279c81a8b5b64714949cc11a20ddcfda740986007038bd69ca215",
+      "vite.config.ts": "9828322127ae1d7faf057d2818e7b85b63c0161e179d5e9705c7cc9e4b35f16d",
+      "src/editor/Editor.tsx": "3213c8db08c87e33f78b0014334cdf9c222472df93d943341de4dcc08024c81a"
+    },
+    "productionViteBuild": "pass; Vite 8.3.1, 151 transformed modules; isolated adopted sources"
+  },
+  "patches": {
+    "adoption": {
+      "sha256": "65a2687fe954726352354cf532ca66d62b322667d86a765bc5aa1006036e67d9"
+    },
+    "dev-adoption": {
+      "sha256": "ab3379125310295d225a80da53fa45178334a61073d765670c7a66de6fa08b3a"
+    },
+    "rust-adoption": {
+      "sha256": "343987768dc6169191df5e8a154924f8ad67f8487d81121570243aad4f51d4e7"
+    }
+  }
+}
