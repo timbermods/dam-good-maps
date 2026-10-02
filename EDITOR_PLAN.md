@@ -342,7 +342,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Lower, §5). Inside an open selection the mode applies within it.
 - **Sources: Ride · Keep · Clear** (D322, item 31; D249): in every brush's row. **Ride** (default): the sources the
   stroke passes over ride the ground like trees and bushes (a 3 × 3 source as one level piece). **Keep**: every
-  source under the stroke and the ground it stands on stay exactly where they were. **Clear**: the sources the
+  source under the stroke and the ground it stands on stay exactly where they were, at the level the map showed
+  (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a

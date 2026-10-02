@@ -358,7 +358,7 @@ export function sculptReadsNeighbours(s: SculptEdit): boolean {
 /** Apply one sculpt edit or brush stroke (step 6) to the region's cells. Heights stay within
  *  0–16, the in-game editor's range (the brushes are defined that way, like the game's own).
  *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
-export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean): void {
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }): void {
   const { W, heights } = t;
   if (isForce(s.params)) {
     // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
@@ -376,8 +376,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
     const was = brushHard(s.params) ? heights.slice() : null;
-    // kept sources' ground (D322, item 31): the integrity pass leaves it as it is
-    if (s.params.sources === "keep") for (const [y, a, bb] of s.params.keep ?? []) if (y >= 0 && y < t.H) for (let x = Math.max(0, a); x <= Math.min(W - 1, bb); x++) if (t.inRegion(y * W + x)) t.protectedMask[y * W + x] = 1;
+    // kept sources' ground (D322, item 31): as the map shows it, and the integrity pass leaves it
+    if (s.params.sources === "keep") keepShownGround(s.params.keep ?? [], heights, W, t.H, t.protectedMask, t.channel, shown?.candidate ?? (() => true), shown?.cap, (i) => t.inRegion(i), shown?.outside ?? null);
     // Naturalize weathers whatever the player paints (D368 (8)): a force's result, a stroke's exact
     // tiles, a river, a set piece. It leaves only the start's pad here; the ground under sources and
     // objects is the stroke's own `keep` (objectGround.ts), and the build's drops a slope it leaves
@@ -466,22 +466,54 @@ export function integrityAt(
   y1: number,
   cap = MAX_TERRAIN,
 ): void {
-  const clip = (i: number) => (candidate(i) && pre[i] > cap ? cap : pre[i]);
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const i = y * W + x;
-      const v = clip(i);
-      out[i] = v;
-      if (x < 1 || y < 1 || x > W - 2 || y > H - 2 || prot[i] || channel[i] || !candidate(i)) continue;
-      const a = clip(i - 1);
-      const b = clip(i + 1);
-      const c = clip(i - W);
-      const d = clip(i + W);
-      const lo = Math.min(a, b, c, d);
-      const hi = Math.max(a, b, c, d);
-      if (v < lo) out[i] = lo; // pit
-      else if (v > hi) out[i] = hi; // spike
-    }
+  const get = (j: number) => pre[j];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out[y * W + x] = integrityLevel(get, W, H, prot, channel, candidate, y * W + x, cap);
+}
+
+/** The level the integrity pass (step 7) gives tile `i` (see `integrityAt`), reading the heights
+ *  before the pass through `pre`. */
+export function integrityLevel(pre: (j: number) => number, W: number, H: number, prot: Uint8Array, channel: Uint8Array, candidate: (i: number) => boolean, i: number, cap = MAX_TERRAIN): number {
+  const clip = (j: number) => (candidate(j) && pre(j) > cap ? cap : pre(j));
+  const v = clip(i);
+  const x = i % W;
+  const y = (i - x) / W;
+  if (x < 1 || y < 1 || x > W - 2 || y > H - 2 || prot[i] || channel[i] || !candidate(i)) return v;
+  const a = clip(i - 1);
+  const b = clip(i + 1);
+  const c = clip(i - W);
+  const d = clip(i + W);
+  const lo = Math.min(a, b, c, d);
+  const hi = Math.max(a, b, c, d);
+  if (v < lo) return lo; // pit
+  if (v > hi) return hi; // spike
+  return v;
+}
+
+/** A Keep stroke's kept tiles (D322, item 31: the ground of the sources it passes over) stay exactly
+ *  as the map shows them: each takes the level the integrity pass gave it before the stroke (a spike
+ *  under a source shows at its neighbours' level), and is protected from the pass from then on, so
+ *  the ground under a kept source never moves. The build (step 6) and the page's live stroke
+ *  (strokePreview.ts) both do this. */
+export function keepShownGround(
+  keep: readonly (readonly [number, number, number])[],
+  pre: Uint8Array,
+  W: number,
+  H: number,
+  prot: Uint8Array,
+  channel: Uint8Array,
+  candidate: (i: number) => boolean,
+  cap = MAX_TERRAIN,
+  inRegion: (i: number) => boolean = () => true,
+  outside: Uint8Array | null = null,
+): void {
+  const tiles: number[] = [];
+  for (const [y, a, b] of keep) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) if (inRegion(y * W + x)) tiles.push(y * W + x);
+  // (a rebuild's tiles outside its region hold what they held before it: `outside`)
+  const get = (j: number) => (outside && !inRegion(j) ? outside[j] : pre[j]);
+  const level = tiles.map((i) => integrityLevel(get, W, H, prot, channel, candidate, i, cap));
+  for (let k = 0; k < tiles.length; k++) {
+    pre[tiles[k]] = level[k];
+    prot[tiles[k]] = 1;
   }
 }
 

@@ -141,6 +141,43 @@ describe("brushes and water sources (D249)", () => {
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
   });
 
+  it("Keep holds a source's ground as the map shows it, also over a spike the integrity pass levels (D322, item 31)", () => {
+    // (found on Highlands 96² seed 4242 when its map changed with D385: a soft raise left a one-tile
+    // spike under a source, shown at its neighbours' level; Keep kept the spike, so the source rose)
+    const { s, x: sx, y } = session();
+    // a level tile in the spot, its four neighbours at its level, with a source of its own
+    const h = s.built.heights;
+    let x = -1;
+    for (let k = sx - 6; k <= sx - 2 && x < 0; k++) {
+      const i = y * W + k;
+      if (h[i - 1] === h[i] && h[i + 1] === h[i] && h[i - W] === h[i] && h[i + W] === h[i]) x = k;
+    }
+    expect(x).toBeGreaterThan(0);
+    const KEPT = "d2490000-0000-4000-8000-000000000003";
+    expect(s.apply({ op: "placeEntity", params: { id: KEPT, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }).errors).toEqual([]);
+    // a spike on its tile: raised alone, the integrity pass shows it at its neighbours' level
+    const h0 = s.built.heights[y * W + x];
+    expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[y, x, x]], amount: 1 } }).errors).toEqual([]);
+    expect(s.terrainState().pre[y * W + x]).toBe(h0 + 1);
+    expect(s.built.heights[y * W + x]).toBe(h0);
+    expect(byId(s, KEPT).z).toBe(h0);
+    // a Keep stroke round it: the source and its ground stay where the map showed them; the land round rises
+    const dabs: number[] = [];
+    for (let k = 0; k < 30; k++) dabs.push(4 * x + 2, 4 * y + 2);
+    const settings: Omit<BrushParams, "dabs"> = { tool: "raise", size: 5, strength: 5, sources: "keep", keep: [[y, x, x]] };
+    const shown = s.built.heights.slice();
+    const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
+    for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
+    expect(s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Raise").errors).toEqual([]);
+    expect(s.built.heights[y * W + x]).toBe(h0);
+    expect(byId(s, KEPT).z).toBe(h0);
+    expect(s.built.heights[y * W + x + 1]).toBeGreaterThan(h0);
+    // the page painted what the build made, and a full build and the project agree
+    expect(Array.from(shown)).toEqual(Array.from(s.built.heights));
+    expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    expect(Array.from(MapSession.open(decodeProject(s.project())).built.heights)).toEqual(Array.from(s.built.heights));
+  });
+
   it("a stroke's riding pieces are rectangles on the map, a few tiles across", () => {
     const base: BrushParams = { tool: "raise", size: 3, strength: 5, dabs: [40, 40] };
     expect(brushProblems({ ...base, rigid: [[4, 4, 6, 6]] }, W, W)).toEqual([]);
