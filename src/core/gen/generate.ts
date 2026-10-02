@@ -291,10 +291,16 @@ interface StageBundle {
   plug: ReturnType<typeof planPlug>;
 }
 
-/** Prepared land retained across attempts. It becomes the fixed, editable map only after its
- *  actual settled start reaches the required mine pair; new land is never drawn after display. */
+/** The largest map whose land stays hidden until its actual settled start reaches its mine pair
+ *  (small starts, #153); above it the land is shown once it passes the land stage (D348, D278). */
+export const SHOW_PROVED_MOST = 128 * 128;
+
+/** Prepared land retained across attempts. It becomes the fixed, editable map once shown: at the
+ *  land stage above SHOW_PROVED_MOST, else once its actual settled start reaches the required mine
+ *  pair; new land is never drawn after display. */
 interface LandStage {
-  /** The actual settled start and mine pair have been proved, and onLand fired. */
+  /** onLand fired: the land is the map (at 128² and under, once its settled start and mine pair
+   *  were proved). */
   shown: boolean;
   hLand: Uint8Array;
   bundle: StageBundle;
@@ -1855,6 +1861,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
       }
       landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      // (above 128² the land is shown as soon as it passes the land stage, D348, D278: there the
+      // target is time to editable land, 3 s typical, and the settle a hidden land would wait for
+      // takes most of a map's time; small starts' proof of the settled start's mine pair before the
+      // land is shown (#153) holds at 128² and under, where the target is time to the settled map
+      // and every land it redrew was found; a default the session chose, docs/progress/m9b.md)
+      if (N > SHOW_PROVED_MOST) {
+        landStage.shown = true;
+        firstLook = Math.round(performance.now() - t0);
+        landStage.firstLook = firstLook;
+        opts.onLand?.({ attempt, heights: hLand, water: hy.water });
+      }
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
     // them already)
