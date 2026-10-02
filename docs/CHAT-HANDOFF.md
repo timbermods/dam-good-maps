@@ -87,7 +87,7 @@ sub-agents at max. The table is `docs/HANDOFF.md`, section 3.
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D391.**
+- **The next free decision number is D398.**
 
 ## How the planning chat checks in
 
