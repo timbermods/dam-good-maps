@@ -75,6 +75,7 @@ import { useView } from "./view/useView";
 import { useSourcePointer } from "./sources/useSourcePointer";
 import { useMarkers } from "./sources/useMarkers";
 import { useStartHint } from "./start/useStartHint";
+import { useRemoveSources } from "./sources/useRemoveSources";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -159,6 +160,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useSourcePointer(ed));
   Object.assign(ed, useMarkers(ed));
   Object.assign(ed, useStartHint(ed));
+  Object.assign(ed, useRemoveSources(ed));
 
   const {
     api, info, setInfo, view, mirror, renderer, ready, setReady, tool, setTool, anchorRef, flipRef, repaintRef,
@@ -178,26 +180,8 @@ export default function Editor(props: EditorProps) {
     pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles,
     grabObject, strengthOfEntity, liveStrength, entityIndexOf, wheelSource, groupsRef, hoverSources, sourcesChanged,
     pointedWords, markerRef, sourceMarkers, setStartHint, hintRef, startHintRef, hintJob, startWorkerApi, hintMs,
-    lookForStartRef, startHintTag
+    lookForStartRef, startHintTag, pickedSources, removeSources
   } = ed;
-
-  /** The sources in the objects picked on a tile (a click on a source). */
-  function pickedSources(): EntityInfo[] {
-    return pickedRef.current?.list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? [];
-  }
-
-  /** Remove sources: their water recedes live; one undo step. */
-  function removeSources(list: EntityInfo[]) {
-    const bad = list.every((e) => e.template === "BadwaterSource");
-    void run(
-      () => api.apply({ op: "deleteEntities", params: { entities: list.map((e) => e.id) } }, "user", list.length > 1 ? `Remove ${list.length} sources` : bad ? "Remove a badwater source" : "Remove a water source"),
-      (u) => {
-        if (!u.ok) return;
-        setPicked(null);
-        for (const e of list) feel("remove", e.x, e.y);
-      },
-    );
-  }
 
   /** The words beside the pointer (D322, pointerWords.ts): F's size first, then a word for a moment
    *  (a strength, a size), then the brush's own (its target). */
