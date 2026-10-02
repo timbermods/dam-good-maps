@@ -54,12 +54,12 @@ merged by Claude. The hand-over of 2026-10-01 below is history where this one di
    engines.
 8. **Tooltips** on M9b's settings-page controls (8dbb1943, D351).
 
-### CI on #70 (8dbb1943)
+### CI on #70
 
-`oracle`, `generation`, `engines` (fixed by item 7) and browser shard 3 pass. Red, all expected:
-`test` (31 tests in 20 files, every one bound to a map that moved: dev's new force and editor tests
-on M9b's maps and the earlier list; the D148 re-pins are step 4) and browser shards 1, 2 and 4 (map
-seeds, and the two tooltips in the page session's files below).
+At 8dbb1943 `test` and browser shards 1, 2 and 4 were red on maps that moved. After step 4's re-pins
+(3bd9f12d) the quick suite passes locally (1,255 tests, 173 files); the browser specs re-pinned pass
+locally but for the tooltip test's one line in `src/editor/Header.tsx` (below). The heavy suite: the
+settings experiment 30 of 34 (below), the rest green.
 
 ### Defaults this round chose, for the milestone session to number and put to Kyler
 
@@ -68,7 +68,9 @@ seeds, and the two tooltips in the page session's files below).
   under the same load the first look moved from 34% to 83% of the time to the map at 256² (46% to
   73% at 96², 41% to 77% at 128²), which would put 256²'s editable land near 7–8 s on a quiet machine against D278's
   3 s typical. 128² is judged by its settled map (2 s / 5 s), and every land #153 redrew was at 96² or
-  128² (none at 256²). Above 128² the land shows at the land stage, as D348 had it.
+  128² (none at 256² of the 840 default maps). Above 128² the land shows at the land stage, as D348
+  had it. The cost, found later: on 40 chaos maps at 256² it fails 3 (no start on the shown land)
+  where #153 as approved fails 1. A one-line switch (`SHOW_PROVED_MOST`) for Kyler.
 - **Round 2 ends the worn way out on generated maps** (D350 (b)): `wearFix` never runs (a prepared
   land keeps its heights); the two maps that needed it (River Valley 256² seed 39, Lake Basin 256²
   seed 24) are fed more gently instead (`drainFix`: 0.7, 0.49, 0.343 of the feeders). `water/outletWear.ts`
@@ -105,12 +107,88 @@ seeds, and the two tooltips in the page session's files below).
 - `src/editor/Editor.tsx`: the message strip's **×** (`aria-label="Dismiss"`) has no tooltip. M9b's
   maps show a message when the editor opens, so `tests/e2e/tooltips.spec.ts` meets it in every state.
 
-### Next (step 4 of the plan)
+### Next
 
-The D148 re-pins of every map-bound test once the maps settle (31 quick tests in 20 files, the
-browser specs, the 4242 sha), the 96² start class's last map (Highlands 14), the canyon measure's
-separate effect, speed at 256², the contact sheet, the review set for Kyler and one pooled probe
-batch. Then Lake Basin round 2 after its quiet timing, and the settings round 2, held, last.
+- Chaos at 256²: 1 to 3 of 40 fail (no start on the shown land), under D273 (6)'s pass rate.
+- For Kyler's eye on the review set: Islands in one layout, Delta close to one (outcomes 4 and 5).
+- The pooled probe batch `20261002-1555-batch` (23 maps, the M9b group with Lake Basin 256² seed 24):
+  its results go here and into STATUS.
+- Lake Basin round 2 after its quiet timing; the settings round 2 (held, last: Verticality, Lakes and
+  basins, Waterfalls, Designed for); the quiet window's timings above.
+
+### Step 4 (2026-10-02, later): tooltips, groves, the canyon reading, 256², the re-pins, the review set
+
+- **The two tooltip failures, found** (1ac45606). The editor's message-strip ×: `tests/e2e/tooltips.spec.ts`
+  placed a mine site 10 tiles from a water source it had just placed on River Valley 96² seed 9; on
+  M9b's map that ground is level and the source's water spreads over it, so on CI's slower machine
+  it reached the site, the editor refused the placement ("The water is in the way …"), and its
+  message's × (no tooltip, in `src/editor/Editor.tsx`, as on `dev`) showed in every later state.
+  Reproduced with the CPU slowed 6×; the test now finds the mine site an open, level, dry spot of its
+  own, 24 tiles or more from the source. The other failure is M9b's own line in the page session's
+  file: `src/editor/Header.tsx`, the ⋯ menu's **Another like this** item (`role="menuitem"`), its
+  `title` 73 characters; D351 asks for one short phrase. The change it needs: `title="A new map like
+  this one, on different land"` (43 characters, as the settings page's button says now). Not made
+  here (D388). Optional, latent on `dev` too: the message strip's × (`aria-label="Dismiss"`) has no
+  `title`; `title="Dismiss this message"` would cover any future message in the tooltip test.
+- **The map's own groves stay open where moist ground is narrow** (365ee6f6). After round 2, Canyon 96²
+  seed 5's own groves stood at a neighbour fill of 0.70 (official 0.41; the resource test's bound
+  0.52), about one map in eight over 0.52 in a survey of 100: `planGroves` kept every tile of a grove
+  the ground cut short. Now the map's own groves keep 0.52 of such a blob; the start's planting is
+  unchanged. Measured (`m4-groves`): no land changed, outcomes identical (220/230/230), nothing failing,
+  living trees' median within 0.5%, the floor walk's logs at least 210.
+- **The canyon reading's separate effect** (Canyon seeds 1–20, the reading as before d4d2177c against
+  the tip, `c-old`): all three 14 / 17 / 12 at 96² / 128² / 256² with the old reading, 14 / 17 / 15
+  with today's; the promise 18 / 17 / 16 against 16 / 17 / 19. The reading from the first dry tile out
+  is worth three Canyons at 256² and nothing at the smaller sizes (at 96² it reads two fewer promises
+  but the same maps meet all three).
+- **Speed at 256²**: CPU profiles of the median maps (Lake Basin 15, Highlands 23, Canyon 38, Any 33;
+  under load) put the water settle at 14–37% of `generate`, making the field (uplift, the noise) at
+  5–14%, the outcome readings (`signatureOf`, its sorting median) at 4–12%, drainage at 6–10%; a map
+  makes one thumbnail. No byte-identical change worth its risk is left after #155's two rounds; the
+  comparison with `dev` waits for the quiet window (D380). No timing was taken.
+- **The 96² start class**: Any 31 and Islands 4 pass (small starts, round 2's pre-fill mine check);
+  Highlands 14 passes on its seventh attempt as before (its shown land's first start lacks berries,
+  `start.food`, and the next passes); nothing changed for it.
+- **Rivers 0 holds on River Valley** (d6ded4a3): the nightly settings experiment found every River
+  Valley map at Rivers 0 with an edge river (River Valley's default trunk, D370, overrode the player's
+  0); `tests/contract/riversZero.test.ts`. Default maps unchanged.
+- **The nightly settings experiment** (`settings.test.ts`, 4 seeds at 96²): 30 of 34 pass. Still short,
+  for the settings round 2 (held, last): Verticality (cliff share 0.187 → 0.164 from 10 to 90, the
+  wrong way), Lakes and basins (moved 1.7, at least 3), Waterfalls (2.0, at least 2.5), Designed for
+  (the badwater distance from Easy to Hard 31.5 → 37.4, the wrong way: item 47 keeps badwater off the
+  start's water and farmland whatever the difficulty, #145). The hand-over of D333 had Verticality and
+  Lakes and basins weak; Waterfalls and Designed for are new since.
+- **The nightly force sweep** (`forceEverywhere.heavy`, D356): Quake's slide moves nothing on Delta
+  128² seed 5's flat plain (at Power 10 at random and flat spots, the clicked slide on flat ground at
+  50 and 90) and at Islands 128² seed 5's sea edge (Power 90): recorded in `KNOWN` for Kyler, by theme
+  (bafcff22), as D356 has it.
+- **The D148 re-pins**, by area (each with its reason in the test; the lists are under "Tests updated"
+  below): M9b's generator tests (a Sonnet agent, 51d269e2), `dev`'s force, editor and page-core tests
+  on M9b's maps (3bd9f12d), the browser specs (a15ec4b8), small starts' Canyon 128² seed 9 (82f0e269).
+  The old project in `strokesBeforeD322` opens to the same heights and replays every step the same;
+  its objects follow M9b's one rules switch (D308): 13 derived slopes fewer, and the two birches and a
+  ruin column they displaced back; its entities digest is re-pinned.
+- **Chaos at 256²** (Any at Variety 100 and Verticality 100, seeds 1–40): with the 128² gate 3 fail
+  (seeds 16, 24, 26: no start on the shown land), all three on 32; with #153 as approved (no gate) 1
+  fails (seed 16), all three on 34, its first look at about 87% of the time to the map against 43%.
+  Either way under D273 (6)'s pass rate (98%, PLAN §15): chaos at 256² is M9b's next generator work.
+  The review set's chaos pick Any 941 fails the same way.
+- **The review set** (afe1d8b2, `investigation/m9b-review/`, made from 365ee6f6): the contact sheet
+  (`docs/sheets/m9b.png`), each theme beside M9a's maps, 14 random maps and three chaos maps in 3D, the
+  start areas. What an eye sees first: Islands' 30 maps are one layout (one big central island in a
+  sea ringed by islets; D370's sea-first shaping), and Delta's 30 are close to one (a river across a
+  green plain with a channel or two), against outcome 4 (any handful differs) and outcome 5 (no theme
+  stuck in one template). For Kyler's eye.
+- **Findings for the milestone session** (each needs an owner; the first may touch the release gate):
+  - the water: on `tests/e2e/brushKit.spec.ts`'s old seed 34 a pit dug on a dry plateau fills with 1.86
+    of water a few seconds after the stroke, from no path the agent could find, the map's water rising
+    by exactly the pit's volume (the release gate, D385: water that appears from nowhere would not be
+    the game's); the spec moved to seed 36, whose pits stay dry;
+  - the High look's flow at a map-edge fall's lip (Highlands 128² seed 5 at (86, 127)): the view pours
+    0.26, the settle 0.03 (`look-waterfalls` moved to seed 4);
+  - a river-head spring the build derives again a tile over after a Quake Lift gets a new id
+    (`editsPlaceNothing` counts it as added; seed 3 at 128²);
+  - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
 ## Hand-over (2026-10-01): where M9b stood, and how to resume (history: the hand-over above is current)
 
@@ -1205,6 +1283,22 @@ check, the start, the water settling).
 
 ## Tests updated because a decision changed what they tested
 
+- 2026-10-02, step 4's re-pins (D148; each test carries its reason): `brush` (the pit 14 tiles from the
+  start on the side on the map; the ramped flatten on River Valley 96² seed 2), `carve` (Highlands 96²
+  seed 8 with carve seed 4; its settle checks use `SETTLE_DAYS`, D358), `look-mine-ruins` (4242 sha
+  `94057d2b…`), `look-waterfalls` (Highlands 4, Lake Basin 5), `narrows` (River Valley 128² seed 1),
+  `objects` (a second district on Canyon 4; ruins on a rise on Highlands 2 and 7, River Valley 2, Canyon
+  3; weirs on Canyon 1 and Highlands 1; every object on, seed 4), `projects` (Lake Basin 96² seed 5),
+  `versions` (River Valley 96² seed 2), `smallStarts` (Canyon 128² seed 9's outcome, traded by round 2);
+  `dev`'s `clearSourcesWater` (seed 1), `describeTile` (seed 2), `draftWaterQuiet` (Lake Basin seed 8),
+  `editsPlaceNothing` (Quake Lift on seed 4; the walled mine site's ring on the map), `forceOps` (seed
+  4), `glaciatePowerSize` (the head at (80, 24) on seed 21), `maxWaterDepth` (seed 2),
+  `naturalizeWeathers` (seed 1), `firstVisit` (Canyon seed 5), `strokesBeforeD322` (the 0.7.0 project's
+  objects under D308's rules switch: its entities digest); the browser specs `waterView` (seed 8),
+  `editor` (4262), `brushSources` (Highlands 4244), `forceKeys` (the spot clear of the options bar),
+  `look-high` (Lake Basin seed 5), `brushKit` (seed 36), `tooltips` (the mine site on its own dry spot);
+  the force sweep's `KNOWN` (Quake's slide on Delta's plain and Islands' sea edge, by theme, D356).
+  New: `tests/contract/riversZero.test.ts`.
 - 2026-10-02, the merge with `dev`: `tests/contract/editsPlaceNothing.test.ts` looks for
   `resources.mine_site` (the editor's advisory, `resources.mine_reach` folded into it, D342) and
   `parity.test.ts` compares every check again; `resources.test.ts`' grove fill is read on the map's
