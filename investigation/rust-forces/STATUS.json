@@ -16,7 +16,7 @@
     "allWaterAndPlaybackRecords": false,
     "existingTestsAgainstRust": false,
     "thousandsPerForcePerSizePerTarget": false,
-    "existingCrossEngineDeterminism": false,
+    "existingCrossEngineDeterminism": true,
     "performanceAcceptance": true,
     "completeIntegrationAdapter": true,
     "productExportBytes": false

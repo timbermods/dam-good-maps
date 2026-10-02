@@ -26,10 +26,10 @@
       "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
       "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
       "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
-      "existing-browser.mjs": "89a799902f394202377fb2e8c93e478ee5258226f2e9ece0085a1b12acfba478",
+      "existing-browser.mjs": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
       "identity-matrix.mjs": "5d78bfce36f89c7a5d713d5c0359779b454cd817ab12cceed475ffb623dcdfc1",
       "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
-      "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
+      "suite-replay.mjs": "3d36269d55b38337e9f2210391f6d17bbb67507d34d0463b76e893402258ff2d",
       "footprint-check.mjs": "e260bba8c852940e5ee53855a6b074fb31f4967a52b76416e16eb2e50b9d516b",
       "verifier-check.mjs": "bd8dd914655b9f6032bb97958cf56de8bf36a030a2b07c85ece45538a2003cdf",
       "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
@@ -868,7 +868,7 @@
     "replayPass": false
   },
   "existingBrowser": {
-    "sha256": "8b4989d897e344b1e831672ee40b5df5f97ad16437b8bb99987457663b52fa61",
+    "sha256": "89b6fa7278b9985c71676b19189aea58fbabd42753c09fb7c4cb2b73d0cef759",
     "build": {
       "build": {
         "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
@@ -882,10 +882,10 @@
           "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
           "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
           "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
-          "suite-adapter.ts": "b2867c630765a2d7f54c658eb1d76ee37d04b69a7f12fcac9a4f35f1b0bb85f8",
-          "check.mjs": "8ffb6f48922f66b47fd5aaa441b11fc8c4e7a53c7e44d59ac421a0cdb7d68e50",
+          "suite-adapter.ts": "b2e8a9f6aba88526c403c3040e72ec7fd2baed0c93ebe49dab9a389145007d7e",
+          "check.mjs": "0f022418b7a564a933003f02f607afe0d080bc204c1dc422e8795b0ea2a799b5",
           "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
-          "browser.mjs": "d2a9bfd9ea326ff065975f95891aaa12d58b48e1439b928593115192177f2877",
+          "browser.mjs": "de8c946e60c3f440ea33e28928f02d4b7a9f0492b04509011f49c1794383d7bb",
           "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
           "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
           "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
@@ -894,10 +894,12 @@
           "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
           "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
           "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
-          "existing-browser.mjs": "2300e1e06f00c7122c855a81b4f4c313f5d458bd0d06156302b0cf591ad6e993",
-          "identity-matrix.mjs": "10d8b57c9498574079232699afad270e9497eb3a4d32e24f919d3b061ab57b47",
+          "existing-browser.mjs": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
+          "identity-matrix.mjs": "5d78bfce36f89c7a5d713d5c0359779b454cd817ab12cceed475ffb623dcdfc1",
           "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
           "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
+          "footprint-check.mjs": "e260bba8c852940e5ee53855a6b074fb31f4967a52b76416e16eb2e50b9d516b",
+          "verifier-check.mjs": "bd8dd914655b9f6032bb97958cf56de8bf36a030a2b07c85ece45538a2003cdf",
           "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
           "local/checkout/src/core/data/log-floor.json": "ed7385477cbd49fa4355b170bbeae15803af6931b522f0146099ed5e784ddbd0",
           "local/checkout/src/core/data/logFloor.ts": "d330bad83a075b2b3b695797a9a97dabdce9884ffab2bf2b66852d8fc71e33d7",
@@ -994,7 +996,7 @@
         }
       },
       "suiteAdapterSha256": "e94b8750ebb84056719fb93c9bdd2f063d8201a48c63f2c3774b724debb75753",
-      "harnessSha256": "89a799902f394202377fb2e8c93e478ee5258226f2e9ece0085a1b12acfba478",
+      "harnessSha256": "514167130124d0dbcf53d3d0656094a691407eb7668e00ab8e9c7440563dda55",
       "engines": [
         "chromium",
         "firefox",
@@ -1012,18 +1014,19 @@
       },
       "driver": "1.58.2",
       "informationalTimingsEnabled": true,
-      "webkitScratchCanvasFallback": true
+      "webkitScratchCanvasFallback": true,
+      "pointerFrameSynchronization": true
     },
     "stats": {
-      "startTime": "2026-10-02T15:40:38.843Z",
-      "duration": 1896631.581,
-      "expected": 92,
+      "startTime": "2026-10-02T16:34:33.785Z",
+      "duration": 1374401.411,
+      "expected": 93,
       "skipped": 0,
-      "unexpected": 1,
+      "unexpected": 0,
       "flaky": 0
     },
-    "rustComparisons": 21323,
-    "fullBrowser": false
+    "rustComparisons": 21853,
+    "fullBrowser": true
   },
   "measurements": {
     "file": "measurement-evidence.json",
@@ -1042,7 +1045,6 @@
     "allWaterAndPlaybackRecords",
     "existingTestsAgainstRust",
     "thousandsPerForcePerSizePerTarget",
-    "existingCrossEngineDeterminism",
     "productExportBytes"
   ]
 }
