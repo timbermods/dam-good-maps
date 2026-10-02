@@ -98,7 +98,7 @@ async function shoot(page: Page, tool: Page, file: string): Promise<void> {
   // buttons/legend that sit over it, so nothing needs hiding first
   await settle(page);
   await page.waitForTimeout(250);
-  const canvas = page.locator(".editor-view canvas");
+  const canvas = page.locator(".editor-view canvas[aria-label^=\"3D view\"]");
   await canvas.waitFor({ state: "visible", timeout: 30_000 });
   const png = await canvas.screenshot({ type: "png", timeout: 30_000 });
   const jpeg = await tool.evaluate(
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
       let startVisible = true;
       let startFile: string | null = null;
       if (start) {
-        const box = (await page.locator(".editor-view canvas").boundingBox())!;
+        const box = (await page.locator(".editor-view canvas[aria-label^=\"3D view\"]").boundingBox())!;
         const p = (await page.evaluate(`window.dgmEditor.tileToClient(${start.x}, ${start.y})`)) as { x: number; y: number };
         startVisible = p.x >= box.x && p.x <= box.x + box.width && p.y >= box.y && p.y <= box.y + box.height;
         if (!startVisible) {

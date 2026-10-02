@@ -145,17 +145,18 @@ export interface GroveOptions {
 /** A single grove of about `n` trees seeded at `seedTile`: its ground grown as a blob over the
  *  allowed tiles, then thinned from the edge. With too little room it keeps every tile it could
  *  take (so a narrow valley floor still gives its trees). */
-export function growGroveAt(g: BaselineGround, rng: Rng, allowed: Uint8Array, seedTile: number, n: number, fill = GROVE_AREA_FILL): { area: number[]; tiles: number[] } | null {
-  return growCluster(g, rng, allowed, seedTile, n, fill, GROVE_RAGGED);
+export function growGroveAt(g: BaselineGround, rng: Rng, allowed: Uint8Array, seedTile: number, n: number, fill = GROVE_AREA_FILL, keepFill = false): { area: number[]; tiles: number[] } | null {
+  return growCluster(g, rng, allowed, seedTile, n, fill, GROVE_RAGGED, keepFill);
 }
 
 /** A blob of about n / fill tiles thinned to n from its edge; a blob the ground cut short keeps
- *  every tile up to n. */
-function growCluster(g: BaselineGround, rng: Rng, allowed: Uint8Array, seedTile: number, n: number, fill: number, ragged: number): { area: number[]; tiles: number[] } | null {
+ *  every tile up to n, or with `keepFill` only as many as `fill` of it (a grove in a narrow strip
+ *  of moist ground stays as open as one with room). */
+function growCluster(g: BaselineGround, rng: Rng, allowed: Uint8Array, seedTile: number, n: number, fill: number, ragged: number, keepFill = false): { area: number[]; tiles: number[] } | null {
   if (!allowed[seedTile]) return null;
   const want = Math.max(n, Math.round(n / fill));
   const blob = growBlob(rng, allowed, g.W, g.H, seedTile, want, 1.5);
-  const keep = blob.length >= want ? n : Math.min(n, blob.length);
+  const keep = blob.length >= want ? n : Math.min(n, keepFill ? Math.round(blob.length * fill) : blob.length);
   return { area: blob, tiles: thinCluster(rng, blob, g.W, Math.max(1, keep), ragged) };
 }
 
@@ -193,7 +194,8 @@ export function planGroves(g: BaselineGround, want: { living: number; dry: numbe
       if (!seeds.length) break;
       let n = o.size ?? Math.max(5, Math.min(size.cap, Math.floor(o.rng.logNormal(size.median, L.grove.sigma))));
       n = Math.min(n, need < 5 ? 5 : need);
-      const grown = growGroveAt(g, o.rng, allowed, seeds[0], n);
+      // (the map's own groves keep the official groves' openness where the ground is narrow too)
+      const grown = growGroveAt(g, o.rng, allowed, seeds[0], n, GROVE_AREA_FILL, true);
       if (!grown || grown.tiles.length < 3) {
         clear[seeds[0]] = 1;
         misses++;
