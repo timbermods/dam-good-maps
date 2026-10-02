@@ -27,6 +27,7 @@
 // How each caller wires it in: src/core/water/README.md.
 
 import { FOOTPRINTS, footprintTiles, type Placement } from "../format/footprints";
+import { guidFrom } from "../math/hash";
 import { stream } from "../math/rng";
 import { MAX_STRENGTH_PER_TILE } from "../sim/model";
 
@@ -382,4 +383,27 @@ export function placeSourceGroup(req: SourceGroupRequest, ground: SourceGroundIn
 /** Tiles every source of a group takes (for the caller's `occupied` before the next group). */
 export function groupTiles(group: SourceGroup): number[] {
   return group.sources.flatMap((s) => s.tiles);
+}
+
+/**
+ * The ids of a group's sources, in `group.sources`' order (PLAN §19.4's stable ids): the anchor keeps
+ * `anchorId`, the caller's id for the source at the requested tile, and every other source takes an
+ * id derived from it and its place along the row counted round the rule's count (its offset from the
+ * anchor modulo `group.wanted`; a badwater pair's partner is the one), never its tile. The rule's
+ * count depends on the request alone, and a row is one unbroken run of at most that many tiles
+ * through its anchor, so its places are distinct: two sources never share an id. A group placed
+ * again for the same request on ground an edit changed (a Quake Lift raising one side of a row, a
+ * stroke) keeps every id it still has: a source that stays keeps its own, and one the land moves to
+ * the row's other end, the same spring, keeps the id of the one it replaces. A row that loses
+ * sources loses their ids; only a longer row than before has a new one.
+ */
+export function groupIds(anchorId: string, req: SourceGroupRequest, group: SourceGroup): string[] {
+  const member = (place: number) => guidFrom(anchorId, "sourceGroup", place);
+  if (req.kind === "badwater") return group.sources.map((_, k) => (k === 0 ? anchorId : member(k)));
+  const n = Math.max(group.wanted, group.sources.length);
+  return group.sources.map((s) => {
+    const along = s.x - req.x + (s.y - req.y);
+    const place = ((along % n) + n) % n;
+    return place === 0 ? anchorId : member(place);
+  });
 }
