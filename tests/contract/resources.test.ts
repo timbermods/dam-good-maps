@@ -16,7 +16,7 @@ import { stream } from "../../src/core/math/rng";
 import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
 import { isSapling, treeLogs } from "../../src/core/analysis/wood";
 import { startingLocation } from "../../src/core/format/entities";
-import { groundOfFile, measureResources, TOWER } from "../../src/core/resources/measure";
+import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../src/core/resources/measure";
 import { planMapResources } from "../../src/core/resources/plan";
 import { decodeSpecFragment, defaultSettings, makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
@@ -311,9 +311,16 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       expect(m.ruins.scrap, `${theme} scrap`).toBeGreaterThan(0.85 * sc.low * (s.ruins / 100));
       expect(m.ruins.scrap, `${theme} scrap`).toBeLessThan(1.15 * sc.high * (s.ruins / 100));
       // dead trees rare and deliberate (item 26: the official maps store two thirds dead; ours, the
-      // start's fallback and a drought-killed grove); groves as full as the official ones
+      // start's fallback and a drought-killed grove); the map's own groves as full as the official
+      // ones. (D148: item 26 counts living trees only, so where the start's walk holds little moist
+      // ground its planting fills that ground to make the starting wood (D85, D252), with no dead
+      // grove on dry land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's
+      // own groves 0.36. The groves beyond the start's 25 tiles are the map's own.)
       expect(m.trees.deadShare, `${theme} dead share`).toBeLessThan(0.1);
-      expect(m.trees.groveFill).toBeLessThan(0.52);
+      const ground = groundOfFile(r.file);
+      const st = startCentreOf(ground.objects.find((o) => o.template === "StartingLocation")!);
+      const own = measureResources({ ...ground, objects: ground.objects.filter((o) => Math.max(Math.abs(o.x - st.x), Math.abs(o.y - st.y)) > 25) });
+      expect(own.trees.groveFill, `${theme} the map's own groves`).toBeLessThan(0.52);
       expect(m.trees.groves.gaps.every((c) => c >= 1)).toBe(true);
       expect(m.bushes.patches.count).toBeLessThanOrEqual(10);
       expect(m.mines.count).toBeGreaterThanOrEqual(2);
