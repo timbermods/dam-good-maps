@@ -56,25 +56,44 @@ export function canopyCover(W: number, H: number, heights: Uint8Array, c: Canopi
   return cover;
 }
 
+/** The eight horizons' steps at each radius (x, y), as `Math.round(cos · r)` and `Math.round(sin · r)`. */
+const STEPS_AT: Int8Array = (() => {
+  const s = new Int8Array(8 * RADII.length * 2);
+  for (let a = 0; a < 8; a++) {
+    const angle = (a * Math.PI) / 4;
+    RADII.forEach((r, k) => {
+      s[(a * RADII.length + k) * 2] = Math.round(Math.cos(angle) * r);
+      s[(a * RADII.length + k) * 2 + 1] = Math.round(Math.sin(angle) * r);
+    });
+  }
+  return s;
+})();
+/** A horizon's height for each rise (0–255 levels) at each radius: rise / hypot(rise, r) · (1 − r / 16). */
+const HORIZON: Float64Array = (() => {
+  const h = new Float64Array(256 * RADII.length);
+  for (let rise = 0; rise < 256; rise++) RADII.forEach((r, k) => (h[rise * RADII.length + k] = (rise / Math.hypot(rise, r)) * (1 - r / 16)));
+  return h;
+})();
+
 /** The ambient occlusion's texels (RGBA, one a tile) over a rectangle: R how much of the sky the
- *  ground sees past the terrain round it (eight horizons at four radii), G past the canopies. */
+ *  ground sees past the terrain round it (eight horizons at four radii), G past the canopies. (The
+ *  steps and horizons come from tables made once: the same numbers, a brush's rectangle many times
+ *  faster, R1.) */
 export function ambientRect(W: number, H: number, heights: Uint8Array, cover: Float32Array, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
+  const R = RADII.length;
   for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
     for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
       const i = y * W + x;
       const z = heights[i];
       let occlusion = 0;
       for (let a = 0; a < 8; a++) {
-        const angle = (a * Math.PI) / 4;
-        const c = Math.cos(angle);
-        const s = Math.sin(angle);
         let horizon = 0;
-        for (const r of RADII) {
-          const xx = x + Math.round(c * r);
-          const yy = y + Math.round(s * r);
+        for (let k = 0; k < R; k++) {
+          const xx = x + STEPS_AT[(a * R + k) * 2];
+          const yy = y + STEPS_AT[(a * R + k) * 2 + 1];
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-          const rise = Math.max(0, heights[yy * W + xx] - z);
-          horizon = Math.max(horizon, (rise / Math.hypot(rise, r)) * (1 - r / 16));
+          const rise = heights[yy * W + xx] - z;
+          if (rise > 0) horizon = Math.max(horizon, HORIZON[rise * R + k]);
         }
         occlusion += horizon / 8;
       }
