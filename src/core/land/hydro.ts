@@ -350,8 +350,9 @@ interface Head {
 
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
   const N = W * H;
-  // River Valley has one default trunk; an explicit Rivers count stays the player's.
-  if (g.theme === "riverValley" && !g.hydro.exactInflows) g.hydro.inflows = 1;
+  // River Valley has one default trunk; an explicit Rivers count stays the player's, 0 too (its main
+  // river then rises from a spring, PLAN §5.3)
+  if (g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = 1;
   const natural = opts.meander !== false;
   const rng = stream(seed, "hydro", attempt);
   const down = downstreamEdges(g.flowDir);

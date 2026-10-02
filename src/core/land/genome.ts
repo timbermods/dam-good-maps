@@ -76,6 +76,9 @@ export interface Genome {
     inflows: number;
     /** The Rivers setting's count, which the hydrology finds exactly when it can (set by `leanGenome`). */
     exactInflows?: boolean;
+    /** The player set Rivers to 0: no river enters by the map's edge, a spring feeds the main river
+     *  (set by `leanGenome`; a theme's own default inflow never overrides it). */
+    noInflows?: boolean;
     /** Springs added toward land far from the water (D333 (3)); false where the player asked for
      *  Generous buildable land (set by `leanGenome`). */
     reachSprings?: boolean;
@@ -888,6 +891,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // (a count the player set is the count that enters, PLAN §5.3; the preset's leaves the genome's)
   if (s.water.rivers === 0) {
     g.hydro.inflows = 0;
+    g.hydro.noInflows = true;
     g.hydro.springs = Math.max(1, g.hydro.springs);
   } else if (s.water.rivers !== p.rivers) {
     g.hydro.inflows = s.water.rivers;
