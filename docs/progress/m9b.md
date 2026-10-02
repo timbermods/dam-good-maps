@@ -111,13 +111,21 @@ settings experiment 30 of 34 (below), the rest green.
 
 - Chaos at 256²: 1 to 3 of 40 fail (no start on the shown land), under D273 (6)'s pass rate.
 - For Kyler's eye on the review set: Islands in one layout, Delta close to one (outcomes 4 and 5).
-- The pooled probe batch `20261002-1555-batch` (23 maps, the M9b group with Lake Basin 256² seed 24):
-  its results go here and into STATUS.
 - Lake Basin round 2 after its quiet timing; the settings round 2 (held, last: Verticality, Lakes and
   basins, Waterfalls, Designed for); the quiet window's timings above.
 
 ### Step 4 (2026-10-02, later): tooltips, groves, the canyon reading, 256², the re-pins, the review set
 
+- **The pooled probe batch `20261002-1610-batch`** (D218, D308; on 3bd9f12d, from the probe folder, with
+  Kyler's installed mods): the M9b group, 23 maps (two per theme at 128², two chaos maps at 256², two
+  Sources: None, D358's four slow-settling maps and Lake Basin 256² seed 24 fed gently by round 2).
+  **142 checks passed, 0 failed**, 23 screenshot sets recorded; the restore clean (only Steam's
+  `steam_autocloud.vdf` files changed). Results in `C:\dgm-probeesults61002-1610-batch\`
+  (local; `summary.md`, `verdicts.json`). For STATUS and #57. Two runner fixes on the way: the in-game
+  log's path after the prune (383c3442; `dev` has the same stale path), and a launch from this
+  session's shell needs the per-user .NET 8 first on PATH (a first try, `20261002-1555-batch`, failed
+  at the mod's build and launched nothing). The runner's quiet check reads no load on this machine
+  (`Get-Counter` fails, so it always reports "load 0%").
 - **The two tooltip failures, found** (1ac45606). The editor's message-strip ×: `tests/e2e/tooltips.spec.ts`
   placed a mine site 10 tiles from a water source it had just placed on River Valley 96² seed 9; on
   M9b's map that ground is level and the source's water spreads over it, so on CI's slower machine
