@@ -304,6 +304,8 @@ export interface BuildCache {
   soil: Float64Array | null;
   /** Occupancy when the resources were placed, and each resource feature's output. */
   occupiedBeforeResources: Uint8Array | null;
+  /** The tiles taken before the entity edits: what the generation's kept resources yield to. */
+  occupiedBeforeEdits: Uint8Array | null;
   resources: Map<string, ResourceEntry>;
   resourceOrder: string[];
 }
@@ -904,6 +906,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    slope overrides, then the first pass of entity edits
   const ground = { W, H, heights };
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
+  //    (what the build placed itself takes its tiles before the edits move anything: the generation's
+  //    kept resources yield to it alone, raster/resources.ts `ResourceGround.before`)
+  const occupiedBeforeEdits = reserved.slice();
+  for (const e of entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) occupiedBeforeEdits[y * W + x] = 1;
+  for (const f of features) {
+    if (f.kind !== "setPiece" || !live(f)) continue;
+    for (const i of BUILDERS[f.params.kind]?.clears?.(f, W, H, features) ?? []) occupiedBeforeEdits[i] = 1;
+  }
   const passA = applyEntityEdits(entities, input.entityEdits ?? [], ground, true);
   entities = passA.entities;
   //    Sources: None (D330): the sources the map's features place go, and their water with them
@@ -943,6 +953,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moisture: null,
     soil: null,
     occupiedBeforeResources: null,
+    occupiedBeforeEdits: null,
     resources: new Map(),
     resourceOrder: [],
     ...over,
@@ -1059,7 +1070,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // (Sources: None: the trees and bushes stand where the soil was moist as generated, D330)
   const plantMoist = dry ? Float64Array.from(dry.moist) : moist;
   const plantSoil = dry ? Float64Array.from(dry.poisoned) : soil;
-  const g = { W, seed, heights, water, moisture: plantMoist, soilContamination: plantSoil, occupied, channel: terrain.channel, locked: input.locked?.mask ?? null };
+  const g = { W, seed, heights, water, moisture: plantMoist, soilContamination: plantSoil, occupied, channel: terrain.channel, locked: input.locked?.mask ?? null, before: occupiedBeforeEdits };
   let changedTiles: Uint8Array | null = null;
   const orderSet = new Set(order);
   const reusable =
@@ -1077,8 +1088,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const ph = prev!.terrain.heights;
     const pc = prev!.terrain.channel;
     const po = prev!.occupiedBeforeResources!;
+    const pb = prev!.occupiedBeforeEdits ?? po;
     for (let i = 0; i < N; i++) {
-      if (ph[i] !== heights[i] || pc[i] !== terrain.channel[i] || (pw[i] > 0) !== (water[i] > 0) || (pm[i] > 0) !== (moist[i] > 0) || (ps[i] > 0) !== (soil[i] > 0) || po[i] !== occBefore[i]) changedTiles[i] = 1;
+      if (ph[i] !== heights[i] || pc[i] !== terrain.channel[i] || (pw[i] > 0) !== (water[i] > 0) || (pm[i] > 0) !== (moist[i] > 0) || (ps[i] > 0) !== (soil[i] > 0) || po[i] !== occBefore[i] || pb[i] !== occupiedBeforeEdits[i]) changedTiles[i] = 1;
     }
     // tiles freed by resource features that are gone
     for (const [id, e] of prev!.resources) if (!orderSet.has(id)) for (const i of e.placed.tiles) changedTiles[i] = 1;
@@ -1119,7 +1131,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     ...withWater,
     entities: passB.entities,
     dirty: null,
-    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, resources, resourceOrder: order }),
+    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, occupiedBeforeEdits, resources, resourceOrder: order }),
   };
   if (prevResult) result.dirty = dirtyInfo(prevResult, result, region);
   return result;

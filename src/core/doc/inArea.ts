@@ -38,7 +38,7 @@ export function submergedIn(s: MapSession, tiles: Iterable<number>): SubmergedOb
   for (const f of resourceOrder(s.features)) {
     if (!isResource(f)) continue;
     const now = cache.resources.get(f.id)?.placed;
-    const ground: ResourceGround = { W, seed: b.seed, heights: b.heights, water, moisture: b.moisture, soilContamination: b.soilContamination, occupied: occupied.slice(), channel: b.channel, locked: null };
+    const ground: ResourceGround = { W, seed: b.seed, heights: b.heights, water, moisture: b.moisture, soilContamination: b.soilContamination, occupied: occupied.slice(), channel: b.channel, locked: null, before: cache.occupiedBeforeEdits };
     // (a generated map's own objects stand in the water, kept: none is held under it, D404)
     const dry = rasterizeResource(f, ground, s.generatedResources()?.get(f.id) ?? null);
     const here = new Set(now?.entities.map((e) => e.id) ?? []);

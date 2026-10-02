@@ -70,7 +70,7 @@ function force(edit: Edit, x: number, y: number, W: number, next: () => number):
 }
 
 /** Apply one edit to its end and keep it, as the page does; why it was refused, or null. */
-function apply(edit: Edit, x: number, y: number, W: number, next: () => number): string | null {
+export function applyEdit(edit: Edit, x: number, y: number, W: number, next: () => number): string | null {
   if (BRUSHES.includes(edit)) {
     const r = ed.apply(stroke(edit as BrushTool, x, y, W, next), "user", edit);
     return r.errors.length ? r.errors.join("; ") : null;
@@ -127,7 +127,7 @@ export async function sweepSequences(theme: ThemeId, size: number, seed: number,
     let before = objects();
     let done = 0;
     for (const [k, step] of seq.entries()) {
-      const refused = apply(step.edit, step.at[0], step.at[1], size, next);
+      const refused = applyEdit(step.edit, step.at[0], step.at[1], size, next);
       if (refused) continue;
       done++;
       const now = objects();
