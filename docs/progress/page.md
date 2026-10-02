@@ -71,6 +71,10 @@ checkpoint.
 - `src/editor/waterPlayer.ts` and `waterJourney.ts` stay where they are, exports unchanged, until the renderer's PR
   has merged.
 
+- **Remove unfed water and Fill** (the milestone session, #167 on dev; `src/core/doc/waterEdits.ts`: `unfedWater`,
+  `planFill`): where the two controls go isn't decided. They go into checkpoint 2's mockup, labelled, with their
+  tooltips; Kyler accepts the placement before they are built.
+
 ## Asked of the milestone session
 
 - M9b's candidate events (the strip), Sources: Placed · None and the automatic water fix (checkpoint 2).
