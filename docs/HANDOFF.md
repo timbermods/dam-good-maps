@@ -1,455 +1,242 @@
 # Handoff: the milestone session
 
-> **Kyler's standing rule, before any task (PLAN §20, D316–D318):** compute is a resource, effort matches the stakes,
-> and quality is never compromised. Invest in what compounds (shared modules, findings, history); spend little on what
-> doesn't (ceremonial reports and captures, re-checking by hand); keep cheap automated checks broad; verify deeply only
-> where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
-> (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
+> **Kyler's standing rule, before any task (PLAN §20, D316–D318):** compute is a resource, effort matches the stakes, and
+> quality is never compromised. Invest in what compounds; spend little on what doesn't (ceremonial reports and captures,
+> re-checking by hand); keep cheap automated checks broad; verify deeply only where failure is expensive and hard to see;
+> keep reports short. The cheapest model and effort that does the job (§3), and a real check before any code change is
+> reported done. The full rule is at the top of `CLAUDE.md`.
 
-> **Refreshed 2026-10-01, evening.** Released today: the forces (D375), the High look (D378) and the AGPL licence (D379).
-> New decisions: D380 performance is a requirement, D381 the Rust order, D382 no outside users for now, D383 the dam
-> sketch tool. §0 is current; the next free decision is D391.
+**Read this first if you're the new milestone session.** You start with no memory of the last one. Then read `CLAUDE.md`,
+`docs/STATUS.md` (what's in flight and what waits for Kyler), `docs/PERFECT.md` (the yardstick for every review),
+`EDITOR_PLAN.md` (before any editor work), `PLAN.md` §20 (the decisions in force) and the top of `ROADMAP.md` (the order of
+work). Kyler (he/him) owns the project and decides everything. The earlier handoff, with its history, is
+[archive/handoff-2026-10-01.md](archive/handoff-2026-10-01.md).
 
-> **New decisions, 2026-10-02 (D384–D390):** the design pass moves into step 1 with "The page is the editor" (D384). **The
-> release gate (D385) and the editor-core items (D387) come before the next release**, then the coherence review (D386).
-> **Two sessions (D388):** this milestone session (Opus 5.5, high) and a page session (Fable 5.1, high; `feature/page`, started
-> once the prune, D390, has landed); neither touches the other's files. **Models (D389):** Sonnet 5.5 sub-agents at high for the
-> prune and layout-touching mechanical work, at medium for self-contained mechanical work; never Fable unless Kyler asks; never
-> raise effort or start sub-agents at max. Kyler's message: `docs/feedback/2026-10-02-two-sessions.md`.
+## 1. Starting a session
 
-**Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
-flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D390) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
-everything.
+1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`) at Opus 5.5, high, so `.claude/agents/` load.
+2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
+   the plan's worktrees beside the clone and the probe folder `-probe`, installs their dependencies, writes the four probe
+   allow rules for this machine's paths into `.claude/settings.local.json` (keeping any there), checks Node, `gh`, the .NET 8
+   SDK, Python and Timberborn's folders, and prints what's ready and what's missing; tell Kyler only what the next task
+   needs. `--dry-run` previews, `--all` adds the parked branches, `--no-install` skips `npm ci`. **Restart the session after
+   it adds allow rules.** When a branch starts or is released, update the list at the top of the script.
+3. Start `tools\keep-awake.ps1 96` in the background, and run `git fetch --all`.
 
-## 0. Resume here (refreshed 2026-10-01, evening: the session ended on Kyler's main PC; the next one runs on another machine)
+**Tied to a machine, so recreated on a new one:**
 
-**First, run one command** in the repository's main clone, yourself, on your first start:
-
-```bash
-npm run setup:machine
-```
-
-(`tools/setup-machine.mjs`, plain Node, safe to run again at any time.) It creates the worktrees the plan uses beside the
-clone (`<clone>-m9b`, `-high`, `-parity`, `-page`, `-weather`, `-3d` and the dedicated probe folder `-probe`),
-installs their dependencies, writes the four probe allow rules for this machine's own paths into
-`.claude/settings.local.json` (keeping any rules already there), checks Node, `gh`, the .NET 8 SDK, Python and
-Timberborn's folders, and prints what's ready and what's missing. **Tell Kyler only about what the next task needs.**
-`--dry-run` shows what it would do; `--all` adds the parked branches; `--no-install` skips `npm ci`. Restart the session
-after it adds allow rules, so they load. When a branch starts or is released, update the list at the top of the script.
-
-Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/` load; start
-`tools\keep-awake.ps1 96` in the background; run `git fetch --all`.
-
-**Tied to a machine, so recreated there** (nothing here needs the old PC):
-- **The probe allow rules** in `.claude/settings.local.json` (gitignored). The setup command writes them; as a template,
-  with `<probe>` the probe folder (for example `C:/Users/<user>/code/DamGoodMaps-probe`):
-  - `Bash(npm --prefix <probe>/investigation/probe run build-mod -- --no-install)`
-  - `Bash(npm --prefix <probe>/investigation/probe run batch -- --backup-settings)`
-  - `Bash(npm --prefix <probe>/investigation/probe run batch -- --group:*)`
-  - `Bash(npm --prefix <probe>/investigation/probe run restore)`
-- **The probe routine** (§7, "Where probes run"): every probe runs from the probe folder, checked out detached at the
-  branch being probed; print and check the plan first; Kyler's yes in chat before every batch (D117), except on the
-  dedicated machine (§9, D218). A new machine needs a fresh settings backup (`batch -- --backup-settings`) before its
-  first batch; results go to `C:\dgm-probe\`.
+- **The probe allow rules** (written by the setup command), with `<probe>` the probe folder: `Bash(npm --prefix
+  <probe>/investigation/probe run build-mod -- --no-install)`, `... run batch -- --backup-settings)`, `... run batch --
+  --group:*)` and `... run restore)`. A new machine needs a fresh settings backup (`batch -- --backup-settings`) before its
+  first batch.
 - **Local-only data, regenerated when needed:** the decompiled game code (`investigation/decompile_all.sh`), the official
-  maps (`investigation/extract_builtin_maps.py`), `C:\dgm-workshop\` and `C:\dgm-reference\` (Kyler's main PC only),
-  Real places' land cache (§3), and each investigation's gitignored `local/` folder (its report says how to regenerate
-  it). M9b's measure results are regenerated with `investigation/m9b/measure.sh` (`docs/progress/m9b.md`, "Hand-over").
-- **Paths in this page:** §1–§3 and §9 name `C:\Users\krams\…` (the dedicated machine) and §7 names
-  `C:\Users\Kyler\code\…` (Kyler's main PC); read them as "beside the main clone on this machine".
-- **Pings** use `tools\notify.ps1` (a Windows toast) and the chat line; both work on any Windows machine.
+  maps (`investigation/extract_builtin_maps.py`), Real places' land cache, and each investigation's gitignored `local/`
+  folder (its report says how). M9b's measures: `investigation/m9b/measure.sh` (`docs/progress/m9b.md`, "Hand-over").
 
-**State at the end (everything is pushed; no agent or background task is running):**
+## 2. The two sessions (D388)
 
-1. **Released today:** the forces (`forces-done`, #149, `main` e5a6bf35; D375), the High look (`map-look-2-done`, #151, `main`
-   39b04114; D378; the live site shows Look: High) and the AGPL v3 licence (`licence-agpl-done`, #154, `main` 87c73a0; D379;
-   versions before 2026-10-01 stay MIT). Also done: the setup command proved on a fresh clone, the D341 flake fixed in the
-   test, September's Progress log copied (`docs/progress-log/2026-09.md`; October's goes in at that month's end), 109 merged
-   branches deleted (`docs/merged-branches.md`), #95 retargeted to `dev`, and CI that skips its heavy suites for
-   documents-only changes (`tools/ci-changes.mjs`).
-2. **Decided today** (PLAN §20): **D380** performance is a critical requirement (every feature meets its speed budget before it
-   ships; a speed regression blocks a merge like a failing test); **D381** the Rust order (water; the five forces, TypeScript
-   tagged `ts-forces-final`; the forces' planning and the checks; the Rift, Deposit and Carve's Maturity directly in Rust
-   and every later force; the generator after M9b; the editor's operations if the audit justifies it; interface and rendering
-   stay in TypeScript); **D382** no outside users for now (re-pin freely; Kyler's own maps and projects keep opening or
-   convert automatically); **D383** the dam sketch tool at the end of step 1, then the reservoir finder (replacing D287's
-   guessed dam sites); D377's 20-second tour restated. The next free decision is **D391**.
-3. **The post-release list, in order** (`build`, Opus 5.5, high; ROADMAP has a section for each):
-   1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force
-      should skip to its end while the new one plays in full. Check every force.
-   2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
-   3. **Moving water and the Flow view** (Codex's flow investigation): always-on moving water in both looks; the Flow view's
-      lanes off by default; paths built in the water worker; it must pass the smoothness harness. Then **renderer R1** from the
-      performance audit (#152), using the smoothness investigation's traced stall causes: water blending, brush updates, the
-      High look's lighting.
-   4. **Carve's river born as it cuts** (D371), **Glaciate's Fast timing** (D374), **startup part 1** (D367); **Carve's
-      Maturity** (D355) and **Deposit's adoption** (D364) are built directly in Rust after the forces' port (D381).
-   5. **Shift+F resets what F changes on every tool** (a force's Size and Power to Auto; a brush's Size and strength to
-      defaults); it never starts resizing or triggers Shift's invert.
-   6. **A Strength slider for Smooth and Naturalize** in their settings row, moving live with F+scroll and `[ ]`.
-   7. **Trees on soil an edit has dried out** get a "dry soil, will die" hint in the readout and with Markers on (D376).
-   8. **After the forces' Rust port:** a **Sources setting for every force** (Ride, the default; Keep; Clear) in More.
-   9. **Check whether the README and the website need a line about the High look.**
-   10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
-   11. **One quiet measuring window**, once Codex's current tasks land, timing every speed investigation in turn (the faster
-       settle, D359, among them).
-   12. **Later: a Codex round on Canyon and Highlands at 96².**
-   Then the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
-4. **The Codex verdicts (2026-10-01)**, in the order the milestone session handles them:
-   - **Approved, to merge as investigations** (the milestone session merges them at a boundary; only Codex's own commits where
-     a branch started from an unreleased one):
-     - **Short join codes** (#150): findings go into `docs/COLLAB-BRIEF.md` (the codec; a QR code next; WebKit and
-       cross-network still unverified).
-     - **The performance audit** (#152): its ranked roadmap guides the order of the speed work.
-     - **Small starts** (#153).
-     - **Generation speed, rounds 1 and 2** (#155): round 1 is byte-identical, about 6% less CPU at 256²; round 2 about 12%
-       fewer redraws with every quality share equal or better, zero must-pass failures, shown land unchanged and identical
-       across three engines. **Adopt round 1, then round 2.**
-   - **The smoothness investigation (#107): paused.** Kyler sees no large-brush freeze on his own machine, so the 3–4 s
-     stall is most likely an artefact of measuring under 100% load. Merge it as an investigation (its harness and
-     findings) and adopt none of its fixes (the buffer experiment showed no gain). Its harness is the gate that renderer R1
-     and moving water must pass, measured in a quiet window. The water status "0%" after undo is confirmed fixed on `dev`.
-   - **The Rust water port (#156): approved** (D381). Adopt the native build for batch jobs now (M9b's measures, theme
-     measures, nightly checks: the 840-map settle batch drops from 281 s to 146 s), without waiting for M9b's release. In
-     the browser, use the Rust settle in Chromium (about 1.7–2.5× faster) and keep TypeScript in Firefox and WebKit (superseded 2026-10-02 by the Codex verdicts below: Rust in Firefox too, once the corrected comparison confirms it)
-     (Firefox's WebAssembly was about 4× slower, WebKit slightly slower) until a short Codex round explains Firefox's
-     slowdown. Threading stays experimental. Add Rust 1.90, the wasm32 target and the Rust build to CI and the setup
-     command.
-   - **Scaling round 4 (#132): approved for adoption.** Files about a quarter of round 3's (7 MiB at 256², 20 MiB at
-     512²), reopening about 1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step
-     jump back (1.5–6 s today), memory over a long session, and native Safari storage.
-   - **M9b's adoption order** (`feature/m9b`, #70): small starts, then generation speed (round 1, then round 2), then Lake
-     Basin round 2 (only after a quiet-machine timing shows it is no slower than today), then the settings round 2 last
-     (still held: theme-outcome regressions, small lake gains, speed misses); re-measure after each. **M9b must not
-     release slower than `dev` at 256²** (D380). Three contract tests were already failing on the base (#155 disclosed
-     them): confirm what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained.
-   - **Codex verdicts (2026-10-02):**
-     - **Multi-core water (#130): approved.** Threads only where they help: 256² and up in Chromium and Firefox (Firefox always measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`, in flight). Costs: one first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².
-     - **The Rust water's Firefox round (#156):** Firefox's slowdown was the test harness (the debugger forced the baseline WebAssembly compiler); corrected and tightened, a 128² settle went from 1.73 s to 0.16 s, byte-identical. WebKit gains 1.2–1.9× on larger maps, while TypeScript still wins small maps there. **New policy (replaces "keep TypeScript in Firefox"):** Rust in Chromium and Firefox once the corrected comparison against TypeScript confirms it; Rust in WebKit for larger maps only.
-     - **The Rust analysis (#157): approved,** byte-identical everywhere; at 256², analysis 3.5 → 2.8 s in Chromium, 16 → 10 s in WebKit, 10 → 7 s natively. Firefox is being re-measured with the corrected setup. The full M9b batch on 16 threads took about 18.5 minutes on a fully loaded machine: compare against the TypeScript batch in the quiet measuring window.
-     - **The Rust forces (#158):** round 1 not adoptable (about 5× slower, because a generic serialization layer copied the map across the boundary on every call; Carve and Glaciate unported). Round 2 is in flight: the boundary fixed first (the map shared in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The lesson applies to every port.
-     - **Still with Codex:** the Rust forces round 2, the Rust analysis's Firefox re-measure, portable maths everywhere (`investigation/portable-math`), the dam sketch tool's engine (`investigation/dam-sketch`), and Rust water with threads (`investigation/rust-threads`).
-   - **In flight with Codex:** multi-core water (`investigation/parallel-water`, #130) and the Rust water's Firefox slowdown.
-5. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s "Hand-over
-   (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373); failing absolutes
-   2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed). **First merge `dev` into
-   `feature/m9b`** (the forces are released there) and re-measure against the committed baseline, folding
-   `resources.mine_reach` into M9b's `resources.mine_site`; then follow item 4's adoption order, the 96² start class (Any 31,
-   Islands 4, Highlands 14), the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that
-   moved), then the review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and settings
-   are held; Codex's settings round 2 starts from a69c9f11 or later.
-6. **What didn't make it:** item 34 (WORK.md, hand-back notes, one file per decision; the document reorganisation) is the
-   next session's first small task; the faster settle's timing (D359) joins the one quiet measuring window (item 3's
-   list).
-7. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
-   **Stopped mid-work:** nothing.
+- **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
+  the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns PLAN
+  §20's numbering, STATUS and HANDOFF.
+- **The page session** (Fable 5.1, high; worktree and branch `feature/page`) does only the page and its design (D384). It
+  owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
+  `docs/progress/page.md`; this session folds them into PLAN when its work merges.
+- **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler.
+  Kyler's message: [archive/feedback/2026-10-02-two-sessions.md](archive/feedback/2026-10-02-two-sessions.md).
 
-The sections below are the earlier handoffs' record. Where they differ from §0, §0 is current.
+## 3. Models and agent definitions (D301, amended by D389)
 
-**Earlier (2026-09-29 to 2026-10-01):** the session ran on Kyler's main PC, `C:\Users\Kyler\code\` (Ryzen 7 9800X3D, 16 threads, 62 GB), which he also plays on: probe batches only with his yes each time, never while Timberborn runs, heavy jobs sharing the 16 threads. D218 didn't apply there.
+A session loads `.claude/agents/` only at its start, and only in the main clone. Opus where judgment is the product, Sonnet
+where the job is written down, scripts where it's only waiting.
 
-**History:** paused on 2026-09-26 on Kyler's main PC; resumed the same day on a dedicated computer (§9). Paused again on
-2026-09-27 at about 21:00 PDT, when Kyler's allowance ran out; **resume on Tuesday 2026-09-29 at 8:01 PDT**. Kyler is back
-at the terminal: ping him (§7) when something waits for his eye. Nothing merges into `dev` without his yes, except
-housekeeping (D286 (5)) and investigation PRs at a boundary.
+| Work | Definition | Model, effort |
+|---|---|---|
+| M9b (Kyler's setting, D262) | `m9b-build` | Opus 5.5, xhigh |
+| Anything touching the water simulation, the generator's processes or the forces; the editor-core items; editor changes; Rust ports; adopting Codex's work | `build` | Opus 5.5, high |
+| The document prune; mechanical work touching layout or other work's tests; building from a written spec; review sets and contact sheets; mechanical merges and CI fix-ups without real conflicts | `build-light` | Sonnet 5.5, high |
+| Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
+| Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
+| The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
+| The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
+| Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
-## 1. The order of work as of 2026-09-27 to 2026-09-29 (history; §0 is current)
+`m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
+and D386's review). **Never raise any model's effort on your own, and never start sub-agents at max.** A hand-back from
+`build-light` or `build-light-medium` for anything needing judgment goes to `build`.
 
-**Kyler's build order (2026-09-29) lifted the hold:** six batches, D321–D326, in item 4 below. **Real places is parked (D319).** **One forces branch (D320):** Glaciate is folded into `feature/forces`, and the preview deploys from it.
+## 4. The Codex verdicts still to act on
 
-**Start:** open the milestone session in `C:\Users\krams\code\DamGoodMaps` at Opus 5.5, high (D251), so `.claude/agents/`
-load. Start `tools\keep-awake.ps1 96` in the background (§9). Run `git fetch --all` and `git worktree list`; every worktree
-was clean and matched its branch on origin at the pause (§2). **Nothing is running:** every agent stopped at a clean
-point, with everything pushed. The summary for Kyler is at the top of `docs/STATUS.md`. Send each kind of work to its
-definition (§7's table, D301).
+Codex builds on `investigation/<name>` branches (STATUS lists them). This session merges them as investigations at a
+boundary, as a merge commit once green (only Codex's own commits where a branch started from an unreleased one), and adopts
+their INTEGRATION.md as proposals; anything that conflicts with a decision becomes a pending decision with a default. Hold any
+PR Kyler says Codex is still working on.
 
-**M9a is released** (`m9a-done` at c31a77e, release PR #80, `main` at a4af2bb0; live check passed; generator 0.7.0). The
-editor is where the magic happens; the generator provides the canvas (D282). **First among the work: get the forces
-sitting's changes (D312–D315) onto the preview and tell Kyler.**
+**2026-10-01**
 
-Each workstream below: branch and last commit, state, the exact next step, its definition and model, what it waits on,
-and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<name>.md`, top note) has the detail.
+- **Approved, to merge as investigations:** short join codes (#150; findings into `docs/COLLAB-BRIEF.md`); the performance
+  audit (#152; its ranked roadmap guides the speed work); small starts (#153); generation speed (#155: **adopt round 1, then
+  round 2**).
+- **The smoothness investigation (#107): paused.** Kyler sees no large-brush freeze on his machine, so the stall is most
+  likely a measurement artefact under 100% load. Merge it as an investigation, adopt none of its fixes. Its harness is the
+  gate that renderer R1 and moving water must pass, in a quiet window.
+- **The Rust water port (#156): approved** (D381). Native build for batch jobs now; Rust 1.90, the wasm32 target and the Rust
+  build join CI and the setup command. Browser policy: the 2026-10-02 verdict below.
+- **Scaling round 4 (#132): approved for adoption.** Adoption checks: a 100-step jump back (1.5–6 s today), memory over a
+  long session, native Safari storage.
+- **M9b's adoption order** (`feature/m9b`, #70): small starts, then generation speed (round 1, then round 2), then Lake
+  Basin round 2 (only after a quiet-machine timing shows it no slower than today), then the settings round 2 last (still
+  held: theme-outcome regressions, small lake gains, speed misses); re-measure after each. **M9b must not release slower
+  than `dev` at 256²** (D380). Three contract tests already failed on the base: confirm what they are (likely the pending
+  re-pins) and fix or re-pin them; none may stay unexplained. First **merge `dev` into `feature/m9b`** and re-measure against
+  the committed baseline; fold `resources.mine_reach` into `resources.mine_site`; then the 96² start class, the canyon
+  measure's separate effect, the D148 re-pins, the review set for Kyler and one pooled probe batch.
 
-1. **Done 2026-09-29: items 35, 38 and 39 applied** (D316–D318). The standing rule is at the top of `CLAUDE.md` and
-   of this page; every definition in `.claude/agents/` names its full model id (`claude-opus-5-5` or `claude-sonnet-5-5`,
-   efforts unchanged); Claude Code resolves "sonnet" to Sonnet 5.5 here (checked 2026-09-29); §7's table is the model plan in force. `build-light`'s first feedback batch tries medium on
-   the well-specified items (D318 (2)).
-2. Done with item 1: the models (item 38, D317).
-3. Done with item 1: model and task suitability (item 39, D318).
-4. **The six batches** (Kyler's build order, `docs/feedback/2026-09-29-build-order.md`; PLAN §20 D321–D326; all started 2026-09-29 and run in parallel;
-   short reports, real checks, nothing ceremonial). Each: branch, worktree, definition and model, state.
-   - **Batch 1, the forces** (D321; items 7, 13, 14, 17, 18, 25, 29, 30, 40, 41; D327's curved faults and fissures after item 41's path piece): `feature/forces`, `DamGoodMaps-forces`,
-     `build` (Opus 5.5, high); started 2026-09-29. Order: 29 and 30, then 40 (absorbing Erode's Floor), 7, 41 and 13
-     (one freehand-path piece), Carve's 17, 25, 18, Erupt's 14; item 27's check at edges once batch 5 makes the lip callable.
-   - **Batch 2, the brushes** (D322; items 15, 37, 2, 31, 42): `feature/brushes`, `DamGoodMaps-brushes`, `build`
-     (Opus 5.5, high); started 2026-09-29. Item 15 first; the stroke record changes once (D158).
-   - **Batch 3, Select, Delete, the shelf and shortcuts** (D323; items 11 with 32, 12, 1, 44, 6, 43, 16, 46, 20, then 9; D328, placed objects fit the land, with 11 and 32):
-     `feature/select-shelf`, `DamGoodMaps-select`, `build-light-medium` (Sonnet 5.5, medium; D318 (2)'s trial: its
-     report says in one line whether medium matched high); started 2026-09-29. Owns the key map: updates the shortcuts
-     and first-run hints once after batches 1 and 2 land.
-   - **Batch 4, the look** (D324; D310's option (a), then items 5, 10, 4 with D231's leftovers, 28, then badwater's
-     calibration once): `feature/high-look`, `DamGoodMaps-high`, `build-light` (Sonnet 5.5, high); started 2026-09-29.
-     Item 3 waits for Kyler's High look sitting.
-   - **Batch 5, M9b** (D325; items 47, 36, 26, 27, 22, 21, 24; step 4 as amended by D329, time to an editable map): `feature/m9b`, `DamGoodMaps-m9b`, `m9b-build`
-     (Opus 5.5, xhigh); started 2026-09-29. One re-pin (D308) after every map-changing item; see item 8.
-   - **Batch 6, documents** (D326; items 33, 23, then 34): `dev`, the main clone, `routine` (Sonnet 5.5, medium);
-     started 2026-09-29.
-   Batches 2 and 3 merge into `feature/forces` in the order 3, 2, 1. When all three are in, the session deploys the
-   preview from `feature/forces` and sends Kyler one checklist for one sitting. **Held:** Real places (D319), items 19 (Spring) and 45 (flow arrows).
-5. **Item 34, at the forces release boundary** (batch 6, D326; converts existing files, adds no parallel ones):
-   `docs/ARCHITECTURE.md` includes D342 (operations only, a headless core, questions as plain core functions, reasons for every refusal, contract tests on the core).
-   STATUS §7's workstream table becomes `docs/WORK.md` (claim before starting); the progress docs' top notes become
-   fixed-format hand-back notes; STATUS shrinks to its short summary and drops "Decisions since M8"; PLAN §20 splits one
-   file per decision in the same pass as item 33's statuses; tests are renamed as the specification only when touched.
-6. Item 33's documents are written (`docs/HISTORY.md`, `docs/progress-log/`, `docs/chats/`; D326); the per-decision
-   statuses come with item 34.
-7. **The forces on the preview.** `feature/forces` (#77) carries D309, D312–D315, Glaciate and the sounds. Batch 1 builds on it;
-   batches 2 and 3 merge back into it (item 4). Known snag for batch 1: when a force sweeps the map's last badwater spring,
-   the "No badwater" notice (D213) covers the force rows. After Delete sources, CI's headless browser sometimes shows a few
-   blueberry bushes gone once the water preview runs on (not in Chrome; the operation is exact); a `build` agent looks at it.
-   **Held for Kyler:** the forces release only after his sitting.
-8. **M9b** (`m9b-build`, Opus 5.5 xhigh; `feature/m9b`, #70 draft, `DamGoodMaps-m9b`): source groups wired (284818ad),
-   the badwater toggle on a narrow mouth follows D290 (#134; its editor side lands with the forces), badwater ditches no
-   longer ruler-straight, the sea's rim wanders. The re-pin is half done: quick suite on d5dd375f 765 passed, 10 failed
-   (9 map-bound; one resources share at 0.5225 against its line under 0.52: look at it first). The "Handoff" section of
-   `docs/progress/m9b.md` has the ten tests, their seeds and the commands. **Next:** merge `origin/dev` (M9a, 0.7.0,
-   released), re-seed the six seed-bound tests, re-pin the 4242 sha, rerun `npx vitest run --project quick
-   --maxWorkers=4`; then samples under D308 and the release candidate: full batches, one pooled probe batch (3D maps,
-   Erode, a Real places sample, M9b maps), then the review set for Kyler. **Held for Kyler:** judged by his eye (D252,
-   D273). The feedback items (21, 22, 24, 26, 27, 36, 47) are batch 5, D325: its order is in `docs/feedback/2026-09-29-build-order.md` (the height budget first, then the trees and the start, the edge lip, candidates and speed, one re-pin, the numbers as data only, the release candidate).
-9. **Parked by Kyler (D319) until he says it resumes; #35 stays open, its red CI expected.** **Real places, round 2** (`build`, Opus 5.5 high; then `build-light` for the release; `feature/real-places-2`, #35,
-   `DamGoodMaps-places`): **the rebuild is paused** (Kyler, 2026-09-27) until the grouped-sources rule is in its
-   conversion (D314). That rule is now wired in (VERSION 11: heads and lake springs as rows, the water floor's spring as
-   a group, badwater grouped); the conversion started and stopped at the pause with 37 of 136 places done and cached. CI
-   on #35 is red until the rebuild (tests are for the new rules, the gallery still D271's). **Next:** from
-   `DamGoodMaps-places`, keep VERSION 11 and run `npx tsx tools/places-convert.ts --threads 3` (about 1.5–3 h for the 99
-   left), then build, draw the cards and check it yourself, as the top note of `docs/progress/real-places.md` lists:
-   every place passes the blocking list, "No water a pump can reach" is 0, the stripes are gone on 42, 48, 116 and 118.
-   Then release `real-places-2-done` (no new sheet for Kyler, D300). From item 47, real places take only what never changes the real land (D331; PERFECT.md's Real places section); item 27 still waits with D319.
-10. **Grouped sources** (D314): the investigation `investigation/source-groups` (#78) is merged into `dev`
-   (685d9b18). The rule itself is `feature/source-groups` at a6346fe4 (#79, draft): merge it into `dev` with the first of the branches
-   that carry it (M9b, Real places, the forces, Glaciate), not before Kyler's yes on that branch.
-11. **Held for Kyler, nothing to do until he answers** (STATUS §1): the High look's sitting (item 3's verdict; D310's option (a) is settled, batch 4); the High look (#75, `build`); Drought and Badtide day by day
-   (#73, `feature/weather-days`, D307's flooded floor done; `build`, then `build-light` for the fixes from his sitting).
-12. **Erode: merged into `dev` as an investigation (be2342a2, #74 at 47c02e67, rounds 2–9, Kyler's approval); adoption at 3D step 3.** Earlier notes: Kyler approved round 2 ("magical, almost perfect") and round 3
-   (89305ca6) landed and was approved: its flat-ground wash. Round 4 is with Codex now, narrow: washes across
-   uneven ground, and telling a wash sweep from a cliff sweep. **Next:** wait for Codex's round 4; when it lands,
-   check the automatic support check passes (0 dropped voxels); then hold #74 for Kyler's look; merge it as an
-   investigation on his yes. **#74 stays open; don't merge it: round 7 (roofs) is with Codex.** Adoption into the editor stays at 3D step 3 (after the 3D view), on the forces core
-   under the forces' rules (fast by default with Watch, item 29; changing things only when the force reaches
-   them, item 30; no refusals; one size ring).
-13. **3D terrain, step 1** (`build`; `feature/terrain3d-a`, #71 draft, 24b88b9b): new modules, verified against the game
-   (terrain3d-20260927 probe). **Next:** the wiring, after the forces and M9b merge into `dev` (D280).
-14. **Then, per ROADMAP.md:** the High look's release right after the forces' (D284), "The page is the editor" (D232–D234,
-   D237) — **Kyler's priority (feedback item 23): it follows the forces' release without delay, as one window for the
-   generator and the editor. Its brief is `docs/UI-BRIEF.md` (D330, from Kyler's UI round on `docs/UI-QUESTIONS.md`), approved by Kyler on 2026-09-29; built right after the forces' release
-   on `build` with item 34's split of the editor's giant files into feature folders; when it's rebuilt, "Refine this map", the expand button and the Legend button join `tools/retired-terms.json`. It also draws
-   item 22's strip and item 24's number.**, the Weather view (D285, D349), the four
-   terrain-above-terrain steps (D279–D281), then polish: Kyler's editor UI audit and the design pass (D236, D349), housekeeping (D283 (3); includes the three stale
-   capture tools and the held Dependabot majors #24, #25).
+**2026-10-02**
 
-**Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D391**.
+- **Multi-core water (#130): approved.** Threads only where they help: 256² and up in Chromium and Firefox (Firefox always
+  measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
+  WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`, in flight).
+  Costs: one first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets
+  becomes worth doing then) and about 35 MiB at 512².
+- **The Rust water's Firefox round (#156):** Firefox's slowdown was the test harness (the debugger forced the baseline
+  WebAssembly compiler); corrected, a 128² settle went from 1.73 s to 0.16 s, byte-identical. WebKit gains 1.2–1.9× on larger
+  maps, while TypeScript still wins small maps there. **Policy:** Rust in Chromium and Firefox once the corrected comparison
+  against TypeScript confirms it; Rust in WebKit for larger maps only.
+- **The Rust analysis (#157): approved,** byte-identical everywhere; Firefox is being re-measured with the corrected setup.
+  The full M9b batch on 16 threads took about 18.5 minutes on a fully loaded machine: compare against the TypeScript batch in
+  the quiet measuring window.
+- **The Rust forces (#158):** round 1 not adoptable (about 5× slower: a generic serialization layer copied the map across
+  the boundary on every call; Carve and Glaciate unported). Round 2 is in flight: the boundary fixed first (the map shared in
+  typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. **The lesson
+  applies to every port.**
+- **Still with Codex:** the Rust forces round 2, the Rust analysis's Firefox re-measure, portable maths everywhere
+  (`investigation/portable-math`), the dam sketch tool's engine (`investigation/dam-sketch`) and Rust water with threads
+  (`investigation/rust-threads`).
 
-## 2. Branches at the pause (2026-09-27, evening)
+**The post-release list, in order** (`build`; to move to the top of ROADMAP, where the order of work lives, and then be
+replaced here by a link):
 
-Worktrees are on this machine (§9), under `C:\Users\krams\code\`. The main clone `DamGoodMaps` is on `dev`. Every one was
-clean and matched origin at the pause.
+1. The quick-click bug (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the previous
+   force should skip to its end while the new one plays in full. Check every force.
+2. Tests for an eruption in High and for the highlight on High's basin sources (D378).
+3. Moving water and the Flow view (Codex's flow investigation): always-on moving water in both looks; the Flow view's lanes
+   off by default; paths built in the water worker; it must pass the smoothness harness. Then renderer R1 from the
+   performance audit (#152): water blending, brush updates, the High look's lighting.
+4. Carve's river born as it cuts (D371), Glaciate's Fast timing (D374), startup part 1 (D367); Carve's Maturity (D355) and
+   Deposit's adoption (D364) are built directly in Rust after the forces' port (D381).
+5. Shift+F resets what F changes on every tool (a force's Size and Power to Auto; a brush's Size and strength to defaults);
+   it never starts resizing or triggers Shift's invert.
+6. A Strength slider for Smooth and Naturalize in their settings row, moving live with F+scroll and `[ ]`.
+7. Trees on soil an edit has dried out get a "dry soil, will die" hint in the readout and with Markers on (D376).
+8. After the forces' Rust port: a Sources setting for every force (Ride, the default; Keep; Clear) in More.
+9. Check whether the README and the website need a line about the High look.
+10. Batch jobs (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
+11. One quiet measuring window, once Codex's current tasks land, timing every speed investigation in turn (the faster
+    settle, D359, among them).
+12. Later: a Codex round on Canyon and Highlands at 96².
 
-| Work | Branch | PR | Worktree | Last commit | State |
-|---|---|---|---|---|---|
-| Documents (batch 6, D326) | `dev` | — | `DamGoodMaps` | see `git log` | `routine`; started 2026-09-29; M9a released |
-| The forces (batch 1, D321) | `feature/forces` | #77 | `DamGoodMaps-forces` | see `git log` | `build`; started 2026-09-29 |
-| The brushes (batch 2, D322) | `feature/brushes` | none | `DamGoodMaps-brushes` | new | `build`; started 2026-09-29; merges into `feature/forces` |
-| Select, shelf, shortcuts (batch 3, D323) | `feature/select-shelf` | none | `DamGoodMaps-select` | new | `build-light-medium`; started 2026-09-29; merges into `feature/forces` first |
-| Sounds and Delete sources | `feature/forces-sounds` | #81 | `DamGoodMaps-sounds` | a1aced41 | merged into `feature/forces`; removable |
-| Glaciate's adoption | `feature/glaciate` | #76 | `DamGoodMaps-glaciate` | e091e77a | retired by D320: folded into `feature/forces`, #76 closed |
-| M9b (batch 5, D325) | `feature/m9b` | #70 (draft) | `DamGoodMaps-m9b` | 66146f34 | `m9b-build`; started 2026-09-29; one re-pin after every map-changing item; held for Kyler's eye |
-| Real places, round 2 | `feature/real-places-2` | #35 | `DamGoodMaps-places` | cbaf6cf6 | parked (D319); 37 of 136 converted under VERSION 11, cached in the draft release `cache-real-places-2-v11` |
-| Grouped sources, the rule | `feature/source-groups` | #79 (draft) | `DamGoodMaps-groups` | a6346fe4 | merges with the first branch that carries it |
-| Grouped sources, the investigation | `investigation/source-groups` | #78 | `DamGoodMaps-sources` | 1e760899 | merged into `dev` (685d9b18); removable |
-| The look (batch 4, D324) | `feature/high-look` | #75 (draft) | `DamGoodMaps-high` | 86eddaea | `build-light`; built 2026-09-29, CI green; held for Kyler's High look sitting |
-| Drought and Badtide day by day | `feature/weather-days` | #73 (draft) | `DamGoodMaps-weather` | 5bb13406 | held for Kyler's sitting |
-| 3D terrain, step 1 | `feature/terrain3d-a` | #71 (draft) | `DamGoodMaps-3d` | 24b88b9b | wiring waits for the forces and M9b on `dev` |
-| Erode investigation | `investigation/erode` | #74 | `DamGoodMaps-erode` (Kyler's demo runs here) | 47c02e67 | merged into `dev` (be2342a2), rounds 2–9 approved by Kyler; adoption at 3D step 3 |
-| The ceiling probe (D244 step 1) | `chore/ceiling-probe` | none | `DamGoodMaps-ceiling` | a0be2aaa | done; already in `feature/forces` |
-| Kyler's review worktree | `review/m9a-set` | — | `DamGoodMaps-review` | 6575ebc9 | the M9a review set; not written to by agents |
+## 5. How things are run here
 
-Finished and merged, removable when convenient: `DamGoodMaps-m9a`, `DamGoodMaps-live`, `DamGoodMaps-waterfalls`,
-`DamGoodMaps-fixes`, `DamGoodMaps-nightly`, `DamGoodMaps-house` and `DamGoodMaps-carve-check` (detached at 6b9d4e63, which
-is on origin).
-
-## 3. Jobs to restart
-
-At the pause no batch, probe run or render was running; the watchers (CI, the #78 merge) ended with the session, and the
-keep-awake script is started again (§9). Two jobs to restart:
-
-- **Real places' conversion: parked (D319).** When it resumes on this PC, first fetch the land data this PC lacks (`npx tsx tools/places/worldcover.ts`, then `tools/places/osm.ts`), and unpack the draft release `cache-real-places-2-v11` into `investigation/landscapes/local/real-places-2/`. Then, as recorded at the pause (37 of 136 done): from `C:\Users\krams\code\DamGoodMaps-places`,
-  `npx tsx tools/places-convert.ts --threads 3`. It skips the 37 already cached in
-  `investigation/landscapes/local/real-places-2/v11/`; the land is cached in `investigation/landscapes/.cache/`
-  (patches, worldcover, osm). Heavy: run it when no batch runs.
-- **M9b's quick suite** after its re-seed: `npx vitest run --project quick --maxWorkers=4` in `DamGoodMaps-m9b`. Its
-  old per-theme batches in `investigation/m9b/local/batches/` predate the game's rules: don't resume them.
-
-## 4. M9a and Live editing
-
-Both are released: M9a as `m9a-done` (2026-09-27, #80), Live editing as `live-editing-done`. Their records are in
-`docs/progress/m9a.md` and `docs/progress/live-editing.md`; what's released is in `docs/STATUS.md` ("Released or merged").
-
-## 5. Merged, released, held and waiting
-
-- **Live on `main`** (a4af2bb0): everything to `m9a-done`, generator 0.7.0.
-- **Held for Kyler:** the forces and Glaciate (his sitting), M9b (his eye), the High look and the water shades (D310),
-  Drought and Badtide day by day.
-- **Waiting on Kyler:** STATUS §1.
-
-## 6. Open questions
-
-STATUS §1 lists everything waiting for Kyler, with the defaults pending. `docs/decisions-pending.md` holds the defaults
-the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types/node 26), for a quiet housekeeping slot
-(D150, D283).
-
-## 7. How things are run here
-
-- **Progress log** (D221): a short, plain comment on [#57](https://github.com/timbermods/dam-good-maps/issues/57) each time
-  a step finishes, something is released, a probe batch runs or something is parked for Kyler (what happened, links, what's
-  next). `docs/STATUS.md` stays the full record, with its summary at the top.
-- **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his eye, an approval, a probe batch awaiting his yes, work stuck on his side, anything broken he sees or plays), never for progress, green CI or information. Each ping: one or two lines on what's needed, where, and what carries on meanwhile; batch non-urgent asks; never wait silently. The toast: `powershell -NoProfile
-  -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body "<where>"` (a Windows toast on this
-  machine; the PushNotification tool is skipped while he is at the terminal), a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
-- **CI and docs-only changes:** a change that only touches documents, `LICENSE` or `package.json`'s descriptive fields skips the browser, oracle, generation and engines jobs (`tools/ci-changes.mjs`) and finishes in minutes; anything else runs the full suite.
+- **Progress log** (D221): a short, plain comment on [#57](https://github.com/timbermods/dam-good-maps/issues/57) each time a
+  step finishes, something is released, a probe batch runs or something is parked for Kyler (what happened, links, what's
+  next).
+- **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his
+  eye, an approval, work stuck on his side, anything broken he sees or plays), never for progress, green CI or information.
+  One or two lines on what's needed, where, and what carries on meanwhile; batch non-urgent asks; never wait silently. The
+  toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
+  "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
+- **CI and docs-only changes:** a change that only touches documents, `LICENSE` or `package.json`'s descriptive fields skips
+  the browser, oracle, generation and engines jobs (`tools/ci-changes.mjs`) and finishes in minutes; anything else runs the
+  full suite.
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
-  (the installed Chrome, channel "chrome"; never `npx playwright install`; give each e2e run its own free port; CI runs the specs in four parallel shards, `--shard=i/4`, so a run there is `browser (i/4)` jobs, not one long job),
-  `npm run oracle` (the Python validator, 0 disagreements), `npm run batch` (`tools/batch.ts`, ≥ 98% final blocks),
-  `npm run places -- --check`. The Claude suite (`npx tsx investigation/claude/bin/reference.ts`, D134) is kept but
-  unmaintained and left out of the regular checks while M12 is deferred (D277).
-- **The preview:** `gh workflow run deploy.yml --ref main -f preview_ref=feature/forces` (D320), then check
-  <https://timbermods.github.io/dam-good-maps/preview/> (noindex). A normal deploy of `main` drops `/preview/`, so republish
-  it after every release.
-- **Releases** (CLAUDE.md, "Deploying"): tag a green `dev` commit (annotated tags; names in CLAUDE.md), push the tag and a
-  `release/<name>` branch at it, open a PR into `main`, wait for its checks, merge **as a merge commit**, watch the push deploy
-  (build, deploy, `live-check / live`), republish the preview, record it in `docs/STATUS.md` and the progress log.
-  `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` does all of it (without `--go` it only
-  checks and prints the steps). If the live check fails, revert the release merge on `main`.
-- **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch (Kyler, 2026-09-26): the
-  drowned-relic fix for issue #55 sat on the Real places branch for a day while dev's nightly failed.
-- **Investigation PRs** (Codex's and others): merge at the next boundary as a merge commit once green, adopt their
-  INTEGRATION.md as proposals; anything that conflicts with a decision becomes a pending decision with a default. Hold any PR
-  Kyler says Codex is still working on.
-- **Where probes run** (Kyler, 2026-09-30): every probe runs from one dedicated worktree, `C:\Users\Kyler\code\DamGoodMaps-probe`,
-  whose four runner commands are in Kyler's allow rules (`npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run`
-  `build-mod -- --no-install`, `batch -- --backup-settings`, `batch -- --group …`, `restore`). Before a probe, check out the
-  branch that needs probing there, detached (`git checkout --detach origin/<branch>`, the probe's own code included), run
-  `npm ci` at the root and in `investigation/probe` if the lockfiles changed, then run from that folder. Always print the
-  plan and check it before launching: the right maps, the maps written (file, size, sha256), a sensible time, no fallback
-  to a bigger batch. A group whose maps are made outside the repository has its writer in the runner's catalog, and
-  `batch -- --group <name>` writes its maps first (Kyler, 2026-09-30): no separate step. `Tall maps` and `Sizes` have one;
-  `Parity` has one on `feature/parity`; `Terrain 3D` (`tools/probe-3d.ts`) needs one when it merges, and until then its
-  writer is not among the four rules: if it is refused, leave the batch for Kyler.
-- **DGM Probe** (`investigation/probe`): the only way Claude may launch Timberborn, and **only after Kyler's yes in chat for
-  that batch, every time** (CLAUDE.md, D117). **On this machine only (§9), D218 lifts the ask:** run a batch whenever the plan
-  calls for one, and report it in STATUS and on #57; everything else below still applies. Elsewhere, ask in one message: how
-  many maps, which checks, how long, and that it launches Timberborn. Steam running, Timberborn closed, the machine quiet
-  (the runner waits for it). Build the mod with `run build-mod -- --no-install` (without it, `build-mod` also installs the mod
-  into `Documents\Timberborn\Mods`; the batch installs and removes it itself). Kyler plays with his installed
-  mods (`--keep-mods`). Make a settings backup first (`--backup-settings`); pass it as `--reference <backup .reg>`. Running
-  without `--confirmed-launch` prints the plan and a one-time code; after Kyler's yes, rerun with `--confirmed-launch <code>`.
-  Results go to `C:\dgm-probe\` (never Documents). The runner restores his settings, logs and player data, moves anything the
-  games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`). Example:
-  `npm --prefix investigation/probe run batch -- --only <ids> --keep-mods --run-id <id> --confirmed-launch <code> --reference C:/dgm-probe/settings-backup/<stamp>/Timberborn-settings.reg`.
-- **What every session does** (D332): pings Kyler the moment his attention or input is needed (§7, "Pings"), and never waits on him silently.
-- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
+  (the installed Chrome, channel "chrome"; never `npx playwright install`; each e2e run its own free port; CI runs four
+  shards), `npm run oracle` (0 disagreements), `npm run batch` (at least 98% final blocks), `npm run places -- --check`. The
+  Claude suite is kept but unmaintained, left out of the regular checks while M12 is deferred (D277).
+- **The preview:** `gh workflow run deploy.yml --ref main -f preview_ref=<branch>`, then check
+  <https://timbermods.github.io/dam-good-maps/preview/> (noindex). A normal deploy of `main` drops `/preview/`: republish it
+  after every release.
+- **Releases** (CLAUDE.md, "Deploying"): tag a green `dev` commit (annotated), push the tag and a `release/<name>` branch at
+  it, open a PR into `main`, wait for its checks, merge **as a merge commit**, watch the deploy and `live-check / live`,
+  republish the preview, record it in STATUS and the Progress log. `tools/release.sh <tag> <commit> <PR body file> [<preview
+  branch>] [--go]` does all of it (without `--go` it only checks and prints the steps). If the live check fails, revert the
+  release merge on `main`.
+- **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch (Kyler, 2026-09-26).
+- **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after
+  Kyler's yes in chat for that batch, every time (CLAUDE.md, D117). **On this machine D218 lifts the ask:** run a batch
+  whenever the plan calls for one and record it in STATUS and on #57; the rest applies (Steam running, Timberborn closed, the
+  machine quiet). Every probe runs from the dedicated worktree `C:\Users\krams\code\DamGoodMaps-probe`, checked out detached
+  at the branch to probe (`git checkout --detach origin/<branch>`), with `npm ci` at the root and in `investigation/probe` if
+  the lockfiles changed. Build the mod with `run build-mod -- --no-install`; make a settings backup first
+  (`--backup-settings`) and pass it as `--reference <backup .reg>`; keep Kyler's installed mods (`--keep-mods`). Always print
+  the plan and check it before launching: the right maps, the maps written (file, size, sha256), a sensible time, no fallback
+  to a bigger batch. Running without `--confirmed-launch` prints the plan and a one-time code; rerun with
+  `--confirmed-launch <code>`. A group whose maps are made outside the repository has its writer in the runner's catalog, and
+  `batch -- --group <name>` writes its maps first (`Tall maps` and `Sizes` have one; `Parity` on `feature/parity`; `Terrain
+  3D` (`tools/probe-3d.ts`) needs one when it merges, and until then, if its run is refused, leave the batch for Kyler).
+  Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves anything
+  the games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
+- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit
+  word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
+- **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); one a
+  later finding replaces moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
+  go into `PLAN.md` §20 (the next is **D391**) and into the living docs in the same change (D188). Defaults chosen while he
+  is away go into `docs/decisions-pending.md`, marked as a default the session chose; the next pending number is **#155**
+  (M9b's branch holds up to #154, weather-days #120–#125).
+- **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
+  work from before/after captures (with greyscale and colour-blindness sheets). Only breakage, his decided principles and
+  what a player feels block (D115, D145).
 - **What every milestone and handoff does** (D326): at each month's end, copy the Progress log (#57) to
-  `docs/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
-  `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
-  (CLAUDE.md, D188).
-- **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D391), and into the living docs in the same change
-  (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
-  M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
-  [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away
-  go into `docs/decisions-pending.md`, marked as a default the session chose.
-- **Which work goes to which agent definition** (`.claude/agents/`, D210, D251). A session loads them only at its start,
-  and only when it starts in `C:\Users\krams\code\DamGoodMaps`; start the milestone session there, at Opus 5.5, high.
+  `docs/archive/progress-log/YYYY-MM.md`; when `docs/CHAT-HANDOFF.md` is rewritten, keep the previous version as
+  `docs/archive/chats/<date>.md`; add any new major turn to `docs/archive/README.md` ("The story"); skim the living docs
+  against what was just built (CLAUDE.md, D188).
 
-  **D301 (in force since 2026-09-27):** Opus where judgment is the product, Sonnet where the job is written down, scripts where it's
-  only waiting.
+## 6. Lessons that still apply
 
-  | Work | Definition | Model, effort |
-  |---|---|---|
-  | M9b | `m9b-build` | Opus 5.5, xhigh |
-  | (idle: M9a is released) | `m9a-build` (kept) | Opus 5.5, xhigh |
-  | The forces and the fixes from Kyler's sitting, the Glaciate adoption, the 3D foundations and water engine (wiring after the forces and M9b merge), the High look's fixes, Erode's adoption; anything touching the water simulation, the generator's processes or the forces | `build` | Opus 5.5, high |
-  | Building from a written spec: the Drought and Badtide fixes after its sitting, Real places after its D271/D300 fixes (the badwater stage, the release), rendering review sets and contact sheets, mechanical merges and CI fix-ups without real conflicts (judgment on water, generator or forces goes back to `build`) | `build-light` | Sonnet 5.5, high |
-  | Self-contained items with a clear spec (D341) | `build-light-medium` | Sonnet 5.5, medium |
-  | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
-  | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
-  | (none; M9c removed, D278) | `m9-build` (kept, unused) | Opus 5.5, high |
-  | Waiting on CI, batches and probe runs | background scripts that report when they finish, never an agent polling | — |
-
-
-## 8. Lessons from the last sessions
-
-- Windows with Git Bash: use `MSYS_NO_PATHCONV=1` where paths get mangled; bash heredocs with apostrophes break the tool
-  wrapper, so write scripts to files; foreground `sleep` chains are blocked (use background commands or until-loops).
-  (The old machine's Store Python couldn't read `%LOCALAPPDATA%\Temp`; this machine's Python can.)
-- Off-limits: Kyler's `Documents` folder (it holds secrets; never read it); his saves, settings and mods except through the
-  probe runner; `C:\dgm-reference\` (his in-game screenshots: look, never copy, crop or commit; **amended by Kyler, 2026-09-29:** thirteen of his Timberborn screenshots, from Steam's screenshot folder for app 1062090, are committed downscaled in `docs/look/reference/timberborn/` as a visual reference for the look only, never as textures or assets, with one read-only copy of his map `pair-map.timber`; nothing else is copied, and nothing else of `Documents` is read); `C:\dgm-workshop\` (other
-  creators' maps and local review pages: never commit); the decompiled game code in `investigation/decompiled/` and the
-  official maps in `investigation/raw/` (gitignored; for answers only, never copied).
-- **Shared machine:** agents stop only processes whose command line names their own worktree (one cleanup once killed another
-  agent's batches); every e2e run needs its own free port (Playwright's `reuseExistingServer` silently tested another agent's
-  build once). M9a first (D210).
-- **Subagents:** if Kyler stops one, it can't be resumed: start a new one in the same worktree and tell it the exact state
+- **Windows with Git Bash:** use `MSYS_NO_PATHCONV=1` where paths get mangled; bash heredocs with apostrophes break the tool
+  wrapper, so write scripts to files; foreground `sleep` chains are blocked (use background commands or until-loops); start
+  Bash commands with `. ~/.bashrc;`.
+- **Off-limits:** Kyler's `Documents` folder (it holds secrets; never read it); his saves, settings and mods except through
+  the probe runner; `C:\dgm-reference\` (his in-game screenshots: never copy, crop or commit, **except** thirteen of his
+  Timberborn screenshots from Steam's screenshot folder for app 1062090, committed downscaled in
+  `docs/look/reference/timberborn/` as a visual reference for the look only, never as textures or assets, with one read-only
+  copy of his map `pair-map.timber`; nothing else of `Documents` is read); `C:\dgm-workshop\` (other creators' maps and local
+  review pages: never commit); the decompiled game code in `investigation/decompiled/` and the official maps in
+  `investigation/raw/` (gitignored; for answers only, never copied).
+- **Shared machine:** agents stop only processes whose command line names their own worktree (one cleanup once killed
+  another agent's batches); every e2e run needs its own free port (Playwright's `reuseExistingServer` once silently tested
+  another agent's build).
+- **Sub-agents:** if Kyler stops one, it can't be resumed: start a new one in the same worktree and tell it the exact state
   (running processes, last commit, what's left). Some hand back before their CI finishes; check the PR yourself.
 - **Merges between steps that change generated maps** conflict on the generator version and the pinned seed-4242 sha
-  (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version (0.7.0 is M9a's).
-- **The Claude suite** drifts whenever the generator changes; re-tuning it is suspended while M12 is deferred (D134, D277).
+  (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version.
 - **Repository size** (D195): investigations commit reports, code, small samples and a few captures; bulk results stay in a
-  gitignored `local/` folder or a GitHub Release. #45 added about 98 MB before the rule; history isn't rewritten.
+  gitignored `local/` folder or a GitHub Release.
 - **Retired terms** (`tools/retired-terms.json`, D188): CI fails if a retired name or retired interface text reappears in the
-  living docs or `src/`; `pendingRemoval` is empty now.
-- **The review rule:** no blind reviews; Kyler judges visual work from before/after captures (with greyscale and
-  colour-blindness sheets). Only breakage, his decided principles and what a player feels block (D115, D145).
-- **Where to look:** `docs/STATUS.md` (the current state and the morning summary), `docs/progress/` (one log per step),
-  `docs/README.md` (which docs are living), `docs/CHAT-HANDOFF.md` (how Kyler's planning chat works).
+  living docs or `src/`.
 
-## 9. The dedicated machine (`krams`; out of allowance since 2026-09-29)
+## 7. The machine
 
-A computer kept for this work (Kyler, 2026-09-26): always on, nobody plays on it. Windows 10 Pro 22H2 (19045), Ryzen 5 3600
-(12 threads), 32 GB. User folder `C:\Users\krams`.
+The computer kept for this work (Kyler, 2026-09-26; D218): always on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600
+(12 threads), 32 GB. User folder `C:\Users\krams`; the repository and its worktrees (one per branch, each with its own
+`node_modules`: run `npm ci` in one only if its `package-lock.json` changed) are under `C:\Users\krams\code\`.
 
-- **Repository:** `C:\Users\krams\code\DamGoodMaps` (on `dev`) and the worktrees in §2, beside it. Start sessions in the
-  repository folder, so `.claude/agents/` load.
-- **Tools** (per user, no administrator rights, installed 2026-09-26): Node 22.23.3 (`~\tools\node-v22.23.3-win-x64`,
-  npm 10.9.9); Python 3.12.10 (`~\tools\python312`, python.org's NuGet build, with numpy and pillow from
-  `prototype/requirements.txt`); the .NET 8 SDK 8.0.425 (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide
-  `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd 8.2.0.7535 (a .NET global tool); gh 2.101.0
-  (`C:\Program Files\GitHub CLI`, logged in). They are on the user PATH and in `~/.bashrc`. The Bash tool doesn't read
-  `~/.bashrc` by itself: start commands with `. ~/.bashrc;`. There is no PowerShell profile (it would live in `Documents`).
-- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game at
-  `C:\Program Files (x86)\Steam\steamapps\common\Timberborn`, version `1.1.2.4-52e959e-sw` (Steam build 25096761), the same
+- **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`; no PowerShell profile): Node 22.23.3
+  (npm 10.9.9); Python 3.12.10 (numpy and pillow from `prototype/requirements.txt`); the .NET 8 SDK 8.0.425
+  (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd 8.2.0.7535; gh
+  2.101.0 (logged in).
+- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game version `1.1.2.4-52e959e-sw` (Steam build 25096761), the
   build the repository was verified against (FORMAT.md). Keep Steam running; Timberborn stays closed unless the probe
   launches it.
-- **Decompiled code:** `investigation/decompiled/` regenerated on 2026-09-26 with `investigation/decompile_all.sh` (497 files,
-  about 2 minutes).
-- **Official maps:** extracted with `investigation/extract_builtin_maps.py` and kept in `.scratch/official/` (19 official
-  maps and 3 unnamed ones), deliberately not in `investigation/raw/builtin/`: the local-only tests there also expect the
-  workshop copies (at least 30 maps), which live on Kyler's main PC, so with the official maps alone they would fail here.
-- **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`. Work that needs them waits for Kyler's main PC.
+- **Official maps** are in `.scratch/official/` (19 official maps and 3 unnamed ones), deliberately not in
+  `investigation/raw/builtin/`: the local-only tests there also expect the workshop copies, which this machine lacks.
+  **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`; work that needs them waits for Kyler's main PC.
 - **DGM Probe:** results in `C:\dgm-probe\`; the settings backup is
-  `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\Timberborn-settings.reg`; the runner's tests pass and the mod builds
-  against this install.
-- **Staying awake:** the power plan (Ultimate Performance) never sleeps or hibernates on mains power. While working, run
-  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\keep-awake.ps1 96` in the background: it holds a "system
-  required" request (as a video player does) and changes no settings. It ends with the session that started it, so
-  start it again in every new session.
-- **Worktrees:** `C:\Users\krams\code\DamGoodMaps-<name>`, one per branch; §2 lists them. Each has its own
-  `node_modules`; run `npm ci` in one only if its `package-lock.json` changed.
-- **Restarts:** automatic updates are off by policy (the last update is from 2023), so no update restart is scheduled or
-  likely. Windows restarts itself after a system crash. After any restart: start a Claude Code session in the repository
-  folder, read this page, start the keep-awake script, check `git worktree list` and §2, and if a probe batch was running,
-  run `npm --prefix investigation/probe run restore` before anything else.
+  `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\Timberborn-settings.reg`.
+- **Staying awake:** the power plan (Ultimate Performance) never sleeps on mains power. While working, run
+  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\keep-awake.ps1 96` in the background; it ends with the session
+  that started it, so start it again in every session.
+- **Restarts:** automatic updates are off by policy; Windows restarts itself after a system crash. After any restart: start a
+  session in the repository folder, read this page, start the keep-awake script, check `git worktree list`, and if a probe
+  batch was running, run `npm --prefix investigation/probe run restore` before anything else.
 - **When the game updates:** recompute the starting-logs floor (D224) with `npx tsx tools/log-floor.ts --check` (then
   `--write`, and record the new floor in PLAN §20); regenerate `investigation/decompiled/`; note it in STATUS.

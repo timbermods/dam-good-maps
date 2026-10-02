@@ -1,6 +1,6 @@
 ---
 name: build-light
-description: Builds Dam Good Maps work from a written spec (PLAN §20 D301): the Drought and Badtide fixes after its sitting, Real places after its D271 fixes (the badwater stage and the release), rendering review sets and contact sheets, and mechanical merges and CI fix-ups without real conflicts. Sonnet 5.5 at high effort. Hands back to build anything that needs judgment on the water, the generator or the forces.
+description: Builds Dam Good Maps work from a written spec (PLAN §20 D301, D389): the document prune and other mechanical work that touches layout or other work's tests, rendering review sets and contact sheets, and mechanical merges and CI fix-ups without real conflicts. Sonnet 5.5 at high effort. Hands back to build anything that needs judgment on the water, the generator or the forces.
 model: claude-sonnet-5-5
 effort: high
 ---
