@@ -15,6 +15,7 @@ import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
+import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
@@ -125,6 +126,7 @@ export class MapSession {
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
   private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
+  private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -650,7 +652,7 @@ export class MapSession {
   private input(): BuildInput {
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable
@@ -675,6 +677,36 @@ export class MapSession {
     return slopes;
   }
 
+  /** Where the generation placed each of its resource features' objects (berry patches, forests,
+   *  ruin fields), from the map it stored: an edited map keeps only those, whatever the water does
+   *  under them (D368 (10), D404). Only for the features the player has not changed (a ruin field's
+   *  deleted tiles aside, which it leaves out itself): one the player changed is built as it now
+   *  says. Null for a document that stored no owners (it builds them as before). */
+  generatedResources(): ReadonlyMap<string, ReadonlySet<number>> | null {
+    const c = this.resourcesCache;
+    if (c && c.key === this.gen.base && c.features === this.st.features) return c.tiles;
+    let all = c && c.key === this.gen.base ? c.all : null;
+    if (!all && this.gen.base.owners) {
+      all = new Map();
+      for (const f of this.gen.baseFeatures) if (isResource(f)) all.set(f.id, new Set());
+      const W = this.gen.base.sizeX;
+      for (const e of this.baseStuff().layer.entities) all.get(e.owner)?.add(e.y * W + e.x);
+    }
+    let tiles: Map<string, Set<number>> | null = null;
+    if (all) {
+      const shape = (f: Feature) => JSON.stringify({ kind: f.kind, params: { ...(f.params as unknown as Record<string, unknown>), cleared: undefined } });
+      const base = new Map(this.gen.baseFeatures.map((f) => [f.id, f]));
+      tiles = new Map();
+      for (const f of this.st.features) {
+        const kept = all.get(f.id);
+        const b = base.get(f.id);
+        if (kept && b && (b === f || shape(b) === shape(f))) tiles.set(f.id, kept);
+      }
+    }
+    this.resourcesCache = { key: this.gen.base, features: this.st.features, all, tiles };
+    return tiles;
+  }
+
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
    *  so incremental rebuilds see it unchanged). A feature read back from the field that the player
    *  has since changed is the field's no longer: it is built as the feature says. */
@@ -697,8 +729,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
