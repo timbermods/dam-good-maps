@@ -1,0 +1,491 @@
+{
+  "method": "Two-second reference drag with twelve tile changes at least 100 ms apart, same authored raster/status layer, no sketch worker, no water uploads; one pass per engine/size/wall. Separately scheduled shared-host reference, not causal attribution for individual missed frames.",
+  "rows": [
+    {
+      "engine": "chromium",
+      "size": 128,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 94.19689939431976,
+        "max": 94.56743522743709,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938767142,
+        "end": 1790938769230
+      },
+      "frameWorkMs": {
+        "count": 121,
+        "median": 0,
+        "p95": 0.19999998807907104,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 120,
+        "median": 16.69999999999999,
+        "p95": 16.700000000000045,
+        "max": 16.800000000000182
+      },
+      "rafIntervalsOver16_7": 57
+    },
+    {
+      "engine": "chromium",
+      "size": 128,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 93.8008760992177,
+        "max": 96.73804026198951,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938769231,
+        "end": 1790938771262
+      },
+      "frameWorkMs": {
+        "count": 122,
+        "median": 0,
+        "p95": 0.10000002384185791,
+        "max": 0.19999998807907104
+      },
+      "rafIntervalMs": {
+        "count": 121,
+        "median": 16.699999999999818,
+        "p95": 16.700000000000273,
+        "max": 16.800000000000182
+      },
+      "rafIntervalsOver16_7": 36
+    },
+    {
+      "engine": "chromium",
+      "size": 128,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 94.02631840641851,
+        "max": 94.61090354022372,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938771263,
+        "end": 1790938773277
+      },
+      "frameWorkMs": {
+        "count": 121,
+        "median": 0,
+        "p95": 0.10000002384185791,
+        "max": 0.19999998807907104
+      },
+      "rafIntervalMs": {
+        "count": 120,
+        "median": 16.699999999999818,
+        "p95": 16.700000000000728,
+        "max": 16.800000000000182
+      },
+      "rafIntervalsOver16_7": 13
+    },
+    {
+      "engine": "chromium",
+      "size": 256,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 98.51208334648395,
+        "max": 99.51816564274728,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938773278,
+        "end": 1790938775311
+      },
+      "frameWorkMs": {
+        "count": 122,
+        "median": 0,
+        "p95": 0.10000002384185791,
+        "max": 0.30000001192092896
+      },
+      "rafIntervalMs": {
+        "count": 121,
+        "median": 16.699999999999818,
+        "p95": 16.700000000000728,
+        "max": 16.800000000000182
+      },
+      "rafIntervalsOver16_7": 21
+    },
+    {
+      "engine": "chromium",
+      "size": 256,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 99.4295429749728,
+        "max": 99.80740003557938,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938775312,
+        "end": 1790938777343
+      },
+      "frameWorkMs": {
+        "count": 122,
+        "median": 0,
+        "p95": 0.09999996423721313,
+        "max": 0.19999998807907104
+      },
+      "rafIntervalMs": {
+        "count": 121,
+        "median": 16.69999999999891,
+        "p95": 16.80000000000109,
+        "max": 16.80000000000109
+      },
+      "rafIntervalsOver16_7": 49
+    },
+    {
+      "engine": "chromium",
+      "size": 256,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 99.27526274866176,
+        "max": 99.61042205523982,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938777344,
+        "end": 1790938779377
+      },
+      "frameWorkMs": {
+        "count": 122,
+        "median": 0,
+        "p95": 0.10000002384185791,
+        "max": 0.20000004768371582
+      },
+      "rafIntervalMs": {
+        "count": 121,
+        "median": 16.69999999999891,
+        "p95": 16.799999999999272,
+        "max": 16.80000000000109
+      },
+      "rafIntervalsOver16_7": 43
+    },
+    {
+      "engine": "firefox",
+      "size": 128,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 99.03795049645699,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938781553,
+        "end": 1790938783582
+      },
+      "frameWorkMs": {
+        "count": 129,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 128,
+        "median": 15.620000000000005,
+        "p95": 16.09999999999991,
+        "max": 17.3599999999999
+      },
+      "rafIntervalsOver16_7": 2
+    },
+    {
+      "engine": "firefox",
+      "size": 128,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938783582,
+        "end": 1790938785606
+      },
+      "frameWorkMs": {
+        "count": 130,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 129,
+        "median": 15.539999999999964,
+        "p95": 16.09999999999991,
+        "max": 16.40000000000009
+      },
+      "rafIntervalsOver16_7": 0
+    },
+    {
+      "engine": "firefox",
+      "size": 128,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938785607,
+        "end": 1790938787623
+      },
+      "frameWorkMs": {
+        "count": 126,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 125,
+        "median": 15.740000000000691,
+        "p95": 22.160000000000764,
+        "max": 30.979999999999563
+      },
+      "rafIntervalsOver16_7": 39
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 99.66302132242933,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938787624,
+        "end": 1790938789642
+      },
+      "frameWorkMs": {
+        "count": 127,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 126,
+        "median": 15.600000000000364,
+        "p95": 18.920000000000073,
+        "max": 30.44000000000051
+      },
+      "rafIntervalsOver16_7": 31
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 98.50497942480457,
+        "max": 98.8346628798953,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938789643,
+        "end": 1790938791662
+      },
+      "frameWorkMs": {
+        "count": 126,
+        "median": 0,
+        "p95": 0,
+        "max": 2
+      },
+      "rafIntervalMs": {
+        "count": 125,
+        "median": 15.860000000000582,
+        "p95": 19.779999999998836,
+        "max": 28.979999999999563
+      },
+      "rafIntervalsOver16_7": 30
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 99.8555134227473,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938791662,
+        "end": 1790938793678
+      },
+      "frameWorkMs": {
+        "count": 129,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 128,
+        "median": 15.680000000000291,
+        "p95": 18.219999999999345,
+        "max": 20.81999999999971
+      },
+      "rafIntervalsOver16_7": 24
+    },
+    {
+      "engine": "webkit",
+      "size": 128,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 97.62180953475513,
+        "max": 98.3451079231067,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938794720,
+        "end": 1790938796742
+      },
+      "frameWorkMs": {
+        "count": 93,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 92,
+        "median": 18,
+        "p95": 35,
+        "max": 41
+      },
+      "rafIntervalsOver16_7": 52
+    },
+    {
+      "engine": "webkit",
+      "size": 128,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 98.41221598064263,
+        "max": 99.70809353202542,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938796743,
+        "end": 1790938798790
+      },
+      "frameWorkMs": {
+        "count": 87,
+        "median": 0,
+        "p95": 0.9999999999995453,
+        "max": 1.0000000000004547
+      },
+      "rafIntervalMs": {
+        "count": 86,
+        "median": 24,
+        "p95": 39,
+        "max": 41
+      },
+      "rafIntervalsOver16_7": 54
+    },
+    {
+      "engine": "webkit",
+      "size": 128,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 99.90524561185447,
+        "max": 100,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938798791,
+        "end": 1790938800816
+      },
+      "frameWorkMs": {
+        "count": 93,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 92,
+        "median": 22,
+        "p95": 38,
+        "max": 41
+      },
+      "rafIntervalsOver16_7": 57
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "case": "one dam across the valley",
+      "load": {
+        "mean": 97.83485383236926,
+        "max": 98.1639685179369,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938800817,
+        "end": 1790938802833
+      },
+      "frameWorkMs": {
+        "count": 92,
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "rafIntervalMs": {
+        "count": 91,
+        "median": 21,
+        "p95": 37,
+        "max": 42
+      },
+      "rafIntervalsOver16_7": 53
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "case": "three levees and a dam; a bent wall",
+      "load": {
+        "mean": 95.73159896089797,
+        "max": 96.72450805520724,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938802834,
+        "end": 1790938804863
+      },
+      "frameWorkMs": {
+        "count": 85,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 84,
+        "median": 27,
+        "p95": 36,
+        "max": 40
+      },
+      "rafIntervalsOver16_7": 54
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "case": "levee with a two-level gate at 1.5",
+      "load": {
+        "mean": 93.53969161406883,
+        "max": 94.88565656198351,
+        "samples": 2,
+        "provisional": true,
+        "source": "Windows PDH Processor(_Total) % Processor Time; 1-second intervals",
+        "start": 1790938804863,
+        "end": 1790938806879
+      },
+      "frameWorkMs": {
+        "count": 91,
+        "median": 0,
+        "p95": 0,
+        "max": 1
+      },
+      "rafIntervalMs": {
+        "count": 90,
+        "median": 18,
+        "p95": 37,
+        "max": 40
+      },
+      "rafIntervalsOver16_7": 49
+    }
+  ]
+}
