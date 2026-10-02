@@ -11,8 +11,8 @@ decisions in force, in [PLAN.md §20](PLAN.md#20-editor-decisions).
 
 ## The order of work
 
-Two sessions run in parallel (D388). The **page session** (Fable 5.1, high; its own worktree and branch `feature/page`,
-started once the document prune, D390, has landed) builds only the page. The **milestone session** (Opus 5.5, high)
+Two sessions run in parallel (D388). The **page session** (Fable 5.1, high; its own worktree `-page` and branch
+`feature/page`, created fresh from `dev`, D395) builds only the page. The **milestone session** (Opus 5.5, high)
 builds everything else. Neither touches the other's files: the page session owns the page, the editor's interface,
 `Editor.tsx` and its split; the milestone session owns the core, the water, the generator and the documents it owns.
 Models and effort: D389.
@@ -26,8 +26,9 @@ Models and effort: D389.
      any edit), without re-hovering;
   2. **Remove unfed water**, map-wide from the ⋯ menu or within a selection in Select, showing first what it will remove
      ("12 pools, 3,400 tiles of water"), one undo step; water fed by sources is untouched;
-  3. **Fill**, standing water to a chosen level with no source, stored in the map as the oxbow lakes' retained water is,
-     evaporating at the game's rate (about 0.05 levels a day on unfed water), showing roughly how long it will last;
+  3. **Fill**, standing water to a chosen level with no source, built on the retained-water path (D216) as the oxbow lakes'
+     retained water is, so the settle's game rules evaporate it (D394: 1e-4 per second, 1e-3 under 0.02 deep, times the
+     saturation modifier), showing roughly how long it will last; the sealed-basin rule in `water.settles` (D222) applies;
   4. **Naturalize's land effect** weathers like nature (cliffs retreat into irregular slopes with scree at their feet,
      edges soften, contours stay coherent, at a scale that follows Size and Strength), never single-tile speckle; Kyler
      will show his before-and-after terraces as the target;
@@ -41,11 +42,14 @@ Models and effort: D389.
   a cleanup plan.
 
 **2. The page session: "The page is the editor" with the design pass** (D384, D388). One look, designed once, with the
-page it dresses, with Kyler's sittings at each checkpoint, and startup part 2 (D367). Section below.
+page it dresses, with Kyler's sittings at each checkpoint, and the first-visit map picker and parallel loading of startup
+part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (D395; part 1's headless core is salvaged onto
+`dev` first, PR #161). The `/preview/` slot is the page session's while it works (D396). Section below.
 
 **3. The milestone session, in order**
 
-1. **The document prune** (D390): the page session starts when it lands.
+1. **The salvaged core** of the page's part 1 (PR #161, D395): its headless modules and contract tests onto `dev`; then the
+   page session starts.
 2. **M9b and its adoption order** (section below): small starts, generation speed (round 1, then round 2), Lake Basin
    round 2, the settings round 2 last.
 3. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
@@ -68,10 +72,15 @@ page it dresses, with Kyler's sittings at each checkpoint, and startup part 2 (D
    9. **Check whether the README and the website need a line about the High look.**
    10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
    11. **One quiet measuring window**, once Codex's current tasks land, timing every speed investigation in turn (the
-       faster settle, D359, among them).
-   12. **Later: a Codex round on Canyon and Highlands at 96².**
-4. **The Codex adoptions** (section below): the Rust water, the analysis and the forces, multi-core water, scaling
-   round 4, generation speed.
+       faster settle, D359, among them), and also re-timing the improved Rust analysis in Chromium, WebKit and native
+       (D391) and multi-core water's Firefox numbers with the corrected optimizing-tier setup from
+       `investigation/rust-analysis/PROFILE_REPORT.md` (D393; the Firefox thread threshold of 256² and up rests on them).
+   12. **Startup part 2's service worker** (D397): the one service worker (the caching and multi-core water's isolation),
+       built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
+       picker and parallel loading).
+   13. **Later: a Codex round on Canyon and Highlands at 96².**
+4. **The Codex adoptions** (section below): the Rust water, the analysis (after M9b's release, D391) and the forces,
+   multi-core water, scaling round 4, generation speed.
 
 **4. Then, in order**
 
@@ -105,7 +114,7 @@ The Rust order (D381) runs through all of it. Every step that changes generated 
   re-preview) are reported numbers, never a failed build. Performance is a requirement (D380): every feature meets its
   speed budget before it ships, and a speed regression blocks a merge like a failing test.
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
-  checks it would have needed in [docs/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
+  checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
   and relies on the automated validation and tests. The one exception is a **DGM Probe batch** (D116, D117): an
   automated run of maps in the real game, launched only after Claude asks Kyler in chat and Kyler says yes, every time
   (CLAUDE.md, Standing rules). A step whose gate is a probe batch waits for it.
@@ -145,8 +154,11 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   TypeScript confirms it (Firefox's earlier slowdown was the test harness: its debugger forced the baseline WebAssembly
   compiler); Rust in WebKit for larger maps only (TypeScript still wins small maps there). Add Rust 1.90, the wasm32 target
   and the Rust build to CI and the setup command.
-- **The Rust analysis** (#157): approved, byte-identical everywhere. Firefox is being re-measured with the corrected setup;
-  compare the full M9b batch against the TypeScript batch in the quiet measuring window.
+- **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
+  after M9b's release with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's descriptive
+  rows stay on TypeScript. First the quiet measuring window re-times the improved port in Chromium, WebKit and native (only
+  Firefox was re-timed) and compares the full M9b batch (about 18.5 minutes on 16 threads on a loaded machine) against the
+  TypeScript batch.
 - **The Rust forces** (#158): round 1 is not adoptable (about 5× slower: a generic serialization layer copied the map across
   the boundary on every call; Carve and Glaciate unported). Round 2 is with Codex: the boundary fixed first (the map shared
   in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The
@@ -160,8 +172,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces round 2, the Rust analysis's Firefox re-measure, portable maths everywhere, the dam
-sketch tool's engine (`investigation/dam-sketch`), and Rust water with threads (`investigation/rust-threads`).
+**Still with Codex:** the Rust forces round 2 (#158), portable maths everywhere (`investigation/portable-math`) and Rust
+water with threads (`investigation/rust-threads`). The dam sketch engine (#159) is merged as an investigation, not adopted
+(D392; see its section below).
 
 ## The Rust order (D381)
 
@@ -177,9 +190,10 @@ justifies it. The interface and the rendering stay in TypeScript.
 ## The page is the editor, with the design pass (D232–D234, D384)
 
 **The brief: [docs/UI-BRIEF.md](docs/UI-BRIEF.md) (D330).** It is what gets built, and supersedes the D233 description below
-where they differ. Built by the page session (D388), together with the split of the editor's giant files into feature
-folders (the page session owns `Editor.tsx` and its split), with Kyler's sittings at each checkpoint. Two generator pieces come earlier, in M9b after its re-pin: Sources: None
-(brief §8) and the automatic water fix for a map edited before its water settled (brief §5).
+where they differ. Built by the page session (D388), rebuilt fresh on `feature/page` from `dev` (D395), together with the
+split of the editor's giant files into feature folders (the page session owns `Editor.tsx` and its split), with Kyler's
+sittings at each checkpoint. Two generator pieces come earlier, in M9b after its re-pin: Sources: None (brief §8) and the
+automatic water fix for a map edited before its water settled (brief §5).
 
 - **3D everywhere** (D232): the 2D toggle removed, with an automatic fallback for computers that can't run 3D well.
 - **The landing page's map is the editor** (D233): editable right after Generate, the essentials around it (brushes, Water
@@ -190,8 +204,8 @@ folders (the page session owns `Editor.tsx` and its split), with Kyler's sitting
   copy, undoable delete and a saved-to-Timberborn mark.
 - The export row has no "Without pre-filled water" (D237): the capability stays internal (the worker, the tools, the probe
   and the tests).
-- **Startup part 2** (D367): the ready-made first-visit map picker and parallel loading, and the caching, merged into one
-  service worker with the multi-core water investigation's isolation worker.
+- **Startup part 2** (D367, D397): the ready-made first-visit map picker and parallel loading. The one service worker (the
+  caching and multi-core water's isolation) is the milestone session's, with multi-core water's adoption.
 - Where **Remove unfed water** and **Fill** (D387) sit in the page is agreed with the milestone session through Kyler.
 
 **The design pass** (D384, amending D349's placement, D236 and D113's visual-design line). It defines Dam Good Maps' own
@@ -219,10 +233,12 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
 1. **Part 1** (`build`, post-release list): a stored map opens from its stored state without rebuilding (legacy files and
    files with water still pending keep the rebuild fallback); the renderer warms its shaders and GPU state while the map
    loads; the checks start after the first editable frame, every gate unchanged.
-2. **Part 2**, with "The page is the editor" (above).
+2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
+   editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
+   with multi-core water's adoption.
 
-Both add the investigation's budgets and its CI check. Open: a whole-laptop measurement, which Kyler makes on a real modest
-laptop once it's adopted.
+Both parts add the investigation's budgets and its CI check (the service worker's, the milestone session's). Open: a
+whole-laptop measurement, which Kyler makes on a real modest laptop once it's adopted.
 
 ## Carve's river is born as it cuts (D371)
 
@@ -778,6 +794,12 @@ floods. Nothing is suggested or guessed, and nothing is saved unless real object
 the reservoir finder (each basin's storable water and the exact tiles to wall, every candidate checked by simulation),
 replacing D287's guessed dam sites.
 
+The engine (`investigation/dam-sketch`, #159) is merged as an investigation, not adopted (D392). Adopting it needs two
+gates: (a) a calibration probe batch on the dedicated machine: a few sketched walls (a dam, a levee, a floodgate, a stacked
+wall) built in the game, comparing level, volume and dry-out day with the engine; (b) browser timings in a worker in
+Chromium, Firefox (the corrected optimizing-tier setup) and WebKit, at 128² and 256², while dragging a wall. Its Node numbers
+(first preview 16 / 67 ms, full fill 0.67 / 2.94 s, under shared load) support a progressive fill, not an instant answer.
+
 ## Collaborative editing (D349)
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
@@ -824,7 +846,7 @@ PERFECT's Challenge section (a harder map makes trees, easy land and easy dam si
 early, through interesting terrain; Hard slows expansion and never starves the start; the puzzle
 pays off) is not part of M9b's five outcomes. It needs a design step of its own, the way M9 did
 (D108, D109); the starting-logs floor and the start's guards stay exactly as they are until then.
-`docs/m9-design.md` §11's "difficulty as positions on the axes" is one proposal for it to consider.
+`docs/archive/m9-design.md` §11's "difficulty as positions on the axes" is one proposal for it to consider.
 
 **Versioned deploys and mobile layouts** (Kyler, 2026-09-27; D285 (1), moved out of M13): versioned
 deploys at `/v/<version>/`, so an old-version link reproduces its file; and a mobile layout for the

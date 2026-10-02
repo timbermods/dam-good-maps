@@ -2,7 +2,7 @@
 
 Kyler's in-game screenshots of Timberborn's own map editor. They are a visual reference for the look only (Map look,
 the High look, D324), never textures or assets. Kyler decided on 2026-09-29 to commit them to this public repository
-for that purpose (HANDOFF §8).
+for that purpose (HANDOFF, "Lessons that still apply", off-limits).
 
 Each is downscaled to 1600 px wide as a JPEG. The Steam time is the time in its original file name
 (`20260929_HHMMSS_1.jpg`).

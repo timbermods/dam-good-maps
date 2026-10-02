@@ -15,9 +15,11 @@ them for detail on any decision.
 - **The milestone session** (Claude Code, Opus 5.5, high) is the only session that changes `dev`, merges and releases. It
   does everything except the page: the core, the water, the generator, the editor-core items, the Codex adoptions and the
   documents. It orchestrates sub-agents, records Kyler's decisions in PLAN §20, and logs one line per event on the Progress
-  log issue (#57). It runs on the dedicated machine (`docs/HANDOFF.md`, section 7).
+  log issue (#57). It runs on the dedicated machine (`docs/HANDOFF.md`, "The machine").
 - **The page session** (Claude Code, Fable 5.1, high; D388) does only "The page is the editor" and its design (D384), in its
-  own worktree and branch `feature/page`, with Kyler's sittings at each checkpoint. Neither session touches the other's
+  own worktree and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
+  `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
+  session builds the startup service worker (D397). Neither session touches the other's
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
@@ -27,7 +29,7 @@ them for detail on any decision.
 The milestone session runs on Opus 5.5 at high. The document prune and mechanical work touching layout or other work's tests
 go to Sonnet 5.5 sub-agents at high; self-contained mechanical work to Sonnet 5.5 at medium. Never Fable unless Kyler asks
 (he has, for the page session and the coherence review, D386); never raise a model's effort on one's own; never start
-sub-agents at max. The table is `docs/HANDOFF.md`, section 3.
+sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definitions".
 
 ## Kyler's standing rules and preferences
 
@@ -81,8 +83,8 @@ sub-agents at max. The table is `docs/HANDOFF.md`, section 3.
 
 ## Where things live after the prune (D390)
 
-- **What's in flight, the Codex PRs and what waits for Kyler:** `docs/STATUS.md`. **How things are run, the Codex verdicts
-  still to act on and the post-release list:** `docs/HANDOFF.md`. **The order of work:** the top of `ROADMAP.md`.
+- **What's in flight, the Codex PRs and what waits for Kyler:** `docs/STATUS.md`. **How things are run:**
+  `docs/HANDOFF.md`. **The order of work, the post-release list and the Codex adoptions with Kyler's verdicts:** `ROADMAP.md`.
 - **The decisions in force:** `PLAN.md` §20; the full table as it stood at D390 is in `docs/archive/decisions.md`.
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.

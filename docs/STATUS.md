@@ -14,9 +14,9 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone) does everything except the page: the core, the water, the
   generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering, STATUS and HANDOFF.
-- **The page session** (Fable 5.1, high; its own worktree and branch `feature/page`) does only "The page is the editor" and
-  its design (D384). It starts once the prune has landed, from `dev` with PR #92's branch merged in; the milestone session
-  prepares the folder and pings Kyler with its path. It owns the page, the editor's interface, Editor.tsx and its split,
+- **The page session** (Fable 5.1, high; its own worktree `-page` and branch `feature/page`) does only "The page is the
+  editor" and its design (D384). It starts fresh from `dev` (D395), once the milestone session has prepared the folder and
+  pinged Kyler with its path; Kyler starts it. It owns the page, the editor's interface, Editor.tsx and its split,
   and records its decisions in its own `DESIGN.md` and `docs/progress/page.md`; the milestone session folds them into PLAN
   when its work merges. Neither session touches the other's files; a control the core's items need (Remove unfed water,
   Fill) is agreed with the page session through Kyler.
@@ -27,10 +27,12 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 | Work | Branch | PR | Worktree | Session | State |
 |---|---|---|---|---|---|
-| The document prune (D390) | `chore/prune-*` | none | `-prune-*` | milestone, Sonnet 5.5 sub-agents | Steps 1–2 on `dev`; steps 3–6 on parallel branches, to merge |
+| The document prune (D390) | `chore/prune-*` | none | `-prune-*` | milestone, Sonnet 5.5 sub-agents | All steps merged into `dev`; the prune branches and worktrees can be removed |
+| The page's headless core, salvaged from part 1 (D395) | `feature/page-core` | #161 | `-page-core` | milestone | CI running; merges into `dev` first, then the page session starts |
 | The editor-core items (D387) | none yet | none | main clone | milestone | Next, alongside the page |
-| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in HANDOFF; held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
-| The page, part 1 | `feature/page-editor-1` | #92 draft | `-page` | page | Side panel, map card, Your maps, candidates strip, first-visit maps; becomes `feature/page` |
+| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in ROADMAP ("M9b"); held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
+| The page, "The page is the editor" with the design pass | `feature/page` (new, from `dev`) | none yet | `-page` | page | Being prepared; Kyler starts the session |
+| The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 is closed once #161 merges; the branch is kept as a record until the new page ships |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | milestone | D337–D339; follows M9b |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | milestone | Held for Kyler's sitting; after the page |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | milestone | New modules verified against the game; wiring waits for `dev` (D280) |
@@ -38,13 +40,13 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | Source groups, the rule | `feature/source-groups` | #79 draft | `-groups` | milestone | Its `sourceGroups.ts` is already identical on `dev`; redundant |
 
 Codex's investigations (each on `investigation/<name>`; Codex builds, the milestone session merges them at a boundary and
-adopts; verdicts in HANDOFF):
+adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 
 | PR | Investigation | State |
 |---|---|---|
-| #159 | dam-sketch (D383's engine) | Open, with Codex |
-| #158 | rust-forces | Draft; round 2 in flight (round 1 not adoptable) |
-| #157 | rust-analysis | Draft; approved; Firefox re-measure in flight |
+| #159 | dam-sketch (D383's engine) | Merged as an investigation, not adopted (D392); its adoption gates are in ROADMAP, "The dam sketch tool" |
+| #158 | rust-forces | Draft; still round 1 (not adoptable); round 2 in flight, nothing to do until it lands |
+| #157 | rust-analysis | Merged through #160, approved; adopted after M9b's release (D391) |
 | #156 | rust-water | Draft; approved (D381) |
 | #155 | gen-speed | Approved; adopt round 1, then round 2, on M9b |
 | #153 | small-starts | Approved; adopt first on M9b |
@@ -67,12 +69,8 @@ adopts; verdicts in HANDOFF):
 
 ## The release gate (D385–D387)
 
-Before the next release, in [ROADMAP.md](../ROADMAP.md) ("Before the next release"):
-
-- The water and the editor's core must be perfect.
-- The editor-core items: the hover readout refreshing live; Remove unfed water; Fill; Naturalize's land effect; Naturalize's
-  sound.
-- Then, once Kyler is satisfied, the whole-codebase coherence review (D386, Fable 5.1, high).
+The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release").
 
 ## Probe batches
 

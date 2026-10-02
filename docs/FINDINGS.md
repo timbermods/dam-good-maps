@@ -5,7 +5,7 @@ measured, what failed. One line each: the finding, its number or rule, and where
 `investigation/`, `docs/progress/` and `PLAN.md` §20 (Kyler's standing rule, D316: findings later work builds on are
 kept concise and easy to find).
 
-A finding worth keeping gets a line here (HANDOFF, section 5). A finding that a later one replaces moves, verbatim, to
+A finding worth keeping gets a line here (HANDOFF, "How things are run here"). A finding that a later one replaces moves, verbatim, to
 "Stale findings" at the end of [archive/README.md](archive/README.md). Where two sources disagree, both are listed and
 the current one is marked.
 Game facts are for Timberborn 1.1.2.4-52e959e-sw. The game's files are never committed; the notes describe its rules

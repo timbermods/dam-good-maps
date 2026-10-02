@@ -19,7 +19,7 @@
 > - Before any report, measurement or manual check, ask: will it be used again, or does it change a decision or what
 >   the player gets? If neither, skip it. If a prompt asks for more, do it, and say in one line if it seems out of
 >   proportion.
-> - **Models (D317, D318):** the cheapest model and effort that does the job, per HANDOFF §3's table; xhigh only for
+> - **Models (D317, D318):** the cheapest model and effort that does the job, per the models table in HANDOFF; xhigh only for
 >   genuinely hard work. Sonnet 5.5 for well-scoped work with a clear spec and a way to check it (bug fixes, feature
 >   iterations with clear acceptance, documents, reviews, repeated agent tasks, design polish). Opus 5.5 for complex
 >   judgment and long-horizon work (the generator's character, the water and 3D engines, the forces' feel and new
@@ -74,7 +74,7 @@ maps the documents.
   - Never while Timberborn is already running; never touching Kyler's saves, settings or other mods (probe games never
     autosave into Kyler's folders, and any file they create is removed afterwards); only when no other heavy work is
     running on this machine. While waiting for the yes, carry on with work that doesn't need the batch.
-  - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, section 7): a batch may run whenever the plan
+  - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, "The machine"): a batch may run whenever the plan
     calls for one, without asking. The other rules above still apply, and every batch and its results go into
     `docs/STATUS.md`.
 - **Progress log (D221):** add a short, plain comment to the "Progress log" issue
@@ -132,7 +132,8 @@ text.
   - the refinement phase is cut (D283): its remaining items are housekeeping, released with whatever step ships them, no
     tag of its own.
 - When dev changes `deploy.yml`, keep its noindex step.
-- The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`. Small
-  changes to the deploy workflow itself are released as their own tag, like `preview-workflow-done`.
+- The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`. The slot
+  belongs to the page session while it works (D396): ask Kyler before publishing anything else there. Small changes to the
+  deploy workflow itself are released as their own tag, like `preview-workflow-done`.
 - Tokens and secrets are Kyler's to create and store with `gh secret set`. Never ask Kyler to paste one into chat.
 - Kyler has said Claude may merge tagged releases into `main` and manage the Pages setting.
