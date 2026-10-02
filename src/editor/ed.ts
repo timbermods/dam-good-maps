@@ -8,6 +8,7 @@ import type { MarkersSlice } from "./sources/useMarkers";
 import type { StartHintSlice } from "./start/useStartHint";
 import type { RemoveSourcesSlice } from "./sources/useRemoveSources";
 import type { ShelfSlice } from "./shelf/useShelf";
+import type { DeleteSlice } from "./remove/useDelete";
 import type { RestSlice } from "./Editor";
 
-export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & RestSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & RestSlice;

@@ -18,17 +18,16 @@ import { footprintTiles, startEntranceTile, type Orientation } from "../core/for
 import { groundUnderObjects } from "../core/features/raster/objectGround";
 import type { Point } from "../core/features/schema";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
-import { DEAD, FLIPPED, YOUNG, ORIENTATION_NAMES, surfaceWater, type EntityView } from "../render3d/model";
+import { FLIPPED, ORIENTATION_NAMES, surfaceWater, type EntityView } from "../render3d/model";
 import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
 import { View3D } from "../ui/View3D";
 import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckProgress, EntityInfo, ForceFrame, ForceRequest, SessionInfo, SessionOpen, ViewUpdate } from "../worker/session";
-import { describeTile as describeTileFacts, tileWords, type TileFacts as PageTileFacts, type TileObject } from "../core/doc/describeTile";
+import { describeTile as describeTileFacts, tileWords } from "../core/doc/describeTile";
 import { checkStartAt, newId, sameStartCheck, sourceStrengths, sourceStrengthWords, startStatus, type StartCheck, type StartStatus } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, SourceReadout, StrengthSlider, whereOf, type ItemActions, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
-import { removeTakes, type RemoveKind } from "../core/features/objects";
 import { Shelf } from "./Shelf";
 import { SHELF, type ShelfOptions } from "./shelfItems";
 import { Juice, type StrokeSound } from "./juice";
@@ -62,8 +61,8 @@ import { isSource, sourcesPressed } from "./sourceSpots";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
 import { BAD, BADWATER_STRENGTHS, GHOST_OK, LOWERS, MOVING, RAISES, SOURCE_STRENGTHS, sourceRequest } from "./tools";
 import { tip } from "../ui/Tooltip";
-import { ALL_KINDS } from "./remove/kinds";
 import { loadForcesPrefs, saveForcesPrefs } from "./prefs/forcesPrefs";
+import { ALL_KINDS } from "./remove/kinds";
 import type { Ed } from "./ed";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
@@ -73,6 +72,7 @@ import { useMarkers } from "./sources/useMarkers";
 import { useStartHint } from "./start/useStartHint";
 import { useRemoveSources } from "./sources/useRemoveSources";
 import { useShelf } from "./shelf/useShelf";
+import { useDelete } from "./remove/useDelete";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -137,7 +137,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  coverAt: () => Map<number, number[]>;
   deferred: { current: ViewUpdate[] };
   forcer: { current: ForceDriver | null };
   pickTile: (x: number, y: number) => void;
@@ -158,6 +157,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useStartHint(ed));
   Object.assign(ed, useRemoveSources(ed));
   Object.assign(ed, useShelf(ed));
+  Object.assign(ed, useDelete(ed));
 
   const {
     api, info, setInfo, view, mirror, renderer, ready, setReady, tool, setTool, anchorRef, flipRef, repaintRef,
@@ -177,124 +177,8 @@ export default function Editor(props: EditorProps) {
     strengthOfEntity, liveStrength, entityIndexOf, wheelSource, groupsRef, hoverSources, sourcesChanged,
     pointedWords, markerRef, sourceMarkers, setStartHint, hintRef, startHintRef, hintJob, startWorkerApi, hintMs,
     lookForStartRef, startHintTag, pickedSources, removeSources, pointerWords, flashNote, shelfTile, shelfHover,
-    dropShelf
+    dropShelf, pageTileFacts, coverAt, deleteOn, deleteGround, deleteCalls
   } = ed;
-
-  // ------------------------------------------------------------------------------ Delete (D288)
-
-  /** The map as the hover readout's facts (D347, B11): the core's `describeTile` says what is on a tile,
-   *  from the page's own view of the ground, the water as it flows and the objects. */
-  function pageTileFacts(): PageTileFacts {
-    const m = mirror.current;
-    const e = m.entities;
-    const at = coverAt();
-    return {
-      W: info.W,
-      H: info.H,
-      height: (i) => m.heights[i],
-      water: (i) => {
-        const w = m.water;
-        return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
-      },
-      soil: (i) => (m.soil ? (m.soil.contamination[i] > 0 ? "contaminated" : m.soil.moisture[i] > 0 ? "moist" : "dry") : null),
-      objects: (i) =>
-        (at.get(i) ?? []).map((k): TileObject => {
-          const template = e.templates[e.template[k]];
-          const o: TileObject = { template };
-          if (e.flags[k] & DEAD) o.dead = true;
-          else if (e.flags[k] & YOUNG) o.young = true;
-          if (isSource(template)) o.strength = Math.round(e.strength[k] * 100) / 100;
-          return o;
-        }),
-    };
-  }
-  /** Each object's tiles (its footprint), made when first asked for after the objects change. */
-  const coverAt = (): Map<number, number[]> => {
-    const m = mirror.current;
-    if (m.coverAt) return m.coverAt;
-    const e = m.entities;
-    const W = info.W;
-    const out = new Map<number, number[]>();
-    for (let k = 0; k < e.count; k++) {
-      const template = e.templates[e.template[k]];
-      for (const [x, y] of footprintTiles(template, { template, x: e.x[k], y: e.y[k], z: 0, orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 })) {
-        if (x < 0 || y < 0 || x >= W || y >= info.H) continue;
-        const i = y * W + x;
-        const list = out.get(i);
-        if (list) list.push(k);
-        else out.set(i, [k]);
-      }
-    }
-    m.coverAt = out;
-    return out;
-  };
-  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323). */
-  function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
-    const e = mirror.current.entities;
-    const at = coverAt();
-    const out = new Set<number>();
-    for (const i of tiles)
-      for (const k of at.get(i) ?? []) if (removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
-    return [...out];
-  }
-  /** Delete everything of `kinds` standing on these tiles (every kind, the start too, by default), as
-   *  one step with its whuff. `quiet`: nothing there says nothing. */
-  function deleteOn(tiles: number[], quiet = false, kinds: RemoveKind[] = ALL_KINDS, counted = false): boolean {
-    const corners = objectsOn(tiles, kinds);
-    // (the menu counted what is there, the objects under water too: the worker takes them all)
-    if (!corners.length && !counted) {
-      if (!quiet) setMessage({ kind: "info", text: kinds === ALL_KINDS ? "Nothing stands there to delete." : "Nothing of that kind stands there." });
-      return false;
-    }
-    const W = info.W;
-    const at = corners.length ? corners[0] : tiles[0];
-    void run(
-      () => api.removeAt(tiles, kinds),
-      (u) => u.ok && feel("remove", at % W, Math.floor(at / W)),
-    );
-    return true;
-  }
-  /** Delete the ground itself, one level down (D323 item 1): the top block of each tile, or under
-   *  water the bed's top block; one undo step. */
-  function deleteGround(tiles: number[]): boolean {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const low = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
-    if (!low.length) {
-      flashNote("Nothing left to delete there");
-      return false;
-    }
-    const W = info.W;
-    let sx = 0;
-    let sy = 0;
-    for (const i of low) {
-      sx += i % W;
-      sy += Math.floor(i / W);
-    }
-    const mid: [number, number] = [Math.round(sx / low.length), Math.round(sy / low.length)];
-    const ops: EditOp[] = [{ op: "sculpt", params: { mode: "lower", cells: tilesToRuns(low, W), amount: 1, exact: true } }];
-    void run(
-      () => api.applySelection(ops, low.length === 1 ? "Delete a level of ground" : `Delete a level of ground on ${low.length.toLocaleString("en-GB")} tiles`, low),
-      (u) => u.ok && feel("lower", mid[0], mid[1], Math.max(1, Math.sqrt(low.length) / 2)),
-    );
-    return true;
-  }
-  /** What the Delete key does on these tiles (D323 item 1): what stands there goes, objects and sources
-   *  first; only where there is nothing, the ground's top level. Never silent. */
-  function deleteHere(tiles: number[]): boolean {
-    if (objectsOn(tiles).length) return deleteOn(tiles, true);
-    return deleteGround(tiles);
-  }
-  /** Select and Delete (D288, D323): everything standing inside the selection (under a cut, on the
-   *  visible land), or where nothing stands, its ground one level. */
-  function deleteSelection() {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    if (tiles.length) deleteHere(tiles);
-  }
-  const deleteCalls = useRef({ deleteHere, deleteSelection });
-  deleteCalls.current = { deleteHere, deleteSelection };
 
   // ------------------------------------------------------------------------------ the forces
 
@@ -2596,7 +2480,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { coverAt, deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef, fitRef });
+  Object.assign(ed, { deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef, fitRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
