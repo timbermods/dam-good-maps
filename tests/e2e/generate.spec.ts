@@ -15,13 +15,27 @@ const seedOf = (link: string) => link.match(/[#&]s=(\d+)/)![1];
 /** The seed the editor's map was made from. */
 const editorSeed = (page: Page) => page.evaluate(() => window.dgmEditor?.info().spec?.seed);
 
-/** Press Generate and wait until the next map is on show and open in the editor. */
+/** Press Generate and wait until the next map is on show and open in the editor. A random seed can fail its
+ *  checks (the page then keeps the map on show and says so): an unpinned press rolls again, up to a few times. */
 async function press(page: Page) {
-  const before = await page.evaluate(() => window.dgm!.current!()!.made);
-  await generate(page).click();
-  await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, before, { timeout: 120_000 });
-  await expect.poll(async () => String(await editorSeed(page)), { timeout: 60_000 }).toBe(seedOf((await page.evaluate(() => window.dgm!.current!()))!.link));
-  await expect(generate(page)).toBeEnabled({ timeout: 60_000 });
+  for (let k = 0; k < 6; k++) {
+    const before = await page.evaluate(() => window.dgm!.current!()!.made);
+    await generate(page).click();
+    const result = await page.waitForFunction(
+      (n) => ((window.dgm!.current!()?.made ?? 0) > n ? "map" : /No valid map/.test(document.querySelector('[role="alert"]')?.textContent ?? "") ? "failed" : false),
+      before,
+      { timeout: 120_000 },
+    );
+    if ((await result.jsonValue()) === "map") {
+      await expect.poll(async () => String(await editorSeed(page)), { timeout: 60_000 }).toBe(seedOf((await page.evaluate(() => window.dgm!.current!()))!.link));
+      await expect(generate(page)).toBeEnabled({ timeout: 60_000 });
+      return;
+    }
+    await expect(generate(page)).toBeEnabled({ timeout: 60_000 });
+    await page.getByRole("alert").getByRole("button", { name: "Dismiss" }).click();
+    if (await lock(page).count()) throw new Error("the pinned seed's map did not pass its checks");
+  }
+  throw new Error("six random maps in a row failed their checks");
 }
 /** The seed of the map on show: the card's facts line, the address, the link and the editor's map, which must agree. */
 async function shownSeed(page: Page): Promise<string> {

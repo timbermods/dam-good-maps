@@ -1,5 +1,5 @@
 // ROADMAP M4 acceptance: every investigation map imports, renders and exports unchanged, through
-// the page. Each map is opened with the settings page's file input, drawn by the 3D view (its
+// the page. Each map is opened with the editor's file input, drawn by the 3D view (its
 // chunks, triangles and a screenshot in .scratch/renders, never committed: the maps are not ours
 // to share), and exported from the editor without edits. The download must be the file Node's
 // session exports, byte for byte, and for voxel-format maps its world.json must be the normalized
@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { expect, test } from "@playwright/test";
+import { openEditor, waitForEditor } from "./open";
 import { MapSession } from "../../src/core/doc/session";
 import { normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
@@ -38,12 +39,12 @@ test.describe("every investigation map imports, renders and exports unchanged (l
       page.on("pageerror", (e) => errors.push(String(e)));
       page.on("console", (m) => m.type() === "error" && !/favicon/.test(m.text()) && errors.push(m.text()));
       await page.setViewportSize({ width: 1280, height: 800 });
-      await page.goto("./#s=1&z=96&d=n&t=riverValley");
-      await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
+      await openEditor(page, "s=1&z=96&d=n&t=riverValley");
 
-      // import
-      await page.getByLabel("Open a map or a project file in the editor").setInputFiles(path);
-      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+      // import (the open map has no edits, so the page opens the file at once)
+      await page.getByLabel("Open a map or project file").setInputFiles(path);
+      await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+      await waitForEditor(page);
       const info = await page.evaluate(() => window.dgmEditor!.info());
       const node = MapSession.importMap(bytes, name);
       expect(info.kind).toBe("import");
