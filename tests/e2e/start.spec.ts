@@ -36,7 +36,7 @@ test("the start requirements follow the settings, and the editor's start follows
   await sheet.getByLabel("Minimum starting wood (logs)").dispatchEvent("change");
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
   await expect(page).toHaveURL(/&sl=75/, { timeout: 60_000 });
-  await page.waitForFunction(() => window.dgm!.current()?.checks.find((k) => k.id === "start.wood")?.limit === 75 && window.dgmEditor?.info().spec?.settings.start.rules.woodWithin20 === 75, null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.dgm!.current!()?.checks.find((k) => k.id === "start.wood")?.limit === 75 && window.dgmEditor?.info().spec?.settings.start.rules.woodWithin20 === 75, null, { timeout: 60_000 });
   c = await checks(page);
   expect(c["start.wood"].limit).toBe(75);
 

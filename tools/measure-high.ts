@@ -14,6 +14,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -65,9 +66,7 @@ const round = (v: number | null) => (v === null ? null : Math.round(v * 100) / 1
 async function open(page: Page, fragment: string): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/${fragment}`);
-  await page.getByText(/All \d+ checks passed|checks passed|checks failed/).first().waitFor({ timeout: 600_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await waitForEditor(page, 600_000);
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 600_000 });

@@ -6,7 +6,6 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, waitForEditor } from "./open";
-import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());

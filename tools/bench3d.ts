@@ -23,6 +23,7 @@ import { dirname, join } from "node:path";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -81,7 +82,7 @@ interface MapResult {
   map: string;
   size: string;
   build: { ms: number; meshMs: number; terrainQuads: number; waterQuads: number; instances: number };
-  /** Click (3D switch or file open) to the first frame, wall clock. */
+  /** The address opened (a generated map: its making included) or the file opened, to the editor's first frame, wall clock. */
   openMs: number;
   triangles: number;
   calls: number;
@@ -94,17 +95,12 @@ async function orbit(page: Page) {
 
 async function measureGenerated(page: Page, seed: number): Promise<MapResult> {
   await page.goto("about:blank"); // a new page load, not a hash change
-  await page.goto(`http://localhost:${PORT}/#s=${seed}&z=256&d=n&t=riverValley&v=0.3.0`);
-  await page.getByText(/checks passed/).first().waitFor({ timeout: 300_000 });
-  await page.evaluate(() => delete window.dgm3d);
   const t0 = Date.now();
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await page.goto(`http://localhost:${PORT}/#s=${seed}&z=256&d=n&t=riverValley&v=0.3.0`);
+  await waitForEditor(page, 360_000);
   const openMs = Date.now() - t0;
   const b = await page.evaluate(() => window.dgm3d!.build);
-  // orbit in the editor, the heavier view
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  // orbit in the editor (the page is the editor, D330)
   await page.waitForTimeout(500);
   const info = await page.evaluate(() => window.dgm3d!.renderer.info());
   const o = await orbit(page);
@@ -120,11 +116,11 @@ const round = (v: number) => Math.round(v * 10) / 10;
 async function measureFile(page: Page, path: string): Promise<MapResult | null> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley&v=0.3.0`);
-  await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 300_000 });
-  await page.evaluate(() => delete window.dgm3d);
+  await waitForEditor(page, 300_000);
+  await page.evaluate(() => (window.dgmEditor = undefined));
   const t0 = Date.now();
-  await page.getByLabel("Open a map or a project file in the editor").setInputFiles(path);
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await page.getByLabel("Open a map or project file").setInputFiles(path);
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import" && !!window.dgm3d, null, { timeout: 120_000 });
   const openMs = Date.now() - t0;
   const size = await page.evaluate(() => {
     const i = window.dgmEditor!.info();
@@ -162,7 +158,7 @@ async function runConfig(label: string, args: string[], cpuSlowdown: number, scr
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpuSlowdown });
   }
   await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley&v=0.3.0`);
-  await page.getByText(/checks passed/).first().waitFor({ timeout: 120_000 });
+  await waitForEditor(page, 120_000);
   // (a string, so the bundler's helpers stay out of the page)
   const env = (await page.evaluate(`new Promise((resolve) => {
     const c = document.createElement("canvas").getContext("webgl2");

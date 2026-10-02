@@ -171,14 +171,14 @@ describe("real places stay out of the generator (D108)", () => {
     return out;
   }
 
-  it("only the gallery, the editor's worker and the page's Refine link use them", () => {
+  it("only the gallery, the editor's worker and the page's real-place link use them", () => {
     const users = sources("src")
       .filter((f) => /from\s+["'][^"']*places\/[^"']*["']/.test(readFileSync(f, "utf8")))
       .map((f) => f.split(sep).join("/"))
       .filter((f) => !f.startsWith("src/places/") && !f.startsWith("src/core/places/"))
       .sort();
-    expect(users).toEqual(["src/ui/App.tsx", "src/worker/generator.worker.ts"]);
-    // the page's Refine link loads only the fetch helpers, never the place builder
-    expect(readFileSync("src/ui/App.tsx", "utf8")).not.toMatch(/core\/places/);
+    expect(users).toEqual(["src/page/Panel.tsx", "src/page/Workspace.tsx", "src/worker/generator.worker.ts"]);
+    // the page's real-place link loads only the fetch helpers, never the place builder
+    for (const f of ["src/page/Panel.tsx", "src/page/Workspace.tsx"]) expect(readFileSync(f, "utf8"), f).not.toMatch(/core\/places/);
   });
 });

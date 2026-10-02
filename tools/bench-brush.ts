@@ -15,6 +15,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -57,9 +58,7 @@ const PROFILE = process.argv.includes("--profile");
 
 async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.goto(`http://localhost:${PORT}/#s=1&z=${SIZE}&d=n&t=${THEME}`);
-  await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 300_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await waitForEditor(page, 300_000);
   // let the first checks finish, so painting is measured on its own
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 300_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
