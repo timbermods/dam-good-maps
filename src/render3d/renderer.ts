@@ -65,6 +65,8 @@ import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { Baker } from "./high/fields";
+import { WaterMotion } from "./motion";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
@@ -246,6 +248,12 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
+  /** The renderer's bake worker (the moving water's fields and shapes, High's occlusion). */
+  private bakerOwn: Baker | null = null;
+  /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
+  private waterMotion: WaterMotion | null = null;
+  /** The Flow view (off by default): the current's streaks over the water. */
+  private flowOn = false;
   private lookNow: Look = "standard";
   private choice: LookChoice = "auto";
   private chosenEffects: HighEffects = allEffects();
@@ -344,6 +352,12 @@ export class MapRenderer {
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
     this.lookNow = this.software ? "light" : "standard";
+    // the Flow view from the address (?flow=on) until the page has its switch (D353)
+    try {
+      this.flowOn = new URLSearchParams(window.location.search).get("flow") === "on";
+    } catch {
+      this.flowOn = false;
+    }
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reducedMotion = !!motion?.matches;
     motion?.addEventListener?.("change", () => {
@@ -616,7 +630,29 @@ export class MapRenderer {
   /** Whether the High look has all it needs for the map drawn (its fields come from a worker a
    *  moment after the map): true when not High. */
   get highSettled(): boolean {
-    return this.high ? this.high.settled : true;
+    return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
+  }
+
+  /** The renderer's bake worker, made when first needed. */
+  private get baker(): Baker {
+    return (this.bakerOwn ??= new Baker());
+  }
+
+  /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
+   *  surface and its foam stay either way). */
+  setFlow(on: boolean): void {
+    this.flowOn = on;
+    this.waterMotion?.setFlow(on);
+    this.requestRender();
+  }
+
+  get flow(): boolean {
+    return this.flowOn;
+  }
+
+  /** The moving water's numbers (lanes, wakes, streaks; the worker's time), or null. */
+  get motionStats(): (WaterMotion["stats"] & { ms: number }) | null {
+    return this.waterMotion ? { ...this.waterMotion.stats, ms: this.waterMotion.ms } : null;
   }
 
   /** The High look's numbers (the menu's details, the measurements), or null. */
@@ -657,6 +693,11 @@ export class MapRenderer {
           falls: () => this.falls.values(),
           casters: () => this.shadowCasters(),
           groundOffset: (x, y) => this.groundOffset(x, y),
+          baker: this.baker,
+          flow: () => {
+            const m = this.waterMotion;
+            return m ? { flow: m.flow, rough: m.rough, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, rough: null, ready: true, ms: 0 };
+          },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
       } catch (e) {
@@ -668,6 +709,7 @@ export class MapRenderer {
     }
     const was = this.lookNow;
     this.lookNow = tier;
+    this.waterMotion?.setHigh(tier !== "standard");
     if (tier === "standard") {
       if (this.high) {
         this.useMaterials(this.std);
@@ -872,6 +914,13 @@ export class MapRenderer {
     const waterQuads = this.meshAllWater();
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
+    if (!this.software) {
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
+      this.waterMotion.setHigh(this.lookNow !== "standard");
+      this.waterMotion.setFlow(this.flowOn);
+      u.flowTex.value = this.waterMotion.flow;
+      this.waterMotion.waterChanged(heights, surface, true);
+    }
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -952,6 +1001,8 @@ export class MapRenderer {
     this.lightTex?.dispose();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
+    this.waterMotion?.dispose();
+    this.waterMotion = null;
     this.forceFx?.clear();
     this.setHeat(null);
   }
@@ -1169,6 +1220,7 @@ export class MapRenderer {
       const lower = lowerByTile(m.surface, m.water);
       for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy, lower);
       this.high?.waterChanged(m.surface);
+      this.waterMotion?.waterChanged(heights, m.surface);
     }
     this.high?.terrainChanged(heights, rect);
     this.requestRender();
@@ -1196,6 +1248,7 @@ export class MapRenderer {
     this.updateClearAround();
     this.bakeTiles();
     this.high?.waterChanged(surface);
+    this.waterMotion?.waterChanged(m.heights, surface);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -1219,6 +1272,7 @@ export class MapRenderer {
     m.water = water;
     m.surface = surface;
     for (const key of changed) this.waterQueue.add(key);
+    this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
     this.onMapChange?.();
@@ -1976,6 +2030,7 @@ export class MapRenderer {
     const q = this.beginGpuTimer();
     const cost = this.beginCost();
     this.high?.beforeRender(cam, this.canvas.clientHeight || 1, this.uniforms.time.value);
+    this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -2428,6 +2483,7 @@ export class MapRenderer {
     this.forceFx?.dispose();
     this.high?.dispose();
     this.high = null;
+    this.bakerOwn?.dispose();
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();

@@ -40,8 +40,8 @@ const RATE: Record<WaterSpeed, number> = { slower: 1, normal: 3, faster: 8, inst
 /** Frames that ease the last of the journey into the settled water. */
 const EASE = 16;
 
-/** Water between two frames (t from 0 to 1): each tile's depth and contamination in between, its
- *  floor from the later frame. */
+/** Water between two frames (t from 0 to 1): each tile's depth, contamination and current in between,
+ *  its floor from the later frame. */
 export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   const at = new Map<number, number>();
   for (let k = 0; k < a.count; k++) at.set(a.tile[k], k);
@@ -49,6 +49,9 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   const floor: number[] = [];
   const depth: number[] = [];
   const contamination: number[] = [];
+  const current: number[] = [];
+  const ca = a.current;
+  const cb = b.current;
   const seen = new Set<number>();
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
@@ -58,6 +61,7 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     floor.push(b.floor[k]);
     depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
     contamination.push((j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t);
+    if (cb) for (let c = 0; c < 2; c++) current.push((j === undefined || !ca ? cb[k * 2 + c] : ca[j * 2 + c]) * (1 - t) + cb[k * 2 + c] * t);
   }
   for (let k = 0; k < a.count; k++) {
     const i = a.tile[k];
@@ -68,8 +72,11 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     floor.push(a.floor[k]);
     depth.push(d);
     contamination.push(a.contamination[k]);
+    if (cb) current.push(ca ? ca[k * 2] : 0, ca ? ca[k * 2 + 1] : 0);
   }
-  return { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+  const w: WaterView = { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+  if (cb) w.current = Float32Array.from(current);
+  return w;
 }
 
 export class WaterPlayer {

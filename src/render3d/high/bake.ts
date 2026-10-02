@@ -1,9 +1,16 @@
-// The High look's per-map fields, as plain arrays (no three.js), so a worker can make them off the
-// page's thread (bake.worker.ts): the ambient occlusion (#65) and the water's flow, contamination
-// and rough water (#38, #67). fields.ts turns them into textures.
+// The renderer's per-map fields, as plain arrays (no three.js), so a worker can make them off the
+// page's thread (bake.worker.ts): the High look's ambient occlusion (#65), and for both looks the
+// water's flow, contamination and rough water (#38, #67) with the moving water's shapes (D353,
+// motionShapes.ts). fields.ts and motion.ts turn them into textures and meshes.
 
 import type { SurfaceWater } from "../model";
-import { roughWater, surfaceContamination, surfaceFlow, type RoughCounts } from "./flow";
+import { motionShapes, type MotionShapes } from "../motionShapes";
+import { roughWater, surfaceContamination, type RoughCounts } from "./flow";
+
+/** The water's current as the looks draw it: the settle's current runs up to about 3.3 tiles a second
+ *  in a river (current.ts), and the looks' moving surface and rough water were tuned to rivers at 7.5
+ *  (the High look's first flow, estimated from the surface's slope). */
+export const FLOW_DISPLAY = 2.25;
 
 const RADII = [1, 2, 4, 8];
 /** How far a height change moves the ambient occlusion's terrain term. */
@@ -90,10 +97,11 @@ export function bakeAmbient(W: number, H: number, heights: Uint8Array, c: Canopi
   return { data, cover };
 }
 
-/** The water's textures (RGBA, one texel a tile): the flow (RG, compressed to at most 2 tiles a
- *  second, 128 still) with the smoothed contamination (B); the rough water (R). */
+/** The water's textures (RGBA, one texel a tile): the flow (RG, the current as drawn, compressed to at
+ *  most 2 tiles a second, 128 still) with the smoothed contamination (B); the rough water (R). */
 export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater): { flow: Uint8Array; rough: Uint8Array; counts: RoughCounts } {
-  const velocity = surfaceFlow(W, H, sw);
+  const velocity = new Float32Array(W * H * 2);
+  for (let k = 0; k < velocity.length; k++) velocity[k] = sw.current[k] * FLOW_DISPLAY;
   const cont = surfaceContamination(W, H, sw);
   const r = roughWater(W, H, heights, sw, velocity);
   const flow = new Uint8Array(W * H * 4);
@@ -119,7 +127,7 @@ export type BakeJob =
   | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater };
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
-  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; ms: number };
+  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; ms: number };
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
@@ -128,5 +136,6 @@ export function runBake(job: BakeJob): BakeResult {
     return { id: job.id, kind: "ambient", data, cover, ms: performance.now() - t0 };
   }
   const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw);
-  return { id: job.id, kind: "flow", flow, rough, counts, ms: performance.now() - t0 };
+  const shapes = motionShapes(job.W, job.H, job.sw, job.sw.current);
+  return { id: job.id, kind: "flow", flow, rough, counts, shapes, ms: performance.now() - t0 };
 }

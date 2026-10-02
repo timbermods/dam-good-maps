@@ -85,6 +85,7 @@ import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth } from "../core/features/raster/brush";
+import { currentOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -282,7 +283,19 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** The water the view shows, with its current (the moving water, current.ts): the live water's own
+ *  outflows, else the settle's, else the stored file's. */
+function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+  const view = columnsWaterOf(s, live, ground);
+  // (a build without the current, for measuring its own cost: tools/smooth)
+  if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
+  const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
+  const current = currentOf(view, s.size.x, s.size.y, out);
+  if (current) view.current = current;
+  return view;
+}
+
+function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
   const roofed = s.roofedTiles;
   if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
@@ -670,7 +683,7 @@ async function runDraft(token: number): Promise<void> {
       for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - d.sent![i]) > 0.01) moved = true;
       if (moved) {
         d.sent = D.slice();
-        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
+        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
       }
     }
     await breathe();
@@ -727,7 +740,7 @@ async function runWater(token: number): Promise<void> {
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
-      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C }), done, ticks });
+      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C, out: j.job.sim.out }), done, ticks });
     }
     if (r) {
       finishWater(j, r);
@@ -791,7 +804,7 @@ export function startWeather(hazard: Hazard): void {
         t += gap;
         const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
         if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C }), Math.min(days, t / TICKS_PER_DAY), soil);
+        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
       }
       await breathe();
     }
@@ -806,7 +819,7 @@ export function startWeather(hazard: Hazard): void {
         r = back.advance(4);
         if (!r && back.ticks - last >= frameGap(back.ticks)) {
           last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C }), days);
+          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
         }
       }
       if (r) break;

@@ -10,7 +10,7 @@ import { Color, Vector2, type Camera, type Group, type InstancedMesh, type Mesh,
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
-import { AmbientField, Baker, FlowField } from "./fields";
+import { AmbientField, type Baker } from "./fields";
 import { Forest, replacedBatch } from "./forest";
 import { buildLandmarks, disposeLandmarks, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
@@ -37,6 +37,10 @@ export interface HighHost {
   casters(): Iterable<Object3D>;
   /** How far the ground under tile (x, y) has moved from the map's while a brush paints. */
   groundOffset(x: number, y: number): number;
+  /** The renderer's bake worker. */
+  baker: Baker;
+  /** The moving water's textures (motion.ts): the flow with the smoothed contamination, the rough water. */
+  flow(): { flow: unknown; rough: unknown; ready: boolean; ms: number };
 }
 
 export interface HighMaterials {
@@ -49,7 +53,7 @@ export interface HighMaterials {
 
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
 const SHADOW_EVERY = 100;
-/** The flow and the mist follow the water this long after it changes (and at least this often). */
+/** The mist follows the water this long after it changes (and at least this often). */
 const WATER_WAIT = 250;
 const WATER_MOST = 1000;
 
@@ -64,9 +68,7 @@ export class HighLook {
   private vegTime = { value: 0 };
   private vegSway = { value: 1 };
   private shadows = new SunShadows();
-  private baker = new Baker();
   private ambient: AmbientField | null = null;
-  private flow: FlowField | null = null;
   readonly mist: Mist;
   private forest: Forest | null = null;
   private landmarks: Replacement[] = [];
@@ -178,7 +180,7 @@ export class HighLook {
   /** Whether everything a map needs has arrived (the worker's fields, the water's): the captures
    *  wait for it. */
   get settled(): boolean {
-    return !this.waterTimer && (this.ambient?.ready ?? true) && (this.flow?.ready ?? true);
+    return !this.waterTimer && (this.ambient?.ready ?? true) && this.host.flow().ready;
   }
 
   /** Whether the look moves on its own (the wind in the trees): the renderer keeps drawing. */
@@ -193,22 +195,18 @@ export class HighLook {
     this.map = { W, H, heights, surface };
     this.shadows.fit(W, H);
     this.ambient?.dispose();
-    this.ambient = new AmbientField(W, H, this.baker, () => {
+    this.ambient = new AmbientField(W, H, this.host.baker, () => {
       this.stats.ambientMs = this.ambient?.ms ?? 0;
       this.host.requestRender();
     });
     this.ambient.bake(heights, entities);
-    this.flow?.dispose();
-    this.flow = new FlowField(W, H, this.baker, () => {
-      this.stats.flowMs = this.flow?.ms ?? 0;
-      this.host.requestRender();
-    });
+    const flow = this.host.flow();
     const size = this.materials.terrain.uniforms.hlFlowSize.value as Vector2;
     size.set(W, H);
     for (const m of this.allMaterials()) {
       m.uniforms.hlAmbient.value = this.ambient.texture;
-      m.uniforms.hlFlow.value = this.flow.flow;
-      m.uniforms.hlRough.value = this.flow.rough;
+      m.uniforms.hlFlow.value = flow.flow;
+      m.uniforms.hlRough.value = flow.rough;
     }
     this.updateWater(true);
   }
@@ -308,7 +306,7 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
-  /** The water changed: its flow, rough water and mist follow a moment later. */
+  /** The water changed: its mist follows a moment later (the flow and rough water: motion.ts). */
   waterChanged(surface: SurfaceWater): void {
     if (!this.map) return;
     this.map.surface = surface;
@@ -324,8 +322,8 @@ export class HighLook {
 
   private updateWater(now: boolean): void {
     const m = this.map;
-    if (!m || !this.flow || this.disposed) return;
-    this.flow.update(m.heights, m.surface);
+    if (!m || this.disposed) return;
+    this.stats.flowMs = this.host.flow().ms;
     this.mist.set(m.W, m.H, m.surface, this.host.falls());
     this.mist.show(this.effects.mist, this.effects.rings);
     this.stats.mist = this.mist.stats.mist;
@@ -369,8 +367,6 @@ export class HighLook {
     this.mist.dispose();
     this.shadows.dispose();
     this.ambient?.dispose();
-    this.flow?.dispose();
-    this.baker.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }
 }

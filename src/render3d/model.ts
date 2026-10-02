@@ -56,6 +56,9 @@ export interface WaterView {
   depth: Float32Array;
   /** Badwater share, 0–1. */
   contamination: Float32Array;
+  /** The water's current at each column (x, y: two a column, tiles a second; current.ts), from the
+   *  settle's outflows; missing where the worker had none (still water). Only drawn. */
+  current?: Float32Array;
 }
 
 /** Soil per tile, as bytes (palette.ts `moistureByte`, `contaminationByte`): moisture above 0
@@ -124,6 +127,9 @@ export interface SurfaceWater {
   floor: Float32Array;
   depth: Float32Array;
   contamination: Float32Array;
+  /** The surface water's current (x, y: two a tile, tiles a second; current.ts); zero where still or
+   *  where the view has none. */
+  current: Float32Array;
   /** Columns below the surface one (water in caves), as indices into the view. */
   lower: number[];
 }
@@ -134,6 +140,8 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
   const floor = new Float32Array(N).fill(NaN);
   const depth = new Float32Array(N);
   const contamination = new Float32Array(N);
+  const current = new Float32Array(N * 2);
+  const c = w.current;
   const top = new Int32Array(N).fill(-1);
   const lower: number[] = [];
   for (let k = 0; k < w.count; k++) {
@@ -149,8 +157,12 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
     depth[i] = w.depth[k];
     surface[i] = w.floor[k] + w.depth[k];
     contamination[i] = w.contamination[k];
+    if (c) {
+      current[i * 2] = c[k * 2];
+      current[i * 2 + 1] = c[k * 2 + 1];
+    }
   }
-  return { surface, floor, depth, contamination, lower };
+  return { surface, floor, depth, contamination, current, lower };
 }
 
 /** The voxel columns as a map from tile index to its 23 voxels. */
