@@ -255,7 +255,7 @@ choice is cells in a well, the chosen one *selected*. A tab is underlined, never
 |---|---|---|
 | lit | `#fff3d6` to `#e6d0a0`, with its glow, dark ink | Save to Timberborn, and nothing else |
 | action | `#b9966a` to `#9e7d52`, dark ink | Generate, and nothing else |
-| selected | `#d4c4a3`, dark ink, bold | an on-state: Normal, Keep river, Markers, the tool in hand, the shelf object held |
+| selected | `#b5a583`, dark ink, bold (clearly dimmer than lit) | an on-state: Normal, Keep river, Markers, the tool in hand, the shelf object held |
 | quiet | the cell's faint fill, `cream-2` words | everything else |
 | words | `cream` `#f3e6cc`, `cream-2` `#cdbfa6`, `quiet` `#ab9e89` | primary, secondary, labels and notes |
 | the checks | `ok` `#7fc46b`, `warn` `#f0a63a` | the dot, always with its words |
@@ -267,9 +267,17 @@ text), 15px (Save, Generate, the map's name in Bitter 700). Weights 400 and 600 
 Redo, Sound and More. The forces' icons sit on a *selected* disc, dark when the force is held.
 
 **The right column**, top to bottom: the map plate (Save lit, full width; Undo | Redo; More; "● Ready to play"),
-the view plate ("∨ Level: All ∧"; Top-down | Reset view; North | Look: High; Slow forces | Sound: On), and Place
-objects, with the shelf under it ending on a whole item and a chevron saying there is more. The bottom right holds
-only the water plate. Generate and Surprise me are two cells of one height, Generate in *action*.
+the view plate ("∨ Level: All ∧"; Top-down | Reset view; Slow forces; Look: High with Sound as a square cell at
+the row's end, a speaker green when on and red struck through when off, named in its tooltip), and Place objects,
+with the shelf under it as a two-column grid of compact cells (picture, then the name on up to two lines), its five
+groups divided, ending on a whole row with a chevron saying there is more. An icon-only cell is always a square of
+the cell height. The compass is an indicator, not a control: a round plate floating on the map on the top line,
+midway between the rows and the right column. The bottom right holds only the water plate. Generate and Surprise
+me are two cells of one height, Generate in *action*.
+
+**The brand.** The panel's bar reads "◆ Dam Good Maps · <map name>": a small mark of our own (two logs over a
+wave, drawn as a 14px line icon; no game assets), the brand in Bitter in the quiet colour, then the map's name in
+Bitter, ending with an ellipsis when long; the same open or collapsed.
 
 ## The direction not taken: Field notes
 
