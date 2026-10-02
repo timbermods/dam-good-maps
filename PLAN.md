@@ -497,15 +497,18 @@ and is never replaced. Those checks: its courses; no inflow's head under water h
 source in a flow; no wall along an edge; a start on the planned water its land holds, a second place for one, and room
 for the mine sites (D363); no slow sea over a shelf (D358); no ground above 16 unless tall; no ruler-straight channel or
 dam wall on its planned water, its lakes' banks read alone, and no dam wall on the pre-fill alone (its water under 0.2
-deep left out). A land whose planned water misses the promise or a readable story is drawn again first (up to 6 lands at
-128², 4 to 192², 3 above). The planned water is read as its land holds it (`plannedWater` with `held`). The badwater
+deep left out). At 128² and under (`SHOW_PROVED_MOST`, small starts, #153) it is shown only once its actual settled
+start reaches its mine pair, so a land whose settled start fails can still be drawn again; above 128² it is shown at
+once, for D278's time to editable land (a default for Kyler). A land whose planned water misses the promise or a
+readable story is drawn again first (up to 6 lands at 128², 4 to 192², 3 above). The planned water is read as its land holds it (`plannedWater` with `held`). The badwater
 hollows are dug and the mine sites' and start's pads levelled (`land/minePads.ts`) while the land is shaped. What needs
 settled water is fixed on that land: the start moves to another on the same settled water (three in all), gets a spring
 by it (D330), or is planned again; the mine sites the colony reaches are read by one function (`validate/playability.ts`
 `colonyReach`, `minesReached`, D342) for the check and the generator alike. Water that does not settle (D350): outlets
-are widened while the land is shaped (`levels.ts` `widenOutlets`, `carveOutlets`); what is left is worn as the map
-arrives (`water/outletWear.ts`: one smooth shape along the water's way out, at most 200 tiles, recorded in the land so
-the link rebuilds it). The settle runs up to 6 game days (D358).
+are widened while the land is shaped (`levels.ts` `widenOutlets`, `carveOutlets`); a rising basin at 256² in River
+Valley or Lake Basin is fed more gently (0.7, 0.49, 0.343 of its feeders, recorded in the features), and a prepared land
+keeps its heights: the worn way out (`water/outletWear.ts`) no longer runs on generated maps (generation speed round 2,
+#155; a default for Kyler against D350 (b)). The settle runs up to 6 game days (D358).
 
 ### 7.10 Output
 
