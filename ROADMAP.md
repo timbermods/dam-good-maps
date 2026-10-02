@@ -68,6 +68,12 @@ differently, this file wins.
 4. **Collaborative editing**, the next milestone (below): two players edit one map live, peer to peer.
 5. **M12 (Claude)**, after collaborative editing (D277, D342).
 
+## Before the next release (D385–D387)
+
+- **The release gate (D385):** the water and the editor's core must be perfect; anything Kyler finds in them blocks the release until fixed.
+- **The editor-core items (D387):** (1) the hover readout refreshes live when the water changes; (2) **Remove unfed water**, map-wide or in a selection, previewed, one undo step; (3) **Fill**, standing water with no source that evaporates at the game's rate and shows how long it lasts; (4) **Naturalize's land effect** weathers like nature, never single-tile speckle; (5) **Naturalize's sound**, a clean CC0 scrape and settle. Remove unfed water and Fill: engine and tests in the core; their place in the page is agreed with the page session through Kyler.
+- **The coherence review (D386):** once Kyler is satisfied with the quality, a whole-codebase review on Fable 5.1 at high (dead code, duplication, inconsistent patterns, things built twice), with a cleanup plan.
+
 ## Overview
 
 | # | Milestone | From | In-game check (logged as pending, D11) | Effort |
@@ -1221,9 +1227,11 @@ it's chosen for (blocking: what a player feels). **High's frame rate is measured
 
 ## Design pass
 
-In step 3, polish, after 3D (Kyler, 2026-10-01, D349; earlier it followed "The page is the editor" straight away, D236),
-after Kyler's editor UI audit of the finished editor. It is the Impeccable design pass with the timbermods design system, moved
-from M13 and then forward to here. It follows the impeccable-app-flow skill
+Moved into step 1 (Kyler, 2026-10-02, D384): built together with "The page is the editor" by the page session (Fable 5.1, high),
+with Kyler's sittings at each checkpoint (earlier it was in step 3, polish, after 3D, D349, and before that straight after the
+page, D236). It defines Dam Good Maps' own look, guided by `docs/UI-BRIEF.md` and Timberborn's warmth as the High look carries it;
+the timbermods "walnut lodge" palette may be borrowed from but doesn't bind it. 3D's own controls are designed when 3D arrives.
+The Impeccable design pass, moved from M13. It follows the impeccable-app-flow skill
 (timbermods/.github, `claude-skills/impeccable-app-flow/`) and leaves a DESIGN.md and a
 MEANING.md behind: the design records every later interface follows (D176, D236).
 

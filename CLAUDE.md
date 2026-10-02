@@ -126,7 +126,7 @@ text.
 - The site stays noindex and unannounced until launch. Launch needs versioned deploys (moved to Later, PLAN §20
   D285) and Kyler's go-ahead; then set the repository variable `DGM_PUBLIC` to `true`.
 - Steps outside the milestones are released the same way:
-  - the design pass (in step 3, polish, after 3D, following Kyler's editor UI audit; D236, D349) is tagged `design-done` once Kyler has
+  - the design pass is built with "The page is the editor" in step 1 (D384) and is tagged `design-done` once Kyler has
     approved and merged it on `dev`;
   - Map look (after M8, before M9) is tagged `map-look-done` once Kyler approves the look, or ships inside the M9
     release;

@@ -8,11 +8,18 @@
 
 > **Refreshed 2026-10-01, evening.** Released today: the forces (D375), the High look (D378) and the AGPL licence (D379).
 > New decisions: D380 performance is a requirement, D381 the Rust order, D382 no outside users for now, D383 the dam
-> sketch tool. §0 is current; the next free decision is D384.
+> sketch tool. §0 is current; the next free decision is D391.
+
+> **New decisions, 2026-10-02 (D384–D390):** the design pass moves into step 1 with "The page is the editor" (D384). **The
+> release gate (D385) and the editor-core items (D387) come before the next release**, then the coherence review (D386).
+> **Two sessions (D388):** this milestone session (Opus 5.5, high) and a page session (Fable 5.1, high; `feature/page`, started
+> once the prune, D390, has landed); neither touches the other's files. **Models (D389):** Sonnet 5.5 sub-agents at high for the
+> prune and layout-touching mechanical work, at medium for self-contained mechanical work; never Fable unless Kyler asks; never
+> raise effort or start sub-agents at max. Kyler's message: `docs/feedback/2026-10-02-two-sessions.md`.
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (every decision, D1–D379) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
+editor work), `PLAN.md` §20 (every decision, D1–D390) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
 ## 0. Resume here (refreshed 2026-10-01, evening: the session ended on Kyler's main PC; the next one runs on another machine)
@@ -67,7 +74,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
    and every later force; the generator after M9b; the editor's operations if the audit justifies it; interface and rendering
    stay in TypeScript); **D382** no outside users for now (re-pin freely; Kyler's own maps and projects keep opening or
    convert automatically); **D383** the dam sketch tool at the end of step 1, then the reservoir finder (replacing D287's
-   guessed dam sites); D377's 20-second tour restated. The next free decision is **D384**.
+   guessed dam sites); D377's 20-second tour restated. The next free decision is **D391**.
 3. **The post-release list, in order** (`build`, Opus 5.5, high; ROADMAP has a section for each):
    1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force
       should skip to its end while the new one plays in full. Check every force.
@@ -105,7 +112,7 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
      and moving water must pass, measured in a quiet window. The water status "0%" after undo is confirmed fixed on `dev`.
    - **The Rust water port (#156): approved** (D381). Adopt the native build for batch jobs now (M9b's measures, theme
      measures, nightly checks: the 840-map settle batch drops from 281 s to 146 s), without waiting for M9b's release. In
-     the browser, use the Rust settle in Chromium (about 1.7–2.5× faster) and keep TypeScript in Firefox and WebKit
+     the browser, use the Rust settle in Chromium (about 1.7–2.5× faster) and keep TypeScript in Firefox and WebKit (superseded 2026-10-02 by the Codex verdicts below: Rust in Firefox too, once the corrected comparison confirms it)
      (Firefox's WebAssembly was about 4× slower, WebKit slightly slower) until a short Codex round explains Firefox's
      slowdown. Threading stays experimental. Add Rust 1.90, the wasm32 target and the Rust build to CI and the setup
      command.
@@ -117,6 +124,12 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
      (still held: theme-outcome regressions, small lake gains, speed misses); re-measure after each. **M9b must not
      release slower than `dev` at 256²** (D380). Three contract tests were already failing on the base (#155 disclosed
      them): confirm what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained.
+   - **Codex verdicts (2026-10-02):**
+     - **Multi-core water (#130): approved.** Threads only where they help: 256² and up in Chromium and Firefox (Firefox always measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`, in flight). Costs: one first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².
+     - **The Rust water's Firefox round (#156):** Firefox's slowdown was the test harness (the debugger forced the baseline WebAssembly compiler); corrected and tightened, a 128² settle went from 1.73 s to 0.16 s, byte-identical. WebKit gains 1.2–1.9× on larger maps, while TypeScript still wins small maps there. **New policy (replaces "keep TypeScript in Firefox"):** Rust in Chromium and Firefox once the corrected comparison against TypeScript confirms it; Rust in WebKit for larger maps only.
+     - **The Rust analysis (#157): approved,** byte-identical everywhere; at 256², analysis 3.5 → 2.8 s in Chromium, 16 → 10 s in WebKit, 10 → 7 s natively. Firefox is being re-measured with the corrected setup. The full M9b batch on 16 threads took about 18.5 minutes on a fully loaded machine: compare against the TypeScript batch in the quiet measuring window.
+     - **The Rust forces (#158):** round 1 not adoptable (about 5× slower, because a generic serialization layer copied the map across the boundary on every call; Carve and Glaciate unported). Round 2 is in flight: the boundary fixed first (the map shared in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The lesson applies to every port.
+     - **Still with Codex:** the Rust forces round 2, the Rust analysis's Firefox re-measure, portable maths everywhere (`investigation/portable-math`), the dam sketch tool's engine (`investigation/dam-sketch`), and Rust water with threads (`investigation/rust-threads`).
    - **In flight with Codex:** multi-core water (`investigation/parallel-water`, #130) and the Rust water's Firefox slowdown.
 5. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s "Hand-over
    (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373); failing absolutes
@@ -237,7 +250,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D384**.
+number on `dev` is **#94**. The next decision is **D391**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -352,7 +365,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D384), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D391), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away

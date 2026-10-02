@@ -3,7 +3,7 @@
 One page, rewritten at every step and stop. The summary below is for Kyler's return, most important first. The full
 handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issue
 ([#57](https://github.com/timbermods/dam-good-maps/issues/57)). Decisions are in
-[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D379), the order of work in [ROADMAP.md](../ROADMAP.md).
+[PLAN.md §20](../PLAN.md#20-editor-decisions) (D1–D390), the order of work in [ROADMAP.md](../ROADMAP.md).
 
 > **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
 > smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
@@ -28,7 +28,12 @@ proved on a fresh clone, 109 merged branches deleted, CI that skips its heavy su
 **Decided today (PLAN §20):** D380 performance is a requirement (a speed regression blocks a merge); D381 the Rust order
 (water, then the five forces, then their planning and the checks, then new forces in Rust, then the generator, then
 perhaps the editor's operations); D382 no outside users for now (re-pin freely; Kyler's own maps keep opening); D383 the
-dam sketch tool, then the reservoir finder; D377's 20-second tour restated. The next free decision is D384.
+dam sketch tool, then the reservoir finder; D377's 20-second tour restated. The next free decision is D391.
+
+**Decided 2026-10-02 (D384–D390):** the design pass moves into step 1 with "The page is the editor" (D384). The water and the
+editor's core must be perfect before the next release (D385), with a coherence review after (D386) and five editor-core items
+(D387). Two sessions, the milestone session and a page session (D388), on set models (D389). Item 34 is a hard prune of the
+documents (D390). Kyler's message: [feedback](feedback/2026-10-02-two-sessions.md).
 
 **Waiting for you**
 
