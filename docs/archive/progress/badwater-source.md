@@ -125,7 +125,7 @@ runs** (2,760 maps). First attempts are information (0.6.2: 92–100% at Normal)
   150 maps generated, load checks and round trips pass; **0 disagreements** on 2,350 checks of 50
   generated maps (47 each, with the new check) and on the 19 official maps, all of which pass
   `resources.badwater_source` in both validators (Spillage by its seeps).
-- **Contact sheet** (D144): [docs/sheets/badwater-source.png](../sheets/badwater-source.png), seeds
+- **Contact sheet** (D144): [docs/sheets/badwater-source.png](../../sheets/badwater-source.png), seeds
   1–30 of every theme at 128², badwater sources yellow, badwater rust red, the start red
   (`tools/contact-sheet.ts --badwater`).
 - **The canonical file** (D148): the live check's download (River Valley 4242, 128², Normal) is now

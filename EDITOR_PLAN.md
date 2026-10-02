@@ -1112,7 +1112,7 @@ A mismatch goes back to Claude to revise, just like a validation failure.
 
 Record the results in "Editor decisions".
 
-*Spike results (M3).* See [docs/spike-m3.md](docs/spike-m3.md) and decisions D8, D10 and D41. The
+*Spike results (M3).* See [docs/spike-m3.md](docs/archive/spike-m3.md) and decisions D8, D10 and D41. The
 page is published privately at <https://claude.ai/artifact/Dkm1eoXZ6KvPwjBBc6JiRp>.
 - Blob workers, file open and the `.zip` download all work under the artifact's rules.
 - Route B's browser calls pass CORS with the direct-browser-access header.

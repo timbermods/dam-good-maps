@@ -35,7 +35,7 @@ and D10 (PLAN §20):
   `anthropic-dangerous-direct-browser-access: true`, the other does not. No real key was used or
   looked for.
 - **The local checks** (`npm run spike:check`, results in
-  [out/spike/checks.json](../out/spike/checks.json)). They run in the installed Chrome through
+  [out/spike/checks.json](../../out/spike/checks.json)). They run in the installed Chrome through
   Playwright:
   - the built page, served over https with an emulation of the artifact's content security
     policy as a response header: scripts inline or from the four CDNs, styles and fonts from

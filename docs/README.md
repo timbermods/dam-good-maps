@@ -18,7 +18,7 @@ pull request.
 | [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: work in flight, the order of work, how things are run here. Read it first when starting a new session. |
 | [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. |
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardsticks for every piece of work and every review (D225). |
-| [UI-QUESTIONS.md](UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
+| [UI-QUESTIONS.md](archive/UI-QUESTIONS.md) | The open design questions and known constraints for the UI round on "The page is the editor" (D326). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 | [COLLAB-BRIEF.md](COLLAB-BRIEF.md) | Kyler's collaborative editing brief: what gets built at that milestone (D362). |
 | [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance; stale ones marked. |
@@ -32,13 +32,13 @@ These record what happened and why. They stay as written; superseded parts may b
 - `PLAN.md` §20, the decision log: every decision, with its date. A later decision can supersede an earlier
   one; both stay.
 - [progress/](progress/README.md): one record per milestone or step.
-- [HISTORY.md](HISTORY.md): the story of the project's identity, one short chapter per major turn, each linking to its decisions.
-- [progress-log/](progress-log/README.md): the Progress log issue (#57), copied here monthly.
-- [chats/](chats/README.md): each previous `CHAT-HANDOFF.md`, kept when it is rewritten.
+- [HISTORY.md](archive/README.md): the story of the project's identity, one short chapter per major turn, each linking to its decisions.
+- [progress-log/](archive/progress-log/README.md): the Progress log issue (#57), copied here monthly.
+- [chats/](archive/chats/README.md): each previous `CHAT-HANDOFF.md`, kept when it is rewritten.
 - `investigation/`: the investigations and their reports; their INTEGRATION.md files are proposals.
 - [decisions-pending.md](decisions-pending.md): open and decided questions, each with its default.
-- [ingame-log.md](ingame-log.md): in-game checks and probe batches.
-- [m9-design.md](m9-design.md), [spike-m3.md](spike-m3.md), `map-look/`, `look/`, `sheets/`: step records and
+- [ingame-log.md](archive/ingame-log.md): in-game checks and probe batches.
+- [m9-design.md](archive/m9-design.md), [spike-m3.md](archive/spike-m3.md), `map-look/`, `look/`, `sheets/`: step records and
   captures.
 
 ## Retired terms

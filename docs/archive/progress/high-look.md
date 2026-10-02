@@ -20,8 +20,8 @@
 > D305's ruins (stop 2): dev's site and this branch draw every captured view to the same pixels for everything else
 > (`terrain` and `sky` shaders, and their `.lite` forms, are still byte for byte dev's; `water`, `fall` and `object`
 > embed the fitted water palette and the far ruin's lattice, so they and the views bearing water or ruins differ; see
-> [docs/look/high/README.md](../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-and-ruins-d304-d305-d310)).
-> The captures are in [docs/look/high/](../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are
+> [docs/look/high/README.md](../../look/high/README.md#the-standard-look-is-unchanged-apart-from-its-water-and-ruins-d304-d305-d310)).
+> The captures are in [docs/look/high/](../../look/high/README.md); the measurements on this machine's RTX 2070 SUPER are
 > below (High costs it about 1–2 ms a frame more than Standard; every configuration orbits at the display's 165 Hz).
 > **Left:** #67's visible seasons and D250's badtide withering (they wait for the Drought and Badtide branch, D286 (4));
 > pending #83 (the new trees in Standard); the frame's touch-up moved to the design pass (D296) and is not in this
@@ -33,10 +33,10 @@
 > further toward the game while restoring the two readability tests D304 had loosened (badwater's own colours are
 > unchanged — darkening them broke an earlier decision, the mine pit's margin under badwater, D177/D178); see "D304:
 > clean water's shades" and "D310: clean water and badwater's floor darken together" below and
-> [docs/look/high/d304-water.jpg](../look/high/d304-water.jpg) for the before-and-after. D305 fixed the far ruin block
+> [docs/look/high/d304-water.jpg](../../look/high/d304-water.jpg) for the before-and-after. D305 fixed the far ruin block
 > to read as the same ruin seen from afar (the near skeleton's own muted colour and a lattice, not a bright orange
 > box); see "D305: a ruin seen from afar looks like the same ruin" below and
-> [docs/look/high/d305-ruins.jpg](../look/high/d305-ruins.jpg). Every capture in `docs/look/high/` was recaptured for
+> [docs/look/high/d305-ruins.jpg](../../look/high/d305-ruins.jpg). Every capture in `docs/look/high/` was recaptured for
 > D310, so the whole-look composites above and the dedicated D304 and D305 captures all show the current water and
 > ruins together. Separately, an audit found `capture-badwater.ts`'s never-hold-a-look bug in six more tools
 > (`capture-live-editing.ts`, `capture-look.ts`, `capture-objects.ts`, `capture-saplings.ts`, `capture-waterfalls.ts`,
@@ -475,7 +475,7 @@ both maps, 8 more for the high-density pass: `--dpr 2 --configs 1,2,3 --only gen
 
 ## Captures
 
-[docs/look/high/](../look/high/README.md): the same views in Standard and in High side by side, a greyscale sheet and a
+[docs/look/high/](../../look/high/README.md): the same views in Standard and in High side by side, a greyscale sheet and a
 colour-blindness sheet of the High views, and the pixel comparison of the Standard look against dev's.
 
 ## The forces' effects in High
@@ -485,7 +485,7 @@ surge; `src/render3d/forces.ts` and `effects.ts` on `feature/forces`) are drawn 
 leaves exactly as they are (no grade, no shadows cast); the lava's heat is drawn by the terrain shader, which High
 builds from the Standard one, so it comes with it. Checked in a scratch merge of `feature/forces` into this branch
 (not pushed): Craterize and Erupt at full power, in Standard and in High, look the same apart from the land round them
-([forces-craterize.jpg](../look/high/forces-craterize.jpg), [forces-erupt.jpg](../look/high/forces-erupt.jpg)). **Nothing
+([forces-craterize.jpg](../../look/high/forces-craterize.jpg), [forces-erupt.jpg](../../look/high/forces-erupt.jpg)). **Nothing
 is needed on the forces' side.** Merging the two branches meets three small conflicts, each keeping both sides:
 `renderer.ts`'s `renderNow` (the forces render with `cam`; High's `beginCost`, `beforeRender` and `endCost` go round it)
 and `dispose` (the forces' `forceFx` and High's materials), `Editor.tsx`'s View3D props (`lookMenu={false}` beside the

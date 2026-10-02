@@ -1,7 +1,7 @@
 # After Map look (2): Kyler's decisions
 
 Recorded on 2026-09-25 (PLAN §20; decisions-pending #38 and #50 closed, #51–#53 new). The one-line
-list of every decision since M8 is in [STATUS.md](../STATUS.md).
+list of every decision since M8 is in [STATUS.md](../../STATUS.md).
 
 - D116: M9a's in-game gate is a DGM Probe batch, not Kyler's play test (amends D112 (3)).
 - D117: the probe rule. The Probe may launch Timberborn only after Kyler's yes in chat, every batch

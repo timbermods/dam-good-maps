@@ -4,8 +4,8 @@
 keeps what worked in version 1 and adds relief and Verticality, wider theme priors, authored
 intentions, a drought-aware start, a faster pipeline, a cave-ready terrain model, and the four
 investigations folded in. Version 1 is in git history (PR #14). The prototype is in
-[investigation/generative/v2/](../investigation/generative/v2/); every number is in
-[REPORT-v2.md](../investigation/generative/REPORT-v2.md). Measures are information: only breakage,
+[investigation/generative/v2/](../../investigation/generative/v2/); every number is in
+[REPORT-v2.md](../../investigation/generative/REPORT-v2.md). Measures are information: only breakage,
 Kyler's decided principles and what a player feels block (D115). The numbers, briefs and maps come
 from the prototype before dev's core start and edge rules (#44) were merged into its branch; at the
 branch's tip it runs on them, and its maps differ (REPORT-v2 §10).
@@ -945,13 +945,13 @@ version. The proposal (also in ROADMAP M9):
 > §20.
 
 Kyler approves version 2 by judgement from the ten briefs
-([investigation/generative/briefs/v2/](../investigation/generative/briefs/v2/)), the measures
-([REPORT-v2](../investigation/generative/REPORT-v2.md)) and the contact sheets: one readable
-image per theme in [docs/sheets/design-v2/](sheets/design-v2/) (seeds 1–30 at 128² and a row at
+([investigation/generative/briefs/v2/](../../investigation/generative/briefs/v2/)), the measures
+([REPORT-v2](../../investigation/generative/REPORT-v2.md)) and the contact sheets: one readable
+image per theme in [docs/sheets/design-v2/](../sheets/design-v2/) (seeds 1–30 at 128² and a row at
 Verticality 85, drawn from above in the clean look at 2 px a tile, labelled), beside the small
-record [docs/sheets/design-v2.png](sheets/design-v2.png) (D144); a local page shows version 1,
+record [docs/sheets/design-v2.png](../sheets/design-v2.png) (D144); a local page shows version 1,
 version 2 and high Verticality side by side. The ten maps to play are in
-[investigation/generative/out/v2/](../investigation/generative/out/v2/). This version's pending
+[investigation/generative/out/v2/](../../investigation/generative/out/v2/). This version's pending
 decisions are decisions-pending #59–#68.
 
 ## 20. Appendix: every one-height assumption in `src/`

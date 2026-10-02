@@ -2,7 +2,7 @@
 
 Branch `investigation/generative`, merged into `dev` as PR #14. Design:
 [docs/m9-design.md](../m9-design.md); numbers:
-[investigation/generative/REPORT.md](../../investigation/generative/REPORT.md). Kyler approves design
+[investigation/generative/REPORT.md](../../../investigation/generative/REPORT.md). Kyler approves design
 version 2, not this one.
 
 - **The design:** a genome of continuous parameters per theme prior; uplift, erosion and levels make

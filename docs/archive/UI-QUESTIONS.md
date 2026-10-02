@@ -2,8 +2,8 @@
 
 The open design questions and known constraints for Kyler's question-and-answer round on the combined page (feedback
 item 23, D326). Nothing of the page is built until that round is held and Kyler approves the written UI brief that comes
-from it. The decisions are in [PLAN.md §20](../PLAN.md#20-editor-decisions); the plan is in
-[EDITOR_PLAN.md](../EDITOR_PLAN.md) (§7, §8) and [ROADMAP.md](../ROADMAP.md) ("The page is the editor"). Feedback item numbers
+from it. The decisions are in [PLAN.md §20](../../PLAN.md#20-editor-decisions); the plan is in
+[EDITOR_PLAN.md](../../EDITOR_PLAN.md) (§7, §8) and [ROADMAP.md](../../ROADMAP.md) ("The page is the editor"). Feedback item numbers
 are in [the forces-preview feedback](feedback/2026-09-28-forces-preview.md) and
 [the build order](feedback/2026-09-29-build-order.md).
 
@@ -45,20 +45,20 @@ are in [the forces-preview feedback](feedback/2026-09-28-forces-preview.md) and
 
 ## Questions for the round
 
-Kyler answered these in his round on 2026-09-29: [UI-BRIEF.md](UI-BRIEF.md) (D330).
+Kyler answered these in his round on 2026-09-29: [UI-BRIEF.md](../UI-BRIEF.md) (D330).
 
-1. Which controls are "the essentials" on the page: does each force get a row there, or one Forces button that opens the shelf? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1, §4.**
+1. Which controls are "the essentials" on the page: does each force get a row there, or one Forces button that opens the shelf? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §1, §4.**
 2. Where do settings live once the page is the editor: a panel beside the map, a drawer, or the expanded editor? What
-   happens to today's settings panel next to a live map? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3.**
-3. Where does the candidates strip sit, and how many thumbnails show before More? Does opening one keep the shown map's edits? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §5, §6.**
+   happens to today's settings panel next to a live map? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §3.**
+3. Where does the candidates strip sit, and how many thumbnails show before More? Does opening one keep the shown map's edits? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §3, §5, §6.**
 4. What does the page show about the map beyond its card: the checks dot, the two numbers, the five levers? Which are
-   always visible, which on hover, which in the expanded editor? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §4.**
+   always visible, which on hover, which in the expanded editor? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §3, §4.**
 5. Watch beside Sound in the view bar: is the view bar on the page, or only in the expanded editor? What is the page's
-   equivalent of Fast and Watch? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1, §4.**
-6. Which keys work on the page, and which only in full screen? Does Esc mean the same in both? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1.**
-7. How does "Your maps" sit next to the candidates strip and the settings, so a player can tell a saved edit from a sibling? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3, §6.**
-8. What does Generate do to a map the player has edited, given the undo note: is the note enough, or does it need Your maps' safety net as well? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §6.**
-9. Real places open in the same window: what changes for a place (its signature, its credits, no seed)? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §3.**
-10. What does the first visit teach: one hint, the Legend hint, first-run hints, or none? Who owns the shortcuts reference? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §7 (the shortcuts reference stays with batch 3, D323).**
-11. Phones are view-only: does the page show the strip, the numbers and Your maps there? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §1.**
-12. Which pieces go to the design pass (D236) and which the brief must fix first? **Answered: [UI-BRIEF.md](UI-BRIEF.md) §9.**
+   equivalent of Fast and Watch? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §1, §4.**
+6. Which keys work on the page, and which only in full screen? Does Esc mean the same in both? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §1.**
+7. How does "Your maps" sit next to the candidates strip and the settings, so a player can tell a saved edit from a sibling? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §3, §6.**
+8. What does Generate do to a map the player has edited, given the undo note: is the note enough, or does it need Your maps' safety net as well? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §6.**
+9. Real places open in the same window: what changes for a place (its signature, its credits, no seed)? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §3.**
+10. What does the first visit teach: one hint, the Legend hint, first-run hints, or none? Who owns the shortcuts reference? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §7 (the shortcuts reference stays with batch 3, D323).**
+11. Phones are view-only: does the page show the strip, the numbers and Your maps there? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §1.**
+12. Which pieces go to the design pass (D236) and which the brief must fix first? **Answered: [UI-BRIEF.md](../UI-BRIEF.md) §9.**

@@ -42,7 +42,7 @@ set the ground, walls, water, light and models:
   preview does. The worker sends the soil with the water, so the ground follows both of an edit's
   water updates (M8). Imported maps show the soil their file stores.
 - **Tools:** `tools/capture-look.ts` (the captures, their greyscale and colour-blind versions,
-  and [map-look/captures.md](../map-look/captures.md)); `npm run bench:3d` takes `--configs`,
+  and [map-look/captures.md](../../map-look/captures.md)); `npm run bench:3d` takes `--configs`,
   `--maps`, `--seeds` and `--out`, and keeps covered windows drawing.
 - **Tests:**
   - `tests/unit/look.test.ts` (17): the soil colours and their order in greyscale, the legend,
@@ -58,10 +58,10 @@ set the ground, walls, water, light and models:
 
 | Criterion | Result |
 |---|---|
-| Before and after captures of the same maps from the same camera angles | **pass**. Seed 4242 in all six themes at 128², River Valley 4242 at 256², and Beavertopia: 4 poses each (overview; the start; the badwater, where it meets clean water on maps that have that; the tallest waterfall, from downstream; Delta has no fall), plus the page's own view from its default camera. The before captures come from `m8-done` (cfa5990) through a worktree, with the same tool and poses. 28 before and 28 after for our maps in [map-look/](../map-look/) (Beavertopia's 8 stay in `.scratch/map-look/`, never committed) |
+| Before and after captures of the same maps from the same camera angles | **pass**. Seed 4242 in all six themes at 128², River Valley 4242 at 256², and Beavertopia: 4 poses each (overview; the start; the badwater, where it meets clean water on maps that have that; the tallest waterfall, from downstream; Delta has no fall), plus the page's own view from its default camera. The before captures come from `m8-done` (cfa5990) through a worktree, with the same tool and poses. 28 before and 28 after for our maps in [map-look/](../../map-look/) (Beavertopia's 8 stay in `.scratch/map-look/`, never committed) |
 | Greyscale and colour-blind versions of the after captures | **pass**. 84 for our maps (greyscale, protanopia, deuteranopia, tritanopia of every pose but the falls; Machado, Oliveira and Fernandes 2009 at full severity, in linear RGB), and 12 for Beavertopia, locally |
-| A reviewer can tell each meaning apart in the after captures | **for the independent reviewer**. [map-look/captures.md](../map-look/captures.md) lists every capture and, for each, up to three tiles of each meaning with their positions in the image: water, badwater, badwater meeting clean water, moist, dry and contaminated ground, contaminated beside moist ground, living and dead trees, the start, slopes and the way they rise, dam sites. The colours are chosen so the meanings also differ in brightness and pattern: moist grass is the lightest ground, dry earth darker with dark cracks, contaminated earth darkest with light cracks, and badwater darker than clean water of the same depth (a unit test checks the order) |
-| Build under 1.5 s at 256² | **pass**. `npm run bench:3d` in D46's three setups, 15 maps at 256² (3 generated, 12 official and workshop): worst 482 ms (Beavertopia, 795,730 triangles, on the integrated Radeon with the CPU 4× slower on a 1080p laptop screen at 150%), median 324 ms in that setup; on the RTX 4080, median 112 ms and worst 265 ms. M4 had 445 ms worst. Results: [out/map-look/bench3d.json](../../out/map-look/bench3d.json) |
+| A reviewer can tell each meaning apart in the after captures | **for the independent reviewer**. [map-look/captures.md](../../map-look/captures.md) lists every capture and, for each, up to three tiles of each meaning with their positions in the image: water, badwater, badwater meeting clean water, moist, dry and contaminated ground, contaminated beside moist ground, living and dead trees, the start, slopes and the way they rise, dam sites. The colours are chosen so the meanings also differ in brightness and pattern: moist grass is the lightest ground, dry earth darker with dark cracks, contaminated earth darkest with light cracks, and badwater darker than clean water of the same depth (a unit test checks the order) |
+| Build under 1.5 s at 256² | **pass**. `npm run bench:3d` in D46's three setups, 15 maps at 256² (3 generated, 12 official and workshop): worst 482 ms (Beavertopia, 795,730 triangles, on the integrated Radeon with the CPU 4× slower on a 1080p laptop screen at 150%), median 324 ms in that setup; on the RTX 4080, median 112 ms and worst 265 ms. M4 had 445 ms worst. Results: [out/map-look/bench3d.json](../../../out/map-look/bench3d.json) |
 | 60 fps on the integrated GPU with the CPU slowed 4×, including Beavertopia | **pass**. Every map orbits at 111 fps or more in every setup (the display ran at 127–129 Hz). With the CPU 4× slower on the Radeon, the slowest is Beavertopia at 111 fps, and 14 of 15,222 frames took longer than 1/60 s (15 of 45,924 in all three setups; M4 had none). The Radeon needs at most 8.23 ms per frame (median; 9.01 ms at the 95th percentile), for Beavertopia, against 4.3 ms before Map look. A first run while other agents' batches kept the CPU at 100% passed too (worst build 828 ms, slowest orbit 86 fps) |
 | The 3D chunk stays lazy-loaded; its size | **pass**. `View3D` is loaded only by **3D** or the editor, as before: 560.26 KB (143.46 KB gzipped) before, 588.27 KB (153.13 KB gzipped) after. The page's own script is unchanged (93.89 KB) |
 | Every existing test passes unchanged | **pass**. No existing test was changed. Typecheck passes; the 357 unit and contract tests pass (28 files, 185 s); the 54 browser tests pass, twice in a row; CI passes (below). Earlier, while other agents kept the CPU at 100%, six heavy tests hit vitest's 120 s timeout and `tests/e2e/preview.spec.ts` went over its 2 s local budget for an edit; the same browser test on `m8-done` went over it under that load too, and the worker's time for the same Islands edit was equal before and after (1.85 and 1.87 s against 1.86 and 1.76 s). On the quieter machine every one passes |
@@ -147,7 +147,7 @@ and a frame in SwiftShader on this machine takes 26 ms (25 ms before).
   falls now have them too), plus Beavertopia's 4 and 16, locally. Every pose's camera is the
   before run's, checked equal.
 - **Budgets** (`npm run bench:3d`, D46's three setups, 15 maps at 256²; results in
-  [out/map-look/bench3d.json](../../out/map-look/bench3d.json)): **pass**.
+  [out/map-look/bench3d.json](../../../out/map-look/bench3d.json)): **pass**.
   - Build: worst 529 ms (the run's first map, on the integrated Radeon with the CPU 4× slower),
     median 342 ms in that setup. On the RTX 4080: median 113 ms.
   - Orbit: every map at 100 fps or more in every setup. The slowest is Beavertopia on the Radeon
@@ -319,7 +319,7 @@ Deployed: look-contamination-done, 2026-09-25, live check passed (PR #36; the li
   stays at least 6 L* below clean water of the same depth (the clean-look rule; its test is
   unchanged). Up close it is duller than clean water (no crests, a fifth of the glints), and its
   glowing bubbles grow denser with the share. The legend's mixed-water swatch shows the gradient.
-- Captures, the colour table and how it was measured: [look/badwater-blend](../look/badwater-blend/README.md)
+- Captures, the colour table and how it was measured: [look/badwater-blend](../../look/badwater-blend/README.md)
   (`tools/capture-badwater.ts`, and `--measure`). Waiting on Kyler: how dark deep badwater gets (A as
   built, or B, nearer #4B3C37 when deep).
 - Speed (information): the blend costs about 1 ms per water update at 256²; meshing all of a 256²
@@ -414,7 +414,7 @@ so 10–25% bad already reads warm."
 ### Mine sites and ruins, models of our own (2026-09-25, branch `look/mine-site`, D178)
 
 - Kyler: a small fix round, judged from before and after captures (no blind review). Captures and
-  what to look at: [docs/look/mine-ruins/](../look/mine-ruins/README.md), made with the new
+  what to look at: [docs/look/mine-ruins/](../../look/mine-ruins/README.md), made with the new
   `tools/capture-objects.ts` (the same cameras before and after, side by side, with greyscale and
   colour-blindness sheets; `--bench` measures frame times).
 - **Mine sites** (`src/render3d/entities3d.ts`, `mesh.ts`): a pit 1.6 levels deep sunk into the
@@ -555,7 +555,7 @@ in the Standard look only; Map look 2's High mode adds mist, spray and splash ri
   share from the fall. New: `tests/unit/look-waterfalls.test.ts`, `tests/contract/look-waterfalls.test.ts`
   and `tests/e2e/look-waterfalls.spec.ts`.
 - The map's bytes are unchanged (the pinned download in `look-mine-ruins.test.ts` passes).
-- Captures: [docs/look/waterfalls/](../look/waterfalls/README.md), made with
+- Captures: [docs/look/waterfalls/](../../look/waterfalls/README.md), made with
   `tools/capture-waterfalls.ts` (`--bench` measures the frame and remesh times).
 
 #### Kyler's review of the captures (2026-09-26, D215)
@@ -610,7 +610,7 @@ another review unless it looks off. Built on `look/waterfalls` after merging `de
   e2e spec also draws with clear water on and under a slice.
 - The map's bytes are unchanged (rendering only; the pinned download in `look-mine-ruins.test.ts`
   passes).
-- **Captures** remade on the current maps ([docs/look/waterfalls/](../look/waterfalls/README.md), 4.2
+- **Captures** remade on the current maps ([docs/look/waterfalls/](../../look/waterfalls/README.md), 4.2
   MB): the same views as before, dev beside now; new `d215-*.jpg` pairs with the first round (#53 at
   b00b2fc) beside now: the L-shaped lip, the staircase lip, Highlands 4's fall from the review, and
   the strong fall's landing; and clear water off and on. Looked at critically: no gap, seam or
@@ -660,7 +660,7 @@ Built on `fix/settle-and-foam`, with #72's change (live-editing.md).
   ms (first run 0.80 → 1.10) on the stress hillside (1,536 falls in 64 chunks); GPU times move
   within their run-to-run noise (the hillside's median 0.69 → 1.26 ms in the second run, 0.71 →
   3.06 in the first, whose p95 was 3.98 → 4.51).
-- **Captures** ([docs/look/waterfalls/](../look/waterfalls/README.md), 4.5 MB; `npx tsx
+- **Captures** ([docs/look/waterfalls/](../../look/waterfalls/README.md), 4.5 MB; `npx tsx
   tools/capture-waterfalls.ts --d222 --before <dev> --first <#53 at b00b2fc>`): the D215 pairs of
   the landing remade (`d215-splash-*`, `d215-l-lip-*`: the first round beside now), and new
   `d222-foam-*` pairs, dev beside now, up close: the strong fall's landing from above and low down,

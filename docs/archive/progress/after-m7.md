@@ -5,15 +5,15 @@ On `dev` after `m7-done`. Plans only: no code, tests or tools changed.
 - **`main` merged into `dev`** (eb8bac8): CLAUDE.md with the writing and deploying rules, the
   noindex deploy step and the live check.
 - **PR #4 merged** (`investigation/workshop`): the study of 130 Steam Workshop maps
-  ([WORKSHOP.md](../../investigation/WORKSHOP.md)), and its integration plan
-  ([WORKSHOP-INTEGRATION.md](../../investigation/WORKSHOP-INTEGRATION.md)) adopted into ROADMAP and
+  ([WORKSHOP.md](../../../investigation/WORKSHOP.md)), and its integration plan
+  ([WORKSHOP-INTEGRATION.md](../../../investigation/WORKSHOP-INTEGRATION.md)) adopted into ROADMAP and
   PLAN (D87), each item in the milestone it names. Kyler decided W4 (#34, badwater distances
   30 / 15 / 8) and the start thresholds (#39) in the amended Part A (D85). The other seven W
   decisions wait for Kyler (#31–#33, #35–#38): W1 Reservoir help (#31) and part of W7 (#37) keep
   the recorded decisions until Kyler answers, and #40 logs where the study conflicts with Map look.
 - **PR #5 merged** (`investigation/claude`): the Claude groundwork for M12
-  ([REPORT.md](../../investigation/claude/REPORT.md)), and its integration plan
-  ([M12-INTEGRATION.md](../../investigation/claude/M12-INTEGRATION.md)) adopted into ROADMAP, PLAN
+  ([REPORT.md](../../../investigation/claude/REPORT.md)), and its integration plan
+  ([M12-INTEGRATION.md](../../../investigation/claude/M12-INTEGRATION.md)) adopted into ROADMAP, PLAN
   and EDITOR_PLAN (D88–D96), merged with Kyler's M12 update: the vocabularies in M9, the rest in
   M12. P3, P5, P6 and P7 wait for Kyler (#41, #43–#45); P1 is settled by D84, and P2 is #28. #42,
   #46 and #47 log where it conflicts with D84 and D87.

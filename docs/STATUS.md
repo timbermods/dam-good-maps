@@ -33,7 +33,7 @@ dam sketch tool, then the reservoir finder; D377's 20-second tour restated. The 
 **Decided 2026-10-02 (D384–D390):** the design pass moves into step 1 with "The page is the editor" (D384). The water and the
 editor's core must be perfect before the next release (D385), with a coherence review after (D386) and five editor-core items
 (D387). Two sessions, the milestone session and a page session (D388), on set models (D389). Item 34 is a hard prune of the
-documents (D390). Kyler's message: [feedback](feedback/2026-10-02-two-sessions.md).
+documents (D390). Kyler's message: [feedback](archive/feedback/2026-10-02-two-sessions.md).
 
 **Waiting for you**
 
@@ -85,7 +85,7 @@ documents (D390). Kyler's message: [feedback](feedback/2026-10-02-two-sessions.m
      `download.path()`, which resolves when the file is complete. The failure never reproduced here (92 runs of the
      old test, up to 12 in parallel, all passed), so it was a CI-timing race; the fixed file passes the same 60-run
      stress. If it ever fails again on `dev`'s CI, reopen D341's trace with that run's log.
-  3. **September's Progress log is copied** to [progress-log/2026-09.md](progress-log/2026-09.md): 232 comments of #57
+  3. **September's Progress log is copied** to [progress-log/2026-09.md](archive/progress-log/2026-09.md): 232 comments of #57
      (2026-09-26 to 2026-09-30 UTC). The 69 from October go into `2026-10.md` at that month's end.
   4. Not done: **the faster settle's timing (D359)**. This PC wasn't quiet (Codex, OpenCode and Chrome running, CPU at
      15–40%), so a timing would have been noise; Codex's own figure stands (about 1.25× at the median, 1.4× on 256²
@@ -93,7 +93,7 @@ documents (D390). Kyler's message: [feedback](feedback/2026-10-02-two-sessions.m
      INTEGRATION.md).
   5. **Branches and PRs, cleaned (Kyler's authorization).** #95 was retargeted to `dev`; 109 remote branches, each
      re-checked as fully merged into `dev` or `main` and in no open PR, were deleted (none skipped); the list with each
-     last commit, to restore any, is [merged-branches.md](merged-branches.md). No open PR is superseded (all eleven are
+     last commit, to restore any, is [merged-branches.md](archive/merged-branches.md). No open PR is superseded (all eleven are
      live or held). Local worktrees: `git worktree prune` found nothing to prune, since every local branch still
      exists; about 25 old worktree folders beside the clone (`-brushes`, `-esc`, `-forces`, ...) point at branches
      whose remote is gone, and are Kyler's to remove if he wants the space.
@@ -714,7 +714,7 @@ See the summary's section 1.
 - [ROADMAP.md](../ROADMAP.md): the order of work, and each step's Blocking and Information lists.
 - [PLAN.md §20](../PLAN.md#20-editor-decisions): every decision, D1–D362.
 - [decisions-pending.md](decisions-pending.md): open questions with their defaults.
-- [m9-design.md](m9-design.md): M9 design version 1.
-- [ingame-log.md](ingame-log.md): in-game checks and the planned probe batches.
+- [m9-design.md](archive/m9-design.md): M9 design version 1.
+- [ingame-log.md](archive/ingame-log.md): in-game checks and the planned probe batches.
 - [progress/README.md](progress/README.md): the record of each milestone and step, one file each.
-- [progress/kyler-todo.md](progress/kyler-todo.md): what Kyler needs to do, with the exact steps.
+- [progress/kyler-todo.md](archive/progress/kyler-todo.md): what Kyler needs to do, with the exact steps.

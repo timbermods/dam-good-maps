@@ -1,6 +1,6 @@
 # In-game log
 
-The in-game checks of [PLAN.md §18](../PLAN.md#18-in-game-checklist), by milestone. **They are
+The in-game checks of [PLAN.md §18](../../PLAN.md#18-in-game-checklist), by milestone. **They are
 deferred (PLAN §20, D11).** Kyler is skipping in-game checks for now, so milestones list here the
 checks they would have needed, marked *pending*, with the files to play. Nothing waits for them:
 the automated validation and tests (PLAN §15) carry each milestone's gate until the checks are
@@ -23,9 +23,9 @@ Each preview PNG is drawn north up at 5 pixels per tile, with a dotted white gri
 
 ## M1: shared core and end-to-end slice
 
-The files are in [out/m1/](../out/m1/), made with generator 0.1.0 (tag `m1-done`). Remake them
+The files are in [out/m1/](../../out/m1/), made with generator 0.1.0 (tag `m1-done`). Remake them
 from that tag with `npx tsx tools/ingame-files.ts`: the bytes are deterministic, and
-[out/m1/checks.txt](../out/m1/checks.txt) lists their sha256, the start, every slope and every
+[out/m1/checks.txt](../../out/m1/checks.txt) lists their sha256, the start, every slope and every
 source. (Generator 0.2.0 changes every map; `--milestone m1` writes the same set with it.)
 
 - **`River Valley (4242).timber`:** 128 × 128, seed 4242, Normal, generator 0.1.0.
@@ -54,15 +54,15 @@ its sources during the first minutes of play.
 **Automated stand-ins used meanwhile (all green at M1):**
 - the `generate` validation profile: load and design classes, including placement emulation, start
   entrance, slopes and terrain support;
-- the Python oracle, [`tools/oracle.ts`](../tools/oracle.ts): 50 seeds × 3 sizes pass
+- the Python oracle, [`tools/oracle.ts`](../../tools/oracle.ts): 50 seeds × 3 sizes pass
   `prototype/validate.py --load-only` and `prototype/roundtrip_test.py`;
 - byte-identical output in Node and Chromium (`tests/e2e/determinism.spec.ts`).
 
 ## M2: water, playability and validation profiles
 
 Checks B1–B4 of PLAN §18: pre-filled water, tree survival, the A/B file with empty water, and
-badwater staying downstream. The files are in [out/m2/](../out/m2/), made with generator 0.2.0.
-Remake them with `npx tsx tools/ingame-files.ts --milestone m2`; [out/m2/checks.txt](../out/m2/checks.txt)
+badwater staying downstream. The files are in [out/m2/](../../out/m2/), made with generator 0.2.0.
+Remake them with `npx tsx tools/ingame-files.ts --milestone m2`; [out/m2/checks.txt](../../out/m2/checks.txt)
 lists their sha256 and every coordinate below.
 
 - **`River Valley (4242).timber`:** 128 × 128, seed 4242, Normal. Water, soil moisture and soil
@@ -116,10 +116,10 @@ What the files should show (from `checks.txt`):
 ## M5: set pieces, land and water tools, slopes, fixes
 
 Checks C1–C3 and F1 of PLAN §18, on maps edited with the M5 tools. The files are in
-[out/m5/](../out/m5/), made with generator 0.3.0 from River Valley seed 4242 at 128 × 128. Remake
+[out/m5/](../../out/m5/), made with generator 0.3.0 from River Valley seed 4242 at 128 × 128. Remake
 them with `npx tsx tools/ingame-files.ts --milestone m5` at commit 180d914 (tag m5-done): every
 edit is planned by the editor's own code with fixed ids, so the bytes reproduce. From generator
-0.4.0 (M6) the tool makes different maps, so test the committed files. [out/m5/checks.txt](../out/m5/checks.txt) lists their
+0.4.0 (M6) the tool makes different maps, so test the committed files. [out/m5/checks.txt](../../out/m5/checks.txt) lists their
 sha256 and every coordinate below.
 
 - **`River Valley (4242) F1 waterfall S2.timber`:** a standalone waterfall 20 tiles wide, falling
@@ -165,9 +165,9 @@ What the files should show (from `checks.txt`):
 ## M6: full settings, sharing, themes I
 
 Check M6-1: the two new themes load, and their dam sites hold. The files are in
-[out/m6/](../out/m6/), made with generator 0.4.0, seed 4242 at 128 × 128, designed for Normal,
+[out/m6/](../../out/m6/), made with generator 0.4.0, seed 4242 at 128 × 128, designed for Normal,
 every setting at its theme's preset. Remake them with
-`npx tsx tools/ingame-files.ts --milestone m6`; [out/m6/checks.txt](../out/m6/checks.txt) lists
+`npx tsx tools/ingame-files.ts --milestone m6`; [out/m6/checks.txt](../../out/m6/checks.txt) lists
 their sha256 and every coordinate below. The same maps open on the website from a link:
 `#s=4242&t=canyon&z=128&d=n` and `#s=4242&t=lakeBasin&z=128&d=n`.
 
@@ -210,9 +210,9 @@ What the files should show (from `checks.txt`):
 ## M7: resources, map objects, themes II
 
 Check D: the 1.0 objects load, and a spillway's plug releases its water. The files are in
-[out/m7/](../out/m7/), made with generator 0.5.0: the Lake Basin map for seed 4242 at 128 × 128,
+[out/m7/](../../out/m7/), made with generator 0.5.0: the Lake Basin map for seed 4242 at 128 × 128,
 designed for Normal, with two edits made with the M7 editor tools (a weir and a thorn belt). Remake
-them with `npx tsx tools/ingame-files.ts --milestone m7`; [out/m7/checks.txt](../out/m7/checks.txt)
+them with `npx tsx tools/ingame-files.ts --milestone m7`; [out/m7/checks.txt](../../out/m7/checks.txt)
 lists their sha256 and every coordinate below.
 
 - **`Lake Basin (4242) D objects.timber`:** the generated map already has a plugged spillway, two
@@ -253,8 +253,8 @@ What the file should show (from `checks.txt`):
 
 ## M8: water preview and background validation in the editor
 
-The files are in [out/m8/](../out/m8/), made with generator 0.6.0. Remake them with
-`npx tsx tools/ingame-files.ts --milestone m8`; [out/m8/checks.txt](../out/m8/checks.txt) lists
+The files are in [out/m8/](../../out/m8/), made with generator 0.6.0. Remake them with
+`npx tsx tools/ingame-files.ts --milestone m8`; [out/m8/checks.txt](../../out/m8/checks.txt) lists
 their sha256, every coordinate and water samples to compare. The two imported maps are not ours to
 share: the tool writes them to `out/m8/local/` from your own copies in `investigation/raw/`, and
 only the edits are committed.

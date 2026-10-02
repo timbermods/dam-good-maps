@@ -786,11 +786,11 @@ public site and as the preview); the browser tests also build the public configu
   buttons; the layer pick is Alt+middle-click (the game's) and Alt+click.
 - **Captures for Kyler** (`tools/capture-live-editing.ts`: before is the preview's push 4, 59f826c;
   after is this branch as the preview builds it; River Valley 5, 128², on the GPU):
-  - [a brush over the river and on dry land](live-editing/clear-water-brush.png);
-  - [all the water clear (T)](live-editing/clear-water-all.png), and
-    [its greyscale and colour-blindness sheet](live-editing/clear-water-colour-blind.png), where
+  - [a brush over the river and on dry land](../../progress/live-editing/clear-water-brush.png);
+  - [all the water clear (T)](../../progress/live-editing/clear-water-all.png), and
+    [its greyscale and colour-blindness sheet](../../progress/live-editing/clear-water-colour-blind.png), where
     badwater meets clean water;
-  - [the top bar and the shelf](live-editing/shelf.png) (the after is the preview's build, so Carve
+  - [the top bar and the shelf](../../progress/live-editing/shelf.png) (the after is the preview's build, so Carve
     shows; the public site has no forces group).
 - `tools/retired-terms.json`: the top bar's "Source tool" and its "pick Source" wording are retired.
 - **Saving right after a map opens:** the export's check was dropped when the page's own background

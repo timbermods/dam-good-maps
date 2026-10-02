@@ -477,9 +477,9 @@ a stroke touching no water gets its water at the journey's pace. Each of the thr
 of the fix undone.
 
 Captures (the editor's default view and a low view, before and after; this run):
-[before, default](forces/ceiling-before-default.png) · [after, default](forces/ceiling-after-default.png) ·
-[the plateau, before](forces/ceiling-plateau-before-low.png) · [the plateau at 22](forces/ceiling-plateau-after-low.png) ·
-[the volcano's ground, before](forces/ceiling-volcano-before-low.png) · [the volcano at 22](forces/ceiling-volcano-after-low.png).
+[before, default](../../progress/forces/ceiling-before-default.png) · [after, default](../../progress/forces/ceiling-after-default.png) ·
+[the plateau, before](../../progress/forces/ceiling-plateau-before-low.png) · [the plateau at 22](../../progress/forces/ceiling-plateau-after-low.png) ·
+[the volcano's ground, before](../../progress/forces/ceiling-volcano-before-low.png) · [the volcano at 22](../../progress/forces/ceiling-volcano-after-low.png).
 The plateau is Select's hard-edged block (a precision tool); set next to the river, its foot floods a
 little. The volcano stands in stepped rings with its cooling crust round it.
 
@@ -823,7 +823,7 @@ the same at every water speed.
 ## The forces bound only by nature, with clean gestures (D257, D258)
 
 Built on this branch after D249, with `dev` merged in again (052aa69: D252-D260). [Carve's Aim and
-Erupt's Vent, clean](forces/clean-gestures.png).
+Erupt's Vent, clean](../../progress/forces/clean-gestures.png).
 
 - **Bound only by nature (D257).** No force refuses, stops short or reshapes its result for the start
   any more: Craterize and Erupt leave the start's ground out of what they keep (`startGround` and the
@@ -914,8 +914,8 @@ For Kyler's forces sitting (the new lines for STATUS's checklist):
 
 ## Brushes and water sources (D249)
 
-Built on this branch after round 2b. [Clear sources off: they ride the ground](forces/clear-sources-off.png);
-[Clear sources on: the ring's mark, the sources red, then gone with the stroke](forces/clear-sources-on.png).
+Built on this branch after round 2b. [Clear sources off: they ride the ground](../../progress/forces/clear-sources-off.png);
+[Clear sources on: the ring's mark, the sources red, then gone with the stroke](../../progress/forces/clear-sources-on.png).
 
 - **Clear sources**, a toggle in the five brushes' row after Straight lines (shared by all five, off by
   default, remembered with the brush's size and strength). On, the ring carries a small red mark on its
@@ -988,8 +988,8 @@ source's strength sets the width; everything else is Carve's defaults. While it 
 Carve's (Pause, Stop keeps what is carved, Revert); Esc takes it all back; one undo step, "Unleash a
 source"; **Try another** re-rolls the course in its place ("Try another course"). The source stays:
 the carve is a dry one, adding no other source; a badwater source's river is badwater (its preview
-ribbon too). [The row](forces/unleash-row.png), and [a source on the hills carving its
-river](forces/unleash.gif).
+ribbon too). [The row](../../progress/forces/unleash-row.png), and [a source on the hills carving its
+river](../../progress/forces/unleash.gif).
 
 - **From a pool** (`carve/unleash.ts`, `breakout`): where the water at the source stands half a level
   deep or more, the pool is its level water round it; it breaks out at the lowest tile of that
@@ -1152,7 +1152,7 @@ Every case where the prototype has the room is identical (the test compares 40 a
 fissures included). On Highlands 7 in the editor's worker, with every setting: the five eruptions on
 one spot now make a cluster of cones, the tops at 20 tiles at most; the rest that touch the ceiling
 are rims of craters picked by hand (a ring about three tiles wide) and fissures on ground already at
-the ceiling. [Before and after on the demo's own seeds](forces/erupt-headroom.png): the demo; the
+the ceiling. [Before and after on the demo's own seeds](../../progress/forces/erupt-headroom.png): the demo; the
 editor now on the same map (the same); the prototype with four levels of room (what the editor did:
 pale where pressed against the ceiling); the editor now there (886, 787, 7,332, 1,264 and 2,174 tiles
 pressed flat become 45, 30, 297, 57 and 60). Rows: a steep crater (seed 890), a broad shield (890), a
@@ -1169,7 +1169,7 @@ as before, now in the same control), Erupt's **Size** back (its breadth, 6–140
 height). Quake's drawn line sets its length. A set size is kept in the operation (`depth`, `size`);
 operations from before have neither and replay as they were (the schema and the engine agree). A
 force's options now flow on from its mode switch, wrapping a control at a time (Carve's is two lines
-at 1280 wide). [The options rows](forces/forces-rows.png).
+at 1280 wide). [The options rows](../../progress/forces/forces-rows.png).
 
 ### The brushes, the shelf
 
@@ -1413,16 +1413,16 @@ remeshing that in slices is left for later.
 `tools/capture-forces.ts` (this branch as the preview builds it, our own Highlands 4242 at 128², on the
 GPU, the water speed at its slowest; about 2.9 MB in all, D195):
 
-- [the top bar with the forces group and Erupt's options row](forces/forces-bar.png);
-- [Carve](forces/carve.gif): a river unleashed (power 75, wander 60);
-- [Craterize](forces/craterize.gif): a strike with rays (power 45): the streak, the flash, the shock
+- [the top bar with the forces group and Erupt's options row](../../progress/forces/forces-bar.png);
+- [Carve](../../progress/forces/carve.gif): a river unleashed (power 75, wander 60);
+- [Craterize](../../progress/forces/craterize.gif): a strike with rays (power 45): the streak, the flash, the shock
   ring and the dust, the bowl, a peak in the middle, the river running into its rings;
-- [Erupt](forces/erupt.gif) as Kyler makes it (round 2: steep, a peak, the default power, the map's
+- [Erupt](../../progress/forces/erupt.gif) as Kyler makes it (round 2: steep, a peak, the default power, the map's
   ceiling 16): the ground stirs, the volcano swells over four seconds with its plume, the lava glows
   along its flows and cools, and a stepped peak stays, damming the river into lakes;
-- [Quake, Lift](forces/quake-lift.gif): a fault painted across the map, the far side rising behind
+- [Quake, Lift](../../progress/forces/quake-lift.gif): a fault painted across the map, the far side rising behind
   the pointer, the river dammed into lakes;
-- [Quake, Slide](forces/quake-slide.gif): the fault drawn, then the block sliding along it (power 70:
+- [Quake, Slide](../../progress/forces/quake-slide.gif): the fault drawn, then the block sliding along it (power 70:
   15 tiles), a badwater channel carried with it.
 
 `npx tsx tools/capture-forces.ts [--only erupt] [--strip]` makes them again (`tools/gif.ts` writes the

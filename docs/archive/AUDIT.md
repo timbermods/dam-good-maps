@@ -1,12 +1,12 @@
 # Plan audit: PLAN.md and EDITOR_PLAN.md against the investigation
 
 Audit of 2026-09-23 on branch `audit/plan-integration`. It checks the generator plan
-([PLAN.md](PLAN.md)) and the editor plan ([EDITOR_PLAN.md](EDITOR_PLAN.md)) against the
+([PLAN.md](../../PLAN.md)) and the editor plan ([EDITOR_PLAN.md](../../EDITOR_PLAN.md)) against the
 investigation's findings and against each other, and merges their milestones into
-[ROADMAP.md](ROADMAP.md).
+[ROADMAP.md](../../ROADMAP.md).
 
 **Inputs.** All five named inputs were found:
-- [investigation/REPORT.md](investigation/REPORT.md), [investigation/calibration.json](investigation/calibration.json), [FORMAT.md](FORMAT.md), [PLAN.md](PLAN.md) and [EDITOR_PLAN.md](EDITOR_PLAN.md);
+- [investigation/REPORT.md](../../investigation/REPORT.md), [investigation/calibration.json](../../investigation/calibration.json), [FORMAT.md](../../FORMAT.md), [PLAN.md](../../PLAN.md) and [EDITOR_PLAN.md](../../EDITOR_PLAN.md);
 - the notes in `investigation/notes/`, the Python prototype in `prototype/`, and the local-only `investigation/raw/` and `investigation/decompiled/`.
 
 Nothing is missing.

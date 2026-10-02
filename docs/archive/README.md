@@ -1,7 +1,32 @@
-# History
+# The archive
+
+History, kept as written. Nothing here changes what gets built; the living documents (see [docs/README.md](../README.md))
+say how things are and what is next. Archived files are never rewritten; only their relative links are kept working.
+
+## What is in it
+
+- `decisions.md`: PLAN §20's full decision table as it stood at D390.
+- `plan.md`, `editor-plan.md`, `roadmap.md`: the superseded or finished parts of PLAN.md, EDITOR_PLAN.md and ROADMAP.md.
+- `status-2026-10-01.md`, `handoff-2026-10-01.md`: STATUS.md and HANDOFF.md as they were before the prune.
+- `decisions-pending.md`: the decided rows of the pending-decisions list.
+- [progress/](progress/README.md): the finished progress logs, one file per milestone and step.
+- [progress-log/](progress-log/README.md): the Progress log issue's monthly copies.
+- [chats/](chats/README.md): the previous versions of the planning chat's handoff.
+- [feedback/](feedback/): Kyler's feedback files.
+- [AUDIT.md](AUDIT.md): the early audit. [spike-m3.md](spike-m3.md): the delivery spike. [m9-design.md](m9-design.md): the generator's design (design version 2).
+- [ingame-log.md](ingame-log.md): the in-game log. [merged-branches.md](merged-branches.md): branches merged and deleted.
+- [UI-QUESTIONS.md](UI-QUESTIONS.md): the interface questions, superseded by [UI-BRIEF.md](../UI-BRIEF.md).
+
+Left in place, because tools write to them or read them:
+
+- `docs/progress/<name>/` (forces, glaciate, live-editing): capture images, linked from the progress logs here.
+- `docs/look/`, `docs/map-look/`: look captures. `docs/sheets/`: the contact sheets, one per step.
+- `investigation/` is the investigations' archive in place (code under `src/` and `tools/` names its folders); [investigation/README.md](../../investigation/README.md) is its index.
+
+# The story
 
 How Dam Good Maps' identity has changed, one short chapter per major turn (Kyler's decision, feedback item 33, D326).
-Each chapter links to its decisions in [PLAN.md §20](../PLAN.md#20-editor-decisions). The decision log stays as
+Each chapter links to its decisions in [PLAN.md §20](../../PLAN.md#20-editor-decisions). The decision log stays as
 written; where a later decision overturned an earlier one, the chapter says so. Add a chapter at every milestone or
 major turn.
 

@@ -2,7 +2,7 @@
 
 Things the run can't do itself. Each has the exact steps.
 
-1. **See [STATUS.md](../STATUS.md)**, "Waiting on Kyler", for the current decisions and approvals.
+1. **See [STATUS.md](../../STATUS.md)**, "Waiting on Kyler", for the current decisions and approvals.
    (GitHub Pages is on since 2026-09-24: <https://timbermods.github.io/dam-good-maps/>, deployed
    from `main`.)
 2. **Play the pending in-game checks** when you're ready. See [ingame-log.md](../ingame-log.md). M2
@@ -13,7 +13,7 @@ Things the run can't do itself. Each has the exact steps.
    M8-1c: compare the editor's water with the game on three edited maps (a River Valley map in
    `out/m8/`; Canyon and Cozy Secret Valley made from your own copies with
    `npx tsx tools/ingame-files.ts --milestone m8`, in `out/m8/local/`).
-3. **Answer the pending decisions** in [decisions-pending.md](../decisions-pending.md) when convenient;
+3. **Answer the pending decisions** in [decisions-pending.md](../../decisions-pending.md) when convenient;
    the run went ahead with the defaults listed there.
 4. **Run the delivery spike page** (M3). It needs your claude.ai account and your consent, so the
    run leaves it to you. It takes about ten minutes.

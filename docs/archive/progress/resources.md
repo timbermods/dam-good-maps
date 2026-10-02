@@ -10,7 +10,7 @@ share links (0.6.0, 0.6.1) open with the note that the map may differ.
 
 `tools/official-baselines.ts` measures the official maps (read from the local
 `investigation/raw/builtin`) with `src/core/resources/measure.ts` and writes the aggregates only to
-[investigation/official-baselines.json](../../investigation/official-baselines.json).
+[investigation/official-baselines.json](../../../investigation/official-baselines.json).
 
 - **Left out:** Nomads and Oasis (Kyler: exceptional maps; a nomad map with cores, few bushes and
   scattered small groves, and a desert map around aquifers with half its bushes stored dead). For
@@ -226,7 +226,7 @@ every other tile everywhere, and 235 ruin columns, every one 2 storeys of model 
 Against the official small maps by count (50² and 100×50: 497 and 721 trees, 47 and 70 columns)
 it has far more, as they are a quarter and half its area.
 
-- **Contact sheet** (D144): [docs/sheets/resources.png](../sheets/resources.png), seeds 1–30 of
+- **Contact sheet** (D144): [docs/sheets/resources.png](../../sheets/resources.png), seeds 1–30 of
   every theme at 128², from the combined generator, 571 KB.
 - **Comparison page** (local, for Kyler): `C:\dgm-workshop\resources\compare.html`: before and
   after for six generated maps and Yosemite Valley, each the whole map top-down, the start's

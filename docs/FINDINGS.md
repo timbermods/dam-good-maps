@@ -12,8 +12,8 @@ in our own words.
 
 Short names: **WS** = [water and soil notes](../investigation/notes/water_and_soil.md), **FMT** = [format notes](../investigation/notes/format_1_1.md),
 **BLK** = [blocks and placement](../investigation/notes/blocks_and_placement.md), **NAV** = [navigation, ruins, entities](../investigation/notes/navigation_ruins_entities.md),
-**GR** = [terrain above terrain: the game's rules](../investigation/terrain3d/GAME_RULES.md), **RES** = [resources progress](progress/resources.md),
-**M9A** = [M9a progress](progress/m9a.md), **SG** = [source groups](../investigation/source-groups/REPORT.md).
+**GR** = [terrain above terrain: the game's rules](../investigation/terrain3d/GAME_RULES.md), **RES** = [resources progress](archive/progress/resources.md),
+**M9A** = [M9a progress](archive/progress/m9a.md), **SG** = [source groups](../investigation/source-groups/REPORT.md).
 
 ## The game's water
 
@@ -63,7 +63,7 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
   badwater at full strength (0.5 to 1.0 to 0.5). WS Q1, Q7.
 - 150 of the 170 official water sources are on from day 1; 20 are delayed (Nomads). WS Q1.
 - Every official map has lasting badwater (18 of 19 a source; Spillage seeps; Nomads and Oasis time-activated), 1 / 2 / 4 /
-  3.5 sources by size, 84% in a hollow, the nearest a median 56 tiles from the start. [badwater-source](progress/badwater-source.md) "The official maps"; D200.
+  3.5 sources by size, 84% in a hollow, the nearest a median 56 tiles from the start. [badwater-source](archive/progress/badwater-source.md) "The official maps"; D200.
 
 ## Soil and plants
 
@@ -106,7 +106,7 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
   waterfall set piece keeps 15). 27 of 118 accepted maps were refused before the fix; 535 of 540 seeds now give a map and
   all reopen. M9A "Tall maps' project files".
 - Edge walls: an edge is walled at 60% of its tiles rising 2 levels over three; official maps top out at 38%, all 85 Real
-  places conversions were walled at 89–99%, 4 of 141 workshop maps at 65–86%. D151; [start-edge-rules](progress/start-edge-rules.md).
+  places conversions were walled at 89–99%, 4 of 141 workshop maps at 65–86%. D151; [start-edge-rules](archive/progress/start-edge-rules.md).
 
 ## The start
 

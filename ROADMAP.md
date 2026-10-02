@@ -2,7 +2,7 @@
 
 One milestone order for both plans: the generator website ([PLAN.md](PLAN.md)) and the map editor
 with Claude integration ([EDITOR_PLAN.md](EDITOR_PLAN.md)). It came out of the plan audit of
-2026-09-23 ([AUDIT.md](AUDIT.md)). Where either plan's own milestone list orders things
+2026-09-23 ([AUDIT.md](docs/archive/AUDIT.md)). Where either plan's own milestone list orders things
 differently, this file wins.
 
 **How the order was chosen**
@@ -34,7 +34,7 @@ differently, this file wins.
   re-preview) are reported numbers, never a failed build.
 - **In-game checks are deferred** (PLAN §20, D11). Kyler is skipping them for now. A milestone
   marked **in-game check** does not stop or wait: it lists the checks it would have needed in
-  [docs/ingame-log.md](docs/ingame-log.md) as *pending*, with the files to play, and relies on the
+  [docs/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play, and relies on the
   automated validation and tests. The game stays the final judge once the checks are played.
   The one exception is a **DGM Probe batch** (D116, D117): an automated run of maps in the real
   game, launched only after Claude asks Kyler in chat and Kyler says yes, every time (CLAUDE.md,
@@ -222,7 +222,7 @@ shared core, so its maps are editor-ready.
 
 **In-game check:** A (PLAN §18): load, start, walk test, open in the in-game editor, an Iron
 Teeth start. Add F2: sealed river mouth. Deferred (D11): logged as pending in
-[docs/ingame-log.md](docs/ingame-log.md) with the files to play.
+[docs/ingame-log.md](docs/archive/ingame-log.md) with the files to play.
 
 **Effort:** xhigh.
 
@@ -438,7 +438,7 @@ passes:
   and 256².
 
 The in-game checks C and F1 are skipped for now (D11): the files are in `out/m5/`, and the checks
-are pending in [docs/ingame-log.md](docs/ingame-log.md). The deviations are PLAN §20 D47–D56.
+are pending in [docs/ingame-log.md](docs/archive/ingame-log.md). The deviations are PLAN §20 D47–D56.
 
 ---
 
@@ -471,7 +471,7 @@ passes:
   Basin); Easy and Hard at 128² pass 100% too.
 
 The in-game check is skipped for now (D11): the files are in `out/m6/`, and checks M6-1a to M6-1c
-are pending in [docs/ingame-log.md](docs/ingame-log.md). The deviations are PLAN §20 D57–D68.
+are pending in [docs/ingame-log.md](docs/archive/ingame-log.md). The deviations are PLAN §20 D57–D68.
 
 ---
 
@@ -515,7 +515,7 @@ passes:
   Highlands, Lake Basin, Delta, Islands); Easy and Hard at 128² pass 100% too.
 
 The in-game check is skipped for now (D11): the file is in `out/m7/`, and checks D1–D5 are pending
-in [docs/ingame-log.md](docs/ingame-log.md). The deviations are PLAN §20 D69–D83.
+in [docs/ingame-log.md](docs/archive/ingame-log.md). The deviations are PLAN §20 D69–D83.
 
 ---
 
@@ -669,7 +669,7 @@ the approximate-water item as amended by Kyler (D107):
   (D107, decisions-pending #48).
 
 The in-game check is skipped for now (D11): the River Valley file is in `out/m8/`, and checks
-M8-1a to M8-1c are pending in [docs/ingame-log.md](docs/ingame-log.md). The deviations are PLAN §20
+M8-1a to M8-1c are pending in [docs/ingame-log.md](docs/archive/ingame-log.md). The deviations are PLAN §20
 D97–D106.
 
 ---
@@ -732,7 +732,7 @@ district center is a small box.
 - Information: the captures' greyscale and colour-blind versions and the information layer's
   captures, for Kyler; the 3D budgets.
 
-**Reference:** Kyler's in-game screenshots ([docs/ingame-log.md](docs/ingame-log.md), ML-1) arrived
+**Reference:** Kyler's in-game screenshots ([docs/ingame-log.md](docs/archive/ingame-log.md), ML-1) arrived
 on 2026-09-25 and tuned the colours, lighting, water and models. They stay on Kyler's machine:
 never ship game screenshots.
 
@@ -741,7 +741,7 @@ steps, shorelines, ridge crests). Map look changes no map file, so they go to th
 (decisions-pending #40).
 
 **In-game check:** no; the reference screenshots are Kyler's. The DGM Probe's in-game shots of the
-same maps join them once they exist (P-ML in [docs/ingame-log.md](docs/ingame-log.md)).
+same maps join them once they exist (P-ML in [docs/ingame-log.md](docs/archive/ingame-log.md)).
 
 **Effort:** high.
 
@@ -821,7 +821,7 @@ plays" line; **Download** builds the `.timber` in a worker, with progress; **Ref
 editor. The page and every map's in-game description say it is inspired by the land near its
 namesake at Timberborn's scale, not a replica, with the full attribution. Every map passes both
 validators and is byte-identical in Node and Chromium; the page works on desktop and phone. See
-[docs/progress/real-places.md](docs/progress/real-places.md).
+[docs/progress/real-places.md](docs/archive/progress/real-places.md).
 
 ---
 
@@ -1161,7 +1161,7 @@ starts. The frame's touch-up to the High look is done in the design pass, so the
 changes no interface styling (D296, amending D283 (2)). The 3D view (3D terrain step 2, "The view") follows it.
 
 **Built on `feature/high-look`** (held until Kyler's yes, D286 (4); the progress log is
-[docs/progress/high-look.md](docs/progress/high-look.md), the captures [docs/look/high/](docs/look/high/)): #38, #65, #66
+[docs/progress/high-look.md](docs/archive/progress/high-look.md), the captures [docs/look/high/](docs/look/high/)): #38, #65, #66
 and #67's stages 1–3, in `src/render3d/high/`; the **Look** menu (Automatic, High, Standard, and High's four parts);
 the automatic choice and its fallback, measured on this machine's RTX 2070 SUPER. **Timberborn's soul (D334):** Codex's
 proposal (`investigation/high-soul`, merged through #90) adopted by its `adoption.patch` and INTEGRATION.md, in both
