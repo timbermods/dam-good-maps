@@ -301,8 +301,10 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const st = s.built.start!;
-    const x = st.x + 14;
-    const y = st.y - 14;
+    // (the spot is 14 tiles from the start, on whichever side stays on the map: M9b's small starts moved the start
+    // so +14 left the 96² map; D148)
+    const x = st.x + 14 < 90 ? st.x + 14 : st.x - 14;
+    const y = st.y - 14 >= 6 ? st.y - 14 : st.y + 14;
     const p: BrushParams = { tool: "lower", size: 1, strength: 5, precise: true, levels: [1, 2, 2], dabs: [4 * x + 2, 4 * y + 2, 4 * x + 2, 4 * y + 2, 4 * x + 2, 4 * y + 2] };
     const h0 = s.built.heights[y * 96 + x];
     const shown = s.built.heights.slice();
@@ -371,8 +373,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
   // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
   it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
-    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0)
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");

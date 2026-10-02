@@ -106,8 +106,9 @@ describe("generated outlines past the map edge are edited and locked (decisions-
   it("a natural lake at the map's edge: locked, changed and moved in the editor; the unedited map keeps its bytes", () => {
     // (the generator reads the natural lakes back out of the field; this one's outline runs along
     // the edge, through the tile corners at −0.5; seed 6 at 0.8.0, whose lakes keep off the edges
-    // more often, seed 8 since batch 5's edge lip, seed 3 since D333's maps, D148)
-    const r = gen("lakeBasin", 96, 3);
+    // more often, seed 8 since batch 5's edge lip, seed 3 since D333's maps, seed 5 since M9b's small starts
+    // and speed rounds, whose seed 3 keeps its lakes off the edges, D148)
+    const r = gen("lakeBasin", 96, 5);
     const s = MapSession.fromGenerated(r, r.file);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;

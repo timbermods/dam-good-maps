@@ -23,7 +23,7 @@ import { storedWater } from "../../src/core/format/world";
 import { oxbowBasin, oxbowLake } from "../../src/core/forces/carve/water";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
-import { TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
+import { SETTLE_DAYS, TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -525,11 +525,12 @@ describe("a carve in the document (breakage rule)", () => {
     // (a carve that cuts a bend off and seals its lake on 0.8.0's maps: Highlands 96² seed 2, from
     // (48, 86) toward (48, 10); Canyon 96² seed 5 until M9b turned and replanned the land, seed 11
     // until its water took the game's rules, seed 22 until batch 5 raised the land on its floor, seed
-    // 44 until D333's maps, where no Canyon seed to 400 seals one, D148)
-    const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: 96, y: 96 } }));
+    // 44 until D333's maps, where no Canyon seed to 400 seals one; Highlands 96² seed 8 with the carve's seed 4 since
+    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none, D148)
+    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 4, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
@@ -538,10 +539,10 @@ describe("a carve in the document (breakage rule)", () => {
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
     // only the lake still changes, by evaporating: the water has settled (D222), and the quiet dot
-    // says so; the settle still stops where its own test does, so the water is what it always was
+    // says so; the settle still stops where its own test does (up to SETTLE_DAYS, 6 since D358; 4 before), so the water is what it always was
     expect(s.built.settle.settled).toBe(false);
-    expect(s.built.settle.ticks).toBe(4 * TICKS_PER_DAY);
-    expect(s.built.settle.steadyTicks).toBeLessThan(4 * TICKS_PER_DAY);
+    expect(s.built.settle.ticks).toBe(SETTLE_DAYS * TICKS_PER_DAY);
+    expect(s.built.settle.steadyTicks).toBeLessThan(SETTLE_DAYS * TICKS_PER_DAY);
     const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok, settles.message).toBe(true);
     expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);

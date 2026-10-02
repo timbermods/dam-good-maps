@@ -23,7 +23,7 @@ import * as ed from "../../src/worker/session";
  *  the start's land, badwater contained, the edge lip, the first map that passes; D333: the land
  *  kept once it passes, no flat level with the water, springs toward the land far from it; D348,
  *  D350, D358, D360: the first land shown is the map, its water settled up to 6 days, outlets and
- *  channels wound, a second place for a start); `9644dc88…` before D348, `050fe985…` before D333, `8d2941ad…` before batch 5; `776a9a44…` as M9a made it, since the terrain and water from processes (generator 0.7.0, with
+ *  channels wound, a second place for a start; then dev's merge, small starts, generation speed rounds 1 and 2 and open groves, `dbab238a…` before them, D148); `9644dc88…` before D348, `050fe985…` before D333, `8d2941ad…` before batch 5; `776a9a44…` as M9a made it, since the terrain and water from processes (generator 0.7.0, with
  *  natural ramps that only climb cliffs, winding badwater ditches, the starting-logs floor with
  *  D227's Minimum starting wood, D252's start planting spread over the walk and the settled outflows
  *  written into the file (FORMAT.md §4.3); `ec1ff6d3…` before the outflows, `fb0e9f70…` before a walk short of
@@ -33,7 +33,7 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "dbab238a94eb74ed5376a8ea9dce5e58feced9b8684edd648a9e5be1a164ccdd";
+const LIVE_SHA = "94057d2bdb80b914c5dadb7dbe063cb5437cc07de7fa9388f379953f15c3b61e";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

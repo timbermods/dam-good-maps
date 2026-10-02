@@ -287,10 +287,10 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out
+    // seed 4 since M9b's small starts and speed rounds (seed 3's Canyon fails its own start and mine-site checks with three sites; seeds 1, 2, 5 and 6 pass too, D148): a seed on which every theme places every kind of object (a thorn belt is left out
     // where it would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for
     // one, then seed 2, whose Lake Basin has none on D333's maps, D148)
-    const spec = makeSpec({ seed: 3, size: { x: 96, y: 96 }, theme });
+    const spec = makeSpec({ seed: 4, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -326,8 +326,8 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     let sites = 0;
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
     // maps, for batch 5's, for D333's, whose check walks round the objects that block the way, and
-    // for D348–D360's, D148)
-    for (const [theme, seed] of [["islands", 2], ["riverValley", 3], ["canyon", 3], ["riverValley", 4]] as [ThemeId, number][]) {
+    // for D348–D360's, and for M9b's small starts and speed rounds, which left canyon 3 without a site, D148)
+    for (const [theme, seed] of [["islands", 2], ["riverValley", 3], ["canyon", 4], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -360,9 +360,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
-    // D348–D360's, D148)
+    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise, D148)
     let seen = 0;
-    for (const [theme, seed] of [["islands", 1], ["islands", 4], ["highlands", 4], ["any", 6]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 2], ["canyon", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -395,8 +395,8 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
-    // re-seeded for M9b's maps, for batch 5's and for D333's, D148)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 10], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
+    // re-seeded for M9b's maps, for batch 5's, for D333's and for M9b's small starts and speed rounds, which left canyon 10 and highlands 2 without a weir, D148)
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 1], ["canyon", 16], ["highlands", 1]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;
