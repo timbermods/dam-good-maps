@@ -424,12 +424,14 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       if (a.stuck) break;
       continue;
     }
-    if (!land || !(last as Attempt | null)?.replannable || replans >= REPLANS || land.settles >= SETTLE_BUDGET) {
+    if (!land || !(last as Attempt | null)?.replannable || replans >= REPLANS + (W >= 256 && specIn.theme === "lakeBasin" && (last as Attempt | null)?.result.info.stage === "a river's water leaves its course" ? 1 : 0) || land.settles >= SETTLE_BUDGET) {
       opts.onProgress?.({ attempt, stage: "land" });
       // (Variety is a setting since M9b; Another like this draws a sibling, keeping its intentions)
       const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
       const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: keep, variety: opts.variety ?? specIn.settings.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
       leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
+      // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
+      if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
       genomes++;
       replans = 0;
       // (Islands, Codex's sea-first prototype, D370: default Normal Islands draws its sea and islands
@@ -1230,7 +1232,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) heads[(cy + dy) * W + cx + dx] = 1;
     }
     for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
-    widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal, hy.lakes.map((l) => l.tiles));
+    widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles));
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
   // ground, is parted from it by a strait)
@@ -1592,6 +1594,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water, start and objects are planned again on it
     if (!from) {
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
+      if (shown.theme === "canyon" && N <= 128 * 128) {
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        info.planned = { promise: po.promise, water: po.story.readable };
+        // (the promise with the screen's margin: the settled water falls short of the plan's)
+        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H), PLAN_MARGIN[shown.theme]);
+        if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
+          screened.count++;
+          // A rejected Canyon course can be incised on the same shaped field.
+          if (!keeps && shown.theme === "canyon") { g.hydro.incise += 1; g.hydro.floor *= 0.75; }
+          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, shown.theme === "canyon");
+        }
+      }
       // (with a margin: the settled water's banks run a little straighter than the planned water's, and
       // a shown land can't be planned again for it, D348)
       if (!lastAttempt) {
@@ -1637,7 +1651,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         info.rise = lakeRise(hy);
         if (!lastAttempt && SHEET_REJECT && sheet.share > SHEET_MOST) return fail("a river over a flat", null, true);
       }
-      {
+      // (Canyon at 128² and under is screened above, before its other land checks: round 2)
+      if (shown.theme !== "canyon" || N > 128 * 128) {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
         // (the promise with the screen's margin: the settled water falls short of the plan's)
@@ -1825,6 +1840,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (info.fillWalls[1] > 0) return fail("terrain.dam_wall", null, true);
         if (damWalls(h, W, H, both).length) return fail("terrain.dam_wall", null, true);
       }
+      // Round 2 (#155): prove the exact objects' reachable mine pair on the inexpensive pre-fill,
+      // before committing terrain or spending a full settle on an impossible start (96² and under)
+      if (guess && !lastAttempt && N <= 96 * 96) {
+        const layout = [...rivers, ...bad.features, startOf(guess)];
+        const bw = build(layout, "water");
+        const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+        const pf = prefill(model);
+        const pb = { ...bw, waterModel: model, water: pf.depth, contamination: pf.contamination } as BuildResult;
+        const obj = planExtras({ spec, base: pb, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh }).filter((f) => f.params.kind === "mineSite");
+        const mb = build([...layout, ...obj], "water");
+        const objs = mapObjects({ entities: mb.entities.map(entityJson) });
+        const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
+        if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
+      }
       landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
     }
     // (every later attempt on the shown land keeps its hollows as they were dug: its ground holds
@@ -1846,6 +1875,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return n / N;
   };
   const wearFix = (b: BuildResult): BuildResult | null => {
+    // (round 2, #155: no wear on a generated map: its land, once prepared, keeps its heights; a
+    // rising basin is fed more gently instead, drainFix)
+    if (landStage) return null;
     const keepW = new Uint8Array(N);
     for (const e of b.waterModel.emitters)
       for (const i of e.cells) {
@@ -1898,6 +1930,40 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // D350: a lake fed less than it loses falls for days from where the pre-fill started it (full,
   // at its spill level): the sources whose water reaches it run stronger (1.6, then 2.5 times) until
   // it settles within the water's flood line; recorded in the features, so the link rebuilds it
+  // (round 2, #155: a rising basin at 256² in River Valley or Lake Basin drains at a gentler inflow,
+  // 0.7, 0.49, then 0.343 of its feeders' flow, keeping its terrain; recorded like the lake feed)
+  const drainFix = (b: BuildResult): BuildResult | null => {
+    if (W < 256 || (shown.theme !== "riverValley" && shown.theme !== "lakeBasin")) return null;
+    const sourceTiles = new Uint8Array(N);
+    for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
+    const risen = risenBasin(h, W, H, b.water, sourceTiles);
+    if (!risen) return null;
+    const basin = new Uint8Array(N);
+    for (const i of risen.tiles) basin[i] = 1;
+    const spill = spillLevels(b.waterModel);
+    const feeders = rivers.filter(f => {
+      if (f.kind !== "river" && f.kind !== "lake") return false;
+      if (f.kind === "river" && f.params.badwater) return false;
+      const cells: number[] = [];
+      for (const e of b.entities) if (e.owner === f.id && e.template === "WaterSource" && e.x >= 0 && e.y >= 0 && e.x < W && e.y < H) cells.push(e.y * W + e.x);
+      return cells.length > 0 && reachesDown(cells, spill, W, H, basin);
+    });
+    if (!feeders.length) return null;
+    const flowOf = (f: Feature) => f.kind === "river" ? f.params.flow : f.kind === "lake" && "spring" in f.params.inflow ? f.params.inflow.spring : 0;
+    const setFlow = (f: Feature, v: number) => { if (f.kind === "river") f.params.flow = v; else if (f.kind === "lake") f.params.inflow = { spring: v }; };
+    const flows = feeders.map(flowOf);
+    for (const ratio of [0.7, 0.49, 0.343]) {
+      feeders.forEach((f, i) => setFlow(f, Math.round(flows[i] * ratio * 1000) / 1000));
+      const repaired = build([...rivers, ...bad.features], "resources");
+      if (repaired.settle.settled && floodShare(repaired) <= floodLine) {
+        fixes.push("rising basin fed gently");
+        if (landStage) feeders.forEach(f => landStage!.fed[f.id] = flowOf(f));
+        return repaired;
+      }
+    }
+    feeders.forEach((f, i) => setFlow(f, flows[i]));
+    return null;
+  };
   const feedFix = (b: BuildResult): BuildResult | null => {
     const falling = fallingWater(b);
     if (!falling) return null;
@@ -1997,7 +2063,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // wider as the map arrives (the smallest cut that settles it, as if water wore it), recorded in the
   // land (the field), so the map's link rebuilds it
   if (!b1.settle.settled && !lastAttempt) {
-    const worn = wearFix(b1);
+    const worn = drainFix(b1) ?? wearFix(b1);
     if (worn) b1 = worn;
   }
   if (!b1.settle.settled && !lastAttempt) {
@@ -2159,10 +2225,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // each new plan settles the water again)
   let layout: Feature[] = [];
   let base!: BuildResult;
+  let provedObjects: MapObjectFeature[] | null = null;
   let cur: StartPick = pick;
   // (another start on the same settled water, off the one that failed and the ground round it)
   const nextStart = (failed: StartPick): StartPick | null => {
     markTried(tried, failed, W, H);
+    const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) : null;
+    if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
   for (let tryN = 0; ; tryN++) {
@@ -2242,6 +2311,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         fixes.push("spring by the start");
       }
     }
+    if (!why && N <= 96 * 96) {
+      const objects = planExtras({ spec, base: b, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
+      const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");
+      const objs = mapObjects({ entities: mb.entities.map(entityJson) });
+      const wet = Uint8Array.from(mb.water, d => d > WET ? 1 : 0);
+      if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) why = "mine pair (settled)";
+      else provedObjects = objects;
+    }
     base = b;
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
@@ -2279,7 +2356,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const objs = mapObjects({ entities: b.entities.map(entityJson) });
     return minesReached(objs, W, H, colonyReach(W, H, b.heights, wetB, objs, b.start));
   };
-  const objects = planExtras({ spec, base, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
+  const objects = provedObjects ?? planExtras({ spec, base, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
     const own = (f: MapObjectFeature) => objectTiles(f, W, H).length;
