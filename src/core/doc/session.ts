@@ -20,7 +20,7 @@ import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
-import { sameRetained, type WaterModel } from "../sim/water";
+import { sameKeptWater, type WaterModel } from "../sim/water";
 import { entityJson, rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
@@ -330,6 +330,14 @@ export class MapSession {
     return this.cur.waterFromFile;
   }
 
+  /** The map's water model and the water it shows now, one depth per tile (an unedited import's own
+   *  water while it keeps it, `showsStoredWater`; else the build's): what Remove unfed water and
+   *  Fill measure and are checked against (doc/water.ts). */
+  waterNow(): { model: WaterModel; depth: Float64Array } {
+    const own = this.showsStoredWater ? this.baseStuff().layer.water : undefined;
+    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
+  }
+
   /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
@@ -465,6 +473,7 @@ export class MapSession {
       slopeTiles,
       lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
       otherStarts,
+      water: this.waterNow(),
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -685,7 +694,7 @@ export class MapSession {
   }
 
   private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -888,7 +897,7 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   for (let i = 0; i < a.floor.length; i++) if (a.floor[i] !== b.floor[i]) return false;
   if (!!a.dam !== !!b.dam) return false;
   if (a.dam && b.dam) for (let i = 0; i < a.dam.length; i++) if (a.dam[i] !== b.dam[i]) return false;
-  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameRetained(a.retained, b.retained);
+  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameKeptWater(a, b);
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -987,6 +996,10 @@ export function labelOf(op: AppliedOp): string {
       return "Place a slope";
     case "removeSlope":
       return "Remove a slope";
+    case "removeUnfedWater":
+      return op.params.pools ? `Remove unfed water, ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
+    case "fillHollow":
+      return "Fill a hollow";
     default:
       return (op as { op: string }).op;
   }
