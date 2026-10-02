@@ -11,6 +11,7 @@ import type { ShelfSlice } from "./shelf/useShelf";
 import type { DeleteSlice } from "./remove/useDelete";
 import type { ForcePrefsSlice } from "./forces/useForcePrefs";
 import type { ForceRunSlice } from "./forces/useForceRun";
+import type { ForcePointerSlice } from "./forces/useForcePointer";
 import type { RestSlice } from "./Editor";
 
-export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & RestSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RestSlice;
