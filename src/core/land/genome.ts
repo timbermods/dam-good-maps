@@ -303,7 +303,9 @@ const P: Record<Leaning, Prior> = {
     // (D416: lakes up to 15% of the map, not 30%: a lake the fan's river fills that broad stood a few
     // hundredths over the flats at its sill, Delta 128² seed 4)
     inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.03, hi: 0.15 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
-    split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
+    // (D416: narrower floors along the rivers: a broad floor at the banks' level took the water of
+    // the rivers that join on it as a thin sheet, Delta 128² seed 23)
+    split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 1, hi: 4 }, cap: { lo: 0, hi: 0.15 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.1,
     troughs: 0.3, sea: 0, woods: [0.2, 0.4],
   },

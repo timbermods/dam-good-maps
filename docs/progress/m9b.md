@@ -198,6 +198,22 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Delta's tuning, round 2 (D416: seed 29 still a lake, seed 23's thin water)
+
+- The arms are 0.4 of the main river's width, not 0.6, so each carries its share deeper.
+- The floor the rivers clear is 1–4 tiles wide each side, not 2–8. On seed 23 a broad floor at the
+  banks' level took the water of the rivers that join on it as a thin sheet.
+- A Delta never draws "A large crater gathers two or more rivers": the crater took the water the fan
+  needs, and its flat floor stood under a thin sheet (seed 23). This is a default Kyler can overrule.
+  Any's weight for it is the six themes' mean, so Any moves too.
+- Seeds 1–30 at 128²: all pass, the promise on 25 (was 22), all three outcomes on 19 (was 17).
+  Thin water across the 30 maps: under 0.1 deep, 15,922 tiles before, 8,269 after; 0.1–0.3 deep,
+  30,060 before, 23,461 after.
+- Seed 29 now fans out to its eastern edge, past the crater rim at its south. Seed 23 is a different
+  land now: its rivers join in a broad stream 0.1–0.3 deep, and a small lake drains at its western
+  edge under 0.1.
+- The sheet: `docs/sheets/m9b-delta.png`.
+
 ### Islands: the ring broken, and the big-island sheet (D417, after Kyler's look at 3fbb21f7)
 
 Kyler at 3fbb21f7: the rectangles and the square frame are gone, but about two thirds of the seeds

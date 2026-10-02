@@ -106,7 +106,9 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "meeting-waters": { riverValley: 1, canyon: 0.6, highlands: 0.8, lakeBasin: 0.8, delta: 1.2, islands: 0.4 },
   "long-view": { riverValley: 0.8, canyon: 1, highlands: 1.2, lakeBasin: 0.6, delta: 0.4, islands: 0.8 },
   "snaking-river": { riverValley: 1.2, canyon: 0.8, highlands: 1.2, lakeBasin: 0.8, delta: 0.6, islands: 0.5 },
-  "crater-rivers": { riverValley: 0.8, canyon: 0.6, highlands: 0.9, lakeBasin: 1.3, delta: 0.6, islands: 0.6 },
+  // (D416: none on a Delta: a crater gathering its rivers into a lake takes the water the fan needs,
+  // and its flat floor stood under a thin sheet, Delta 128² seed 23)
+  "crater-rivers": { riverValley: 0.8, canyon: 0.6, highlands: 0.9, lakeBasin: 1.3, delta: 0, islands: 0.6 },
   "cliff-falls-lake": { riverValley: 0.8, canyon: 1.2, highlands: 1.2, lakeBasin: 1, delta: 0.4, islands: 0.7 },
   oxbow: { riverValley: 1.3, canyon: 0.3, highlands: 0.6, lakeBasin: 0.8, delta: 1.3, islands: 0.3 },
   "stepped-lakes": { riverValley: 1, canyon: 0.8, highlands: 1.2, lakeBasin: 1.4, delta: 0.3, islands: 0.3 },

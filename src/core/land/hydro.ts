@@ -1436,7 +1436,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         pts.push([x, y]);
       }
       const armPath = smoothPath(pts, 1, 1);
-      const aw = Math.max(MIN_WIDTH, Math.round(0.6 * m.width * 10) / 10);
+      // (D416: a fan's arms narrower, each carrying its share of the river half a level deep, never
+      // a pale sheet across the fan)
+      const aw = Math.max(MIN_WIDTH, Math.round((fan ? 0.4 : 0.6) * m.width * 10) / 10);
       // (D416: a fan's arms wander as rivers do, never a ruled curve)
       const awv = natural ? { ...wanderOf(g, aw), amp: fan ? 2.5 : 1.5, minAmp: 1 } : null;
       const armCourse = awv ? meanderPath(armPath, h, W, H, awv, hash32(seed, "arm", attempt, 1 + a)) : armPath;
