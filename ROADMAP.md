@@ -56,7 +56,8 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the
       previous force should skip to its end while the new one plays in full. Check every force.
    2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
-   3. **Moving water and the Flow view** (Codex's flow investigation): always-on moving water in both looks; the Flow
+   3. **Moving water and the Flow view** (Codex's flow investigation; built by the renderer session on
+      `feature/moving-water`, D398; this session merges its PR when green and Kyler says yes): always-on moving water in both looks; the Flow
       view's lanes off by default; paths built in the water worker; it must pass the smoothness harness. Then **renderer
       R1** from the performance audit (#152), using the smoothness investigation's traced stall causes: water blending,
       brush updates, the High look's lighting.
@@ -144,8 +145,8 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 - **Small starts** (#153) and **generation speed** (#155), inside M9b's order. Round 1 is byte-identical (about 6% less CPU
   at 256²); round 2 about 12% fewer redraws with every quality share equal or better and zero must-pass failures. Adopt
   round 1, then round 2.
-- **The smoothness investigation** (#107): paused, since Kyler sees no large-brush freeze on his own machine (the 3–4 s stall
-  is most likely an artefact of measuring under 100% load). Merge its harness and findings; adopt none of its fixes. Its
+- **The smoothness investigation** (#107, merged as an investigation, D398): paused, since Kyler sees no large-brush freeze on his own machine (the 3–4 s stall
+  is most likely an artefact of measuring under 100% load). Its harness and findings are merged; none of its fixes are adopted. Its
   harness is the gate that renderer R1 and moving water must pass, measured in a quiet window.
 
 **To adopt**
