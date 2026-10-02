@@ -535,11 +535,15 @@ describe("a carve in the document (breakage rule)", () => {
     s.settleCanonical();
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
-    // only the lake still changes, by evaporating: the water has settled (D222), and the quiet dot
-    // says so; the settle still stops where its own test does, so the water is what it always was
+    // only the lake still changes, by evaporating: the water has settled (D222), the settle stops
+    // there, well before its cap (D413), and the quiet dot says so
     expect(s.built.settle.settled).toBe(false);
-    expect(s.built.settle.ticks).toBe(4 * TICKS_PER_DAY);
-    expect(s.built.settle.steadyTicks).toBeLessThan(4 * TICKS_PER_DAY);
+    expect(s.built.settle.steadyTicks).toBe(s.built.settle.ticks);
+    expect(s.built.settle.ticks).toBeLessThanOrEqual(TICKS_PER_DAY);
+    // the lake is stored with the water its carve kept (D413): it stopped draining before saving,
+    // and the game evaporates it from there
+    const floor = s.built.waterModel.floor;
+    lake.tiles.forEach((i, k) => expect(s.built.water[i]).toBe(floor[i] === lake.floor[k] ? lake.depth[k] : Math.max(0, lake.floor[k] + lake.depth[k] - floor[i])));
     const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok, settles.message).toBe(true);
     expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);

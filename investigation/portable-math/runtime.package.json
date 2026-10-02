@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "esbuild": "0.25.12",
+    "fflate": "0.8.3",
+    "playwright": "1.58.2",
+    "typescript": "5.9.3",
+    "three": "0.186.1"
+  }
+}
