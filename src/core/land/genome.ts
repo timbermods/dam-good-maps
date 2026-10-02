@@ -814,6 +814,13 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       break;
     }
   }
+  // (D417: where the ring breaks, the sea lies off the middle, so the land round it is broad on one
+  // side, where islands drawn there join it as peninsulas, and narrow on the other)
+  if (!g.seaRing) {
+    const [ox, oy] = unit(rng.float());
+    const sh = 0.08 + 0.06 * rng.float();
+    for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
+  }
   // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
   // it, their high ground an island's, so the shore is land and channels, never a frame)
   if (!g.seaRing) {

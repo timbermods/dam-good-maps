@@ -222,17 +222,20 @@ rest should break the ring, as seeds 23–25 and 28–30 did. The start belongs 
 decides from a big-island sheet beside the safe one.
 
 - **The ring broken** (`genome.ts` `seaRing`): a sea map draws an inland sea in a ring of land on
-  one map in four, and the edge layout keeps its own coast. On the others, three or four broad
-  headlands reach into the sea from the land round it, at spread bearings. Their high ground is an
-  island's, so the shore is land and channels, and islands may meet it. There the straits that
-  stood islands clear of the shore (D350) are cut only round an inland sea.
+  one map in four, and the edge layout keeps its own coast. On the others the sea lies off the
+  middle, by 8–14% of the side. The land round it is broad on one side, where islands drawn there
+  join it as peninsulas, and narrow on the other. Three or four broad headlands also reach into the
+  sea from that land, at spread bearings. Their high ground is an island's, so the shore is land
+  and channels, and islands may meet it. There the straits that stood islands clear of the shore
+  (D350) are cut only round an inland sea.
 - **Tried for the ring, not kept:**
   - Two to four straits from the sea to the edge (3–5 or 8–14 tiles wide): their thin water read
     as pale lines, and the ring stayed.
   - A lower sea (the hydrology fitting it to about a third of the map): little visible change.
 - **The safe sheet**, `docs/sheets/m9b-islands.png`:
-  - all 30 pass, the promise on 21, all three outcomes on 20;
-  - the start is on the shore, as before.
+  - all 30 pass, the promise on 20, all three outcomes on 19;
+  - the start is on the shore, as before;
+  - by eye, about eight of the 30 still read as a sea in a ring, the edge layout's among them.
 - **The big-island sheet**, `docs/sheets/m9b-islands-big.png`: built from
   `investigation/m9b/islands-big-variant.patch`, applied on 3fbb21f7. Not adopted: it is for
   Kyler to decide the start.
