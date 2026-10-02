@@ -530,9 +530,10 @@ The presets are §6's; there is no per-theme layout planner and no table of name
 D278); the named premises that became intentions are in design version 2 §6 (`docs/archive/m9-design.md`) and D274.
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
-draws one of D209's sea layouts, islands with relief of their own and springs on them, and its start may stand on any
-island that holds what it needs (D410, D411); Delta's river comes down from higher ground and splits into several
-channels across a fan whose place, direction and size vary by seed (D412).
+draws one of D209's sea layouts, islands with relief of their own and springs on them, inside a rim whose line wanders,
+rounded at the corners; its start goes on an island wherever one holds what it needs (D410, D411, D417). Delta's river
+comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
+direction and size vary by seed (D412, D416).
 
 ---
 

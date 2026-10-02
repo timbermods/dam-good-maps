@@ -29,7 +29,8 @@ import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
-import { standIslandsClear } from "../land/islands";
+import { seaLevel, standIslandsClear } from "../land/islands";
+import { unit } from "../land/num";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
@@ -1199,17 +1200,21 @@ function mouthBanks(hy: Hydro, W: number, H: number): Uint8Array {
   return keep;
 }
 
-/** D411: on a sea's map, the land the start may take when an island has room for a colony: every
- *  dry mass that touches the map's edge (the shore holding the sea) is kept off, joined to `avoid`;
- *  null when no island has the room (1,500 tiles at 128², by area). */
-function islandStarts(D: ArrayLike<number>, W: number, H: number, avoid: Uint8Array | null): Uint8Array | null {
+/** D411, D417: on a sea's map, the land the start may take when an island has room for a colony:
+ *  every dry mass that touches the map's edge (the shore holding the sea) is kept off, joined to
+ *  `avoid`; null when no island has the room (1,000 tiles at 128², by area). The land at the sea's
+ *  level or under it counts as the sea's (on the planned water a strait the sea will fill joined an
+ *  island to the shore, and the start went on the shore). */
+function islandStarts(h: Uint8Array, D: ArrayLike<number>, W: number, H: number, avoid: Uint8Array | null): Uint8Array | null {
   const N = W * H;
+  const S = seaLevel(h, W, H);
+  const wetAt = (i: number) => D[i] > 0.05 || h[i] <= S;
   const lab = new Int32Array(N).fill(-1);
   const out = avoid ? avoid.slice() : new Uint8Array(N);
-  const room = 1500 * ((W * H) / (128 * 128));
+  const room = 1000 * ((W * H) / (128 * 128));
   let any = false;
   for (let s0 = 0; s0 < N; s0++) {
-    if (lab[s0] >= 0 || D[s0] > 0.05) continue;
+    if (lab[s0] >= 0 || wetAt(s0)) continue;
     const q = [s0];
     lab[s0] = s0;
     let edge = false;
@@ -1223,7 +1228,7 @@ function islandStarts(D: ArrayLike<number>, W: number, H: number, avoid: Uint8Ar
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
-        if (lab[j] < 0 && !(D[j] > 0.05)) {
+        if (lab[j] < 0 && !wetAt(j)) {
           lab[j] = s0;
           q.push(j);
         }
@@ -1311,17 +1316,25 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       const [px, py] = "spring" in r.params.entry ? r.params.entry.spring : r.params.path[0];
       const cx = Math.round(px);
       const cy = Math.round(py);
-      for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) heads[(cy + dy) * W + cx + dx] = 1;
+      // (D417: on a sea's map round each head, not a square: the way out cut past a kept square
+      // stood between ruler-straight walls, Islands 128² seed 12)
+      for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if ((!g.seaLayout || dx * dx + dy * dy <= 40) && cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) heads[(cy + dy) * W + cx + dx] = 1;
     }
     for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
-    widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles));
+    widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
   // ground, is parted from it by a strait)
   if (g.seaLayout) {
     const isles = g.parts.filter((p) => p.isle).map((p) => {
-      const [x, y] = orientXY(p.at[0] * (W - 1), p.at[1] * (H - 1), W, H, (g.orientation ?? 0) as LandOrientation);
-      return { x, y, r: p.size };
+      const o = (g.orientation ?? 0) as LandOrientation;
+      const px = p.at[0] * (W - 1);
+      const py = p.at[1] * (H - 1);
+      const [x, y] = orientXY(px, py, W, H, o);
+      // (D417: a long island's axis, turned with the land)
+      const [ux, uy] = unit(p.turn);
+      const [x2, y2] = orientXY(px + 10 * ux, py + 10 * uy, W, H, o);
+      return { x, y, r: p.size, aspect: p.kind === "isle" && p.extra > 0 ? p.extra : 1, ux: (x2 - x) / 10, uy: (y2 - y) / 10 };
     });
     const keepI = new Uint8Array(N);
     for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
@@ -1572,16 +1585,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // levelling is part of shaping the land; never on a shown land, D348)
   let allowLevel = true;
   let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
-  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null, reusePlanned = false): StartPick | null => {
-    // (D411: a sea's start goes on an island where one has room for a colony, not on the shore that
-    // holds the sea at the map's edge; where none of them has, anywhere, as before)
-    if (g.seaLayout && g.seaLayout !== "edge") {
-      const isles = islandStarts(D, W, H, avoid);
-      if (isles) {
-        const onIsle = pickOn(D, C, M, salt, isles, weight, near, reusePlanned);
+  // (D411, D417: a sea's start goes on an island where one has room for a colony, not on the shore
+  // that holds the sea at the map's edge; where none of them has, anywhere, as before. `isles`:
+  // "prefer" tries the islands and then anywhere, "only" the islands alone, "skip" anywhere alone)
+  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null, reusePlanned = false, isles: "prefer" | "only" | "skip" = "prefer"): StartPick | null => {
+    if (g.seaLayout && isles !== "skip") {
+      const on = islandStarts(h, D, W, H, avoid);
+      if (on) {
+        const onIsle = pickOn(D, C, M, salt, on, weight, near, reusePlanned);
         if (onIsle) return onIsle;
       }
     }
+    if (isles === "only") return null;
     return pickOn(D, C, M, salt, avoid, weight, near, reusePlanned);
   };
   const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
@@ -2292,7 +2307,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       return null;
     };
-    let p = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near) ?? ready() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near);
+    // (D417: on a sea's map every way to a start on an island first, the one made ready as the land
+    // was shaped among them, and only then the shore)
+    const isleStart = (): StartPick | null => {
+      if (!g.seaLayout) return null;
+      const on = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, "only") ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, "only");
+      if (on) return on;
+      const q = ready();
+      const mask = q ? islandStarts(h, b1.water, W, H, null) : null;
+      return q && mask && !mask[q.y * W + q.x] ? q : null;
+    };
+    const skip = g.seaLayout ? "skip" : "prefer";
+    let p = isleStart() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? ready() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
     // land was shown because it had one), when that is still dry ground clear of the hollows and of
     // the starts that failed here; a spring by it gives it water below when the settled water left

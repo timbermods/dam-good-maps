@@ -198,6 +198,67 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands' second shape round and Delta's tuning (D416, D417, 2026-10-02, evening)
+
+Kyler's verdict on the first sheets (3d2d89ea): Delta's shape accepted, with two tuning notes
+(D416); Islands needs another shape round (D417). The sheets, each seed at 128² beside M9a's:
+`docs/sheets/m9b-islands.png`, `docs/sheets/m9b-delta.png`.
+
+- **The rectangles were land, not the soil rule's moist patches.**
+  - Seeds 3 and 20: the sea's way out. `widenOutlets` cut a band up to 41 tiles wide to the edge,
+    every tile of it down to the level of the route beside it, so a route through a deep channel
+    left a box canyon with straight walls.
+  - Seeds 14 and 26: the slow regional field's value-noise lattice. Its straight creases showed on
+    the sea's broad flat floor and along its shore.
+  - Now, on a sea's map, the regional field's lattice is warped. The way out winds more, and its
+    banks wander from half to one and a half times its half-width. Off the route's own channel it
+    is cut no lower than a level under the sea's (`levels.ts` `widenOutlets`, `organic`). The keep
+    round a river's head there is round, not a square.
+- **The sea's outline:** the rim's inner line is a rounded square, so there are no square corners.
+  Its distance from the edge wanders from about 1% of the side to 8%, with narrow headlands up to
+  3% further in. Its fall to the sea runs from a cliff to a gentle shore (`field.ts` `rimKeep`).
+- **Fewer, larger islands:**
+  - one large island: the big one 19–24, two to four others (was three to six);
+  - a scatter: four to seven islands (was six to ten), the first 14–18;
+  - a chain: four to six islands, 6–17 each;
+  - an atoll: ten to fourteen broad pieces with relief of their own (was 18–25 islets);
+  - two large islands: 15–20 each, with one or two small ones;
+  - a sea off one edge: three to five islands, 6–14 each.
+- **The start on an island (D411, D417):**
+  - The settler tries the islands first, every way. On the planned water, land at the sea's
+    level counts as the sea's, so a strait the sea will fill no longer joins an island to the
+    shore. The start made ready as the land was shaped is used when it stands on an island.
+  - It still lands on the shore on all 30 maps. A start needs ground joined by steps of one level
+    or less over 12% of the map (1,966 tiles at 128², PLAN §5.2). It also needs its two mine
+    sites 31 tiles or more from it (item 47's 24 with the margin), on the same island (D411).
+  - So the start's island must be 60–70 tiles across and about 2,500 tiles. This round's largest
+    islands are 1,000–1,600.
+- **Tried and not adopted:** a main island of about 2,500 tiles in every layout (rounds 9–19).
+  - What worked: starts moved onto islands, and the islands read as places to build.
+  - What failed: the big islands touched the rim, and the promise reading (three separate
+    islands, a quarter of the map under the sea) failed on 10–12 of 30.
+  - Lands were drawn again 7–20 times before one was shown. Some seeds lost their sea.
+  - One map per round failed an absolute: no start, unsettled water, the mine sites.
+  - Also tried: larger seas round the islands.
+  - Kyler to choose: big islands with the start on them, at that cost; or these islands, with
+    the start on the shore at 128².
+- **Islands, seeds 1–30 at 128²:**
+  - all 30 pass, the promise on 23, all three outcomes on 21;
+  - layouts: a scatter 12, one large island 5, a sea off one edge 5, two large islands 4, an
+    atoll 2, a chain 2.
+- **Delta (D416):**
+  - Every arm is made. The arms and the main river's own mouth stand at evenly spaced slots
+    across the fan, at least 14 tiles apart at 128². Before, an arm near the main mouth was left
+    out, and seeds 8, 15, 19, 28 and 29 read as one river.
+  - The arms wander as rivers do.
+  - Lakes cover up to 15% of the map (was 30%). Seed 4's lake filled a quarter of the map and
+    stood a few hundredths deep over the flats at its sill: tiles under 0.1 deep went from 2,491
+    to 206.
+  - Seeds 1–30 at 128²: all pass, the promise on 22.
+  - Seed 29 still reads more as a lake than a fan. Seed 23 keeps its thin water (1,012 tiles
+    under 0.1, 1,020 under 0.3): a crater lake on a flat floor at its outlet's level, not yet
+    fixed.
+
 ### Islands and Delta redesigned, the shape first (D407–D412, 2026-10-02)
 
 Kyler's review (D407) found each theme one map with minor differences, worse than M9a. D370's two

@@ -45,12 +45,11 @@ function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Arr
   return { lab, main };
 }
 
-/** Each island (centre and radius, tiles) joined to the largest land mass by low ground is parted
- *  from it by a strait, when a cut of that ground does it. `keep` is left as it is. Returns how many
- *  were parted. */
-export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: readonly { x: number; y: number; r: number }[], keep: Uint8Array | null, floor: number): number {
+/** The sea's level: the spill level of the largest basin below it (the priority flood from the map's
+ *  edges), or -1 when that basin is under 5% of the map (D350; D417: the land over it is what an
+ *  island start stands on). */
+export function seaLevel(h: Uint8Array, W: number, H: number): number {
   const N = W * H;
-  // the sea: the largest basin below its spill level, and that level
   const spill = edgeSpill(h, W, H);
   const seen = new Uint8Array(N);
   let S = -1;
@@ -79,7 +78,16 @@ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: re
       S = spill[s0];
     }
   }
-  if (S < 0 || best < 0.05 * N) return 0;
+  return S < 0 || best < 0.05 * N ? -1 : S;
+}
+
+/** Each island (centre and radius, tiles) joined to the largest land mass by low ground is parted
+ *  from it by a strait, when a cut of that ground does it. `keep` is left as it is. Returns how many
+ *  were parted. */
+export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: readonly { x: number; y: number; r: number; aspect?: number; ux?: number; uy?: number }[], keep: Uint8Array | null, floor: number): number {
+  const N = W * H;
+  const S = seaLevel(h, W, H);
+  if (S < 0) return 0;
   const cutTo = Math.max(floor, S - 1);
   let parted = 0;
   for (const isle of isles) {
@@ -87,13 +95,27 @@ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: re
     const cx = Math.round(isle.x);
     const cy = Math.round(isle.y);
     if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+    // (D417: a long island is an ellipse, `aspect` long along (ux, uy): the distances below are in
+    // its radius, and the strait follows its coast; a round one as before)
+    const asp = isle.aspect ?? 1;
+    const ma = isle.r * portable.sqrt(asp);
+    const mi = isle.r / portable.sqrt(asp);
+    const ux = isle.ux ?? 1;
+    const uy = isle.uy ?? 0;
+    const far = (mi + 4) / mi;
+    const nd = (x: number, y: number): number => {
+      const dx = x - cx;
+      const dy = y - cy;
+      const a = (dx * ux + dy * uy) / ma;
+      const b = (-dx * uy + dy * ux) / mi;
+      return portable.sqrt(a * a + b * b);
+    };
     // the island's core: its dry ground within three quarters of its radius
     const core: number[] = [];
-    const R = isle.r + 4;
+    const R = ma + 4;
     for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
       for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
-        const d = portable.hypot(x - cx, y - cy);
-        if (d <= 0.75 * isle.r && h[y * W + x] > S) core.push(y * W + x);
+        if (nd(x, y) <= 0.75 && h[y * W + x] > S) core.push(y * W + x);
       }
     if (!core.length || !core.some((i) => lab[i] === main)) continue;
     // (the island is the mainland's own when most of the mainland lies within it: nothing to part)
@@ -101,8 +123,8 @@ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: re
     for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
       for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
         const i = y * W + x;
-        const d = portable.hypot(x - cx, y - cy);
-        if (d <= 0.75 * isle.r || d > R || lab[i] !== main || keep?.[i] || h[i] > S + 2) continue;
+        const d = nd(x, y);
+        if (d <= 0.75 || d > far || lab[i] !== main || keep?.[i] || h[i] > S + 2) continue;
         before.push([i, h[i]]);
         h[i] = cutTo;
       }

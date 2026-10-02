@@ -761,8 +761,10 @@ export function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
  *  sea's level takes a slope of water to carry the flow), never below the sea's level within two
  *  tiles of it and never on `keep`. A large lake of `lakes` whose floor is at its outlet's level is
  *  such a body too (its water stands as a sheet over the flat). A widening that would drain the
- *  sea or a kept lake is undone. */
-export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, flow: number, lakes: readonly (readonly number[])[] = [], minArea = 2500): number {
+ *  sea or a kept lake is undone. With `organic` (a sea's map, D417) the route winds more and the
+ *  banks wander from half the half-width to half as much again, the same width on average: a
+ *  straight band of even width cut the shore as a rectangle (Islands 128² seed 20). */
+export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, flow: number, lakes: readonly (readonly number[])[] = [], minArea = 2500, organic = false): number {
   const N = W * H;
   let spill = edgeSpill(h, W, H);
   const label = new Int32Array(N).fill(-1);
@@ -840,7 +842,7 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
         if (label[j] === id || h[j] > S || spill[j] > spill[c] || cost[j] <= k) continue;
-        const nk = k + 1 + 3 * (fbm(ns, xx, yy, Math.max(12, width), 2) + 1);
+        const nk = k + 1 + (organic ? 6 : 3) * (fbm(ns, xx, yy, Math.max(12, width), 2) + 1);
         if (nk < cost[j]) {
           cost[j] = nk;
           prev[j] = c;
@@ -869,17 +871,23 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
     const best = new Float64Array(N).fill(Infinity);
     const target = new Int16Array(N).fill(-1);
     const band: number[] = [];
-    const Ri = Math.ceil(R);
+    const Ro = organic ? 1.5 * R : R;
+    const Ri = Math.ceil(Ro);
+    const bs = hash32(seed, "widen-bank", id);
     for (const r of route) {
       const rx = r % W;
       const ry = (r - rx) / W;
       for (let dy = -Ri; dy <= Ri; dy++)
         for (let dx = -Ri; dx <= Ri; dx++) {
           const d2 = dx * dx + dy * dy;
-          if (d2 > R * R + 0.5) continue;
+          if (d2 > Ro * Ro + 0.5) continue;
           const xx = rx + dx;
           const yy = ry + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          if (organic) {
+            const Rb = R * clamp(1 + 1.4 * fbm(bs, xx, yy, Math.max(5, 0.6 * R), 3), 0.5, 1.5);
+            if (d2 > Rb * Rb + 0.5) continue;
+          }
           const j = yy * W + xx;
           if (target[j] < 0) band.push(j);
           if (d2 < best[j]) {
@@ -894,7 +902,9 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
     for (const j of band) {
       inBand[j] = 1;
       if (label[j] === id || keep[j]) continue;
-      const t = nearSea[j] ? Math.max(target[j], S) : target[j];
+      // (organic: off the route's own channel no lower than a level under the sea's: a band cut
+      // down to a deep channel's bed it ran through stood as a box canyon, Islands 128² seed 12)
+      const t = nearSea[j] ? Math.max(target[j], S) : organic && best[j] > 2.5 ? Math.max(target[j], Math.max(BED_FLOOR, S - 1)) : target[j];
       if (h[j] > t) {
         h[j] = t;
         n++;

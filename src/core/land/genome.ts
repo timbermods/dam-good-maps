@@ -127,8 +127,8 @@ export interface Genome {
   top: number;
   /** Hypsometry: `eq` blends the field toward equal area per level; `lean` < 1 raises the land. */
   hyps: { eq: number; lean: number };
-  /** The slow regional field (playbook #1): levels and cell. */
-  regional: { amp: number; cell: number };
+  /** The slow regional field (playbook #1): levels and cell; warped on a sea's map (D417). */
+  regional: { amp: number; cell: number; warped?: boolean };
   /** Caprock: hard rock high in the land that weathering leaves standing. */
   cap: { share: number; cell: number; level: number };
   /** How far soft high ground weathers down toward the ground round it (0–1). */
@@ -297,7 +297,9 @@ const P: Record<Leaning, Prior> = {
     partCount: { lo: 1, hi: 4 }, knollsPer128: { lo: 4, hi: 12 },
     erosion: { iterations: { lo: 6, hi: 14 }, k: { lo: 0.008, hi: 0.02 }, diffusion: { lo: 0.05, hi: 0.15 } },
     terrace: { step: [1, 1, 2, 2], share: { lo: 0.05, hi: 0.4 } },
-    inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.05, hi: 0.3 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
+    // (D416: lakes up to 15% of the map, not 30%: a lake the fan's river fills that broad stood a few
+    // hundredths over the flats at its sill, Delta 128² seed 4)
+    inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.03, hi: 0.15 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
     split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
     badwater: [0.25, 0.5, 0.25], thorns: 0.1,
     troughs: 0.3, sea: 0, woods: [0.2, 0.4],
@@ -642,6 +644,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
   g.seaLayout = layout;
   g.tiltKind = "radial";
+  g.regional.warped = true;
   const side = Math.min(W, H);
   // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
   const shrink = Math.max(0.75, 1 - 0.05 * attempt);
@@ -649,10 +652,6 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
   const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
   const isleK = portable.pow(Math.max(1, areaK), 0.35);
-  const isle = (at: [number, number], size: number, rise: number, depth: number, kind?: PartKind) => {
-    const k: PartKind = kind ?? (rng.float() < 0.35 ? "cone" : "mesa");
-    g.parts.push({ kind: k, at, size: size * isleK, height: depth + rise * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK, isle: true });
-  };
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
   };
@@ -680,13 +679,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const R = side * (0.42 + 0.08 * rng.float());
       const depth = 9 + 2.5 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
-      const big = 15 + 6 * rng.float();
+      // (D417: fewer, larger islands: the big one 19–24, two to four others of 5–9)
+      const big = 19 + 5 * rng.float();
       island([g.focus[0], g.focus[1]], big, 6 + 3 * rng.float(), depth);
-      const sats = 3 + Math.floor(4 * rng.float());
+      const sats = 2 + Math.floor(3 * rng.float());
       for (let k = 0; k < sats; k++) {
         const [vx, vy] = unit((k + 0.6 * rng.float()) / sats);
-        const d = big * isleK * (1.55 + 0.6 * rng.float());
-        island([g.focus[0] + (vx * d) / W, g.focus[1] + (vy * d) / H], 3.5 + 4.5 * rng.float(), 3 + 3 * rng.float(), depth);
+        const d = big * isleK * (1.4 + 0.5 * rng.float());
+        island([g.focus[0] + (vx * d) / W, g.focus[1] + (vy * d) / H], 5 + 4 * rng.float(), 3 + 3 * rng.float(), depth);
       }
       break;
     }
@@ -697,11 +697,11 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const R = side * (0.4 + 0.08 * rng.float());
       const depth = 8 + 2 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
-      const count = n(3 + 4 * rng.float());
+      const count = n(3 + 2 * rng.float());
       for (let k = 0; k < count; k++) {
         const [vx, vy] = unit(rng.float());
         const r = 0.7 * portable.sqrt(rng.float()) * R;
-        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + (vy * r * 0.6) / H], 4 + 9 * rng.float(), 3 + 5 * rng.float(), depth);
+        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + (vy * r * 0.6) / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
       }
       tilt = 6 + 1.5 * rng.float();
       // (its water leaves by the coast: the south edge is the way out, D275 turns it)
@@ -715,12 +715,12 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const depth = 8.5 + 2 * rng.float();
       const turn = rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, turn, 1 + 0.4 * rng.float());
-      const count = n(6 + 4 * rng.float());
+      const count = n(4 + 3 * rng.float());
       const placed: [number, number, number][] = [];
       for (let k = 0, draw = 0; k < count && draw < 200; draw++) {
         const [vx, vy] = unit(rng.float());
         const d = 0.75 * portable.sqrt(rng.float()) * R;
-        const size = k === 0 ? 11 + 4 * rng.float() : 5 + 6 * rng.float();
+        const size = k === 0 ? 14 + 4 * rng.float() : 7 + 5 * rng.float();
         const x = g.focus[0] * W + vx * d;
         const y = g.focus[1] * H + vy * d;
         if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.25 + 4)) continue;
@@ -745,12 +745,12 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
       const base = turn + (bend > 0 ? -0.25 : 0.25);
       const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
-      const count = 5 + Math.floor(3 * rng.float());
+      const count = 4 + Math.floor(3 * rng.float());
       for (let k = 0; k < count; k++) {
         const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
         const [ux, uy] = unit(base + t * span);
         const mid = 1 - Math.abs(t) * 1.3;
-        const size = 4 + 10 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
+        const size = 6 + 11 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
         island([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 3 + 5 * Math.max(0.2, mid) + 2 * rng.float(), depth);
       }
       break;
@@ -770,16 +770,17 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const p2 = rng.float();
       const gaps = 1 + Math.floor(3 * rng.float());
       const gapAt = Array.from({ length: gaps }, () => rng.float());
-      const pieces = 18 + Math.floor(8 * rng.float());
+      // (D417: ten to fourteen broader pieces with relief of their own, crescents rather than a
+      // necklace of islets; a high islet in the lagoon, sometimes)
+      const pieces = 10 + Math.floor(5 * rng.float());
       for (let k = 0; k < pieces; k++) {
         const t = (k + 0.3 * (rng.float() - 0.5)) / pieces;
-        if (gapAt.some((q) => Math.abs(((t - q + 1.5) % 1) - 0.5) < 0.04)) continue;
+        if (gapAt.some((q) => Math.abs(((t - q + 1.5) % 1) - 0.5) < 0.05)) continue;
         const [ux, uy] = unit(t);
         const r = ra * (1 + 0.16 * unit(k1 * t + p1)[1] + 0.08 * unit(k2 * t + p2)[1]);
-        isle([(cx + ux * r) / W, (cy + uy * r) / H], 5 + 3 * rng.float(), 2.5 + 3.5 * rng.float(), depth, "isle");
+        island([(cx + ux * r) / W, (cy + uy * r) / H], 7 + 3 * rng.float(), 2.5 + 3.5 * rng.float(), depth);
       }
-      // a high islet in the lagoon, sometimes
-      if (rng.float() < 0.5) island([g.focus[0], g.focus[1]], 3 + 3 * rng.float(), 5 + 3 * rng.float(), depth);
+      if (rng.float() < 0.5) island([g.focus[0], g.focus[1]], 4 + 3 * rng.float(), 5 + 3 * rng.float(), depth);
       tilt = 3 + rng.float();
       break;
     }
@@ -794,12 +795,12 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const apart = side * (0.17 + 0.05 * rng.float());
       for (const sgn of [-1, 1]) {
         const at: [number, number] = [g.focus[0] + (sgn * -ay * apart) / W + (ax * side * 0.08 * (rng.float() - 0.5)) / W, g.focus[1] + (sgn * ax * apart) / H + (ay * side * 0.08 * (rng.float() - 0.5)) / H];
-        island(at, 12 + 5 * rng.float(), 5 + 4 * rng.float(), depth);
+        island(at, 15 + 5 * rng.float(), 5 + 4 * rng.float(), depth);
       }
-      const small = Math.floor(3 * rng.float());
+      const small = 1 + Math.floor(2 * rng.float());
       for (let k = 0; k < small; k++) {
         const [vx, vy] = unit(rng.float());
-        island([g.focus[0] + (vx * R * 0.7) / W, g.focus[1] + (vy * R * 0.7) / H], 3 + 3 * rng.float(), 3 + 2 * rng.float(), depth);
+        island([g.focus[0] + (vx * R * 0.7) / W, g.focus[1] + (vy * R * 0.7) / H], 4 + 2 * rng.float(), 3 + 2 * rng.float(), depth);
       }
       tilt = 3 + rng.float();
       break;

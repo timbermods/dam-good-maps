@@ -1404,14 +1404,19 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const reach = alongEdge ? Math.abs((e === "west" ? 0 : W - 1) - p0[0]) : Math.abs((e === "south" ? 0 : H - 1) - p0[1]);
     const spread = fan ? clamp(reach * (0.7 + 0.8 * rng.float()), 24, len * 0.8) : 0;
     const lean = fan ? (rng.float() - 0.5) * 0.5 * spread : 0;
-    const centre = (alongEdge ? end[1] : end[0]) + lean;
-    for (let a = 0; a < k; a++) {
+    // (D416: every arm is made: the k arms and the main river's own mouth stand at k + 1 slots evenly
+    // across the fan, at least 14 tiles apart at 128², the main river's slot leaning the fan to a
+    // side; an arm too near the main river's mouth was once left out, and some fans read as one river)
+    const ma = alongEdge ? end[1] : end[0];
+    const gap = fan ? Math.min(Math.max(14 * portable.sqrt(Math.max(1, Math.min(W, H) / 128)), spread / k), (len - 13) / k) : 0;
+    const iLo = fan ? Math.max(0, Math.ceil(k - (len - 7 - ma) / gap)) : 0;
+    const iHi = fan ? Math.min(k, Math.floor((ma - 6) / gap)) : 0;
+    const i0 = fan ? Math.round(clamp(k / 2 - lean / gap, Math.min(iLo, iHi), Math.max(iLo, iHi))) : -1;
+    for (let a = 0; a < (fan ? k + 1 : k); a++) {
       let along: number;
       if (fan) {
-        // (spread evenly across the fan, the main river's own mouth among them, jittered)
-        const t = k > 1 ? a / (k - 1) - 0.5 : 0;
-        along = clamp(centre + t * spread + (rng.float() - 0.5) * (spread / Math.max(2, k)) * 0.35, 6, len - 7);
-        if (Math.abs(along - (alongEdge ? end[1] : end[0])) < 9 * portable.sqrt(Math.max(1, Math.min(W, H) / 128))) continue;
+        if (a === i0) continue;
+        along = clamp(ma + (a - i0) * gap + (rng.float() - 0.5) * 0.3 * gap, 6, len - 7);
       } else {
         const sgn = a % 2 === 0 ? 1 : -1;
         // (D350: apart in proportion to the map's side, as the root: at 256² the mouths 13–22 tiles
@@ -1432,7 +1437,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       }
       const armPath = smoothPath(pts, 1, 1);
       const aw = Math.max(MIN_WIDTH, Math.round(0.6 * m.width * 10) / 10);
-      const awv = natural ? { ...wanderOf(g, aw), amp: 1.5, minAmp: 1 } : null;
+      // (D416: a fan's arms wander as rivers do, never a ruled curve)
+      const awv = natural ? { ...wanderOf(g, aw), amp: fan ? 2.5 : 1.5, minAmp: 1 } : null;
       const armCourse = awv ? meanderPath(armPath, h, W, H, awv, hash32(seed, "arm", attempt, 1 + a)) : armPath;
       const aws = hash32(seed, "arm-width", attempt, 1 + a);
       const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);

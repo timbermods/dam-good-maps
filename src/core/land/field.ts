@@ -140,9 +140,11 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // (the rim's inner line wanders, so the sea's shelf never runs parallel to the edges)
         // (D350: the rim is never breached: the outer third of it always keeps its land, where the
         // wandering line once reached the edge and the sea drained out there, Islands 256² seeds 1–3)
-        // (D410: a narrow rim, a shore along the edges rather than a frame of land)
-        const rimW = 0.05 * Math.min(W, H);
-        const keepRim = sea ? smoothstep((Math.min(x, W - 1 - x, y, H - 1 - y) - rimW * (0.2 + 0.7 * (fbm(s + 17, x, y, Math.max(12, rimW * 2.2), 3) + 1))) / (0.6 * rimW)) : 1;
+        // (D417, Kyler's second look: the sea's outline neither runs with the edges nor turns square
+        // corners. The rim's inner line is a rounded square whose distance from the edge wanders from
+        // a tile or two to a tenth of the map, broken by narrow headlands, its fall to the sea now a
+        // gentle shore, now a cliff)
+        const keepRim = sea ? rimKeep(s, x, y, W, H) : 1;
         U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });
@@ -299,6 +301,24 @@ export interface Field {
   hard: Float64Array;
 }
 
+/** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
+ *  tile, so the sea keeps a rim of land) to 1 inside the rim (D417): the rim's inner line is a
+ *  rounded square (no square corners), its distance from the edge wandering from 1% of the side to
+ *  8%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
+ *  the side. */
+function rimKeep(s: number, x: number, y: number, W: number, H: number): number {
+  const side = Math.min(W, H);
+  const ex = Math.min(x, W - 1 - x);
+  const ey = Math.min(y, H - 1 - y);
+  const rc = 0.2 * side;
+  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
+  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
+  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
+  const inner = side * (0.01 + 0.07 * t + 0.03 * head);
+  const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
+  return smoothstep((e - inner) / fall);
+}
+
 /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
 export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
   const ls = landSeed(seed, g.variation);
@@ -322,8 +342,14 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
         const dv = y / (H - 1) - g.focus[1];
         h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
       }
-      // the slow regional field: broad highs and lows that are not one plane
-      h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
+      // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
+      // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
+      // its shore, Islands 128² seeds 14 and 26)
+      if (g.regional.warped) {
+        const rx = x + 0.35 * g.regional.cell * fbm(rs + 1, x, y, 0.6 * g.regional.cell, 2);
+        const ry = y + 0.35 * g.regional.cell * fbm(rs + 2, x, y, 0.6 * g.regional.cell, 2);
+        h += g.regional.amp * fbm(rs, rx, ry, g.regional.cell, 2);
+      } else h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
       const px = x + nz.warp * fbm(wx, x, y, nz.warpCell, 2);
       const py = y + nz.warp * fbm(wy, x, y, nz.warpCell, 2);
       let n = fbm(sx, px, py, nz.cell, nz.octaves);
