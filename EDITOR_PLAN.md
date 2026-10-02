@@ -129,7 +129,10 @@ The editor's parts as they are now; their placement and styling are the design p
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
   `describeTile` (`core/doc/describeTile.ts`), returning data; the readout only words and shows it
-  (`tests/contract/describeTile.test.ts`).
+  (`tests/contract/describeTile.test.ts`). It refreshes whenever the water under the pointer changes, without
+  re-hovering (D347, D387 (1)): after each water state the page shows, it asks `readoutWater` for the hovered tile
+  (the readout's water words, as rounded and shown) and re-describes only when they differ
+  (`tests/contract/waterSignal.test.ts`).
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place or an opened file as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
