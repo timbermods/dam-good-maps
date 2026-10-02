@@ -796,6 +796,11 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   page (`src/ui/`); the worker (`src/worker/`: water preview and background validation); `platform` adapters. M12
   adds a `claude-bridge` (summary builder, schema, tools, proposal loop) in `src/claude/`, with its Messages API
   adapter in `src/platform/claude/`.
+- **The editor's code** (`src/editor/`, its `README.md`): `Editor.tsx` is a thin shell that builds a bag afresh each
+  render and calls one hook per feature, in a fixed order, each in its feature folder (`session/`, `paint/`, `view/`,
+  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`);
+  the markup is plain functions in `render/`, and what the viewer last used is in `prefs/`. New behaviour goes in the
+  slice it belongs to; the `README.md` says how slices reach each other.
 - The operations engine and feature rasterization are headless and fully testable without the UI. Determinism: the
   same document always produces a byte-identical `.timber` file (`PLAN.md` §19.7). Keep worker messages small: send
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the
