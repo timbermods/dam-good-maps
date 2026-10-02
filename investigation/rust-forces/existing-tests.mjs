@@ -1,0 +1,12 @@
+import {resolve,dirname} from 'node:path';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {HERE,ROOT,LOCAL,deps,json} from './common.mjs';
+const aliases=Object.fromEntries(['vitest','fflate','preact','preact/hooks','preact/jsx-runtime','preact/jsx-dev-runtime','preact/compat','@preact/signals','comlink','three'].map(name=>[name,deps.resolve(name)]));
+aliases['ajv/dist/2020']=deps.resolve('ajv/dist/2020');
+aliases.vitest=resolve(dirname(deps.resolve('vitest/package.json')),'dist/index.js');
+const report=process.env.DGM_TEST_REPORT??'existing-tests.json';if(!/^[a-z0-9-]+\.json$/.test(report))throw Error('Invalid test report name');
+const config={root:ROOT,cacheDir:resolve(LOCAL,'vite-cache'),resolve:{alias:Object.entries(aliases).sort(([a],[b])=>b.length-a.length).map(([find,replacement])=>({find,replacement}))},test:{include:['tests/unit/*force*.test.ts','tests/contract/*force*.test.ts','tests/contract/carve*.test.ts','tests/contract/curvedFault.test.ts','tests/contract/glaciate*.test.ts','tests/contract/erupt*.test.ts','tests/contract/unleash.test.ts'],maxWorkers:1,testTimeout:1200000,hookTimeout:1200000,reporters:['default','json'],outputFile:resolve(LOCAL,report)}};
+writeFileSync(resolve(LOCAL,'vitest.config.mjs'),'export default '+JSON.stringify(config)+';\n');
+const cli=resolve(dirname(deps.resolve('vitest/package.json')),'vitest.mjs');
+const child=spawn(process.execPath,[cli,'run','--config',resolve(LOCAL,'vitest.config.mjs'),...process.argv.slice(2)],{cwd:ROOT,windowsHide:true,stdio:'inherit'});child.on('exit',code=>{process.exitCode=code??1;});

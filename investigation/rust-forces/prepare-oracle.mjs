@@ -1,0 +1,12 @@
+import {mkdirSync,writeFileSync,existsSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {resolve} from 'node:path';
+import {HERE,LOCAL,json} from './common.mjs';
+const baseline='4aab909e23016902cbbe6ffaeddeece786176ab3';
+const repository=process.env.DGM_REPOSITORY??resolve(HERE,'../..');
+const destination=resolve(LOCAL,'oracle');
+if(existsSync(destination))throw Error('Oracle already exists; reuse it with DGM_ROOT or choose a fresh investigation checkout.');
+const archive=execFileSync('git',['archive','--format=tar',baseline],{cwd:repository,maxBuffer:256*1024*1024});
+mkdirSync(destination,{recursive:true});const file=resolve(LOCAL,'oracle.tar');writeFileSync(file,archive);
+execFileSync('tar',['-xf',file,'-C',destination],{stdio:'inherit',windowsHide:true});
+json('oracle.json',{baseline,path:destination});console.log('Read-only source exported to',destination);

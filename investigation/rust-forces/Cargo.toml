@@ -1,0 +1,21 @@
+[package]
+name = "rust-forces"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "forces-batch"
+path = "rust/main.rs"
+
+[dependencies]
+serde_json = { version = "=1.0.145", features = ["preserve_order", "float_roundtrip"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

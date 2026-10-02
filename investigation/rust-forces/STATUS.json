@@ -1,0 +1,16 @@
+{
+  "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+  "rustWater": "d18a6f4d890d3f2e3f7b480e308242375c100e10",
+  "implemented": ["footprint", "craterize-plan", "erupt-plan", "quake-plan"],
+  "gates": {
+    "carve": false,
+    "glaciate": false,
+    "allWaterAndPlaybackRecords": false,
+    "existingTestsAgainstRust": false,
+    "thousandsPerForcePerSizePerTarget": false,
+    "existingCrossEngineDeterminism": false,
+    "performanceAcceptance": false,
+    "completeIntegrationAdapter": false,
+    "productExportBytes": false
+  }
+}
