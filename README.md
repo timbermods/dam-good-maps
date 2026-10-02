@@ -12,29 +12,27 @@ The generator:
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
-- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Advanced: start rules** to change the
-  map. Each setting shows what the official maps use.
-- **Generate** makes the map. Its water is settled by the game's own rules, and it is checked for a
-  colony's survival.
+- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Advanced: start rules** in the side
+  panel to change the map. Each setting shows what the official maps use.
+- **Generate** makes the map and opens it in the editor at once. Its water is settled by the game's
+  own rules, and it is checked for a colony's survival.
 - Every map's start has clean water within a short walk, using only the map's own slopes. Wood and
-  berry bushes grow nearby. The map card lists the **Start requirements**. **Advanced: start
-  rules** sets them.
-- The preview shows water, moisture and reach layers. **3D** shows the map in 3D. The ground looks
-  as in the game: green where the soil is moist, cracked earth where it is dry, rusty red where
-  badwater spoils it.
+  berry bushes grow nearby. **Advanced: start rules** sets them.
+- The map is shown in 3D. The ground looks as in the game: green where the soil is moist, cracked
+  earth where it is dry, rusty red where badwater spoils it.
 - Trees, berry bushes and ruins come in about the amounts official maps of that size have. They
   grow in groves, patches and fields. Every map has at least one mine site and one badwater
   source. For a peaceful map, set **Badwater** to **No badwater**.
-- **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
+- **⋯ → Copy link** gives a link that opens the same map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
   name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
-  **Download project file** keeps the map for editing later.
+  **⋯ → Save project** keeps the map for editing later.
 
 The editor:
-- **Refine this map** opens the map in 3D. Drag to turn the view, right-drag to move it, scroll to
-  zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
+- The map opens in the editor as soon as it is made. Drag to turn the view, right-drag to move it,
+  scroll to zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
 - Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
 - { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
@@ -58,7 +56,7 @@ The editor:
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
   Power. **Try another** gives a different result; **More** holds the details.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
-- The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
+- The shelf on the right places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
 - A new source's water flows at once. The row under the brushes sets its strength.
@@ -80,9 +78,10 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). The
-  **⋯** menu has **Open…**, **Save project**, **History** and **Back to settings**.
-- **Back to settings** keeps your edits. **Generate** makes a new map; yours stays saved, and
-  **Back to editing** returns to it.
+  **⋯** menu has **Open…**, **Save project**, **Download .timber**, **Clear everything**,
+  **History**, **Copy link** and **New map**.
+- **New map** opens the side panel. **Generate** makes a new map; if the open map has edits it asks
+  first, so save its project file if you want to keep it.
 - **Open a map** opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your map is saved in the browser as you work.
