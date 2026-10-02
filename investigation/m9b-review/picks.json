@@ -1,0 +1,190 @@
+{
+ "rngSeed": 20260928,
+ "picks": [
+  {
+   "theme": "any",
+   "seed": 942,
+   "name": "Crossroads Heights",
+   "description": "Two ways to grow: open farmland one way, ruins up high the other. The start's water runs low in the first drought: store some early.",
+   "checks": "All 49 checks passed, 2 warnings · 4414 ms, 9 attempts",
+   "file": "3d-any-942.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "any",
+   "seed": 219,
+   "name": "Snakeback Gorge",
+   "description": "A river winds back and forth 3 times down the hill, dropping 7 levels at its bends. The start's water runs low in the first drought: store some early.",
+   "checks": "All 49 checks passed, 2 warnings · 2414 ms",
+   "file": "3d-any-219.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "riverValley",
+   "seed": 680,
+   "name": "Summit Relic",
+   "description": "A medium relic waits on a pinnacle 59 tiles from the start, reached only by building up to it. The start's water runs low in the first drought: store some early.",
+   "checks": "All 50 checks passed, 1 warning · 1823 ms",
+   "file": "3d-riverValley-680.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "riverValley",
+   "seed": 367,
+   "name": "The Long Cliff",
+   "description": "A cliff across three quarters of the map splits it into an upper and a lower world. The start's water runs low in the first drought: store some early.",
+   "checks": "All 50 checks passed, 1 warning · 2049 ms",
+   "file": "3d-riverValley-367.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "canyon",
+   "seed": 312,
+   "name": "The Overlook",
+   "description": "The start looks out from 5 levels over the land below. A 2-tile dam 30 tiles north-west of the start holds 700 water.",
+   "checks": "All 50 checks passed, 1 warning · 2021 ms",
+   "file": "3d-canyon-312.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "canyon",
+   "seed": 347,
+   "name": "Upper and Lower",
+   "description": "A cliff across the whole map splits it into an upper and a lower world. An 8-tile dam 21 tiles south-west of the start holds 1,600 water.",
+   "checks": "All 50 checks passed, 1 warning · 4030 ms, 11 attempts",
+   "file": "3d-canyon-347.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "highlands",
+   "seed": 972,
+   "name": "Twisting Stream",
+   "description": "A river winds back and forth 7 times down the hill, dropping 12 levels at its bends. The start's water runs low in the first drought: store some early.",
+   "checks": "All 50 checks passed, 1 warning · 3806 ms, 9 attempts",
+   "file": "3d-highlands-972.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "highlands",
+   "seed": 590,
+   "name": "Split Level Heights",
+   "description": "A cliff across the whole map splits it into an upper and a lower world. A 13-tile dam 38 tiles south of the start holds 3,300 water.",
+   "checks": "All 50 checks passed, 1 warning · 2992 ms, 7 attempts",
+   "file": "3d-highlands-590.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 682,
+   "name": "Horseshoe Lake",
+   "description": "An oxbow lake curves beside the river and keeps 71% of its water through a 9-day drought. A 12-tile dam 39 tiles east of the start holds 3,200 water.",
+   "checks": "All 49 checks passed, 2 warnings · 3751 ms, 5 attempts",
+   "file": "3d-lakeBasin-682.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "lakeBasin",
+   "seed": 117,
+   "name": "Lone Spire",
+   "description": "A lone height stands 9 levels over the land round it. A 17-tile dam 28 tiles east of the start holds 2,200 water.",
+   "checks": "All 50 checks passed, 1 warning · 2638 ms",
+   "file": "3d-lakeBasin-117.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "delta",
+   "seed": 493,
+   "name": "The Secret Shelf",
+   "description": "A 947-tile valley up the cliffs, reached only by stairs, holds riches. The start's water runs low in the first drought: store some early.",
+   "checks": "All 49 checks passed, 2 warnings · 3070 ms, 2 attempts",
+   "file": "3d-delta-493.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "delta",
+   "seed": 912,
+   "name": "Coiled River",
+   "description": "A river winds back and forth 3 times down the hill, dropping 8 levels at its bends. The start's water runs low in the first drought: store some early.",
+   "checks": "All 50 checks passed, 1 warning · 2021 ms",
+   "file": "3d-delta-912.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "islands",
+   "seed": 607,
+   "name": "Crowned Rock",
+   "description": "A medium relic waits on a pinnacle 40 tiles from the start, reached only by building up to it. Badwater lies 31 tiles south-west of the start.",
+   "checks": "All 50 checks passed, 1 warning · 4387 ms",
+   "file": "3d-islands-607.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "islands",
+   "seed": 969,
+   "name": "Summit Relic",
+   "description": "A medium relic waits on a pinnacle 42 tiles from the start, reached only by building up to it. Badwater lies 45 tiles south-east of the start.",
+   "checks": "All 50 checks passed, 1 warning · 5558 ms",
+   "file": "3d-islands-969.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "any",
+   "seed": 73,
+   "chaos": true,
+   "name": "Upper Pool Gorge",
+   "description": "A lake 7 levels above the middle of the map spills over a fall. The start's water runs low in the first drought: store some early.",
+   "checks": "All 49 checks passed, 2 warnings · 9218 ms, 2 attempts",
+   "file": "3d-chaos-73.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "any",
+   "seed": 941,
+   "chaos": true,
+   "name": "Dam Good Map",
+   "description": "A map, 256×256, designed for normal. Its land and rivers were shaped by uplift, erosion and flowing water. Badwater springs up in a hollow away from the start. Made with Dam Good Maps 0.8.0, seed 941.",
+   "checks": "2 of 29 checks failed · 25145 ms, 18 attempts",
+   "blocked": "2 of 29 checks failed · 25145 ms, 18 attempts File · all passed Terrain and objects · all passed Water · all passed Start and resources · 2 failed start.count 0 StartingLocation(s) (a vanilla map needs exactly one) resources.badwater_source 1 badwater source (every map needs at least one, unless it is set to No badwater) start.dry needs exactly one start (the map has 0) start.water needs exactly one start (the map has 0) start.badwater needs exactly one start (the map has 0) start.reach needs exactly one start (the map has 0) start.food needs exactly one start (the map has 0) start.wood needs exactly one start (the map has 0) start.wood_floor needs exactly one start (the map has 0) start.farmland needs exactly one start (the map has 0) start.level_land needs exactly one start (the map has 0) start.ruins_clear needs exactly one start (the map has 0) plants.survive needs exactly one start (the map has 0) plants.drought needs exactly one start (the map has 0) resources.scrap needs exactly one start (the map has 0) resources.trees needs exactly one start (the map has 0) resources.bushes needs exactly one start (the map has 0) ruins.fields needs exactly one start (the map has 0) ruins.access needs exactly one start (the map has 0) extras.placement needs exactly one start (the map has 0) resources.mine_site 0 mine sites (every map needs at least 2, the late game's lasting source of scrap metal)",
+   "file": null,
+   "startVisible": null,
+   "startFile": null
+  },
+  {
+   "theme": "any",
+   "seed": 480,
+   "chaos": true,
+   "name": "Two Tier Gorge",
+   "description": "A cliff across the whole map splits it into an upper and a lower world. A 1-tile dam 36 tiles east of the start holds 900 water.",
+   "checks": "All 50 checks passed, 1 warning · 9792 ms",
+   "file": "3d-chaos-480.jpg",
+   "startVisible": true,
+   "startFile": null
+  },
+  {
+   "theme": "any",
+   "seed": 46,
+   "chaos": true,
+   "name": "Sheltered Ledge",
+   "description": "The start sits under a cliff, its water 7 tiles' walk below. A 7-tile dam 30 tiles south-west of the start holds 600 water.",
+   "checks": "All 50 checks passed, 1 warning · 10481 ms, 4 attempts",
+   "file": "3d-chaos-46.jpg",
+   "startVisible": true,
+   "startFile": null
+  }
+ ]
+}

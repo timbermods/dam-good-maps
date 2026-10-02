@@ -64,18 +64,30 @@ function pickSeeds(): Pick[] {
 interface Result extends Pick {
   name: string;
   description: string;
-  file: string;
-  startVisible: boolean;
+  /** The map card's checks line, e.g. "All 20 checks passed" or "1 of 21 checks failed". */
+  checks: string;
+  /** Set when the map failed a check, so the editor would not open it: the card's report, and no capture. */
+  blocked?: string;
+  file: string | null;
+  startVisible: boolean | null;
   startFile: string | null;
 }
 
-async function openMap(page: Page, theme: ThemeId, seed: number, chaos: boolean): Promise<{ name: string; description: string }> {
+async function openMap(page: Page, theme: ThemeId, seed: number, chaos: boolean): Promise<{ name: string; description: string; checks: string; blocked?: string }> {
   const fragment = chaos ? `#s=${seed}&z=256&d=n&t=${theme}&vy=100&vt=100` : `#s=${seed}&z=128&d=n&t=${theme}`;
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/${fragment}`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: chaos ? 900_000 : 300_000 });
+  // a map may fail a check (the chaos maps are pushed to the extremes): capture it anyway and record the summary
+  const summary = page.getByText(/checks (passed|failed)/).first();
+  await summary.waitFor({ timeout: chaos ? 900_000 : 300_000 });
+  const checks = ((await summary.textContent()) ?? "").trim();
   const name = ((await page.locator(".card header h2").textContent()) ?? "").trim();
   const description = ((await page.locator(".card .premise").textContent()) ?? "").trim();
+  if (/failed/.test(checks)) {
+    // the page keeps "Refine this map" disabled for a map that fails a check: nothing to open in 3D
+    const blocked = ((await page.locator(".card details.report").innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
+    return { name, description, checks, blocked };
+  }
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 120_000 });
   await page.mouse.move(2, 2);
@@ -84,7 +96,7 @@ async function openMap(page: Page, theme: ThemeId, seed: number, chaos: boolean)
   if (await close.isVisible().catch(() => false)) await close.click().catch(() => undefined);
   await page.waitForTimeout(2500);
   await page.evaluate("window.dgmEditor.idle()");
-  return { name, description };
+  return { name, description, checks };
 }
 
 async function settle(page: Page): Promise<void> {
@@ -134,6 +146,12 @@ async function main(): Promise<void> {
       const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
       console.log(`${theme} ${seed}${chaos ? " (chaos, 256²)" : ""}: opening`);
       const words = await openMap(page, theme, seed, !!chaos);
+      if (words.blocked !== undefined) {
+        console.log(`  ${theme} ${seed}: ${words.checks}; the editor will not open it, so no 3D capture`);
+        results.push({ theme, seed, ...(chaos ? { chaos } : {}), ...words, file: null, startVisible: null, startFile: null });
+        await page.close();
+        continue;
+      }
       // the editor's opening camera (renderer.resetView() ran when the map loaded; asked again to
       // be sure nothing else moved it)
       await page.evaluate("window.dgm3d.renderer.resetView()");
@@ -166,7 +184,7 @@ async function main(): Promise<void> {
   }
   writeFileSync(join(OUT, ONLY ? `picks-${ONLY}.json` : "picks.json"), JSON.stringify({ rngSeed: RNG_SEED, picks: results }, null, 1) + "\n");
   console.log(`wrote ${results.length} captures and picks.json`);
-  const offscreen = results.filter((r) => !r.startVisible);
+  const offscreen = results.filter((r) => r.startVisible === false);
   console.log(offscreen.length ? `off screen in the default view: ${offscreen.map((r) => `${r.theme}/${r.seed}`).join(", ")}` : "the start was on screen in every default view");
 }
 
