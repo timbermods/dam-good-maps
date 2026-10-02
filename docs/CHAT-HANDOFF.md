@@ -12,15 +12,21 @@ them for detail on any decision.
   realising his vision matters more than speed.
 - **The planning chat** (claude.ai) is his advisor and reviewer. It reads the repo, branches, PRs and captures itself, gives
   brutally honest and specific feedback, and writes the exact prompts he sends elsewhere.
-- **The milestone session** (Claude Code, Opus 5.5, high) is the only session that changes `dev`, merges and releases. It
+- **Three Claude Code sessions** work at once: the milestone session, the page session and the renderer session. None
+  touches another's files.
+- **The milestone session** (Claude Code, Opus 5.5, high; the main clone `C:\Users\krams\code\DamGoodMaps`) is the only
+  session that changes `dev`, merges and releases. It
   does everything except the page: the core, the water, the generator, the editor-core items, the Codex adoptions and the
   documents. It orchestrates sub-agents, records Kyler's decisions in PLAN §20, and logs one line per event on the Progress
   log issue (#57). It runs on the dedicated machine (`docs/HANDOFF.md`, "The machine").
 - **The page session** (Claude Code, Fable 5.1, high; D388) does only "The page is the editor" and its design (D384), in its
-  own worktree and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
+  own worktree `C:\Users\krams\code\DamGoodMaps-page` and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
   `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
   session builds the startup service worker (D397). Neither session touches the other's
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
+- **The renderer session** (Claude Code, on a separate machine; D398) builds moving water and the Flow view, then renderer
+  R1, on branch `feature/moving-water`, gated by the smoothness harness (`investigation/performance`). The milestone
+  session merges its PR when it is green and Kyler says yes.
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
 
