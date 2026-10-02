@@ -2,6 +2,7 @@
 
 import type { SessionSlice } from "./session/useSession";
 import type { PaintSlice } from "./paint/usePaint";
+import type { ViewSlice } from "./view/useView";
 import type { RestSlice } from "./Editor";
 
-export type Ed = SessionSlice & PaintSlice & RestSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & RestSlice;
