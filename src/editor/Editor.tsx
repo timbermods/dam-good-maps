@@ -18,7 +18,6 @@ import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckProgress, SessionInfo, SessionOpen } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords } from "../core/doc/describeTile";
-import type { StartStatus } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
@@ -48,6 +47,7 @@ import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
 import { useStart } from "./start/useStart";
 import { useKeyboard } from "./keyboard/useKeyboard";
+import { useTestHook } from "./testHook/useTestHook";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -111,10 +111,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
   return null;
 }
 
-export interface RestSlice {
-  fitRef: { current: { tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null };
-}
-
 export default function Editor(props: EditorProps) {
   const ed = {} as Ed;
   Object.assign(ed, useSession(ed, props));
@@ -135,58 +131,19 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useViewSync(ed));
   Object.assign(ed, useStart(ed));
   useKeyboard(ed, props);
+  Object.assign(ed, useTestHook(ed));
 
   const {
-    api, info, view, mirror, renderer, ready, tool, gestureRef, shelf, icons, startDrag, busy, setMessage, message,
-    setHover, hover, showHistory, setShowHistory, check, progress, layer, setLayer, waterLayers, waterTick, flowing,
-    clearWater, setClearWater, sliceLevel, selecting, selectingRef, selection, setHoverObject, player, sound, juice,
+    api, info, view, mirror, renderer, ready, tool, shelf, icons, startDrag, busy, setMessage, message, setHover,
+    hover, showHistory, setShowHistory, check, progress, layer, setLayer, waterLayers, waterTick, flowing,
+    clearWater, setClearWater, sliceLevel, selecting, selectingRef, selection, setHoverObject, player, sound,
     setSound, weather, instant, firstRun, setFirstRun, minimap, setMinimap, setDotOpen, dotOpen, saving, setSaving,
-    noticesOpen, setNoticesOpen, viewTick, fit, shapeNote, queue, infoRef, shelfRef, needs, enqueue, run,
-    toggleWeather, brushTool, brush, brushRef, brushToolRef, setBrush, pendingTerrain, strokeMismatches, localUndo,
-    localRedo, undo, redo, pickTop, pickShelf, targetAt, targetSpot, setTargeted, startHere, objectUnder,
-    objectTiles, hoverSources, sourceMarkers, startHintRef, hintMs, startHintTag, flashNote, dropShelf,
-    pageTileFacts, quakeUiRef, watch, setWatch, floorContext, forcer, unleashRow, strokeRadius, pickedRow, shelfRow,
-    forceRow, glowCorners, onReady, openSelect, closeSelect, selectChip, selectRow, toolRef, actions, startReach,
-    hoverStart
+    noticesOpen, setNoticesOpen, viewTick, shapeNote, shelfRef, needs, enqueue, run, toggleWeather, brushTool, brush,
+    brushRef, brushToolRef, setBrush, localUndo, localRedo, undo, redo, pickTop, pickShelf, targetAt, targetSpot,
+    setTargeted, startHere, objectUnder, objectTiles, hoverSources, sourceMarkers, startHintTag, flashNote,
+    dropShelf, pageTileFacts, watch, setWatch, floorContext, forcer, unleashRow, pickedRow, shelfRow, forceRow,
+    onReady, openSelect, closeSelect, selectChip, selectRow, toolRef, actions, startReach, hoverStart
   } = ed;
-
-  // ------------------------------------------------------------------------------ test hook
-
-  useEffect(() => {
-    window.dgmEditor = {
-      info: () => infoRef.current,
-      tileToClient: (x, y) => renderer.current!.tileToClient(x, y),
-      idle: () => queue.current.then(() => undefined),
-      instant: () => instantRef.current,
-      fit: () => fitRef.current,
-      edit: (op, label) => run(() => api.apply(op, "user", label)),
-      startCheck: () => startDragRef.current?.check ?? null,
-      worker: api,
-      strokeMismatches: () => strokeMismatches.current,
-      lastStroke: () => localUndo.current.at(-1)?.params ?? null,
-      pendingTerrain: () => pendingTerrain.current,
-      carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
-      force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
-      forceTiming: () => (forcer.current?.timing ? { ...forcer.current.timing } : null),
-      startHint: () => (startHintRef.current ? { x: startHintRef.current.x, y: startHintRef.current.y, strong: startHintRef.current.strong, ms: hintMs.current } : null),
-      sound: () => juice.current?.status() ?? null,
-      sourceGlow: () => glowCorners.current.slice(),
-      selection: () => selection.current.tiles(),
-      gesture: () => {
-        const g = gestureRef.current;
-        return { stroke: g.forceStroke ? g.forceStroke.length : null, band: g.forceStroke ? strokeRadius.current : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };
-      },
-    };
-    return () => {
-      delete window.dgmEditor;
-    };
-  }, []);
-  const instantRef = useRef(instant);
-  instantRef.current = instant;
-  const fitRef = useRef(fit);
-  fitRef.current = fit;
-  const startDragRef = useRef(startDrag);
-  startDragRef.current = startDrag;
 
   // ------------------------------------------------------------------------------ export
 
@@ -230,7 +187,6 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { fitRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
