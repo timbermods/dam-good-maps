@@ -157,6 +157,84 @@ checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was 
 - The versions strip, the legend and the trees line (checkpoint 2) and Your maps (checkpoint 3) are not built yet;
   the card shows the name, the map's premise and a quiet line of facts.
 
+## Proposed after checkpoint 1's sitting (v4): waiting for Kyler's verdict
+
+*Mockups only. Nothing here is built until Kyler accepts it; where he does, it moves into the sections above.*
+
+Kyler's six notes on the preview (2026-10-02) and what the mockups propose for each. All on River Valley 4242 at
+128², the High look, framed by the page's own fit; the backdrops are the real page's renders.
+
+**1. Never an empty fourth line: always a tool in hand.**
+- [Select in hand](docs/design/lamplight-v4-01-select-in-hand-at-rest.jpg) (Kyler's proposal, and the one
+  recommended): Select is held when a map opens; Esc and X return to it; the fourth line shows how it marks
+  (Rectangle, Circle, Freehand, Brush, Wand) and Whole map. What it changes: a drag on the land marks an area, where
+  today it turns the view (the right button, Q and E and the keys still do, as in Timberborn); a click on an object
+  still picks it, so the plain pointer's work is folded into Select.
+- [The alternative](docs/design/lamplight-v4-02-alternative-three-lines.jpg): nothing held, and no fourth line. The
+  plate is three lines; a tool's settings ease in under them when it is picked. Nothing changes in how a drag
+  works, but the plate changes height.
+
+**2. The phone** (402×874 and 874×402; iPhone, Safari).
+- [Portrait](docs/design/lamplight-v4-10-phone-portrait.jpg): the map fills the screen under the status bar and
+  Safari's bar. One bottom bar, above Safari's: Generate, Tools, Share, each named, 52px tall. The map's name and its
+  checks are one pill at the top (a tap opens the map's card, legend and Your maps as a sheet); the compass beside
+  it. A held tool shows as one strip above the bar with its main setting and Put away.
+- Bottom sheets: [Tools](docs/design/lamplight-v4-11-phone-tools.jpg) (Tools, Forces, Objects, View: named buttons
+  56px tall, each with a line saying what it is, since nothing can depend on a tooltip),
+  [Generate](docs/design/lamplight-v4-12-phone-generate.jpg) (the settings as 48px rows, the sections behind More
+  settings) and [Share](docs/design/lamplight-v4-13-phone-share.jpg).
+- [Landscape](docs/design/lamplight-v4-14-phone-landscape.jpg): the bar becomes a rail on the right, clear of the
+  camera island and the home bar; sheets come [from the right](docs/design/lamplight-v4-15-phone-landscape-tools.jpg).
+- Sizes come from `100dvh` and `env(safe-area-inset-*)`, with `viewport-fit=cover`, so the bars follow Safari's
+  moving toolbar and nothing sits under the island or the home bar.
+- **What a phone can do:** make a map, look round it (one finger turns, two move and zoom), turn the view's layers
+  on, read the card, use the forces and the brushes with one finger while one is held, place objects with a tap,
+  share the link, download the file. **What it can't:** Save to Timberborn (Safari has no folder access and the
+  game isn't on phones), keys, the hover readout (a long press shows it), pen pressure. **Share replaces Save** as
+  the lit button: send the link to open on a computer, download the .timber to Files, or save the project.
+- Two things for Kyler: editing on a phone changes D185 (phones were view-only); and no phone has been measured:
+  the look falls back by itself, but the forces' speed on a phone is unknown.
+
+**3. Widths.** [1280×800](docs/design/lamplight-v4-07-at-1280x800.jpg),
+[1024×768](docs/design/lamplight-v4-08-at-1024x768.jpg),
+[1024 with the panel open](docs/design/lamplight-v4-09-at-1024-panel-open.jpg).
+- The right column is one width (176px) for everything: Save to Timberborn; Undo, Redo, ⋯ and the checks; the level
+  control and compass; Slow forces and Sound; the shelf. The wide Save plate is gone, so nothing beside the rows can
+  collide with them.
+- The rows' plate is as wide as its lines, never fixed, and never wider than the space between the panel and the
+  right column: its lines wrap inside it before it can touch anything.
+- Under 1280 wide the panel is a drawer: a strip that opens over the map and closes again, so the rows keep their
+  room. From 1280 up it sits beside the rows as now.
+- The look's menu moves beside the water bar on the bottom line, so the shelf has the column to itself.
+
+**4. Hierarchy in the rows** ([Carve in hand](docs/design/lamplight-v4-03-carve-in-hand-rows-in-use.jpg)).
+- The view line is what the map shows: each layer a ticked box with its name, filled when on, readable at a glance.
+  The camera's two actions, Top-down and Reset view, are buttons set apart at the line's end behind a hairline.
+- The tools are quiet: icon and name.
+- The forces have their own band: a warmer ground, lit icons with a glow, brighter and heavier names.
+- The tool in hand has a cream ring round a dark well, with bright words: one ring on the screen.
+- Generate is tan leather with dark words and an edge that presses down: plainly a button, and not Save's light.
+
+**5. Let the map lead.**
+- [At rest](docs/design/lamplight-v4-01-select-in-hand-at-rest.jpg) every plate thins to three-quarters wood with
+  quieter words, and Save's glow halves; the tool in hand keeps its ring. A plate comes back to full under the
+  pointer, while it has the focus, and while it is in use
+  ([the rows in use](docs/design/lamplight-v4-03-carve-in-hand-rows-in-use.jpg));
+  [everything bright](docs/design/lamplight-v4-04-before-everything-bright.jpg) is how it is today.
+- The shelf, to choose between: always open, as now (any image above), or
+  [closed to one button, Place objects](docs/design/lamplight-v4-05-shelf-closed.jpg), opening
+  [while placing](docs/design/lamplight-v4-06-shelf-while-placing.jpg) and closing when the object is put away.
+
+**6. The moments.** Nothing pops; every change eases over 150–200 ms; with reduced motion they happen at once.
+- A new map arrives: the old land sinks away as the new land rises into place from flat, the water flowing in after
+  it and the trees last, about 1.5 s in all; a click skips it (D240). The interface doesn't move while it happens.
+- A sheet opens: it slides up over the panel's lower part and fades in over 180 ms; it closes the same way down.
+- A tool is picked: the ring moves to it and the fourth line's settings cross-fade over 150 ms; the plate keeps its
+  size.
+- A plate wakes: its wood and words ease to full over 150 ms under the pointer, and back over 400 ms after it leaves.
+- The panel collapses: it narrows to its strip over 200 ms and the rows slide beside it; the camera stays where it is.
+- The shelf, if it opens only while placing: it unrolls downward over 180 ms.
+
 ## The direction not taken: Field notes
 
 Kept as a record ([docs/design/direction-b-fieldnotes.jpg](docs/design/direction-b-fieldnotes.jpg)).
