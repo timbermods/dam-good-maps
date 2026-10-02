@@ -15,6 +15,7 @@ import type { ForcePointerSlice } from "./forces/useForcePointer";
 import type { RowsSlice } from "./rows/useRows";
 import type { ReadySlice } from "./view/useReady";
 import type { SelectSlice } from "./selection/useSelect";
+import type { ViewSyncSlice } from "./view/useViewSync";
 import type { RestSlice } from "./Editor";
 
-export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & RestSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & RestSlice;

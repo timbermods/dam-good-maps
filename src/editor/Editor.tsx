@@ -23,11 +23,10 @@ import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckProgress, SessionInfo, SessionOpen } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords } from "../core/doc/describeTile";
 import { checkStartAt, sameStartCheck, startStatus, type StartCheck, type StartStatus } from "./features";
-import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, whereOf, type ItemActions, type LayerKind } from "./panels";
+import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
 import { SHELF } from "./shelfItems";
-import type { Verb } from "../core/forces/op";
 import { FirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
@@ -53,6 +52,7 @@ import { useForcePointer } from "./forces/useForcePointer";
 import { useRows } from "./rows/useRows";
 import { useReady } from "./view/useReady";
 import { useSelect } from "./selection/useSelect";
+import { useViewSync } from "./view/useViewSync";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -117,7 +117,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  toolRef: { current: Verb | null };
   grabObjectRef: { current: (hit: TileHit | null) => PointerTool | null };
   startCalls: { current: { grabStart: (hit: TileHit | null) => PointerTool | null } };
   fitRef: { current: { tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null };
@@ -140,74 +139,24 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useRows(ed));
   Object.assign(ed, useReady(ed));
   Object.assign(ed, useSelect(ed));
+  Object.assign(ed, useViewSync(ed));
 
   const {
-    api, info, setInfo, view, mirror, renderer, ready, tool, setTool, flipRef, forceEscRef, gestureRef, shelf,
+    api, info, setInfo, view, mirror, renderer, ready, setTool, tool, flipRef, forceEscRef, gestureRef, shelf,
     setTurn, icons, setStartDrag, startDrag, busy, setMessage, message, setHover, hover, showHistory, setShowHistory,
-    check, progress, layer, setLayer, waterLayers, waterTick, flowing, clearWater, setClearWater, sliceLevel,
+    check, progress, layer, setLayer, waterLayers, waterTick, flowing, setClearWater, clearWater, sliceLevel,
     selecting, selectingRef, selection, setHoverObject, player, sound, juice, setSound, feel, weather, instant,
     firstRun, setFirstRun, minimap, setMinimap, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen,
     viewTick, fit, setPicked, setPickedObject, pickedObjectRef, pickedRef, shapeNote, queue, indexed, infoRef,
     shelfRef, turnRef, needs, enqueue, run, toggleWeather, brushTool, brush, brushRef, brushToolRef, setBrush,
     pendingTerrain, strokeMismatches, localUndo, localRedo, painter, undo, redo, pickTop, putDown, pickBrush,
-    pickShelf, applyFix, targetAt, targetSpot, setTargeted, ctx, startHere, sourceInfo, sourceGrab, objectUnder,
-    objectTiles, grabObject, hoverSources, sourceMarkers, startHintRef, startWorkerApi, hintMs, startHintTag,
-    pickedSources, removeSources, flashNote, shelfTile, shelfHover, dropShelf, pageTileFacts, deleteCalls,
-    quakeUiRef, setQuakeUi, watch, setWatch, floorContext, forcer, unleash, unleashRow, strokeRadius, forceSizing,
-    fHeld, stepHabit, startForceSize, endForceSize, pickedRow, shelfRow, forceRow, glowCorners, onReady, openSelect,
-    closeSelect, selectAll, selectCalls, selectChip, selectRow
+    pickShelf, targetAt, targetSpot, setTargeted, ctx, startHere, sourceInfo, sourceGrab, objectUnder, objectTiles,
+    grabObject, hoverSources, sourceMarkers, startHintRef, startWorkerApi, hintMs, startHintTag, pickedSources,
+    removeSources, flashNote, shelfTile, shelfHover, dropShelf, pageTileFacts, deleteCalls, quakeUiRef, setQuakeUi,
+    watch, setWatch, floorContext, forcer, unleash, unleashRow, strokeRadius, forceSizing, fHeld, stepHabit,
+    startForceSize, endForceSize, pickedRow, shelfRow, forceRow, glowCorners, onReady, openSelect, closeSelect,
+    selectAll, selectCalls, selectChip, selectRow, toolRef, actions
   } = ed;
-
-  // a brush out takes the map's left button; put away, the brush under the cursor goes
-  useEffect(() => {
-    const r = renderer.current;
-    const p = painter.current;
-    if (!r || !p) return;
-    if (brushTool) {
-      r.tool = p.tool;
-      p.showCursor();
-    } else {
-      if (r.tool === p.tool) r.tool = null;
-      p.hideCursor();
-    }
-  }, [brushTool, ready]);
-  // a size saved on a larger map: at most this map's largest (D322, item 42)
-  useEffect(() => {
-    const max = sizeMax(info.W, info.H);
-    if (brushRef.current.size > max) setBrush({ ...brushRef.current, size: max }, false);
-  }, [info.W, info.H]);
-  // a new size, strength or level shows on the brush under the cursor at once
-  useEffect(() => painter.current?.showCursor(), [brush]);
-  // level lines while the toggle is on (the brush kit)
-  useEffect(() => renderer.current?.setLevelLines(brush.levelLines), [brush.levelLines, ready]);
-  // clear water (D212): T or Clear water makes all of it see-through; otherwise only the water under
-  // and right round the brush (or the shelf's ghost) clears, while it is over water (the view
-  // decides, renderer.ts clearNear), and on dry land the water stays as it is
-  useEffect(() => renderer.current?.setClearWater(clearWater), [clearWater, ready]);
-
-  const toolRef = useRef(tool);
-  toolRef.current = tool;
-
-  /** Fly the camera to a tile (a problem's "Show"). */
-  function showTile(x: number, y: number) {
-    const r = renderer.current;
-    if (!r) return;
-    r.setView({ target: [x + 0.5, r.heightAt(x, y), -(y + 0.5)], distance: Math.min(r.getView().distance, 60) });
-  }
-
-  const entityAt = (id: string): [number, number] | null => {
-    // the page's view has no entity ids: a problem's entities are found by the worker's "where"
-    void id;
-    return null;
-  };
-  const actions: ItemActions = {
-    onFix: (fix) => void applyFix(fix),
-    onShow: (c) => {
-      const at = whereOf(c, entityAt);
-      if (at) showTile(at[0], at[1]);
-    },
-    canShow: (c) => !!whereOf(c, entityAt),
-  };
 
   // ------------------------------------------------------------------------------ the start
 
@@ -670,7 +619,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { toolRef, grabObjectRef, startCalls, fitRef });
+  Object.assign(ed, { grabObjectRef, startCalls, fitRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
