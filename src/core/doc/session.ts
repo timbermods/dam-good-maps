@@ -16,8 +16,8 @@ import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { weatherKeep } from "../features/raster/objectGround";
-import { weatherRim } from "../features/raster/brush";
-import { waterLevels } from "../features/raster/weather";
+import { weatherBox, weatherRim } from "../features/raster/brush";
+import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
@@ -357,6 +357,7 @@ export class MapSession {
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
+      water: this.cur.water.slice(),
     };
   }
 
@@ -524,6 +525,14 @@ export class MapSession {
       const pre = this.cur.cache.terrain.pre7;
       const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
       applied.params = { ...applied.params, weathering: 2, ...(rim.length ? { rim } : {}) };
+    }
+    // and where the settled water stood round it, unless the page recorded the water it showed
+    if (applied.op === "brush" && applied.params.weathering === 2 && applied.params.shore === undefined && applied.params.pools === undefined) {
+      const box = weatherBox(applied.params, this.size.x, this.size.y);
+      if (box) {
+        const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, this.size.x);
+        applied.params = { ...applied.params, shore, pools };
+      }
     }
     // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
     // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)

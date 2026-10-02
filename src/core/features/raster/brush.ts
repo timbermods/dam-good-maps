@@ -79,7 +79,7 @@
 import { fmix32 } from "../../math/hash";
 import { CEILING } from "../../format/world";
 import * as portable from "../../math/portable";
-import { ringTiles, weather } from "./weather";
+import { ringTiles, shoreOf, weather, WeatherCache } from "./weather";
 
 export type BrushTool = "raise" | "lower" | "flatten" | "smooth" | "naturalize";
 
@@ -119,6 +119,12 @@ export interface BrushParams {
    *  stroke began, as pairs [tile along the ring (clockwise from its top-left corner), depth in
    *  levels]; the session records them, so nothing it does newly holds water outside it either. */
   rim?: number[];
+  /** Naturalize, rule 2: where the settled water stood when the stroke began (weather.ts `shoreOf`):
+   *  each dry tile beside it and the level it never comes down below, as runs [y, x0, x1, level], and
+   *  the wet tiles, never raised, as runs [y, x0, x1]. The page records the water it showed; the
+   *  session, for a stroke without them, its own. */
+  shore?: [number, number, number, number][];
+  pools?: [number, number, number][];
   /** Square (by the larger distance, on the tile grid); round when absent. */
   shape?: "square";
   /** Precise (retired by D322; its strokes replay): hard edges, no falloff, vertical walls (see
@@ -231,8 +237,9 @@ export function weathersLikeNature(p: Pick<BrushParams, "tool" | "weathers" | "w
   return p.tool === "naturalize" && p.weathers === true && p.weathering === 2;
 }
 
-/** The tiles beyond the brush's disc a natural weathering reads (its ring, never changed). */
-const WEATHER_MARGIN = 2;
+/** The tiles beyond the brush's disc a natural weathering reads: the softening of its edges (as far
+ *  as `wanderBlur`'s widest, 11) and its ring, never changed. */
+const WEATHER_MARGIN = 12;
 
 /** A natural weathering's working rectangle (weather.ts): its dabs' discs and a margin, on the map;
  *  from the dabs alone, so the page's stroke and its replay agree. */
@@ -364,6 +371,17 @@ export function levelRigid(rigid: readonly (readonly [number, number, number, nu
   return out;
 }
 
+/** What a natural weathering reads beyond its settings while it is painted (the page's stroke, before
+ *  it is an operation; D399): the level water would stand at on every tile (the drainage, for `rim`),
+ *  and the settled water's depth with the heights it stands on (for `shore` and `pools`, handed to
+ *  `record` each time they are worked out, so the operation keeps exactly what the stroke used). */
+export interface BrushStrokeOptions {
+  water?: ArrayLike<number>;
+  depth?: ArrayLike<number>;
+  shown?: ArrayLike<number>;
+  record?: (shore: [number, number, number, number][], pools: [number, number, number][]) => void;
+}
+
 /** A stroke being applied to a heightfield, dab by dab. `heights` is changed in place; `write(i)`
  *  says which tiles it may change (the build's region, a column the brush leaves alone). The
  *  result after all dabs does not depend on how they were handed in. */
@@ -418,8 +436,10 @@ export class BrushStroke {
   private lastBox: Rect | null = null;
   private writable: Uint8Array | null = null;
   private readonly water: ArrayLike<number> | null;
+  private readonly opts: BrushStrokeOptions;
+  private cache: WeatherCache | null = null;
 
-  constructor(settings: Omit<BrushParams, "dabs">, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, opts: { water?: ArrayLike<number> } = {}) {
+  constructor(settings: Omit<BrushParams, "dabs">, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, opts: BrushStrokeOptions = {}) {
     this.W = W;
     this.H = H;
     this.heights = heights;
@@ -435,6 +455,7 @@ export class BrushStroke {
     this.steps = settings.tool === "naturalize" && !this.nature ? new Uint16Array(W * H) : null;
     this.reach = this.nature ? new Uint16Array(W * H) : null;
     this.water = this.nature ? (opts.water ?? null) : null;
+    this.opts = opts;
     const smart = settings.channel === true && settings.tool === "lower";
     this.deep = smart && settings.deepen ? new Uint8Array(W * H) : null;
     this.cap = smart && !this.deep ? new Uint8Array(W * H).fill(255) : null;
@@ -631,7 +652,16 @@ export class BrushStroke {
     const known = (this.writable ??= new Uint8Array(W * H));
     const write = this.write;
     const may = (i: number) => (known[i] ? known[i] === 1 : (known[i] = write(i) ? 1 : 2) === 1);
-    weather({ W, H, box, before, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim }, this.heights);
+    // where the water stood: the stroke's own record, or the page's water, recorded as it is used
+    let shore = this.settings.shore ?? null;
+    let pools = this.settings.pools ?? null;
+    const { depth, shown, record } = this.opts;
+    if (!shore && !pools && depth && shown) {
+      ({ shore, pools } = shoreOf(box, shown, depth, W));
+      record?.(shore, pools);
+    }
+    const cache = (this.cache ??= new WeatherCache(before, W, H));
+    weather({ W, H, box, before, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, shore, pools, cache }, this.heights);
     return box;
   }
 
@@ -876,6 +906,8 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.seed !== undefined && !Number.isInteger(p.seed)) return ["a brush's seed is a whole number"];
   if (p.weathers !== undefined && (p.weathers !== true || p.tool !== "naturalize")) return ["only a naturalize stroke weathers"];
   if (p.weathering !== undefined && (p.weathering !== 2 || p.weathers !== true || p.precise)) return ["only a weathering naturalize stroke, never a precise one, has rule 2"];
+  if ((p.shore !== undefined || p.pools !== undefined) && (p.weathering !== 2 || !Array.isArray(p.shore ?? []) || !Array.isArray(p.pools ?? []) || (p.shore ?? []).length > 65536 || (p.pools ?? []).length > 65536 || !(p.shore ?? []).every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= 255) || !(p.pools ?? []).every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2])))
+    return ["a natural weathering's shore is runs [y, x0, x1, level] and its pools runs [y, x0, x1]"];
   if (p.rim !== undefined && (p.weathering !== 2 || !Array.isArray(p.rim) || p.rim.length % 2 || p.rim.length > 8192 || !p.rim.every((v, k) => Number.isInteger(v) && (k % 2 ? v >= 1 && v <= BRUSH_MAX_LEVEL : v >= 0)))) return [`a natural weathering's rim is pairs [tile along the ring, depth 1 to ${BRUSH_MAX_LEVEL}]`];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
   if (p.dabs.length > 2 * MAX_DABS) return [`a stroke holds at most ${MAX_DABS} dabs`];

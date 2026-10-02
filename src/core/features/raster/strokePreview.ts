@@ -32,6 +32,9 @@ export interface TerrainState {
   top?: number;
   /** The start features: their pads are the one ground Naturalize leaves (D368 (8)). */
   starts?: readonly StartFeature[];
+  /** The settled water's depth on every tile, as the page shows it (a natural weathering keeps the
+   *  water where it stands, D399). */
+  water?: Float64Array | null;
 }
 
 export class StrokePreview {
@@ -54,6 +57,16 @@ export class StrokePreview {
 
   /** `heights` are the map's heights as shown (changed in place as the stroke goes on). */
   constructor(settings: Omit<BrushParams, "dabs">, state: TerrainState, heights: Uint8Array, W: number, H: number, ground?: Runs) {
+    // a new weathering stroke's rule and where the water stood are written into the settings the page
+    // hands in, so the operation it records keeps exactly what this preview used (D399; the session
+    // adds them itself to a stroke that comes without)
+    const record = settings as Omit<BrushParams, "dabs">;
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || record.shore !== undefined || record.pools !== undefined);
+    if (fresh) {
+      record.weathering = 2;
+      delete record.shore;
+      delete record.pools;
+    }
     // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
     // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
     // stroke is not yet an operation, hands in the same ones (D368 (8))
@@ -84,7 +97,12 @@ export class StrokePreview {
     // (a stroke from before D368 leaves every protected tile, as the build does)
     const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
     const prot = settings.tool === "naturalize" && !settings.weathers ? state.protect : null;
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), { water });
+    const depth = fresh && state.water ? state.water : undefined;
+    const shown = this.start;
+    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+      water,
+      ...(depth ? { depth, shown, record: (shore, pools) => Object.assign(record, { shore, pools }) } : {}),
+    });
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;

@@ -58,6 +58,8 @@
         "weathers": { "const": true },
         "weathering": { "const": 2 },
         "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
+        "shore": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "pools": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square"] },
         "precise": { "type": "boolean" },

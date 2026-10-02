@@ -405,7 +405,9 @@ function viewUpdate(s: MapSession): ViewUpdate {
     markSent(s);
     return all;
   }
-  if (prev.terrain !== b.cache.terrain) out.terrain = s.terrainState();
+  const water = s.showsStoredWater ? "stored" : b.water;
+  // (the terrain the page paints on carries the settled water too: a Naturalize stroke keeps it, D399)
+  if (prev.terrain !== b.cache.terrain || water !== prev.water) out.terrain = s.terrainState();
   if (prev.heights !== b.heights) {
     const rect = changedRect(b.W, b.H, prev.heights, b.heights);
     if (rect) {
@@ -413,7 +415,6 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.terrainRect = rect;
     }
   }
-  const water = s.showsStoredWater ? "stored" : b.water;
   if (water !== prev.water) out.water = waterOf(s);
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
   // (a rebuild that placed the same objects again sends none: the page keeps its own)

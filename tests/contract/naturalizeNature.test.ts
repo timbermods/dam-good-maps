@@ -5,7 +5,13 @@
 //   edge and moving side to side as the game's does): no tile has deeper water after a stroke.
 // - No neighbouring pair of tiles swaps which is higher.
 // - Its edge makes no step that wasn't there: across the rim of what the brush reached, no new step.
+// - Nothing one tile wide that wasn't there: no tile it changed forms a tread or ledge narrower than two
+//   tiles downhill (between a higher and a lower neighbour across it) or a sliver of a level one tile
+//   thick (above or below both its neighbours across it), and no tile it left as it was becomes such a
+//   sliver; a tile that was already one tile wide (a tile of a one-tile staircase it had) may stay so.
 // - Painting the same spot again changes less and less (repeating settles).
+// - The water stays where it stood (what you see is what you get): beside a river or a lake no dry
+//   tile comes down below the water's surface next to it, and no wet tile is raised.
 // - A new stroke records its rule, and the page's stroke is the stroke the session builds.
 // Cut and fill are printed, as information only.
 
@@ -70,6 +76,21 @@ function broken(a: Uint8Array, b: Uint8Array, reached: Uint8Array): string[] {
       if (reached[i] !== reached[j] && Math.abs(b[i] - b[j]) > Math.abs(a[i] - a[j])) out.push(`a new step at the stroke's edge between ${at(i)} and ${at(j)}`);
     }
   }
+  // nothing one tile wide that wasn't there (on the tiles it changed, or beside them)
+  const narrow = (h: Uint8Array, i: number, st: number) => h[i] !== h[i - st] && h[i] !== h[i + st];
+  for (let i = 0; i < a.length; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x === 0 || y === 0 || x === W - 1 || y === W - 1) continue;
+    for (const st of [1, W]) {
+      if (b[i] === a[i] && b[i - st] === a[i - st] && b[i + st] === a[i + st]) continue;
+      if (!narrow(b, i, st) || narrow(a, i, 1) || narrow(a, i, W)) continue;
+      const kind = b[i] > Math.max(b[i - st], b[i + st]) ? "a wall" : b[i] < Math.min(b[i - st], b[i + st]) ? "a slot" : "a tread";
+      // (a tile it left as it was may be a tread where a step moved beside it: only never a sliver)
+      if (b[i] === a[i] && kind === "a tread") continue;
+      out.push(`${at(i)} is ${kind} one tile wide ${st === 1 ? "east-west" : "north-south"}`);
+    }
+  }
   const f0 = drainage(a, W, W, { eight: false }).filled;
   const f1 = drainage(b, W, W, { eight: false }).filled;
   for (let i = 0; i < a.length; i++) if (f1[i] - b[i] > f0[i] - a[i]) out.push(`${at(i)} holds deeper water (${f0[i] - a[i]} → ${f1[i] - b[i]})`);
@@ -94,6 +115,10 @@ const MAPS: [ThemeId, number, number | undefined][] = [
   ["lakeBasin", 1, 100],
   ["highlands", 2, undefined],
   ["canyon", 4, undefined],
+  ["riverValley", 6, 100],
+  ["highlands", 5, 100],
+  ["delta", 2, undefined],
+  ["islands", 5, undefined],
 ];
 
 describe("Naturalize keeps the downhill order (D399)", () => {
@@ -152,6 +177,54 @@ describe("painting the same spot again settles (D399)", () => {
     });
 });
 
+describe("Naturalize keeps the water where it stood (D399)", () => {
+  for (const [theme, seed] of [
+    ["riverValley", 3],
+    ["lakeBasin", 1],
+  ] as const)
+    it(`${theme} ${seed} at Terracing 100: strokes along a river's and a lake's terraced banks flood no dry tile`, () => {
+      const s = session(theme, seed, 100);
+      const rand = mulberry(seed * 977);
+      const wet = (d: ArrayLike<number>, i: number) => d[i] > 1e-3;
+      let strokes = 0;
+      let lowered = 0;
+      for (let k = 0; k < 10; k++) {
+        const h0 = s.built.heights.slice();
+        const d0 = s.built.water.slice();
+        // a shore tile: dry, beside water
+        const shore: number[] = [];
+        for (let i = W * 4; i < W * (W - 4); i++) {
+          const x = i % W;
+          if (x < 4 || x >= W - 4 || wet(d0, i)) continue;
+          if ([i - 1, i + 1, i - W, i + W].some((j) => wet(d0, j))) shore.push(i);
+        }
+        expect(shore.length, `${theme} ${seed} has water beside dry land`).toBeGreaterThan(20);
+        const at = shore[Math.floor(rand() * shore.length)];
+        const p = stroke(rand, (at % W) + 0.5, Math.floor(at / W) + 0.5, [4, 6, 9][k % 3], 6 + (k % 5));
+        expect(s.apply({ op: "brush", params: p }, "user", "Naturalize").errors).toEqual([]);
+        strokes++;
+        const h1 = s.built.heights;
+        const bad: string[] = [];
+        for (let i = 0; i < h0.length; i++) {
+          if (h1[i] === h0[i]) continue;
+          if (h1[i] < h0[i]) lowered++;
+          if (wet(d0, i)) {
+            if (h1[i] > h0[i]) bad.push(`wet (${i % W}, ${Math.floor(i / W)}) raised ${h0[i]} → ${h1[i]}`);
+            continue;
+          }
+          for (const j of [i - 1, i + 1, i - W, i + W]) {
+            if (!wet(d0, j)) continue;
+            const surface = h0[j] + d0[j];
+            if (h1[i] < surface - 1e-9 && h0[i] >= surface - 1e-9) bad.push(`(${i % W}, ${Math.floor(i / W)}) came down to ${h1[i]}, under the water beside it at ${surface.toFixed(2)}`);
+          }
+        }
+        expect(bad, `${theme} ${seed}, stroke ${k + 1} at (${at % W}, ${Math.floor(at / W)})`).toEqual([]);
+      }
+      expect(strokes).toBe(10);
+      expect(lowered, "the banks still weathered").toBeGreaterThan(0);
+    });
+});
+
 describe("the page's stroke is the stroke the session builds (D399)", () => {
   it("dabs handed in a few at a time give the land the operation builds", () => {
     const s = session("riverValley", 3, 100);
@@ -165,7 +238,9 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const { dabs, ...settings } = p;
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
-      const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
+      // the page's settings now carry the rule and the water the preview kept, as its operation will
+      expect(settings).toMatchObject({ weathering: 2, shore: expect.any(Array), pools: expect.any(Array) });
+      const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
       // its working rectangle lies inside its bounds (a rebuild reads nothing beyond them)
