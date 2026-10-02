@@ -1,0 +1,5612 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "baselineCommit": "d18a6f4d890d3f2e3f7b480e308242375c100e10",
+  "reference": "0b84b96e90d6f267d09bd93ec3e492e4b77e13614fbd2ea47134c7a72d63b15f",
+  "machine": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "logicalCores": 16,
+    "memoryBytes": 66146570240,
+    "platform": "win32",
+    "arch": "x64",
+    "loadSource": "Windows PDH Processor(_Total) % Processor Time"
+  },
+  "identity": {
+    "cases": 1952,
+    "captures": 39529,
+    "browserFingerprint": "16279601f52a6395064bb386a47d3f4b9fc9c1be9cf687e7cc4088ccbee87fa7",
+    "browsers": [
+      {
+        "engine": "firefox",
+        "version": "146.0.1",
+        "cases": 1952,
+        "smokeChecks": 23400,
+        "lifecycleChecks": 257,
+        "recordedTypeScriptFingerprint": "9e8f820394cba6cd8a7d3f24da93b50d9b588068a72e5204a62be3f55a0fab6b"
+      },
+      {
+        "engine": "webkit",
+        "version": "26.0",
+        "cases": 1952,
+        "smokeChecks": 23400,
+        "lifecycleChecks": 257,
+        "recordedTypeScriptFingerprint": "9e8f820394cba6cd8a7d3f24da93b50d9b588068a72e5204a62be3f55a0fab6b"
+      },
+      {
+        "engine": "chromium",
+        "version": "145.0.7632.6",
+        "cases": 1952,
+        "smokeChecks": 23400,
+        "lifecycleChecks": 257,
+        "recordedTypeScriptFingerprint": "9e8f820394cba6cd8a7d3f24da93b50d9b588068a72e5204a62be3f55a0fab6b"
+      }
+    ],
+    "native": "Every candidate output re-compared as raw bytes",
+    "nodePerTickChecks": 33400,
+    "pinnedDigests": 38,
+    "fallback": "pass",
+    "guardUnitTests": 3,
+    "skinnyShapes": {
+      "status": "pass",
+      "rows": [
+        {
+          "id": "shape-1-257-game",
+          "input": "bc1006c1d1dbdf68ea82c960f56727528c6ccb1756b5885621b0bba331c2004c",
+          "expected": "9d84d38fd1a34a7c62eb318274b6985f6a0ec192983c8dd1efce9c3e8c6f6b2f",
+          "captures": 3
+        },
+        {
+          "id": "shape-1-257-port",
+          "input": "9d2ea7ff6328d11835f84dcf1656313b5997a2bdf0a3b2695545ea6217407ff3",
+          "expected": "f1fd126531a8000ebd69ed9a3b3c34942a2f1c924abf347f56057b83b45370d2",
+          "captures": 3
+        },
+        {
+          "id": "shape-257-1-game",
+          "input": "ddc6f399e0b4a57ac92c7486c9048a5fc92d99f89cf154901d740d69cd7f79fa",
+          "expected": "57ca78f625e80fc71289a708fe3bdbd01149b5162dc501b433252d89325dd662",
+          "captures": 3
+        },
+        {
+          "id": "shape-257-1-port",
+          "input": "5a0c118bacfa7df65d7c545b02e7b31209f0df6d1592d8b09d60eb43098944fd",
+          "expected": "b0d4d7d807bd045efdc74caaf8bb4cb326744cdc69c8dd1fd6309b65cac97c4b",
+          "captures": 3
+        }
+      ]
+    },
+    "skinnyBrowserRuns": 36,
+    "python": {
+      "status": 0,
+      "log": "9c4796e5ba4995f464bc9fe5faa2a9a3c51b105c236ebdef5dfa8ba8a08ee3a5",
+      "summary": "PASS: 63 maps (21 seeds × 3 sizes; themes any, riverValley, canyon, highlands, lakeBasin, delta, islands), 0 generation failures, 0 load failures, 0 round-trip failures; parity on 22 generated and 19 official maps, 0 disagreements"
+    }
+  },
+  "wasm": {
+    "sha256": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+    "bytes": 62791,
+    "gzip": 24722,
+    "brotli": 20797
+  },
+  "beforeWasm": {
+    "sha256": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+    "bytes": 61231,
+    "gzip": 24392,
+    "brotli": 20481
+  },
+  "sharedWasm": {
+    "sha256": "a3abe9eb5ef1af913e87c3e817f4781fc114061e25951e4b82dd1a138a21e7e5",
+    "bytes": 5056,
+    "gzip": 1878,
+    "brotli": 1707
+  },
+  "compiler": {
+    "rust": "1.90.0",
+    "releaseOptimization": 3,
+    "lto": true,
+    "codegenUnits": 1,
+    "node": "v24.13.0",
+    "typescript": "5.9.3",
+    "ir": {
+      "status": "pass",
+      "rows": [
+        {
+          "name": "target/wasm32-unknown-unknown/release/deps/rust_water.ll",
+          "sha256": "040bfc8170f395c9309a1e36808fe312ee282449f163eae6133e4da22446257f"
+        },
+        {
+          "name": "target/release/deps/rust_water.ll",
+          "sha256": "6d185643af99f30c460e5c33e6f4baf4776f736a245f9b20e5b64ecc043a2cdb"
+        },
+        {
+          "name": "shared-water.ll",
+          "sha256": "88a01c31e255a95ba4d45701981d9f100aca94be7dfb1aa02a719b0cf7456f79"
+        }
+      ]
+    }
+  },
+  "firefoxDiagnostic": {
+    "source": "C:\\Users\\Kyler\\AppData\\Local\\ms-playwright\\firefox-1509\\firefox",
+    "destination": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-water\\local\\checkout\\investigation\\rust-water\\local\\profiles\\firefox-diagnostic",
+    "executableSha256": "d43cbdb5c898004d9b34aca96ae19a3a96ad65477ad7d71e179bb34ceed2b50a",
+    "sourceArchiveSha256": "bd009b61c31e2a4629f4f19c76d8d434e2d7e4d3cbde1aa51c56d10f4a55caa3",
+    "diagnosticArchiveSha256": "b128de9a942e56f4ef6bd1b2dc7a4eb136c45af6cf613638cf44fda11732ba35",
+    "sourceRuntimeSha256": "3d61bcb5eecfd4f4fabb5a935095b56bff160e959dc5793e5656652d501f424d",
+    "diagnosticRuntimeSha256": "4cbb28caecedc98fd98a5af0590d4aade4e66610e25befc23694410127835c19",
+    "upstream": "https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/firefox/juggler/content/Runtime.js"
+  },
+  "assembly": {
+    "wasm": [
+      {
+        "name": "before",
+        "sha256": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+        "symbol": "_ZN10rust_water3Sim7substep17h315a04866cd0d163E",
+        "staticInstructions": 3118,
+        "loads": 213,
+        "stores": 59,
+        "boundsPanicSites": 45,
+        "branches": 205
+      },
+      {
+        "name": "current",
+        "sha256": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+        "symbol": "_ZN10rust_water3Sim7substep17h315a04866cd0d163E",
+        "staticInstructions": 3203,
+        "loads": 179,
+        "stores": 58,
+        "boundsPanicSites": 15,
+        "branches": 209
+      }
+    ],
+    "arithmeticBodies": {
+      "flow": "cb0ac294d7472bef96f3ce329d70391d811f471183e3d0f8c95c85e9ce6bc856",
+      "depth": "41b7e93cd742b299fde8f28a01a24750f3da314fc37b88436609930beb3791ed",
+      "dam": "44650f31303d201935d03350b9d472c3835199713a1020fc7afd01585582bba7"
+    },
+    "gecko": [
+      {
+        "samples": 4939,
+        "leaves": [
+          [
+            "rust_water.wasm._ZN10rust_water3Sim7substep17h315a04866cd0d163E (http://127.0.0.1:53954/profile-worker.js line 827 > WebAssembly.compile:12310)",
+            3856
+          ],
+          [
+            "substep (http://127.0.0.1:53954/profile-worker.js:278:10)",
+            885
+          ],
+          [
+            "0x7ffcbf424a14",
+            83
+          ],
+          [
+            "clamp01 (http://127.0.0.1:53954/profile-worker.js:514:17)",
+            9
+          ],
+          [
+            "0x7ffcbf421184",
+            4
+          ],
+          [
+            "WaterSim (http://127.0.0.1:53954/profile-worker.js:96:14)",
+            3
+          ],
+          [
+            "0x7ffc9fbfdafb",
+            3
+          ],
+          [
+            "0x7ffb0c31c087",
+            2
+          ],
+          [
+            "0x7ffb0c4659d3",
+            2
+          ],
+          [
+            "0x7ffb0c45aad9",
+            2
+          ],
+          [
+            "f64 (http://127.0.0.1:53954/profile-worker.js:767:12)",
+            2
+          ],
+          [
+            "0x7ffb0c39e29f",
+            2
+          ],
+          [
+            "rust_water.wasm._ZN10rust_water3Sim3run17h4d0831b75bcc85bbE (http://127.0.0.1:53954/profile-worker.js line 827 > WebAssembly.compile:19315)",
+            2
+          ],
+          [
+            "advance (http://127.0.0.1:53954/profile-worker.js:622:10)",
+            2
+          ],
+          [
+            "0x7ffb0c45a03b",
+            2
+          ],
+          [
+            "f64 (http://127.0.0.1:53954/profile-worker.js:695:6)",
+            2
+          ],
+          [
+            "0x7ffb0c1108d4",
+            1
+          ],
+          [
+            "0x7ffcbf527055",
+            1
+          ],
+          [
+            "0x7ffcbf2d293a",
+            1
+          ],
+          [
+            "0x156e2295874",
+            1
+          ]
+        ]
+      }
+    ],
+    "profileHash": "83e6df5e01a6f92b9962b5c4d025f81a39125618a797ac906969790fe5786010"
+  },
+  "final": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            2,
+            1,
+            2
+          ],
+          "median": 2,
+          "worst": 2
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            1071,
+            1429,
+            1079
+          ],
+          "median": 1079,
+          "worst": 1429
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1085,
+            1442,
+            1094
+          ],
+          "median": 1094,
+          "worst": 1442
+        },
+        "serialize": {
+          "samples": [
+            8,
+            9,
+            11
+          ],
+          "median": 9,
+          "worst": 11
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            19,
+            19,
+            9
+          ],
+          "median": 19,
+          "worst": 19
+        },
+        "kernel": {
+          "samples": [
+            326,
+            378,
+            516
+          ],
+          "median": 378,
+          "worst": 516
+        },
+        "run": {
+          "samples": [
+            326,
+            378,
+            517
+          ],
+          "median": 378,
+          "worst": 517
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            356,
+            409,
+            537
+          ],
+          "median": 409,
+          "worst": 537
+        },
+        "serialize": {
+          "samples": [
+            8,
+            8,
+            8
+          ],
+          "median": 8,
+          "worst": 8
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 884736,
+      "load": [
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9,
+            12,
+            9
+          ],
+          "median": 9,
+          "worst": 12
+        },
+        "kernel": {
+          "samples": [
+            609,
+            534,
+            645
+          ],
+          "median": 609,
+          "worst": 645
+        },
+        "run": {
+          "samples": [
+            612,
+            534,
+            647
+          ],
+          "median": 612,
+          "worst": 647
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            647,
+            573,
+            667
+          ],
+          "median": 647,
+          "worst": 667
+        },
+        "serialize": {
+          "samples": [
+            12,
+            9,
+            7
+          ],
+          "median": 9,
+          "worst": 12
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 884736,
+      "load": [
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.93857580555475,
+          "max": 100,
+          "samples": 7,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            3,
+            3,
+            2
+          ],
+          "median": 3,
+          "worst": 3
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            1434,
+            1227,
+            1503
+          ],
+          "median": 1434,
+          "worst": 1503
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1479,
+            1270,
+            1529
+          ],
+          "median": 1479,
+          "worst": 1529
+        },
+        "serialize": {
+          "samples": [
+            20,
+            37,
+            17
+          ],
+          "median": 20,
+          "worst": 37
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            16,
+            16,
+            16
+          ],
+          "median": 16,
+          "worst": 16
+        },
+        "kernel": {
+          "samples": [
+            434,
+            462,
+            558
+          ],
+          "median": 462,
+          "worst": 558
+        },
+        "run": {
+          "samples": [
+            435,
+            466,
+            563
+          ],
+          "median": 466,
+          "worst": 563
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            468,
+            514,
+            612
+          ],
+          "median": 514,
+          "worst": 612
+        },
+        "serialize": {
+          "samples": [
+            15,
+            13,
+            27
+          ],
+          "median": 15,
+          "worst": 27
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            13,
+            14,
+            15
+          ],
+          "median": 14,
+          "worst": 15
+        },
+        "kernel": {
+          "samples": [
+            612,
+            609,
+            824
+          ],
+          "median": 612,
+          "worst": 824
+        },
+        "run": {
+          "samples": [
+            612,
+            611,
+            825
+          ],
+          "median": 612,
+          "worst": 825
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            651,
+            673,
+            864
+          ],
+          "median": 673,
+          "worst": 864
+        },
+        "serialize": {
+          "samples": [
+            21,
+            36,
+            19
+          ],
+          "median": 21,
+          "worst": 36
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.98974383791172,
+          "max": 100,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            8,
+            7,
+            8
+          ],
+          "median": 8,
+          "worst": 8
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            8915,
+            6010,
+            5805
+          ],
+          "median": 6010,
+          "worst": 8915
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            9038,
+            6099,
+            5890
+          ],
+          "median": 6099,
+          "worst": 9038
+        },
+        "serialize": {
+          "samples": [
+            97,
+            63,
+            55
+          ],
+          "median": 63,
+          "worst": 97
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            88,
+            125,
+            81
+          ],
+          "median": 88,
+          "worst": 125
+        },
+        "kernel": {
+          "samples": [
+            3536,
+            2789,
+            2953
+          ],
+          "median": 2953,
+          "worst": 3536
+        },
+        "run": {
+          "samples": [
+            3544,
+            2798,
+            2964
+          ],
+          "median": 2964,
+          "worst": 3544
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            3751,
+            3026,
+            3162
+          ],
+          "median": 3162,
+          "worst": 3751
+        },
+        "serialize": {
+          "samples": [
+            95,
+            77,
+            80
+          ],
+          "median": 80,
+          "worst": 95
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 6291456,
+      "load": [
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            84,
+            84,
+            79
+          ],
+          "median": 84,
+          "worst": 84
+        },
+        "kernel": {
+          "samples": [
+            3800,
+            3925,
+            4035
+          ],
+          "median": 3925,
+          "worst": 4035
+        },
+        "run": {
+          "samples": [
+            3806,
+            3929,
+            4056
+          ],
+          "median": 3929,
+          "worst": 4056
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            4017,
+            4134,
+            4250
+          ],
+          "median": 4134,
+          "worst": 4250
+        },
+        "serialize": {
+          "samples": [
+            99,
+            98,
+            94
+          ],
+          "median": 98,
+          "worst": 99
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 6291456,
+      "load": [
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 99.78609291069151,
+          "max": 100,
+          "samples": 44,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            18,
+            21,
+            20
+          ],
+          "median": 20,
+          "worst": 21
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            78182,
+            40669,
+            48185
+          ],
+          "median": 48185,
+          "worst": 78182
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            78653,
+            40897,
+            48701
+          ],
+          "median": 48701,
+          "worst": 78653
+        },
+        "serialize": {
+          "samples": [
+            340,
+            150,
+            421
+          ],
+          "median": 340,
+          "worst": 421
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            396,
+            165,
+            491
+          ],
+          "median": 396,
+          "worst": 491
+        },
+        "kernel": {
+          "samples": [
+            18646,
+            13181,
+            29390
+          ],
+          "median": 18646,
+          "worst": 29390
+        },
+        "run": {
+          "samples": [
+            18669,
+            13197,
+            29425
+          ],
+          "median": 18669,
+          "worst": 29425
+        },
+        "saturation": {
+          "samples": [
+            1,
+            0,
+            2
+          ],
+          "median": 1,
+          "worst": 2
+        },
+        "total": {
+          "samples": [
+            19272,
+            13564,
+            30320
+          ],
+          "median": 19272,
+          "worst": 30320
+        },
+        "serialize": {
+          "samples": [
+            146,
+            155,
+            322
+          ],
+          "median": 155,
+          "worst": 322
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            171,
+            244,
+            369
+          ],
+          "median": 244,
+          "worst": 369
+        },
+        "kernel": {
+          "samples": [
+            16846,
+            16648,
+            27638
+          ],
+          "median": 16846,
+          "worst": 27638
+        },
+        "run": {
+          "samples": [
+            16872,
+            16676,
+            27666
+          ],
+          "median": 16872,
+          "worst": 27666
+        },
+        "saturation": {
+          "samples": [
+            1,
+            0,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            17300,
+            17129,
+            28329
+          ],
+          "median": 17300,
+          "worst": 28329
+        },
+        "serialize": {
+          "samples": [
+            199,
+            159,
+            209
+          ],
+          "median": 199,
+          "worst": 209
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 94.63779976298837,
+          "max": 100,
+          "samples": 390,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            2,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 2
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            511.00000000000045,
+            379,
+            306
+          ],
+          "median": 379,
+          "worst": 511.00000000000045
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            524,
+            386,
+            314.0000000000009
+          ],
+          "median": 386,
+          "worst": 524
+        },
+        "serialize": {
+          "samples": [
+            7,
+            4,
+            6.0000000000009095
+          ],
+          "median": 6.0000000000009095,
+          "worst": 7
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            5,
+            5,
+            4
+          ],
+          "median": 5,
+          "worst": 5
+        },
+        "kernel": {
+          "samples": [
+            523.0000000000005,
+            433,
+            326
+          ],
+          "median": 433,
+          "worst": 523.0000000000005
+        },
+        "run": {
+          "samples": [
+            525,
+            433,
+            326
+          ],
+          "median": 433,
+          "worst": 525
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            543,
+            444,
+            339
+          ],
+          "median": 444,
+          "worst": 543
+        },
+        "serialize": {
+          "samples": [
+            8,
+            5.0000000000009095,
+            5
+          ],
+          "median": 5.0000000000009095,
+          "worst": 8
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 884736,
+      "load": [
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-96-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            8,
+            4,
+            8
+          ],
+          "median": 8,
+          "worst": 8
+        },
+        "kernel": {
+          "samples": [
+            687.9999999999995,
+            527.9999999999986,
+            477.0000000000009
+          ],
+          "median": 527.9999999999986,
+          "worst": 687.9999999999995
+        },
+        "run": {
+          "samples": [
+            688.9999999999995,
+            528.9999999999995,
+            478.0000000000009
+          ],
+          "median": 528.9999999999995,
+          "worst": 688.9999999999995
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            707,
+            536.9999999999995,
+            491
+          ],
+          "median": 536.9999999999995,
+          "worst": 707
+        },
+        "serialize": {
+          "samples": [
+            7,
+            3,
+            4.9999999999990905
+          ],
+          "median": 4.9999999999990905,
+          "worst": 7
+        }
+      },
+      "calls": [
+        9,
+        9,
+        9
+      ],
+      "ticks": [
+        1152,
+        1152,
+        1152
+      ],
+      "bytesPerCall": 884736,
+      "load": [
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 97.66659542885475,
+          "max": 99.8105607415629,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            2,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 2
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            331,
+            411,
+            345
+          ],
+          "median": 345,
+          "worst": 411
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            345,
+            428,
+            355
+          ],
+          "median": 355,
+          "worst": 428
+        },
+        "serialize": {
+          "samples": [
+            6,
+            10.999999999998181,
+            6
+          ],
+          "median": 6,
+          "worst": 10.999999999998181
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9,
+            7.999999999998181,
+            13
+          ],
+          "median": 9,
+          "worst": 13
+        },
+        "kernel": {
+          "samples": [
+            331,
+            360.0000000000018,
+            349
+          ],
+          "median": 349,
+          "worst": 360.0000000000018
+        },
+        "run": {
+          "samples": [
+            331,
+            362,
+            350
+          ],
+          "median": 350,
+          "worst": 362
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            354,
+            376.9999999999982,
+            373
+          ],
+          "median": 373,
+          "worst": 376.9999999999982
+        },
+        "serialize": {
+          "samples": [
+            11,
+            5,
+            8
+          ],
+          "median": 8,
+          "worst": 11
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            7,
+            7,
+            7
+          ],
+          "median": 7,
+          "worst": 7
+        },
+        "kernel": {
+          "samples": [
+            485,
+            491,
+            590.0000000000018
+          ],
+          "median": 491,
+          "worst": 590.0000000000018
+        },
+        "run": {
+          "samples": [
+            485,
+            491,
+            591.0000000000018
+          ],
+          "median": 491,
+          "worst": 591.0000000000018
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            499,
+            516,
+            609
+          ],
+          "median": 516,
+          "worst": 609
+        },
+        "serialize": {
+          "samples": [
+            6,
+            15,
+            9.999999999998181
+          ],
+          "median": 9.999999999998181,
+          "worst": 15
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 91.6566851619473,
+          "max": 95.28124049623321,
+          "samples": 6,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            5,
+            5,
+            5
+          ],
+          "median": 5,
+          "worst": 5
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            1988.0000000000036,
+            1978.0000000000073,
+            1912
+          ],
+          "median": 1978.0000000000073,
+          "worst": 1988.0000000000036
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            2022,
+            2013,
+            2062
+          ],
+          "median": 2022,
+          "worst": 2062
+        },
+        "serialize": {
+          "samples": [
+            22,
+            23,
+            135
+          ],
+          "median": 23,
+          "worst": 135
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            25,
+            27,
+            30
+          ],
+          "median": 27,
+          "worst": 30
+        },
+        "kernel": {
+          "samples": [
+            2338.0000000000036,
+            2928.0000000000073,
+            2231.000000000022
+          ],
+          "median": 2338.0000000000036,
+          "worst": 2928.0000000000073
+        },
+        "run": {
+          "samples": [
+            2344,
+            2932,
+            2236
+          ],
+          "median": 2344,
+          "worst": 2932
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            0
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            2403,
+            2996,
+            2295
+          ],
+          "median": 2403,
+          "worst": 2996
+        },
+        "serialize": {
+          "samples": [
+            27,
+            30,
+            26
+          ],
+          "median": 27,
+          "worst": 30
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 6291456,
+      "load": [
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-256-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            25,
+            40.00000000000364,
+            36
+          ],
+          "median": 36,
+          "worst": 40.00000000000364
+        },
+        "kernel": {
+          "samples": [
+            4495.999999999996,
+            4362.000000000004,
+            2903
+          ],
+          "median": 4362.000000000004,
+          "worst": 4495.999999999996
+        },
+        "run": {
+          "samples": [
+            4503,
+            4368,
+            2907
+          ],
+          "median": 4368,
+          "worst": 4503
+        },
+        "saturation": {
+          "samples": [
+            1,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            4560,
+            4460.000000000007,
+            2970
+          ],
+          "median": 4460.000000000007,
+          "worst": 4560
+        },
+        "serialize": {
+          "samples": [
+            27,
+            49,
+            20
+          ],
+          "median": 27,
+          "worst": 49
+        }
+      },
+      "calls": [
+        13,
+        13,
+        13
+      ],
+      "ticks": [
+        1664,
+        1664,
+        1664
+      ],
+      "bytesPerCall": 6291456,
+      "load": [
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 88.28893652073492,
+          "max": 100,
+          "samples": 33,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            21.000000000014552,
+            19,
+            21
+          ],
+          "median": 21,
+          "worst": 21.000000000014552
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            22648.999999999985,
+            19494.00000000003,
+            15995
+          ],
+          "median": 19494.00000000003,
+          "worst": 22648.999999999985
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            22810,
+            19646.00000000003,
+            16138
+          ],
+          "median": 19646.00000000003,
+          "worst": 22810
+        },
+        "serialize": {
+          "samples": [
+            110.00000000001455,
+            102,
+            102
+          ],
+          "median": 102,
+          "worst": 110.00000000001455
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            142,
+            98.9999999999709,
+            92.0000000000291
+          ],
+          "median": 98.9999999999709,
+          "worst": 142
+        },
+        "kernel": {
+          "samples": [
+            18555.999999999985,
+            17603.999999999884,
+            13069.000000000087
+          ],
+          "median": 17603.999999999884,
+          "worst": 18555.999999999985
+        },
+        "run": {
+          "samples": [
+            18598,
+            17632.000000000087,
+            13093.99999999997
+          ],
+          "median": 17632.000000000087,
+          "worst": 18598
+        },
+        "saturation": {
+          "samples": [
+            1.0000000000291038,
+            2,
+            0
+          ],
+          "median": 1.0000000000291038,
+          "worst": 2
+        },
+        "total": {
+          "samples": [
+            18870,
+            17829.99999999997,
+            13285
+          ],
+          "median": 17829.99999999997,
+          "worst": 18870
+        },
+        "serialize": {
+          "samples": [
+            101,
+            74,
+            78
+          ],
+          "median": 78,
+          "worst": 101
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            134,
+            90,
+            84
+          ],
+          "median": 90,
+          "worst": 134
+        },
+        "kernel": {
+          "samples": [
+            24675,
+            31300.999999999913,
+            19110.000000000175
+          ],
+          "median": 24675,
+          "worst": 31300.999999999913
+        },
+        "run": {
+          "samples": [
+            24702.99999999997,
+            31329.99999999994,
+            19128.00000000006
+          ],
+          "median": 24702.99999999997,
+          "worst": 31329.99999999994
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            3
+          ],
+          "median": 1,
+          "worst": 3
+        },
+        "total": {
+          "samples": [
+            24939,
+            31564,
+            19351
+          ],
+          "median": 24939,
+          "worst": 31564
+        },
+        "serialize": {
+          "samples": [
+            78,
+            118,
+            111
+          ],
+          "median": 111,
+          "worst": 118
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 81.25137944701233,
+          "max": 100,
+          "samples": 242,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "oldRuntime": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            2,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 2
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            430,
+            392,
+            403
+          ],
+          "median": 403,
+          "worst": 430
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            445,
+            400,
+            412
+          ],
+          "median": 412,
+          "worst": 445
+        },
+        "serialize": {
+          "samples": [
+            11,
+            7,
+            7
+          ],
+          "median": 7,
+          "worst": 11
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9,
+            9,
+            9
+          ],
+          "median": 9,
+          "worst": 9
+        },
+        "kernel": {
+          "samples": [
+            1208,
+            1178,
+            1182
+          ],
+          "median": 1182,
+          "worst": 1208
+        },
+        "run": {
+          "samples": [
+            1209,
+            1178,
+            1182
+          ],
+          "median": 1182,
+          "worst": 1209
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1227,
+            1200,
+            1202
+          ],
+          "median": 1202,
+          "worst": 1227
+        },
+        "serialize": {
+          "samples": [
+            7,
+            8,
+            8
+          ],
+          "median": 8,
+          "worst": 8
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            10,
+            9,
+            9
+          ],
+          "median": 9,
+          "worst": 10
+        },
+        "kernel": {
+          "samples": [
+            1719,
+            1715,
+            1715
+          ],
+          "median": 1715,
+          "worst": 1719
+        },
+        "run": {
+          "samples": [
+            1720,
+            1715,
+            1715
+          ],
+          "median": 1715,
+          "worst": 1720
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1739,
+            1732,
+            1731
+          ],
+          "median": 1732,
+          "worst": 1739
+        },
+        "serialize": {
+          "samples": [
+            7,
+            7,
+            7
+          ],
+          "median": 7,
+          "worst": 7
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.786948379728287,
+          "max": 22.14585510393877,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "runtimeAfter": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            2,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 2
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            391,
+            386,
+            386
+          ],
+          "median": 386,
+          "worst": 391
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            402,
+            396,
+            395
+          ],
+          "median": 396,
+          "worst": 402
+        },
+        "serialize": {
+          "samples": [
+            9,
+            7,
+            8
+          ],
+          "median": 8,
+          "worst": 9
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            10,
+            9,
+            11
+          ],
+          "median": 10,
+          "worst": 11
+        },
+        "kernel": {
+          "samples": [
+            145,
+            142,
+            145
+          ],
+          "median": 145,
+          "worst": 145
+        },
+        "run": {
+          "samples": [
+            146,
+            142,
+            145
+          ],
+          "median": 145,
+          "worst": 146
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            164,
+            160,
+            165
+          ],
+          "median": 164,
+          "worst": 165
+        },
+        "serialize": {
+          "samples": [
+            8,
+            7,
+            7
+          ],
+          "median": 7,
+          "worst": 8
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            8,
+            9,
+            8
+          ],
+          "median": 8,
+          "worst": 9
+        },
+        "kernel": {
+          "samples": [
+            183,
+            182,
+            182
+          ],
+          "median": 182,
+          "worst": 183
+        },
+        "run": {
+          "samples": [
+            183,
+            182,
+            182
+          ],
+          "median": 182,
+          "worst": 183
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            200,
+            199,
+            197
+          ],
+          "median": 199,
+          "worst": 200
+        },
+        "serialize": {
+          "samples": [
+            7,
+            7,
+            6
+          ],
+          "median": 7,
+          "worst": 7
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 17.97302089308205,
+          "max": 27.046427281472784,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "firefox512Repeat": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            11,
+            13,
+            11
+          ],
+          "median": 11,
+          "worst": 13
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            19273,
+            19327,
+            19382
+          ],
+          "median": 19327,
+          "worst": 19382
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            19418,
+            19473,
+            19524
+          ],
+          "median": 19473,
+          "worst": 19524
+        },
+        "serialize": {
+          "samples": [
+            114,
+            113,
+            113
+          ],
+          "median": 113,
+          "worst": 114
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            129,
+            130,
+            129
+          ],
+          "median": 129,
+          "worst": 130
+        },
+        "kernel": {
+          "samples": [
+            8094,
+            7992,
+            8073
+          ],
+          "median": 8073,
+          "worst": 8094
+        },
+        "run": {
+          "samples": [
+            8114,
+            8003,
+            8088
+          ],
+          "median": 8088,
+          "worst": 8114
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            0
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            8382,
+            8272,
+            8358
+          ],
+          "median": 8358,
+          "worst": 8382
+        },
+        "serialize": {
+          "samples": [
+            120,
+            115,
+            118
+          ],
+          "median": 118,
+          "worst": 120
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            132,
+            131,
+            126
+          ],
+          "median": 131,
+          "worst": 132
+        },
+        "kernel": {
+          "samples": [
+            9868,
+            9858,
+            9865
+          ],
+          "median": 9865,
+          "worst": 9868
+        },
+        "run": {
+          "samples": [
+            9885,
+            9872,
+            9880
+          ],
+          "median": 9880,
+          "worst": 9885
+        },
+        "saturation": {
+          "samples": [
+            0,
+            1,
+            0
+          ],
+          "median": 0,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            10148,
+            10135,
+            10138
+          ],
+          "median": 10138,
+          "worst": 10148
+        },
+        "serialize": {
+          "samples": [
+            115,
+            114,
+            112
+          ],
+          "median": 114,
+          "worst": 115
+        }
+      },
+      "calls": [
+        19,
+        19,
+        19
+      ],
+      "ticks": [
+        2432,
+        2432,
+        2432
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.324512676123021,
+          "max": 31.25514786272472,
+          "samples": 152,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "frame": [
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            13,
+            11.999999999992724,
+            6
+          ],
+          "median": 11.999999999992724,
+          "worst": 13
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            2108,
+            2303,
+            2341.0000000000073
+          ],
+          "median": 2303,
+          "worst": 2341.0000000000073
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            2121,
+            2314.9999999999927,
+            2347.0000000000073
+          ],
+          "median": 2314.9999999999927,
+          "worst": 2347.0000000000073
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            58,
+            64.99999999999272,
+            104
+          ],
+          "median": 64.99999999999272,
+          "worst": 104
+        },
+        "kernel": {
+          "samples": [
+            2297,
+            2383,
+            2418.9999999999927
+          ],
+          "median": 2383,
+          "worst": 2418.9999999999927
+        },
+        "run": {
+          "samples": [
+            2298,
+            2383,
+            2421
+          ],
+          "median": 2383,
+          "worst": 2421
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            2356,
+            2447.9999999999927,
+            2525
+          ],
+          "median": 2447.9999999999927,
+          "worst": 2525
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            55.99999999999636,
+            52.99999999999636,
+            58
+          ],
+          "median": 55.99999999999636,
+          "worst": 58
+        },
+        "kernel": {
+          "samples": [
+            3144,
+            3437.9999999999964,
+            3247
+          ],
+          "median": 3247,
+          "worst": 3437.9999999999964
+        },
+        "run": {
+          "samples": [
+            3144,
+            3439.0000000000036,
+            3247
+          ],
+          "median": 3247,
+          "worst": 3439.0000000000036
+        },
+        "saturation": {
+          "samples": [
+            0,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            3199.9999999999964,
+            3492,
+            3305
+          ],
+          "median": 3305,
+          "worst": 3492
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.38225871194236,
+          "max": 21.671673738357057,
+          "samples": 62,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "checked": [
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "a130e78cb0df424c6f36a80f7e25cd48b780ad8f9e8419a9da4653badcb3c04f",
+      "timing": {
+        "construct": {
+          "samples": [
+            14.999999999996362,
+            8.000000000007276,
+            6
+          ],
+          "median": 8.000000000007276,
+          "worst": 14.999999999996362
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            2244,
+            2320.9999999999927,
+            2255
+          ],
+          "median": 2255,
+          "worst": 2320.9999999999927
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            2258.9999999999964,
+            2329,
+            2262
+          ],
+          "median": 2262,
+          "worst": 2329
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "a130e78cb0df424c6f36a80f7e25cd48b780ad8f9e8419a9da4653badcb3c04f",
+      "timing": {
+        "construct": {
+          "samples": [
+            64,
+            59,
+            61.999999999992724
+          ],
+          "median": 61.999999999992724,
+          "worst": 64
+        },
+        "kernel": {
+          "samples": [
+            2754.9999999999964,
+            2828.0000000000073,
+            2809
+          ],
+          "median": 2809,
+          "worst": 2828.0000000000073
+        },
+        "run": {
+          "samples": [
+            2756,
+            2828.0000000000073,
+            2811
+          ],
+          "median": 2811,
+          "worst": 2828.0000000000073
+        },
+        "saturation": {
+          "samples": [
+            0,
+            1.000000000007276,
+            1.000000000007276
+          ],
+          "median": 1.000000000007276,
+          "worst": 1.000000000007276
+        },
+        "total": {
+          "samples": [
+            2820,
+            2887.0000000000073,
+            2872.9999999999927
+          ],
+          "median": 2872.9999999999927,
+          "worst": 2887.0000000000073
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "a130e78cb0df424c6f36a80f7e25cd48b780ad8f9e8419a9da4653badcb3c04f",
+      "timing": {
+        "construct": {
+          "samples": [
+            64,
+            63,
+            64
+          ],
+          "median": 64,
+          "worst": 64
+        },
+        "kernel": {
+          "samples": [
+            3270,
+            3175,
+            3329
+          ],
+          "median": 3270,
+          "worst": 3329
+        },
+        "run": {
+          "samples": [
+            3271,
+            3176,
+            3330
+          ],
+          "median": 3271,
+          "worst": 3330
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            0
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            3335,
+            3239,
+            3394
+          ],
+          "median": 3335,
+          "worst": 3394
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 11.851389025581335,
+          "max": 16.705057268413803,
+          "samples": 64,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "optimized": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            391,
+            383,
+            380
+          ],
+          "median": 383,
+          "worst": 391
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            401,
+            393,
+            393
+          ],
+          "median": 393,
+          "worst": 401
+        },
+        "serialize": {
+          "samples": [
+            9,
+            8,
+            8
+          ],
+          "median": 8,
+          "worst": 9
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9,
+            9,
+            10
+          ],
+          "median": 9,
+          "worst": 10
+        },
+        "kernel": {
+          "samples": [
+            145,
+            140,
+            149
+          ],
+          "median": 145,
+          "worst": 149
+        },
+        "run": {
+          "samples": [
+            145,
+            142,
+            149
+          ],
+          "median": 145,
+          "worst": 149
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            163,
+            161,
+            168
+          ],
+          "median": 163,
+          "worst": 168
+        },
+        "serialize": {
+          "samples": [
+            7,
+            6,
+            7
+          ],
+          "median": 7,
+          "worst": 7
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9,
+            9,
+            9
+          ],
+          "median": 9,
+          "worst": 9
+        },
+        "kernel": {
+          "samples": [
+            192,
+            185,
+            190
+          ],
+          "median": 190,
+          "worst": 192
+        },
+        "run": {
+          "samples": [
+            192,
+            185,
+            190
+          ],
+          "median": 190,
+          "worst": 192
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            209,
+            203,
+            209
+          ],
+          "median": 209,
+          "worst": 209
+        },
+        "serialize": {
+          "samples": [
+            7,
+            7,
+            7
+          ],
+          "median": 7,
+          "worst": 7
+        }
+      },
+      "calls": [
+        8,
+        8,
+        8
+      ],
+      "ticks": [
+        1024,
+        1024,
+        1024
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 21.886081210477585,
+          "max": 35.440154181085184,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "adapterBatch": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            8,
+            10,
+            6
+          ],
+          "median": 8,
+          "worst": 10
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            1202,
+            1220,
+            1232
+          ],
+          "median": 1220,
+          "worst": 1232
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1210,
+            1230,
+            1238
+          ],
+          "median": 1230,
+          "worst": 1238
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            138,
+            121,
+            122
+          ],
+          "median": 122,
+          "worst": 138
+        },
+        "kernel": {
+          "samples": [
+            575,
+            567,
+            561
+          ],
+          "median": 567,
+          "worst": 575
+        },
+        "run": {
+          "samples": [
+            576,
+            568,
+            563
+          ],
+          "median": 568,
+          "worst": 576
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            714,
+            689,
+            685
+          ],
+          "median": 689,
+          "worst": 714
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.543842866682553,
+          "max": 27.94535714451736,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            9.00000000000091,
+            9,
+            8.999999999998181
+          ],
+          "median": 9,
+          "worst": 9.00000000000091
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            615.9999999999991,
+            661,
+            649
+          ],
+          "median": 649,
+          "worst": 661
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            625,
+            670,
+            657.9999999999982
+          ],
+          "median": 657.9999999999982,
+          "worst": 670
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            58,
+            65,
+            62
+          ],
+          "median": 62,
+          "worst": 65
+        },
+        "kernel": {
+          "samples": [
+            716,
+            689.9999999999991,
+            705
+          ],
+          "median": 705,
+          "worst": 716
+        },
+        "run": {
+          "samples": [
+            718.0000000000009,
+            691,
+            706
+          ],
+          "median": 706,
+          "worst": 718.0000000000009
+        },
+        "saturation": {
+          "samples": [
+            1,
+            0,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            776.0000000000009,
+            756,
+            768
+          ],
+          "median": 768,
+          "worst": 776.0000000000009
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.765553857156505,
+          "max": 15.44244834935341,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "adapterSingle": [
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            10,
+            7,
+            8
+          ],
+          "median": 8,
+          "worst": 10
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            1213,
+            1215,
+            1160
+          ],
+          "median": 1213,
+          "worst": 1215
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            1223,
+            1222,
+            1168
+          ],
+          "median": 1222,
+          "worst": 1223
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        128,
+        128,
+        128
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            124,
+            124,
+            127
+          ],
+          "median": 124,
+          "worst": 127
+        },
+        "kernel": {
+          "samples": [
+            621,
+            617,
+            600
+          ],
+          "median": 617,
+          "worst": 621
+        },
+        "run": {
+          "samples": [
+            697,
+            691,
+            682
+          ],
+          "median": 691,
+          "worst": 697
+        },
+        "saturation": {
+          "samples": [
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "worst": 1
+        },
+        "total": {
+          "samples": [
+            821,
+            815,
+            810
+          ],
+          "median": 815,
+          "worst": 821
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        128,
+        128,
+        128
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 13.443528437309018,
+          "max": 27.02905110070637,
+          "samples": 20,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            8,
+            7.999999999998181,
+            11
+          ],
+          "median": 8,
+          "worst": 11
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            651,
+            682,
+            696
+          ],
+          "median": 682,
+          "worst": 696
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            659,
+            689.9999999999982,
+            707
+          ],
+          "median": 689.9999999999982,
+          "worst": 707
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        128,
+        128,
+        128
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            74.00000000000091,
+            63,
+            74
+          ],
+          "median": 74,
+          "worst": 74.00000000000091
+        },
+        "kernel": {
+          "samples": [
+            760,
+            765.0000000000036,
+            808.0000000000036
+          ],
+          "median": 765.0000000000036,
+          "worst": 808.0000000000036
+        },
+        "run": {
+          "samples": [
+            843.9999999999991,
+            849,
+            888
+          ],
+          "median": 849,
+          "worst": 888
+        },
+        "saturation": {
+          "samples": [
+            1.0000000000009095,
+            1,
+            1.000000000001819
+          ],
+          "median": 1.0000000000009095,
+          "worst": 1.000000000001819
+        },
+        "total": {
+          "samples": [
+            918,
+            912,
+            962
+          ],
+          "median": 918,
+          "worst": 962
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        128,
+        128,
+        128
+      ],
+      "ticks": [
+        128,
+        128,
+        128
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.021089354001768,
+          "max": 18.676065971537483,
+          "samples": 14,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "chromiumControl": [
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            0.699999988079071,
+            0.3999999761581421,
+            1.5
+          ],
+          "median": 0.699999988079071,
+          "worst": 1.5
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            158.5,
+            152.9000000357628,
+            159.0999999642372
+          ],
+          "median": 158.5,
+          "worst": 159.0999999642372
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            159.19999998807907,
+            153.30000001192093,
+            160.69999998807907
+          ],
+          "median": 159.19999998807907,
+          "worst": 160.69999998807907
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            6.599999964237213,
+            4.400000035762787,
+            4.5
+          ],
+          "median": 4.5,
+          "worst": 6.599999964237213
+        },
+        "kernel": {
+          "samples": [
+            73.10000002384186,
+            72.39999997615814,
+            84.60000002384186
+          ],
+          "median": 73.10000002384186,
+          "worst": 84.60000002384186
+        },
+        "run": {
+          "samples": [
+            73.10000002384186,
+            72.5,
+            84.60000002384186
+          ],
+          "median": 73.10000002384186,
+          "worst": 84.60000002384186
+        },
+        "saturation": {
+          "samples": [
+            0.10000002384185791,
+            0.10000002384185791,
+            0.10000002384185791
+          ],
+          "median": 0.10000002384185791,
+          "worst": 0.10000002384185791
+        },
+        "total": {
+          "samples": [
+            79.69999998807907,
+            76.90000003576279,
+            89.19999998807907
+          ],
+          "median": 79.69999998807907,
+          "worst": 89.19999998807907
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-128-1",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            5.299999952316284,
+            4.300000011920929,
+            4.399999976158142
+          ],
+          "median": 4.399999976158142,
+          "worst": 5.299999952316284
+        },
+        "kernel": {
+          "samples": [
+            88.80000001192093,
+            90,
+            97.89999997615814
+          ],
+          "median": 90,
+          "worst": 97.89999997615814
+        },
+        "run": {
+          "samples": [
+            88.90000003576279,
+            90.10000002384186,
+            98
+          ],
+          "median": 90.10000002384186,
+          "worst": 98
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0.09999996423721313,
+            0.10000002384185791
+          ],
+          "median": 0.09999996423721313,
+          "worst": 0.10000002384185791
+        },
+        "total": {
+          "samples": [
+            94.19999998807907,
+            94.5,
+            102.5
+          ],
+          "median": 94.5,
+          "worst": 102.5
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 1572864,
+      "load": [
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 14.479206309688365,
+          "max": 17.276951263936102,
+          "samples": 3,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-lakeBasin-512",
+      "variant": "fast",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            7.899999976158142,
+            6.100000023841858,
+            7.699999988079071
+          ],
+          "median": 7.699999988079071,
+          "worst": 7.899999976158142
+        },
+        "kernel": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "run": {
+          "samples": [
+            3879.899999976158,
+            3946.5,
+            3910
+          ],
+          "median": 3910,
+          "worst": 3946.5
+        },
+        "saturation": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        },
+        "total": {
+          "samples": [
+            3887.899999976158,
+            3952.600000023842,
+            3917.7999999523163
+          ],
+          "median": 3917.7999999523163,
+          "worst": 3952.600000023842
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 0,
+      "load": [
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-lakeBasin-512",
+      "variant": "current",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            67,
+            88.69999998807907,
+            66.80000001192093
+          ],
+          "median": 67,
+          "worst": 88.69999998807907
+        },
+        "kernel": {
+          "samples": [
+            1837,
+            1900.0999999642372,
+            1908.199999988079
+          ],
+          "median": 1900.0999999642372,
+          "worst": 1908.199999988079
+        },
+        "run": {
+          "samples": [
+            1837.8999999761581,
+            1901,
+            1909.1000000238419
+          ],
+          "median": 1901,
+          "worst": 1909.1000000238419
+        },
+        "saturation": {
+          "samples": [
+            0.7999999523162842,
+            0.800000011920929,
+            0.699999988079071
+          ],
+          "median": 0.7999999523162842,
+          "worst": 0.800000011920929
+        },
+        "total": {
+          "samples": [
+            1905,
+            1989.800000011921,
+            1975.9000000357628
+          ],
+          "median": 1975.9000000357628,
+          "worst": 1989.800000011921
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-lakeBasin-512",
+      "variant": "before",
+      "before": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+      "current": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+      "timing": {
+        "construct": {
+          "samples": [
+            70.39999997615814,
+            72.5,
+            65.60000002384186
+          ],
+          "median": 70.39999997615814,
+          "worst": 72.5
+        },
+        "kernel": {
+          "samples": [
+            2301.400000035763,
+            2232.5,
+            2337.199999988079
+          ],
+          "median": 2301.400000035763,
+          "worst": 2337.199999988079
+        },
+        "run": {
+          "samples": [
+            2302.300000011921,
+            2233.5,
+            2338.099999964237
+          ],
+          "median": 2302.300000011921,
+          "worst": 2338.099999964237
+        },
+        "saturation": {
+          "samples": [
+            0.800000011920929,
+            0.7000000476837158,
+            0.699999988079071
+          ],
+          "median": 0.7000000476837158,
+          "worst": 0.800000011920929
+        },
+        "total": {
+          "samples": [
+            2372.699999988079,
+            2306,
+            2403.800000011921
+          ],
+          "median": 2372.699999988079,
+          "worst": 2403.800000011921
+        },
+        "serialize": {
+          "samples": [
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "worst": 0
+        }
+      },
+      "calls": [
+        1,
+        1,
+        1
+      ],
+      "ticks": [
+        512,
+        512,
+        512
+      ],
+      "bytesPerCall": 25165824,
+      "load": [
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        },
+        {
+          "mean": 12.154152674154647,
+          "max": 23.154857601059565,
+          "samples": 83,
+          "source": "Windows PDH Processor(_Total) % Processor Time"
+        }
+      ]
+    }
+  ],
+  "webkit": {
+    "useWasmFastMemory": false,
+    "useBBQJIT": true,
+    "useOMGJIT": true,
+    "observedTiers": [
+      "BBQ",
+      "OMG"
+    ],
+    "log": "8c699e4536040c77ad7ea95127d81ca1e937f919f4648022890e211e6d725334",
+    "invalidControl": "Disabling both IPInt and BBQ rejects launch; not a timing result"
+  },
+  "sourceHashes": {
+    "src/lib.rs": "850a46ce9ecacde71784c7a43758269f1e9f4004804c5e72bf887649dc0b8b9d",
+    "rust/main.rs": "e66cd1551a2319068a5b00bd6c224c347220f0a311c2bf8e41ca236bd579d340",
+    "water.ts": "e3193cec34d67892349f9592a50f29cbe0a8ebbc5be60d056114290f5ff94b67",
+    "profile-worker.ts": "ecb50d82839d99820815164e589cd1061ea0d825e35e60544b11aa6f17ba4bb4",
+    "profile.mjs": "27cb10f44fb66c10c255e1e04a3e06e81a7a9c847375e02486f083944cf9bc92"
+  }
+}

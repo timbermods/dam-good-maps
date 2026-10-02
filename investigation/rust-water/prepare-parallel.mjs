@@ -6,8 +6,9 @@ import {execFileSync} from 'node:child_process';
 import {HERE,ROOT,LOCAL,json,hash} from './common.mjs';
 const source=readFileSync(resolve(HERE,'src/lib.rs'),'utf8');
 function block(text,start){const open=text.indexOf('{',start);let depth=1,end=open+1;for(;depth&&end<text.length;end++){if(text[end]==='{')depth++;else if(text[end]==='}')depth--;}if(depth)throw Error('Rust source block');return {open,end,body:text.slice(open+1,end-1)};}
-const sub=source.indexOf('fn substep('),flow=block(source,source.indexOf('for &i in &self.wet',sub)),depth=block(source,source.indexOf('for &i in &self.active',flow.end));
-let dam=source.slice(source.indexOf('    fn dam_flow('),sub);
+const sub=source.indexOf('fn flow_phase('),flow=block(source,source.indexOf('for &i in wet',sub)),depth=block(source,source.indexOf('for &i in active',flow.end));
+if(sub<0)throw Error('Common numeric frame shape');
+let dam=source.slice(source.indexOf('    fn dam_flow('),source.lastIndexOf('    #[inline(always)]',sub));
 const replace=s=>s.replaceAll('self.nb[i]','self.neighbors(i)').replaceAll('hc.ceil()','ceil(hc)');
 const maths=source.slice(source.indexOf('fn clamp('),source.indexOf('impl Sim'));
 const kernel=`#![no_std]

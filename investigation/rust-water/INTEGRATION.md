@@ -3,7 +3,8 @@
 Base: `feature/m9b` **e292cefe30469033a922650f0455f87297c051d5**, with D359's faster
 settle and D358's six-day cap. Product files were read and bundled, never edited. Until
 M9b lands, the investigation branch inherits its history: adopt only this investigation's
-commit after the release. REPORT.md holds the measured results and limits.
+commit after the release. PROFILE_REPORT.md holds the current scalar results; REPORT.md
+and evidence.json preserve the original measurements, including the Firefox runtime artifact.
 
 ## Interface and startup
 
@@ -103,7 +104,7 @@ local/target/wasm32-unknown-unknown/release into the adopted asset location, and
 fallback in the bundle. ci.yml is an **uninstalled adoption template**, with golden native/Wasm
 and three-browser checks. It does not claim Linux/ARM CI has run. Vite's ?url gives an app-base
 URL for Pages/preview. Serve application/wasm; enable gzip or Brotli on the hosting layer.
-The file's actual raw/gzip/Brotli sizes and hash are in evidence.json.
+The current file's raw/gzip/Brotli sizes and hash are in profile-evidence.json.
 
 ## Regenerate evidence
 
@@ -144,10 +145,83 @@ node parallel.mjs --reps 3
 node verify-ir.mjs
 node curve.mjs
 node oracle.mjs --seeds 1-21 --parity-seeds 1-40 --sizes 96,128,256
-node summarize.mjs
+# summarize.mjs regenerates the ORIGINAL report format. For the profiling follow-up
+# use summarize-profile.mjs after the paired measurements below; preserve historical evidence.
 ```
 
 Generation/expectation/browser jobs resume only with matching fingerprints.
+
+## Profiled scalar change and safety
+
+`NumericFrame` caches pointers for the existing flow/depth/dam phases; their expressions,
+iteration order and reductions are unchanged. `new` and every public `run` validate checked
+W×H/4N arithmetic, all buffer lengths and source/anchor indices before using the frame.
+Neighbour, wet and active indices are private: construction starts with 0..N or validated
+source cells, and updates retain that invariant. All frame allocations are distinct and
+stay alive without resizing during the phases. Element/range references are temporary;
+the frame never escapes its substep. The unsafe operations are private and do not trust
+caller-provided unchecked indices. Rust per-access checks remain in bookkeeping; Wasm's
+engine memory sandbox remains enabled. Binary protocol size restrictions are unchanged.
+Three Rust unit checks exercise empty direct-Sim geometry and rejection of invalid mutable
+buffers/source indices. Run `cargo test --lib` as well as the raw-byte corpus gate.
+
+## Reproduce the profiling follow-up
+
+Old Playwright 1.58.2's Firefox Runtime Debugger disables Wasm optimization, even when the
+patched browser is started without a controller (its Juggler actors still register).
+[Upstream 1.63 Runtime.js](https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/firefox/juggler/content/Runtime.js)
+sets `allowUnobservedWasm`/`allowUnobservedAsmJS`. For normal adoption tests, use a matching
+current Playwright/browser pair with those settings. The same-executable causal test here
+copies the old Firefox into ignored local/ and adds just those two settings to its Runtime.
+This changes the test debugger, not the Firefox JIT executable or shipping app. Never patch
+the shared browser installation. Measurements are Windows Playwright builds, including this
+explicitly documented diagnostic copy; they are not stock-release browser benchmarks.
+
+```powershell
+node prepare-profile-baseline.mjs # immutable d18a6f4 Rust + identical TS adapter
+python prepare-profile-firefox.py 'C:/path/to/firefox-1509/firefox' 'local/profiles/firefox-diagnostic'
+$env:DGM_FIREFOX_EXECUTABLE = (Resolve-Path 'local/profiles/firefox-diagnostic/firefox.exe').Path
+node browser-shards.mjs --engine firefox --jobs 4 --identity-only
+node browser-shards.mjs --engine chromium --jobs 4 --identity-only
+node browser-shards.mjs --engine webkit --jobs 4 --identity-only
+# Finish our identity workers before timing. Repetitions alternate backend order.
+node profile.mjs --ids m9b-lakeBasin-96-1,m9b-lakeBasin-128-1,m9b-lakeBasin-256-1,stress-lakeBasin-512 --engines firefox,webkit --reps 3 --tag final-lake
+# The first Firefox 512² cohort varied with load. Retain it and run a separate cohort.
+node profile.mjs --ids stress-lakeBasin-512 --engines firefox --reps 3 --tag firefox-512-repeat
+# Same original executable, old debugger: representative 128² causal control.
+Remove-Item Env:DGM_FIREFOX_EXECUTABLE
+node profile.mjs --ids m9b-lakeBasin-128-1 --engines firefox --reps 3 --tag final-old-runtime
+$env:DGM_FIREFOX_EXECUTABLE = (Resolve-Path 'local/profiles/firefox-diagnostic/firefox.exe').Path
+node profile.mjs --engines firefox --reps 3 --tag runtime-after
+node profile.mjs --ids m9b-lakeBasin-128-1 --engines firefox --tier optimized --reps 3 --tag optimized-confirm
+node profile.mjs --ids stress-lakeBasin-512 --engines webkit --fixed 512 --reps 3 --tag frame-final
+node build-checked-profile.mjs
+node profile.mjs --ids stress-lakeBasin-512 --engines webkit --fixed 512 --reps 3 --tag checked-final --wasm local/experiments/checked-frame/target/wasm32-unknown-unknown/release/rust_water.wasm
+node profile.mjs --ids stress-lakeBasin-512 --engines firefox,webkit --fixed 128 --variants current,fast --reps 3 --tag adapter-batch
+node profile.mjs --ids stress-lakeBasin-512 --engines firefox,webkit --fixed 128 --chunk 1 --variants current,fast --reps 3 --tag adapter-single
+node profile.mjs --ids m9b-lakeBasin-128-1,stress-lakeBasin-512 --engines chromium --fixed 512 --reps 3 --tag chromium-control
+node profile-edges.mjs
+node profile.mjs --prefix profiles/edges --ids shape-1-257-game,shape-1-257-port,shape-257-1-game,shape-257-1-port --reps 0 --tag shape-edges
+node summarize-profile.mjs
+```
+
+`profile-worker.ts` times construction, Rust kernel calls, total run, saturation and
+serialization separately, rejects fallbacks, and compares every timed result with pinned
+TypeScript bytes. Fetch/compile/install are outside the per-case timer. Three recorded
+samples follow one warm-up; total canonical timings include construction and output checks.
+Fixed-tick controls stop the timer before their extra TypeScript reference run. `load.mjs`
+records total machine CPU via Windows PDH; unrelated host load remains uncontrolled.
+`build-checked-profile.mjs` is an ignored diagnostic control with the same cached frame
+and arithmetic but restored per-access assertions, never a shipping target.
+
+For sampled Firefox profiles add `--gecko`. For WebKit tier/options/disassembly use
+`$env:DEBUG='pw:browser'` and `--jsc-dump`, capturing stdout/stderr under local/profiles/.
+WebKit baseline control is `--tier baseline`; its optimizing control retains a baseline
+tier and lowers OMG warm-up thresholds. Disabling both IPInt and BBQ is invalid.
+`audit-profile.mjs` uses WABT wasm-objdump 1.0.39 (set DGM_WASM_OBJDUMP to that executable),
+counts static substep load/check sites and reads local/profiles/firefox-gecko-before.json.
+The large CPU profiles/disassembly and diagnostic browser copy are ignored; their hashes,
+compact results and source links are saved in profile-evidence.json.
 Independent browser cases can be split with `node browser-shards.mjs --engine firefox --jobs 4`;
 it joins the completed fingerprints, then runs the complete smoke and repeated timing pass.
 Threaded measurements can resume with `node parallel.mjs --resume --reps 3` only when the

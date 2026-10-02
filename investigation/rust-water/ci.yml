@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - run: cargo build --release
         working-directory: investigation/rust-water
+      - run: cargo test --lib
+        working-directory: investigation/rust-water
       - run: cargo build --release --target wasm32-unknown-unknown --lib
         working-directory: investigation/rust-water
       - run: node build.mjs --wasm && node prepare-parallel.mjs && node typecheck.mjs && node smoke.mjs --native && node golden-contract.mjs

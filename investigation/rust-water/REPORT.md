@@ -1,5 +1,7 @@
 # Rust water investigation
 
+**Historical measurements at d18a6f4. Scalar performance and adoption advice are superseded by [PROFILE_REPORT.md](PROFILE_REPORT.md). The old Firefox test runtime pinned Wasm to baseline; its scalar and threaded timings are not representative of optimizing Firefox. Original measurements remain recorded here and in evidence.json.**
+
 Base **e292cefe**; product code unchanged. One Rust source builds scalar Wasm and native; the browser adapter retains TS stopping/slicing around Rust ticks. The threaded experiment extracts its kernels from that source and reuses parallel-water's coordinator/isolation at **68d68313**. Adopt after M9b releases; see INTEGRATION.md.
 
 **Identity:** 1952 schedules, 39,529 captured checkpoints per target, zero byte differences in Chromium 145.0.7632.6, Firefox 146.0.1, WebKit 26.0 and Windows native. Includes all 840 M9b theme/seed/size inputs, 19 official maps, their live edits, 43 full drought/badtide pairs, three tiled 512² stress maps, 24 golden runs and 118 edge/fractional/sealed scenes. Depth, contamination, momentum, Dold, saturation, seep state, volume and stop metadata are compared. All 38 existing pinned digests pass. Threaded: 21,600 per-tick golden checks plus the 12 representative canonical cases in each engine at 1/2/4 cores. Python: 63 generated maps load/round-trip cleanly; 22 generated + 19 official validator comparisons have zero disagreements. Generator refusals in the 840 corpus: 2, retained as numerical inputs and listed in evidence.json.

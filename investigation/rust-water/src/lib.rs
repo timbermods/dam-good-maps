@@ -69,6 +69,44 @@ fn max(a: f64, b: f64) -> f64 {
     }
 }
 impl Sim {
+    fn validate_shape(&self) {
+        let n = self.w.checked_mul(self.h).expect("water geometry overflow");
+        assert_eq!(self.n, n);
+        let n4 = n.checked_mul(4).expect("water flow size overflow");
+        for len in [
+            self.floor.len(),
+            self.d.len(),
+            self.c.len(),
+            self.old.len(),
+            self.nb.len(),
+            self.wall.len(),
+            self.modifiers.len(),
+            self.next_c.len(),
+        ] {
+            assert_eq!(len, n, "water buffer shape");
+        }
+        assert_eq!(self.out.len(), n4);
+        assert_eq!(self.f.len(), n4);
+        if let Some(dam) = &self.dam {
+            assert_eq!(dam.len(), n);
+        }
+        assert_eq!(self.seep.len(), self.emitters.len());
+        for src in &self.emitters {
+            for &i in &src.cells {
+                assert!(i < n, "water source index");
+            }
+            if let Some((i, _, _)) = src.limit {
+                assert!(i < n, "water anchor index");
+            }
+        }
+        debug_assert!(self.wet.iter().chain(&self.active).all(|&i| i < n));
+        debug_assert!(self
+            .nb
+            .iter()
+            .flatten()
+            .all(|&i| i == -1 || (i >= 0 && (i as usize) < n)));
+    }
+
     pub fn new(
         w: usize,
         h: usize,
@@ -80,7 +118,8 @@ impl Sim {
         game: bool,
         edge: bool,
     ) -> Self {
-        let n = w * h;
+        let n = w.checked_mul(h).expect("water geometry overflow");
+        let n4 = n.checked_mul(4).expect("water flow size overflow");
         let mut s = Self {
             w,
             h,
@@ -91,14 +130,14 @@ impl Sim {
             d,
             c,
             old: vec![0.0; n],
-            out: vec![0.0; 4 * n],
+            out: vec![0.0; n4],
             ticks: 0,
             game,
             edge,
             seep: vec![],
             wall: vec![0; n],
             nb: vec![[0; 4]; n],
-            f: vec![0.0; 4 * n],
+            f: vec![0.0; n4],
             next_c: vec![0.0; n],
             modifiers: vec![1.0; n],
             evap: [0.0; 9],
@@ -113,6 +152,7 @@ impl Sim {
             pos: vec![usize::MAX; n],
         };
         s.seep = vec![1; s.emitters.len()];
+        s.validate_shape();
         for i in 0..n {
             let x = i % w;
             let y = i / w;
@@ -242,31 +282,6 @@ impl Sim {
         }
         sat
     }
-    fn dam_flow(
-        &self,
-        c: usize,
-        fc: f64,
-        hc: f64,
-        fn_: f64,
-        lim: f64,
-        mut e: f64,
-        prev: f64,
-    ) -> f64 {
-        let hd = hc - fn_;
-        if hd < lim {
-            let a = clamp(
-                clamp((lim - hd) / 0.1, 0.0, 1.0)
-                    * clamp(1.0 - 2.25 * (hc - (fc + self.old[c])), 0.5, 2.0),
-                0.0,
-                1.0,
-            );
-            return 0.995 * prev - 0.02 * a;
-        }
-        if hd - lim < 0.1 && e > 0.0 {
-            e = e * ((hd - lim) / 0.1);
-        }
-        0.995 * prev + K * e
-    }
     fn substep(&mut self, scale: f64) {
         for &i in &self.prev_wet {
             if self.d[i] > 0.0 {
@@ -274,103 +289,13 @@ impl Sim {
             }
             self.f[4 * i..4 * i + 4].fill(0.0);
         }
-        for &i in &self.wet {
-            let fc = self.floor[i];
-            let dc = self.d[i];
-            let hc = fc + dc;
-            let b = 4 * i;
-            for k in 0..4 {
-                let j = self.nb[i][k];
-                let inside = j >= 0;
-                let fn_ = if inside { self.floor[j as usize] } else { 0.0 };
-                let dn = if inside { self.d[j as usize] } else { 0.0 };
-                let hn = if inside { fn_ + dn } else { 0.0 };
-                if self.wall[i] & (1 << k) != 0 || fn_ >= hc {
-                    self.f[b + k] = 0.0;
-                } else {
-                    let mut e = hc - hn;
-                    let prev = KEEP * self.out[b + k];
-                    let lim = if inside {
-                        self.dam.as_ref().map_or(-1.0, |d| d[j as usize])
-                    } else {
-                        -1.0
-                    };
-                    let fk = if lim >= 0.0 && fn_ < hc.ceil() && (!self.game || fc <= fn_) {
-                        self.dam_flow(i, fc, hc, fn_, lim, e, prev)
-                    } else {
-                        if (inside || self.edge) && dn == 0.0 && fn_ == fc {
-                            e = e - 0.1;
-                        }
-                        prev + K * e
-                    };
-                    self.f[b + k] = if fk > 0.0 { fk } else { 0.0 };
-                }
-            }
-            let sum = self.f[b] + self.f[b + 1] + self.f[b + 2] + self.f[b + 3];
-            if self.game {
-                let sd = sum * DT;
-                if sum > 0.0 && dc < sd {
-                    let r = dc / sd;
-                    for k in 0..4 {
-                        self.f[b + k] *= r;
-                    }
-                }
-            } else if sum * DT > dc {
-                let r = dc / max(sum * DT, 1e-12);
-                for k in 0..4 {
-                    self.f[b + k] *= r;
-                }
-            }
-        }
-        for &i in &self.active {
-            let b = 4 * i;
-            let ns = self.nb[i];
-            let mut inf = [0.0; 4];
-            for k in 0..4 {
-                if ns[k] >= 0 {
-                    inf[k] = self.f[4 * ns[k] as usize + [2, 3, 0, 1][k]];
-                }
-            }
-            if self.d[i] == 0.0 && inf.iter().all(|&v| v == 0.0) {
-                self.old[i] = self.d[i];
-                self.out[b..b + 4].fill(0.0);
-                self.next_c[i] = 0.0;
-                self.d[i] = 0.0;
-                continue;
-            }
-            let fs = &self.f[b..b + 4];
-            let outsum = fs[0] + fs[1] + fs[2] + fs[3];
-            let insum = inf[0] + inf[1] + inf[2] + inf[3];
-            let mut cin = 0.0;
-            for k in 0..4 {
-                cin += inf[k]
-                    * if ns[k] >= 0 {
-                        self.c[ns[k] as usize]
-                    } else {
-                        0.0
-                    };
-            }
-            let dc = self.d[i];
-            let rem0 = dc - outsum * DT;
-            let remaining = if rem0 > 0.0 { rem0 } else { 0.0 };
-            for k in 0..4 {
-                self.out[b + k] = max(0.0, fs[k] - BAL * inf[k]);
-            }
-            self.old[i] = dc;
-            let mut net = insum - outsum;
-            if self.game || dc > 0.0 {
-                net = net - (if dc < 0.02 { 1e-3 } else { 1e-4 }) * self.modifiers[i];
-            }
-            let d1 = dc + net * DT;
-            let new_d = if d1 > 0.0 { d1 } else { 0.0 };
-            let mass = self.c[i] * remaining + cin * DT;
-            self.next_c[i] = if new_d > 1e-9 {
-                clamp(mass / max(new_d, 1e-9), 0.0, 1.0)
-            } else {
-                0.0
-            };
-            self.d[i] = new_d;
-        }
+        // SAFETY: run/new check shapes once. Private wet/active/neighbour indices
+        // are constructed only from 0..n or validated source cells. The numeric
+        // buffers never resize during these phases; frame pointers never escape.
+        let mut frame = unsafe { NumericFrame::new(self) };
+        frame.flow_phase(&self.wet);
+        frame.depth_phase(&self.active);
+
         for &i in &self.active {
             self.c[i] = self.next_c[i];
         }
@@ -412,6 +337,7 @@ impl Sim {
         }
     }
     pub fn run(&mut self, ticks: u64, scale: f64) {
+        self.validate_shape();
         for _ in 0..ticks {
             if self.ticks % 64 == 0 {
                 self.active.sort_unstable();
@@ -560,6 +486,197 @@ impl Sim {
 }
 
 // Little-endian, lossless protocol shared by Wasm and native. See PROTOCOL.md.
+
+// A private, non-owning numeric frame. Index checks are paid once at run/new,
+// instead of for every field of every tile/direction. Wasm's memory sandbox
+// bounds checks remain enabled. Only private, invariant-preserving phases use it.
+struct NumericBuffer<T>(*mut T);
+impl<T> std::ops::Index<usize> for NumericBuffer<T> {
+    type Output = T;
+    fn index(&self, i: usize) -> &T {
+        unsafe { &*self.0.add(i) }
+    }
+}
+impl<T> std::ops::IndexMut<usize> for NumericBuffer<T> {
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        unsafe { &mut *self.0.add(i) }
+    }
+}
+impl<T> std::ops::Index<std::ops::Range<usize>> for NumericBuffer<T> {
+    type Output = [T];
+    fn index(&self, r: std::ops::Range<usize>) -> &[T] {
+        unsafe { std::slice::from_raw_parts(self.0.add(r.start), r.end - r.start) }
+    }
+}
+impl<T> std::ops::IndexMut<std::ops::Range<usize>> for NumericBuffer<T> {
+    fn index_mut(&mut self, r: std::ops::Range<usize>) -> &mut [T] {
+        unsafe { std::slice::from_raw_parts_mut(self.0.add(r.start), r.end - r.start) }
+    }
+}
+struct NumericFrame {
+    floor: NumericBuffer<f64>,
+    d: NumericBuffer<f64>,
+    c: NumericBuffer<f64>,
+    old: NumericBuffer<f64>,
+    out: NumericBuffer<f64>,
+    f: NumericBuffer<f64>,
+    next_c: NumericBuffer<f64>,
+    modifiers: NumericBuffer<f64>,
+    wall: NumericBuffer<u8>,
+    nb: NumericBuffer<[isize; 4]>,
+    dam: Option<NumericBuffer<f64>>,
+    game: bool,
+    edge: bool,
+}
+impl NumericFrame {
+    // Caller must first validate_shape(), and keep all buffers alive and fixed.
+    unsafe fn new(s: &mut Sim) -> Self {
+        Self {
+            floor: NumericBuffer(s.floor.as_mut_ptr()),
+            d: NumericBuffer(s.d.as_mut_ptr()),
+            c: NumericBuffer(s.c.as_mut_ptr()),
+            old: NumericBuffer(s.old.as_mut_ptr()),
+            out: NumericBuffer(s.out.as_mut_ptr()),
+            f: NumericBuffer(s.f.as_mut_ptr()),
+            next_c: NumericBuffer(s.next_c.as_mut_ptr()),
+            modifiers: NumericBuffer(s.modifiers.as_mut_ptr()),
+            wall: NumericBuffer(s.wall.as_mut_ptr()),
+            nb: NumericBuffer(s.nb.as_mut_ptr()),
+            dam: s.dam.as_mut().map(|d| NumericBuffer(d.as_mut_ptr())),
+            game: s.game,
+            edge: s.edge,
+        }
+    }
+    fn dam_flow(
+        &self,
+        c: usize,
+        fc: f64,
+        hc: f64,
+        fn_: f64,
+        lim: f64,
+        mut e: f64,
+        prev: f64,
+    ) -> f64 {
+        let hd = hc - fn_;
+        if hd < lim {
+            let a = clamp(
+                clamp((lim - hd) / 0.1, 0.0, 1.0)
+                    * clamp(1.0 - 2.25 * (hc - (fc + self.old[c])), 0.5, 2.0),
+                0.0,
+                1.0,
+            );
+            return 0.995 * prev - 0.02 * a;
+        }
+        if hd - lim < 0.1 && e > 0.0 {
+            e = e * ((hd - lim) / 0.1);
+        }
+        0.995 * prev + K * e
+    }
+    #[inline(always)]
+    fn flow_phase(&mut self, wet: &[usize]) {
+        for &i in wet {
+            let fc = self.floor[i];
+            let dc = self.d[i];
+            let hc = fc + dc;
+            let b = 4 * i;
+            for k in 0..4 {
+                let j = self.nb[i][k];
+                let inside = j >= 0;
+                let fn_ = if inside { self.floor[j as usize] } else { 0.0 };
+                let dn = if inside { self.d[j as usize] } else { 0.0 };
+                let hn = if inside { fn_ + dn } else { 0.0 };
+                if self.wall[i] & (1 << k) != 0 || fn_ >= hc {
+                    self.f[b + k] = 0.0;
+                } else {
+                    let mut e = hc - hn;
+                    let prev = KEEP * self.out[b + k];
+                    let lim = if inside {
+                        self.dam.as_ref().map_or(-1.0, |d| d[j as usize])
+                    } else {
+                        -1.0
+                    };
+                    let fk = if lim >= 0.0 && fn_ < hc.ceil() && (!self.game || fc <= fn_) {
+                        self.dam_flow(i, fc, hc, fn_, lim, e, prev)
+                    } else {
+                        if (inside || self.edge) && dn == 0.0 && fn_ == fc {
+                            e = e - 0.1;
+                        }
+                        prev + K * e
+                    };
+                    self.f[b + k] = if fk > 0.0 { fk } else { 0.0 };
+                }
+            }
+            let sum = self.f[b] + self.f[b + 1] + self.f[b + 2] + self.f[b + 3];
+            if self.game {
+                let sd = sum * DT;
+                if sum > 0.0 && dc < sd {
+                    let r = dc / sd;
+                    for k in 0..4 {
+                        self.f[b + k] *= r;
+                    }
+                }
+            } else if sum * DT > dc {
+                let r = dc / max(sum * DT, 1e-12);
+                for k in 0..4 {
+                    self.f[b + k] *= r;
+                }
+            }
+        }
+    }
+    #[inline(always)]
+    fn depth_phase(&mut self, active: &[usize]) {
+        for &i in active {
+            let b = 4 * i;
+            let ns = self.nb[i];
+            let mut inf = [0.0; 4];
+            for k in 0..4 {
+                if ns[k] >= 0 {
+                    inf[k] = self.f[4 * ns[k] as usize + [2, 3, 0, 1][k]];
+                }
+            }
+            if self.d[i] == 0.0 && inf.iter().all(|&v| v == 0.0) {
+                self.old[i] = self.d[i];
+                self.out[b..b + 4].fill(0.0);
+                self.next_c[i] = 0.0;
+                self.d[i] = 0.0;
+                continue;
+            }
+            let fs = &self.f[b..b + 4];
+            let outsum = fs[0] + fs[1] + fs[2] + fs[3];
+            let insum = inf[0] + inf[1] + inf[2] + inf[3];
+            let mut cin = 0.0;
+            for k in 0..4 {
+                cin += inf[k]
+                    * if ns[k] >= 0 {
+                        self.c[ns[k] as usize]
+                    } else {
+                        0.0
+                    };
+            }
+            let dc = self.d[i];
+            let rem0 = dc - outsum * DT;
+            let remaining = if rem0 > 0.0 { rem0 } else { 0.0 };
+            for k in 0..4 {
+                self.out[b + k] = max(0.0, fs[k] - BAL * inf[k]);
+            }
+            self.old[i] = dc;
+            let mut net = insum - outsum;
+            if self.game || dc > 0.0 {
+                net = net - (if dc < 0.02 { 1e-3 } else { 1e-4 }) * self.modifiers[i];
+            }
+            let d1 = dc + net * DT;
+            let new_d = if d1 > 0.0 { d1 } else { 0.0 };
+            let mass = self.c[i] * remaining + cin * DT;
+            self.next_c[i] = if new_d > 1e-9 {
+                clamp(mass / max(new_d, 1e-9), 0.0, 1.0)
+            } else {
+                0.0
+            };
+            self.d[i] = new_d;
+        }
+    }
+}
+
 pub struct Reader<'a> {
     pub data: &'a [u8],
     pub at: usize,
@@ -784,4 +901,62 @@ pub unsafe extern "C" fn water_execute(p: *const u8, len: usize, out_len: *mut u
     let b = execute(std::slice::from_raw_parts(p, len)).into_boxed_slice();
     *out_len = b.len();
     Box::into_raw(b) as *mut u8
+}
+
+#[cfg(test)]
+mod frame_tests {
+    use super::*;
+    fn empty(w: usize, h: usize) -> Sim {
+        let n = w * h;
+        Sim::new(
+            w,
+            h,
+            vec![0.0; n],
+            None,
+            vec![],
+            vec![0.0; n],
+            vec![0.0; n],
+            true,
+            false,
+        )
+    }
+    #[test]
+    fn empty_geometry_keeps_the_original_no_tile_behavior() {
+        for (w, h) in [(0, 0), (0, 5), (5, 0)] {
+            let mut s = empty(w, h);
+            s.run(7, 1.0);
+            assert_eq!(s.ticks, 7);
+            assert_eq!(s.volume().to_bits(), 0.0f64.to_bits());
+        }
+    }
+    #[test]
+    fn changed_public_buffer_is_rejected_before_unsafe_phases() {
+        let mut s = empty(3, 3);
+        s.d[0] = 1.0;
+        s.floor.truncate(1);
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.run(1, 1.0))).is_err());
+        assert_eq!(s.ticks, 0);
+    }
+    #[test]
+    fn invalid_source_and_anchor_are_rejected_before_pointer_access() {
+        for (cells, limit) in [(vec![9], None), (vec![0], Some((9, 1.0, 0.5)))] {
+            assert!(std::panic::catch_unwind(|| Sim::new(
+                3,
+                3,
+                vec![0.0; 9],
+                None,
+                vec![Emitter {
+                    cells,
+                    strength: 1.0,
+                    contamination: 0.3,
+                    limit
+                }],
+                vec![0.0; 9],
+                vec![0.0; 9],
+                true,
+                false
+            ))
+            .is_err());
+        }
+    }
 }
