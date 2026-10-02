@@ -47,12 +47,16 @@ const sourcesOn = (page: Page) =>
     return out;
   });
 
-test("B1 and B3: the map is centred in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
+test("B1 and B3: the map is centred in the free space in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const centred = async () =>
     page.evaluate(() => {
-      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      // the space the page's panels leave free (DESIGN.md: the default view fits the map in it)
+      const canvas = document.querySelector("canvas")!;
+      const all = canvas.getBoundingClientRect();
+      const inset = (side: string) => parseFloat(getComputedStyle(canvas).getPropertyValue(`--frame-${side}`)) || 0;
+      const c = { left: all.left + inset("left"), top: all.top + inset("top"), width: all.width - inset("left") - inset("right"), height: all.height - inset("top") - inset("bottom") };
       const m = window.dgm3d!.renderer.mapState()!;
       const pts = [[0, 0], [m.W - 1, 0], [0, m.H - 1], [m.W - 1, m.H - 1]].map(([x, y]) => window.dgmEditor!.tileToClient(x, y));
       const xs = pts.map((p) => p.x);

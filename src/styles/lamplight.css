@@ -820,6 +820,25 @@ body {
   white-space: normal;
 }
 
+/* the hints let clicks through to the map under them (all but their close button) */
+.workspace .rows-hints {
+  pointer-events: none;
+}
+
+.workspace .rows-hints button {
+  pointer-events: auto;
+}
+
+/* the start's requirements while it is hovered or dragged: under the rows, beside the panel */
+.workspace .start-indicators {
+  left: var(--rows-left);
+  top: var(--frame-top);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  font-size: 13px;
+  pointer-events: none;
+}
+
 /* ---- top right: Save; the cluster; the shelf, all on the cluster's two edges */
 .workspace .save-plate {
   position: absolute;
