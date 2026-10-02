@@ -74,6 +74,8 @@ export function cellOutcome(runs: readonly RunRecord[], wanted: number): CellOut
   const rounds: Verdict[] = [];
   for (let k = 1; k <= MAX_ROUNDS; k++) {
     const rs = runs.filter((r) => roundOf(r) === k);
+    // (a round is judged only once all its runs are in: a resumed cell's half round waits)
+    if (rs.filter((r) => r.build === "before").length < wanted || rs.filter((r) => r.build === "after").length < wanted) break;
     const v = cellVerdict(
       rs.filter((r) => r.build === "before"),
       rs.filter((r) => r.build === "after"),

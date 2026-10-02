@@ -232,3 +232,12 @@ describe("the re-run rule (Kyler, 2026-10-02)", () => {
     expect(cellOutcome(round(1, 12).slice(0, 7), 5)).toMatchObject({ state: "more", rounds: [] });
   });
 });
+
+describe("the re-run rule on a half-measured round", () => {
+  it("never judges a round before all its runs are in, even one already slower", () => {
+    const r = (build: "before" | "after", repeat: number, round: number, p99: number) => ({ key: `k|${build}|${repeat}|r${round}`, build, repeat, round, stats: { p99Ms: p99, worstMs: p99, hitches: 0 } as RunRecord["stats"] });
+    const first = [1, 2, 3, 4, 5].flatMap((k) => [r("before", k, 1, 10), r("after", k, 1, 20)]);
+    const half = [r("before", 1, 2, 10), r("after", 1, 2, 20), r("after", 2, 2, 20)];
+    expect(cellOutcome([...first, ...half], 5)).toMatchObject({ state: "more", rounds: ["SLOWER"] });
+  });
+});
