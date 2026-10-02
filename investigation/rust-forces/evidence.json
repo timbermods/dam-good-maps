@@ -1,27 +1,46 @@
 {
   "status": "incomplete-do-not-adopt",
   "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-  "wasm": {
-    "sha256": "cd4991e3916c1af6a5c12f7bd3c5478515be988f5e2475354f8a8b4bf030eadb",
-    "bytes": 346934,
-    "gzip": 114376,
-    "brotli": 90745
-  },
-  "machine": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
-  "logicalCores": 16,
-  "source": {
-    "rust": "818bbfc1397804340ded795f830bfded29b955ff1195eaafbe839bed249d9fcb",
-    "bridge": "3446d86bcdb1d0754fe19a1d97804df0accc830c94d8a9c909829b55d7fc01e8",
-    "oracleInputs": {
-      "local/checkout/src/core/math/detmath.ts": "5c8ac657b0769a0d897e9fa447827ef70d08697ddca405a9b32a0eda83c8beef",
-      "local/checkout/src/core/math/portable.ts": "8b50cc97600e128ae14f9250c58f8f40e5dd6f5b5a73b40920b9085cf4756e73",
+  "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
+  "build": {
+    "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+    "inputs": {
+      "src/lib.rs": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
+      "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467",
+      "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
+      "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
+      ".cargo/config.toml": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
+      "protocol.ts": "79cce08de6cefad4f6ad7caa55e41afc441cb498e68c90db344f6187893b26af",
+      "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
+      "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
+      "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
+      "suite-adapter.ts": "b2867c630765a2d7f54c658eb1d76ee37d04b69a7f12fcac9a4f35f1b0bb85f8",
+      "check.mjs": "8ffb6f48922f66b47fd5aaa441b11fc8c4e7a53c7e44d59ac421a0cdb7d68e50",
+      "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
+      "browser.mjs": "d2a9bfd9ea326ff065975f95891aaa12d58b48e1439b928593115192177f2877",
+      "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
+      "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
+      "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
+      "native-fixtures.mjs": "b79108d169795d698ba8cac9628805b41551d43ab9ae7b8ed86d6e9ed44cc8af",
+      "load.mjs": "cb86180e5547dec09221d5fe15181a1a6c56abb21c6bf898d0a3964b2950e10c",
+      "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
+      "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
+      "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
+      "existing-browser.mjs": "2300e1e06f00c7122c855a81b4f4c313f5d458bd0d06156302b0cf591ad6e993",
+      "identity-matrix.mjs": "10d8b57c9498574079232699afad270e9497eb3a4d32e24f919d3b061ab57b47",
+      "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
+      "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
+      "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
       "local/checkout/src/core/data/log-floor.json": "ed7385477cbd49fa4355b170bbeae15803af6931b522f0146099ed5e784ddbd0",
       "local/checkout/src/core/data/logFloor.ts": "d330bad83a075b2b3b695797a9a97dabdce9884ffab2bf2b66852d8fc71e33d7",
-      "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
       "local/checkout/src/core/format/entities.ts": "e22aaf0658296a0b39bfbbd7816b6f81cd34ea00c0cf04f765082df0b8736e82",
+      "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/index.mjs": "8d75534a30a0580608e1271c13d70943ed4cd3589fddff7b1197748036a5116e",
+      "local/checkout/src/core/format/world.ts": "972b183aef802dfc927ea223369ddacee80e6f83ad0bb8574f14d5f75d85bb4d",
+      "local/checkout/src/core/format/timber.ts": "3496cbfbcdf3f47c6b853cec3709e82a62066cafac78665933a7a680869a9b08",
+      "local/checkout/src/core/math/detmath.ts": "5c8ac657b0769a0d897e9fa447827ef70d08697ddca405a9b32a0eda83c8beef",
+      "local/checkout/src/core/math/portable.ts": "8b50cc97600e128ae14f9250c58f8f40e5dd6f5b5a73b40920b9085cf4756e73",
       "local/checkout/src/core/data/footprints.json": "1041a770dc33aed409f05fea2002e105581aaa5ff07be82f6e4bd9f2fd0b8e39",
       "local/checkout/src/core/format/footprints.ts": "aecda8f5011956bccf5f30cdcb701ce996a4b9b9c82fcc9cedd45bc0dc444913",
-      "local/checkout/src/core/format/world.ts": "972b183aef802dfc927ea223369ddacee80e6f83ad0bb8574f14d5f75d85bb4d",
       "local/checkout/src/core/sim/model.ts": "d865b27fd02f261c12d082dd22af2d10ad484fa1cbdaac930323f481fb33dd53",
       "local/checkout/src/core/forces/random.ts": "891e7a29c5d1e856302fef1d7ba81650534e361eccd49b1c66da25a3ef33e567",
       "local/checkout/src/core/forces/force.ts": "e87cd30a030397fcbdaf31f738eb1dd61755a9f24c5f75fa6baf89aac1705626",
@@ -94,1923 +113,778 @@
       "local/checkout/src/core/forces/carve/river.ts": "b2b0fd5e6b4e5e345cf2384e6cebe42e63352442031878d1803366c9a2d4ed63",
       "local/checkout/src/core/forces/carve/run.ts": "4d81d95ddeb604fd1ae03d3cb61d13a9d7f2c323c2b84b13cb947067a275babb",
       "local/checkout/src/core/forces/carve/play.ts": "035b272a5659784edd6e7793dd178e9cb6ae1ebe42f59072b9fde91523ec27ae",
-      "protocol.ts": "3446d86bcdb1d0754fe19a1d97804df0accc830c94d8a9c909829b55d7fc01e8",
-      "local/oracle-api.ts": "dc882428a401d90de1d3096182118f8900f713d530f46cd5ce7fdcffcc3a133d",
-      "local/oracle-worker.ts": "d8a6715a05843bdb5d42fd31e15cc150d689cc77bb0bf03eac6f519f17c3c859"
+      "local/final/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
+      "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/browser.js": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
+      "local/final/oracle-worker.ts": "44d45100b5a7853941decb2194726a314d20f14858bc58234447a871e5a42b31"
+    },
+    "wasm": {
+      "imports": [],
+      "sha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+      "bytes": 814253,
+      "gzip": 262703,
+      "brotli": 206580
     }
   },
+  "nativeSha256": "560f30795a05b389ccdd0a6d516fe191d3f7adab9b0a1f9a24bec06545f5eb18",
+  "mathGuard": {
+    "status": "pass",
+    "rustSourceSha256": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
+    "configSha256": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
+    "rows": [
+      {
+        "name": "target/wasm32-unknown-unknown/release/deps/rust_forces.ll",
+        "sha256": "76595ff9c9030915c0c54bbe464cfd44019b62b58b928e6013b50b32a8bdc545"
+      },
+      {
+        "name": "target/release/deps/rust_forces.ll",
+        "sha256": "7a05f9a577e2afdc819cdb10ba5a02e8d801ce41ec92f8497200c2828181b0ce"
+      }
+    ]
+  },
   "identity": {
-    "counts": {
-      "footprint/128": 12,
-      "footprint/256": 12,
-      "footprint/512": 12,
-      "craterize/128": 12,
-      "craterize/256": 12,
-      "craterize/512": 12,
-      "erupt/128": 12,
-      "erupt/256": 12,
-      "erupt/512": 12,
-      "quake/128": 12,
-      "quake/256": 12,
-      "quake/512": 12
+    "counts": {},
+    "accepted": {},
+    "refusals": 0,
+    "randomPinned": false,
+    "randomFile": {
+      "name": "checks-random-final.json",
+      "sha256": null
     },
-    "checksFile": "a039628604334efb902ebe761b22c27010fc4917f46bd03e0a6987e1d5030ae4",
-    "crossEngine": {
+    "matrix": {
+      "name": "identity-matrix.json",
+      "sha256": null
+    },
+    "pilot": {
+      "cases": 72,
+      "sha256": "8ce40fbc1a759d65664aee8a35c28cbbf725e326a979ea2904d562f2ceeedf83"
+    },
+    "crossEngine": null,
+    "lifecycle": {
       "status": "pass",
-      "cases": 144,
-      "comparisons": 432,
+      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+      "rows": [
+        {
+          "verb": "carve",
+          "k": 0,
+          "error": null,
+          "sha256": "25d724b3a9b6ba009a5ccf865f38f4c37c9f7db8f1397dc497904664301f940e"
+        },
+        {
+          "verb": "craterize",
+          "k": 1,
+          "error": null,
+          "sha256": "ec73dd5fd4573203802227e5fae28b3b9d22f744bc71b3b1a7ada3a7159d5bc4"
+        },
+        {
+          "verb": "erupt",
+          "k": 2,
+          "error": null,
+          "sha256": "3b9cca3a48453f624f8c40fdd568826653518b0e1224fdb67d8be7cd61ff09e3"
+        },
+        {
+          "verb": "quake",
+          "k": 3,
+          "error": null,
+          "sha256": "5905afc778508770c1870d3dcdb2bc0c97e84f1838681a11dd479844df3d7236"
+        },
+        {
+          "verb": "glaciate",
+          "k": 4,
+          "error": null,
+          "sha256": "5a6a555abc1d25dc9312a63048f8f6b284820f9d10cc19939eb2adf5c0d0f21c"
+        },
+        {
+          "verb": "footprint",
+          "k": 5,
+          "error": null,
+          "sha256": "3699769a0946b3ebd4fbec5d6be20915d5c1630b4e719b5c0e85c2ae1b8ab3fa"
+        },
+        {
+          "verb": "carve",
+          "k": 6,
+          "error": null,
+          "sha256": "e36ed26b175be58c5a8416db4cafea389297c91cede399fb759bc6af82e08d18"
+        },
+        {
+          "verb": "craterize",
+          "k": 7,
+          "error": null,
+          "sha256": "0d5ddd6a588b1cd593d776f89c8afff878d1d848efc717cfae307ba750db5458"
+        },
+        {
+          "verb": "erupt",
+          "k": 8,
+          "error": null,
+          "sha256": "1c997d7f03a5f61f4d1885a4f5c88ef0375337fd68b9527defdaa9d3114a764b"
+        },
+        {
+          "verb": "quake",
+          "k": 9,
+          "error": null,
+          "sha256": "31b0a7c2adf2d484aaff214d91715e8dda74cb3afb13613ce1da91f458bdde7b"
+        },
+        {
+          "verb": "glaciate",
+          "k": 10,
+          "error": null,
+          "sha256": "3bbbe63944960883e1441f4f8484540beef2d001cde731ef3c8450801872d5cd"
+        },
+        {
+          "verb": "footprint",
+          "k": 11,
+          "error": null,
+          "sha256": "64258ab3a7a508b4bc2ade7f35f2c5d7eeda745e097aa597919460324694de6d"
+        },
+        {
+          "verb": "carve",
+          "k": 12,
+          "error": null,
+          "sha256": "d5cae65ff618c04f9abec103095b6f4b12cdfbe9d54e9f765cfa6f43bddf8efa"
+        },
+        {
+          "verb": "craterize",
+          "k": 13,
+          "error": null,
+          "sha256": "a27a6ac8af3583a7e2a9b6b4c79f2765fdf4a6a719cb853092e5fc1b5ebcf5f8"
+        },
+        {
+          "verb": "erupt",
+          "k": 14,
+          "error": null,
+          "sha256": "c5caf45f5a32267022ce91700138be0e1c8204430137a303c7d994a0ba93b1e6"
+        },
+        {
+          "verb": "quake",
+          "k": 15,
+          "error": null,
+          "sha256": "299ecf4ac8cdf8df9e92ffafb44959dea0fea444e211199bc88e0704d70faf98"
+        },
+        {
+          "verb": "glaciate",
+          "k": 16,
+          "error": null,
+          "sha256": "19a6bd155e8b0b24f20058f9f852f722bfdd5153016d1043c0d72bd62fdb5ae5"
+        },
+        {
+          "verb": "footprint",
+          "k": 17,
+          "error": null,
+          "sha256": "1a2d4b0346d0e3b73a675c50b69d4172fb10a8ad1282a1a628b827666baa9ecf"
+        }
+      ],
+      "scope": "all five forces, consecutive operations, before/map/record views, host writes, allocator growth, reset, disposal"
+    },
+    "edge": {
+      "status": "pass",
+      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+      "rows": [
+        {
+          "target": "native/node-wasm",
+          "name": "quake-zero-length-resampled-segment",
+          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "craterize-power-refusal",
+          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "craterize-zero-power-floor",
+          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "erupt-power-refusal",
+          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "erupt-zero-power-floor",
+          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "quake-power-refusal",
+          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "quake-zero-power-floor",
+          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "carve-power-refusal",
+          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "carve-zero-power-floor",
+          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "glaciate-power-refusal",
+          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "glaciate-zero-power-floor",
+          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
+        },
+        {
+          "target": "chromium",
+          "name": "quake-zero-length-resampled-segment",
+          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
+        },
+        {
+          "target": "chromium",
+          "name": "craterize-power-refusal",
+          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
+        },
+        {
+          "target": "chromium",
+          "name": "craterize-zero-power-floor",
+          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
+        },
+        {
+          "target": "chromium",
+          "name": "erupt-power-refusal",
+          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
+        },
+        {
+          "target": "chromium",
+          "name": "erupt-zero-power-floor",
+          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
+        },
+        {
+          "target": "chromium",
+          "name": "quake-power-refusal",
+          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
+        },
+        {
+          "target": "chromium",
+          "name": "quake-zero-power-floor",
+          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
+        },
+        {
+          "target": "chromium",
+          "name": "carve-power-refusal",
+          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
+        },
+        {
+          "target": "chromium",
+          "name": "carve-zero-power-floor",
+          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
+        },
+        {
+          "target": "chromium",
+          "name": "glaciate-power-refusal",
+          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
+        },
+        {
+          "target": "chromium",
+          "name": "glaciate-zero-power-floor",
+          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
+        },
+        {
+          "target": "firefox",
+          "name": "quake-zero-length-resampled-segment",
+          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
+        },
+        {
+          "target": "firefox",
+          "name": "craterize-power-refusal",
+          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
+        },
+        {
+          "target": "firefox",
+          "name": "craterize-zero-power-floor",
+          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
+        },
+        {
+          "target": "firefox",
+          "name": "erupt-power-refusal",
+          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
+        },
+        {
+          "target": "firefox",
+          "name": "erupt-zero-power-floor",
+          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
+        },
+        {
+          "target": "firefox",
+          "name": "quake-power-refusal",
+          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
+        },
+        {
+          "target": "firefox",
+          "name": "quake-zero-power-floor",
+          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
+        },
+        {
+          "target": "firefox",
+          "name": "carve-power-refusal",
+          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
+        },
+        {
+          "target": "firefox",
+          "name": "carve-zero-power-floor",
+          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
+        },
+        {
+          "target": "firefox",
+          "name": "glaciate-power-refusal",
+          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
+        },
+        {
+          "target": "firefox",
+          "name": "glaciate-zero-power-floor",
+          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
+        },
+        {
+          "target": "webkit",
+          "name": "quake-zero-length-resampled-segment",
+          "sha256": "44e7e41cb646b355fa2bd19375dafccae6c730fdac99100cdbcab9f0a22a240d"
+        },
+        {
+          "target": "webkit",
+          "name": "craterize-power-refusal",
+          "sha256": "f4ca4eb7ff2a918f7549350ba84345bdea2dc7b98341a8fb4f372ce5f3f82cc5"
+        },
+        {
+          "target": "webkit",
+          "name": "craterize-zero-power-floor",
+          "sha256": "c21f3fda858ac45c9431a3408da215ca51a0b8abeaed060d8b7467897d94559c"
+        },
+        {
+          "target": "webkit",
+          "name": "erupt-power-refusal",
+          "sha256": "98416f8167836200089f65a66a7e924cd7d28158f2e1d2ea157a457be7f6b28d"
+        },
+        {
+          "target": "webkit",
+          "name": "erupt-zero-power-floor",
+          "sha256": "72822e021230e417bb0b4189601b90e320a51d096210289adea67af5b5d02149"
+        },
+        {
+          "target": "webkit",
+          "name": "quake-power-refusal",
+          "sha256": "d9b78633c9de63031833e638fd9b71d27525a1860d40c19594b93a03ae000bbb"
+        },
+        {
+          "target": "webkit",
+          "name": "quake-zero-power-floor",
+          "sha256": "6f75717ad103864f15c55094f1b9fad1c8abf6dcaf1ae4eef06b03d208a44228"
+        },
+        {
+          "target": "webkit",
+          "name": "carve-power-refusal",
+          "sha256": "edf930eb3b351e5ceb667d33fed794ba3f5ff2481d0c03087941f11815188574"
+        },
+        {
+          "target": "webkit",
+          "name": "carve-zero-power-floor",
+          "sha256": "a6974582cbc9aa81f0cfe8a65f32d963b7136bb3fa4d95e605ecbf4aac6fe338"
+        },
+        {
+          "target": "webkit",
+          "name": "glaciate-power-refusal",
+          "sha256": "619809dcacd4fa35896f44d9bd41cf1d0fc542b02c5c88db94940604e0492039"
+        },
+        {
+          "target": "webkit",
+          "name": "glaciate-zero-power-floor",
+          "sha256": "ca18363dd0db964f84205e4e2ae15ce3170c33667dbf42f2365d340d848e04b9"
+        }
+      ]
+    },
+    "footprints": {
+      "status": "pass",
+      "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+      "rows": [
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-128-0-0",
+          "entities": 2520,
+          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-128-1-0",
+          "entities": 2520,
+          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-128-3-0",
+          "entities": 2520,
+          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-256-0-0",
+          "entities": 2520,
+          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-256-1-0",
+          "entities": 2520,
+          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-256-3-0",
+          "entities": 2520,
+          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-512-0-0",
+          "entities": 2520,
+          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-512-1-0",
+          "entities": 2520,
+          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
+        },
+        {
+          "target": "native/node-wasm",
+          "name": "footprint-512-3-0",
+          "entities": 2520,
+          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-128-0-0",
+          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-128-1-0",
+          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-128-3-0",
+          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-256-0-0",
+          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-256-1-0",
+          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-256-3-0",
+          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-512-0-0",
+          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-512-1-0",
+          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
+        },
+        {
+          "target": "chromium",
+          "name": "footprint-512-3-0",
+          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-128-0-0",
+          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-128-1-0",
+          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-128-3-0",
+          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-256-0-0",
+          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-256-1-0",
+          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-256-3-0",
+          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-512-0-0",
+          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-512-1-0",
+          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
+        },
+        {
+          "target": "firefox",
+          "name": "footprint-512-3-0",
+          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-128-0-0",
+          "sha256": "baba60da4bcc19afd2ed87724d4b601f8311cbef85606ba2d5927a5f5b3bc580"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-128-1-0",
+          "sha256": "40a882b6b79276916b6ca771121625dc657c35dc5de27473ecbf51bc2faab3a6"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-128-3-0",
+          "sha256": "10ffc9c54b7defbbca232a195d065853d23927ddc9ebef91a9e005a15d859aba"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-256-0-0",
+          "sha256": "0694038e588c75b21fa0560df0b37b7f3d72d8ac8bf795c69f1ea1d220d3bcb6"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-256-1-0",
+          "sha256": "a3f0711f713d67d27874266e0363401bd8768499f822455fcf9603334812f694"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-256-3-0",
+          "sha256": "ca763b5a5a2bfef548495be38285c3c984fd787621054176a18d3969765c38f8"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-512-0-0",
+          "sha256": "53fb45e21192d64257234050ce799c95d071e1cb08ad089e5749af06dfddc668"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-512-1-0",
+          "sha256": "992d22e56b615edbe7b797ff79c63687e188efd2a4533463efe6ad35c0d7f2bc"
+        },
+        {
+          "target": "webkit",
+          "name": "footprint-512-3-0",
+          "sha256": "fd097a9ee5c25e730fd6250d55eab61f42b5ad7345b4d232fd44b9932f66932a"
+        }
+      ]
+    },
+    "scope": "Exact IEEE fixture bytes: raw/final land, water, ordered objects, geometry, literal changes, all playback tapes and timings. Every accepted random gesture also compares actual .timber writer bytes with fixed fixture metadata, no thumbnail and zero soil. Existing contracts/browser suites cover editor, project, worker and finalizer exports."
+  },
+  "existingTests": null,
+  "suiteReplay": {
+    "sha256": "08307792e71bfb06e53f10337f6c467208a1317b3b0213b280f4179a3b8ee648",
+    "status": "pass",
+    "wasmSha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+    "corpusSha256": "01c80c088846d38dad72c45a9110d78f34cf9d51145539fb9503753c57a8aa47",
+    "cases": 4,
+    "comparisons": 12,
+    "counts": {
+      "glaciate/128/historical": 4
+    },
+    "replayPass": false
+  },
+  "existingBrowser": {
+    "sha256": "87b7994924362117dbe0a5823d5ae6d5f3e714e939c6d053b406c02b0a8d00c5",
+    "build": {
+      "build": {
+        "base": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+        "inputs": {
+          "src/lib.rs": "5f074eaf6114603e52e71a0c32522ed95ff33a6e977461da48090e49d62c4cd8",
+          "rust/main.rs": "85994252df4db8b35261020001bf44e433ca738341b39ae2d5e024efe38e2467",
+          "Cargo.toml": "45eabd93c58be26e9c9c0292cc2d21fc6918517cfa1be6fdebb7b627cc8385d0",
+          "Cargo.lock": "141800c3272d2889f5d95edd37849e36674b4606a4ad9c9cd6ad0ea2595ac442",
+          ".cargo/config.toml": "9a5b2a7bd67d888f8304cf55256f6ce8d366d4775c0db89d74f9f9238bf7219a",
+          "protocol.ts": "79cce08de6cefad4f6ad7caa55e41afc441cb498e68c90db344f6187893b26af",
+          "typed-result.ts": "cdabe7abc7adf9a7eb78159d4864da2c5ad20200fe2f222a3ebf09835f164dc2",
+          "api.ts": "a393d8c13514b5177ff7f6d59c41b715a65882eaf7f90ad2982a7762ea1cb7ff",
+          "worker.ts": "b26992b8b01c2caf89311e5fd83f044c0767c1657eda1509f52798d4deaa13e0",
+          "suite-adapter.ts": "b2867c630765a2d7f54c658eb1d76ee37d04b69a7f12fcac9a4f35f1b0bb85f8",
+          "check.mjs": "8ffb6f48922f66b47fd5aaa441b11fc8c4e7a53c7e44d59ac421a0cdb7d68e50",
+          "existing-tests.mjs": "9d90aa6a5f3d3bdf4ddd549a9782b971a6844bdc2abf4487ac0cc60d164ac4f4",
+          "browser.mjs": "d2a9bfd9ea326ff065975f95891aaa12d58b48e1439b928593115192177f2877",
+          "native-bench.mjs": "c1db4ee01602940ec1669250ca9a2eb5b7d3bfadf16d8eca8d5fa1c5aec33559",
+          "edge-check.mjs": "5fe8c28ed64ed2108ec886d0048843a3da41ffcd371c28b7907a12bc1f154bd4",
+          "lifecycle-chain.mjs": "05e5eb6cd655e8c2ef3ded035752a45330ece0e32214f85ab7beb0feb75d4327",
+          "native-fixtures.mjs": "b79108d169795d698ba8cac9628805b41551d43ab9ae7b8ed86d6e9ed44cc8af",
+          "load.mjs": "cb86180e5547dec09221d5fe15181a1a6c56abb21c6bf898d0a3964b2950e10c",
+          "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
+          "common.mjs": "fc0bf7361a47e251899b35e44993bab8aedc0b21d0383273a217900f54dade0d",
+          "prepare-firefox.py": "7f2559556e4e21d07b4fab8e76232e3c3b23f2ebe0f2ec97620be6712cef6f63",
+          "existing-browser.mjs": "2300e1e06f00c7122c855a81b4f4c313f5d458bd0d06156302b0cf591ad6e993",
+          "identity-matrix.mjs": "10d8b57c9498574079232699afad270e9497eb3a4d32e24f919d3b061ab57b47",
+          "verify-ir.mjs": "bbde565a7a70f8d0c0e0ea059f834f86e3c76520765a30b7ab57f4321eb098ff",
+          "suite-replay.mjs": "3fa0968294e90b04887629b400b82576c5e15111c22f2c79c0e6dceacfb25fb0",
+          "local/checkout/src/core/format/json.ts": "47002298da6d08ac8c8df627d38a7e36d7ac9fd05d03d731e7363e7d53e8bdfc",
+          "local/checkout/src/core/data/log-floor.json": "ed7385477cbd49fa4355b170bbeae15803af6931b522f0146099ed5e784ddbd0",
+          "local/checkout/src/core/data/logFloor.ts": "d330bad83a075b2b3b695797a9a97dabdce9884ffab2bf2b66852d8fc71e33d7",
+          "local/checkout/src/core/format/entities.ts": "e22aaf0658296a0b39bfbbd7816b6f81cd34ea00c0cf04f765082df0b8736e82",
+          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/index.mjs": "8d75534a30a0580608e1271c13d70943ed4cd3589fddff7b1197748036a5116e",
+          "local/checkout/src/core/format/world.ts": "972b183aef802dfc927ea223369ddacee80e6f83ad0bb8574f14d5f75d85bb4d",
+          "local/checkout/src/core/format/timber.ts": "3496cbfbcdf3f47c6b853cec3709e82a62066cafac78665933a7a680869a9b08",
+          "local/checkout/src/core/math/detmath.ts": "5c8ac657b0769a0d897e9fa447827ef70d08697ddca405a9b32a0eda83c8beef",
+          "local/checkout/src/core/math/portable.ts": "8b50cc97600e128ae14f9250c58f8f40e5dd6f5b5a73b40920b9085cf4756e73",
+          "local/checkout/src/core/data/footprints.json": "1041a770dc33aed409f05fea2002e105581aaa5ff07be82f6e4bd9f2fd0b8e39",
+          "local/checkout/src/core/format/footprints.ts": "aecda8f5011956bccf5f30cdcb701ce996a4b9b9c82fcc9cedd45bc0dc444913",
+          "local/checkout/src/core/sim/model.ts": "d865b27fd02f261c12d082dd22af2d10ad484fa1cbdaac930323f481fb33dd53",
+          "local/checkout/src/core/forces/random.ts": "891e7a29c5d1e856302fef1d7ba81650534e361eccd49b1c66da25a3ef33e567",
+          "local/checkout/src/core/forces/force.ts": "e87cd30a030397fcbdaf31f738eb1dd61755a9f24c5f75fa6baf89aac1705626",
+          "local/checkout/tests/contract/forceFixtures.ts": "5ff1cd91cd701b4948c91a9d45d1bb530f7f83affde83aaebf4db2cfecd87761",
+          "local/checkout/src/core/forces/objects.ts": "a8eb383a6ed6a6159cde44b8e10b781e9cd1fec6bea73d360e023eba0729716d",
+          "local/checkout/src/core/forces/strength.ts": "6b59f241c77c1c176166bf6d9ad87d2e8a8f72bda3492bd8c7456652d340b2b3",
+          "local/checkout/src/core/forces/craterize.ts": "44b7f42758dc02bea70324be9123aeca729e1a65f95c8bd8bb40b0173ac60d5d",
+          "local/checkout/src/core/math/grid.ts": "6119da419ca2008d4a7d8dbc983422a4cb7c2147fbb5b8f72a554bcc6f1be62d",
+          "local/checkout/src/core/sim/contamination.ts": "8c24c69a2d1d016c129bbddff9924706a68d056c9df3807858172716c1dd3299",
+          "local/checkout/src/core/sim/moisture.ts": "51dde823d7ef851569e90ffe76cd729a55eab717899deeb513037abc13df6a4e",
+          "local/checkout/src/core/sim/water.ts": "b3859ead5b2f6bfdcdff0939094d78d0105f53ddda654dc3a1c3f3d32b3f2e80",
+          "local/checkout/src/core/sim/prefill.ts": "77728b3f556c6a07156e5b476662b9782a4f3d783e5470ec49a7706e6c36d599",
+          "local/checkout/src/core/sim/preview.ts": "14599f5e2581d08503c8cd8d0526397835595d801e44c1fd855f25e4a80f94a7",
+          "local/checkout/src/core/forces/glaciate/model.ts": "54e9254371d5b58db8d978548aae5e98c7c4e7cda03f27ed0cb7fa13ccd0833f",
+          "local/checkout/src/core/forces/floor.ts": "d2073946206869515091cd14d1608000294a4ecab2172e5df899cca15e641e5a",
+          "local/checkout/src/core/forces/op.ts": "e943ab4c1d2df08f9d5d1c5d47ca52b2ef090e1e4a82e46715b8abf08e1f1b60",
+          "local/checkout/src/core/math/hash.ts": "da01f3e39803ff515b491b3ec80ebf05c20acb44f560145a29af3a4617445ab3",
+          "local/checkout/src/core/features/ids.ts": "a155357df37d37860e651662a11713e27310508a70fe1bd61c18d7d982db16a3",
+          "local/checkout/src/core/features/features.schema.json": "333ae2d2e80480177ad1111f6ed6830e011a1372548292a58f017e224f883e1f",
+          "local/checkout/src/core/spec/mapspec.schema.json": "0f0de7381bbee1403de2ae0abf540e39288a37359c358d03d18ffb0c449c0dc3",
+          "local/checkout/src/core/spec/schema.ts": "32986632c89c0ed5e8f5de72c64009b7c2ece8deddb981b1d645dc6359f7ef9f",
+          "local/checkout/src/core/features/geometry.ts": "258c01c5c06e5d88a5169cb9ecb9c4fea5c7cf4a89d7ba2ba442488eedc63cad",
+          "local/checkout/src/core/features/route.ts": "79134dcbf14ad4d27fd217cefa5d0c9d53d803a0ef2793968b23e2b6dc0c3fa7",
+          "local/checkout/src/core/features/target.ts": "673725bb96a31f5ee9b1ef5178e2fc7a9038e6ce9b329e457460ae7585bdd6cc",
+          "local/checkout/src/core/gen/calibrated.ts": "19805a998926f7308d07fcbdd732eec99bee00aa9e1d21e6a019dfd692b243c6",
+          "local/checkout/src/core/features/setpieces/common.ts": "36a3bbd721abffbfcf63428368be8fc35eff47e0531beb8f3ed62da4e348b955",
+          "local/checkout/src/core/features/setpieces/badwaterBasin.ts": "aa7c7164309fa9c01ec7df29cab4e4d1eb5101201a5bd0c3422f531b1392f2ca",
+          "local/checkout/src/core/analysis/damsites.ts": "c474d1c611c231d4a2d3bd291f2494f4b3b209f1c3df6c5f9e1acdadb6558f9e",
+          "local/checkout/src/core/math/noise.ts": "7d37b76f2ceee6b20742532da78abfb7cdb287b9b1ceeb536c0af0b756654c84",
+          "local/checkout/src/core/features/setpieces/damSite.ts": "26268317afc3bacffabbae066d939e6f428a3fa279553d1ff36c8b105d4a4d21",
+          "local/checkout/src/core/features/setpieces/gorge.ts": "19576cc7562a9abe4b58e30e97df47a95411c2362bfd4e418f072bbe7a05d988",
+          "local/checkout/src/core/math/rng.ts": "5236a244b99a2a5d1aa69e934c8ce222f4a40f50aabca94e05a63eb4690657b2",
+          "local/checkout/src/core/analysis/ridge.ts": "7ccc4d5e110f5c55bad5031d60ae650a787d4a34582512c42141d70131593135",
+          "local/checkout/src/core/land/num.ts": "4c20fa7a4af94861fd1556bbace1b8d7105849a29d475a90f0cdc4b2e035575a",
+          "local/checkout/src/core/land/narrows.ts": "40da5f13dfb06d60a52e4b69ad4e16e438c8dcfccedf1381d0a42c82a1fcb42c",
+          "local/checkout/src/core/features/setpieces/naturalNarrows.ts": "312a6807c08a035e7f370af511f622fc2112a8d19d44189faa147e4ba9a23f75",
+          "local/checkout/src/core/features/setpieces/obstaclePayoff.ts": "8d5c3ff2a9730bc4cc4d11db8d3f85f40c7bc03af0fcd49b10c6eceed56798b8",
+          "local/checkout/src/core/features/setpieces/plugSpillway.ts": "85626ee982f25f2b2cc3427f021bd755de02c1733400041221156e35be90f0fc",
+          "local/checkout/src/core/features/setpieces/secondDistrict.ts": "3933b39812e092e9125f120bb31b29572f7aa4f7bd6974c6c6c1416e43729561",
+          "local/checkout/src/core/features/setpieces/terracedCliffs.ts": "eaa89a9897cccf581ffc4b04f48ad3db87213704d938e7463d8ab3ca14ab2e29",
+          "local/checkout/src/core/features/setpieces/waterfall.ts": "712cf1149fb8cb03d5bc0701c71b8ef057f0d0382ffcd7bc75ecef54a5f0c288",
+          "local/checkout/src/core/features/setpieces/index.ts": "843b75e56fac9bb4b912a147278c26a2f35d7ee98bc199eb43f2cc3167adee2f",
+          "local/checkout/src/core/features/slopes.ts": "57ae0b3df5ddf1b7a6b61be671ed65d1e2fcd42d20762bd563b09e251b4f90a8",
+          "local/checkout/src/core/features/edits.ts": "e71e77471ac38d45c62251a6d1b0723bf1c7248fbb184b966d7dc3b4a16312e0",
+          "local/checkout/src/core/features/raster/brush.ts": "45550420d1ec21250fcac5c4b9b6290a23284b4be641b6303ce9538cfb970d3d",
+          "local/checkout/src/core/features/raster/terrain.ts": "b23f4b6f16fe12363e36efb2a12c7550e4f0eec995ebdb0dfbc26a2a40b5b5f1",
+          "local/checkout/src/core/gen/blobs.ts": "726759e4583a58195b1ae23d7d54a5d32ba782bd2a36e9b0f580905e11c9dad1",
+          "local/checkout/src/core/resources/budget.ts": "58624556178fe5f14edd6ce1735970fe09fcafb8fd033bcb8ccc5a3441448521",
+          "local/checkout/src/core/resources/measure.ts": "64670d02d787d6f7b453ad58f9792860f3d12dde972eb4d2bf84d45f484cfcc9",
+          "local/checkout/src/core/resources/baseline.ts": "9bb3b538a9d8e8e99677d5a91f360e958df9dec9183b1ac369494d3c3c58a368",
+          "local/checkout/src/core/features/raster/resources.ts": "9f1eaa7651e3727416016bd88f20c925f74dbbdae1194f3147a296e22c352137",
+          "local/checkout/src/core/features/objects.ts": "7f7331ecd7138ed118a518d46bcb14f0dcf32d75296c7f0cfe449f77db249499",
+          "local/checkout/src/core/features/build.ts": "18267253e76e4d26a5fe4c0c7b7e798a6718f365fff4e9a344a54996f1bcb926",
+          "local/checkout/src/core/forces/erupt.ts": "fe3ae5918ef9738e502abdf33e696b43ab55c3b39ca350854ec44c9c3da033b2",
+          "local/checkout/src/core/forces/path.ts": "244ca1dabe22f4b857a7ce4a81cb149c5e0d7ed7993f2222fe2cdea57f7d21e6",
+          "local/checkout/src/core/forces/quake.ts": "efc4767fc421ad54fefb589008f135114bef1869e0f97160d2c853d4c3c66332",
+          "local/checkout/src/core/forces/rock.ts": "719ff643c0e2394c480f4195a0d954bc150157fe40a8f5457d6e94a676aae4b8",
+          "local/checkout/src/core/forces/runs.ts": "1389bf9b6672a0177a7a021127f6aa78d266287992dbb3df44d637b115ef01f5",
+          "local/checkout/src/core/water/sourceGroups.ts": "c44f2fb3ce8ac4045347c79e62af028d647b2abc7688814fc71de1df319f951e",
+          "local/checkout/src/core/forces/glaciate/floor.ts": "cc07216563482ad04c29a7f1e66bf78ce2e5de1e0ed512ba62498695742db3fe",
+          "local/checkout/src/core/forces/glaciate/plan.ts": "8d286ca199f37f5779cd8caaba57a9322b0fe07f17acc7121c7342f928043884",
+          "local/checkout/src/core/water/edgeSources.ts": "30fbabece7dce0ee89f330ba237596c5d9ecc3bba7599463db7ece9ebbe4179c",
+          "local/checkout/src/core/forces/glaciate/run.ts": "2b24063d1ba462f0ad6014c59ba0dd67ae9cefdce558bfe684ce13c6b7579217",
+          "local/checkout/src/core/forces/result.ts": "19168ba000a8d6ec20cce0ae5fe55dc82fe0bd96be1703dda7abad0ad6cca272",
+          "local/checkout/src/core/forces/carve/character.ts": "4f364a14c7a892cdeeb1fd431adbcf5a84d66caa45fd590ba62ba6984ebe31e9",
+          "local/checkout/src/core/forces/drainage.ts": "5bf0929bf0a05c9ae0c0b87d91f8ab9f67a90d8351062d2e244239c683cb39e3",
+          "local/checkout/src/core/forces/carve/course.ts": "c795ec1438139cca43c61f3ace97a100f28fd055ec25c319c8c76339bbdf468d",
+          "local/checkout/src/core/forces/carve/oxbow.ts": "9fdf15b41b18eeb6b8ecd9c9d36235b8465deeb67f7a6aad9a7dbf28e5190b3d",
+          "local/checkout/src/core/forces/carve/water.ts": "a7b4b01a2794118d64b88181e1085b1c1f6e5be477ff65ad0406206910e85cf3",
+          "local/checkout/src/core/forces/carve/river.ts": "b2b0fd5e6b4e5e345cf2384e6cebe42e63352442031878d1803366c9a2d4ed63",
+          "local/checkout/src/core/forces/carve/run.ts": "4d81d95ddeb604fd1ae03d3cb61d13a9d7f2c323c2b84b13cb947067a275babb",
+          "local/checkout/src/core/forces/carve/play.ts": "035b272a5659784edd6e7793dd178e9cb6ae1ebe42f59072b9fde91523ec27ae",
+          "local/final/oracle-api.ts": "b0d7303a65f0fa95300e41d7a89ca4adfbd7d4ccd10fdcd4b181253b4ff460fc",
+          "../../../../../code/DamGoodMaps-m9b/node_modules/fflate/esm/browser.js": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
+          "local/final/oracle-worker.ts": "44d45100b5a7853941decb2194726a314d20f14858bc58234447a871e5a42b31"
+        },
+        "wasm": {
+          "imports": [],
+          "sha256": "92b93e74e1233397cc71d68442ddfef4db1b741962f788896ae3dec586a31937",
+          "bytes": 814253,
+          "gzip": 262703,
+          "brotli": 206580
+        }
+      },
+      "suiteAdapterSha256": "81ac9a79f0832ecb551bb1420d5b13687db280cee8b9135e44cd7969d5a96c56",
+      "harnessSha256": "282496a4ea8323ae14469c7def8d5d92ea58e2785ac3d99b41ec7518b370eba6",
       "engines": [
         "chromium",
         "firefox",
         "webkit"
       ],
-      "fingerprints": [
-        "5fd5288051a3e33100a23c822b552fb8002b5adac37743b771d114820cbcd20c"
-      ]
+      "selection": [],
+      "sources": {
+        "forces": "7cb57d0cf5723235fdd10c62a2811a1a7e844ab31cd9b6d20ccd190a241ed590",
+        "carve": "e92b0394b651f1a4214583dfecf453e6e984406318aa8272b001a3678f25fbbe",
+        "glaciate": "16e91552fead16bf7cfad9ccd4cdaa7eecd26b3796a51c4b07cdcbdf753ef189",
+        "unleash": "ac82c934e9648560ef56a678e3251b8c5034cb58aa136692298f615512c1d2f3",
+        "forceKeys": "8e24621764f9ee2d88dd8cbb9cc8ab1b5564d41a5b967fec860da2b120454b50",
+        "forceSpeed": "92aa521a7c1a790787724da268ba4bbed7e7e9a58b0571e0f0a83cb2385c3ba0",
+        "determinism": "ac13cb0afae99ebdd969e2d2214f9ef91a9e305780214ab2d38b0b932ba82edf"
+      },
+      "driver": "1.58.2",
+      "informationalTimingsEnabled": true
     },
-    "scope": "Three planning kernels and footprint only; canonical binary planned water, literal changes and listed fields. No Carve/Glaciate, full playback records, product finalizer, exported bytes, errors, or Rust replacement in existing tests."
+    "stats": {
+      "startTime": "2026-10-02T14:05:34.607Z",
+      "duration": 1958.469,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "rustComparisons": 0,
+    "fullBrowser": false
   },
-  "mathGuard": {
-    "status": "pass",
-    "rows": [
-      {
-        "name": "target/wasm32-unknown-unknown/release/deps/rust_forces.ll",
-        "sha256": "ab75a1ad33ae5c9336296cd3b737b2b3e58fcecf69b9aa476cfe87040f9f5f9b"
-      },
-      {
-        "name": "target/release/deps/rust_forces.ll",
-        "sha256": "48f4a74b639f37958f5328905f2951bc204d43e24cb6413466636e4a1b394b3e"
-      }
-    ]
+  "measurements": {
+    "file": "measurement-evidence.json",
+    "sha256": "fdb7de86ba17764a04ceafa45fb994986904ba1f34f29cb5c37fabfd600af458",
+    "firstThree": {
+      "cells": 72,
+      "pass": true
+    },
+    "allForces": {
+      "cells": 120,
+      "pass": true
+    },
+    "timingPinned": true
   },
-  "existingTypeScriptTests": {
-    "initialFocused": {
-      "passed": 64,
-      "failed": 0,
-      "failedSuites": 2,
-      "total": 64,
-      "success": false
-    },
-    "correctedUnitSuites": {
-      "passed": 11,
-      "failed": 0,
-      "failedSuites": 0,
-      "total": 11,
-      "success": true
-    },
-    "broadRun": "Interrupted; no all-suite completion claim."
-  },
-  "timings": [
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "footprint",
-      "size": 128,
-      "sha256": "12037380b1003d5576fbf2b93f57a7de6ea22bb963931f960995abea9990bff4",
-      "ts": {
-        "samples": [
-          0.2999999523162842,
-          0.19999998807907104,
-          0.10000002384185791
-        ],
-        "median": 0.19999998807907104,
-        "worst": 0.2999999523162842
-      },
-      "rust": {
-        "samples": [
-          0.5,
-          0.5,
-          0.5999999642372131
-        ],
-        "median": 0.5,
-        "worst": 0.5999999642372131
-      },
-      "bridge": {
-        "samples": [
-          8.5,
-          4.5,
-          5.199999988079071
-        ],
-        "median": 5.199999988079071,
-        "worst": 8.5
-      },
-      "load": {
-        "mean": 74.02720272849479,
-        "max": 74.46154849017637,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31848300544
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "footprint",
-      "size": 256,
-      "sha256": "43f8a0891ab0117663b2eaeb1051a0d00751691cb40441315acecf3f299639cb",
-      "ts": {
-        "samples": [
-          0.6000000238418579,
-          0.5,
-          0.30000001192092896
-        ],
-        "median": 0.5,
-        "worst": 0.6000000238418579
-      },
-      "rust": {
-        "samples": [
-          2.399999976158142,
-          2.800000011920929,
-          2.5
-        ],
-        "median": 2.5,
-        "worst": 2.800000011920929
-      },
-      "bridge": {
-        "samples": [
-          41.69999998807907,
-          23.69999998807907,
-          22
-        ],
-        "median": 23.69999998807907,
-        "worst": 41.69999998807907
-      },
-      "load": {
-        "mean": 66.83803754784296,
-        "max": 69.4216390217182,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31641722880
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "footprint",
-      "size": 512,
-      "sha256": "f7f73a06e7d35be8cbb353a95845f275027a1be92e50a96a5dd09335ee0cac33",
-      "ts": {
-        "samples": [
-          1,
-          1.300000011920929,
-          1.300000011920929
-        ],
-        "median": 1.300000011920929,
-        "worst": 1.300000011920929
-      },
-      "rust": {
-        "samples": [
-          9.699999988079071,
-          9.699999988079071,
-          11.300000011920929
-        ],
-        "median": 9.699999988079071,
-        "worst": 11.300000011920929
-      },
-      "bridge": {
-        "samples": [
-          275.10000002384186,
-          83.5,
-          93.69999998807907
-        ],
-        "median": 93.69999998807907,
-        "worst": 275.10000002384186
-      },
-      "load": {
-        "mean": 71.3763968367857,
-        "max": 80.85922883056844,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31458451456
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "craterize",
-      "size": 128,
-      "sha256": "c2cd601f3668fae01e6d8ba08db10da223b7334679c6cbcc09f24ff6bd94fb3f",
-      "ts": {
-        "samples": [
-          6.899999976158142,
-          7.600000023841858,
-          9.600000023841858
-        ],
-        "median": 7.600000023841858,
-        "worst": 9.600000023841858
-      },
-      "rust": {
-        "samples": [
-          13,
-          13,
-          12.699999988079071
-        ],
-        "median": 13,
-        "worst": 13
-      },
-      "bridge": {
-        "samples": [
-          15.699999988079071,
-          16.299999952316284,
-          19.899999976158142
-        ],
-        "median": 16.299999952316284,
-        "worst": 19.899999976158142
-      },
-      "load": {
-        "mean": 54.05466187194394,
-        "max": 55.4077047336432,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31597764608
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "craterize",
-      "size": 256,
-      "sha256": "00b36f9d5cdb24103afee420010163add9baa175d67069a82426fe4b0002792a",
-      "ts": {
-        "samples": [
-          29.100000023841858,
-          34.60000002384186,
-          26
-        ],
-        "median": 29.100000023841858,
-        "worst": 34.60000002384186
-      },
-      "rust": {
-        "samples": [
-          71.30000001192093,
-          68.30000001192093,
-          77.10000002384186
-        ],
-        "median": 71.30000001192093,
-        "worst": 77.10000002384186
-      },
-      "bridge": {
-        "samples": [
-          123.39999997615814,
-          104.89999997615814,
-          104.5
-        ],
-        "median": 104.89999997615814,
-        "worst": 123.39999997615814
-      },
-      "load": {
-        "mean": 49.263947377347414,
-        "max": 53.860386993973954,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31894351872
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "craterize",
-      "size": 512,
-      "sha256": "91be3cd87d0598d47bc0aeee64ac01a73476a0b68ce242f28fd0f3fb243d8aee",
-      "ts": {
-        "samples": [
-          155.69999998807907,
-          160.29999995231628,
-          192.5
-        ],
-        "median": 160.29999995231628,
-        "worst": 192.5
-      },
-      "rust": {
-        "samples": [
-          437.7000000476837,
-          367.80000001192093,
-          484
-        ],
-        "median": 437.7000000476837,
-        "worst": 484
-      },
-      "bridge": {
-        "samples": [
-          1746.6000000238419,
-          696.9000000357628,
-          657.3999999761581
-        ],
-        "median": 696.9000000357628,
-        "worst": 1746.6000000238419
-      },
-      "load": {
-        "mean": 82.49539783252283,
-        "max": 94.54076751083421,
-        "samples": 12,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32374456320
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "erupt",
-      "size": 128,
-      "sha256": "0d0411aaedc250b242285598b6c4d3a02a9138f889b9e49b9b9b337571f1039c",
-      "ts": {
-        "samples": [
-          22.899999976158142,
-          35.69999998807907,
-          37.10000002384186
-        ],
-        "median": 35.69999998807907,
-        "worst": 37.10000002384186
-      },
-      "rust": {
-        "samples": [
-          34.30000001192093,
-          39.700000047683716,
-          44.5
-        ],
-        "median": 39.700000047683716,
-        "worst": 44.5
-      },
-      "bridge": {
-        "samples": [
-          45.30000001192093,
-          47,
-          63.69999998807907
-        ],
-        "median": 47,
-        "worst": 63.69999998807907
-      },
-      "load": {
-        "mean": 87.76920099099928,
-        "max": 93.00805591288015,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33000034304
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "erupt",
-      "size": 256,
-      "sha256": "f581f92df24a1910db1317958812ccf10886eb326e44132615596984b7c2b084",
-      "ts": {
-        "samples": [
-          59.59999996423721,
-          52.30000001192093,
-          75.89999997615814
-        ],
-        "median": 59.59999996423721,
-        "worst": 75.89999997615814
-      },
-      "rust": {
-        "samples": [
-          107,
-          127.80000001192093,
-          136.5
-        ],
-        "median": 127.80000001192093,
-        "worst": 136.5
-      },
-      "bridge": {
-        "samples": [
-          147.10000002384186,
-          179.89999997615814,
-          148.30000001192093
-        ],
-        "median": 148.30000001192093,
-        "worst": 179.89999997615814
-      },
-      "load": {
-        "mean": 88.41410703845006,
-        "max": 91.21401309703981,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32685453312
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "erupt",
-      "size": 512,
-      "sha256": "3f9fea5a1c824a7a3a2d7945d2e4a515bc42b55e3cc5610138b431c709675278",
-      "ts": {
-        "samples": [
-          154.10000002384186,
-          175.30000001192093,
-          201.30000001192093
-        ],
-        "median": 175.30000001192093,
-        "worst": 201.30000001192093
-      },
-      "rust": {
-        "samples": [
-          371.60000002384186,
-          395.2999999523163,
-          443.30000001192093
-        ],
-        "median": 395.2999999523163,
-        "worst": 443.30000001192093
-      },
-      "bridge": {
-        "samples": [
-          1631.5999999642372,
-          546,
-          562
-        ],
-        "median": 562,
-        "worst": 1631.5999999642372
-      },
-      "load": {
-        "mean": 81.5007933157433,
-        "max": 89.35723627726533,
-        "samples": 11,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32230211584
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "quake",
-      "size": 128,
-      "sha256": "506462ddd15381ce729e35ae46252e57e77afa4b66e9e7dffb34ac587dba4a85",
-      "ts": {
-        "samples": [
-          7.300000011920929,
-          16.700000047683716,
-          10.599999964237213
-        ],
-        "median": 10.599999964237213,
-        "worst": 16.700000047683716
-      },
-      "rust": {
-        "samples": [
-          17.5,
-          25.19999998807907,
-          13.900000035762787
-        ],
-        "median": 17.5,
-        "worst": 25.19999998807907
-      },
-      "bridge": {
-        "samples": [
-          29.899999976158142,
-          31.599999964237213,
-          18.19999998807907
-        ],
-        "median": 29.899999976158142,
-        "worst": 31.599999964237213
-      },
-      "load": {
-        "mean": 77.94497980111234,
-        "max": 79.4008257925553,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32544624640
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "quake",
-      "size": 256,
-      "sha256": "d4caa09d641a896e7b3ee33da314f3015336483d982c17fb3856117f30cb19f8",
-      "ts": {
-        "samples": [
-          48.90000003576279,
-          70.80000001192093,
-          76.30000001192093
-        ],
-        "median": 70.80000001192093,
-        "worst": 76.30000001192093
-      },
-      "rust": {
-        "samples": [
-          97.30000001192093,
-          142.19999998807907,
-          102.80000001192093
-        ],
-        "median": 102.80000001192093,
-        "worst": 142.19999998807907
-      },
-      "bridge": {
-        "samples": [
-          156.5,
-          230,
-          157.19999998807907
-        ],
-        "median": 157.19999998807907,
-        "worst": 230
-      },
-      "load": {
-        "mean": 83.59540137472881,
-        "max": 94.00724612219629,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32555896832
-      }
-    },
-    {
-      "target": "chromium",
-      "version": "145.0.7632.6",
-      "verb": "quake",
-      "size": 512,
-      "sha256": "690068fc84f978bb08eaa6cd3298e938c2e0ce5aad099a0a352d63d30f9222ae",
-      "ts": {
-        "samples": [
-          322.80000001192093,
-          291.80000001192093,
-          269.30000001192093
-        ],
-        "median": 291.80000001192093,
-        "worst": 322.80000001192093
-      },
-      "rust": {
-        "samples": [
-          524.6000000238419,
-          426.5,
-          518
-        ],
-        "median": 518,
-        "worst": 524.6000000238419
-      },
-      "bridge": {
-        "samples": [
-          695.5999999642372,
-          574.0999999642372,
-          604.1999999880791
-        ],
-        "median": 604.1999999880791,
-        "worst": 695.5999999642372
-      },
-      "load": {
-        "mean": 83.51216417190403,
-        "max": 95.20203528876755,
-        "samples": 12,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32741007360
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "footprint",
-      "size": 128,
-      "sha256": "12037380b1003d5576fbf2b93f57a7de6ea22bb963931f960995abea9990bff4",
-      "ts": {
-        "samples": [
-          0,
-          0,
-          0
-        ],
-        "median": 0,
-        "worst": 0
-      },
-      "rust": {
-        "samples": [
-          2,
-          3,
-          7
-        ],
-        "median": 3,
-        "worst": 7
-      },
-      "bridge": {
-        "samples": [
-          37,
-          41,
-          34
-        ],
-        "median": 37,
-        "worst": 41
-      },
-      "load": {
-        "mean": 94.17143546307497,
-        "max": 98.5472611691868,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33270931456
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "footprint",
-      "size": 256,
-      "sha256": "43f8a0891ab0117663b2eaeb1051a0d00751691cb40441315acecf3f299639cb",
-      "ts": {
-        "samples": [
-          0,
-          0,
-          1
-        ],
-        "median": 0,
-        "worst": 1
-      },
-      "rust": {
-        "samples": [
-          8,
-          7,
-          8
-        ],
-        "median": 8,
-        "worst": 8
-      },
-      "bridge": {
-        "samples": [
-          102,
-          94,
-          97
-        ],
-        "median": 97,
-        "worst": 102
-      },
-      "load": {
-        "mean": 74.8642820882909,
-        "max": 76.14479145068725,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33185091584
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "footprint",
-      "size": 512,
-      "sha256": "f7f73a06e7d35be8cbb353a95845f275027a1be92e50a96a5dd09335ee0cac33",
-      "ts": {
-        "samples": [
-          1,
-          2,
-          2
-        ],
-        "median": 2,
-        "worst": 2
-      },
-      "rust": {
-        "samples": [
-          27,
-          22,
-          25
-        ],
-        "median": 25,
-        "worst": 27
-      },
-      "bridge": {
-        "samples": [
-          338,
-          355,
-          378
-        ],
-        "median": 355,
-        "worst": 378
-      },
-      "load": {
-        "mean": 64.26258497109409,
-        "max": 81.11053806379616,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33215528960
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "craterize",
-      "size": 128,
-      "sha256": "c2cd601f3668fae01e6d8ba08db10da223b7334679c6cbcc09f24ff6bd94fb3f",
-      "ts": {
-        "samples": [
-          15,
-          14,
-          14
-        ],
-        "median": 14,
-        "worst": 15
-      },
-      "rust": {
-        "samples": [
-          85,
-          92,
-          86
-        ],
-        "median": 86,
-        "worst": 92
-      },
-      "bridge": {
-        "samples": [
-          127,
-          119,
-          110
-        ],
-        "median": 119,
-        "worst": 127
-      },
-      "load": {
-        "mean": 65.00350441317634,
-        "max": 74.03490609665697,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33136615424
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "craterize",
-      "size": 256,
-      "sha256": "00b36f9d5cdb24103afee420010163add9baa175d67069a82426fe4b0002792a",
-      "ts": {
-        "samples": [
-          54,
-          58,
-          52
-        ],
-        "median": 54,
-        "worst": 58
-      },
-      "rust": {
-        "samples": [
-          394,
-          355,
-          418
-        ],
-        "median": 394,
-        "worst": 418
-      },
-      "bridge": {
-        "samples": [
-          499,
-          525,
-          534
-        ],
-        "median": 525,
-        "worst": 534
-      },
-      "load": {
-        "mean": 63.641937713831446,
-        "max": 71.52265397398222,
-        "samples": 6,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 33057550336
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "craterize",
-      "size": 512,
-      "sha256": "91be3cd87d0598d47bc0aeee64ac01a73476a0b68ce242f28fd0f3fb243d8aee",
-      "ts": {
-        "samples": [
-          181,
-          214,
-          170
-        ],
-        "median": 181,
-        "worst": 214
-      },
-      "rust": {
-        "samples": [
-          1520,
-          1524,
-          1307
-        ],
-        "median": 1520,
-        "worst": 1524
-      },
-      "bridge": {
-        "samples": [
-          2163,
-          1918,
-          1945
-        ],
-        "median": 1945,
-        "worst": 2163
-      },
-      "load": {
-        "mean": 53.959312041311435,
-        "max": 68.70469873041078,
-        "samples": 18,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32901722112
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "erupt",
-      "size": 128,
-      "sha256": "0d0411aaedc250b242285598b6c4d3a02a9138f889b9e49b9b9b337571f1039c",
-      "ts": {
-        "samples": [
-          35,
-          31,
-          27
-        ],
-        "median": 31,
-        "worst": 35
-      },
-      "rust": {
-        "samples": [
-          133,
-          139,
-          142
-        ],
-        "median": 139,
-        "worst": 142
-      },
-      "bridge": {
-        "samples": [
-          181,
-          161,
-          166
-        ],
-        "median": 166,
-        "worst": 181
-      },
-      "load": {
-        "mean": 63.06954783525182,
-        "max": 68.28370573518437,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32938876928
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "erupt",
-      "size": 256,
-      "sha256": "f581f92df24a1910db1317958812ccf10886eb326e44132615596984b7c2b084",
-      "ts": {
-        "samples": [
-          74,
-          70,
-          67
-        ],
-        "median": 70,
-        "worst": 74
-      },
-      "rust": {
-        "samples": [
-          478,
-          443,
-          401
-        ],
-        "median": 443,
-        "worst": 478
-      },
-      "bridge": {
-        "samples": [
-          529,
-          503,
-          679
-        ],
-        "median": 529,
-        "worst": 679
-      },
-      "load": {
-        "mean": 66.59074283146573,
-        "max": 79.768682820733,
-        "samples": 6,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32527974400
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "erupt",
-      "size": 512,
-      "sha256": "3f9fea5a1c824a7a3a2d7945d2e4a515bc42b55e3cc5610138b431c709675278",
-      "ts": {
-        "samples": [
-          363,
-          315,
-          204
-        ],
-        "median": 315,
-        "worst": 363
-      },
-      "rust": {
-        "samples": [
-          1956,
-          1923,
-          1349
-        ],
-        "median": 1923,
-        "worst": 1956
-      },
-      "bridge": {
-        "samples": [
-          2373,
-          2145,
-          2220
-        ],
-        "median": 2220,
-        "worst": 2373
-      },
-      "load": {
-        "mean": 81.10167678038326,
-        "max": 96.0470112156237,
-        "samples": 21,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 30970707968
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "quake",
-      "size": 128,
-      "sha256": "506462ddd15381ce729e35ae46252e57e77afa4b66e9e7dffb34ac587dba4a85",
-      "ts": {
-        "samples": [
-          18,
-          12,
-          11
-        ],
-        "median": 12,
-        "worst": 18
-      },
-      "rust": {
-        "samples": [
-          90,
-          77,
-          81
-        ],
-        "median": 81,
-        "worst": 90
-      },
-      "bridge": {
-        "samples": [
-          103,
-          104,
-          106
-        ],
-        "median": 104,
-        "worst": 106
-      },
-      "load": {
-        "mean": 59.96366575719119,
-        "max": 63.34120084110375,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 30718590976
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "quake",
-      "size": 256,
-      "sha256": "d4caa09d641a896e7b3ee33da314f3015336483d982c17fb3856117f30cb19f8",
-      "ts": {
-        "samples": [
-          72,
-          63,
-          87
-        ],
-        "median": 72,
-        "worst": 87
-      },
-      "rust": {
-        "samples": [
-          402,
-          376,
-          454
-        ],
-        "median": 402,
-        "worst": 454
-      },
-      "bridge": {
-        "samples": [
-          501,
-          513,
-          626
-        ],
-        "median": 513,
-        "worst": 626
-      },
-      "load": {
-        "mean": 58.95239323621348,
-        "max": 73.91185713015484,
-        "samples": 6,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31309299712
-      }
-    },
-    {
-      "target": "firefox",
-      "version": "146.0.1",
-      "verb": "quake",
-      "size": 512,
-      "sha256": "690068fc84f978bb08eaa6cd3298e938c2e0ce5aad099a0a352d63d30f9222ae",
-      "ts": {
-        "samples": [
-          522,
-          632,
-          636
-        ],
-        "median": 632,
-        "worst": 636
-      },
-      "rust": {
-        "samples": [
-          3035,
-          3984,
-          3755
-        ],
-        "median": 3755,
-        "worst": 3984
-      },
-      "bridge": {
-        "samples": [
-          3845,
-          4484,
-          4537
-        ],
-        "median": 4484,
-        "worst": 4537
-      },
-      "load": {
-        "mean": 93.33531246257866,
-        "max": 100,
-        "samples": 38,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 29289377792
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "footprint",
-      "size": 128,
-      "sha256": "12037380b1003d5576fbf2b93f57a7de6ea22bb963931f960995abea9990bff4",
-      "ts": {
-        "samples": [
-          1,
-          0,
-          0
-        ],
-        "median": 0,
-        "worst": 1
-      },
-      "rust": {
-        "samples": [
-          0,
-          0,
-          0
-        ],
-        "median": 0,
-        "worst": 0
-      },
-      "bridge": {
-        "samples": [
-          65,
-          4,
-          5
-        ],
-        "median": 5,
-        "worst": 65
-      },
-      "load": {
-        "mean": 77.63594260915207,
-        "max": 84.44812447625159,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 30598766592
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "footprint",
-      "size": 256,
-      "sha256": "43f8a0891ab0117663b2eaeb1051a0d00751691cb40441315acecf3f299639cb",
-      "ts": {
-        "samples": [
-          1,
-          1,
-          1
-        ],
-        "median": 1,
-        "worst": 1
-      },
-      "rust": {
-        "samples": [
-          2,
-          3,
-          3
-        ],
-        "median": 3,
-        "worst": 3
-      },
-      "bridge": {
-        "samples": [
-          342,
-          28,
-          35
-        ],
-        "median": 35,
-        "worst": 342
-      },
-      "load": {
-        "mean": 68.47787863642434,
-        "max": 75.16449548063358,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 30719959040
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "footprint",
-      "size": 512,
-      "sha256": "f7f73a06e7d35be8cbb353a95845f275027a1be92e50a96a5dd09335ee0cac33",
-      "ts": {
-        "samples": [
-          2,
-          2,
-          2
-        ],
-        "median": 2,
-        "worst": 2
-      },
-      "rust": {
-        "samples": [
-          10,
-          15,
-          13
-        ],
-        "median": 13,
-        "worst": 15
-      },
-      "bridge": {
-        "samples": [
-          6500,
-          139,
-          160
-        ],
-        "median": 160,
-        "worst": 6500
-      },
-      "load": {
-        "mean": 75.08825819055657,
-        "max": 97.29484914592017,
-        "samples": 15,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31532736512
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "craterize",
-      "size": 128,
-      "sha256": "c2cd601f3668fae01e6d8ba08db10da223b7334679c6cbcc09f24ff6bd94fb3f",
-      "ts": {
-        "samples": [
-          14,
-          13,
-          15.999999999996362
-        ],
-        "median": 14,
-        "worst": 15.999999999996362
-      },
-      "rust": {
-        "samples": [
-          27,
-          24,
-          28
-        ],
-        "median": 27,
-        "worst": 28
-      },
-      "bridge": {
-        "samples": [
-          33.00000000000364,
-          37,
-          35
-        ],
-        "median": 35,
-        "worst": 37
-      },
-      "load": {
-        "mean": 89.17712915251549,
-        "max": 97.38717928111484,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31385591808
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "craterize",
-      "size": 256,
-      "sha256": "00b36f9d5cdb24103afee420010163add9baa175d67069a82426fe4b0002792a",
-      "ts": {
-        "samples": [
-          110,
-          84,
-          94
-        ],
-        "median": 94,
-        "worst": 110
-      },
-      "rust": {
-        "samples": [
-          156,
-          188,
-          233
-        ],
-        "median": 188,
-        "worst": 233
-      },
-      "bridge": {
-        "samples": [
-          238,
-          277,
-          276
-        ],
-        "median": 276,
-        "worst": 277
-      },
-      "load": {
-        "mean": 97.58568757138691,
-        "max": 100,
-        "samples": 5,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31502561280
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "craterize",
-      "size": 512,
-      "sha256": "91be3cd87d0598d47bc0aeee64ac01a73476a0b68ce242f28fd0f3fb243d8aee",
-      "ts": {
-        "samples": [
-          289,
-          218.00000000001455,
-          615
-        ],
-        "median": 289,
-        "worst": 615
-      },
-      "rust": {
-        "samples": [
-          634,
-          715,
-          869
-        ],
-        "median": 715,
-        "worst": 869
-      },
-      "bridge": {
-        "samples": [
-          56317,
-          1142,
-          1559
-        ],
-        "median": 1559,
-        "worst": 56317
-      },
-      "load": {
-        "mean": 96.25800766745948,
-        "max": 100,
-        "samples": 106,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32323383296
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "erupt",
-      "size": 128,
-      "sha256": "0d0411aaedc250b242285598b6c4d3a02a9138f889b9e49b9b9b337571f1039c",
-      "ts": {
-        "samples": [
-          59,
-          50,
-          49
-        ],
-        "median": 50,
-        "worst": 59
-      },
-      "rust": {
-        "samples": [
-          47,
-          41,
-          47
-        ],
-        "median": 47,
-        "worst": 47
-      },
-      "bridge": {
-        "samples": [
-          96,
-          92,
-          105
-        ],
-        "median": 96,
-        "worst": 105
-      },
-      "load": {
-        "mean": 99.37185170910864,
-        "max": 99.61730202779079,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32199778304
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "erupt",
-      "size": 256,
-      "sha256": "f581f92df24a1910db1317958812ccf10886eb326e44132615596984b7c2b084",
-      "ts": {
-        "samples": [
-          86.9999999999709,
-          84,
-          92
-        ],
-        "median": 86.9999999999709,
-        "worst": 92
-      },
-      "rust": {
-        "samples": [
-          201,
-          182,
-          228
-        ],
-        "median": 201,
-        "worst": 228
-      },
-      "bridge": {
-        "samples": [
-          284,
-          347,
-          333
-        ],
-        "median": 333,
-        "worst": 347
-      },
-      "load": {
-        "mean": 99.77438558934436,
-        "max": 100,
-        "samples": 6,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 32231985152
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "erupt",
-      "size": 512,
-      "sha256": "3f9fea5a1c824a7a3a2d7945d2e4a515bc42b55e3cc5610138b431c709675278",
-      "ts": {
-        "samples": [
-          295.9999999999709,
-          389,
-          185.0000000000291
-        ],
-        "median": 295.9999999999709,
-        "worst": 389
-      },
-      "rust": {
-        "samples": [
-          661,
-          312,
-          403.9999999999709
-        ],
-        "median": 403.9999999999709,
-        "worst": 661
-      },
-      "bridge": {
-        "samples": [
-          20974,
-          445,
-          667
-        ],
-        "median": 667,
-        "worst": 20974
-      },
-      "load": {
-        "mean": 87.81345090142997,
-        "max": 100,
-        "samples": 33,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31795605504
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "quake",
-      "size": 128,
-      "sha256": "506462ddd15381ce729e35ae46252e57e77afa4b66e9e7dffb34ac587dba4a85",
-      "ts": {
-        "samples": [
-          16,
-          14,
-          14
-        ],
-        "median": 14,
-        "worst": 16
-      },
-      "rust": {
-        "samples": [
-          30,
-          27,
-          23
-        ],
-        "median": 27,
-        "worst": 30
-      },
-      "bridge": {
-        "samples": [
-          37,
-          31,
-          34.000000000029104
-        ],
-        "median": 34.000000000029104,
-        "worst": 37
-      },
-      "load": {
-        "mean": 85.87393319395864,
-        "max": 87.941073694628,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31754412032
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "quake",
-      "size": 256,
-      "sha256": "d4caa09d641a896e7b3ee33da314f3015336483d982c17fb3856117f30cb19f8",
-      "ts": {
-        "samples": [
-          64,
-          73.0000000000291,
-          81
-        ],
-        "median": 73.0000000000291,
-        "worst": 81
-      },
-      "rust": {
-        "samples": [
-          127,
-          112.9999999999709,
-          106.0000000000291
-        ],
-        "median": 112.9999999999709,
-        "worst": 127
-      },
-      "bridge": {
-        "samples": [
-          154,
-          131,
-          145.9999999999709
-        ],
-        "median": 145.9999999999709,
-        "worst": 154
-      },
-      "load": {
-        "mean": 70.87220815639185,
-        "max": 79.75236171819655,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 31736287232
-      }
-    },
-    {
-      "target": "webkit",
-      "version": "26.0",
-      "verb": "quake",
-      "size": 512,
-      "sha256": "690068fc84f978bb08eaa6cd3298e938c2e0ce5aad099a0a352d63d30f9222ae",
-      "ts": {
-        "samples": [
-          396,
-          475,
-          294
-        ],
-        "median": 396,
-        "worst": 475
-      },
-      "rust": {
-        "samples": [
-          396,
-          472,
-          420
-        ],
-        "median": 420,
-        "worst": 472
-      },
-      "bridge": {
-        "samples": [
-          565,
-          587,
-          562
-        ],
-        "median": 565,
-        "worst": 587
-      },
-      "load": {
-        "mean": 62.12896986276305,
-        "max": 72.85803911189025,
-        "samples": 10,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 27279880192
-      }
-    },
-    {
-      "target": "native",
-      "verb": "footprint",
-      "size": 128,
-      "sha256": "12037380b1003d5576fbf2b93f57a7de6ea22bb963931f960995abea9990bff4",
-      "ts": {
-        "samples": [
-          0.3101999999998952,
-          1.2721999999994296,
-          0.22659999999996217
-        ],
-        "median": 0.3101999999998952,
-        "worst": 1.2721999999994296
-      },
-      "rust": {
-        "samples": [
-          1.8831,
-          6.4389,
-          1.2743
-        ],
-        "median": 1.8831,
-        "worst": 6.4389
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 20284211200
-      }
-    },
-    {
-      "target": "native",
-      "verb": "footprint",
-      "size": 256,
-      "sha256": "43f8a0891ab0117663b2eaeb1051a0d00751691cb40441315acecf3f299639cb",
-      "ts": {
-        "samples": [
-          0.5526000000008935,
-          1.794899999998961,
-          0.40710000000035507
-        ],
-        "median": 0.5526000000008935,
-        "worst": 1.794899999998961
-      },
-      "rust": {
-        "samples": [
-          10.2288,
-          6.5854,
-          7.9161
-        ],
-        "median": 7.9161,
-        "worst": 10.2288
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 19353763840
-      }
-    },
-    {
-      "target": "native",
-      "verb": "footprint",
-      "size": 512,
-      "sha256": "f7f73a06e7d35be8cbb353a95845f275027a1be92e50a96a5dd09335ee0cac33",
-      "ts": {
-        "samples": [
-          1.5106999999989057,
-          1.3695999999981723,
-          2.442399999999907
-        ],
-        "median": 1.5106999999989057,
-        "worst": 2.442399999999907
-      },
-      "rust": {
-        "samples": [
-          20.9791,
-          21.003999999999998,
-          18.6398
-        ],
-        "median": 20.9791,
-        "worst": 21.003999999999998
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 19094077440
-      }
-    },
-    {
-      "target": "native",
-      "verb": "craterize",
-      "size": 128,
-      "sha256": "c2cd601f3668fae01e6d8ba08db10da223b7334679c6cbcc09f24ff6bd94fb3f",
-      "ts": {
-        "samples": [
-          126.31810000000041,
-          107.56660000000193,
-          20.556000000000495
-        ],
-        "median": 107.56660000000193,
-        "worst": 126.31810000000041
-      },
-      "rust": {
-        "samples": [
-          202.2415,
-          112.2308,
-          54.422
-        ],
-        "median": 112.2308,
-        "worst": 202.2415
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 3,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 17897050112
-      }
-    },
-    {
-      "target": "native",
-      "verb": "craterize",
-      "size": 256,
-      "sha256": "00b36f9d5cdb24103afee420010163add9baa175d67069a82426fe4b0002792a",
-      "ts": {
-        "samples": [
-          217.83179999999993,
-          192.75009999999747,
-          228.91159999999945
-        ],
-        "median": 217.83179999999993,
-        "worst": 228.91159999999945
-      },
-      "rust": {
-        "samples": [
-          502.0099,
-          513.1229000000001,
-          664.5064000000001
-        ],
-        "median": 513.1229000000001,
-        "worst": 664.5064000000001
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 5,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 18662236160
-      }
-    },
-    {
-      "target": "native",
-      "verb": "craterize",
-      "size": 512,
-      "sha256": "91be3cd87d0598d47bc0aeee64ac01a73476a0b68ce242f28fd0f3fb243d8aee",
-      "ts": {
-        "samples": [
-          383.76380000000063,
-          269.9589999999953,
-          246.4303
-        ],
-        "median": 269.9589999999953,
-        "worst": 383.76380000000063
-      },
-      "rust": {
-        "samples": [
-          1267.6100999999999,
-          1376.0947999999999,
-          2442.3163
-        ],
-        "median": 1376.0947999999999,
-        "worst": 2442.3163
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 12,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 20058365952
-      }
-    },
-    {
-      "target": "native",
-      "verb": "erupt",
-      "size": 128,
-      "sha256": "0d0411aaedc250b242285598b6c4d3a02a9138f889b9e49b9b9b337571f1039c",
-      "ts": {
-        "samples": [
-          48.95809999999619,
-          67.00390000000334,
-          47.52780000000348
-        ],
-        "median": 48.95809999999619,
-        "worst": 67.00390000000334
-      },
-      "rust": {
-        "samples": [
-          73.83670000000001,
-          74.0696,
-          65.33279999999999
-        ],
-        "median": 73.83670000000001,
-        "worst": 74.0696
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 21502562304
-      }
-    },
-    {
-      "target": "native",
-      "verb": "erupt",
-      "size": 256,
-      "sha256": "f581f92df24a1910db1317958812ccf10886eb326e44132615596984b7c2b084",
-      "ts": {
-        "samples": [
-          195.4030999999959,
-          114.08220000000438,
-          154.80089999999473
-        ],
-        "median": 154.80089999999473,
-        "worst": 195.4030999999959
-      },
-      "rust": {
-        "samples": [
-          431.9454,
-          379.7231,
-          314.5618
-        ],
-        "median": 379.7231,
-        "worst": 431.9454
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 4,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 23433904128
-      }
-    },
-    {
-      "target": "native",
-      "verb": "erupt",
-      "size": 512,
-      "sha256": "3f9fea5a1c824a7a3a2d7945d2e4a515bc42b55e3cc5610138b431c709675278",
-      "ts": {
-        "samples": [
-          320.33699999999953,
-          271.5789999999979,
-          379.6365000000005
-        ],
-        "median": 320.33699999999953,
-        "worst": 379.6365000000005
-      },
-      "rust": {
-        "samples": [
-          1609.0034,
-          1596.7704,
-          1278.3321
-        ],
-        "median": 1596.7704,
-        "worst": 1609.0034
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 11,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 23921655808
-      }
-    },
-    {
-      "target": "native",
-      "verb": "quake",
-      "size": 128,
-      "sha256": "506462ddd15381ce729e35ae46252e57e77afa4b66e9e7dffb34ac587dba4a85",
-      "ts": {
-        "samples": [
-          50.35190000000148,
-          31.90020000000368,
-          23.896099999998114
-        ],
-        "median": 31.90020000000368,
-        "worst": 50.35190000000148
-      },
-      "rust": {
-        "samples": [
-          60.507,
-          60.9891,
-          65.208
-        ],
-        "median": 60.9891,
-        "worst": 65.208
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 2,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 24157077504
-      }
-    },
-    {
-      "target": "native",
-      "verb": "quake",
-      "size": 256,
-      "sha256": "d4caa09d641a896e7b3ee33da314f3015336483d982c17fb3856117f30cb19f8",
-      "ts": {
-        "samples": [
-          200.55289999999513,
-          242.20829999999842,
-          177.24469999999565
-        ],
-        "median": 200.55289999999513,
-        "worst": 242.20829999999842
-      },
-      "rust": {
-        "samples": [
-          498.3747,
-          491.9952,
-          470.6003
-        ],
-        "median": 491.9952,
-        "worst": 498.3747
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 5,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 22005952512
-      }
-    },
-    {
-      "target": "native",
-      "verb": "quake",
-      "size": 512,
-      "sha256": "690068fc84f978bb08eaa6cd3298e938c2e0ce5aad099a0a352d63d30f9222ae",
-      "ts": {
-        "samples": [
-          928.9388999999937,
-          565.3136000000086,
-          832.4346000000078
-        ],
-        "median": 832.4346000000078,
-        "worst": 928.9388999999937
-      },
-      "rust": {
-        "samples": [
-          1462.1829,
-          2153.7104,
-          1671.0522999999998
-        ],
-        "median": 1671.0522999999998,
-        "worst": 2153.7104
-      },
-      "load": {
-        "mean": 100,
-        "max": 100,
-        "samples": 15,
-        "source": "Windows PDH Processor(_Total) % Processor Time",
-        "freeMemory": 25758208000
-      }
-    }
-  ],
-  "nativeBinary": {
-    "sha256": "549fd3395c068dc1d401251e82d2fced73b657e11195837936cc13113595afd6"
-  }
+  "remaining": [
+    "allWaterAndPlaybackRecords",
+    "existingTestsAgainstRust",
+    "thousandsPerForcePerSizePerTarget",
+    "existingCrossEngineDeterminism",
+    "productExportBytes"
+  ]
 }

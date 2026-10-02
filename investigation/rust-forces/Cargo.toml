@@ -2,7 +2,11 @@
 name = "rust-forces"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "AGPL-3.0-or-later"
+
+[features]
+# Debug-only phase clocks. Production Wasm keeps its zero-import bridge.
+bench-clock = []
 
 [lib]
 crate-type = ["cdylib", "rlib"]

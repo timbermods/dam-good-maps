@@ -1,0 +1,16 @@
+{
+  "oracle": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+  "observedDev": "b4c211b07db8bcc50dff62be66e2042f10262137",
+  "unchanged": [
+    "src/core/forces",
+    "src/core/math",
+    "src/core/sim",
+    "src/core/format",
+    "src/core/gen",
+    "existing force contracts and browser suites",
+    "investigation/rust-water",
+    "investigation/perf-audit"
+  ],
+  "method": "git diff --name-only (pinned oracle to observed dev)",
+  "result": "no relevant changed files"
+}

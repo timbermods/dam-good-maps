@@ -1,64 +1,75 @@
-# Rust forces investigation
+# Rust forces adoption notes
 
-**Not ready for adoption.** `node acceptance.mjs` deliberately fails. Carve and Glaciate are not implemented, the complete water/playback contract is not ported, and the required exhaustive evidence is absent. Do not install this bridge in the editor. This PR changes only the investigation.
+This investigation leaves product computation and presentation unchanged. Adoption remains blocked until every `STATUS.json` gate has pinned evidence. `node acceptance.mjs` enforces that; a passing timing cohort alone is insufficient.
 
-## Baselines and scope
+## Scope and baselines
 
-Product oracle: `dev` at `4aab909e23016902cbbe6ffaeddeece786176ab3`, containing all five released forces and portable maths. Reused water investigation: `d18a6f4d890d3f2e3f7b480e308242375c100e10`. Its Rust 1.90.0 toolchain, linker, strict arithmetic configuration, native batch runner, retained Wasm arena, binary checking approach, and CPU sampler are reused here. The water kernel is embedded in `src/lib.rs`; its existing ABI is retained. It has not yet been wired into force settling. No newer rust-water findings were on the remote when checked.
+Oracle: dev `4aab909e23016902cbbe6ffaeddeece786176ab3`, with all five released forces. Dev advanced to `b4c211b0` during the run; the forces, maths, simulation, format, generation and existing force suites are unchanged (`baseline-check.json`). Water reuse: `2ebeea87c55d5f728c735d79a6d24bde78999db7`. The investigation reuses its Rust 1.90.0 toolchain, LLVM-mingw linker, retained Wasm arena/view pattern, strict arithmetic, native driver, byte checks and load sampler. The water kernel is embedded in the single `src/lib.rs`; its dev-compatible forcing and edge policies are preserved. The Firefox debugger finding is applied only to an isolated browser copy, with an unchanged executable hash (`prepare-firefox.py`).
 
-`src/lib.rs` implements the Craterize, Erupt, and Quake plans; footprint orientation, flipping, and margins; Floor/Keep/rock/object handling; literal changes; Craterize arrival and Erupt heat; Quake arrival, displacement, and source arrays. Both targets compile this one source. `rust/main.rs` only drives native jobs and timings.
+All five computations are typed: geometry, terrain, water, object footprints, Floor/Keep, object changes, literal changes and animation tapes. Carve includes source groups, rider moves, step changes, oxbows and retained water. Glaciate includes candidate routing, floors, meltwater, tarns, springs and settling. Quake includes final Slide water and playback extras; Craterize includes arrival; Erupt includes heat and flows. Reduction order and portable transcendental arithmetic match the oracle; native FMA and Wasm relaxed arithmetic are prohibited.
 
-The harness compares canonical binary raw plans and final maps as well as planning fields. The final-map water is the planner's water. That does **not** cover Quake's final shown Slide water transport, all playback records/timings, live-water settling, error/refusal parity, the build's integrity finalizer, or exported JSON/`.timber` bytes. Object property insertion order is canonicalized rather than tested. The literal changes are only part of a recorded force operation. Existing product tests exercise the TypeScript oracle, not a Rust replacement.
+`serde_json::Value` is confined to cold fixture import/debug output and opaque object metadata. Planners use typed structs, flat arrays, numeric object slots and interned numeric ID keys. Original opaque metadata is shared, not traversed or translated during computation. Fixture serialization must preserve signed zero and IEEE NaN payloads. Firefox normalizes a NaN sign on typed-array reads; the cold encoder retains the original scalar bytes in a WeakMap without altering ordinary JS fields: a valid Quake stroke can contain a zero-length resampled segment with NaN directions.
 
-## Regenerate on Windows
+## Retained interface
 
-Run from this directory. Keep `local/` and `target/` ignored. Do not commit exported maps, binaries, generated bundles, LLVM IR, timing logs, or failure payloads.
+`bridge(wasm).create(job)` imports immutable metadata once and copies initial numeric arrays directly into retained Wasm allocations. The map thereafter lives in `WebAssembly.Memory`: heights `Uint8Array`, lava `Uint32Array`, depth/contamination/rock `Float64Array`, Keep `Uint8Array`; object coordinates and source strengths are SoA `Float64Array`, flags/order are `Uint32Array`. Use the numeric map views and object coordinate views for host reads and edits. Source strengths, flags/order and source-kind buffers are result views; changing source metadata or membership requires cold arena synchronization.
 
-1. Reuse the pinned rust-water setup and toolchain in `../rust-water/local/toolchain/`. If it is absent, use rust-water's documented setup; do not install a different compiler. `. ./setup.ps1` selects it. An installed exact Rust 1.90.0 toolchain can instead build the same crate with the flags in `.cargo/config.toml` and the wasm32 target.
-2. Set `$env:DGM_DEPS` to an existing product dependency installation containing esbuild, Vitest, AJV, fflate, and the product's other dependencies. The measured installation was `C:/Users/Kyler/code/DamGoodMaps-m9b`.
-3. Run `node prepare-oracle.mjs`. It exports the pinned Git tree to ignored `local/oracle/`, without editing product files. Alternatively set `$env:DGM_ROOT` to a checkout of the pinned baseline. `build.mjs` resolves its generated imports to that root. The source hashes in `local/build.json` identify the oracle actually bundled.
-4. Reuse matching installed Playwright engines. This PC has Chromium 1208, Firefox 1509, and WebKit 2248; `npm install --prefix local/browser-deps --no-audit --no-fund playwright@1.58.2` supplies their matching driver. Set `$env:DGM_BROWSER_DEPS` to an existing matching installation on other machines. Install engines only if missing.
+For each operation, `task.configure(verb, settings, intent, margin, options)` writes the finite command/path buffers. Carve's optional source ID, unleashed ID and badwater flag can change per operation; IDs occupy a retained UTF-8 control buffer, grown before planning only if its initial 4 KiB capacity is exceeded. `task.plan()` makes **one** Wasm operation call, changes the retained map in place and returns a typed error code. `task.result(verb)` reacquires typed map, object, changed-region, geometry, playback and before-map views from the fixed descriptor. Footprints return flat tiles with offsets. There is no generic map codec on this path. The numerical map allocations remain stable across forces, including Glaciate's candidate winner and refusal rollback. IDs use stable numeric slots; only newly generated IDs add UTF-8 metadata.
+
+Views must be reacquired after an operation, arena creation, or any memory growth. Output records live until the next operation/reset/disposal; copy a tape that the presentation/history must retain. `task.before` preserves the immutable input needed for preview/animation. `task.closure` exposes Carve's oxbow closure. `checkpoint/reset` are fixture conveniences, excluded from operation timings. `dispose` is idempotent; later use throws. New/remapped opaque object metadata needs cold arena synchronization during the corresponding host edit, outside force planning.
+
+`typed-result.ts` reconstructs nested raw/final maps and original object classes **for diagnostics and existing-suite injection**. `pack`, `prepare`, `forces_execute` and native fixture stdio are likewise cold paths; do not install them as the editor's force boundary. Adoption must consume the finite typed layout directly. A prior timing cohort that reconstructed complete nested maps is retained separately as negative evidence.
+
+Keep TypeScript presentation: animation, Slow forces, sounds, stroke previews and controls. Adapt its record readers to the typed tapes without changing step count, ordering, scheduling or feel. The existing-suite adapter compares TypeScript's independent computation, then supplies Rust states/tapes before the unchanged assertions, worker history and exports run. Both production `finish=true` and the historical Glaciate `finish=false` comparison run through Rust. The latter is a diagnostic option in command slot 21; production leaves it zero.
+
+## Regenerate (Windows)
+
+Run here. Everything generated stays ignored under `local/`; never commit bundles, Wasm/executables, maps, exports, IR, failure payloads or full result corpora. Compact evidence contains hashes, counts and repeated timing samples. Use an isolated run directory to avoid overwriting a running investigation's binaries.
+
+Prerequisites: `../rust-water/local/toolchain/` from its pinned setup; existing product dependencies via `DGM_DEPS` (measured: `C:/Users/Kyler/code/DamGoodMaps-m9b`); matching Playwright and @playwright/test 1.58.2 drivers/Chromium 1208, Firefox 1509 and WebKit 2248 via `DGM_BROWSER_DEPS`. `node prepare-oracle.mjs` exports the pinned Git tree read-only to `local/oracle`; alternatively set `DGM_ROOT` to that exact checkout. Apply the water investigation's two upstream debugger settings with `python prepare-firefox.py SOURCE_FIREFOX_DIRECTORY local/firefox-optimized`; the script verifies unchanged executable bytes and records both archive hashes. Set `DGM_FIREFOX` to that copy's `firefox.exe`.
 
 ```powershell
 . ./setup.ps1
-& $env:RUST_FORCES_CARGO build --locked --release --bin forces-batch
-& $env:RUST_FORCES_CARGO rustc --locked --release --target wasm32-unknown-unknown --lib -- --emit=llvm-ir
-& $env:RUST_FORCES_CARGO rustc --locked --release --lib -- --emit=llvm-ir
+$env:DGM_RUN_DIR = 'final'
+$env:CARGO_TARGET_DIR = Join-Path $PWD 'local/final/target'
+$env:DGM_DEPS = 'C:/Users/Kyler/code/DamGoodMaps-m9b'
+$env:DGM_BROWSER_DEPS = Join-Path $PWD 'local/browser-deps'
+$env:DGM_FIREFOX = Join-Path $PWD 'local/firefox-optimized/firefox.exe'
+# For a fresh machine without local/checkout:
+# node prepare-oracle.mjs
+# $env:DGM_ROOT = Join-Path $PWD 'local/final/oracle'
+cargo build --locked --release --features bench-clock --target wasm32-unknown-unknown --lib
+Copy-Item local/final/target/wasm32-unknown-unknown/release/rust_forces.wasm local/final/forces-bench.wasm
+cargo rustc --locked --release --target wasm32-unknown-unknown --lib -- --emit=llvm-ir
+cargo rustc --locked --release --lib -- --emit=llvm-ir
+cargo build --locked --release --features bench-clock
 node verify-ir.mjs
 node build.mjs
-node check.mjs --verbs footprint,craterize,erupt,quake --count 12 --random --name final
-node browser.mjs --count 12 --random --name final
-node compare.mjs
-node browser.mjs --bench --count 1 --reps 3 --name bench-final
-node native-bench.mjs --reps 3
-$env:DGM_TEST_REPORT = 'existing-focused.json'
-node existing-tests.mjs tests/unit carve.test.ts forces.test.ts forceRecordClock.test.ts forceFloor.test.ts forceTrees.test.ts eruptHeadroom.test.ts
-$env:DGM_TEST_REPORT = 'existing-units-corrected.json'
-node existing-tests.mjs tests/unit/forceOrder.test.ts tests/unit/forcesSitting.test.ts
-Remove-Item Env:DGM_TEST_REPORT
+node check.mjs --server --exports --verbs footprint,craterize,erupt,quake,carve,glaciate --count 4 --name codec-final
+node lifecycle-chain.mjs
+node edge-check.mjs
+$env:DGM_SUITE_NATIVE = '1'
+$env:DGM_SUITE_CAPTURE = '1'
+$env:DGM_TEST_REPORT = 'existing-final.json'
+node existing-tests.mjs
+node native-bench.mjs --verbs footprint,craterize,erupt,quake,carve,glaciate --cases 0,1 --reps 5 --name sealed
+node browser.mjs --verbs footprint,craterize,erupt,quake,carve,glaciate --bench --count 2 --reps 5 --name sealed
+node measurements.mjs --name sealed
+# The first-three stage passed before Carve/Glaciate work (direct-gate.json).
+# New work must stop at that stage if any target/size fails.
+node identity-matrix.mjs --parallel 6
+node compare.mjs --checks checks-random-final.json --browser browser-random-final.json
+node existing-browser.mjs
 node evidence.mjs
 node acceptance.mjs
 ```
 
-All child processes are hidden on Windows. The native runner also accepts `INPUT OUTPUT`, `--batch MANIFEST THREADS` (input/output paths separated by a tab), `--bench INPUT OUTPUT REPS`, and `--bench-plan INPUT OUTPUT REPS`. Generated results remain under `local/`. Every reported measurement uses three samples after a warm-up. CPU load uses Windows PDH; missing samples are `null`, never zero.
+Stop on an identity error; preserve the ignored failure payload and fix the typed computation without tolerances. The seeded corpus covers continuous/endpoint Power/Size, options, uint32 seeds, Floors 1–22, Keep, rock/lava, water, paths and oriented/flipped objects. Existing source/unleash/oxbow/river/export contracts supplement random cases. Random corpus completion is **2,000 per force per size per target**, not 2,000 in aggregate. `identity-matrix.mjs` runs bounded, resumable shards of `check.mjs --server --exports --random` and `browser.mjs --exports --random`, then joins their hashes. Do not run it during timing measurements.
 
-The commands above reproduce the completed focused TypeScript baseline. `node existing-tests.mjs` runs the broader existing force suite; that run was interrupted here and is not a passed gate. Neither run replaces the force implementations with Rust. Such adapters and their complete test run remain required.
+`--exports` also compares bytes from the actual product `.timber` writers, preserving original float tokens and opaque component insertion order. These randomized fixtures use fixed metadata, no thumbnail and zero soil layers. Full editor/project/finalizer exports are checked by the unchanged existing contracts and browser determinism suite. `existing-browser.mjs` builds the pinned product read-only with the diagnostic adapter injected in memory; only import paths and diagnostic hooks are added to copied tests. Use the matching test driver from `DGM_BROWSER_DEPS`; a newer product test driver sends Firefox viewport fields that this pinned browser does not support. Browser aliases select the browser entry points of Three.js and fflate; an investigation-only startup queue retains Comlink messages while the Wasm adapter loads. It runs all seven existing force/determinism browser suites on all three engines, including the normally opt-in informational timing test (`DGM_BENCH_FORCES=1`), with no skipped cases. Those one-off UI readings do not replace the repeated adoption measurements. The full native/Wasm contract run also captures every unique planning input and complete result; `suite-replay.mjs` verifies those inputs and the typed records in all three engines, including the historical Glaciate path. Assertions, step states, editor history and exports run in the unchanged suites.
 
-The checked corpus uses seeded random paths, continuous Power/Size, option combinations, edge origins, Floors 1–22, rock/lava, fractional water, Keep masks, and assorted oriented/flipped objects. Its random terrain heights are 0–12 and additional objects are at most 8×8. It is a useful partial corpus, not every supported terrain or footprint. Expand it to thousands **per force and size on every target**, and add all validation refusals, tall terrain, all object templates, drawn paths, and all force-specific cases. Compare binary64 bits, signed zero, exact object contents/order, Float32 planning fields, and all records/timings. Do not replace exact comparison with tolerances.
+Measurements use five repeats after five warm-ups, show median and worst, and record Windows PDH CPU mean/max; this PC is shared. Native compares against Node TypeScript. Compute includes the immutable before-map clone, planning, finalization, water and literal changes. Rust + boundary adds synchronization and numeric record packaging; browsers also configure the command and reacquire typed views. One-time import, reset, cold nested reconstruction and fixture I/O are excluded. `MEASUREMENTS.md` defines each column and `measurement-evidence.json` retains every sample. Rebuild/recheck after compiler, maths, reduction, planner or boundary changes.
 
-## Boundary and performance
+## Adoption order
 
-`protocol.ts` uses little-endian binary64 and canonical object keys; array order is preserved. It encodes typed-array entries as numbers. `prepare → plan → pack → dispose` permits timing planning without input decoding or output packing. `forces_execute` measures the full Rust bridge work. Views are reacquired after memory growth; inputs/outputs are copied before their Rust allocations are freed. The harness is for trusted finite valid inputs. Unsupported verbs trap, and the low-level Rust ABI has no production validation or stable error interface.
-
-The generic value representation is expensive. The map's immutable metadata and footprints are shared, but output boxing and bridge serialization still cost time and memory. Replace this with retained typed buffers before adoption, then rerun identity and performance tests. Browser bridge timings include Rust decoding/packing and input/output copies, but exclude JS input encoding and output decoding. Native planning excludes input decoding/packing. Neither is an editor integration speed claim.
-
-Benchmark cases use full Power with Auto Size for Craterize/Erupt; Quake uses full-Power Lift. Footprint timing covers the fixture's objects. It does not cover full-Power Glaciate, Carve, all modes, or the entire application. Machine-load samples and the raw timing repetitions belong in the evidence; repeat on a quieter machine before interpreting small ratios. D380 makes a regression an adoption blocker.
-
-## Milestone adoption order (D381)
-
-1. Complete Carve's course, source groups, erosion, sediment/oxbow/river shaping, water, and playback tape; complete Glaciate's valley routing, floor candidates, meltwater/tarn/prefill/settle, objects, and playback fields. Use the existing water kernel with the same forcing, stopping decisions, and fixed reduction order. Complete the other forces' omitted water/record behavior and refusal parity.
-2. Create the typed bridge and native adapter for all five forces. Preserve TypeScript presentation: animation, Slow forces, sounds, preview, and controls. Run the existing force and cross-engine determinism suites against those adapters, including different planning schedules and the build finalizer. Pass the requested random matrix and the speed budgets. Keep `STATUS.json` false until each gate has pinned evidence.
-3. **In the adoption session**, preserve the final TypeScript implementation with the tag `ts-forces-final`, then delete the adopted computation in the order required by D381. This investigation creates no tag and deletes no product TypeScript. The user has not authorized those actions in this session.
-4. Move the forces' analysis/checks to Rust next; adopt Rift, Deposit, and Carve Maturity directly in Rust; generator after M9b; operations/undo only when boundary measurements justify it. Do not use this investigation to change the forces' approved feel.
-
-Any compiler, portable-math, scheduling, reduction, or boundary change invalidates the relevant identity and timing evidence. No FMA, relaxed arithmetic, native transcendental substitutions, or tolerance-based acceptance.
+After every identity, existing-suite, cross-engine/export and performance gate passes, the separate milestone session adapts the product. In that session, tag the final TypeScript computation `ts-forces-final`, then delete adopted TypeScript computation in the Rust order (D381). This investigation does not authorize or perform that tag/deletion. Analysis/checks follow in Rust; Rift, Deposit and Carve Maturity start in Rust; generator follows M9b; operations/undo move only when measured boundaries justify it. No slower computation is adopted (D380).

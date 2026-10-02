@@ -1,16 +1,24 @@
 {
   "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-  "rustWater": "d18a6f4d890d3f2e3f7b480e308242375c100e10",
-  "implemented": ["footprint", "craterize-plan", "erupt-plan", "quake-plan"],
+  "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
+  "implemented": [
+    "footprint",
+    "craterize",
+    "erupt",
+    "quake",
+    "carve",
+    "glaciate"
+  ],
   "gates": {
-    "carve": false,
-    "glaciate": false,
+    "portableArithmetic": true,
+    "carve": true,
+    "glaciate": true,
     "allWaterAndPlaybackRecords": false,
     "existingTestsAgainstRust": false,
     "thousandsPerForcePerSizePerTarget": false,
     "existingCrossEngineDeterminism": false,
-    "performanceAcceptance": false,
-    "completeIntegrationAdapter": false,
+    "performanceAcceptance": true,
+    "completeIntegrationAdapter": true,
     "productExportBytes": false
   }
 }

@@ -1,0 +1,1448 @@
+{
+  "pass": true,
+  "cells": 72,
+  "repetitions": 3,
+  "rows": [
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 16.822799999999916,
+      "rustMedian": 7.8115,
+      "tsWorst": 25.16559999999845,
+      "rustWorst": 8.691600000000001,
+      "pass": true,
+      "load": {
+        "mean": 99.95130624027036,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27691569152
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 18.0499000000018,
+      "rustMedian": 4.6371,
+      "tsWorst": 30.890900000002148,
+      "rustWorst": 5.7059,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27893760000
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 67.60029999999824,
+      "rustMedian": 26.3121,
+      "tsWorst": 79.90060000000085,
+      "rustWorst": 27.9128,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27428020224
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 88.41359999999986,
+      "rustMedian": 35.0935,
+      "tsWorst": 153.97529999999824,
+      "rustWorst": 51.0634,
+      "pass": true,
+      "load": {
+        "mean": 98.84975437757726,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27306225664
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 262.3316999999988,
+      "rustMedian": 75.1455,
+      "tsWorst": 306.5609000000004,
+      "rustWorst": 90.1229,
+      "pass": true,
+      "load": {
+        "mean": 98.42822441262112,
+        "max": 100,
+        "samples": 7,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27681320960
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 335.7981,
+      "rustMedian": 117.7724,
+      "tsWorst": 350.41419999999925,
+      "rustWorst": 127.05199999999999,
+      "pass": true,
+      "load": {
+        "mean": 99.27862744936634,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27004547072
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 47.792499999995925,
+      "rustMedian": 14.7436,
+      "tsWorst": 68.57749999999942,
+      "rustWorst": 19.7458,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 28024287232
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 58.88330000000133,
+      "rustMedian": 12.43,
+      "tsWorst": 61.00460000000021,
+      "rustWorst": 13.764,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27865387008
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 88.69379999999364,
+      "rustMedian": 25.418799999999997,
+      "tsWorst": 111.61529999999766,
+      "rustWorst": 28.2758,
+      "pass": true,
+      "load": {
+        "mean": 99.87281225512362,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27538931712
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 90.64860000000044,
+      "rustMedian": 26.986900000000002,
+      "tsWorst": 92.1273000000001,
+      "rustWorst": 27.4043,
+      "pass": true,
+      "load": {
+        "mean": 99.47992377943228,
+        "max": 99.63309108503012,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26838757376
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 209.6533000000054,
+      "rustMedian": 73.2598,
+      "tsWorst": 225.17689999999857,
+      "rustWorst": 76.8904,
+      "pass": true,
+      "load": {
+        "mean": 99.61414942728668,
+        "max": 100,
+        "samples": 7,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 27073712128
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 430.01579999999376,
+      "rustMedian": 190.7549,
+      "tsWorst": 492.4802999999956,
+      "rustWorst": 220.9092,
+      "pass": true,
+      "load": {
+        "mean": 99.2843702379995,
+        "max": 100,
+        "samples": 12,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26623279104
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 14.058300000004238,
+      "rustMedian": 3.5564,
+      "tsWorst": 15.873999999996158,
+      "rustWorst": 5.0295000000000005,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26429378560
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 25.16950000000361,
+      "rustMedian": 7.0929,
+      "tsWorst": 28.323199999998906,
+      "rustWorst": 10.5521,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25970778112
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 76.61010000000533,
+      "rustMedian": 18.7254,
+      "tsWorst": 83.84850000000733,
+      "rustWorst": 19.6752,
+      "pass": true,
+      "load": {
+        "mean": 99.51860627663591,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26405494784
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 86.0676000000094,
+      "rustMedian": 22.1465,
+      "tsWorst": 95.31269999999495,
+      "rustWorst": 23.1209,
+      "pass": true,
+      "load": {
+        "mean": 97.95993565578647,
+        "max": 99.033798357944,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26042507264
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 487.1694000000134,
+      "rustMedian": 130.83030000000002,
+      "tsWorst": 551.5320999999967,
+      "rustWorst": 149.479,
+      "pass": true,
+      "load": {
+        "mean": 98.63789705813916,
+        "max": 100,
+        "samples": 10,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26598285312
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 562.8735000000015,
+      "rustMedian": 156.8015,
+      "tsWorst": 598.3358000000007,
+      "rustWorst": 158.9149,
+      "pass": true,
+      "load": {
+        "mean": 99.3798653874802,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 26106081280
+      },
+      "input": "local/native-direct-gate.json",
+      "inputSha256": "ea946c1934ca38a3ce00fbdc13c7b2c62d2a0df3b6dd13428acee6e4b70794e2"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 16,
+      "rustMedian": 9.300000011920929,
+      "tsWorst": 26.399999976158142,
+      "rustWorst": 11.800000011920929,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25698283520
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 17.100000023841858,
+      "rustMedian": 4.699999988079071,
+      "tsWorst": 25.600000023841858,
+      "rustWorst": 5.300000011920929,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25607196672
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 51.80000001192093,
+      "rustMedian": 20.5,
+      "tsWorst": 52.30000001192093,
+      "rustWorst": 21.099999964237213,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25751162880
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 98,
+      "rustMedian": 36.30000001192093,
+      "tsWorst": 138.5999999642372,
+      "rustWorst": 52.90000003576279,
+      "pass": true,
+      "load": {
+        "mean": 99.97631642363979,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25649500160
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 286.89999997615814,
+      "rustMedian": 137.5999999642372,
+      "tsWorst": 303,
+      "rustWorst": 147.9000000357628,
+      "pass": true,
+      "load": {
+        "mean": 99.78059956799571,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25857359872
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 614.6999999880791,
+      "rustMedian": 178.89999997615814,
+      "tsWorst": 680.1000000238419,
+      "rustWorst": 321.4000000357628,
+      "pass": true,
+      "load": {
+        "mean": 99.34831452579957,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25048887296
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 45,
+      "rustMedian": 18.80000001192093,
+      "tsWorst": 47.30000001192093,
+      "rustWorst": 26.69999998807907,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25003094016
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 28.5,
+      "rustMedian": 11.400000035762787,
+      "tsWorst": 33.5,
+      "rustWorst": 13.600000023841858,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24504029184
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 79.39999997615814,
+      "rustMedian": 24.80000001192093,
+      "tsWorst": 91.69999998807907,
+      "rustWorst": 33.80000001192093,
+      "pass": true,
+      "load": {
+        "mean": 99.97577207591581,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24590888960
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 101.5,
+      "rustMedian": 26.400000035762787,
+      "tsWorst": 147.89999997615814,
+      "rustWorst": 51,
+      "pass": true,
+      "load": {
+        "mean": 99.90257499121823,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 25981870080
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 298.89999997615814,
+      "rustMedian": 78.5,
+      "tsWorst": 299.5,
+      "rustWorst": 87.90000003576279,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 10,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24928227328
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 586.6999999880791,
+      "rustMedian": 144.0999999642372,
+      "tsWorst": 733.1000000238419,
+      "rustWorst": 182.39999997615814,
+      "pass": true,
+      "load": {
+        "mean": 99.95582201628972,
+        "max": 100,
+        "samples": 13,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24734687232
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 14.399999976158142,
+      "rustMedian": 4.699999988079071,
+      "tsWorst": 14.800000011920929,
+      "rustWorst": 5.899999976158142,
+      "pass": true,
+      "load": {
+        "mean": 99.90373978733659,
+        "max": 99.9050312620826,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24142942208
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 28.5,
+      "rustMedian": 5.899999976158142,
+      "tsWorst": 28.69999998807907,
+      "rustWorst": 12,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23963246592
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 99.89999997615814,
+      "rustMedian": 28.200000047683716,
+      "tsWorst": 100.80000001192093,
+      "rustWorst": 29.30000001192093,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24451526656
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 83.60000002384186,
+      "rustMedian": 26.399999976158142,
+      "tsWorst": 93,
+      "rustWorst": 28.30000001192093,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24317259776
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 449.5,
+      "rustMedian": 160.19999998807907,
+      "tsWorst": 506,
+      "rustWorst": 177.70000004768372,
+      "pass": true,
+      "load": {
+        "mean": 99.92652291946973,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23475707904
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 490.89999997615814,
+      "rustMedian": 174.69999998807907,
+      "tsWorst": 497.2000000476837,
+      "rustWorst": 176.10000002384186,
+      "pass": true,
+      "load": {
+        "mean": 99.94060312348067,
+        "max": 100,
+        "samples": 13,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 24336740352
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 23,
+      "rustMedian": 5,
+      "tsWorst": 24,
+      "rustWorst": 6,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23847018496
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 20,
+      "rustMedian": 6,
+      "tsWorst": 21,
+      "rustWorst": 9,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23758544896
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 79,
+      "rustMedian": 22,
+      "tsWorst": 89,
+      "rustWorst": 24,
+      "pass": true,
+      "load": {
+        "mean": 99.8703591989086,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23777755136
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 127,
+      "rustMedian": 35,
+      "tsWorst": 135,
+      "rustWorst": 36,
+      "pass": true,
+      "load": {
+        "mean": 99.44958360273331,
+        "max": 99.9031324092175,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23825182720
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 334,
+      "rustMedian": 102,
+      "tsWorst": 358,
+      "rustWorst": 105,
+      "pass": true,
+      "load": {
+        "mean": 99.6514394992314,
+        "max": 100,
+        "samples": 8,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23904047104
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 575,
+      "rustMedian": 130,
+      "tsWorst": 620,
+      "rustWorst": 131,
+      "pass": true,
+      "load": {
+        "mean": 99.541910792227,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23091843072
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 41,
+      "rustMedian": 10,
+      "tsWorst": 41,
+      "rustWorst": 13,
+      "pass": true,
+      "load": {
+        "mean": 99.80605173403544,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23083053056
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 45,
+      "rustMedian": 8,
+      "tsWorst": 52,
+      "rustWorst": 10,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23285899264
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 92,
+      "rustMedian": 23,
+      "tsWorst": 95,
+      "rustWorst": 23,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23082561536
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 195,
+      "rustMedian": 28,
+      "tsWorst": 204,
+      "rustWorst": 30,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23218884608
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 300,
+      "rustMedian": 72,
+      "tsWorst": 324,
+      "rustWorst": 72,
+      "pass": true,
+      "load": {
+        "mean": 98.68110794446758,
+        "max": 100,
+        "samples": 8,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22992285696
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 808,
+      "rustMedian": 143,
+      "tsWorst": 894,
+      "rustWorst": 151,
+      "pass": true,
+      "load": {
+        "mean": 99.62805240541088,
+        "max": 100,
+        "samples": 14,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22771712000
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 21,
+      "rustMedian": 4,
+      "tsWorst": 22,
+      "rustWorst": 4,
+      "pass": true,
+      "load": {
+        "mean": 99.95301032252452,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22782038016
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 26,
+      "rustMedian": 5,
+      "tsWorst": 27,
+      "rustWorst": 6,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22661947392
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 114,
+      "rustMedian": 22,
+      "tsWorst": 121,
+      "rustWorst": 23,
+      "pass": true,
+      "load": {
+        "mean": 99.85685586458295,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22935289856
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 150,
+      "rustMedian": 31,
+      "tsWorst": 161,
+      "rustWorst": 31,
+      "pass": true,
+      "load": {
+        "mean": 97.24549700959051,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23334772736
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 693,
+      "rustMedian": 155,
+      "tsWorst": 718,
+      "rustWorst": 159,
+      "pass": true,
+      "load": {
+        "mean": 99.97955922584742,
+        "max": 100,
+        "samples": 14,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22190002176
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 782,
+      "rustMedian": 185,
+      "tsWorst": 834,
+      "rustWorst": 208,
+      "pass": true,
+      "load": {
+        "mean": 99.99353958630728,
+        "max": 100,
+        "samples": 15,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23242346496
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 14,
+      "rustMedian": 6,
+      "tsWorst": 15,
+      "rustWorst": 6,
+      "pass": true,
+      "load": {
+        "mean": 98.64293640851963,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22675914752
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 25,
+      "rustMedian": 5,
+      "tsWorst": 77,
+      "rustWorst": 5.000000000003638,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22295801856
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 95,
+      "rustMedian": 25,
+      "tsWorst": 102.00000000000364,
+      "rustWorst": 26.999999999996362,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 22516117504
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 233,
+      "rustMedian": 42,
+      "tsWorst": 262,
+      "rustWorst": 45,
+      "pass": true,
+      "load": {
+        "mean": 99.92306904063955,
+        "max": 100,
+        "samples": 5,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23506391040
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 269,
+      "rustMedian": 104,
+      "tsWorst": 270,
+      "rustWorst": 125,
+      "pass": true,
+      "load": {
+        "mean": 98.87721187782151,
+        "max": 100,
+        "samples": 27,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 23412908032
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 761,
+      "rustMedian": 143,
+      "tsWorst": 806,
+      "rustWorst": 161,
+      "pass": true,
+      "load": {
+        "mean": 99.08577411320842,
+        "max": 100,
+        "samples": 14,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 21497626624
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 34,
+      "rustMedian": 12,
+      "tsWorst": 41.99999999998545,
+      "rustWorst": 14,
+      "pass": true,
+      "load": {
+        "mean": 99.96911872701612,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 21708324864
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 63,
+      "rustMedian": 12,
+      "tsWorst": 69,
+      "rustWorst": 21,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 21947473920
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 84.99999999998545,
+      "rustMedian": 29,
+      "tsWorst": 97,
+      "rustWorst": 32,
+      "pass": true,
+      "load": {
+        "mean": 99.71126857794926,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 21460983808
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 303,
+      "rustMedian": 39,
+      "tsWorst": 318,
+      "rustWorst": 49,
+      "pass": true,
+      "load": {
+        "mean": 99.95133559757268,
+        "max": 100,
+        "samples": 6,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 21890723840
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 339,
+      "rustMedian": 114,
+      "tsWorst": 499.00000000001455,
+      "rustWorst": 198.99999999998545,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 10,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 20666089472
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 944,
+      "rustMedian": 159,
+      "tsWorst": 947,
+      "rustWorst": 176,
+      "pass": true,
+      "load": {
+        "mean": 99.10066344447246,
+        "max": 100,
+        "samples": 17,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 20455268352
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 128,
+      "k": 0,
+      "tsMedian": 13.999999999985448,
+      "rustMedian": 4.000000000014552,
+      "tsWorst": 14.999999999985448,
+      "rustWorst": 4.000000000014552,
+      "pass": true,
+      "load": {
+        "mean": 97.40226810442815,
+        "max": 97.58676295891685,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 20673343488
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 128,
+      "k": 1,
+      "tsMedian": 21,
+      "rustMedian": 5.000000000014552,
+      "tsWorst": 22,
+      "rustWorst": 9.999999999985448,
+      "pass": true,
+      "load": {
+        "mean": 90.68074544732866,
+        "max": 99.51404253650527,
+        "samples": 2,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 20336324608
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 256,
+      "k": 0,
+      "tsMedian": 77,
+      "rustMedian": 29,
+      "tsWorst": 83,
+      "rustWorst": 32,
+      "pass": true,
+      "load": {
+        "mean": 99.68470939013831,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 19895795712
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 256,
+      "k": 1,
+      "tsMedian": 121,
+      "rustMedian": 36,
+      "tsWorst": 155.99999999998545,
+      "rustWorst": 59,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 4,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 19808190464
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 512,
+      "k": 0,
+      "tsMedian": 490,
+      "rustMedian": 186,
+      "tsWorst": 537,
+      "rustWorst": 194,
+      "pass": true,
+      "load": {
+        "mean": 99.66513187342335,
+        "max": 100,
+        "samples": 13,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 18147688448
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 512,
+      "k": 1,
+      "tsMedian": 631,
+      "rustMedian": 282,
+      "tsWorst": 674.0000000000291,
+      "rustWorst": 301.9999999999709,
+      "pass": true,
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 14,
+        "source": "Windows PDH Processor(_Total) % Processor Time",
+        "freeMemory": 18666651648
+      },
+      "input": "local/browser-direct-gate.json",
+      "inputSha256": "dc44eb5d9164785ae7547a26f5e895ff05e77fba02ee52445afe2e2fe0f53292"
+    }
+  ],
+  "limitations": "Shared PC, paired warmed medians. Worst values and CPU load retained; earlier WebKit miss is preserved in browser-round2-bench.json. This is the three-planner gate, not adoption approval."
+}
