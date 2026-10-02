@@ -1232,7 +1232,7 @@ the `.timber` in the artifact, whose downloads allowlist has no `.timber`).
 ## 20. Editor decisions
 
 These are the decisions in force, by topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](docs/archive/decisions.md); a number missing here is superseded or completed there.
-New decisions are written here once, under their topic, with the next free number (D416; only the milestone session hands out numbers), and move to the archive when superseded or completed.
+New decisions are written here once, under their topic, with the next free number (D418; only the milestone session hands out numbers), and move to the archive when superseded or completed.
 
 ### How we work (sessions, models, reviews, documents, merging, releases)
 
@@ -1309,6 +1309,8 @@ New decisions are written here once, under their topic, with the next free numbe
 - **D410** (with D209, pending #103): D209's sea layouts come back as the starting point for Islands, each with real relief and fresh water (springs, rivers, lakes) on the islands, as a range of layouts, not six new stamps. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-islands-delta.md`).
 - **D411**: On Islands the start may sit on any island where everything it needs is on that island (its mine sites, food and logs), not only the main one. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-islands-delta.md`).
 - **D412**: Delta has upland and relief across the whole map, not three flat bands; the river splits into several channels, with the fan's position, direction and size varying by seed. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-islands-delta.md`).
+- **D416** (with D412): Delta's redesigned shape (sheets at 3d2d89ea) is accepted. Tuning: every seed reads as a fan (seeds 8, 15, 19, 28 and 29 read as an ordinary river valley), and the thin water across the fan on seeds 4 and 23 is fixed. Kyler, 2026-10-02.
+- **D417** (with D408, D410, D411): Islands needs another shape round before Kyler accepts it: the sea never reads as a square block in a frame (its outline doesn't run parallel to the map's edges with square corners; the rim the game needs stays, varied in width, broken into headlands and cliffs, with islands touching it); no hard rectangular patches or notches (seeds 3, 14, 20 and 26); the start on an island on most maps, not on the ring (islands are where the player builds); fewer, larger islands with real relief, keeping the variety of arrangements. Then a new 30-seed sheet at 128² beside M9a. Sea maps not drawing Hanging valleys or Farmland past a gorge is a default he can overrule (pending #155). Kyler, 2026-10-02.
 
 ### Water
 
