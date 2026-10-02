@@ -1338,7 +1338,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     });
     const keepI = new Uint8Array(N);
     for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
-    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
+    // (only round an inland sea: where the ring breaks, an island may reach the land round it, D417)
+    if (g.seaRing) standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)

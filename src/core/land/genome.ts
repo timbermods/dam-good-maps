@@ -160,6 +160,9 @@ export interface Genome {
    *  a sea off one edge, a scatter of islands, an island chain, an atoll, or two large islands parted
    *  by a strait; null without a sea. */
   seaLayout?: SeaLayout | null;
+  /** An inland sea in a ring of land (D417: at most one sea map in four, and the edge layout's own);
+   *  on the others broad headlands reach into the sea and break the land round it. */
+  seaRing?: boolean;
   /** Falls on the rivers (the Waterfalls setting): 0 spreads every drop along the course (no
    *  falls), 1 lets the land decide, 2 gathers more of them. */
   falls: 0 | 1 | 2;
@@ -643,6 +646,7 @@ const SEA_GROW = 1.12;
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
   g.seaLayout = layout;
+  g.seaRing = layout === "edge" || rng.float() < 0.25;
   g.tiltKind = "radial";
   g.regional.warped = true;
   const side = Math.min(W, H);
@@ -652,7 +656,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
   const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
   const isleK = portable.pow(Math.max(1, areaK), 0.35);
+  let seaDepth = 9;
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
+    seaDepth = depth;
     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
   };
   // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
@@ -804,6 +810,19 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       }
       tilt = 3 + rng.float();
       break;
+    }
+  }
+  // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
+  // it, their high ground an island's, so the shore is land and channels, never a frame)
+  if (!g.seaRing) {
+    const heads = 3 + Math.floor(2 * rng.float());
+    const a0 = rng.float();
+    for (let k = 0; k < heads; k++) {
+      const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
+      // (from the map's middle out to near its edge, along this bearing)
+      const reach = 0.5 - (0.1 + 0.06 * rng.float());
+      const scale = Math.max(Math.abs(vx), Math.abs(vy));
+      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
     }
   }
   g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());

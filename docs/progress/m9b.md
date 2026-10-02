@@ -198,6 +198,43 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands: the ring broken, and the big-island sheet (D417, after Kyler's look at 3fbb21f7)
+
+Kyler at 3fbb21f7: the rectangles and the square frame are gone, but about two thirds of the seeds
+read as one layout, an inland sea in a ring of land. That may stay on at most one map in four; the
+rest should break the ring, as seeds 23–25 and 28–30 did. The start belongs on an island: he
+decides from a big-island sheet beside the safe one.
+
+- **The ring broken** (`genome.ts` `seaRing`): a sea map draws an inland sea in a ring of land on
+  one map in four, and the edge layout keeps its own coast. On the others, three or four broad
+  headlands reach into the sea from the land round it, at spread bearings. Their high ground is an
+  island's, so the shore is land and channels, and islands may meet it. There the straits that
+  stood islands clear of the shore (D350) are cut only round an inland sea.
+- **Tried for the ring, not kept:**
+  - Two to four straits from the sea to the edge (3–5 or 8–14 tiles wide): their thin water read
+    as pale lines, and the ring stayed.
+  - A lower sea (the hydrology fitting it to about a third of the map): little visible change.
+- **The safe sheet**, `docs/sheets/m9b-islands.png`:
+  - all 30 pass, the promise on 21, all three outcomes on 20;
+  - the start is on the shore, as before.
+- **The big-island sheet**, `docs/sheets/m9b-islands-big.png`: built from
+  `investigation/m9b/islands-big-variant.patch`, applied on 3fbb21f7. Not adopted: it is for
+  Kyler to decide the start.
+  - Each layout has a main island of about 2,500–3,700 tiles. It is near round, with a gentler top
+    and lower spine and peaks, and its coast rises from the sea in steps of a level every five
+    tiles, so it is moist and walked without stairs (`islands.ts` `gentleCoasts`, before the water
+    is planned).
+  - Round an inland sea, its strait is cut past its coast and through higher ground too, wandering.
+  - The ring breaks as above. The start keeps off the land within 14% of the side of the edge, an
+    island that reaches the shore keeping its land further in.
+  - Seeds 1–30: all 30 pass, the promise on 16, all three outcomes on 15.
+  - 26 of the 30 starts stand 18 or more tiles in from the edge, on an island or a headland joined
+    to one. Three stand on an island clear of the shore. The rest are on the edge layout's coast.
+  - The promise reads fewer islands where they meet the shore, which this round allows.
+  - Lands are drawn again more often before one is shown (up to 13 times).
+  - Some seas stand thin over broad flats (seed 5: 2,651 tiles 0.1–0.3 deep; seed 10: 2,355 under
+    0.1).
+
 ### Islands' second shape round and Delta's tuning (D416, D417, 2026-10-02, evening)
 
 Kyler's verdict on the first sheets (3d2d89ea): Delta's shape accepted, with two tuning notes
