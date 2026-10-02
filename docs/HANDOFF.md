@@ -34,6 +34,9 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **The page session** (Fable 5.1, high; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
+- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release item 3: moving
+  water and the Flow view, then renderer R1. This session doesn't build them; it merges that PR when it is green and Kyler
+  says yes. Its gate is the smoothness harness (`investigation/performance`, #107, merged as an investigation).
 - **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler
   ([his message](archive/feedback/2026-10-02-two-sessions.md)).
 
@@ -106,7 +109,7 @@ round 2 lands.
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into `PLAN.md` §20 (the next is **D398**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into `PLAN.md` §20 (the next is **D399**) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
