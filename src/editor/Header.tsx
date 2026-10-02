@@ -211,7 +211,7 @@ export function Header(p: HeaderProps) {
               </li>
               {p.info.kind === "generated" && p.onAnother ? (
                 <li role="none">
-                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map with the same theme, settings and intentions, on different land">
+                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
                     Another like this
                   </button>
                 </li>
