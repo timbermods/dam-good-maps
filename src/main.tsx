@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { Workspace } from "./page/Workspace";
 import { Tooltips } from "./ui/Tooltip";
-import "./styles/app.css";
+import "./styles/base.css";
 import "./styles/editor.css";
 import "./styles/components.css";
 import "./styles/lamplight.css";

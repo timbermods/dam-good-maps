@@ -1,0 +1,62 @@
+/* The workspace's base rules: what the editor's and the shared components' stylesheets build on. The
+   look is lamplight.css, loaded last (DESIGN.md). */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.note,
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.error {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--code);
+  font-size: 0.9em;
+}
+
+/* the first look while a map is made (FirstLook.tsx) */
+.first-look {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.first-look-map {
+  width: min(60vh, 512px);
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  opacity: 0.85;
+  border-radius: 6px;
+}
+
+.first-look-stage {
+  margin: 0;
+}
