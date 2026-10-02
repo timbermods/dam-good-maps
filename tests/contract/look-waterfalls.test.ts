@@ -16,35 +16,43 @@ const SIM_DIRECTION = [3, 1, 2, 0];
 const SX = [1, -1, 0, 0];
 const SY = [0, 0, 1, -1];
 
+/** The view's flow over every fall's lip on a generated map against the settle's own outflow. */
+function checkLips(theme: ThemeId, seed: number): void {
+  const W = 128;
+  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
+  const b = r.built;
+  const sw = surfaceWater(W, W, waterFromDepth(b.heights, b.water, b.contamination));
+  const out = b.settle.out!;
+  const floor = b.waterModel.floor;
+  const none = new Float32Array(W * W);
+  const errors: number[] = [];
+  for (let y = 0; y < W; y++)
+    for (let x = 0; x < W; x++)
+      for (let k = 0; k < 4; k++) {
+        if (!lipAt(W, W, b.heights, sw, none, x, y, k)) continue;
+        const i = y * W + x;
+        const j = (y + SY[k]) * W + x + SX[k];
+        // (where a full obstacle raises the water's floor the view draws the water on the ground,
+        // under the obstacle: not a fall the simulation knows)
+        if (floor[i] !== b.heights[i] || floor[j] !== b.heights[j]) continue;
+        const sim = out[4 * i + SIM_DIRECTION[k]];
+        errors.push(Math.abs(lipOutflow(W, W, b.heights, sw, x, y, k) - sim) / Math.max(sim, 0.05));
+      }
+  expect(errors.length).toBeGreaterThan(20);
+  // within 5% at nine falls in ten, and within 15% at every one
+  expect(errors.filter((e) => e <= 0.05).length / errors.length).toBeGreaterThanOrEqual(0.9);
+  expect(Math.max(...errors)).toBeLessThan(0.15);
+}
+
 describe("the flow over a fall's lip", () => {
   it.each([
     ["canyon", 3],
-    ["highlands", 4], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves, whose seed 5 has a map-edge lip at (86, 127) the view pours 0.26 over where the simulation pours 0.03)
-    ["lakeBasin", 5], // (seed 5 since M9b, D148: seed 3's map has a lip pair on level ground at (32, 37) the view pours over where the simulation hardly does)
-  ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => {
-    const W = 128;
-    const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
-    const b = r.built;
-    const sw = surfaceWater(W, W, waterFromDepth(b.heights, b.water, b.contamination));
-    const out = b.settle.out!;
-    const floor = b.waterModel.floor;
-    const none = new Float32Array(W * W);
-    const errors: number[] = [];
-    for (let y = 0; y < W; y++)
-      for (let x = 0; x < W; x++)
-        for (let k = 0; k < 4; k++) {
-          if (!lipAt(W, W, b.heights, sw, none, x, y, k)) continue;
-          const i = y * W + x;
-          const j = (y + SY[k]) * W + x + SX[k];
-          // (where a full obstacle raises the water's floor the view draws the water on the ground,
-          // under the obstacle: not a fall the simulation knows)
-          if (floor[i] !== b.heights[i] || floor[j] !== b.heights[j]) continue;
-          const sim = out[4 * i + SIM_DIRECTION[k]];
-          errors.push(Math.abs(lipOutflow(W, W, b.heights, sw, x, y, k) - sim) / Math.max(sim, 0.05));
-        }
-    expect(errors.length).toBeGreaterThan(20);
-    // within 5% at nine falls in ten, and within 15% at every one
-    expect(errors.filter((e) => e <= 0.05).length / errors.length).toBeGreaterThanOrEqual(0.9);
-    expect(Math.max(...errors)).toBeLessThan(0.15);
-  });
+    ["highlands", 4], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below)
+    ["lakeBasin", 5], // (seed 5 since M9b, D148: seed 3 is below)
+  ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => checkLips(theme, seed));
+  // Expected failures, kept on the seeds that caught them (Kyler, 2026-10-02): the High look's flow at
+  // a lip against the settle's. The renderer session's PR #165 replaces High's slope estimate with the
+  // simulation's current and may fix them; when one passes, `fails` comes off it.
+  it.fails("highlands 5: the map-edge lip at (86, 127): the view pours 0.26, the settle 0.03", () => checkLips("highlands", 5));
+  it.fails("lakeBasin 3: a lip pair on level ground at (32, 37): the view pours 2.2, the settle 0.19", () => checkLips("lakeBasin", 3));
 });
