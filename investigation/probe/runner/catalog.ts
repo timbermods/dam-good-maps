@@ -308,12 +308,14 @@ const within = (m: MapInfo, cx: number, cy: number, r: number, pred: (t: number)
 const calm: Cycle = { temperateDays: 60, hazard: 'drought', hazardDays: 0 };
 
 /** D358's slow-settling maps for the M9b group: [id, title, spec fragment]; their final settle ran
- *  past 4 game days on feature/m9b (the ticks said in the title). */
+ *  past 4 game days on feature/m9b (the ticks said in the title), and the map round 2 feeds gently. */
 const M9B_SLOW: [string, string, string][] = [
   ['m9b-slow-lb-16-256', 'Lake Basin 256² (seed 16, 4,608 ticks)', 's=16&t=lakeBasin&z=256&d=n'],
   ['m9b-slow-lb-5-256', 'Lake Basin 256² (seed 5, 4,096 ticks)', 's=5&t=lakeBasin&z=256&d=n'],
   ['m9b-slow-any-12-256', 'Any 256² (seed 12, 4,608 ticks)', 's=12&t=any&z=256&d=n'],
   ['m9b-slow-islands-3-128', 'Islands 128² (seed 3, 4,352 ticks)', 's=3&t=islands&z=128&d=n'],
+  // (generation speed round 2, #155: a rising basin fed more gently instead of a worn way out)
+  ['m9b-gentle-lb-24-256', 'Lake Basin 256² (seed 24, its rising basin fed gently)', 's=24&t=lakeBasin&z=256&d=n'],
 ];
 
 // ------------------------------------------------------------------------------------ generic checks
