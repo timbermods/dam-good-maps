@@ -1122,7 +1122,10 @@ have to, the plan fails with the reason. Ruin fields are ordinary features with 
 - **Entities:** `Id = guid(hash128(ownerFeatureId, template, localIndex))`, a lowercase GUID, so an entity keeps its
   Id (and, since the game seeds a tree's look from its Id, its look) through edits elsewhere. Entities placed by
   hand get a random GUID, stored in the document; imported entities keep their original Ids. `entities.ids` checks
-  uniqueness; a collision is resolved by rehashing with a counter.
+  uniqueness; a collision is resolved by rehashing with a counter. A group of sources the build places itself (D314,
+  a river head's row) is the one exception to the tile: its anchor keeps its tile's Id, and the others take Ids from
+  the anchor's and their place along the row (`water/sourceGroups.ts` `groupIds`), so a spring an edit's ground moves
+  along the row (a Quake Lift raising half of it) keeps its Id and is never counted as placed.
 - Edits refer to ids. An edit whose target no longer exists after another edit becomes orphaned and is shown to the
   player, never dropped. Edits never replay onto new land (D336).
 
