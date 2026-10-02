@@ -24,9 +24,9 @@ describe("picking a first-visit map", () => {
     expect(pickFirstVisit(index, "9.9.9", () => 0.9999)?.id).toBe("c");
   });
   it("none for another generator, or none at all: the page generates live", () => {
-    expect(pickFirstVisit(index, "1.0.0")).toBe(null);
-    expect(pickFirstVisit({ ...index, maps: [] }, "9.9.9")).toBe(null);
-    expect(pickFirstVisit(null, "9.9.9")).toBe(null);
+    expect(pickFirstVisit(index, "1.0.0", () => 0)).toBe(null);
+    expect(pickFirstVisit({ ...index, maps: [] }, "9.9.9", () => 0)).toBe(null);
+    expect(pickFirstVisit(null, "9.9.9", () => 0)).toBe(null);
   });
 });
 

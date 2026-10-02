@@ -40,8 +40,9 @@ export interface FirstVisitIndex {
   maps: FirstVisitMap[];
 }
 
-/** One map at random, or null when there is none for this generator (the page generates live). */
-export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: string, random: () => number = Math.random): FirstVisitMap | null {
+/** One map at random, or null when there is none for this generator (the page generates live).
+ *  The caller supplies `random` (the page passes `Math.random`): the core uses none of its own (D366). */
+export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: string, random: () => number): FirstVisitMap | null {
   if (!index || index.format !== FIRST_VISIT_FORMAT || index.generatorVersion !== generatorVersion || !index.maps.length) return null;
   return index.maps[Math.min(index.maps.length - 1, Math.floor(random() * index.maps.length))];
 }
