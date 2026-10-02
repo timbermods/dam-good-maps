@@ -4,6 +4,8 @@
 
 import * as portable from "../math/portable";
 import { rebuiltSlope } from "../features/ids";
+import { slopeStands, slopeTiles } from "../features/slopes";
+import { footprint } from "./objects";
 import type { EntitySpec } from "../format/entities";
 import type { ForceMap, FullForceMap } from "./force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "./op";
@@ -40,10 +42,24 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
     }
   const now = new Map(after.entities.map((e) => [e.id, e]));
   const removed = before.entities.filter((e) => !now.has(e.id) && !kept(e)).map((e) => e.id);
+  // a carried object put down where the start or a slope the build keeps still stands is lost there:
+  // the force carries neither (the editor carries the start, D257; the build keeps its slopes), and
+  // listing it as carried would leave the build to drop it while they stand and bring it back once
+  // they move on (D368 (10): only the player places objects)
+  const held = new Set<number>();
+  for (const b of before.entities) {
+    if (b.template === "StartingLocation") for (const i of footprint(before, b)) held.add(i);
+    else if (kept(b) && b.template === "Slope") {
+      const t = slopeTiles(b, before.W, before.H);
+      if (t && slopeStands(t, after.heights)) held.add(t[0]);
+    }
+  }
   const moved: { id: string; x: number; y: number }[] = [];
   for (const b of before.entities) {
     const e = now.get(b.id);
-    if (e && !kept(b) && (e.x !== b.x || e.y !== b.y)) moved.push({ id: b.id, x: e.x, y: e.y });
+    if (!e || kept(b) || (e.x === b.x && e.y === b.y)) continue;
+    if (footprint(after, e).some((i) => held.has(i))) removed.push(b.id);
+    else moved.push({ id: b.id, x: e.x, y: e.y });
   }
   const wasFallen = new Set((before.fallen ?? []).map((f) => f.id));
   const felled: { id: string; dx: number; dy: number }[] = [];

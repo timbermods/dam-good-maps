@@ -837,7 +837,9 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
   }
   const patch = movePatch(f, dx, dy, W, H, s.built.heights);
   const moved = { ...f, params: { ...f.params, ...(patch.params as object) } } as Feature;
-  return { ok: true, ops: [{ op: "updateFeature", params: { id, patch } }], feature: moved, report: [], label, tiles: [] };
+  // (the start takes its clear ground: the generation's trees and bushes there go, D368 (10))
+  const clears = moved.kind === "start" ? startClears(s, moved.params.position[0], moved.params.position[1], moved.params.orientation) : [];
+  return { ok: true, ops: [...clears, { op: "updateFeature", params: { id, patch } }], feature: moved, report: [], label, tiles: [] };
 }
 
 /** A set piece's request at a place (dx, dy) tiles away: along its river for on-river pieces. */
@@ -1028,7 +1030,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
         for (let yy = y - rr; yy <= y + rr && ok; yy++) for (let xx = x - rr; xx <= x + rr && ok; xx++) if (pieces[yy * W + xx]) ok = false;
         if (!ok || startProblem(b, x, y, o, level, feat.id, pieces)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
-        return [{ op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
+        return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
       }
       if (startProblem(b, x, y, o, true, ent!.owner, pieces)) continue;
       const [cx, cy] = cornerFor(x, y, o);
@@ -1036,6 +1038,24 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
     }
   }
   return null;
+}
+
+/** The generation's trees, bushes and ruin columns under a start moved to (x, y) (its footprint and
+ *  its entrance), removed in the step that puts the start there: without the removal the build
+ *  would only keep them aside while the start stands on them, and moving it on would bring them
+ *  back (D368 (10): only the player places objects). Empty for a map that keeps no generation's
+ *  record. */
+export function startClears(s: MapSession, x: number, y: number, o: Orientation): EditOp[] {
+  const kept = s.generatedResources();
+  if (!kept) return [];
+  const { W } = s.built;
+  const under = new Set<number>();
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) under.add((y + dy) * W + x + dx);
+  const [cx, cy] = cornerFor(x, y, o);
+  const door = startEntranceTile(cx, cy, o);
+  under.add(door[1] * W + door[0]);
+  const ids = s.built.entities.filter((e) => kept.has(e.owner) && under.has(e.y * W + e.x)).map((e) => e.id);
+  return ids.length ? [{ op: "deleteEntities", params: { entities: ids } }] : [];
 }
 
 /** Whether an edit that changed the tiles `changed` broke the start's own ground (D257): it stood on

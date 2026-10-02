@@ -35,8 +35,8 @@ export interface ResourceGround {
 
 /** An edited generated map's resources (PLAN §20 D368 (10), D404): the tiles where the generation
  *  placed the feature's objects. Only those stand, and the water and moisture under them never take
- *  one away or bring one back: a tree is marked dead or alive from the moisture under it (dead in
- *  water), a bush and a ruin column stay. An edit that floods them and a later one that drains them
+ *  one away or bring one back: a tree or a bush is marked dead or alive from the ground under it
+ *  (dead where it is dry, flooded or contaminated, as the game kills it), a ruin column stays. An edit that floods them and a later one that drains them
  *  leave the same objects, so no edit ever adds one. */
 export type KeptTiles = ReadonlySet<number>;
 
@@ -90,7 +90,9 @@ function rasterizeBerries(f: BerryPatchFeature, g: ResourceGround, kept: KeptTil
     if (!take(g, f, i, out, kept)) continue;
     const ripe = tileHash01(sRipe, x, y) < f.params.ripeShare;
     const regrowth = Math.round((0.1 + 0.8 * tileHash01(sGrow, x, y)) * 1000) / 1000;
-    out.entities.push(bush({ id: entityId(f.id, "BlueberryBush", i), owner: f.id, x, y, z: g.heights[i], ripe, regrowth }));
+    // (a kept bush, D404: dead where its ground now kills it, dry, flooded or contaminated)
+    const dead = !!kept && (g.moisture[i] <= 0 || g.soilContamination[i] > 0 || g.water[i] > 0);
+    out.entities.push(bush({ id: entityId(f.id, "BlueberryBush", i), owner: f.id, x, y, z: g.heights[i], ripe, regrowth, ...(dead ? { dead } : {}) }));
   }
   return out;
 }

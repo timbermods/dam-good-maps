@@ -868,9 +868,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    slope overrides, then the first pass of entity edits
   const ground = { W, H, heights };
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
-  //    (what the build placed itself takes its tiles before the edits move anything: the generation's
-  //    kept resources yield to it alone, raster/resources.ts `ResourceGround.before`)
-  const occupiedBeforeEdits = reserved.slice();
+  //    (the objects the build placed itself take their tiles before the edits move anything: the
+  //    generation's kept resources yield to them alone where they stood, raster/resources.ts
+  //    `ResourceGround.before`, never to the start's clear ground, which an edit may move)
+  const occupiedBeforeEdits = new Uint8Array(N);
   for (const e of entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) occupiedBeforeEdits[y * W + x] = 1;
   for (const f of features) {
     if (f.kind !== "setPiece" || !live(f)) continue;
@@ -1070,13 +1071,25 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
 
   // 13. the second pass of entity edits, on what only exists now
-  const passB = applyEntityEdits(entities, passA.rest, ground, false);
+  //    (the generation's kept resources a force carried land where it put them: what holds that
+  //    ground now may have moved since, and taking it for held would bring them back once it moves
+  //    on; D368 (10))
+  const keptBy = input.generatedResources ?? null;
+  const passB = applyEntityEdits(entities, passA.rest, ground, false, keptBy ? (e) => keptBy.has(e.owner) : undefined);
   orphans.push(...orphansOf(passB.rest));
   orphans.sort((a, b) => a.seq - b.seq);
+  //    a kept resource never stands under another object (the editor removes those a start or an
+  //    object is moved onto, tools.ts `startClears`; this only keeps the file whole)
+  let finalEntities = passB.entities;
+  if (keptBy) {
+    const held = new Set<number>();
+    for (const e of finalEntities) if (!keptBy.has(e.owner)) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) held.add(y * W + x);
+    if (finalEntities.some((e) => keptBy.has(e.owner) && held.has(e.y * W + e.x))) finalEntities = finalEntities.filter((e) => !(keptBy.has(e.owner) && held.has(e.y * W + e.x)));
+  }
 
   const result: BuildResult = {
     ...withWater,
-    entities: passB.entities,
+    entities: finalEntities,
     dirty: null,
     cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, occupiedBeforeEdits, resources, resourceOrder: order }),
   };
