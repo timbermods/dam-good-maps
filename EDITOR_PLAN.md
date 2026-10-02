@@ -129,7 +129,10 @@ The editor's parts as they are now; their placement and styling are the design p
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
   `describeTile` (`core/doc/describeTile.ts`), returning data; the readout only words and shows it
-  (`tests/contract/describeTile.test.ts`).
+  (`tests/contract/describeTile.test.ts`). It refreshes whenever the water under the pointer changes, without
+  re-hovering (D347, D387 (1)): after each water state the page shows, it asks `readoutWater` for the hovered tile
+  (the readout's water words, as rounded and shown) and re-describes only when they differ
+  (`tests/contract/waterSignal.test.ts`).
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place or an opened file as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
@@ -802,6 +805,11 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   page (`src/ui/`); the worker (`src/worker/`: water preview and background validation); `platform` adapters. M12
   adds a `claude-bridge` (summary builder, schema, tools, proposal loop) in `src/claude/`, with its Messages API
   adapter in `src/platform/claude/`.
+- **The editor's code** (`src/editor/`, its `README.md`): `Editor.tsx` is a thin shell that builds a bag afresh each
+  render and calls one hook per feature, in a fixed order, each in its feature folder (`session/`, `paint/`, `view/`,
+  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`);
+  the markup is plain functions in `render/`, and what the viewer last used is in `prefs/`. New behaviour goes in the
+  slice it belongs to; the `README.md` says how slices reach each other.
 - The operations engine and feature rasterization are headless and fully testable without the UI. Determinism: the
   same document always produces a byte-identical `.timber` file (`PLAN.md` §19.7). Keep worker messages small: send
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the

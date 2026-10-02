@@ -31,7 +31,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | Work | Branch | PR | Worktree | Session | State |
 |---|---|---|---|---|---|
 | The editor-core items (D387) | none yet | none | main clone | milestone | Next, alongside the page |
-| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in ROADMAP ("M9b"); held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
+| M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | `dev` merged in (no land moved); small starts and generation speed rounds 1 and 2 adopted: failing absolutes 0/0/0, all three outcomes 220/230/230 of 280; Lake Basin round 2 waits for the quiet window, settings round 2 held; next the D148 re-pins (CI red on maps that moved), 256² speed, the review set; two defaults for Kyler in `docs/progress/m9b.md` ("Hand-over (2026-10-02)"); held for Kyler's eye (D252, D273) |
 | The page, "The page is the editor" with the design pass | `feature/page` (from `dev` at the salvaged core) | none yet | `-page` | page | Worktree ready; Kyler starts the session |
 | Moving water and the Flow view, then renderer R1 (D398) | `feature/moving-water` | none yet | another machine | renderer | Plan approved (2026-10-02): the `tools/smooth/` gate, then moving water, the Flow view and renderer R1; one draft PR into `dev`, merged when green on Kyler's yes |
 | The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 closed; the branch is kept as a record until the new page ships |
@@ -62,10 +62,10 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 
 ## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
 
-1. **The water-changed signal** for the hover readout (D387 (1)): `feature/water-signal`, building. `describeTile` follows
+1. **The water-changed signal** for the hover readout (D387 (1)): on `dev` (#164): `readoutWater` and `readoutWaterChanged` in `src/core/doc/describeTile.ts`. `describeTile` follows
    the water (contract test #162).
 2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): `feature/editor-core`, building.
-3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix.
+3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix: built on `feature/m9b` (APIs in `docs/progress/m9b.md`), on `dev` with M9b's release.
 4. **The service worker** for startup part 2 (D397), with multi-core water's adoption.
 
 The page session's first PR, Editor.tsx split into feature folders (behaviour unchanged), merges as soon as it's green,
