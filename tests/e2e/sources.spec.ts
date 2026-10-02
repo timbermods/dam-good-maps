@@ -130,9 +130,12 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
       const own = steps[k];
       const total = n > 1 ? n - 1 + own : own;
       await page.mouse.wheel(0, k < 4 ? -120 : 120);
-      // the note says the new number; in that same frame the label and the row say it too, never a step behind
-      await expect.poll(async () => (await sample()).note, { message: `${what}, notch ${k + 1}: the note` }).toBe(own);
-      expect(await sample(), `${what}, notch ${k + 1}: one number everywhere`).toEqual({ label: total, own, row: total, select: own, note: own });
+      // the note says the new number; in that same frame the label and the row say it too, never a step behind.
+      // (One sample is both the wait and the check: the note fades 1.5 s after the notch, so a second read on a
+      // slow machine could come after it had gone.)
+      let seen: Awaited<ReturnType<typeof sample>> | null = null;
+      await expect.poll(async () => (seen = await sample()).note, { message: `${what}, notch ${k + 1}: the note` }).toBe(own);
+      expect(seen, `${what}, notch ${k + 1}: one number everywhere`).toEqual({ label: total, own, row: total, select: own, note: own });
     }
     await page.keyboard.up("Control");
     // the source's real strength is the same number, and so are the label and the row once it is

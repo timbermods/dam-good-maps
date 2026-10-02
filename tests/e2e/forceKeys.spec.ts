@@ -16,6 +16,10 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const note = (page: Page) => page.locator(".shape-note");
+/** The note beside the pointer as it is this instant, "" when there is none: one read in the page. (Not count() then
+ *  textContent(): the note fades after a moment, and textContent() of one that has just gone waits for it to come back,
+ *  so a poll on a slow machine sat on its last value until it timed out.) */
+const noteText = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
 async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await page.goto(`./#${hash}`);
@@ -309,7 +313,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     // [ ]: the strength on Smooth and Naturalize; nothing on the height brushes (their target level is theirs)
     const s0 = (await saved()).strength!;
     // (the size's word gone: the brush's own words are back)
-    const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+    const words = () => noteText(page);
     await expect.poll(words, { timeout: 5_000 }).not.toMatch(/^(size|strength|power) /);
     await page.keyboard.press(s0 >= 10 ? "[" : "]");
     if (strength) {
@@ -359,7 +363,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
       // (Quake has no Size: F and { } leave it as it is)
       await page.keyboard.press("}");
       await page.waitForTimeout(300);
-      expect((await note(page).count()) ? await note(page).textContent() : "").not.toMatch(/size|power/);
+      expect(await noteText(page)).not.toMatch(/size|power/);
       await expect(power).toHaveValue("50");
     }
     // [ ]: its Power by five
@@ -381,7 +385,7 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
   const p = await client(page, at[0], at[1]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
   const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
-  const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+  const words = () => noteText(page);
   /** The pointer on the map (a slider just set lets go of the keys first). */
   const point = async () => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());

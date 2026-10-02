@@ -92,7 +92,10 @@ test("while a new map is being made, Refine and the downloads wait: they would t
   test.setTimeout(240_000);
   await page.goto("./#s=4242&z=128&d=n&t=riverValley");
   await done(page);
-  await lock(page).click();
+  // (a seed typed, so kept: a known map that passes its checks. A rolled seed fails them now and then, the
+  // generator's gate being 98% final, and Refine stays disabled for good on a map that failed, after up to 24 attempts)
+  await seedBox(page).fill("4243");
+  await expect(lock(page)).toBeVisible();
   const before = await page.evaluate(() => window.dgm!.current!()!.made);
   await generate(page).click();
   await expect(page.getByRole("button", { name: "Refine this map" })).toBeDisabled();
