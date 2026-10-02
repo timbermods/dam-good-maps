@@ -707,7 +707,13 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    no running source and no map edge is in it) are left out of the test, the rest's volume measured against the
    rest, and the settle stops at the first check that passes (`steadyTicks`, `waterSteady`), the check where the
    map without the basin would stop. Every sealed basin at that check is stored as the pre-fill started it: a Fill
-   at exactly its level, an oxbow lake with the water its carve kept; the game evaporates them from there.
+   at exactly its level, an oxbow lake with the water its carve kept; the game evaporates them from there. **No
+   water from nowhere** (D385): the pre-fill's walk spreads level over flat ground in every direction, further than
+   a source's water goes, so a hollow on a dry plateau it crossed would start full and keep that water. Once the
+   water has settled, the water no running source and no stored lake reaches (`sim/fed.ts`: from their tiles, any
+   wet neighbour whose floor stands no higher than the reached surface) is taken away, with any water Remove unfed
+   water drained, and the water settles on from there, by the same test and limit; a map with none keeps its
+   bytes. The Python oracle does the same (golden fixture `plateau_pit`).
 3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7 significant digits, depths
    under 1e-6 dry), outflows 0, soil moisture and contamination at steady state, and the evaporation modifiers of the
    settled water.
@@ -738,7 +744,8 @@ and ≤ 0.6 s at 128²**, computed from the document alone (§19.7). Measured (M
 River Valley at Normal; Lake Basin is the slow theme, 1.15 s at 128² and 3.0 s at 256² (D68). CI reports the 256²
 settle median on every push as a number that never fails a build (D145). The editor's interactive preview re-settles
 from the previous state (EDITOR_PLAN.md, Checks and water); the file always gets the canonical settle. The warm start
-keeps the settled water away from the edit and pre-fills round it (D99); the preview stops when at most 0.05% of the
+keeps the settled water away from the edit and pre-fills round it (D99), keeping the pre-fill's water only where a
+running source, a stored lake or the water kept from before reaches it (D385); the preview stops when at most 0.05% of the
 map still moves by more than 0.05 (64-tick checks, one day at most), or when only a sealed basin's evaporation still
 changes it (D222). Local edits at 256² take at most 1.76 s in Node and 1.4–1.7 s in Chrome; the canonical settle
 follows in the background, in slices, and before every export.
