@@ -26,7 +26,7 @@ backup before the first batch; and the local-only data: the decompiled game code
 official maps (`investigation/extract_builtin_maps.py`), Real places' land cache, and each investigation's gitignored
 `local/` folder (its report says how).
 
-## 2. The two sessions (D388)
+## 2. The three sessions (D388, D398)
 
 - **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
   the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns PLAN

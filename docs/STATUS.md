@@ -10,7 +10,7 @@ of [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01
 Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, the High look) and `licence-agpl-done`
 (D379, `main` at 87c73a0, generator 0.7.0). Every released step's tag: `git tag -l '*-done'`.
 
-## The two sessions (D388)
+## The three sessions (D388, D398)
 
 - **The milestone session** (Opus 5.5, high; the main clone) does everything except the page: the core, the water, the
   generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering, STATUS and HANDOFF.
@@ -20,6 +20,9 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
   and records its decisions in its own `DESIGN.md` and `docs/progress/page.md`; the milestone session folds them into PLAN
   when its work merges. Neither session touches the other's files; a control the core's items need (Remove unfed water,
   Fill) is agreed with the page session through Kyler.
+- **The renderer session** (Opus 5.5, high; on Kyler's PC, not the dedicated machine; branch `feature/moving-water`) builds
+  moving water and the Flow view, then renderer R1. Its gate is the shared runner in `tools/smooth/`. It never edits PLAN,
+  STATUS or HANDOFF.
 
 ## In flight
 
@@ -44,7 +47,7 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 | PR | Investigation | State |
 |---|---|---|
 | #159 | dam-sketch (D383's engine) | Merged as an investigation, not adopted (D392); its adoption gates are in ROADMAP, "The dam sketch tool" |
-| #158 | rust-forces | Draft; still round 1 (not adoptable); round 2 in flight, nothing to do until it lands |
+| #158 | rust-forces | Draft; round 1 not adoptable; round 2 in flight, nothing to do until it lands |
 | #157 | rust-analysis | Merged through #160, approved; adopted after M9b's release (D391) |
 | #156 | rust-water | Draft; approved (D381) |
 | #155 | gen-speed | Approved; adopt round 1, then round 2, on M9b |
@@ -54,6 +57,7 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 | #132 | scaling | Draft; round 4 approved for adoption |
 | #130 | parallel-water | Draft; approved |
 | #107 | performance | Merged as an investigation (b4b8af66): its harness is the renderer session's gate; none of its fixes adopted |
+| none yet | dam-sketch-2 (round 2, branch `investigation/dam-sketch-2`, new PR into `dev`) | In flight with Codex: browser timings in a worker in all three engines while dragging, the 256² profile, a "does it feel live" verdict, and a written in-game calibration batch. #159 stays as round 1 |
 | none | portable-math, rust-threads | In flight with Codex, no PR yet |
 
 ## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
