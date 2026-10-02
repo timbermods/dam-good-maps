@@ -77,3 +77,45 @@ The 42 browser visits also match uninstrumented Node first-land and download has
 ## Identity
 
 **Zero differences:** all 840 current M9b batch inputs (seeds 1–40, all seven themes, 96²/128²/256²), 1260 direct complete-state byte comparisons, including the first land and all water/object/export bytes. 2 identical refusals are retained, not counted as valid exports. [Bound evidence](IDENTITY.json). Focused parity: 180 mine grids, 212 wall scenes (16 positive), 320 repeated picks plus 5120 subsequent random draws. Full baseline/candidate typechecks pass; 21 existing focused tests pass. Adoption patch applies cleanly. Large raw runs, profiles and builds are ignored under `local/`; regenerate them with the integration commands.
+
+## Round 2
+
+Round 1 remains byte-identical and independently adoptable. [Round 2](round2/adoption.patch) re-pins unreleased M9b: earlier small-Canyon/mine checks and field/start reuse, stronger Canyon courses/small outlets, an extra Lake Basin course plan, and gentler basin feeds that keep shown terrain fixed. Four starts, absolute checks and canonical water physics/cap remain. [Integration](INTEGRATION.md).
+
+Field redraws **1450 → 1277 (−11.9%)**; all-three-outcomes maps **670 → 680 / 840**. All 21 theme/size shares meet or exceed baseline. Refused pre-land plans fall 2872 → 2778. Most savings are in small Canyon; 256² Lake Basin redraws fall 69 → 63 and outcomes rise 23 → 24 /40.
+
+Seconds **median / worst**, before = M9b + approved Round 1, after = both patches. All themes, seeds 1–40, Normal/default; three repeats/input/variant. Median is over per-seed medians; worst includes all repeats. Redraws count fresh shaped fields after the first; refused plans are separate. Successful-map wall times exclude the two baseline refusals, which remain in CPU/redraw/failure accounting.
+
+| Theme | Size | Redraws/map mean / worst before → after | First land before → after | Settled return before → after | All three /40 before → after |
+|---|---:|---:|---:|---:|---:|
+| Any | 96² | 1.23 / 5 → 1.25 / 5 | 0.52 / 2.72 → 0.44 / 1.48 | 1.35 / 7.79 → 1.14 / 3.13 | 35 → 36 |
+| River Valley | 96² | 0.72 / 5 → 0.80 / 5 | 0.39 / 2.60 → 0.33 / 1.78 | 1.04 / 4.52 → 0.93 / 2.80 | 34 → 34 |
+| Canyon | 96² | 5.22 / 15 → 2.55 / 11 | 1.01 / 5.20 → 0.76 / 2.92 | 1.96 / 5.82 → 1.47 / 3.49 | 26 → 28 |
+| Highlands | 96² | 6.85 / 14 → 6.97 / 14 | 1.46 / 5.53 → 1.26 / 3.33 | 2.16 / 7.71 → 1.84 / 3.88 | 21 → 23 |
+| Lake Basin | 96² | 2.13 / 7 → 2.45 / 10 | 0.58 / 2.05 → 0.56 / 2.26 | 1.59 / 6.66 → 1.38 / 5.38 | 23 → 24 |
+| Delta | 96² | 0.60 / 3 → 0.60 / 3 | 0.27 / 0.84 → 0.22 / 0.59 | 1.08 / 2.88 → 0.88 / 2.21 | 35 → 35 |
+| Islands | 96² | 0.00 / 0 → 0.00 / 0 | 0.24 / 0.55 → 0.20 / 0.40 | 3.09 / 7.20 → 2.54 / 4.37 | 39 → 40 |
+| Any | 128² | 1.00 / 5 → 1.00 / 5 | 0.61 / 2.81 → 0.67 / 3.20 | 1.81 / 4.98 → 1.82 / 5.30 | 33 → 33 |
+| River Valley | 128² | 0.68 / 6 → 0.68 / 6 | 0.46 / 2.44 → 0.48 / 4.13 | 1.67 / 5.92 → 1.71 / 5.91 | 35 → 35 |
+| Canyon | 128² | 4.22 / 13 → 2.20 / 6 | 1.48 / 5.93 → 1.44 / 4.17 | 2.80 / 6.60 → 2.64 / 7.63 | 31 → 33 |
+| Highlands | 128² | 4.80 / 12 → 4.80 / 12 | 1.69 / 5.03 → 1.77 / 5.66 | 2.51 / 5.66 → 2.66 / 6.55 | 30 → 30 |
+| Lake Basin | 128² | 1.95 / 8 → 1.95 / 8 | 0.93 / 2.92 → 0.96 / 3.48 | 2.25 / 8.88 → 2.38 / 9.70 | 26 → 26 |
+| Delta | 128² | 0.42 / 2 → 0.42 / 2 | 0.31 / 1.02 → 0.33 / 1.18 | 1.78 / 3.94 → 1.92 / 5.07 | 33 → 33 |
+| Islands | 128² | 0.00 / 0 → 0.00 / 0 | 0.30 / 0.47 → 0.32 / 0.57 | 4.68 / 10.69 → 4.98 / 9.59 | 40 → 40 |
+| Any | 256² | 0.65 / 4 → 0.65 / 4 | 2.83 / 13.12 → 2.62 / 10.10 | 8.54 / 55.20 → 8.50 / 41.19 | 34 → 34 |
+| River Valley | 256² | 0.53 / 4 → 0.53 / 4 | 2.30 / 8.55 → 2.14 / 9.21 | 7.67 / 45.82 → 7.37 / 44.67 | 32 → 32 |
+| Canyon | 256² | 1.65 / 7 → 1.63 / 7 | 3.85 / 19.31 → 3.93 / 18.61 | 8.20 / 24.30 → 8.09 / 22.04 | 32 → 32 |
+| Highlands | 256² | 1.77 / 5 → 1.77 / 5 | 4.26 / 12.19 → 4.01 / 12.66 | 8.57 / 31.62 → 7.92 / 20.02 | 34 → 34 |
+| Lake Basin | 256² | 1.73 / 7 → 1.57 / 6 | 4.42 / 14.89 → 4.23 / 12.72 | 11.35 / 48.31 → 11.76 / 53.19 | 23 → 24 |
+| Delta | 256² | 0.07 / 1 → 0.07 / 1 | 1.19 / 3.95 → 1.13 / 4.52 | 6.13 / 10.71 → 5.85 / 9.87 | 34 → 34 |
+| Islands | 256² | 0.03 / 1 → 0.03 / 1 | 1.20 / 2.66 → 1.17 / 2.73 | 20.50 / 32.50 → 20.24 / 24.66 | 40 → 40 |
+
+Shared Ryzen 7 9800X3D, 16 logical CPUs, 62 GiB, Windows/Node 24.19.0; four generation workers with browser/tests/other work overlapping. Per-run mean CPU load median **89.18% → 82.61%**, peak **100% → 100%**; 34 / 45 observations lack samples (timings retained). Retained 1,939 controls have the identical compiled-source hash; all adoption runs are fresh. These are separate timing cohorts, not wholly interleaved pairs. [CPU/load by cell](round2/TIMINGS.csv).
+
+Actual Chrome 154.0.8037.92 production-page/worker: 256² seed 1, every theme, three paired visits; all 42 Raise/Undo checks pass and first-land/export hashes match Node. [Painted land, settled preview and editable-frame times](round2/BROWSER.csv), median/worst per theme. UI mean-load median 93.65% → 91.44%, peak 100%; startup and human delay excluded.
+
+**Zero candidate must-pass failures or changed shown terrain** across all 840 inputs. 3360 full-state repeat checks and 2520 Node/Chromium 145/Firefox 146/WebKit 26 comparisons pass. Typecheck: zero diagnostics. Contracts: **49 passed, three baseline failures, two existing skips**; unchanged assertions. [Bound evidence](round2/EVIDENCE.json), [210-map contact sheet](round2/contact-sheet.png).
+
+Lake Basin 256² seed 24 keeps all shown heights, but its terrain-preserving repair costs 46.78 → 51.71 s median, 48.31 → 53.19 s worst; median per-run mean load 83.91% → 79.35%. This tail penalty is included above.
+
+The 256² improvement is modest: shaping/planning still take about 60% of pre-land time in inland themes; canonical settling takes 61–91% of post-land time by theme. The 3/8-second targets remain unestablished. Excluded: River Valley's extra plan (31/40 < 32/40), pre-settling that delayed first land. At 96² Highlands/Lake Basin, more redraws buy better outcomes. [Trials](round2/RESEARCH.md), [stages](round2/PROFILE.csv), [refusals](round2/REJECTIONS.csv). Large raw/build/grid results stay ignored under local/; INTEGRATION.md gives regeneration.

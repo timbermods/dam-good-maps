@@ -140,3 +140,58 @@ The reported core `firstWater` is the water/start decision point. It is not an o
 M9b's first land is a preview, not yet editable. Browser columns measure the actual UI boundaries.
 Publishing rejected land earlier would violate first-land identity even with the same download.
 Result-changing ideas stay in [PROPOSALS.md](PROPOSALS.md), outside the patch.
+
+## Round 2: adopt separately after Round 1
+
+[round2/adoption.patch](round2/adoption.patch) is a delta **after** the approved Round 1 patch. Round 1 adoption.patch is unchanged and can be adopted alone. Compare the sequential before/after hashes in [round2/BASE.json](round2/BASE.json); both patches are checked together in investigation scratch, with product code untouched.
+
+Apply Round 1 as above, then:
+
+```sh
+git apply --check investigation/gen-speed/round2/adoption.patch
+git apply investigation/gen-speed/round2/adoption.patch
+```
+
+Round 2 deliberately re-pins unreleased M9b maps. The early small-Canyon outcome screen re-plans a deeper, narrower course on the shaped field; a large Canyon starts with three more levels of incision. Its original planned-outcome order and budgets remain. All absolute checks and the six-day settle cap remain. The candidate prepares four starts.
+
+At 96², the pre-fill tests the proposed start's actual reachable mine sites before land is committed. Settled-water start selection also proves reachable mines before expensive resource placement, trying another prepared dry start when needed. This is a result-changing planning choice, not a proof that every pre-fill rejection would fail after settling. Its acceptance is governed by the full outcome and failure gates.
+
+Small-map large-basin outlets get twice the planned-flow width. At 256², Lake Basin gets one additional hydrology plan on the same shaped field when the previous failure is specifically “a river's water leaves its course”. The same extra plan is excluded for River Valley: its all-three-outcomes share declined to 31/40 against 32/40. A proposed stronger River Valley floor had no effect and is excluded.
+
+Once land is shown, outlet wear cannot alter its heights. At 256² River Valley/Lake Basin, a rising basin instead tries gentler clean inflows (70%, 49%, 34.3% of the original, rounded to .001) whose sources drain into that basin. Each candidate uses the unchanged canonical settle and flood check; accepted flows persist in the features and committed land stage. Unsuccessful trials restore their original flows. The original first-land boundary remains; this avoids delaying it for a speculative full settle. Four prepared starts, absolute checks and the physical settle cap remain. The generator's final checks govern whether a repaired map passes.
+
+D348 checks copy the first onLand heights and compare every tile with the successful return. This covers every displayed terrain state: M9b's only onCandidate call is inside the passed-attempt branch immediately before returning that same result; failed attempts update stage text, and FirstLook keeps its previous land. Both browser-core and Node sweeps require one land callback and zero changed tiles; actual-page visits bind their displayed first-land/export hashes to Node.
+
+Delta's two native hypot calculations use the fixed-order helper from investigation/determinism/portable.ts (only its import path is adapted). It uses a correctly rounded WebAssembly f64 square root. This removes the observed browser difference in bed-profile metadata as well as requiring identical terrain, water, objects, exports and first land. No approximation is used.
+
+If the milestone has already adopted determinism's portable.ts, reuse that shared helper rather than replacing it with this snapshot. Check its hypot/sqrt behavior against the candidate hashes and apply the two Delta call sites; the new-file hunk intentionally expects no existing portable.ts at this base.
+
+Use the same Node/dependency environment as Round 1; the browser sweep uses the determinism investigation's matching Playwright 1.58.2 installation read-only (Chromium 145, Firefox 146, WebKit 26). Native UI timings use the installed Chrome 154 and GPU. Commands from the repository root:
+
+The borrowed runtime has fflate 0.8.3, preact 10.29.8, signals 2.11.2 and comlink 4.4.2. Three 0.186.0, Vite 8.3.0 and Vitest 5.0.1 are one patch behind M9b's requested versions; both comparison variants use the same runtime. EVIDENCE.json records these versions. The embedded sqrt module requires browser WebAssembly compilation; the current GitHub Pages response and HTML have no CSP restriction. Check that requirement if the milestone changes deployment policy.
+
+```powershell
+node investigation/gen-speed/round2/prototype.mjs
+node investigation/gen-speed/round2/make-patch.mjs
+node investigation/gen-speed/typecheck.mjs --round2
+$env:GEN_VARIANT='round2'
+$env:GEN_TEST_REPORT='round2-final-tests'
+node "$env:DGM_DEPS/node_modules/vitest/vitest.mjs" run --config investigation/gen-speed/tests.config.mjs
+$env:GEN_SHEETS='1'
+node investigation/gen-speed/round2/matrix.mjs --prefix round2-adopted --reps 3 --workers 4
+node investigation/gen-speed/round2/browsers.mjs --smoke
+node investigation/gen-speed/round2/browsers.mjs --reuse-smoke
+node investigation/gen-speed/prepare-browser.mjs --round2
+node investigation/gen-speed/browser.mjs --round2
+python investigation/gen-speed/round2/contact-sheet.py
+node investigation/gen-speed/round2/summarize.mjs round2-adopted
+git diff --check
+```
+
+Clear GEN_ROUND2_CANDIDATE and GEN_TRIAL_VARIANTS for adoption runs; they are only for isolated exploratory sources. A named trial mode may select different mechanisms. The default regenerates the adoption source. Each result manifest binds its bundle; stale resumes are rejected. Preserve earlier rejected files under ignored local/ before restarting a fixed-prefix browser run. Summarization requires all 5,040 core observations, 2,520 browser generations, 42 production-page visits, repeat identities, all outcome gates and zero candidate failures/changed tiles. It also binds the UI's first-land/download hashes to Node.
+
+The recorded run adds `--reuse-control round2-final`: it retains 1,939 completed baseline observations from the previous candidate trial after verifying the exact baseline bundle hash, Node version and input matrix. All 2,520 adoption observations are fresh; the remaining 581 controls are measured alongside them. These are separate measurement cohorts, with each observation's original load and start time retained, not wholly interleaved pairs. A fresh reproduction omits that switch as shown above. It requires no ignored prior results.
+
+Core timings report median over per-seed medians, and worst over every repeat. Settled return includes water repairs, start/object decisions, checks and completion. The two baseline refused maps remain in failure/CPU/redraw accounting; successful-map wall times exclude them explicitly. Machine load is sampled throughout. Use a new prefix and --workers 1 for a serial replication; do not infer idle-machine target compliance from loaded runs.
+
+Re-pin M9b's release baseline after milestone adoption and repeat the gates against any later product revision. Copy the [210-map contact sheet](round2/contact-sheet.png) to docs/sheets in the milestone session; this investigation's write boundary keeps it here. The three existing resource/drawn-river contract failures are reported separately from generation must-pass gates; adoption does not weaken those tests. [Research notes](round2/RESEARCH.md) retain rejected ideas and the corrected trial-option issue. Large JSONL, bundles, grids and captures stay ignored under local/.

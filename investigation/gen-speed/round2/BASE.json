@@ -1,0 +1,22 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "predecessor": "Round 1 adoption.patch",
+  "predecessorSha256": "833228e21f7baad3224f97ed3fa84a48d120837a738815834712306afc2f14eb",
+  "files": {
+    "gen/generate.ts": {
+      "before": "043448ee1a8bc249260506fc343147f74235bcc78fabd07fd4bafb51807fc99c",
+      "after": "f2b76e6e9ad9c14b1149b3cc72bc9977d358e993b5591b8e5acdd7e92cbd8090"
+    },
+    "land/delta.ts": {
+      "before": "3abf0710db05bbc164d10b434110427f007b0dd27d7d4c34db1ea3358496c0ca",
+      "after": "42bac7ffec081cec81d23f7ffc51810292c4b230e2c30538056234abc7a52fcc"
+    },
+    "math/portable.ts": {
+      "before": null,
+      "after": "e56ae4b98867f84dfdf025a4d280e2aa74b8e8fdb2dd57a5dffcb7cf35653bc7"
+    }
+  },
+  "round2PatchSha256": "93302007229f7cee305dae8daa6be390df4478a51ceb995c3c734a5f912a95f5",
+  "portableOrigin": "investigation/determinism/portable.ts (only import path adapted)",
+  "scratchApplyPassed": true
+}

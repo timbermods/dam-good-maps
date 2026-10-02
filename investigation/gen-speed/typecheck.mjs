@@ -8,10 +8,10 @@ const sys={...ts.sys,readFile:p=>ts.sys.readFile(map(p)),fileExists:p=>ts.sys.fi
 const json=ts.readConfigFile(resolve(root,'tsconfig.json'),sys.readFile);
 const config=ts.parseJsonConfigFileContent(json.config,sys,root);
 const results=[];
-for(const variant of ['before','after']){
+for(const variant of process.argv.includes('--round2')?['round2']:['before','after']){
   const host=ts.createCompilerHost(config.options);
-  Object.assign(host,{fileExists:sys.fileExists,directoryExists:sys.directoryExists,getDirectories:sys.getDirectories,realpath:sys.realpath});
-  const read=p=>{const file=p.replaceAll('\\','/');const core=root.replaceAll('\\','/')+'/src/core/';if(variant==='after'&&file.startsWith(core)){const candidate=resolve(dir,'candidate',file.slice(core.length));if(existsSync(candidate))return readFileSync(candidate,'utf8');}return sys.readFile(p);};
+  Object.assign(host,{fileExists:p=>{const file=p.replaceAll('\\','/'),core=root.replaceAll('\\','/')+'/src/core/';return variant==='round2'&&file.startsWith(core)&&existsSync(resolve(dir,'round2/candidate',file.slice(core.length)))||sys.fileExists(p);},directoryExists:sys.directoryExists,getDirectories:sys.getDirectories,realpath:sys.realpath});
+  const read=p=>{const file=p.replaceAll('\\','/');const core=root.replaceAll('\\','/')+'/src/core/';if((variant==='after'||variant==='round2')&&file.startsWith(core)){if(variant==='round2'){const candidate=resolve(dir,'round2/candidate',file.slice(core.length));if(existsSync(candidate))return readFileSync(candidate,'utf8');}const candidate=resolve(dir,'candidate',file.slice(core.length));if(existsSync(candidate))return readFileSync(candidate,'utf8');}return sys.readFile(p);};
   host.readFile=read;host.getSourceFile=(f,lang)=>{const s=read(f);return s===undefined?undefined:ts.createSourceFile(f,s,lang);};
   const program=ts.createProgram(config.fileNames,config.options,host);
   const diagnostics=ts.getPreEmitDiagnostics(program);
@@ -20,4 +20,4 @@ for(const variant of ['before','after']){
   if(diagnostics.length){console.log(ts.formatDiagnosticsWithColorAndContext(diagnostics,{getCanonicalFileName:x=>x,getCurrentDirectory:()=>root,getNewLine:()=> '\n'}));process.exitCode=1;}
 }
 
-writeFileSync(resolve(dir,'local/typecheck.json'),JSON.stringify({results},null,2)+'\n');
+writeFileSync(resolve(dir,process.argv.includes('--round2')?'local/round2-typecheck.json':'local/typecheck.json'),JSON.stringify({results},null,2)+'\n');

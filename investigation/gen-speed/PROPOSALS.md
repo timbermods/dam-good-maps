@@ -18,3 +18,9 @@ Nothing here is in the adoption patch; these are unmeasured proposals.
 Showing land before its current land-stage checks finish would also change the *first land shown*
 when that land is rejected. An unchanged final download does not satisfy this investigation's
 first-land identity requirement.
+
+## Round 2 disposition
+
+The paragraphs above record Round 1's unmeasured boundary. Round 2 authorizes an unreleased M9b re-pin and measures result-changing planning separately in round2/adoption.patch. Its accepted mechanisms and reproduction are in INTEGRATION.md; rejected experiments are in round2/RESEARCH.md. Four prepared starts, existing absolute checks and the physical settle cap are retained. Fewer starts and shorter/altered physical settling remain separate proposals; they are not adoption speed-ups.
+
+Round 2's gentler source flows change the planned map inputs, not the physical water solver or its stopping cap. They keep shown terrain immutable. The Lake Basin extra course plan qualifies; River Valley's counterpart is excluded because its outcome share falls below baseline.

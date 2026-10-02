@@ -1,5 +1,6 @@
 import {createServer} from 'node:http';
-import {readFileSync,existsSync,appendFileSync} from 'node:fs';
+import {readFileSync,existsSync,appendFileSync,writeFileSync,readdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {resolve,extname,sep} from 'node:path';
 import {spawn} from 'node:child_process';
 import {strict as assert} from 'node:assert';
@@ -8,10 +9,17 @@ const {chromium}=require('playwright');
 const chrome=process.env.DGM_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const arg=(n,d)=>process.argv.includes('--'+n)?process.argv[process.argv.indexOf('--'+n)+1]:d;
 const themes=arg('themes','any,riverValley,canyon,highlands,lakeBasin,delta,islands').split(','),reps=Number(arg('reps','3'));
-const out=resolve(dir,'local/browser.jsonl');
+const prefix=process.argv.includes('--round2')?'round2-browser-ui':'browser',variants=process.argv.includes('--round2')?['after','round2']:['before','after'];
+const out=resolve(dir,`local/${prefix}.jsonl`);
 const rows=existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
+if(process.argv.includes('--round2')){
+ const sha=x=>createHash('sha256').update(x).digest('hex');
+ const tree=p=>Object.fromEntries(readdirSync(p,{recursive:true,withFileTypes:true}).filter(e=>e.isFile()).map(e=>resolve(e.parentPath,e.name)).sort().map(f=>[f.slice(p.length+1).replaceAll('\\','/'),sha(readFileSync(f))]));
+ const manifest={variants,themes,reps,chrome,builds:Object.fromEntries(variants.map(v=>[v,tree(resolve(dir,`local/web-${v}`))]))};
+ const file=resolve(dir,'local/round2-browser-ui-manifest.json');if(existsSync(file))assert.deepEqual(JSON.parse(readFileSync(file)),manifest,'stale production browser resume');else writeFileSync(file,JSON.stringify(manifest,null,2));
+}
 const servers=[],urls={};
-for(const v of ['before','after']){
+for(const v of variants){
   const base=resolve(dir,`local/web-${v}`);
   const server=createServer((req,res)=>{const file=resolve(base,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname.replace(/\/$/,'/index.html')));if(!file.startsWith(base+sep)||!existsSync(file)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.svg':'image/svg+xml'})[extname(file)]??'application/octet-stream');res.end(readFileSync(file));});
   await new Promise(r=>server.listen(0,'127.0.0.1',r));servers.push(server);urls[v]=`http://127.0.0.1:${server.address().port}`;
@@ -20,7 +28,7 @@ const load=[];let pending='';
 const sampler=spawn(process.env.DGM_PWSH??'pwsh',['-NoProfile','-File',resolve(dir,'load.ps1')],{windowsHide:true,stdio:['ignore','pipe','pipe']});sampler.stdout.on('data',b=>{pending+=b;const lines=pending.split(/\r?\n/);pending=lines.pop();for(const l of lines)if(l&&Number.isFinite(Number(l)))load.push(Number(l));});
 const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows']});
 try{
- for(let rep=0;rep<reps;rep++)for(const theme of themes)for(const variant of rep%2?['after','before']:['before','after']){
+ for(let rep=0;rep<reps;rep++)for(const theme of themes)for(const variant of rep%2?[...variants].reverse():variants){
   if(rows.some(r=>r.theme===theme&&r.rep===rep&&r.variant===variant))continue;
   const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[];
   let phase='warmup',loadStart=load.length;const startedUTC=new Date().toISOString();
@@ -75,9 +83,9 @@ try{
   await page.waitForFunction(h=>{const a=window.dgm3d.renderer.mapState().heights;return h.every((v,i)=>a[i]===v);},before,{timeout:60000});
   assert.deepEqual(errors,[],'page errors');
   const ss=load.slice(loadStart),row={theme,variant,rep,browser:browser.version(),events:generated.events,proof:generated.proof,editable,editUndo:true,load:{mean:ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null,max:ss.length?Math.max(...ss):null,samples:ss.length}};
-  const other=rows.find(r=>r.theme===theme&&r.rep===rep&&r.variant!==variant);if(other)assert.deepEqual(row.proof,other.proof,theme+' browser bytes');
+  const other=rows.find(r=>r.theme===theme&&(prefix==='browser'?r.rep===rep&&r.variant!==variant:r.variant===variant));if(other)assert.deepEqual(row.proof,other.proof,theme+' browser bytes');
   rows.push(row);appendFileSync(out,JSON.stringify(row)+'\n');console.log(theme,variant,rep,generated.events,'editable',editable,'load',row.load);
-  }catch(error){const ss=load.slice(loadStart);appendFileSync(resolve(dir,'local/browser-failures.jsonl'),JSON.stringify({theme,variant,rep,phase,startedUTC,error:String(error),pageErrors:errors,load:{mean:ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null,max:ss.length?Math.max(...ss):null,samples:ss.length}})+'\n');throw error;}
+  }catch(error){const ss=load.slice(loadStart);appendFileSync(resolve(dir,`local/${prefix}-failures.jsonl`),JSON.stringify({theme,variant,rep,phase,startedUTC,error:String(error),pageErrors:errors,load:{mean:ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null,max:ss.length?Math.max(...ss):null,samples:ss.length}})+'\n');throw error;}
   finally{await context.close();}
  }
 }finally{await browser.close();sampler.kill();for(const s of servers)await new Promise(r=>s.close(r));}
