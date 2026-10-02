@@ -35,6 +35,8 @@ export interface TerrainState {
   /** The settled water's depth on every tile, as the page shows it (a natural weathering keeps the
    *  water where it stands, D399). */
   water?: Float64Array | null;
+  /** The settled water's moisture on every tile (rule 3: moist ground keeps its height). */
+  moisture?: Float64Array | null;
 }
 
 export class StrokePreview {
@@ -61,11 +63,12 @@ export class StrokePreview {
     // hands in, so the operation it records keeps exactly what this preview used (D399; the session
     // adds them itself to a stroke that comes without)
     const record = settings as Omit<BrushParams, "dabs">;
-    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || record.shore !== undefined || record.pools !== undefined);
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (settings.weathering === 3 && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
     if (fresh) {
-      record.weathering = 2;
+      record.weathering = 3;
       delete record.shore;
       delete record.pools;
+      delete record.moist;
     }
     // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
     // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
@@ -74,8 +77,8 @@ export class StrokePreview {
     // a new weathering stroke weathers like nature (D399), as the session records it when it applies,
     // reading where water stands round it from the same land
     let water: Uint8Array | undefined;
-    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 2 };
-    if (settings.weathering === 2 && !settings.rim) water = waterLevels(state.pre, W, H);
+    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 3 };
+    if ((settings.weathering === 2 || settings.weathering === 3) && !settings.rim) water = waterLevels(state.pre, W, H);
     this.W = W;
     this.H = H;
     this.state = state;
@@ -101,7 +104,7 @@ export class StrokePreview {
     const shown = this.start;
     this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
-      ...(depth ? { depth, shown, record: (shore, pools) => Object.assign(record, { shore, pools }) } : {}),
+      ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),
     });
     const pre = this.pre;
     const base = state.base;

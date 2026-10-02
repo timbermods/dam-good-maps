@@ -334,8 +334,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `pools`, with where water stood round it, `rim`). It keeps the downhill order: no tile it changes ends above
   or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
   tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
-  is mended or taken back. A new stroke records its rule (`weathering: 2`, added by the core); a stroke saved
-  before D399 replays with the old rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
+  is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a

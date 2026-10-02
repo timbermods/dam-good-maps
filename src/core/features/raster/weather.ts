@@ -29,6 +29,10 @@
 //   stroke's area, with the water level round it), and no way water could leave the area closes.
 //   Where a change would break one of these it is mended (a tile taking a neighbour's level) or taken
 //   back toward the land as it was, until none is broken.
+// - Farmland is never lost (rule 3): moist ground keeps its height.
+// - Rule 3 weathers one dab at a time (brush.ts): the land the dabs before it left, in a rectangle round
+//   where this dab presses harder, its edges wandering only there; the order kept is the land's when the
+//   stroke began, and its softening is three box passes (cheap to work out again round each change).
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -68,6 +72,18 @@ export interface WeatherInput {
   pools?: readonly (readonly number[])[] | null;
   /** What it may keep between the dabs of one stroke (`WeatherCache`, on the same `before`). */
   cache?: WeatherCache | null;
+  /** Rule 3: where the water stood on every tile of the map (in place of `shore` and `pools`, and the
+   *  moist ground, which keeps its height), and how many times the land has changed since the
+   *  stroke began (what the cache keeps is for that land). */
+  limits?: { lo: Uint8Array; wet: Uint8Array; moist: Uint8Array } | null;
+  version?: number;
+  /** Rule 3: the land when the stroke began (the map's): no neighbouring pair ends in the other order
+   *  from it, though dabs before this one left them level. */
+  origin?: Uint8Array | null;
+  /** Rule 3: each tile's intensity before this dab (an edge wanders only where it rose). */
+  was?: Float32Array | null;
+  /** Each tile it changes, as triples (map tile, level before, level after), when given. */
+  changes?: number[] | null;
 }
 
 // Work buffers kept between dabs (a large brush's rectangle is tens of thousands of tiles, worked
@@ -179,8 +195,10 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
       const g = (box.y0 + y) * W + box.x0 + x;
       const k = y * bw + x;
       h0[k] = inp.before[g];
-      // the ring never changes; nor does a tile the stroke may not write
-      if (x === 0 || y === 0 || x === bw - 1 || y === bh - 1) continue;
+      // the ring never changes (rule 3: nor the tiles just inside it, so whatever a dab before left
+      // round them is checked too); nor does a tile the stroke may not write
+      const edge = inp.origin ? 2 : 1;
+      if (x < edge || y < edge || x >= bw - edge || y >= bh - edge) continue;
       const v = inp.intensity[g];
       if (!(v > 0) || !inp.write(g)) continue;
       I[k] = v > 1 ? 1 : v;
@@ -190,10 +208,20 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
   if (any) {
     const cache = inp.cache ?? new WeatherCache(inp.before, W, inp.H);
     // (the same rectangle as the last dab's: the same land and water before it, worked out once)
-    const key = `${box.x0},${box.y0},${box.x1},${box.y1}`;
+    const key = `${box.x0},${box.y0},${box.x1},${box.y1}:${inp.version ?? 0}`;
     const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key));
     const { lo, hi, wet, shedHi, ring, w0, still } = p;
-    h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still);
+    // (rule 3: an edge wanders only where this dab presses harder than those before it)
+    let fresh: Uint8Array | null = null;
+    if (inp.was) {
+      fresh = u8("fresh", n).fill(0);
+      for (let y = 0; y < bh; y++)
+        for (let x = 0; x < bw; x++) {
+          const k = y * bw + x;
+          if (I[k] > inp.was[(box.y0 + y) * W + box.x0 + x]) fresh[k] = 1;
+        }
+    }
+    h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
     shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
@@ -213,7 +241,13 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         v = Math.max(lo[k], Math.min(wet[k], v));
         h[k] = v;
       }
-    keepOrder(h, h0, I, bw, bh, ring, w0, lo, wet, p);
+    // (the order the stroke keeps: the land's when it began)
+    let ref = h0;
+    if (inp.origin) {
+      ref = u8("ref", n);
+      for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) ref[y * bw + x] = inp.origin[(box.y0 + y) * W + box.x0 + x];
+    }
+    keepOrder(h, h0, I, bw, bh, ring, w0, lo, wet, p, ref);
   }
   let changed: Rect | null = null;
   for (let y = 0; y < bh; y++)
@@ -221,6 +255,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
       const k = y * bw + x;
       const g = (box.y0 + y) * W + box.x0 + x;
       if (out[g] === h[k]) continue;
+      inp.changes?.push(g, out[g], h[k]);
       out[g] = h[k];
       const gx = box.x0 + x;
       const gy = box.y0 + y;
@@ -259,6 +294,17 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
   const hi = new Uint8Array(n).fill(255);
   for (const [y, a, b, level] of inp.shore ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) lo[(y - box.y0) * bw + x - box.x0] = Math.max(0, Math.min(255, level));
   for (const [y, a, b] of inp.pools ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) hi[(y - box.y0) * bw + x - box.x0] = h0[(y - box.y0) * bw + x - box.x0];
+  // (rule 3: the same from the map's limits, and the moist ground held where it is)
+  const limits = inp.limits;
+  if (limits)
+    for (let y = 0; y < bh; y++)
+      for (let x = 0; x < bw; x++) {
+        const g = (box.y0 + y) * inp.W + box.x0 + x;
+        const k = y * bw + x;
+        if (limits.lo[g]) lo[k] = limits.lo[g];
+        if (limits.wet[g] || limits.moist[g]) hi[k] = h0[k];
+        if (limits.moist[g]) lo[k] = h0[k];
+      }
   const wet = hi.slice();
   const shedHi = hi.slice();
   const ring = ringLevels(h0, bw, bh, inp.rim ?? null);
@@ -307,6 +353,13 @@ export function wanderBlur(strength: number): number {
   return s <= 2 ? 4 : s <= 4 ? 6 : s <= 7 ? 8 : 11;
 }
 
+/** Rule 3's softening (`boxed`): the box's reach each way, three passes of it about as soft as
+ *  `wanderBlur`'s (a box r each way three times spreads √(r(r + 1)) tiles). */
+export function wanderBox(strength: number): number {
+  const s = Math.max(1, Math.min(10, strength));
+  return s <= 3 ? 1 : s <= 7 ? 2 : 3;
+}
+
 /** A binomial blur over `v` in the rectangle (x0..x1, y0..y1): `m` passes of [1 2 1] each way,
  *  reading nothing beyond the rectangle (blur a field of ones the same way to normalise). Exact on
  *  whole numbers. */
@@ -329,10 +382,12 @@ function blur(v: Float64Array, bw: number, x0: number, y0: number, x1: number, y
  *  edge wanders by up to about twice the softness; a knob or a spur narrower than that wears away,
  *  and nothing small grows). A tile's new height is its old one plus the levels whose new region newly
  *  holds it, less those that no longer do. */
-function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, size: number, strength: number, cache: WeatherCache, cap: Uint8Array, still: Uint8Array): Uint8Array {
+function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, size: number, strength: number, cache: WeatherCache, cap: Uint8Array, still: Uint8Array, fresh: Uint8Array | null = null): Uint8Array {
   const n = bw * bh;
   const W = cache.W;
-  const m = wanderBlur(strength);
+  // (rule 3, `boxed`: a box r each way, three times, reaching 3r)
+  const r = cache.boxed ? wanderBox(strength) : 0;
+  const m = cache.boxed ? 3 * r : wanderBlur(strength);
   const cell = wanderCell(size, strength);
   const out = u8("wander.out", n);
   out.set(h0);
@@ -366,12 +421,12 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
   const near1 = u8("wander.hi", n);
   reachExtremes(h0, bw, bh, m, near0, near1);
   const shares: Share[] = [];
-  for (let lv = lo + 1; lv <= hi; lv++) shares[lv] = cache.share(lv, m);
+  for (let lv = lo + 1; lv <= hi; lv++) shares[lv] = cache.share(lv, cache.boxed ? r : m);
   const noiseAt = cache.field(WANDER_SEED, cell);
   for (let y = ay0; y <= ay1; y++)
     for (let x = ax0; x <= ax1; x++) {
       const k = y * bw + x;
-      const a = I[k] > 0 && !still[k] ? 0.5 + 0.5 * I[k] : 0;
+      const a = I[k] > 0 && !still[k] && (!fresh || fresh[k]) ? 0.5 + 0.5 * I[k] : 0;
       if (!a || near0[k] === near1[k]) continue;
       const gx = box.x0 + x;
       const gy = box.y0 + y;
@@ -384,7 +439,7 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
       if (nz > 1) nz = 1;
       else if (nz < -1) nz = -1;
       let d = 0;
-      for (let lv = near0[k] + 1; lv <= near1[k]; lv++) {
+      for (let lv = Math.max(near0[k], lo) + 1, top = Math.min(near1[k], hi); lv <= top; lv++) {
         const inside = h0[k] >= lv;
         // a cliff (three levels or more above the tile) only wears back, never spreads out over it
         if (!inside && (lv - h0[k] >= 3 || lv > cap[k])) continue;
@@ -879,6 +934,24 @@ export function ringTiles(box: Rect, W: number): number[] {
   return out;
 }
 
+/** Rule 3: the level water would stand at on every tile of `box` (the stroke's working rectangle) when
+ *  the stroke began, from the heights and its `rim` (pairs [tile along the ring, depth]), as the map's
+ *  drainage has it; a map-sized array (the heights elsewhere). */
+export function boxWaterLevels(heights: Uint8Array, box: Rect, rim: readonly number[], W: number, H: number): Uint8Array {
+  const out = heights.slice();
+  const bw = box.x1 - box.x0 + 1;
+  const bh = box.y1 - box.y0 + 1;
+  const h0 = new Uint8Array(bw * bh);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) h0[y * bw + x] = heights[(box.y0 + y) * W + box.x0 + x];
+  const levels = ringTiles(box, W).map((g) => heights[g]);
+  for (let k = 0; k + 1 < rim.length; k += 2) if (rim[k] >= 0 && rim[k] < levels.length) levels[rim[k]] += rim[k + 1];
+  const w = new Int16Array(bw * bh);
+  flood(h0, ringLevels(h0, bw, bh, levels), bw, bh, w);
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) out[(box.y0 + y) * W + box.x0 + x] = Math.max(0, Math.min(255, w[y * bw + x]));
+  void H;
+  return out;
+}
+
 /** The level water would stand at on every tile of the map, as the terrain's drainage has it (water
  *  leaves at the map's edge and moves side to side, as the game's does; the filled surface of
  *  `land/drainage.ts` with 4-neighbour flow, on whole levels). */
@@ -948,7 +1021,7 @@ function flood(h: Uint8Array, ring: Int16Array, bw: number, bh: number, out: Int
 const ROUNDS = 128;
 
 /** Take back, toward the land as it was, whatever breaks the downhill order (see the head). */
-function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array, prepared: Prepared): void {
+function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array, prepared: Prepared, ref: Uint8Array = h0): void {
   const n = bw * bh;
   const passages = () => (prepared.passages ??= passagesBefore(h0, ring, bw, bh));
   const w1 = i16("keep.w1", n);
@@ -1008,13 +1081,14 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
    *  of a one-tile staircase the land already had may stay one): a tile it changed with no neighbour
    *  across it at its own level (a tread, a ledge, a wall, a slot), or one it left as it was standing
    *  above both neighbours across it or below both (a sliver its neighbours made). */
-  const wasNarrow = (k: number) => (h0[k] !== h0[k - 1] && h0[k] !== h0[k + 1]) || (h0[k] !== h0[k - bw] && h0[k] !== h0[k + bw]);
+  // (as the stroke began: `ref`)
+  const wasNarrow = (k: number) => (ref[k] !== ref[k - 1] && ref[k] !== ref[k + 1]) || (ref[k] !== ref[k - bw] && ref[k] !== ref[k + bw]);
   const narrowNew = (k: number, st: number) => {
     const v = h[k];
     const l = h[k - st];
     const r = h[k + st];
     if (v === l || v === r || wasNarrow(k)) return false;
-    return v !== h0[k] || (v > l && v > r) || (v < l && v < r);
+    return v !== ref[k] || (v > l && v > r) || (v < l && v < r);
   };
   const inside = (k: number) => {
     const x = k % bw;
@@ -1027,7 +1101,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
     const c = around(j);
     for (let q = 0; q < c; q++) {
       const i = nbs[q];
-      if ((h0[j] > h0[i] && t < h[i]) || (h0[j] < h0[i] && t > h[i])) return false;
+      if ((ref[j] > ref[i] && t < h[i]) || (ref[j] < ref[i] && t > h[i])) return false;
     }
     return true;
   };
@@ -1048,8 +1122,8 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
         const x = k % bw;
         for (let e = 0; e < 2; e++) {
           const j = e === 0 ? (x + 1 < bw ? k + 1 : -1) : k + bw < n ? k + bw : -1;
-          if (j < 0 || h0[k] === h0[j]) continue;
-          const a = h0[k] > h0[j] ? k : j;
+          if (j < 0 || ref[k] === ref[j]) continue;
+          const a = ref[k] > ref[j] ? k : j;
           const b = a === k ? j : k;
           if (h[a] >= h[b]) continue;
           if (h[b] > h0[b]) set(b, Math.max(h0[b], h[a]));
@@ -1186,7 +1260,7 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
       const x = k % bw;
       for (let e = 0; e < 2; e++) {
         const j = e === 0 ? (x + 1 < bw ? k + 1 : -1) : k + bw < n ? k + bw : -1;
-        if (j >= 0 && ((h0[k] > h0[j] && h[k] < h[j]) || (h0[j] > h0[k] && h[j] < h[k]))) bad.push(k, j);
+        if (j >= 0 && ((ref[k] > ref[j] && h[k] < h[j]) || (ref[j] > ref[k] && h[j] < h[k]))) bad.push(k, j);
       }
       const c = around(k);
       let lo1 = 255;
@@ -1414,6 +1488,12 @@ export class WeatherCache {
   private readonly noises = new Map<number, Float64Array>();
   /** The last rectangle's `prepare`. */
   prepared: Prepared | null = null;
+
+  /** The land changed (rule 3: a dab's weathering), as triples (tile, level before, level after):
+   *  the shares of the levels it crossed are worked out again round it. */
+  changed(changes: readonly number[]): void {
+    for (const s of this.shares.values()) s.forget(changes);
+  }
   private screeAt: { strength: number; done: Uint8Array; cost: Int8Array; lobe: Int8Array; step: Int8Array; wob: Int8Array; reach: Int8Array } | null = null;
 
   /** The scree's own on each tile of the map for a Strength (`shed`): what each tile costs, how far
@@ -1428,10 +1508,13 @@ export class WeatherCache {
   private lastCell = -1;
   private lastField: Float64Array | null = null;
 
+  /** `boxed` (rule 3): the softening is three passes of a box `r` tiles each way (reaching 3r), cheap
+   *  enough to work out again round every dab's change, in place of the binomial blur. */
   constructor(
     readonly before: Uint8Array,
     readonly W: number,
     readonly H: number,
+    readonly boxed = false,
   ) {}
 
   /** The map's noise `seed` at features `cell` across, on tile (x, y). */
@@ -1461,7 +1544,7 @@ export class WeatherCache {
   share(lv: number, m: number): Share {
     const key = lv * 64 + m;
     let s = this.shares.get(key);
-    if (!s) this.shares.set(key, (s = new Share(this.before, this.W, this.H, lv, m)));
+    if (!s) this.shares.set(key, (s = new Share(this.before, this.W, this.H, lv, m, this.boxed)));
     return s;
   }
 }
@@ -1469,7 +1552,12 @@ export class WeatherCache {
 /** One level's softened share, worked out a block at a time. */
 class Share {
   private readonly bx: number;
+  /** Its blocks' width in tiles (rule 3's, smaller: worked out again round each dab's change). */
+  private readonly block: number;
   private readonly blocks: (Float64Array | 0 | 1 | undefined)[];
+
+  /** How far its kernel reaches, in tiles. */
+  private readonly reach: number;
 
   constructor(
     private readonly before: Uint8Array,
@@ -1477,31 +1565,56 @@ class Share {
     private readonly H: number,
     private readonly lv: number,
     private readonly m: number,
+    private readonly boxed = false,
   ) {
-    this.bx = Math.ceil(W / BLOCK);
-    this.blocks = new Array(this.bx * Math.ceil(H / BLOCK));
+    this.block = boxed ? 16 : BLOCK;
+    this.bx = Math.ceil(W / this.block);
+    this.blocks = new Array(this.bx * Math.ceil(H / this.block));
+    this.reach = boxed ? 3 * m : m;
+  }
+
+  /** The land changed (triples: tile, level before, level after): where a change crossed this level,
+   *  the blocks whose kernels reach it are worked out again. */
+  forget(changes: readonly number[]): void {
+    const m = this.reach;
+    const lv = this.lv;
+    const byMax = Math.ceil(this.H / this.block) - 1;
+    for (let q = 0; q + 2 < changes.length; q += 3) {
+      const a = changes[q + 1];
+      const b = changes[q + 2];
+      if ((a >= lv) === (b >= lv)) continue;
+      const g = changes[q];
+      const x = g % this.W;
+      const y = (g - x) / this.W;
+      const bx0 = Math.max(0, Math.floor((x - m) / this.block));
+      const by0 = Math.max(0, Math.floor((y - m) / this.block));
+      const bx1 = Math.min(this.bx - 1, Math.floor((x + m) / this.block));
+      const by1 = Math.min(byMax, Math.floor((y + m) / this.block));
+      for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) this.blocks[by * this.bx + bx] = undefined;
+    }
   }
 
   at(i: number): number {
     const W = this.W;
     const x = i % W;
     const y = (i - x) / W;
-    const b = Math.floor(y / BLOCK) * this.bx + Math.floor(x / BLOCK);
+    const b = Math.floor(y / this.block) * this.bx + Math.floor(x / this.block);
     let d = this.blocks[b];
     if (d === undefined) d = this.blocks[b] = this.make(b);
     if (d === 0 || d === 1) return d;
-    const x0 = (b % this.bx) * BLOCK;
-    const y0 = Math.floor(b / this.bx) * BLOCK;
-    return d[(y - y0) * BLOCK + x - x0];
+    const x0 = (b % this.bx) * this.block;
+    const y0 = Math.floor(b / this.bx) * this.block;
+    return d[(y - y0) * this.block + x - x0];
   }
 
   /** A block's shares: 0 or 1 when the level has no edge within m of it, else each tile's. */
   private make(b: number): Float64Array | 0 | 1 {
-    const { before, W, H, lv, m } = this;
-    const x0 = (b % this.bx) * BLOCK;
-    const y0 = Math.floor(b / this.bx) * BLOCK;
-    const x1 = Math.min(W - 1, x0 + BLOCK - 1);
-    const y1 = Math.min(H - 1, y0 + BLOCK - 1);
+    const { before, W, H, lv } = this;
+    const m = this.reach;
+    const x0 = (b % this.bx) * this.block;
+    const y0 = Math.floor(b / this.bx) * this.block;
+    const x1 = Math.min(W - 1, x0 + this.block - 1);
+    const y1 = Math.min(H - 1, y0 + this.block - 1);
     // the ground the block's kernels reach (cut only by the map's edge)
     const rx0 = Math.max(0, x0 - m);
     const ry0 = Math.max(0, y0 - m);
@@ -1515,13 +1628,47 @@ class Share {
     const rh = ry1 - ry0 + 1;
     const data = new Float64Array(rw * rh);
     for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) data[y * rw + x] = before[(ry0 + y) * W + rx0 + x] >= lv ? 1 : 0;
-    blur(data, rw, 0, 0, rw - 1, rh - 1, m, new Float64Array(Math.max(rw, rh)), new Float64Array(rh));
-    const wx = kernelWeights(x0, x1, W, m);
-    const wy = kernelWeights(y0, y1, H, m);
-    const out = new Float64Array(BLOCK * BLOCK);
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out[(y - y0) * BLOCK + x - x0] = data[(y - ry0) * rw + x - rx0] / (wx[x - x0] * wy[y - y0]);
+    const boxed = this.boxed;
+    if (boxed) boxBlur(data, rw, rh, this.m, new Float64Array(Math.max(rw, rh) + 1));
+    else blur(data, rw, 0, 0, rw - 1, rh - 1, m, new Float64Array(Math.max(rw, rh)), new Float64Array(rh));
+    const wx = boxed ? boxWeights(x0, x1, W, this.m) : kernelWeights(x0, x1, W, m);
+    const wy = boxed ? boxWeights(y0, y1, H, this.m) : kernelWeights(y0, y1, H, m);
+    const out = new Float64Array(this.block * this.block);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out[(y - y0) * this.block + x - x0] = data[(y - ry0) * rw + x - rx0] / (wx[x - x0] * wy[y - y0]);
     return out;
   }
+}
+
+/** Three passes of a box `r` tiles each way over `data` (rw × rh), each way, reading nothing beyond it
+ *  (blur a field of ones the same way to normalise): running sums, exact on whole numbers. */
+function boxBlur(data: Float64Array, rw: number, rh: number, r: number, line: Float64Array): void {
+  for (let p = 0; p < 3; p++) {
+    // each row: prefix sums, then each item's window [i - r, i + r] clipped to the row
+    for (let y = 0; y < rh; y++) {
+      const row = y * rw;
+      line[0] = 0;
+      for (let i = 0; i < rw; i++) line[i + 1] = line[i] + data[row + i];
+      for (let i = 0; i < rw; i++) data[row + i] = line[i + r + 1 < rw ? i + r + 1 : rw] - line[i - r > 0 ? i - r : 0];
+    }
+    // each column the same
+    for (let x = 0; x < rw; x++) {
+      line[0] = 0;
+      for (let i = 0; i < rh; i++) line[i + 1] = line[i] + data[i * rw + x];
+      for (let i = 0; i < rh; i++) data[i * rw + x] = line[i + r + 1 < rh ? i + r + 1 : rh] - line[i - r > 0 ? i - r : 0];
+    }
+  }
+}
+
+/** Each position's weight under three passes of a box `r` each way, on a line of `len` tiles, for the
+ *  positions a0..a1. */
+function boxWeights(a0: number, a1: number, len: number, r: number): Float64Array {
+  const lo = Math.max(0, a0 - 3 * r);
+  const hi = Math.min(len - 1, a1 + 3 * r);
+  const n = hi - lo + 1;
+  const v = new Float64Array(n).fill(1);
+  const line = new Float64Array(n + 1);
+  boxBlur(v, n, 1, r, line);
+  return v.slice(a0 - lo, a1 - lo + 1);
 }
 
 /** Each position's binomial kernel weight (m passes of [1 2 1]) on a line of `len` tiles, for the

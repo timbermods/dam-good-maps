@@ -1,7 +1,10 @@
 // Live editing: what a player feels while painting with the terrain brushes, measured in the
 // installed Chrome, headed (real vsync, real GPU), on 256² maps. Per configuration: a raise stroke
-// wandering for about four seconds, then held still; the time from each pointer event to the frame
-// that draws the ground it changed; the time between frames while painting; the main thread's long
+// wandering for about four seconds, then held still; the time from each pointer move's arrival to the
+// frame that draws the next re-mesh after it (the ground its points changed, whether the page pressed
+// its dab at once or queued its points for the next animation frame; a move whose points pressed
+// nothing counts to the next re-mesh; in display frames, the land's trail); from each move to the next
+// frame drawn (the cursor and the ring); the time between frames while painting; the main thread's long
 // tasks; how soon the worker has the stroke after the button comes up; how soon undo shows; and
 // whether the map the worker built is the one painted (strokes that differ: 0 when all is well).
 //
@@ -81,13 +84,17 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   // (a string, so the bundler's helpers stay out of the page)
   await page.evaluate(`(() => {
     const w = window;
-    w.__b = { ev: [], mv: [], rend: [], raf: [], long: [] };
+    w.__b = { ev: [], mv: [], rend: [], raf: [], long: [], pending: [], moves: [] };
+    // each pointer move's arrival: the land it brought is drawn by the next re-mesh, whether the page
+    // presses its dab at once or queues its points for the next animation frame (one dab a frame)
+    window.addEventListener("pointermove", (e) => { w.__b.pending.push(e.timeStamp); w.__b.moves.push(e.timeStamp); }, { capture: true });
     const r = w.dgm3d.renderer;
     const u = r.updateTerrainRect.bind(r);
     w.__b.mesh = [];
     r.updateTerrainRect = (...a) => {
-      const ev = w.event;
-      if (ev && ev.type === "pointermove") w.__b.mv.push([ev.timeStamp, performance.now()]);
+      const now = performance.now();
+      for (const t of w.__b.pending) w.__b.mv.push([t, now]);
+      w.__b.pending = [];
       const t = performance.now();
       const out = u(...a);
       w.__b.mesh.push(performance.now() - t);
@@ -102,7 +109,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   })()`);
   const at = (await page.evaluate(`window.dgmEditor.tileToClient(${Math.round(SIZE * 0.3)}, ${Math.round(SIZE * 0.35)})`)) as { x: number; y: number };
   await page.mouse.move(at.x, at.y);
-  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; b.mesh = []; })()");
+  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; b.mesh = []; b.pending = []; b.moves = []; })()");
   const cdp = PROFILE ? await page.context().newCDPSession(page) : null;
   // (--profile: the drag itself, from the press to just before the release)
   if (cdp) {
@@ -135,15 +142,24 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     console.log("self time (ms) while painting:");
     for (const [k, v] of top) console.log(`  ${v.toFixed(1).padStart(8)}  ${k}`);
   }
-  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[] };
+  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[] };
   const lat: number[] = [];
   for (const [e, u] of raw.mv) {
     const f = raw.rend.find((x) => x >= u);
     if (f !== undefined) lat.push(f - e);
   }
+  // the cursor and the ring: from each pointer move to the next frame drawn (they are drawn in the
+  // move's own handling)
+  const cursor: number[] = [];
+  for (const e of raw.moves) {
+    const f = raw.rend.find((x) => x >= e);
+    if (f !== undefined) cursor.push(f - e);
+  }
   const frames: number[] = [];
   for (let k = 1; k < raw.raf.length; k++) frames.push(raw.raf[k] - raw.raf[k - 1]);
   const refresh = pct(frames, 0.5);
+  // (the display's own frame: the shortest frames while painting)
+  const vsync = pct(frames, 0.1);
   // undo: the ground back, in the same event as the key
   const undoMs = (await page.evaluate(`new Promise((resolve) => {
     const r = window.dgm3d.renderer;
@@ -165,6 +181,8 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     brush: last ? `${last.tool}, Size ${last.size}, Strength ${last.strength}` : null,
     refreshMs: round(refresh),
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
+    cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
+    landTrailFrames: { p50: round(pct(lat, 0.5) / vsync), p95: round(pct(lat, 0.95) / vsync), frameMs: round(vsync) },
     frameMs: { p50: round(pct(frames, 0.5)), p95: round(pct(frames, 0.95)), p99: round(pct(frames, 0.99)), max: round(Math.max(0, ...frames)), overTwoRefreshes: frames.filter((d) => d > 2 * refresh + 1).length, frames: frames.length },
     remeshMs: { p50: round(pct(raw.mesh, 0.5)), p95: round(pct(raw.mesh, 0.95)), max: round(Math.max(0, ...raw.mesh)), samples: raw.mesh.length },
     longTasksWhilePainting: raw.long.filter(([t]) => t < raw.up).map(([, d]) => d),

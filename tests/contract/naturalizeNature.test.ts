@@ -14,6 +14,7 @@
 //   there were.
 // - The water stays where it stood (what you see is what you get): beside a river or a lake no dry
 //   tile comes down below the water's surface next to it, and no wet tile is raised.
+// - Farmland is never lost: no tile wet or moist before a stroke ends out of the water's reach.
 // - A new stroke records its rule, and the page's stroke is the stroke the session builds.
 // Cut and fill are printed, as information only.
 
@@ -25,6 +26,7 @@ import { drainage } from "../../src/core/land/drainage";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { moisture } from "../../src/core/sim/moisture";
 import { mulberry } from "./brushRandom";
 
 const W = 96;
@@ -138,7 +140,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 2 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 3 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -258,6 +260,47 @@ describe("Naturalize keeps the water where it stood (D399)", () => {
     });
 });
 
+describe("farmland is never lost (D399, Kyler's round 3 verdict)", () => {
+  // no tile wet or moist before a stroke ends out of the water's reach: the moisture of the settled
+  // water (sim/moisture.ts) on the land before and after, the water standing as it stood
+  for (const [theme, seed] of [
+    ["riverValley", 3],
+    ["riverValley", 6],
+    ["lakeBasin", 1],
+    ["lakeBasin", 3],
+  ] as const)
+    it(`${theme} ${seed} at Terracing 100: strokes by the water and a Size 64 drag keep every moist tile moist`, () => {
+      const s = session(theme, seed, 100);
+      const rand = mulberry(seed * 4241 + theme.length);
+      const depth0 = s.built.water.slice();
+      const contamination = s.built.contamination.slice();
+      for (let k = 0; k < 6; k++) {
+        const h0 = s.built.heights.slice();
+        const m0 = moisture(h0, depth0, contamination, W, W);
+        // a moist dry tile to paint on, or (the last stroke) Size 64 across the map
+        const moistTiles: number[] = [];
+        for (let i = W * 4; i < W * (W - 4); i++) if (i % W >= 4 && i % W < W - 4 && m0[i] > 0 && !(depth0[i] > 0)) moistTiles.push(i);
+        expect(moistTiles.length, `${theme} ${seed} has moist ground`).toBeGreaterThan(20);
+        const at = moistTiles[Math.floor(rand() * moistTiles.length)];
+        let p: BrushParams;
+        if (k === 5) {
+          const dabs: number[] = [];
+          for (let q = 0; q < 30; q++) dabs.push(4 * (W / 2 - 30 + 2 * q) + 2, 4 * (W / 2) + 2);
+          p = { tool: "naturalize", size: 64, strength: 10, seed: 3, weathers: true, dabs };
+        } else p = stroke(rand, (at % W) + 0.5, Math.floor(at / W) + 0.5, [5, 9, 14, 24][k % 4], 5 + (k % 6));
+        expect(s.apply({ op: "brush", params: p }, "user", "Naturalize").errors).toEqual([]);
+        const h1 = s.built.heights;
+        // the water as it stood: its surface over the land now
+        const depth1 = new Float64Array(depth0.length);
+        for (let i = 0; i < depth1.length; i++) if (depth0[i] > 0) depth1[i] = Math.max(0, h0[i] + depth0[i] - h1[i]);
+        const m1 = moisture(h1, depth1, contamination, W, W);
+        const lost: string[] = [];
+        for (let i = 0; i < m0.length; i++) if (m0[i] > 0 && !(m1[i] > 0)) lost.push(`(${i % W}, ${Math.floor(i / W)}) ${h0[i]} → ${h1[i]}`);
+        expect(lost, `${theme} ${seed}, stroke ${k + 1} (Size ${p.size}, Strength ${p.strength}) dried`).toEqual([]);
+      }
+    });
+});
+
 describe("the page's stroke is the stroke the session builds (D399)", () => {
   it("dabs handed in a few at a time give the land the operation builds", () => {
     const s = session("riverValley", 3, 100);
@@ -272,7 +315,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 2, shore: expect.any(Array), pools: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 3, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
