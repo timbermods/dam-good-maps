@@ -10,19 +10,15 @@
 // their fixes.
 
 import { proxy, type Remote } from "comlink";
-import { useEffect, useRef, useState } from "preact/hooks";
-import { cornerFor } from "../core/doc/tools";
-import { startEntranceTile } from "../core/format/footprints";
-import type { Point } from "../core/features/schema";
+import { useEffect, useRef } from "preact/hooks";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
-import { ORIENTATION_NAMES } from "../render3d/model";
-import type { PointerTool, TileHit } from "../render3d";
+import type { TileHit } from "../render3d";
 import { View3D } from "../ui/View3D";
 import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { CheckProgress, SessionInfo, SessionOpen } from "../worker/session";
 import { describeTile as describeTileFacts, tileWords } from "../core/doc/describeTile";
-import { checkStartAt, sameStartCheck, startStatus, type StartCheck, type StartStatus } from "./features";
+import type { StartStatus } from "./features";
 import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, type LayerKind } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
@@ -34,7 +30,6 @@ import { FORCES, ForceFloor, forceShown, TopBar } from "./TopBar";
 import { WaterBar } from "./WaterBar";
 import { keyHabit } from "./forceSize";
 import { BRUSHES, sizeMax } from "./brushes";
-import { GHOST_OK } from "./tools";
 import { tip } from "../ui/Tooltip";
 import type { Ed } from "./ed";
 import { useSession } from "./session/useSession";
@@ -53,6 +48,7 @@ import { useRows } from "./rows/useRows";
 import { useReady } from "./view/useReady";
 import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
+import { useStart } from "./start/useStart";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -117,8 +113,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  grabObjectRef: { current: (hit: TileHit | null) => PointerTool | null };
-  startCalls: { current: { grabStart: (hit: TileHit | null) => PointerTool | null } };
   fitRef: { current: { tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null };
 }
 
@@ -140,143 +134,24 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useReady(ed));
   Object.assign(ed, useSelect(ed));
   Object.assign(ed, useViewSync(ed));
+  Object.assign(ed, useStart(ed));
 
   const {
-    api, info, setInfo, view, mirror, renderer, ready, setTool, tool, flipRef, forceEscRef, gestureRef, shelf,
-    setTurn, icons, setStartDrag, startDrag, busy, setMessage, message, setHover, hover, showHistory, setShowHistory,
-    check, progress, layer, setLayer, waterLayers, waterTick, flowing, setClearWater, clearWater, sliceLevel,
-    selecting, selectingRef, selection, setHoverObject, player, sound, juice, setSound, feel, weather, instant,
-    firstRun, setFirstRun, minimap, setMinimap, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen,
-    viewTick, fit, setPicked, setPickedObject, pickedObjectRef, pickedRef, shapeNote, queue, indexed, infoRef,
-    shelfRef, turnRef, needs, enqueue, run, toggleWeather, brushTool, brush, brushRef, brushToolRef, setBrush,
-    pendingTerrain, strokeMismatches, localUndo, localRedo, painter, undo, redo, pickTop, putDown, pickBrush,
-    pickShelf, targetAt, targetSpot, setTargeted, ctx, startHere, sourceInfo, sourceGrab, objectUnder, objectTiles,
-    grabObject, hoverSources, sourceMarkers, startHintRef, startWorkerApi, hintMs, startHintTag, pickedSources,
-    removeSources, flashNote, shelfTile, shelfHover, dropShelf, pageTileFacts, deleteCalls, quakeUiRef, setQuakeUi,
-    watch, setWatch, floorContext, forcer, unleash, unleashRow, strokeRadius, forceSizing, fHeld, stepHabit,
-    startForceSize, endForceSize, pickedRow, shelfRow, forceRow, glowCorners, onReady, openSelect, closeSelect,
-    selectAll, selectCalls, selectChip, selectRow, toolRef, actions
+    api, setInfo, info, view, mirror, renderer, ready, setTool, tool, flipRef, forceEscRef, gestureRef, shelf,
+    setTurn, icons, startDrag, busy, setMessage, message, setHover, hover, showHistory, setShowHistory, check,
+    progress, layer, setLayer, waterLayers, waterTick, flowing, setClearWater, clearWater, sliceLevel, selecting,
+    selectingRef, selection, setHoverObject, player, sound, juice, setSound, weather, instant, firstRun, setFirstRun,
+    minimap, setMinimap, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen, viewTick, fit,
+    setPicked, setPickedObject, pickedObjectRef, pickedRef, shapeNote, queue, infoRef, shelfRef, turnRef, needs,
+    enqueue, run, toggleWeather, brushTool, brush, brushRef, brushToolRef, setBrush, pendingTerrain,
+    strokeMismatches, localUndo, localRedo, painter, undo, redo, pickTop, putDown, pickBrush, pickShelf, targetAt,
+    targetSpot, setTargeted, startHere, sourceInfo, sourceGrab, objectUnder, objectTiles, hoverSources,
+    sourceMarkers, startHintRef, hintMs, startHintTag, pickedSources, removeSources, flashNote, shelfTile,
+    shelfHover, dropShelf, pageTileFacts, deleteCalls, quakeUiRef, setQuakeUi, watch, setWatch, floorContext, forcer,
+    unleash, unleashRow, strokeRadius, forceSizing, fHeld, stepHabit, startForceSize, endForceSize, pickedRow,
+    shelfRow, forceRow, glowCorners, onReady, openSelect, closeSelect, selectAll, selectCalls, selectChip, selectRow,
+    toolRef, actions, startReach, hoverStart, startGrab
   } = ed;
-
-  // ------------------------------------------------------------------------------ the start
-
-  /** The start's footprint check at a move of (dx, dy) tiles. */
-  function startPreview(dx: number, dy: number): { x: number; y: number; check: StartCheck } | null {
-    const s = startHere;
-    if (!s) return null;
-    const x = s.x + dx;
-    const y = s.y + dy;
-    const [cx, cy] = cornerFor(x, y, s.orientation);
-    const door = startEntranceTile(cx, cy, s.orientation);
-    const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
-    let bench: { level: number; radius: number; bank?: Point } | null = null;
-    const moved = dx !== 0 || dy !== 0;
-    if (f && f.kind === "start") {
-      // a generated start's bench takes the ground's level there; where it stands, it keeps the
-      // bench it has (a project saved before the water rule changed may run it to a bank)
-      const level = moved ? Math.max(1, mirror.current.heights[y * info.W + x]) : f.params.benchLevel;
-      const bank = moved ? undefined : f.params.bank;
-      bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
-    }
-    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs) };
-  }
-
-  /** The start's reach (D184): its three requirements where it stands, shown while the pointer is on
-   *  it (no tool out), then fading; the walks run in the start's own worker, once per version. */
-  const [startReach, setStartReach] = useState<{ check: StartCheck; fading: boolean } | null>(null);
-  const reachCache = useRef<{ version: number; check: Promise<StartCheck> } | null>(null);
-  const reachFade = useRef(0);
-  /** The pointer is on the start (its reach shows when the walks come back). */
-  const reachWanted = useRef(false);
-  function hoverStart(on: boolean) {
-    reachWanted.current = on;
-    if (!on) {
-      if (!startReach || startReach.fading) return;
-      setStartReach((r) => (r ? { ...r, fading: true } : r));
-      reachFade.current = window.setTimeout(() => setStartReach(null), 700);
-      return;
-    }
-    clearTimeout(reachFade.current);
-    const s = startHere;
-    const m = mirror.current;
-    if (!s || !m.water) return;
-    if (!reachCache.current || reachCache.current.version !== info.version) {
-      const [cx, cy] = cornerFor(s.x, s.y, s.orientation);
-      const door = startEntranceTile(cx, cy, s.orientation);
-      const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
-      const bench = f && f.kind === "start" ? { level: f.params.benchLevel, radius: f.params.benchRadius, ...(f.params.bank ? { bank: f.params.bank } : {}) } : null;
-      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs }) };
-    }
-    const v = info.version;
-    void reachCache.current.check.then((check) => {
-      // (the same answer again changes nothing: the placed start keeps its colour until something about it changes, D361)
-      if (infoRef.current.version === v && reachWanted.current) setStartReach((r) => (r && !r.fading && sameStartCheck(r.check, check) ? r : { check, fading: false }));
-    });
-  }
-
-  /** The start dragged on the map (no tool out): its footprint and the start's requirements follow
-   *  the pointer, the drop moves it (one step); Esc puts it back. */
-  const startGrab = useRef<{ cancel(): void } | null>(null);
-  function grabStart(hit: TileHit | null): PointerTool | null {
-    const s = startHere;
-    // (a force picked takes the map's clicks, the start's ground too: D257)
-    if (!hit || !s || brushToolRef.current || shelfRef.current || toolRef.current) return null;
-    if (Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
-    const from: [number, number] = [hit.x, hit.y];
-    let d: [number, number] = [0, 0];
-    let done = false;
-    const W = info.W;
-    const H = info.H;
-    const canvas = renderer.current?.canvas;
-    if (canvas) canvas.style.cursor = "grabbing";
-    // (the reach while it stood: the drag shows the reach where it goes)
-    clearTimeout(reachFade.current);
-    reachWanted.current = false;
-    setStartReach(null);
-    const end = () => {
-      done = true;
-      startGrab.current = null;
-      setStartDrag(null);
-      renderer.current?.setGhost(null);
-      if (canvas) canvas.style.cursor = "";
-    };
-    startGrab.current = { cancel: end };
-    return {
-      down: () => true,
-      move(h) {
-        if (!h || done) return;
-        const dx = Math.max(2 - s.x, Math.min(W - 3 - s.x, h.x - from[0]));
-        const dy = Math.max(2 - s.y, Math.min(H - 3 - s.y, h.y - from[1]));
-        if (dx === d[0] && dy === d[1]) return;
-        d = [dx, dy];
-        const p = startPreview(dx, dy);
-        setStartDrag(p);
-        if (p) {
-          const [cx, cy] = cornerFor(p.x, p.y, s.orientation);
-          renderer.current?.setGhost({ template: "StartingLocation", x: cx, y: cy, z: mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation), ok: GHOST_OK[startStatus(p.check)] });
-        }
-      },
-      up() {
-        if (done) return;
-        end();
-        if (!d[0] && !d[1]) return;
-        const [x, y] = [s.x + d[0], s.y + d[1]];
-        void run(
-          () => api.moveStartTo(x, y),
-          (u) => {
-            if (!u.ok) return;
-            const [cx, cy] = cornerFor(x, y, s.orientation);
-            feel("place", cx, cy);
-          },
-        );
-      },
-      cancel: end,
-    };
-  }
-  const grabObjectRef = useRef(grabObject);
-  grabObjectRef.current = grabObject;
-  const startCalls = useRef({ grabStart });
-  startCalls.current = { grabStart };
 
   // ------------------------------------------------------------------------------ keyboard
 
@@ -619,7 +494,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { grabObjectRef, startCalls, fitRef });
+  Object.assign(ed, { fitRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
