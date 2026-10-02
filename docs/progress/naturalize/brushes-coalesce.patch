@@ -1,18 +1,29 @@
+diff --git a/src/editor/brushes.ts b/src/editor/brushes.ts
+index 203a89e9..fbca74c0 100644
 --- a/src/editor/brushes.ts
 +++ b/src/editor/brushes.ts
-@@ interface StrokeState {
+@@ -207,6 +207,9 @@ interface StrokeState {
    dabAt: [number, number];
    lastDab: number;
    raf: number;
-+  /** Points the pointer reached since the last frame: pressed together in the next one, so a
-+   *  stroke works out its land at most once a frame however many pointer events arrive (D380). */
++  /** Points the pointer reached since the last frame: pressed together in the next one, so a stroke
++   *  works out its land at most once a frame however many pointer events arrive (D380). */
 +  queued: [number, number][];
-@@ (the new stroke's state)
+   /** Ground changed since it last went to the water, and when it last went. */
+   drafted: Rect | null;
+   draftAt: number;
+@@ -619,6 +622,7 @@ export class BrushPainter {
        dabAt: at,
        lastDab: performance.now(),
        raf: 0,
 +      queued: [],
-@@ (the pointer move, after the points are spaced)
+       drafted: null,
+       draftAt: 0,
+       anchor: s.straight ? at : null,
+@@ -661,8 +665,11 @@ export class BrushPainter {
+       this.straight(ev);
+       return;
+     }
 -    if (points.length) this.dab(points);
 -    else this.showCursor();
 +    if (points.length) {
@@ -21,11 +32,18 @@
 +    }
 +    this.showCursor();
      this.say(ev);
-@@ private dab(points: [number, number][], also: Rect | null = null): void {
-       st.drafted = d ? { ... } : { ...changed };
+   }
+ 
+@@ -726,7 +733,6 @@ export class BrushPainter {
+       h.renderer.updateTerrainRect(h.heights(), changed);
+       const d = st.drafted;
+       st.drafted = d ? { x0: Math.min(d.x0, changed.x0), y0: Math.min(d.y0, changed.y0), x1: Math.max(d.x1, changed.x1), y1: Math.max(d.y1, changed.y1) } : { ...changed };
 -      this.sendDraft(false);
        this.feel();
-@@ private loop(): void {
+     }
+     this.showCursor();
+@@ -763,8 +769,12 @@ export class BrushPainter {
+     if (!st) return;
      st.raf = requestAnimationFrame(() => {
        if (this.stroke !== st) return;
 -      if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
@@ -33,14 +51,18 @@
 +      if (st.queued.length) this.dab(st.queued.splice(0));
 +      else if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
 +      // the water's draft once the frame showing the land is drawn
-+      setTimeout(() => this.stroke === st && this.sendDraft(false), 0);
++      setTimeout(() => {
++        if (this.stroke === st) this.sendDraft(false);
++      }, 0);
        this.loop();
      });
-@@ end(): void {
+   }
+@@ -843,6 +853,8 @@ export class BrushPainter {
      const st = this.stroke;
      if (!st) return;
      cancelAnimationFrame(st.raf);
 +    // (what the pointer reached since the last frame, pressed before the stroke ends)
 +    if (st.queued.length) this.dab(st.queued.splice(0));
-+    this.sendDraft(true);
      this.stroke = null;
+     const h = this.host;
+     this.rideObjects(st);
