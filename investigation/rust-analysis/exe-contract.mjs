@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,readdirSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {gunzipSync} from 'node:zlib';
+import {LOCAL,json,hash} from './common.mjs';
+const dir=resolve(LOCAL,'exe-contract');mkdirSync(dir,{recursive:true});
+const ids=readdirSync(resolve(LOCAL,'cases')).filter(n=>n.endsWith('.meta.json')).map(n=>n.slice(0,-10)).filter(id=>/^golden-|^edge-contract$|^m9b-any-(96|128|256)-1$/.test(id));
+const paths=ids.map(id=>[resolve(dir,id+'.in'),resolve(dir,id+'.out')]);
+for(let i=0;i<ids.length;i++)writeFileSync(paths[i][0],gunzipSync(readFileSync(resolve(LOCAL,'cases',ids[i]+'.in.gz'))));
+const manifest=resolve(dir,'manifest.tsv');writeFileSync(manifest,paths.map(p=>p.join('\t')).join('\n')+'\n');
+execFileSync(resolve(LOCAL,'analysis.exe'),[manifest,'16'],{stdio:'pipe'});
+const records=ids.map((id,i)=>{const actual=readFileSync(paths[i][1]),expected=gunzipSync(readFileSync(resolve(LOCAL,'cases',id+'.expected.gz')));assert.ok(actual.equals(expected),id+' standalone executable bytes');return{id,sha256:hash(actual)};});
+json('exe-contract.json',{status:'pass',threads:16,records});console.log('Standalone native executable identity passes',records.length);
