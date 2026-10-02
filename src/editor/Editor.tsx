@@ -9,17 +9,16 @@
 // every edit the instant checks come back with it; the problems it made are shown at once with
 // their fixes.
 
-import { proxy, transfer, type Remote } from "comlink";
+import { proxy, type Remote } from "comlink";
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../core/doc/ops";
 import { cornerFor } from "../core/doc/tools";
 import { footprintTiles, startEntranceTile, type Orientation } from "../core/format/footprints";
-import { groundUnderObjects } from "../core/features/raster/objectGround";
 import type { Point } from "../core/features/schema";
 import { canSaveToTimberborn, saveFile, saveToTimberborn } from "../platform";
-import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../render3d/model";
-import type { MapRenderer, PointerTool, TileHit, ViewState } from "../render3d";
+import { FLIPPED, ORIENTATION_NAMES } from "../render3d/model";
+import type { PointerTool, TileHit } from "../render3d";
 import { View3D } from "../ui/View3D";
 import { LookMenu } from "../ui/LookMenu";
 import type { GeneratorApi } from "../worker/generator.worker";
@@ -30,20 +29,19 @@ import { HistoryPanel, LayerLegend, LAYER_NAMES, plain, StartIndicators, whereOf
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
 import { SHELF } from "./shelfItems";
-import { Juice, type StrokeSound } from "./juice";
 import type { Verb } from "../core/forces/op";
 import { FirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
 import { FORCES, ForceFloor, forceShown, TopBar } from "./TopBar";
-import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, type DeleteGroup } from "./select";
+import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "./select";
 import { ModeIcon, WholeMapIcon } from "./SelectIcons";
 import { WaterBar } from "./WaterBar";
 import { keyHabit } from "./forceSize";
-import { BRUSHES, BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "./brushes";
+import { BRUSHES, sizeMax } from "./brushes";
 import { tilesToRuns } from "../core/math/grid";
-import { isSource, sourcesPressed } from "./sourceSpots";
-import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
+import { isSource } from "./sourceSpots";
+import { BRUSH_MAX_LEVEL } from "../core/features/raster/brush";
 import { BAD, GHOST_OK, LOWERS, MOVING, RAISES } from "./tools";
 import { tip } from "../ui/Tooltip";
 import { ALL_KINDS } from "./remove/kinds";
@@ -61,6 +59,7 @@ import { useForcePrefs } from "./forces/useForcePrefs";
 import { useForceRun } from "./forces/useForceRun";
 import { useForcePointer } from "./forces/useForcePointer";
 import { useRows } from "./rows/useRows";
+import { useReady } from "./view/useReady";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -125,11 +124,15 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  reglow: () => void;
+  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
   closeSelect: () => void;
   workingArea: () => [number, number, number][] | null;
+  inArea: (tiles: readonly number[]) => boolean;
   checkDepthRef: { current: () => void };
+  objectFootprints: () => number[][];
   toolRef: { current: Verb | null };
+  grabObjectRef: { current: (hit: TileHit | null) => PointerTool | null };
+  startCalls: { current: { grabStart: (hit: TileHit | null) => PointerTool | null } };
   fitRef: { current: { tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null };
 }
 
@@ -148,218 +151,26 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useForceRun(ed));
   Object.assign(ed, useForcePointer(ed));
   Object.assign(ed, useRows(ed));
+  Object.assign(ed, useReady(ed));
 
   const {
-    api, info, setInfo, view, mirror, renderer, setReady, ready, tool, setTool, flipRef, forceEscRef, gestureRef,
-    shelf, setTurn, icons, setStartDrag, startDrag, busy, setMessage, message, setHover, hover, showHistory,
-    setShowHistory, check, progress, layer, setLayer, waterLayers, waterTick, flowing, setMarkersOn, clearWater,
-    setClearWater, setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, setSelectionTick,
-    selectionTick, setSelectDraw, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts, deleteCounts,
-    setHoverObject, player, sound, juice, setSound, feel, weather, weatherRef, instant, firstRun, setFirstRun,
-    firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving, noticesOpen,
-    setNoticesOpen, setViewTick, viewTick, fit, setPicked, setPickedObject, pickedObjectRef, pickedRef, setShapeNote,
-    shapeNote, queue, indexed, infoRef, shelfRef, turnRef, needs, enqueue, run, toggleWeather, brushTool, brush,
-    brushRef, brushToolRef, setBrush, terrain, pendingTerrain, strokeMismatches, localUndo, localRedo, painter,
-    sendTerrain, undo, redo, pickTop, putDown, pickBrush, pickShelf, applyFix, spots, targetAt, targetSpot,
-    setTargeted, ctx, startHere, pointerAt, notePointer, sourceInfo, sourceGrab, grabSource, objectUnder,
-    objectTiles, grabObject, wheelSource, hoverSources, markerRef, sourceMarkers, setStartHint, hintRef,
-    startHintRef, hintJob, startWorkerApi, hintMs, lookForStartRef, startHintTag, pickedSources, removeSources,
-    pointerWords, flashNote, shelfTile, shelfHover, dropShelf, pageTileFacts, coverAt, deleteOn, deleteGround,
-    deleteCalls, quakeUiRef, setQuakeUi, watch, setWatch, floorContext, forcer, unleash, unleashRow, strokeRadius,
-    forceSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize, pickTile, pickedRow, shelfRow, forceRow
+    api, info, setInfo, view, mirror, renderer, ready, tool, setTool, flipRef, forceEscRef, gestureRef, shelf,
+    setTurn, icons, setStartDrag, startDrag, busy, setMessage, message, setHover, hover, showHistory, setShowHistory,
+    check, progress, layer, setLayer, waterLayers, waterTick, flowing, clearWater, setClearWater, sliceLevel,
+    selecting, setSelecting, selectingRef, selection, setSelectionTick, selectionTick, setSelectDraw,
+    setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts, deleteCounts, setHoverObject, player, sound, juice,
+    setSound, feel, weather, instant, firstRun, setFirstRun, minimap, setMinimap, setDotOpen, dotOpen, saving,
+    setSaving, noticesOpen, setNoticesOpen, viewTick, fit, setPicked, setPickedObject, pickedObjectRef, pickedRef,
+    setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, turnRef, needs, enqueue, run, toggleWeather,
+    brushTool, brush, brushRef, brushToolRef, setBrush, pendingTerrain, strokeMismatches, localUndo, localRedo,
+    painter, undo, redo, pickTop, putDown, pickBrush, pickShelf, applyFix, targetAt, targetSpot, setTargeted, ctx,
+    startHere, pointerAt, notePointer, sourceInfo, sourceGrab, objectUnder, objectTiles, grabObject, hoverSources,
+    sourceMarkers, startHintRef, startWorkerApi, hintMs, startHintTag, pickedSources, removeSources, flashNote,
+    shelfTile, shelfHover, dropShelf, pageTileFacts, coverAt, deleteOn, deleteGround, deleteCalls, quakeUiRef,
+    setQuakeUi, watch, setWatch, floorContext, forcer, unleash, unleashRow, strokeRadius, forceSizing, fHeld,
+    stepHabit, startForceSize, endForceSize, pickedRow, shelfRow, forceRow, glowCorners, onReady
   } = ed;
 
-  /** Sources: Clear (D249, D322): the sources under the ring glow red before the stroke reaches them,
-   *  and those it has passed over stay red until it is let go. */
-  const clearing = useRef<{ of: readonly number[]; dabs: number; taken: Set<number> } | null>(null);
-  const glowing = useRef(false);
-  const glowAt = useRef<[number, number] | null>(null);
-  const glowCorners = useRef<number[]>([]);
-  function clearGlow(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null) {
-    const r = renderer.current;
-    if (!r) return;
-    glowAt.current = stroke ? null : at;
-    const b = brushRef.current;
-    const bt = brushToolRef.current;
-    if (!bt || b.sources[bt] !== "clear" || !at) {
-      glowCorners.current = [];
-      if (!stroke) clearing.current = null;
-      if (glowing.current) r.highlightObjects(null);
-      glowing.current = false;
-      return;
-    }
-    const W = infoRef.current.W;
-    const H = infoRef.current.H;
-    const list = spots();
-    const glow = new Set<number>();
-    if (stroke) {
-      let c = clearing.current;
-      // (a straight line is painted again from its start each time)
-      if (!c || c.of !== stroke.dabs || c.dabs > stroke.dabs.length) c = clearing.current = { of: stroke.dabs, dabs: 0, taken: new Set() };
-      for (const sp of sourcesPressed(list, stroke.settings, stroke.dabs.slice(c.dabs), W)) if (inArea(sp.tiles)) c.taken.add(sp.corner);
-      c.dabs = stroke.dabs.length;
-      for (const k of c.taken) glow.add(k);
-    } else clearing.current = null;
-    // (a target's brush presses with hard edges, D322)
-    const shape = stroke ? stroke.settings : { size: b.size, ...(b.square ? { shape: "square" as const } : {}), ...(hasTarget(bt) && b.target !== "free" ? { target: 0 } : {}) };
-    const q = (v: number, n: number) => Math.max(0, Math.min(4 * n - 1, Math.round(v * 4)));
-    for (const sp of sourcesPressed(list, shape, [q(at[0], W), q(at[1], H)], W)) if (inArea(sp.tiles)) glow.add(sp.corner);
-    glowCorners.current = [...glow];
-    if (!glow.size && !glowing.current) return;
-    r.highlightObjects(glow.size ? [...glow] : null);
-    glowing.current = glow.size > 0;
-  }
-  /** The brush out clears the sources it passes over (Sources: Clear, D322). */
-  const clears = () => !!brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "clear";
-  function endClearGlow() {
-    clearing.current = null;
-    glowCorners.current = [];
-    if (glowing.current) renderer.current?.highlightObjects(null);
-    glowing.current = false;
-  }
-  /** The objects were drawn again (their highlight went with them): the ring's glow again. */
-  function reglow() {
-    if (glowAt.current && !painter.current?.painting) clearGlow(glowAt.current, null);
-  }
-
-  function onReady(r: MapRenderer) {
-    renderer.current = r;
-    setReady(r);
-    juice.current ??= new Juice(() => renderer.current, sound);
-    painter.current = new BrushPainter({
-      renderer: r,
-      W: infoRef.current.W,
-      H: infoRef.current.H,
-      heights: () => mirror.current.heights,
-      terrain: () => terrain.current,
-      settings: () => ({ ...brushRef.current, tool: brushToolRef.current ?? "raise" }),
-      commit: (stroke, pre, protect) => {
-        terrain.current = { ...terrain.current, pre, protect };
-        localUndo.current.push(stroke);
-        localRedo.current = [];
-        firstDoneRef.current("paint");
-        hintJob.current++;
-        setStartHint(null);
-        // Sources: Clear (D249, D322): the sources the brush pressed on go with the stroke, one step
-        const clear = clears() ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W).filter((c) => inArea(c.tiles)) : [];
-        endClearGlow();
-        const op: EditOp = { op: "brush", params: stroke.params };
-        const done = sendTerrain(() => (clear.length ? api.strokeClearing(op, stroke.label, clear.flatMap((c) => c.tiles)) : api.apply(op, "user", stroke.label)));
-        if (clear.length) void done.then(() => feel("remove", clear[0].x, clear[0].y));
-        // a Flatten stroke: where its level ground could take the start, once it is on the map
-        if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
-      },
-      // a stroke that changed no ground still takes the sources it pressed with Clear sources on
-      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step
-      unchanged: (params) => {
-        const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => inArea(c.tiles)) : [];
-        endClearGlow();
-        if (!clear.length) return;
-        firstDoneRef.current("paint");
-        void run(
-          () => api.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),
-          (u) => u.ok && feel("remove", clear[0].x, clear[0].y),
-        );
-      },
-      // Ctrl+click: the land's level is the target (D322), until the tool changes or Esc
-      picked: (level) => {
-        setBrush({ ...brushRef.current, target: level }, false);
-        const t = brushToolRef.current;
-        if (t && hasTarget(t)) flashNote(targetWords(t, level));
-      },
-      footprints: () => objectFootprints(),
-      // sources ride a stroke's ground (D249): a 3 × 3 one whole and level (with Keep they stay, with
-      // Clear they go, D322)
-      rides: () => (brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "ride" ? spots().filter((c) => c.tiles.length > 1 && inArea(c.tiles)).map((c) => c.rect) : []),
-      // Keep (D322): every source's own tiles
-      sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
-      // Naturalize leaves the ground under every source and object as it is (D368 (8))
-      objectGround: () => {
-        const e = mirror.current.entities;
-        const list = [];
-        for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
-        return groundUnderObjects(list);
-      },
-      maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
-      // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
-      water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
-      // the working area (D254, D259): the open selection
-      area: () => workingArea(),
-      ring: (at, stroke) => clearGlow(at, stroke),
-      select: (hit, ev) => {
-        // Ctrl+drag: a rectangle (the Select tool opens with it)
-        setSelecting((m) => m ?? "rect");
-        void ev;
-        void hit;
-        return selectTool(selection.current, selectHost(), "rect");
-      },
-      strength: (value, ev) => {
-        setBrush({ ...brushRef.current, strength: value });
-        if (ev) flashNote(`strength ${value}`, ev);
-      },
-      // Shift+scroll: the target (D322), shown beside the pointer as it always is
-      target: (value) => setBrush({ ...brushRef.current, target: value }, false),
-      feel: (kind, x, y, size, soft) => {
-        feel(kind, x, y, size, soft);
-        // the stroke's own texture while it paints (Flatten, Smooth and Naturalize each have theirs)
-        const b = brushToolRef.current;
-        const sound: StrokeSound = kind === "raise" || kind === "lower" ? kind : b === "smooth" ? "smooth" : b === "naturalize" ? "naturalize" : "flatten";
-        juice.current?.strokeSound(sound, x, y, size, Math.min(1, brushRef.current.strength / 10));
-      },
-      // F held: the size follows the pointer, beside it while F is held, saved once it is set (D205,
-      // D322)
-      resize: (size, ev, done) => {
-        setBrush({ ...brushRef.current, size }, done);
-        if (ev) notePointer(ev);
-        pointerWords.current!.sizing(done ? null : `size ${size}`);
-      },
-      // a new stroke puts away the last one's start hint (its water flows while it is painted, D197)
-      painting: (on) => {
-        if (!on) {
-          juice.current?.strokeEnd();
-          return;
-        }
-        hintJob.current++;
-        setStartHint(null);
-      },
-      note: (text, ev) => {
-        if (ev) notePointer(ev);
-        pointerWords.current!.brush(text);
-      },
-      wet: (x, y) => (mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0) > 0.05,
-      depth: (x, y) => mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0,
-      // the water flows on the stroke while it is painted (D197)
-      draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
-      cancelDraft: () => void api.cancelDraft(),
-    });
-    r.onSlice = (level) => setSliceLevel(level);
-    r.onMarkers = (on) => setMarkersOn(on);
-    setMarkersOn(r.markers);
-    r.grab = (hit, ev) => grabSource(hit, ev) ?? startCalls.current.grabStart(hit) ?? grabObjectRef.current(hit);
-    r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
-    // a click with no tool out: a water or badwater source is picked, its strength and its water to
-    // change (the water answers live); anything else puts it down
-    r.onClick = (hit) => {
-      const t = hit ? targetAt(hit.x, hit.y) : null;
-      if (t) return pickTile(t.x, t.y);
-      setPicked(null);
-      setPickedObject(null);
-    };
-    const onView = r.onView;
-    let pending = false;
-    r.onView = (v: ViewState) => {
-      onView?.(v);
-      // the sources' markers and the start's hint follow the view; with none on the map, the page need
-      // not redraw
-      if (pending || (!markerRef.current && !hintRef.current && !minimapRef.current)) return;
-      pending = true;
-      requestAnimationFrame(() => {
-        pending = false;
-        setViewTick((n) => n + 1);
-      });
-    };
-    setViewTick((n) => n + 1);
-  }
   // ------------------------------------------------------------------------------ the Select tool
 
   function selectHost() {
@@ -1297,7 +1108,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { reglow, closeSelect, workingArea, checkDepthRef, toolRef, fitRef });
+  Object.assign(ed, { selectHost, closeSelect, workingArea, inArea, checkDepthRef, objectFootprints, toolRef, grabObjectRef, startCalls, fitRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
