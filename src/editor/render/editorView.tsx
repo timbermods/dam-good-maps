@@ -1,6 +1,7 @@
 // The editor's markup. The parts that are long are plain functions of the bag (header.tsx,
 // topBar.tsx, viewControls.tsx, notices.tsx), called inline here, so the vnode tree is one.
 
+import { LookMenu } from "../../ui/LookMenu";
 import { View3D } from "../../ui/View3D";
 import { HistoryPanel, LayerLegend, StartIndicators } from "../panels";
 import { Shelf } from "../Shelf";
@@ -26,9 +27,7 @@ export function editorView(ed: Ed, props: EditorProps) {
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
-      {header(ed, props)}
       <div class="editor-main">
-        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -39,6 +38,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               markersWanted={shelf?.id === "Slope"}
               togglesInButtons
               lookMenu={false}
+              barInChildren
               besideHeight={levelLinesButton(ed)}
               showLegend={layer !== "none"}
               viewButtons={viewButtons(ed)}
@@ -49,6 +49,11 @@ export function editorView(ed: Ed, props: EditorProps) {
               hoverText={hover}
             >
               {topBar(ed)}
+              {header(ed, props)}
+              <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+              <div class="look-plate plate">
+                <LookMenu renderer={renderer.current} />
+              </div>
               {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
               {sourceMarkers()}
               {startHintTag()}
@@ -85,7 +90,7 @@ export function editorView(ed: Ed, props: EditorProps) {
             {message ? (
               <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
                 {message.text}
-                <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
+                <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss" title="Dismiss this message">
                   ×
                 </button>
               </div>

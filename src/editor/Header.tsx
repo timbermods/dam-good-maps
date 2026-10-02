@@ -53,6 +53,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
       <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
         {d.count ? <span class="dot-count">{d.count}</span> : null}
+        <span class="dot-words">{d.tone === "wait" ? "Checking…" : d.words}</span>
       </button>
       {p.open ? (
         <div class="checks-list" role="region" aria-label="Checks">
@@ -100,7 +101,6 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 
 export interface HeaderProps {
   info: SessionInfo;
-  saveState: string;
   canUndo: boolean;
   canRedo: boolean;
   onUndo(): void;
@@ -118,9 +118,10 @@ export interface HeaderProps {
   onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
-  onBack(): void;
-  /** The look's menu (High or Standard, D284), beside More. */
-  look?: ComponentChildren;
+  /** New map: the panel opens on the generator's settings. */
+  onNewMap(): void;
+  /** Copy the generated map's share link; none for an opened file or a real place. */
+  onCopyLink?(): void;
 }
 
 export function Header(p: HeaderProps) {
@@ -148,36 +149,21 @@ export function Header(p: HeaderProps) {
   const primary = p.canFolder ? "timberborn" : "download";
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
-    <header class="editor-bar">
-      <div class="editor-title">
-        <h1>{p.info.name}</h1>
-        <span class="muted">
-          {p.info.W}×{p.info.H}
-          {p.info.kind === "import" ? " · imported" : ""}
-          {p.info.edits ? ` · ${p.info.edits} edit${p.info.edits > 1 ? "s" : ""}` : ""}
-          {p.saveState ? ` · ${p.saveState}` : ""}
-        </span>
-      </div>
-      <div class="editor-actions" role="toolbar" aria-label="Edit">
-        <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
-          <svg {...ICON}>
-            <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
-          </svg>
+    <header class="save-plate plate" role="toolbar" aria-label="Edit">
+      <button type="button" class="icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
+        <svg {...ICON}>
+          <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
+        </svg>
+      </button>
+      <button type="button" class="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" {...tip("Redo", "C", "Ctrl+Y")}>
+        <svg {...ICON}>
+          <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
+        </svg>
+      </button>
+      <div class="menu-wrap" ref={wrap}>
+        <button type="button" class="icon-button" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
+          ⋯
         </button>
-        <button type="button" class="ghost icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo (Ctrl+Y)" {...tip("Redo", "C", "Ctrl+Y")}>
-          <svg {...ICON}>
-            <path d="M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2" />
-          </svg>
-        </button>
-        {p.dot}
-        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
-          {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
-        </button>
-        {p.look}
-        <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
-            ⋯
-          </button>
           {menu ? (
             <ul class="menu" role="menu" aria-label="More">
               <li role="none">
@@ -207,29 +193,39 @@ export function Header(p: HeaderProps) {
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
+              {p.onCopyLink ? (
+                <li role="none">
+                  <button type="button" role="menuitem" title="Copy a link that makes this map" onClick={pick(p.onCopyLink)}>
+                    Copy link
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
-                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
-                  {p.info.kind === "generated" ? "Back to settings" : "New map"}
+                <button type="button" role="menuitem" title="Make another map from the panel's settings" onClick={pick(p.onNewMap)}>
+                  New map
                 </button>
               </li>
             </ul>
           ) : null}
-          <input
-            ref={file}
-            type="file"
-            class="visually-hidden"
-            tabIndex={-1}
-            accept=".timber,.json,.gz,application/json"
-            aria-label="Open a map or project file"
-            onChange={(e) => {
-              const input = e.target as HTMLInputElement;
-              const f = input.files?.[0];
-              input.value = "";
-              if (f) p.onOpenFile(f);
-            }}
-          />
-        </div>
+        <input
+          ref={file}
+          type="file"
+          class="visually-hidden"
+          tabIndex={-1}
+          accept=".timber,.json,.gz,application/json"
+          aria-label="Open a map or project file"
+          onChange={(e) => {
+            const input = e.target as HTMLInputElement;
+            const f = input.files?.[0];
+            input.value = "";
+            if (f) p.onOpenFile(f);
+          }}
+        />
       </div>
+      {p.dot}
+      <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
+        {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
+      </button>
     </header>
   );
 }

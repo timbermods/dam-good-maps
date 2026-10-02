@@ -18,6 +18,7 @@ export function topBar(ed: Ed) {
       forceAtWork={!!forcer.current?.running}
       forceRow={forceRow()}
       row={unleashRow() ?? shelfRow() ?? pickedRow()}
+      holding={ed.shelf?.name ?? null}
       hints={
         <FirstRun
           done={firstRun}

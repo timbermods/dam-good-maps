@@ -1,4 +1,4 @@
-// Placing from the left shelf (PLAN §20 D184), as the map's pointer tool.
+// Placing from the shelf (PLAN §20 D184), as the map's pointer tool.
 //
 // The shelf: the picked object's ghost follows the pointer, its footprint green where it fits and
 // red where it doesn't, the reason in a quiet word beside the pointer; a click places it. Trees and

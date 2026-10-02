@@ -1,7 +1,6 @@
 // The editor's header: undo and redo, the checks' dot, save and the history button.
 
 import { canSaveToTimberborn } from "../../platform";
-import { LookMenu } from "../../ui/LookMenu";
 import { ChecksDot, Header } from "../Header";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
@@ -15,7 +14,6 @@ export function header(ed: Ed, props: EditorProps) {
   return (
     <Header
       info={info}
-      saveState={props.saveState}
       canUndo={info.canUndo || !!localUndo.current.length}
       canRedo={info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
@@ -29,8 +27,8 @@ export function header(ed: Ed, props: EditorProps) {
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       onHistory={() => setShowHistory(!showHistory)}
-      onBack={() => props.onBack(info)}
-      look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
+      onNewMap={props.onNewMap}
+      onCopyLink={props.onCopyLink}
     />
   );
 }

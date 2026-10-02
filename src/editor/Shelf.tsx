@@ -1,4 +1,4 @@
-// The left shelf (PLAN §20 D184, D212): a clean grid of the game's placeable objects (the start, the
+// The shelf (PLAN §20 D184, D212; on the right, under the cluster: DESIGN.md): a list of the game's placeable objects (the start, the
 // water and badwater sources, the trees and the rest), each a small render of itself in the map's
 // look, and nothing else. Built from the shared bar and button styles (D176).
 //
@@ -10,6 +10,10 @@
 import { useRef } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
+
+/** The items that start a group (DESIGN.md: the sources; the start; plants; ruins, the mine site and relics;
+ *  the land's pieces). */
+const GROUP_STARTS = new Set(["start", "Pine", "ruin", "Slope"]);
 
 /** How far a press must move before it is a drag and not a click, in pixels. */
 const DRAG_PX = 6;
@@ -78,7 +82,7 @@ export function Shelf(p: ShelfProps) {
             <button
               type="button"
               key={it.id}
-              class="shelf-item"
+              class={GROUP_STARTS.has(it.id) ? "shelf-item group-start" : "shelf-item"}
               aria-pressed={p.picked === it.id}
               aria-label={it.key ? `${it.name} (${it.key})` : it.name}
               {...(p.loading ? tip("The map is still loading") : shelfTip(it))}
@@ -93,7 +97,7 @@ export function Shelf(p: ShelfProps) {
                 p.onPick(p.picked === it.id ? null : it);
               }}
             >
-              {src ? <img src={src} alt="" width={48} height={48} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
+              {src ? <img src={src} alt="" width={28} height={28} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
               <span class="shelf-word">{it.name}</span>
             </button>
           );

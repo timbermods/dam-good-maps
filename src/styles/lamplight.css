@@ -1,0 +1,1253 @@
+/* Lamplight (DESIGN.md): the look of the page, loaded last. The map is a lit diorama; the interface is the dim
+   workshop round it. One thing is Lit (Save to Timberborn). What is held or on is Active (a dark well, cream
+   words, a cream bar). A button is a raised piece of the wood. One height (38px) and one gap (6px) for every
+   plate outside the panel; everything sits 12px from the window's edge. */
+
+:root {
+  --wood: rgba(43, 34, 28, 0.94);
+  --wood-solid: #2b221c;
+  --well: #1a1410;
+  --raised: #46392f;
+  --main: #6a5646;
+  --cream: #f3e6cc;
+  --cream-2: #cdbfa6;
+  --cream-3: #9d907c;
+  --lit: #f6e7c1;
+  --lit-ink: #2a2019;
+  --h: 38px;
+  --gap: 6px;
+  --edge: 12px;
+  --display: "Bitter", Georgia, "Times New Roman", serif;
+  /* the shared components' tokens (app.css), in Lamplight */
+  --bg: #17120e;
+  --panel: var(--wood-solid);
+  --ink: var(--cream);
+  --muted: var(--cream-3);
+  --rule: #54453a;
+  --accent: var(--cream);
+  --accent-ink: var(--lit-ink);
+  --bad: #f0907a;
+  --ok: #7fc46b;
+  --warn: #f0a63a;
+  --code: rgba(243, 230, 204, 0.08);
+  --map-bg: #1c3f73;
+  --overlay: var(--wood);
+  --shadow: 0 6px 18px rgba(10, 8, 6, 0.35);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font: 13px/1.3 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------------------------ the pieces */
+
+.plate {
+  background: var(--wood);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.07) inset, var(--shadow);
+}
+
+/* a button: a raised piece of the wood */
+.workspace button {
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--raised);
+  color: var(--cream);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.1) inset;
+  white-space: nowrap;
+}
+
+.workspace button:disabled {
+  opacity: 0.45;
+}
+
+.workspace button:focus-visible,
+.workspace a:focus-visible,
+.workspace input:focus-visible,
+.workspace select:focus-visible,
+.workspace canvas:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 1px;
+}
+
+/* Active: what is held, and what is on */
+.workspace button[aria-pressed="true"] {
+  background: var(--well);
+  color: var(--cream);
+  box-shadow: inset 0 -2px 0 var(--cream), inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+/* a quiet button: only its words, until it is on */
+.workspace .icon-button,
+.workspace .view-row button,
+.workspace .shelf-item,
+.workspace .sections button,
+.workspace button.linkish,
+.workspace .menu button {
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+}
+
+.workspace button.linkish {
+  height: auto;
+  padding: 0 2px;
+  color: var(--cream-3);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* fields: wells */
+.workspace input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.workspace select {
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background-color: var(--well);
+  color: var(--cream);
+  font: inherit;
+  min-width: 0;
+}
+
+.workspace select {
+  appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cdbfa6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.workspace input[type="range"],
+.workspace input[type="checkbox"],
+.workspace input[type="radio"] {
+  accent-color: var(--cream-2);
+}
+
+/* a choice among a few: the chosen side is raised */
+.workspace .segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--well);
+}
+
+.workspace .segmented button,
+.workspace .segmented .segment {
+  flex: 1;
+  height: 24px;
+  margin: 0;
+  padding: 0 9px;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+  font-size: 12.5px;
+}
+
+.workspace .segmented button[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--cream);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.1) inset;
+}
+
+.workspace .note,
+.workspace .muted {
+  color: var(--cream-3);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------------------------ the workspace */
+
+.workspace {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  --panel-w: 340px;
+  --rows-left: calc(var(--edge) + var(--panel-w) + var(--edge));
+  --right-w: 176px;
+}
+
+.workspace.panel-collapsed {
+  --panel-w: 44px;
+}
+
+.workspace-wait {
+  position: absolute;
+  inset: 0;
+  padding-left: var(--rows-left);
+  display: grid;
+  place-items: center;
+  color: var(--cream-3);
+}
+
+.workspace-message {
+  position: absolute;
+  top: var(--edge);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(640px, 80%);
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #15100c;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.workspace-message.error {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------------------ the panel */
+
+.panel {
+  position: absolute;
+  left: var(--edge);
+  top: var(--edge);
+  bottom: var(--edge);
+  width: var(--panel-w);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel > * {
+  flex: none;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 4px 8px 0 16px;
+  color: var(--cream-2);
+  font-weight: 600;
+}
+
+.workspace .panel-head button,
+.workspace .panel-strip button {
+  width: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-3);
+}
+
+.workspace .panel-switch {
+  display: flex;
+  margin: 4px 16px 0;
+}
+
+.workspace .panel-switch button,
+.workspace .panel-switch .segment {
+  height: 28px;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.panel-note {
+  margin: 8px 16px 0;
+  color: var(--cream-3);
+  font-size: 12px;
+}
+
+.panel-settings {
+  margin: 0;
+  min-width: 0;
+}
+
+.basics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 10px;
+  padding: 10px 16px 8px;
+}
+
+.basics > div {
+  min-width: 0;
+}
+
+.basics .wide {
+  grid-column: 1 / -1;
+}
+
+.basics .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.basics label,
+.basics .label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--cream-3);
+  font-size: 11.5px;
+}
+
+.basics select,
+.basics input,
+.basics .segmented {
+  width: 100%;
+}
+
+.basics .pair .fields {
+  grid-template-columns: auto 1fr;
+  padding: 0;
+}
+
+.basics .pair .fields label {
+  margin: 0;
+}
+
+.seed {
+  position: relative;
+  display: block;
+}
+
+.workspace .seed-lock {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+}
+
+.sections {
+  list-style: none;
+  margin: 0 16px;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.sections li + li {
+  border-top: 1px solid rgba(84, 69, 58, 0.55);
+}
+
+.workspace .sections button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 25px;
+  padding: 0 2px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.sections svg {
+  color: var(--cream-3);
+}
+
+/* the open section: Active */
+.workspace .sections button[aria-expanded="true"] {
+  background: var(--well);
+  color: var(--cream);
+  box-shadow: inset 0 -2px 0 var(--cream), inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  padding: 0 6px;
+}
+
+.generate-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 12px;
+}
+
+/* Generate: the panel's main button. Lighter wood, a cream outline, bold: plainly a button to press */
+.workspace .generate {
+  position: relative;
+  flex: 1;
+  height: 40px;
+  border-radius: 8px;
+  border: 1.5px solid var(--cream-2);
+  background: linear-gradient(#7a6452, #665242);
+  color: var(--cream);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.28) inset, 0 2px 0 #3a2e25, 0 4px 8px rgba(0, 0, 0, 0.35);
+}
+
+.workspace .generate:hover:not(:disabled) {
+  background: linear-gradient(#866f5c, #705b4a);
+}
+
+.workspace .generate:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.2) inset, 0 1px 0 #3a2e25;
+}
+
+.workspace .generate:disabled {
+  opacity: 1;
+  color: var(--cream-2);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.changed-dot {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+.workspace .surprise {
+  height: auto;
+  padding: 0 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+  text-decoration: underline;
+  text-decoration-color: var(--cream-3);
+  text-underline-offset: 3px;
+}
+
+/* the panel's lower part: the map card (and, to come, the versions strip and Your maps); a settings
+   section opens over it as a sheet, and nothing under it moves */
+.panel .panel-lower {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.map-card {
+  padding: 10px 16px 12px;
+}
+
+.map-card h1 {
+  margin: 0;
+  font: 700 22px/1.15 var(--display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-card p {
+  margin: 4px 0 0;
+  color: var(--cream-2);
+}
+
+.map-card .premise {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.map-card .facts {
+  margin-top: 8px;
+  color: var(--cream-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-foot {
+  margin-top: auto;
+  padding: 8px 16px 10px;
+  color: var(--cream-3);
+  font-size: 11.5px;
+}
+
+.panel-foot a {
+  color: var(--cream-2);
+}
+
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: var(--wood-solid);
+  animation: sheet-in 0.16s ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}
+
+.sheet-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.workspace .sheet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 6px;
+  font-weight: 600;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #7a6858 transparent;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.fields label {
+  color: var(--cream-2);
+}
+
+.fields .band {
+  grid-column: 2;
+  margin-top: -5px;
+  color: var(--cream-3);
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+
+.fields .group-name {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  color: var(--cream-3);
+  font-size: 11.5px;
+}
+
+.fields .range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fields .range input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fields .range output {
+  min-width: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fields select,
+.fields input[type="number"] {
+  width: 100%;
+}
+
+.limits {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--cream-2);
+}
+
+.limits li + li {
+  margin-top: 6px;
+}
+
+/* the panel collapsed: a thin strip that still names the map */
+.panel-strip {
+  position: absolute;
+  left: var(--edge);
+  top: var(--edge);
+  bottom: var(--edge);
+  width: var(--panel-w);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.panel-strip b {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font: 700 16px var(--display);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------------------------ the editor */
+
+.workspace .editor {
+  position: absolute;
+  inset: 0;
+  display: block;
+  height: auto;
+  background: var(--map-bg);
+}
+
+.workspace .editor-main,
+.workspace .editor-map,
+.workspace .editor-map-area {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.workspace .editor-view {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.workspace .view3d canvas:focus-visible {
+  outline: none;
+}
+
+/* ---- the rows: one plate, one left edge beside the panel. The view bar sets its width; the tools, the forces
+   and what is held are centred in it */
+.workspace .rows-plate {
+  position: absolute;
+  top: var(--edge);
+  left: var(--rows-left);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: min-content;
+  max-width: calc(100% - var(--rows-left) - 380px);
+  padding: 0 5px;
+  pointer-events: auto;
+}
+
+.workspace .rows-plate > .map-bar {
+  justify-content: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px 0;
+  border-radius: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace .rows-plate > .map-bar:first-child {
+  border-top: 0;
+}
+
+.workspace .rows-plate > .view-row {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 3px;
+  min-height: 32px;
+  padding: 3px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workspace .view-row button {
+  flex: none;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--cream-3);
+  font-size: 12px;
+}
+
+.workspace .view-row button.do {
+  padding: 0 8px;
+  background: var(--raised);
+  color: var(--cream-2);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.1) inset;
+}
+
+.workspace .view-row button[aria-pressed="true"] {
+  color: var(--cream);
+}
+
+.workspace .rows-plate .icon-button {
+  height: 32px;
+  gap: 6px;
+  padding: 0 10px 0 8px;
+  font-size: 13px;
+}
+
+.workspace .rows-plate .icon-button .icon-word {
+  display: inline;
+}
+
+.workspace .rows-plate .icon-button[aria-pressed="true"] {
+  color: var(--cream);
+}
+
+.workspace .rows-plate .options-row {
+  gap: 6px 9px;
+  padding: 6px 2px;
+  font-size: 13px;
+  color: var(--cream-2);
+}
+
+.workspace .rows-plate .options-row.two-lines {
+  align-items: center;
+}
+
+.workspace .rows-plate .bar-group {
+  justify-content: center;
+  font-size: 13px;
+  gap: 6px 9px;
+  padding: 0;
+}
+
+.workspace .rows-plate .force-options.more-grid > .bar-group {
+  justify-content: start;
+}
+
+.workspace .nothing-held {
+  color: var(--cream-3);
+}
+
+.workspace .rows-plate .slider-field input[type="range"] {
+  width: 64px;
+}
+
+.workspace .rows-plate output,
+.workspace .rows-plate .source-readout {
+  color: var(--cream);
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .rows-plate .auto-button {
+  height: 22px;
+}
+
+.workspace .more-button {
+  border: 0;
+  color: var(--cream);
+  font-weight: 400;
+}
+
+.workspace .source-readout {
+  border: 0;
+  background: var(--well);
+}
+
+/* the first run's hints: under the plate, never part of it */
+.workspace .rows-hints {
+  position: absolute;
+  top: calc(100% + var(--gap));
+  left: 0;
+  width: max-content;
+  max-width: 100%;
+}
+
+.workspace .rows-hints .map-note {
+  white-space: normal;
+}
+
+/* ---- top right: Save; the cluster; the shelf, all on the cluster's two edges */
+.workspace .save-plate {
+  position: absolute;
+  top: var(--edge);
+  right: var(--edge);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: var(--h);
+  padding: 0 3px;
+}
+
+.workspace .save-plate .icon-button {
+  width: 28px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.workspace .checks-dot {
+  height: 30px;
+  gap: 7px;
+  padding: 0 10px 0 8px;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+}
+
+.workspace .checks-dot .dot {
+  width: 8px;
+  height: 8px;
+}
+
+.workspace .checks-dot.ok .dot {
+  box-shadow: 0 0 8px rgba(127, 196, 107, 0.6);
+}
+
+/* (the words say how many; the count stays for whoever reads the markup) */
+.workspace .checks-dot .dot-count {
+  display: none;
+}
+
+/* Lit: the primary action, and nothing else */
+.workspace .save-plate .primary {
+  height: 30px;
+  padding: 0 14px;
+  background: linear-gradient(#fbf0d2, #eedcae);
+  color: var(--lit-ink);
+  font-weight: 650;
+  box-shadow: 0 0 22px rgba(246, 231, 193, 0.34), 0 1px 0 #fff8e6 inset;
+}
+
+.workspace .save-plate .primary:disabled {
+  opacity: 0.8;
+}
+
+/* a dialog's own main button is the panel's main style, never Lit */
+.workspace .dialog .primary {
+  border: 1.5px solid var(--cream-2);
+  background: var(--main);
+  font-weight: 700;
+}
+
+.workspace .checks-list,
+.workspace .menu,
+.workspace .dialog {
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  background: var(--wood-solid);
+  box-shadow: var(--shadow);
+}
+
+.workspace .menu button {
+  height: 30px;
+  color: var(--cream);
+}
+
+.workspace .menu label {
+  display: block;
+  padding: 4px 8px;
+}
+
+.workspace .menu .note {
+  margin: 4px 8px;
+  max-width: 240px;
+  white-space: normal;
+}
+
+.workspace .view3d-corner {
+  --corner-h: var(--h);
+  --corner-gap: var(--gap);
+  top: calc(var(--edge) + var(--h) + var(--gap));
+  right: var(--edge);
+  display: grid;
+  grid-template-columns: 132px var(--h);
+  gap: var(--gap);
+  width: var(--right-w);
+}
+
+.workspace .view3d-corner > *,
+.workspace .view3d-corner .corner-below > * {
+  height: var(--h);
+}
+
+.workspace .corner-level,
+.workspace .view3d-corner .compass,
+.workspace .corner-below > button,
+.workspace .corner-below .speaker {
+  background: var(--wood);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.07) inset, var(--shadow);
+}
+
+.workspace .corner-level {
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+}
+
+.workspace .view3d-corner .layer-widget {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+}
+
+.workspace .view3d-corner .layer-widget button {
+  width: auto;
+  flex: 1;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.workspace .view3d-corner .layer-widget output {
+  flex: 1;
+  min-width: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--cream);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 30px;
+}
+
+.workspace .view3d-corner .compass {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: var(--h);
+  height: var(--h);
+  border-radius: 50%;
+}
+
+.workspace .view3d-corner .compass .needle {
+  width: 36px;
+  height: 36px;
+}
+
+.workspace .compass .needle span {
+  margin-top: 1px;
+  font-size: 9px;
+  color: var(--cream);
+}
+
+.workspace .compass .needle::after {
+  top: 13px;
+  margin-left: -4.5px;
+  border-left-width: 4.5px;
+  border-right-width: 4.5px;
+  border-bottom: 12px solid #e2674a;
+}
+
+/* Slow forces under the level control, at its width; Sound under the compass */
+.workspace .corner-below {
+  display: contents;
+}
+
+.workspace .corner-below > button {
+  width: 132px;
+  padding: 0;
+  color: var(--cream-2);
+  font-size: 13px;
+}
+
+.workspace .corner-below .reveal-group {
+  position: relative;
+  display: block;
+  width: var(--h);
+}
+
+.workspace .corner-below .speaker {
+  width: var(--h);
+  height: var(--h);
+  padding: 0;
+  justify-content: center;
+  color: var(--cream-2);
+}
+
+.workspace .corner-below > button[aria-pressed="true"],
+.workspace .corner-below .speaker[aria-pressed="true"] {
+  color: var(--cream);
+}
+
+.workspace .corner-below > button[aria-pressed="true"] {
+  background: var(--well);
+  box-shadow: inset 0 -2px 0 var(--cream), inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+/* (Sound on is its ordinary state: the speaker shows it, crossed out when muted) */
+.workspace .corner-below .speaker[aria-pressed="true"] {
+  background: var(--wood);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.07) inset, var(--shadow);
+}
+
+.workspace .corner-below .reveal-group .reveal {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 6;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--wood-solid);
+  box-shadow: var(--shadow);
+}
+
+.workspace .shelf {
+  position: absolute;
+  top: calc(var(--edge) + 3 * (var(--h) + var(--gap)));
+  right: var(--edge);
+  width: var(--right-w);
+  max-height: calc(100% - var(--edge) - 3 * (var(--h) + var(--gap)) - 2 * (var(--h) + var(--gap)) - var(--edge));
+  padding: 3px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7a6858 transparent;
+  background: var(--wood);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.07) inset, var(--shadow);
+}
+
+.workspace .shelf-grid {
+  display: block;
+}
+
+.workspace .shelf-item {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 31px;
+  padding: 0 8px 0 3px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.workspace .shelf-item img,
+.workspace .shelf-blank {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.workspace .shelf-item.group-start {
+  margin-top: 7px;
+}
+
+.workspace .shelf-item.group-start::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  margin-top: -38px;
+  border-top: 1px solid var(--rule);
+}
+
+.workspace .shelf-item[aria-pressed="true"] {
+  color: var(--cream);
+}
+
+/* ---- bottom: what is under the pointer; the look; the water */
+.workspace .readout {
+  left: var(--rows-left);
+  bottom: var(--edge);
+  display: flex;
+  align-items: center;
+  height: var(--h);
+  max-width: calc(100% - var(--rows-left) - 420px);
+  padding: 0 12px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace .water-bar {
+  right: var(--edge);
+  bottom: var(--edge);
+  flex-wrap: nowrap;
+  gap: 4px;
+  height: var(--h);
+  max-width: none;
+  padding: 0 5px 0 8px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+}
+
+.workspace .water-bar .icon-button {
+  background: var(--raised);
+  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.1) inset;
+  color: var(--cream);
+  height: 28px;
+}
+
+.workspace .water-bar .icon-button[aria-pressed="true"] {
+  background: var(--well);
+  box-shadow: inset 0 -2px 0 var(--cream), inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.workspace .water-bar .bar-status {
+  font-size: 13px;
+  color: var(--cream-2);
+}
+
+.workspace .look-plate {
+  position: absolute;
+  right: var(--edge);
+  bottom: calc(var(--edge) + var(--h) + var(--gap));
+  display: flex;
+  align-items: center;
+  height: var(--h);
+  padding: 0 4px;
+}
+
+.workspace .look-plate:empty {
+  display: none;
+}
+
+.workspace .look-plate button {
+  background: transparent;
+  box-shadow: none;
+  color: var(--cream-2);
+}
+
+.workspace .look-plate .menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  padding: 6px;
+}
+
+.workspace .editor-view .minimap {
+  left: var(--rows-left);
+  bottom: calc(var(--edge) + var(--h) + var(--gap));
+}
+
+.workspace .working {
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: var(--edge);
+  transform: translateX(-50%);
+  height: var(--h);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--cream-2);
+}
+
+.workspace .editor-message {
+  bottom: calc(var(--edge) + var(--h) + var(--gap));
+  background: #15100c;
+  border: 0;
+  z-index: 6;
+}
+
+.workspace .editor-notices {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--edge) + 2 * (var(--h) + var(--gap)));
+  transform: translateX(-50%);
+  max-width: min(560px, 60%);
+  max-height: 30%;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  background: var(--wood);
+  box-shadow: var(--shadow);
+}
+
+.workspace .history {
+  position: absolute;
+  top: calc(var(--edge) + var(--h) + var(--gap));
+  right: calc(var(--edge) + var(--right-w) + var(--gap));
+  z-index: 6;
+  width: 280px;
+  max-height: 70%;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  background: var(--wood-solid);
+  box-shadow: var(--shadow);
+}
+
+.workspace .view3d-legend {
+  position: absolute;
+  left: var(--rows-left);
+  bottom: calc(var(--edge) + var(--h) + var(--gap));
+  max-height: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.workspace .map-note,
+.workspace .map-tag {
+  background: rgba(21, 16, 12, 0.9);
+  color: var(--cream);
+}
+
+.workspace .source-marker {
+  background: rgba(21, 16, 12, 0.85);
+  border-color: var(--cream-3);
+}
+
+.tip {
+  background: #15100c;
+  color: var(--cream);
+  border: 0;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+}
+
+.tip kbd,
+kbd.cap {
+  border: 0;
+  border-bottom: 2px solid var(--well);
+  background: var(--raised);
+  color: var(--cream);
+  font: 600 11px "Segoe UI", system-ui, sans-serif;
+  padding: 1px 6px;
+}
+
+.workspace .dialog-backdrop {
+  background: rgba(10, 8, 6, 0.55);
+}
+
+.workspace .dialog {
+  padding: 16px;
+}

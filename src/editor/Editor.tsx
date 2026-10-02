@@ -1,5 +1,5 @@
 // The editor (EDITOR_PLAN §3, PLAN §20 D184): the map fills the screen in the shared 3D view; the
-// top bar shapes the land and the water (the brushes, the forces, Select), the left shelf places the
+// top bar shapes the land and the water (the brushes, the forces, Select), the shelf places the
 // game's objects (each with its ghost under the pointer), the view buttons show the overlays;
 // undo, redo, history, the map's health and export always visible. The document itself lives in
 // the worker (src/worker/session.ts): every edit is an operation sent there, and only what changed
@@ -41,13 +41,14 @@ import { editorView } from "./render/editorView";
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
-  /** "Back to settings" (generated maps) or "New map" (imported ones). */
-  onBack(info: SessionInfo): void;
+  /** New map (the ⋯ menu): the panel opens on the generator's settings. */
+  onNewMap(): void;
+  /** Copy the generated map's share link (the ⋯ menu); none for an opened file or a real place. */
+  onCopyLink?(): void;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
-  saveState: string;
 }
 
 export default function Editor(props: EditorProps) {

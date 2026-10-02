@@ -7,7 +7,7 @@
 // arrows, level lines, small far-off objects drawn larger), and so does a tool that needs it. The
 // generator's 3D preview and the editor both use it; the editor puts its handles on top.
 
-import type { ComponentChildren } from "preact";
+import { createContext, type ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
 import { LookMenu } from "./LookMenu";
@@ -52,7 +52,12 @@ export interface View3DProps {
   showLegend?: boolean;
   /** The look's menu among the view's buttons (the editor has it in its header instead). */
   lookMenu?: boolean;
+  /** The view bar is drawn by a child, through `ViewBar` (the editor's rows plate), not by the view. */
+  barInChildren?: boolean;
 }
+
+/** The view bar, for whoever draws it among its own rows (the editor's rows plate: its first line). */
+export const ViewBar = createContext<ComponentChildren>(null);
 
 const GROUND_KEY = "dgm.groundColours";
 
@@ -94,6 +99,28 @@ function saveLegend(open: boolean): void {
   }
 }
 
+const FLOW_KEY = "dgm.flow";
+
+/** Whether the viewer last turned **Flow** on (off unless they did; D353). */
+function savedFlow(): boolean {
+  try {
+    return localStorage.getItem(FLOW_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function saveFlow(on: boolean): void {
+  try {
+    localStorage.setItem(FLOW_KEY, on ? "on" : "off");
+  } catch {
+    // the choice lasts for this view only
+  }
+}
+
+/** The renderer's Flow view (D353): its method arrives with moving water; until then the toggle is kept only. */
+const setFlowOf = (r: MapRenderer | null, on: boolean) => (r as unknown as { setFlow?(on: boolean): void } | null)?.setFlow?.(on);
+
 /** Whether the viewer last turned **Markers** on (off unless they did). */
 function savedMarkers(): boolean {
   try {
@@ -121,6 +148,7 @@ export function View3D(props: View3DProps) {
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
   const [markers, setMarkers] = useState<boolean>(() => savedMarkers() || !!props.markersWanted);
+  const [flow, setFlow] = useState<boolean>(savedFlow);
   const [error, setError] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState<boolean>(() => savedLegend(props.legendOpen ?? true));
   /** The legend's line pointed to on the map, and the map's changes (the legend reads them). */
@@ -155,6 +183,7 @@ export function View3D(props: View3DProps) {
     setMade(r);
     r.setGroundMode(ground);
     r.setMarkers(markers);
+    setFlowOf(r, flow);
     r.onHover = (hit) => onHover.current?.(hit);
     // the legend reads the map again a moment after it changes, when the page is idle (never
     // while a brush paints or the water flows)
@@ -215,6 +244,13 @@ export function View3D(props: View3DProps) {
     setMarkers(next);
     saveMarkers(next);
     renderer.current?.setMarkers(next);
+  };
+
+  const toggleFlow = () => {
+    const next = !flow;
+    setFlow(next);
+    saveFlow(next);
+    setFlowOf(renderer.current, next);
   };
 
   const legendId = useMemo(() => `legend-${Math.random().toString(36).slice(2, 8)}`, []);
@@ -291,6 +327,24 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
+      {props.barInChildren ? (
+        <button type="button" aria-pressed={flow} onClick={toggleFlow} title="Show the water's currents">
+          Flow
+        </button>
+      ) : null}
+    </>
+  );
+  const bar = (
+    <>
+      <button type="button" class="do" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
+        Top-down
+      </button>
+      <button type="button" class="do" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
+        Reset view
+      </button>
+      {props.togglesInButtons ? toggles : null}
+      {props.viewButtons}
+      {props.lookMenu === false ? null : <LookMenu renderer={made} />}
     </>
   );
 
@@ -306,17 +360,11 @@ export function View3D(props: View3DProps) {
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
-      <div ref={controls} class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
-          Top-down
-        </button>
-        <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
-          Reset view
-        </button>
-        {props.togglesInButtons ? toggles : null}
-        {props.viewButtons}
-        {props.lookMenu === false ? null : <LookMenu renderer={made} />}
-      </div>
+      {props.barInChildren ? null : (
+        <div ref={controls} class="view3d-controls" role="group" aria-label="View">
+          {bar}
+        </div>
+      )}
       {props.cornerLevel || props.cornerBelow ? (
         // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the
         // switches beneath, lined up with the cluster's edges; one height and one gap throughout
@@ -333,7 +381,7 @@ export function View3D(props: View3DProps) {
           {props.hoverText}
         </div>
       ) : null}
-      {props.children}
+      <ViewBar.Provider value={props.barInChildren ? bar : null}>{props.children}</ViewBar.Provider>
       </div>
       {error || !showLegend ? null : (
         <aside class={`side-panel view3d-legend${legendOpen ? "" : " folded"}`} aria-label="Legend">

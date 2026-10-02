@@ -1,6 +1,6 @@
 // The top bar (PLAN §20 D184, D212): the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize |
 // Select (D259; with Delete it removes what stands in the selection, D288) | the forces, and a small
-// row beneath with only the picked tool's options (the sources are on the left shelf). The brush's
+// row beneath with only the picked tool's options (the sources are on the shelf). The brush's
 // size is its ring on the land ({ and }, hold F: D368 (1)), and first in its row, a number and a slider up to
 // half the map (D226, D322 item 42). Raise, Lower and Flatten have a target level (D322, item 37),
 // shown beside the pointer and in the row, as the game's editor: Shift+scroll or Ctrl+click sets it,
@@ -23,6 +23,7 @@ import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool,
 import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import { tip } from "../ui/Tooltip";
+import { ViewBar } from "../ui/View3D";
 import type { Verb } from "../core/forces/op";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
@@ -219,6 +220,8 @@ export interface TopBarProps {
   /** Another row beneath the bar: the shelf's object's options (a source's strength), a selected
    *  source's. */
   row?: { label: string; content: ComponentChildren } | null;
+  /** The shelf's object held, when it has no settings of its own: the last line names it. */
+  holding?: string | null;
   /** The first run's hints, under the rows. */
   hints?: ComponentChildren;
 }
@@ -378,8 +381,16 @@ export function TopBar(p: TopBarProps) {
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
   const why = p.loading ? tip("The map is still loading") : tip("A force is at work", "Esc skips it");
+  const viewBar = useContext(ViewBar);
+  // the plate is always four lines tall: with nothing held, the last says so
+  const held = !!t || (!!p.force && !!p.forceRow) || !!p.row || !!p.selectRow || !!p.selectChip;
   return (
-    <div class="brush-bar-wrap">
+    <div class="brush-bar-wrap rows-plate plate">
+      {viewBar ? (
+        <div class="map-bar view-row" role="group" aria-label="View">
+          {viewBar}
+        </div>
+      ) : null}
       <div class="map-bar" role="toolbar" aria-label="Tools">
         {BRUSHES.map((b) => (
           <button
@@ -413,24 +424,20 @@ export function TopBar(p: TopBarProps) {
       </div>
       {SHOWN_FORCES.length ? (
         <div class="map-bar" role="group" aria-label="Forces">
-          {FORCE_CLUSTERS.map((cluster) => (
-            <span class="force-cluster" key={cluster[0].id}>
-              {cluster.map((f) => (
-                <button
-                  type="button"
-                  key={f.id}
-                  class="icon-button"
-                  aria-pressed={p.force === f.id}
-                  aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-                  {...(p.loading ? tip("The map is still loading") : forceTip(f))}
-                  disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
-                  onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
-                >
-                  <Icon tool={f.id} />
-                  <span class="icon-word">{f.name}</span>
-                </button>
-              ))}
-            </span>
+          {SHOWN_FORCES.map((f) => (
+            <button
+              type="button"
+              key={f.id}
+              class="icon-button"
+              aria-pressed={p.force === f.id}
+              aria-label={f.key ? `${f.name} (${f.key})` : f.name}
+              {...(p.loading ? tip("The map is still loading") : forceTip(f))}
+              disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
+              onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
+            >
+              <Icon tool={f.id} />
+              <span class="icon-word">{f.name}</span>
+            </button>
           ))}
         </div>
       ) : null}
@@ -522,7 +529,17 @@ export function TopBar(p: TopBarProps) {
         </div>
       ) : null}
       {p.selectChip ? <div class="map-bar select-chip-bar">{p.selectChip}</div> : null}
-      {p.hints ?? null}
+      {held ? null : p.holding ? (
+        <div class="map-bar options-row" role="note">
+          <strong>{p.holding}</strong>
+          <span class="nothing-held">Click the land to place it</span>
+        </div>
+      ) : (
+        <div class="map-bar options-row nothing-held" role="note">
+          Pick a tool, a force or an object
+        </div>
+      )}
+      {p.hints ? <div class="rows-hints">{p.hints}</div> : null}
     </div>
   );
 }

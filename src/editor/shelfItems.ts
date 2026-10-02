@@ -1,4 +1,4 @@
-// The left shelf's objects (PLAN §20 D184): the game's placeable objects, each a small render of itself in
+// The shelf's objects (PLAN §20 D184): the game's placeable objects, each a small render of itself in
 // the map's look. Picking one shows its ghost under the pointer, green where it fits and red where
 // it doesn't, with the reason in a quiet word; a click places it, R turns it, Esc puts it back.
 // Trees and bushes: a click places one, a drag paints many, clustered as the generator's groves
