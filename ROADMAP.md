@@ -160,10 +160,16 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   rows stay on TypeScript. First the quiet measuring window re-times the improved port in Chromium, WebKit and native (only
   Firefox was re-timed) and compares the full M9b batch (about 18.5 minutes on 16 threads on a loaded machine) against the
   TypeScript batch.
-- **The Rust forces** (#158): round 1 is not adoptable (about 5× slower: a generic serialization layer copied the map across
-  the boundary on every call; Carve and Glaciate unported). Round 2 is with Codex: the boundary fixed first (the map shared
-  in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The
-  lesson applies to every port.
+- **The Rust forces** (#158, D400): round 2's speed is accepted, provisional until a quiet window. Adoption waits for round
+  3's identity corpus (2,000 per force and size for native and Node-Wasm, 500 per browser engine) and the open gates;
+  nothing to do until then. Round 1's lesson applies to every port: share the map in typed memory, one call per
+  operation, never serialized.
+- **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
+  every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
+  Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
+  maths never reaches a replay). Adopted only after a quiet-window timing shows no slowdown (D380).
+- **Rust threads** (#168, D402): merged as an investigation and parked. Threaded Rust stays experimental until wasm
+  atomics are stable in Rust; the TypeScript parallel water (#130) remains the multi-core path.
 - **Multi-core water** (#130): approved. Threads only where they help: 256² and up in Chromium and Firefox (Firefox always
   measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
   WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`). Costs: one
@@ -173,9 +179,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces round 2 (#158), portable maths everywhere (`investigation/portable-math`) and Rust
-water with threads (`investigation/rust-threads`). The dam sketch engine (#159) is merged as an investigation, not adopted
-(D392; see its section below).
+**Still with Codex:** the Rust forces round 3's identity corpus (#158). The dam sketch engine is merged as an
+investigation, rounds 1 (#159) and 2 (#166), not adopted, no round 3 before the release (D392, D403; see its section
+below).
 
 ## The Rust order (D381)
 
@@ -800,6 +806,9 @@ gates: (a) a calibration probe batch on the dedicated machine: a few sketched wa
 wall) built in the game, comparing level, volume and dry-out day with the engine; (b) browser timings in a worker in
 Chromium, Firefox (the corrected optimizing-tier setup) and WebKit, at 128² and 256², while dragging a wall. Its Node numbers
 (first preview 16 / 67 ms, full fill 0.67 / 2.94 s, under shared load) support a progressive fill, not an instant answer.
+
+**Round 2** (#166, D403): merged as an investigation, not adopted; no round 3 before the release. When it resumes,
+its stacked-dams scene (which predicts dry) is fixed first, and its calibration needs a Probe wall-building bridge.
 
 ## Collaborative editing (D349)
 
