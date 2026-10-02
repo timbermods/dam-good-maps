@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D413), STATUS and HANDOFF.
+  free: D416), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft: its `DESIGN.md` and two directions so far. Its Editor.tsx split
   (#169) is merged into `dev` (dde77fb2). It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -42,7 +42,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands and Delta redesign (D407: Kyler's verdict on the review set blocks the release); defaults accepted (D405, D406); then the measures, the D148 re-pins, 256² speed and Lake Basin round 2 |
 | The page | `feature/page` | #163 draft | `-page` | Page session; design stage |
 | Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
-| Remove unfed water and Fill engines | `feature/editor-core` | #167 draft, green | main clone | Waits for the settle question (below); re-pins maps with oxbow lakes |
+| The settle: a sealed, only-evaporating basin counts as settled (D413) | `fix/sealed-settle` | none yet | `-settle` | Building; **blocks the release until it lands**; re-pins maps with oxbow lakes |
 | Naturalize | `feature/naturalize` | #170 draft | none | Round 3 in progress after Kyler's verdict on round 2 |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
@@ -73,7 +73,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
 
 1. **The water-changed signal** for the hover readout (D387 (1)): on `dev` (#164).
-2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): #167, waiting on the settle question.
+2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): on `dev` (#167): `unfedWater` and `planFill` in
+   `src/core/doc/waterEdits.ts`; operations `removeUnfedWater` and `fillHollow`. The settle fix (D413) follows without an API change.
 3. **With M9b:** its candidate events, Sources: Placed - None, and the automatic water fix: built on `feature/m9b` (APIs in
    `docs/progress/m9b.md`), on `dev` with M9b's release.
 4. **The service worker** for startup part 2 (D397), with multi-core water's adoption.
@@ -83,18 +84,18 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 1. **The Naturalize round-3 sheets**, when ready (#170).
 2. **M9b's Islands and Delta redesign sheets** (D407): 30 seeds of each at 128² beside M9a's, when ready; his verdict on
    the review set blocks M9b's release on these two themes. Both defaults are accepted (D405, D406).
-3. **The settle question on #167:** does the canonical settle stop when only sealed basins are evaporating (D222's rule), so
-   a Fill is stored at the asked level? It re-pins maps with oxbow lakes.
-4. **Your yes on #165**, when ready.
-5. **The quiet window's time**, once the runner's duration is known.
-6. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
-7. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
-8. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+3. **Your yes on #165**, after your look at moving water and its gate passing (D415).
+4. **The quiet window** (about 2 hours): after you accept the Islands and Delta sheets, or at the time you name tonight,
+   whichever comes first (D414).
+5. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+6. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
+7. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
 
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release").
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: the settle fix (D413),
+water from nowhere (D385), and Islands and Delta (D407).
 
 ## Probe batches
 
