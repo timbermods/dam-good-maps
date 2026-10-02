@@ -531,7 +531,9 @@ D278); the named premises that became intentions are in design version 2 §6 (`d
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
 draws one of D209's sea layouts, islands with relief of their own and springs on them, inside a rim whose line wanders,
-rounded at the corners; its start goes on an island wherever one holds what it needs (D410, D411, D417). Delta's river
+rounded at the corners; on three sea maps in four the sea lies off the middle and broad headlands break the land round
+it, an inland sea in a ring of land on the fourth; its start goes on an island wherever one holds what it needs (D410,
+D411, D417). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416).
 
