@@ -11,7 +11,7 @@
 
 import { proxy, transfer, type Remote } from "comlink";
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../core/doc/ops";
 import { cornerFor } from "../core/doc/tools";
 import { footprintTiles, startEntranceTile, type Orientation } from "../core/format/footprints";
@@ -32,11 +32,11 @@ import { Shelf } from "./Shelf";
 import { SHELF, type ShelfOptions } from "./shelfItems";
 import { Juice, type StrokeSound } from "./juice";
 import { ForceDriver, paceOf, powerWord } from "./forceDriver";
-import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE, type CarveUi } from "./CarveRow";
-import { craterDetails, craterSettingsOf, CraterizeRow, DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf, type CraterUi, type EruptUi, type QuakeUi } from "./ForceRows";
+import { CarveRow, carveDetails, carveSettingsOf, DEFAULT_CARVE } from "./CarveRow";
+import { craterDetails, craterSettingsOf, CraterizeRow, eruptDetails, EruptRow, eruptSettingsOf, ForceAtWork, quakeDetails, QuakeRow, quakeSettingsOf } from "./ForceRows";
 import { eruptAnatomy } from "../core/forces/erupt";
 import { eruptNature } from "../core/forces/nature";
-import { DEFAULT_GLACIATE, glaciateDetails, GlaciateRow, glaciateSettingsOf, type GlaciateUi } from "./ForceRows";
+import { glaciateDetails, GlaciateRow, glaciateSettingsOf } from "./ForceRows";
 import { sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forceReach } from "../core/forces/reach";
 import { MAX_PATH_POINTS } from "../core/forces/carve/run";
@@ -61,7 +61,6 @@ import { isSource, sourcesPressed } from "./sourceSpots";
 import { BRUSH_MAX_LEVEL, type BrushParams } from "../core/features/raster/brush";
 import { BAD, BADWATER_STRENGTHS, GHOST_OK, LOWERS, MOVING, RAISES, SOURCE_STRENGTHS, sourceRequest } from "./tools";
 import { tip } from "../ui/Tooltip";
-import { loadForcesPrefs, saveForcesPrefs } from "./prefs/forcesPrefs";
 import { ALL_KINDS } from "./remove/kinds";
 import type { Ed } from "./ed";
 import { useSession } from "./session/useSession";
@@ -73,6 +72,7 @@ import { useStartHint } from "./start/useStartHint";
 import { useRemoveSources } from "./sources/useRemoveSources";
 import { useShelf } from "./shelf/useShelf";
 import { useDelete } from "./remove/useDelete";
+import { useForcePrefs } from "./forces/useForcePrefs";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -158,6 +158,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useRemoveSources(ed));
   Object.assign(ed, useShelf(ed));
   Object.assign(ed, useDelete(ed));
+  Object.assign(ed, useForcePrefs(ed));
 
   const {
     api, info, setInfo, view, mirror, renderer, ready, setReady, tool, setTool, anchorRef, flipRef, repaintRef,
@@ -177,60 +178,12 @@ export default function Editor(props: EditorProps) {
     strengthOfEntity, liveStrength, entityIndexOf, wheelSource, groupsRef, hoverSources, sourcesChanged,
     pointedWords, markerRef, sourceMarkers, setStartHint, hintRef, startHintRef, hintJob, startWorkerApi, hintMs,
     lookForStartRef, startHintTag, pickedSources, removeSources, pointerWords, flashNote, shelfTile, shelfHover,
-    dropShelf, pageTileFacts, coverAt, deleteOn, deleteGround, deleteCalls
+    dropShelf, pageTileFacts, coverAt, deleteOn, deleteGround, deleteCalls, carveUi, setCarveUi, carveUiRef,
+    craterUi, setCraterUi, craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi,
+    setGlaciateUi, glaciateUiRef, moreOpen, setMoreOpen, watch, setWatch, watchRef, floorRef, floorContext,
+    setForceTick
   } = ed;
 
-  // ------------------------------------------------------------------------------ the forces
-
-  /** Each force's options for the next one (D199, D202, D203, D206; kept for the visit), Aim's start,
-   *  and the tile the pointer is on while aiming. Each row's details, behind More, start on Auto
-   *  (null) unless a pin was remembered from a past visit (D309). */
-  const [forcesPrefs] = useState(loadForcesPrefs);
-  const [carveUi, setCarveUi] = useState<CarveUi>({ ...DEFAULT_CARVE, ...forcesPrefs.carve });
-  const carveUiRef = useRef(carveUi);
-  carveUiRef.current = carveUi;
-  const [craterUi, setCraterUi] = useState<CraterUi>({ ...DEFAULT_CRATER, ...forcesPrefs.craterize });
-  const craterUiRef = useRef(craterUi);
-  craterUiRef.current = craterUi;
-  const [eruptUi, setEruptUi] = useState<EruptUi>({ ...DEFAULT_ERUPT, ...forcesPrefs.erupt });
-  const eruptUiRef = useRef(eruptUi);
-  eruptUiRef.current = eruptUi;
-  const [quakeUi, setQuakeUiState] = useState<QuakeUi>({ ...DEFAULT_QUAKE, ...forcesPrefs.quake });
-  const quakeUiRef = useRef(quakeUi);
-  quakeUiRef.current = quakeUi;
-  const setQuakeUi = (u: QuakeUi) => {
-    quakeUiRef.current = u;
-    setQuakeUiState(u);
-  };
-  const [glaciateUi, setGlaciateUi] = useState<GlaciateUi>({ ...DEFAULT_GLACIATE, ...forcesPrefs.glaciate });
-  const glaciateUiRef = useRef(glaciateUi);
-  glaciateUiRef.current = glaciateUi;
-  /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
-  const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
-  /** Slow forces (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
-  const [watch, setWatch] = useState(forcesPrefs.watch);
-  const watchRef = useRef(watch);
-  watchRef.current = watch;
-  /** The forces' Floor (D321, item 40): the lowest level any of them cuts to, shared, remembered. */
-  const [floor, setFloor] = useState(forcesPrefs.floor);
-  const floorRef = useRef(floor);
-  floorRef.current = floor;
-  const floorContext = useMemo(() => ({ value: floor, set: setFloor }), [floor]);
-  // the pins and the open More panels are remembered with the player's other editor preferences
-  // (D309); Power, Size, dry and mode last only the visit, as before
-  useEffect(() => {
-    saveForcesPrefs({
-      watch,
-      floor,
-      more: moreOpen,
-      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks },
-      craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
-      erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
-      quake: { scarp: quakeUi.scarp },
-      glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
-    });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree]);
-  const [, setForceTick] = useState(0);
   /** The map's own views that came while a force was at work (the settled water, a check's): they
    *  go on the map just before the force's own answer. */
   const deferred = useRef<ViewUpdate[]>([]);
