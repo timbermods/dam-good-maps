@@ -1,0 +1,92 @@
+name: Portable deterministic maths
+on:
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+jobs:
+  portable:
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [96, 128, 256]
+    env:
+      DGM_SIZE: ${{ matrix.size }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install pinned investigation runtime
+        run: node investigation/portable-math/setup.mjs
+      - name: Install pinned engines
+        run: node investigation/portable-math/local/runtime/node_modules/playwright/cli.js install --with-deps chromium firefox webkit
+      - name: Install locked product build dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck actual product sources
+        run: npm run typecheck
+      - name: Build the actual product and reject native maths in its output
+        run: |
+          npm run build -- --outDir investigation/portable-math/local/dist
+          node investigation/portable-math/output-guard.mjs
+      - name: Reject native maths in actual product source
+        run: node investigation/portable-math/guard.mjs
+      - name: Check actual upstream camera and ray geometry
+        run: node investigation/portable-math/three-check.mjs --actual
+      - name: Check guard regressions
+        run: node investigation/portable-math/guard-test.mjs
+      - name: Check exact square root with Wasm enabled and blocked
+        run: node investigation/portable-math/math-check.mjs
+      - name: Trap compression dependency maths and preserve bytes
+        run: node investigation/portable-math/compression-check.mjs
+      - name: Install the pinned Rust compiler and Wasm target
+        run: rustup toolchain install 1.90.0 --profile minimal --target wasm32-unknown-unknown
+      - name: Compare the shared Rust maths with portable.ts
+        run: node investigation/portable-math/rust-math.mjs
+        env:
+          RUSTUP_TOOLCHAIN: 1.90.0
+      - name: Demonstrate all maths guards rejecting planted calls
+        run: node investigation/portable-math/guard-plants.mjs
+        env:
+          RUSTUP_TOOLCHAIN: 1.90.0
+      - name: Audit actual Rust investigations present in this revision
+        run: node investigation/portable-math/rust-sources.mjs --actual --ci
+        env:
+          DGM_STUDIES: investigation
+      - name: Reject libm, transcendental intrinsics and FMA in native and Wasm
+        run: node investigation/portable-math/rust-build.mjs --ci
+        env:
+          RUSTUP_TOOLCHAIN: 1.90.0
+      - name: Build actual product, without overlays
+        run: node investigation/portable-math/build.mjs --actual
+      - name: Actual gesture-to-operation records and Editor geometry
+        run: node investigation/portable-math/gestures.mjs --actual
+      - name: Evaluated tool scripts and callback bindings with native maths trapped
+        run: node investigation/portable-math/embedded-check.mjs --actual
+      - name: All 840 maps, complete generation state and export bytes
+        run: node investigation/portable-math/generation.mjs
+      - name: Weather and fractional-day regression
+        run: node investigation/portable-math/curves.mjs
+      - name: Golden water with forced helper dispatch at every tick
+        run: node investigation/portable-math/water.mjs --forced
+      - name: Golden derived maths and archived fixture contracts
+        run: node investigation/portable-math/fixtures.mjs --golden-only --actual
+      - name: All regenerated maps at all water thread counts
+        run: node investigation/portable-math/water.mjs --maps --reuse
+      - name: Full Weather days at each difficulty and thread count
+        run: node investigation/portable-math/water.mjs --weather
+      - name: M9b legacy Carve records and fields
+        if: hashFiles('src/core/forces/result.ts') == ''
+        run: node investigation/portable-math/carve.mjs --actual
+      - name: Current staged forces, placement, replay and reopening
+        if: hashFiles('src/core/forces/result.ts') != ''
+        run: node investigation/portable-math/forces.mjs --adoption --actual --only '^(?!generate/)' --out forces-ci
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: portable-math-evidence-${{ matrix.size }}
+          path: investigation/portable-math/local/*summary.json
+          retention-days: 7
