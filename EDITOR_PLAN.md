@@ -48,15 +48,19 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 
 ## 3. The screen
 
-The editor's parts as they are now; their placement and styling are the design pass's (UI-BRIEF).
+The editor's parts as they are now, in the one workspace (`src/page/Workspace.tsx`: the map fills the window, the
+side panel holds the map as a whole, D330). Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s.
 
-- **The rows over the map** (D323, item 9): four, top to bottom: the view bar; the tools (Raise, Lower, Flatten,
-  Smooth, Naturalize, Select); the forces in three clusters by prominence (D352, `FORCE_GROUPS` in `TopBar.tsx`:
-  Carve, Craterize, Erupt · Rift, Quake, Glaciate · Erode, Deposit; today Carve, Craterize, Erupt · Quake,
-  Glaciate, keys 7, 8, 0, 9, -; a force not adopted yet takes its place in the list); the active tool's settings
-  and its More. A long settings row takes a second line, and a tool's More opens as a compact grid panel (D345,
-  B2). The first-run hint points at Carve. Every force's row is §4's.
-- **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater source** (two
+- **The rows over the map** (D323, item 9): one plate beside the panel, four lines, top to bottom: the view bar;
+  the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select); the forces in one evenly spaced line, in order of
+  prominence (`FORCE_GROUPS` in `TopBar.tsx` orders them: Carve, Craterize, Erupt, Rift, Quake, Glaciate, Erode,
+  Deposit; today Carve, Craterize, Erupt, Quake, Glaciate, keys 7, 8, 0, 9, -; a force not adopted yet takes its
+  place in the list); the active tool's settings and its More, or the held object's name, or a line saying nothing
+  is held. Every tool and force shows its name; keys are only in tooltips. A long settings row takes a second line,
+  and a tool's More opens as a compact grid panel (D345, B2). The first-run hints sit under the plate and point at
+  Carve. Every force's row is §4's.
+- **The shelf** (on the right, under the top-right cluster): a list of placeable objects, each a picture and its
+  name, in five groups: the **Water source** and the **Badwater source** (two
   items, D212), then the **Start**, **Pine**, **Birch**, **Oak**, **Berry bush**, ruins, the mine site, relics,
   slopes and the rest, each a small render in the map's look.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
@@ -91,17 +95,20 @@ The editor's parts as they are now; their placement and styling are the design p
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
-- **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down), Reset view, Height
-  colours, **Level lines** (D248: a thin line wherever the ground steps down a level, off by default), Markers (the
-  sources and the slopes), Clear water and the overlays, **Badwater** and **Under roofs** (where the map has roofed
-  water). The legend appears only while an overlay is on. No dam site is drawn on the map or named on the map
+- **The view bar** (D287; the rows' first line): one **Top-down** toggle (on while the view looks straight down),
+  Reset view, Height colours, **Level lines** (D248: a thin line wherever the ground steps down a level, off by
+  default), Markers (the sources and the slopes), **Flow** (D353: the water's currents; off by default, kept like
+  Markers), Clear water and the overlays, **Badwater** and **Under roofs** (there from the moment a map with roofed
+  water opens; the bar then takes a second line), and Minimap. The legend appears only while an overlay is on. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The top-right cluster** (D345 B3, D368 (5)): the compass in the corner, the **level control** (▾ ∞ ▴, as in
   Timberborn's own editor) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
   speaker icon, crossed out when muted; its volume opens beneath it); one height and one gap throughout
-  (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
-  B1).
+  (`tests/e2e/viewAndHeader.spec.ts`). Slow forces is exactly as wide as the level control and under it; Sound is
+  under the compass. **Every camera view frames the whole map, centred in the space the panel, the rows, the shelf
+  and the bottom bars leave free** (D345, B1; the page names that space to the renderer as `--frame-left` and the
+  rest). Collapsing the panel never moves the camera (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
@@ -136,13 +143,17 @@ The editor's parts as they are now; their placement and styling are the design p
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place or an opened file as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
-- **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in browsers that
-  can't save to a folder); a small menu for the rest (Open, Save project, Download .timber, History, New map,
-  Clear everything).
+- **The Save plate** (top right): Undo and Redo; a small menu for the rest (Open, Save project, Download .timber,
+  Clear everything, History, Copy link, New map); the checks dot with its words; one primary button, **Save to
+  Timberborn** (**Download .timber** in browsers that can't save to a folder), the only lit thing on the page.
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the map. Never a
   pop-up.
-- **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
-  over it, so they cover no control in any layout; Hide closes it.
+- **The notices** (the No badwater line, D213; what opening a file changed): a quiet plate at the foot of the map,
+  clear of every control; Hide closes it.
+- **The side panel** (`src/page/Panel.tsx`): the switch (Generate; Real places, a link to the gallery until it moves
+  into the panel); Theme, Size, Seed and Designed for; six sections of settings, each opening as a sheet over the
+  panel's lower part; Generate and Surprise me; the map card (the map's name, its premise, a line of facts). It
+  collapses to a strip that still names the map, and remembers how it was left.
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
 (D184, D212, D219.)
