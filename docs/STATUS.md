@@ -30,7 +30,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | The editor-core items (D387) | none yet | none | main clone | milestone | Next, alongside the page |
 | M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in ROADMAP ("M9b"); held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
 | The page, "The page is the editor" with the design pass | `feature/page` (from `dev` at the salvaged core) | none yet | `-page` | page | Worktree ready; Kyler starts the session |
-| Moving water and the Flow view, then renderer R1 (D398) | `feature/moving-water` | none yet | another machine | renderer | Built there; this session merges its PR when green and Kyler says yes |
+| Moving water and the Flow view, then renderer R1 (D398) | `feature/moving-water` | none yet | another machine | renderer | Plan approved (2026-10-02): the `tools/smooth/` gate, then moving water, the Flow view and renderer R1; one draft PR into `dev`, merged when green on Kyler's yes |
 | The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 closed; the branch is kept as a record until the new page ships |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | milestone | D337–D339; follows M9b |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | milestone | Held for Kyler's sitting; after the page |
