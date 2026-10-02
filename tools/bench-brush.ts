@@ -144,9 +144,14 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   }
   const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[] };
   const lat: number[] = [];
+  // (and only the moves the next re-mesh follows within half a second: those whose points changed
+  // the land; a move that pressed nothing waits for whichever dab next does)
+  const shown: number[] = [];
   for (const [e, u] of raw.mv) {
     const f = raw.rend.find((x) => x >= u);
-    if (f !== undefined) lat.push(f - e);
+    if (f === undefined) continue;
+    lat.push(f - e);
+    if (u - e < 500) shown.push(f - e);
   }
   // the cursor and the ring: from each pointer move to the next frame drawn (they are drawn in the
   // move's own handling)
@@ -182,7 +187,8 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     refreshMs: round(refresh),
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
     cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
-    landTrailFrames: { p50: round(pct(lat, 0.5) / vsync), p95: round(pct(lat, 0.95) / vsync), frameMs: round(vsync) },
+    landShownMs: { p50: round(pct(shown, 0.5)), p95: round(pct(shown, 0.95)), samples: shown.length },
+    landTrailFrames: { p50: round(pct(shown, 0.5) / vsync), p95: round(pct(shown, 0.95) / vsync), frameMs: round(vsync) },
     frameMs: { p50: round(pct(frames, 0.5)), p95: round(pct(frames, 0.95)), p99: round(pct(frames, 0.99)), max: round(Math.max(0, ...frames)), overTwoRefreshes: frames.filter((d) => d > 2 * refresh + 1).length, frames: frames.length },
     remeshMs: { p50: round(pct(raw.mesh, 0.5)), p95: round(pct(raw.mesh, 0.95)), max: round(Math.max(0, ...raw.mesh)), samples: raw.mesh.length },
     longTasksWhilePainting: raw.long.filter(([t]) => t < raw.up).map(([, d]) => d),
