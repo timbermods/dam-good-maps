@@ -1,0 +1,46 @@
+--- a/src/editor/brushes.ts
++++ b/src/editor/brushes.ts
+@@ interface StrokeState {
+   dabAt: [number, number];
+   lastDab: number;
+   raf: number;
++  /** Points the pointer reached since the last frame: pressed together in the next one, so a
++   *  stroke works out its land at most once a frame however many pointer events arrive (D380). */
++  queued: [number, number][];
+@@ (the new stroke's state)
+       dabAt: at,
+       lastDab: performance.now(),
+       raf: 0,
++      queued: [],
+@@ (the pointer move, after the points are spaced)
+-    if (points.length) this.dab(points);
+-    else this.showCursor();
++    if (points.length) {
++      st.queued.push(...points);
++      st.dabAt = points[points.length - 1];
++    }
++    this.showCursor();
+     this.say(ev);
+@@ private dab(points: [number, number][], also: Rect | null = null): void {
+       st.drafted = d ? { ... } : { ...changed };
+-      this.sendDraft(false);
+       this.feel();
+@@ private loop(): void {
+     st.raf = requestAnimationFrame(() => {
+       if (this.stroke !== st) return;
+-      if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
+-      this.sendDraft(false);
++      if (st.queued.length) this.dab(st.queued.splice(0));
++      else if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
++      // the water's draft once the frame showing the land is drawn
++      setTimeout(() => this.stroke === st && this.sendDraft(false), 0);
+       this.loop();
+     });
+@@ end(): void {
+     const st = this.stroke;
+     if (!st) return;
+     cancelAnimationFrame(st.raf);
++    // (what the pointer reached since the last frame, pressed before the stroke ends)
++    if (st.queued.length) this.dab(st.queued.splice(0));
++    this.sendDraft(true);
+     this.stroke = null;
