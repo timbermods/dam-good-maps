@@ -17,6 +17,7 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
 import { badwaterBody, cleanWaterBody, waterBody, type Rgb } from "../src/render3d/waterPalette";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,9 +43,7 @@ async function site(root: string, label: string, port: number): Promise<PreviewS
 async function open(page: Page, port: number): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${port}/${FRAGMENT}`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 600_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await waitForEditor(page, 600_000);
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(2500);

@@ -3,6 +3,7 @@
 
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 import { generate } from "../../src/core/gen/generate";
 import { encodeSpecFragment, GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
 
@@ -26,11 +27,12 @@ test("Node and Chromium produce identical .timber bytes for 10 seeds", async ({ 
 });
 
 test("the page generates a map and offers both downloads", async ({ page }) => {
-  await page.goto(`./#s=4242&z=128&d=n&t=riverValley&v=${GENERATOR_VERSION}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole("button", { name: /\.timber/ })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Download project file" })).toBeEnabled();
+  await openEditor(page, `s=4242&z=128&d=n&t=riverValley&v=${GENERATOR_VERSION}`);
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "More" });
+  await expect(menu.getByRole("menuitem", { name: "Download .timber" })).toBeEnabled();
+  await expect(menu.getByRole("menuitem", { name: "Save project" })).toBeEnabled();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: /\.timber/ }).click();
+  await menu.getByRole("menuitem", { name: "Download .timber" }).click();
   expect((await download).suggestedFilename()).toBe("dgm-river-valley-4242.timber");
 });

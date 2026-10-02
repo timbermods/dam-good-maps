@@ -3,6 +3,7 @@
 // follows the soil when the soil updates.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 /** Pixels of the outline's light core in the canvas (its colour after the view's colour grade),
  *  counted in the page from a PNG screenshot. */
@@ -29,10 +30,7 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
   // a dry, contaminated tile beside clean ground of the same height, seen from above, close
   const at = await page.evaluate(() => {

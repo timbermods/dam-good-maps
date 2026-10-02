@@ -551,22 +551,24 @@ Glaciate and M Select.
 
 ## 8. The generator, Claude and the first run
 
+<!-- retired-terms:allow -->
 **The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md)** (D330): one workspace with no expand button,
 full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map
 card, Your maps) and the rows over the map hold the land; Generate runs only on its button. **Edits never replay
 onto new land** (D336): every Generate makes a new map, at any size or setting; an edited map stays saved and one
 step away. Decided with it and not yet built: 3D is the default view (D232), and Your maps keeps every edited map in
 this browser (D234).
+<!-- /retired-terms:allow -->
 
 **As built today:**
 - **Generate always makes a new map** (D323, item 20): every press rolls a fresh seed, shown in the box; typing a
   seed pins it (a small lock beside the box) and Generate then makes that map again until the player unlocks it or
-  clears the box; opening a share link pins its seed. Refine and the downloads wait while a map is being made, so
-  they never take a newer map than the card shows.
-- **"Refine this map"** opens the editor. When the shown map has edits, the note under the button says "Generate
-  makes a new map. Yours stays saved, with its edits."; the new map is made beside it, the edited map stays open
-  and autosaved, and the banner's **Back to editing** returns to it. Refining the new map asks first, as opening
-  any other map does.
+  clears the box; opening a share link pins its seed. Generate waits while a map is being made, and the box, the card, the
+  address and the editor always show the map made.
+- **The map is the editor's from the start** (D330): the page opens every generated map in the editor at once. When
+  the open map has edits, Generate asks first ("Close it"; save its project file to keep it), as opening any other
+  map does; until Your maps (D234) keeps edited maps, the edited map is closed with it. The autosaved map reopens by
+  itself on the next visit.
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players won't use it,
   so it never takes permanent space. Claude steers the generator for character and uses the tools only for precise
   edits (D139, D187). The design is deferred (Part 2).

@@ -4,6 +4,7 @@
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -20,10 +21,7 @@ async function stopIfRunning(page: Page) {
 test("Unleash: a selected source carves its own course, kept as one step when it ends; Ctrl+Z takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("faster");
 

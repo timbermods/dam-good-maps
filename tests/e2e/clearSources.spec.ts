@@ -3,6 +3,7 @@
 // water drains away (D260).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -42,10 +43,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=35&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (the water at its normal pace: the stroke's own water flows while it is painted, D197)
 

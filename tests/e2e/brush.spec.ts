@@ -6,6 +6,7 @@
 // D322); the stroke is still there after a reload (the autosave).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -35,10 +36,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const W = (await info(page)).W;
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
@@ -144,10 +142,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   // the 3D view, turned and tilted
   await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0.7, pitch: 0.8 }));
   const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));

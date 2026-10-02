@@ -13,6 +13,7 @@
 // runners are slower and share their cores. `npm run bench:preview` measures the same in Node.
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 import { recordTiming } from "../../tools/timings";
 
 const BUDGET = process.env.CI ? 6000 : 2000;
@@ -22,10 +23,7 @@ for (const theme of ["islands", "lakeBasin"]) {
     // (only a hang fails on time: M9a's 256² maps take a minute or more to make in the page, D115)
     test.setTimeout(600_000);
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto(`./#s=1&z=256&d=n&t=${theme}`);
-    await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 300_000 });
-    await page.getByRole("button", { name: "Refine this map" }).click();
-    await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+    await openEditor(page, `s=1&z=256&d=n&t=${theme}`);
     // let the first background check finish, so the edit is timed on its own
     await expect(page.getByRole("button", { name: /^Checks: (Ready to play|\d+ things? to look at)/ })).toBeVisible({ timeout: 120_000 });
 
