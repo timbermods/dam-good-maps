@@ -25,7 +25,7 @@ const WORKTREES = [
   ["m9b", "feature/m9b"],
   ["high", "feature/high-look"],
   ["parity", "feature/parity"],
-  ["page", "feature/page-editor-1"],
+  ["page", "feature/page"],
   ["weather", "feature/weather-days"],
   ["3d", "feature/terrain3d-a"],
 ];

@@ -28,11 +28,11 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | Work | Branch | PR | Worktree | Session | State |
 |---|---|---|---|---|---|
 | The document prune (D390) | `chore/prune-*` | none | `-prune-*` | milestone, Sonnet 5.5 sub-agents | All steps merged into `dev`; the prune branches and worktrees can be removed |
-| The page's headless core, salvaged from part 1 (D395) | `feature/page-core` | #161 | `-page-core` | milestone | CI running; merges into `dev` first, then the page session starts |
+| The page's headless core, salvaged from part 1 (D395) | `feature/page-core` | #161 | none | milestone | Merged into `dev` (66d8a779) |
 | The editor-core items (D387) | none yet | none | main clone | milestone | Next, alongside the page |
 | M9b | `feature/m9b` | #70 draft | `-m9b` | milestone (`m9b-build`) | Islands, Delta and River Valley adopted; merge `dev` in first, then the adoption order in ROADMAP ("M9b"); held for Kyler's eye (D252, D273); log: `docs/progress/m9b.md` |
-| The page, "The page is the editor" with the design pass | `feature/page` (new, from `dev`) | none yet | `-page` | page | Being prepared; Kyler starts the session |
-| The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 is closed once #161 merges; the branch is kept as a record until the new page ships |
+| The page, "The page is the editor" with the design pass | `feature/page` (from `dev` at the salvaged core) | none yet | `-page` | page | Worktree ready; Kyler starts the session |
+| The page, part 1 | `feature/page-editor-1` | #92 | none | none | Superseded (D395): #92 closed; the branch is kept as a record until the new page ships |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | milestone | D337–D339; follows M9b |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | milestone | Held for Kyler's sitting; after the page |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | milestone | New modules verified against the game; wiring waits for `dev` (D280) |
