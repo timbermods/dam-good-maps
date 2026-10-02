@@ -56,6 +56,17 @@ adopts; Kyler's verdicts are in ROADMAP, "The Codex adoptions"):
 | #107 | performance | Merged as an investigation (b4b8af66): its harness is the renderer session's gate; none of its fixes adopted |
 | none | portable-math, rust-threads | In flight with Codex, no PR yet |
 
+## What the page session needs from the milestone session (in order; Kyler is pinged as each lands on `dev`)
+
+1. **The water-changed signal** for the hover readout (D387 (1)): `feature/water-signal`, building. `describeTile` follows
+   the water (contract test #162).
+2. **The Remove unfed water and Fill engines** (D387 (2), (3), D394): `feature/editor-core`, building.
+3. **With M9b:** its candidate events, Sources: Placed · None, and the automatic water fix.
+4. **The service worker** for startup part 2 (D397), with multi-core water's adoption.
+
+The page session's first PR, Editor.tsx split into feature folders (behaviour unchanged), merges as soon as it's green,
+before other work touches Editor.tsx.
+
 ## Waiting for Kyler
 
 1. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
