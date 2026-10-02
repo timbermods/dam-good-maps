@@ -9,9 +9,9 @@
 // every edit the instant checks come back with it; the problems it made are shown at once with
 // their fixes.
 
-import { proxy, transfer, wrap, type Remote } from "comlink";
+import { proxy, transfer, type Remote } from "comlink";
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../core/doc/ops";
 import { cornerFor } from "../core/doc/tools";
 import { footprintTiles, startEntranceTile, type Orientation } from "../core/format/footprints";
@@ -49,8 +49,6 @@ import { forceCeiling } from "../core/forces/force";
 import type { Verb } from "../core/forces/op";
 import { FaultBrush, type Point as QuakePoint } from "../core/forces/quake";
 import type { ForceCue } from "../core/forces/runs";
-import type { StartCheckApi } from "./startCheck.worker";
-import { startSpots } from "./startHint";
 import { FirstRun, saveFirstRun, type FirstStep } from "./FirstRun";
 import { LayerWidget } from "./LayerWidget";
 import { Minimap } from "./Minimap";
@@ -76,6 +74,7 @@ import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
 import { useSourcePointer } from "./sources/useSourcePointer";
 import { useMarkers } from "./sources/useMarkers";
+import { useStartHint } from "./start/useStartHint";
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
@@ -140,7 +139,6 @@ function DropTarget({ onFile }: { onFile(file: File): void }) {
 }
 
 export interface RestSlice {
-  setStartHint: Dispatch<StateUpdater<{ x: number; y: number; z: number; strong: boolean } | null>>;
   fitWant: { current: string | null };
   ghostAt: { current: { template: string; x: number; y: number; z: number; orientation: number } | null };
   coverAt: () => Map<number, number[]>;
@@ -160,6 +158,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useView(ed));
   Object.assign(ed, useSourcePointer(ed));
   Object.assign(ed, useMarkers(ed));
+  Object.assign(ed, useStartHint(ed));
 
   const {
     api, info, setInfo, view, mirror, renderer, ready, setReady, tool, setTool, anchorRef, flipRef, repaintRef,
@@ -170,106 +169,17 @@ export default function Editor(props: EditorProps) {
     selectingRef, selection, setSelectionTick, selectionTick, setSelectDraw, setSelectPreview, deleteMenu,
     setDeleteMenu, setDeleteCounts, deleteCounts, setHoverObject, player, mounted, sound, juice, setSound, feel,
     weather, weatherRef, setWeather, journey, instant, firstRun, setFirstRun, firstDone, firstDoneRef, minimap,
-    setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen, viewTick,
-    setViewTick, setFit, fit, setPicked, picked, pickedObject, setPickedObject, pickedObjectRef, pickedRef,
+    setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving, noticesOpen, setNoticesOpen, setViewTick,
+    viewTick, setFit, fit, setPicked, picked, pickedObject, setPickedObject, pickedObjectRef, pickedRef,
     setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef, optionsRef, needs, enqueue,
     run, toggleWeather, applyUpdate, applyView, brushTool, brush, brushRef, brushToolRef, setBrush, terrain,
     pendingTerrain, strokeMismatches, localUndo, localRedo, painter, sendTerrain, undo, redo, pickTop, putDown,
     pickBrush, pickShelf, applyFix, spots, targetAt, targetSpot, setTargeted, ctx, startHereRef, startHere,
     pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles,
     grabObject, strengthOfEntity, liveStrength, entityIndexOf, wheelSource, groupsRef, hoverSources, sourcesChanged,
-    pointedWords, markerRef, sourceMarkers
+    pointedWords, markerRef, sourceMarkers, setStartHint, hintRef, startHintRef, hintJob, startWorkerApi, hintMs,
+    lookForStartRef, startHintTag
   } = ed;
-
-  // "the start fits here" (D204): after a Flatten stroke, a spot on its level ground for the district
-  // center, looked for once the stroke is on the map and the page is idle; a click moves the start
-  // there (one step)
-  const [startHint, setStartHint] = useState<{ x: number; y: number; z: number; strong: boolean } | null>(null);
-  const hintRef = useRef(false);
-  hintRef.current = startHint !== null;
-  const startHintRef = useRef(startHint);
-  startHintRef.current = startHint;
-  const hintJob = useRef(0);
-  const hintTimer = useRef(0);
-  function lookForStart(p: BrushParams) {
-    const job = hintJob.current;
-    const idle = (fn: () => void) => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(fn, { timeout: 1500 }) : window.setTimeout(fn, 100));
-    idle(() => {
-      if (job !== hintJob.current || !mounted.current) return;
-      // (never while painting: it waits for the stroke to end)
-      if (painter.current?.painting) return;
-      lookForStartRef.current(p, job, true);
-    });
-  }
-  /** The start's full check, off the page (made at the first hint). */
-  const startChecker = useRef<Remote<StartCheckApi> | null>(null);
-  const startWorker = useRef<Worker | null>(null);
-  useEffect(() => () => startWorker.current?.terminate(), []);
-  function startWorkerApi(): Remote<StartCheckApi> {
-    if (!startChecker.current) {
-      startWorker.current = new Worker(new URL("./startCheck.worker.ts", import.meta.url), { type: "module" });
-      startChecker.current = wrap<StartCheckApi>(startWorker.current);
-    }
-    return startChecker.current;
-  }
-  function findStart(p: BrushParams, job: number) {
-    const s = startHere;
-    const m = mirror.current;
-    if (!s || !m.water) return;
-    const t0 = performance.now();
-    const W = info.W;
-    // the quick part here: a spot on the stroke's level ground where the district center stands
-    const spots = startSpots(p, m.heights, m.water.depth, W, info.H, s.orientation, s);
-    const c = ctx();
-    for (const sp of spots) {
-      const [cx, cy] = cornerFor(sp.x, sp.y, s.orientation);
-      const door = startEntranceTile(cx, cy, s.orientation);
-      if (startProblemAt(c, sp.x, sp.y, door, null, s.owner)) continue;
-      hintMs.current = Math.round(performance.now() - t0);
-      const z = m.heights[sp.y * W + sp.x];
-      setStartHint({ x: sp.x, y: sp.y, z, strong: false });
-      clearTimeout(hintTimer.current);
-      hintTimer.current = window.setTimeout(() => setStartHint(null), 9000);
-      // the start's requirements there (a walk over the whole map), in the background
-      const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
-      const bench = f && f.kind === "start" ? { level: z, radius: f.params.benchRadius } : null;
-      void startWorkerApi()
-        .check({ W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: sp.x, y: sp.y, door, bench, self: s.owner, needs })
-        .then((check) => {
-          if (job !== hintJob.current || !mounted.current) return;
-          hintMs.current = Math.round(performance.now() - t0);
-          if (check.problem) return setStartHint(null);
-          if (check.meets) setStartHint((h) => (h && h.x === sp.x && h.y === sp.y ? { ...h, strong: true } : h));
-        })
-        .catch(() => undefined);
-      return;
-    }
-    hintMs.current = Math.round(performance.now() - t0);
-  }
-  const hintMs = useRef(0);
-  const lookForStartRef = useRef<(p: BrushParams, job?: number, now?: boolean) => void>(() => undefined);
-  lookForStartRef.current = (p, job, now) => (now ? findStart(p, job ?? hintJob.current) : lookForStart(p));
-  function startHintTag() {
-    const r = renderer.current;
-    const h = startHint;
-    if (!r || !h) return null;
-    void viewTick;
-    const at = r.project(h.x + 0.5, h.z + 0.3, -(h.y + 0.5));
-    if (!at.visible) return null;
-    return (
-      <button
-        type="button"
-        class={`map-note map-tag start-hint${h.strong ? " strong" : ""}`}
-        style={{ left: `${at.x}px`, top: `${at.y}px` }}
-        onClick={() => {
-          setStartHint(null);
-          void run(() => api.moveStartTo(h.x, h.y));
-        }}
-      >
-        {h.strong ? "Move the start here: water, wood and berries in reach" : "Move the start here"}
-      </button>
-    );
-  }
 
   /** The sources in the objects picked on a tile (a click on a source). */
   function pickedSources(): EntityInfo[] {
@@ -2991,7 +2901,7 @@ export default function Editor(props: EditorProps) {
   const flags = info.importReport?.flags ?? [];
   const importChanges = info.importReport?.changes.length ?? 0;
 
-  Object.assign(ed, { setStartHint, fitWant, ghostAt, coverAt, deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef });
+  Object.assign(ed, { fitWant, ghostAt, coverAt, deferred, forcer, pickTile, reglow, closeSelect, checkDepthRef, toolRef });
   return (
     <ForceFloor.Provider value={floorContext}>
     <div class="editor" aria-busy={busy > 0}>
