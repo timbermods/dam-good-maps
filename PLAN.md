@@ -696,7 +696,9 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    tile of the path starts at `min(1, 0.3·Q/w)` (Q the flow through it, w the shorter of the row and column runs of
    such tiles through it). The contamination starts at the badwater share of Q. A carve's sealed oxbow lake (D216), a
    basin no source feeds, starts with the water the carve stored for it (what the game settled there just before its
-   mouths closed), so it holds water and then evaporates as an unfed lake does in the game.
+   mouths closed), so it holds water and then evaporates as an unfed lake does in the game. A Fill (D394) is stored
+   and starts the same way, full to its level. Tiles whose unfed water the player removed (D387 (2)) are drained
+   after step 2: their water no source feeds is taken, and the settle runs on, at most one more day.
 2. **Settle.** The exact simulation, checked every 128 ticks, until the total volume changes by under 0.2% and at
    least 99.5% of tiles move by at most 0.005 (the §11.3 rule, counted exactly, with sums in index order so the Python
    oracle stops on the same tick); at most 6 game days (D358). With stacked columns (D120) the checks count columns
