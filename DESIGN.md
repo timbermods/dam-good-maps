@@ -235,6 +235,42 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 - The panel collapses: it narrows to its strip over 200 ms and the rows slide beside it; the camera stays where it is.
 - The shelf, if it opens only while placing: it unrolls downward over 180 ms.
 
+## The system (v5, proposed with the v4 mockups 22–26): one set of tokens for every plate
+
+*Awaiting Kyler's yes. Once accepted it replaces the Tokens table above.*
+
+**Measurements.** One plate radius (10px), one cell radius (6px), one plate padding (4px), one cell height (32px),
+one cell gap (4px), one icon size (16px) with one gap to its label (6px), 12px from the window's edge and between
+plates. The right column is 196px; every row in it is one full-width cell or two equal halves. The panel's column is
+316px. Every plate and cell takes these from the tokens, so nothing drifts by a pixel.
+
+**The cell.** One style for every control in every plate: a faint fill at rest (`cream` at 6%), stronger on hover
+(14%), *selected* when on. A label is centred; arrows and chevrons sit at the cell's edges; an icon is one size,
+before the label, with the fixed gap. A field is a well (`#1a1410`) with the same height and radius. A segmented
+choice is cells in a well, the chosen one *selected*. A tab is underlined, never segmented.
+
+**Colour roles, strictly.**
+
+| Role | Colour | Used for |
+|---|---|---|
+| lit | `#fff3d6` to `#e6d0a0`, with its glow, dark ink | Save to Timberborn, and nothing else |
+| action | `#b9966a` to `#9e7d52`, dark ink | Generate, and nothing else |
+| selected | `#d4c4a3`, dark ink, bold | an on-state: Normal, Keep river, Markers, the tool in hand, the shelf object held |
+| quiet | the cell's faint fill, `cream-2` words | everything else |
+| words | `cream` `#f3e6cc`, `cream-2` `#cdbfa6`, `quiet` `#ab9e89` | primary, secondary, labels and notes |
+| the checks | `ok` `#7fc46b`, `warn` `#f0a63a` | the dot, always with its words |
+
+**Type scale.** Three sizes, two weights: 12px (labels, the view layers, notes), 13px (every control and line of
+text), 15px (Save, Generate, the map's name in Bitter 700). Weights 400 and 600 (700 for the name only).
+
+**Icons.** One family: 16px, 1.7px stroke, round caps, optically centred, for the tools, the view plate, Undo,
+Redo, Sound and More. The forces' icons sit on a *selected* disc, dark when the force is held.
+
+**The right column**, top to bottom: the map plate (Save lit, full width; Undo | Redo; More; "● Ready to play"),
+the view plate ("∨ Level: All ∧"; Top-down | Reset view; North | Look: High; Slow forces | Sound: On), and Place
+objects, with the shelf under it ending on a whole item and a chevron saying there is more. The bottom right holds
+only the water plate. Generate and Surprise me are two cells of one height, Generate in *action*.
+
 ## The direction not taken: Field notes
 
 Kept as a record ([docs/design/direction-b-fieldnotes.jpg](docs/design/direction-b-fieldnotes.jpg)).
