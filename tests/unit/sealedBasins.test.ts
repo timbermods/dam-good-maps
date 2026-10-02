@@ -1,9 +1,11 @@
-// Sealed basins' evaporation is not the water changing (PLAN §20 D222, #72 changed): a sealed
-// oxbow lake that is only evaporating has settled, so the editor's quiet dot and `water.settles`
-// say so; water still flowing (a filling basin, a lake drained by its river, a river still
-// advancing) is still changing. The judgement never changes the water: the canonical settle stops
-// on the tick its own test gives, so its water (and every file) is what it always was. The Python
-// oracle (prototype/watersim.py) makes the same judgement on the same ticks.
+// Sealed basins' evaporation is not the water changing (PLAN §20 D222, #72 changed; D413): a sealed
+// oxbow lake or a Fill that is only evaporating has settled, so the editor's quiet dot and
+// `water.settles` say so, and the canonical settle stops there and stores the basin as it started
+// (a Fill at its level, an oxbow lake with the water its carve kept); the game evaporates it from
+// the file. Water still flowing (a filling basin, a lake drained by its river, a river still
+// advancing) is still changing, and the water that flows settles on the same check, to the same
+// bytes, as on the map without the basin. The Python oracle (prototype/watersim.py) makes the same
+// judgement on the same ticks and stores the same water.
 
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
@@ -56,8 +58,7 @@ describe("the judgement: only real flow is the water still changing", () => {
   // the settled water with the lake 2 deep, and the lake a check's evaporation lower
   const m = mapWith(2);
   const before = canonicalSettle(m).depth.slice();
-  const vol = (d: Float64Array) => d.reduce((a, b) => a + b, 0);
-  const judge = (model: WaterModel, now: Float64Array, prev = before) => steadyApartFromSealed(new WaterSim(model, { depth: now, contamination: new Float64Array(W * H) }), prev, vol(now), sealed, TOL, SHARE);
+  const judge = (model: WaterModel, now: Float64Array, prev = before) => steadyApartFromSealed(new WaterSim(model, { depth: now, contamination: new Float64Array(W * H) }), prev, sealed, TOL, SHARE);
   const dried = () => {
     const d = before.slice();
     for (const i of basin) d[i] -= 0.009;
@@ -114,27 +115,36 @@ describe("the judgement: only real flow is the water still changing", () => {
   });
 });
 
-describe("the canonical settle: steady apart from a drying lake, and its water unchanged", () => {
-  it("an evaporating sealed lake: the water has settled (`water.settles`), on the same ticks and bytes as ever", () => {
+describe("the canonical settle: it stops once only a drying lake changes, and stores the lake as kept (D413)", () => {
+  it("an evaporating sealed lake: the settle stops with the flow, on the check and bytes of the map without it", () => {
     const m = mapWith(2);
     const c = canonicalSettle(m);
     // its own test never passes (the lake's 60 tiles drop by about 0.009 a check) …
-    expect(c.settled).toBe(false);
-    expect(c.ticks).toBe(4 * TICKS_PER_DAY);
-    // … but the flow settled early, and that is what counts
-    expect(c.steadyTicks).toBeDefined();
-    expect(c.steadyTicks!).toBeLessThanOrEqual(TICKS_PER_DAY);
-    expect(waterSteady(c)).toBe(true);
-    // the same run without the judgement: the same ticks and exactly the same water
     const sim = new WaterSim(m, prefill(m));
-    const plain = settle(sim);
-    expect(plain).toEqual({ settled: false, ticks: c.ticks });
-    expect(Array.from(sim.D)).toEqual(Array.from(c.depth));
-    expect(Array.from(sim.C)).toEqual(Array.from(c.contamination));
-    // and the lake is still there, lower: nothing refilled it
+    expect(settle(sim, { maxDays: 1 }).settled).toBe(false);
+    // … but the flow settled early, and that is what counts: the settle stops there
+    expect(c.settled).toBe(false);
+    expect(c.steadyTicks).toBeDefined();
+    expect(c.ticks).toBe(c.steadyTicks);
+    expect(c.ticks).toBeLessThanOrEqual(TICKS_PER_DAY);
+    expect(waterSteady(c)).toBe(true);
+    // the river's water is exactly the water of the map without the lake, settled on the same check
+    const bare = canonicalSettle({ ...m, retained: undefined });
+    expect(bare.settled).toBe(true);
+    expect(bare.ticks).toBe(c.ticks);
+    const inBasin = new Set(basin);
+    for (let i = 0; i < W * H; i++) {
+      if (inBasin.has(i)) continue;
+      expect(c.depth[i]).toBe(bare.depth[i]);
+      expect(c.contamination[i]).toBe(bare.contamination[i]);
+      expect(c.sat[i]).toBe(bare.sat[i]);
+    }
+    // and the lake is stored as it was kept, 2 deep: the game evaporates it from there
     for (const i of basin) {
-      expect(c.depth[i]).toBeLessThan(2);
-      expect(c.depth[i]).toBeGreaterThan(1.5);
+      expect(c.depth[i]).toBe(2);
+      expect(c.contamination[i]).toBe(0);
+      expect(c.sat[i]).toBeGreaterThan(0);
+      for (let k = 0; k < 4; k++) expect(c.out![4 * i + k]).toBe(0);
     }
   });
 

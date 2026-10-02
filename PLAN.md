@@ -703,10 +703,11 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    least 99.5% of tiles move by at most 0.005 (the §11.3 rule, counted exactly, with sums in index order so the Python
    oracle stops on the same tick); at most 6 game days (D358). With stacked columns (D120) the checks count columns
    (air gaps): at most 0.5% of the map's tiles' worth may still move. Only real flow is the water still changing
-   (D222): at each check the water of a sealed basin that only lost water (the oxbow lake above, while no running
-   source and no map edge is in it) is left out of the test, and the first check that passes then marks the water as
-   settled (`steadyTicks`, `waterSteady`); the settle still runs on to its own test, so the water it gives, and every
-   file, is the same as without the rule.
+   (D222, D413): at each check the tiles of a sealed basin that only lost water (the oxbow lake or Fill above, while
+   no running source and no map edge is in it) are left out of the test, the rest's volume measured against the
+   rest, and the settle stops at the first check that passes (`steadyTicks`, `waterSteady`), the check where the
+   map without the basin would stop. Every sealed basin at that check is stored as the pre-fill started it: a Fill
+   at exactly its level, an oxbow lake with the water its carve kept; the game evaporates them from there.
 3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7 significant digits, depths
    under 1e-6 dry), outflows 0, soil moisture and contamination at steady state, and the evaporation modifiers of the
    settled water.
@@ -810,7 +811,7 @@ contamination under 0.05.
 
 | Id | Rule |
 |---|---|
-| `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222): a sealed basin that is only evaporating (a carve's oxbow lake: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures. Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
+| `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222, D413): a sealed basin that is only evaporating (a carve's oxbow lake or a Fill: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, the volume change measured against the rest; the canonical settle stops there (§10). Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
 | `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
