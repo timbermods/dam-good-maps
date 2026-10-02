@@ -97,3 +97,45 @@ checkpoint.
   accordion in a fixed area that scrolls inside itself; the view bar's two actions are buttons and an on toggle
   is a well with a bar; pictures are 28px; Generate is the panel's main button; the default view fits the whole
   map in the free space, open and collapsed. One limit noted in DESIGN.md: Under roofs at 1366 wide.
+- **2026-10-02, checkpoint 1 on /preview/** (https://timbermods.github.io/dam-good-maps/preview/). Built: the one
+  workspace (`src/page/`), the panel with every setting and its sheets, the rows' plate, the Save plate, the cluster,
+  the shelf on the right, in Lamplight (`src/styles/lamplight.css`). Kyler's six changes are in. Two edits in
+  `src/render3d/renderer.ts`, with Kyler's yes: `frameMap()` fits the map in the space the page's panels leave
+  (`--frame-left` and the rest), and `thumbnail()` fills its picture with the object (Slope from below its ramp).
+  Bitter 700 comes from `@fontsource/bitter`, its licence in `public/licences/`.
+  - Ruling 6 checked on the official Canyon map (Hollows has no water under roofs): the ninth toggle shows from the
+    moment the map opens, the view bar takes a second line, and no other plate moves. The rows' plate is 622px at
+    every window width, and at 1366 wide it ends exactly 12px short of the Save plate.
+  - Measured on the production build (this machine, tests running beside it, so not quiet): Generate 3.0–4.0 s at
+    128² and 26–43 s at 256²; opening it in the editor 0.1 s and 0.4–0.6 s; the first frame 0.65 s and 1.7 s. The
+    old page and the brush benchmark are measured the same way, in a quiet window, before the PR merges (D380).
+  - Still open: the browser tests' move to the new page (a Sonnet agent, its own worktree); EDITOR_PLAN's screen
+    section; the old page's unused files.
+
+## Checkpoint 1: the sitting's checklist
+
+On https://timbermods.github.io/dam-good-maps/preview/ (a first visit generates a map; that takes a few seconds).
+
+1. **One window.** The map fills the window and is editable at once. There is no Refine button, no second screen.
+2. **The rows.** One plate: the view bar, the tools, the forces, and a fourth line. Tools, forces and the fourth line
+   are centred; the view bar starts at the left. Pick Carve, then Raise, then Mine site on the shelf: the plate keeps
+   its width and its place; a long settings row takes a second line.
+3. **Names and keys.** Every tool, force, view item and shelf object shows its name. Keys appear only in tooltips.
+4. **Top right.** Save to Timberborn is the only lit thing. Under it: the level control and the compass; Slow forces
+   exactly under the level control; Sound under the compass; the shelf under them, on the same two edges.
+5. **The shelf's pictures.** Each fills its tile and can be recognised; Slope shows its ramp.
+6. **The panel.** Theme, Size, Seed, Designed for; six sections. Open Water: it comes up as a sheet over the lower
+   part, nothing above it moves, its head goes back. Change a setting: Generate gets its dot. Generate reads as a
+   button to press.
+7. **Generate.** Press it: the button says what it is doing, then the new map replaces the old one in the same
+   window. With edits on the map it asks first (until Your maps exists, checkpoint 3).
+8. **The default view.** A new map, and Reset view, fit the whole map in the free space, with the panel open and
+   collapsed. Collapsing the panel leaves the camera alone.
+9. **The panel collapsed.** A thin strip with the map's name; the rows move beside it; Save stays where it is.
+10. **At 1366×768.** The rows end exactly 12px short of the Save plate; the shelf ends above the look's plate.
+11. **A map with water under roofs** (open the official Canyon with ⋯ → Open…): Under roofs is in the view bar from
+    the start, the bar is two lines, nothing else moves.
+
+Not in this checkpoint, so not to judge yet: the versions strip, the legend and trees line (2), Your maps and the
+question before replacing an edited map (3), Real places in the panel (4), the readout's live refresh and the first
+run's hints' final form (5), the first visit's ready-made map (6), phones (7).
