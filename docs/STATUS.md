@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D420), STATUS and HANDOFF.
+  free: D422), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft: its `DESIGN.md` and two directions so far. Its Editor.tsx split
   (#169) is merged into `dev` (dde77fb2). It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -93,8 +93,9 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: water from nowhere (D385),
-and Islands (D417). The settle fix (D413) is on dev (#175).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: water from nowhere (D385, #177),
+Islands (D417), and Real places in the gallery (D421: hide the 33 places whose start reaches no fed water; fix
+`tools/real-places.ts` and re-render the cards). The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 
