@@ -85,8 +85,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 2. **M9b's Islands and Delta redesign sheets** (D407): 30 seeds of each at 128² beside M9a's, when ready; his verdict on
    the review set blocks M9b's release on these two themes. Both defaults are accepted (D405, D406).
 3. **Your yes on #165**, after your look at moving water and its gate passing (D415).
-4. **The quiet window** (about 2 hours): after you accept the Islands and Delta sheets, or at the time you name tonight,
-   whichever comes first (D414).
+4. **The quiet window** (about 2 hours): after you accept the Islands and Delta sheets, or at 2:00 on Saturday 2026-10-03
+   (Pacific), whichever comes first (D414); this session pauses all heavy work for it.
 5. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
 6. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
 7. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
