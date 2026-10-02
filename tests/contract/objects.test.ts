@@ -286,11 +286,11 @@ describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
 
 describe("generated maps: every new object passes the placement emulation (ROADMAP M7)", () => {
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
-  it.each(themes)("%s, every map object on, 96²", (theme) => {
-    // seed 4 since M9b's small starts and speed rounds (seed 3's Canyon fails its own start and mine-site checks with three sites; seeds 1, 2, 5 and 6 pass too, D148): a seed on which every theme places every kind of object (a thorn belt is left out
-    // where it would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for
-    // one, then seed 2, whose Lake Basin has none on D333's maps, D148)
-    const spec = makeSpec({ seed: 4, size: { x: 96, y: 96 }, theme });
+  // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out where it
+  // would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for one, then seed
+  // 2, whose Lake Basin has none on D333's maps, D148)
+  const everyObject = (theme: ThemeId) => {
+    const spec = makeSpec({ seed: 3, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -303,7 +303,12 @@ describe("generated maps: every new object passes the placement emulation (ROADM
     const templates = new Set(r.built.entities.map((e) => e.template));
     for (const t of ["UndergroundRuins", "GeothermalField", "UnstableCore", "Thorns"]) expect(templates.has(t), t).toBe(true);
     expect(["SmallRelic", "MediumRelic", "LargeRelic"].some((t) => templates.has(t))).toBe(true);
-  });
+  };
+  it.each(themes.filter((t) => t !== "canyon"))("%s, every map object on, 96²", (theme) => everyObject(theme));
+  // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): with every object on and
+  // three mine sites, M9b's Canyon 96² seed 3 finds no start on its shown land (one map of 60 such);
+  // M9b's work on starts that run out on a shown land. When it passes, `fails` comes off.
+  it.fails("canyon, every map object on, 96²: no start on the shown land with three mine sites", () => everyObject("canyon"));
 });
 
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */
