@@ -1,6 +1,6 @@
 # land
 
-The generator's land processes (`docs/m9-design.md`): a genome drawn from the theme's prior, then uplift, caprock, erosion and weathering on a height field, snapped to the game's levels, with rivers, lakes, falls and badwater found in its drainage.
+The generator's land processes (`docs/archive/m9-design.md`): a genome drawn from the theme's prior, then uplift, caprock, erosion and weathering on a height field, snapped to the game's levels, with rivers, lakes, falls and badwater found in its drainage.
 
 **Rules**
 - Exact arithmetic only (`num.ts`, PLAN §2.1, D15): + − × ÷, `Math.sqrt`, floor, round, abs, min, max. Angles come from `math/detmath.ts`. Heaps break ties by tile index.

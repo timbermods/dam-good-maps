@@ -19,4 +19,4 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
 - `layout.ts` (settings to targets); `calibrated.ts` (official-map targets, mirrors `prototype/calibrated.py`); `pack.ts` `toTimberFile` (the one path to file bytes).
 - `riverValley.ts` and `valley.ts` are remnants kept for `PlanConflict` and `startWalkable`.
 
-**Tests**: `tests/contract/` (calibrated, parity, regenerate, share, resources, badwater, outflows, start) and `tests/e2e/determinism.spec.ts`. Batches: `tools/batch.ts`, `tools/batches.ts`. Run `npx vitest run tests/contract/calibrated.test.ts`.
+**Tests**: `tests/contract/` (calibrated, parity, share, resources, badwater, outflows, start) and `tests/e2e/determinism.spec.ts`. Batches: `tools/batch.ts`, `tools/batches.ts`. Run `npx vitest run tests/contract/calibrated.test.ts`.

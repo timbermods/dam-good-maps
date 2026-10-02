@@ -202,15 +202,51 @@ export function singleParams(kind: MapObjectKind, x: number, y: number, o: Orien
 // --------------------------------------------------------------------------------- Remove
 
 /** What the editor's Remove takes (its filters, PLAN §20 D184). */
-export type RemoveKind = "trees" | "bushes" | "ruins" | "sources" | "slopes" | "objects";
+/** Whether the plain pointer picks and drags an object of this template (D360 a): every object on the map,
+ *  trees, bushes and ruin columns included. Not the sources and the start, which have their own grab
+ *  (D249, D184), and not a slope, which the ground derives. */
+export function isPickable(template: string): boolean {
+  return template !== "WaterSource" && template !== "BadwaterSource" && template !== "StartingLocation" && template !== "Slope" && !!FOOTPRINTS[template];
+}
 
-/** The kind of object a template is, for Remove's filters; null for the start, which stays. */
+const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Dandelion|Cattail|Spadderdock)$/;
+
+/** Which of several objects under the pointer is the one picked (D360 a): the bigger object (more tiles)
+ *  wins over a smaller one, and of equal size what is not a plant wins over a tree or a bush; of a tie the
+ *  first. Returns its index in `templates`. */
+export function pickWinner(templates: readonly string[]): number {
+  const size = (t: string) => {
+    const b = FOOTPRINTS[t]?.blocks ?? [];
+    return new Set(b.filter((k) => k[4] !== 0).map((k) => `${k[0]},${k[1]}`)).size || 1;
+  };
+  let best = 0;
+  for (let k = 1; k < templates.length; k++) {
+    const a = size(templates[k]);
+    const b = size(templates[best]);
+    if (a > b || (a === b && PLANT.test(templates[best]) && !PLANT.test(templates[k]))) best = k;
+  }
+  return best;
+}
+
+export type RemoveKind = "trees" | "bushes" | "ruins" | "sources" | "water" | "badwater" | "slopes" | "objects" | "start";
+
+/** The kind of object a template is, for Remove's filters. The start is the player's like any object
+ *  (D323 item 44). `sources` names both kinds of source (`water`, `badwater` take one each). */
 export function removeKindOf(template: string): RemoveKind | null {
-  if (template === "StartingLocation") return null;
+  if (template === "StartingLocation") return "start";
   if (/^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent)$/.test(template)) return "trees";
   if (/Bush$|^(Dandelion|Cattail|Spadderdock)$/.test(template)) return "bushes";
   if (/^RuinColumnH/.test(template)) return "ruins";
   if (template === "WaterSource" || template === "BadwaterSource") return "sources";
   if (template === "Slope") return "slopes";
   return "objects";
+}
+
+/** Whether a filter takes an object of this template: a kind takes its own, and `sources` both kinds. */
+export function removeTakes(kinds: readonly RemoveKind[], template: string): boolean {
+  const kind = removeKindOf(template);
+  if (!kind) return false;
+  if (kinds.includes(kind)) return true;
+  if (kind === "sources") return kinds.includes(template === "BadwaterSource" ? "badwater" : "water");
+  return false;
 }

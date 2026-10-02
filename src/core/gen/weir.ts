@@ -38,7 +38,7 @@ export function planWeir(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "r
     const f = pathField(a.path, W, H);
     for (let i = 0; i < N; i++) if (f.d[i] < 8) nearArm[i] = 1;
   }
-  const rivers = hy.rivers.slice().sort((a, c) => (c.role === "river/main" ? 1 : 0) - (a.role === "river/main" ? 1 : 0) || c.params.flow - a.params.flow || (a.id < c.id ? -1 : 1));
+  const rivers = hy.rivers.slice().sort((a, c) => (c.role === "river/main" ? 1 : 0) - (a.role === "river/main" ? 1 : 0) || c.params.flow - a.params.flow || (a.id < c.id ? -1 : a.id > c.id ? 1 : 0));
   for (const r of rivers) {
     const f = pathField(r.params.path, W, H);
     const joins = tributaries(r, hy.rivers, W, H, f);

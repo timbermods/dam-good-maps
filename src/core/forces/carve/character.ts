@@ -6,6 +6,7 @@
 // Ported from investigation/carve/character.ts (PR #47), kept to its structure so a later round of
 // the prototype ports across as a diff.
 
+import * as portable from "../../math/portable";
 import type { ForceMap, Lane } from "../force";
 import type { CarveSettings } from "./run";
 
@@ -17,6 +18,10 @@ export interface Knob {
 
 /** The width a river of this Power takes when Width follows Power. */
 export const naturalWidth = (power: number) => 2.8 + power * 0.1;
+
+/** How deep a carve of this Power (and Width) cuts where it starts, in levels below the land,
+ *  when Depth follows Power (D226): its incision; its falls and rapids take it deeper downstream. */
+export const naturalDepth = (power: number, width?: number | null) => Math.round(Math.min(12, 1 + 6 * (power / 100) * portable.sqrt(naturalWidth(power) / (width ?? naturalWidth(power)))));
 
 /** Stateless integer mixer; sampling order, frame rate and wall time are irrelevant. */
 export function mixSeed(n: number): number {
@@ -44,7 +49,7 @@ export class RiverCharacter {
     this.wander = (s.wander ?? 35) / 100;
     // The same volume concentrated into a slot cuts deeper; a broad override spreads its work. Auto
     // width retains the existing power relationship.
-    this.intensity = Math.sqrt(naturalWidth(s.power) / width);
+    this.intensity = portable.sqrt(naturalWidth(s.power) / width);
     this.rock = new Uint8Array(m.W * m.H);
     if (!s.layers || width < 5) return;
     // Map-fixed resistant outcrops, not reroll-dependent random rubble. A 2+ tile core remains above
@@ -61,19 +66,19 @@ export class RiverCharacter {
         const hard = s.layers ? (m.rockLayers?.[level] ?? ((level + (geology % 4)) % 4 === 0 ? 1 : 0)) : 0;
         // Broad competent rock masses may retain a core even between hard lips.
         if ((!hard && h % 3 !== 0) || level < 3 || m.water.depth[i] > 0.1) continue;
-        if (Math.hypot(x - (origin % m.W), y - Math.floor(origin / m.W)) < this.radius * 2 + radius + 7) continue;
-        if (end !== undefined && Math.hypot(x - (end % m.W), y - Math.floor(end / m.W)) < this.radius + radius + 5) continue;
+        if (portable.hypot(x - (origin % m.W), y - Math.floor(origin / m.W)) < this.radius * 2 + radius + 7) continue;
+        if (end !== undefined && portable.hypot(x - (end % m.W), y - Math.floor(end / m.W)) < this.radius + radius + 5) continue;
         this.knobs.push({ x, y, radius });
         for (let yy = Math.ceil(y - radius); yy <= Math.floor(y + radius); yy++)
           for (let xx = Math.ceil(x - radius); xx <= Math.floor(x + radius); xx++)
-            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H && Math.hypot(xx - x, yy - y) <= radius) this.rock[yy * m.W + xx] = 1;
+            if (xx >= 0 && yy >= 0 && xx < m.W && yy < m.H && portable.hypot(xx - x, yy - y) <= radius) this.rock[yy * m.W + xx] = 1;
       }
   }
 
   width(distance: number): number {
     // Smooth reaches at two scales, plus a short constriction preceding rapids.
-    const reach = 0.99 + 0.24 * Math.sin(distance * 0.105 + this.phase) + 0.13 * Math.sin(distance * 0.037 + this.phase2);
-    const throat = 1 - 0.17 * Math.pow(Math.max(0, Math.sin(distance * 0.19 + this.phase2)), 6);
+    const reach = 0.99 + 0.24 * portable.sin(distance * 0.105 + this.phase) + 0.13 * portable.sin(distance * 0.037 + this.phase2);
+    const throat = 1 - 0.17 * portable.pow(Math.max(0, portable.sin(distance * 0.19 + this.phase2)), 6);
     return Math.max(1.05, this.radius * reach * throat);
   }
 
@@ -84,7 +89,7 @@ export class RiverCharacter {
     const wavelength = 95 * (1 - this.wander) + this.wander * (25 + this.radius * 3);
     const k = (2 * Math.PI) / wavelength;
     const phase = k * progress + this.phase;
-    return Math.atan(amplitude * k * (Math.cos(phase) + 0.12 * Math.cos(phase * 0.5 + this.phase2)));
+    return portable.atan(amplitude * k * (portable.cos(phase) + 0.12 * portable.cos(phase * 0.5 + this.phase2)));
   }
 
   /** A seeded sequence of pools, single-level rapids and occasional two-level falls. */
@@ -108,7 +113,7 @@ export class RiverCharacter {
       const along = vx * dx + vy * dy;
       const side = -vx * dy + vy * dx;
       if (Math.abs(along) > length || Math.abs(side) > width + k.radius + 2) continue;
-      const d = Math.hypot(vx, vy);
+      const d = portable.hypot(vx, vy);
       if (d < best) {
         best = d;
         selected = k;
@@ -120,7 +125,7 @@ export class RiverCharacter {
     const t = Math.max(0, 1 - Math.abs(along) / length);
     const ease = t * t * (3 - 2 * t);
     const branchWidth = Math.max(1.05, width * (1 - 0.56 * ease));
-    const spread = (selected.radius + branchWidth + 0.9) * Math.sin((t * Math.PI) / 2);
+    const spread = (selected.radius + branchWidth + 0.9) * portable.sin((t * Math.PI) / 2);
     return {
       knob: selected,
       lanes: [-1, 1].map((sign) => {

@@ -10,23 +10,23 @@
 //   than the dark living crowns.
 // - Berry bushes: dark green, dotted with blue flowers.
 // - Ruins (Kyler's rounds, D178): ruined scaffold towers, one column per tile and one storey per
-//   level of its height: a skeleton of thin rusty corner posts, a beam round every storey and
-//   diagonal braces on some faces; beige slab panels on some storeys and faces, some missing, a few
-//   tilted or broken; the top storey often only partly there. The five variants (A to E, the
+//   level of its height: a skeleton of thin orange corner posts, a beam round every storey and
+//   diagonal braces on some faces (D334's bright orange); cream sacks hanging in some storeys and
+//   faces, some askew, a few flat boards broken; the top storey often only partly there. The five variants (A to E, the
 //   file's own) differ in bracing and panels, each in two layouts that alternate up the column.
 //   Where the column stands on moist ground, ivy drapes about the lower half of its storeys, the
 //   most at its foot, thinning upward: flat leaf clusters clinging beside the posts and spreading
 //   over the faces' lower parts, bright leaves on their edges, strands with leaves hanging from
-//   the beams, the panels' middles showing through. A column is turned a quarter more than its
+//   the beams, the sacks' middles showing through. A column is turned a quarter more than its
 //   east neighbour and a half more than its north one, and no layout looks the same turned, so
 //   neighbouring columns never look alike. From afar each storey is a solid block in the
-//   scaffolding's rust, a pale panel set in where it has one, and a band of ivy low on the lower
+//   scaffolding's orange, a cream panel set in where it has one, and a band of ivy low on the lower
 //   storeys of a column on moist ground.
 // - The start: a district center of our own, a lodge with pale walls, a dark roof and a yellow
 //   banner on a pale deck, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
-//   pointing uphill (it reads from any camera angle). Water sources: a stone ring round a spring;
-//   badwater sources: a brown swirl in a dark pit. Mine sites (D178): a rusty frame round the edge
+//   pointing uphill (it reads from any camera angle). Water sources: a stone basin with water welling up;
+//   badwater sources: a dark stone basin, 3 × 3, with badwater boiling up (D324). Mine sites (D178): a rusty frame round the edge
 //   of the 5 × 5 footprint and a square pit filling the rest (the terrain leaves the footprint's
 //   tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
 //   roots, rubble, cracks, a ladder and a shaft; scaffold towers on the frame's corners, joined
@@ -138,6 +138,39 @@ function strut(m: Model, x0: number, y0: number, x1: number, y1: number, z: numb
   const dx = x1 - x0;
   const dy = y1 - y0;
   m.add(bar(r, Math.hypot(dx, dy)), color, { rz: Math.atan2(-dx, dy), x: (x0 + x1) / 2, y: (y0 + y1) / 2, z });
+}
+
+/** A sack hanging in a ruin's face (D334, the game's cream sacks; replaces a flat panel), `w` wide
+ *  and `h` tall, centred on the origin with its rim in the plane z = 0 and its front a shallow
+ *  pouch bulging `bulge` toward −Z (the outside): a few broad facets round a soft horizontal seam
+ *  (the ridge between its two lumps), its upper edge pinched in the middle where it is tied, its
+ *  corners gathered, its bottom sagging a little. `lump` (0 or 1) shifts which lump is fuller, so
+ *  neighbouring sacks differ. Twelve triangles, as the slab it replaces: 8 facets in front, a nearly
+ *  flat back of 4 seen from inside the scaffold. (Its far form stays a flat cream panel, `farBlock`.) */
+function sack(w: number, h: number, bulge: number, lump: number): BufferGeometry {
+  const s = lump ? -1 : 1;
+  const tl = [-0.46 * w, 0.5 * h, 0];
+  const t = [0.04 * s * w, 0.34 * h, -0.3 * bulge];
+  const tr = [0.46 * w, 0.5 * h, 0];
+  const br = [0.5 * w, -0.44 * h, 0];
+  const b = [-0.03 * s * w, -0.5 * h, -0.25 * bulge];
+  const bl = [-0.5 * w, -0.44 * h, 0];
+  const cl = [-0.24 * w, 0.03 * s * h, -bulge * (s > 0 ? 1 : 0.86)];
+  const cr = [0.25 * w, -0.03 * s * h, -bulge * (s > 0 ? 0.86 : 1)];
+  const front = [[tl, bl, cl], [tl, cl, t], [t, cl, cr], [t, cr, tr], [tr, cr, br], [br, cr, b], [b, cr, cl], [b, cl, bl]];
+  // (a fan from the tied middle of its upper edge, the outline's one inward corner)
+  const back = [[t, tr, br], [t, br, b], [t, b, bl], [t, bl, tl]];
+  const out: number[] = [];
+  /** A triangle wound so its face points toward −Z (front) or +Z (back). */
+  const put = ([p, q, r]: number[][], toward: number) => {
+    const n = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    out.push(...p, ...(n * toward > 0 ? q : r), ...(n * toward > 0 ? r : q));
+  };
+  for (const tri of front) put(tri, -1);
+  for (const tri of back) put(tri, 1);
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(out, 3));
+  return g;
 }
 
 /** Build parts on the north face (−Z) and turn them to face `f` (0 north, 1 east, 2 south,
@@ -286,19 +319,41 @@ const MODELS: Record<string, () => Model> = {
     arrow(0.44, 0.33, 0.04, 0.11, -0.42, 0, SLOPE.arrow);
     return m;
   },
-  WaterSource: () => new Model().add(cyl(0.38, 0.36, 0.14, 8), [0.47, 0.46, 0.44], { y: 0.07 }).add(new CylinderGeometry(0.3, 0.3, 0.16, 8), [0.32, 0.62, 0.95], { y: 0.08 }),
-  BadwaterSource: () => {
-    // a brown swirl in a dark pit, over its 3 × 3 footprint (centred on it)
-    const m = new Model().add(cyl(1.3, 1.25, 0.12, 12), [0.2, 0.15, 0.13], { y: 0.06 }).add(new CylinderGeometry(1.15, 1.15, 0.05, 12), [0.26, 0.13, 0.1], { y: 0.03 });
-    for (let k = 0; k < 4; k++) {
-      // curved arms: short tilted slabs turning toward the middle
-      for (let j = 0; j < 3; j++) {
-        const a = (k * Math.PI) / 2 + j * 0.5;
-        const r = 0.95 - j * 0.3;
-        m.add(box(0.42 - j * 0.08, 0.04, 0.12), j % 2 ? [0.5, 0.3, 0.18] : [0.44, 0.24, 0.15], { x: Math.cos(a) * r, y: 0.08 + j * 0.01, z: -Math.sin(a) * r, ry: a + Math.PI / 2 + 0.5 });
-      }
+  WaterSource: () => {
+    // a stone basin with water welling up (D324, feedback item 28; a model of our own, in the game's
+    // style): four blocks round a pool, corner stones, the water domed in the middle over a small
+    // spout, and rings spreading from it
+    const stone: Rgb = [0.5, 0.52, 0.52];
+    const dark: Rgb = [0.34, 0.36, 0.37];
+    const m = new Model().add(box(0.98, 0.1, 0.98), dark, { y: 0.05 });
+    for (const s of [-1, 1]) {
+      m.add(box(0.98, 0.18, 0.2), stone, { y: 0.19, z: s * 0.39 });
+      m.add(box(0.2, 0.18, 0.58), stone, { y: 0.19, x: s * 0.39 });
+      for (const c of [-1, 1]) m.add(box(0.27, 0.27, 0.27), [0.56, 0.58, 0.57], { x: c * 0.36, y: 0.235, z: s * 0.36, ry: 0.15 * c * s });
     }
-    return m.add(cone(0.18, 0.12, 6), [0.16, 0.08, 0.06], { y: 0.12, rx: Math.PI });
+    m.add(box(0.58, 0.04, 0.58), [0.2, 0.5, 0.58], { y: 0.16 });
+    m.add(new CylinderGeometry(0.25, 0.25, 0.012, 12), [0.78, 0.9, 0.92], { y: 0.182 });
+    m.add(new CylinderGeometry(0.2, 0.2, 0.012, 12), [0.24, 0.56, 0.64], { y: 0.19 });
+    m.add(ico(0.17), [0.34, 0.68, 0.75], { y: 0.2, sy: 0.6 });
+    return m.add(new CylinderGeometry(0.04, 0.05, 0.14, 6), [0.8, 0.92, 0.94], { y: 0.27 });
+  },
+  BadwaterSource: () => {
+    // a stone basin of badwater over its 3 × 3 footprint (centred on it; D324, feedback item 28): a
+    // dark, stained rim of blocks and boulders round a crimson pool, the badwater boiling up in a
+    // low dome with slow orange-brown bubbles, darker and heavier than the clean source beside it
+    const rim: Rgb = [0.25, 0.22, 0.2];
+    const m = new Model().add(box(2.96, 0.1, 2.96), [0.13, 0.11, 0.1], { y: 0.05 });
+    for (const s of [-1, 1]) {
+      m.add(box(2.96, 0.26, 0.42), rim, { y: 0.23, z: s * 1.27 });
+      m.add(box(0.42, 0.26, 2.12), rim, { y: 0.23, x: s * 1.27 });
+      for (const c of [-1, 1]) m.add(ico(0.38), [0.3, 0.26, 0.23], { x: c * 1.28, y: 0.3, z: s * 1.28, sy: 0.75, ry: 0.4 * c * s });
+    }
+    m.add(box(2.14, 0.05, 2.14), [0.22, 0.085, 0.07], { y: 0.155 });
+    m.add(ico(0.8), [0.31, 0.11, 0.09], { y: 0.17, sy: 0.3 });
+    const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
+    // (orange-brown, and no lighter than the mine test allows: a badwater source stays far darker than a mine's pale wood)
+    for (const [x, z, r] of bubbles) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.25, z, sy: 0.9 });
+    return m;
   },
   UndergroundRuins: () => mineSite(),
   GeothermalField: () => {
@@ -705,8 +760,8 @@ export const IVY_DENSE = 3;
 
 /** A storey of a ruin column (variant 0–4, A–E; kind 0 or 1 its layouts, 2 or 3 a top storey only
  *  partly there, in the first or second layout's form), one level high, within its tile, with
- *  `ivy` (IVY_NONE to IVY_DENSE). Close up: the rusty skeleton, its braces and beige panels, and
- *  ivy draped over it (`drape`); from afar: a solid block in rust with its panels set in, and a
+ *  `ivy` (IVY_NONE to IVY_DENSE). Close up: the orange skeleton, its braces and cream sacks, and
+ *  ivy draped over it (`drape`); from afar: a solid block in orange with its cream panels set in, and a
  *  band of ivy low on a column's lower storeys (`farBlock`). */
 function storey(variant: number, kind: number, ivy: number): Model {
   const m = new Model();
@@ -739,10 +794,15 @@ function storey(variant: number, kind: number, ivy: number): Model {
       for (const [k, p] of panels.entries()) {
         const col = shade(RUIN.panel, 0.95 + 0.07 * ((f + k + variant) % 3) * 0.5);
         const hi = Math.min(0.9, top - 0.06);
-        if (p === "full" && hi > 0.35) m.add(box(0.74, hi - 0.06, 0.03), col, { y: (hi + 0.06) / 2, z });
-        else if (p === "low") m.add(box(0.74, 0.4, 0.03), col, { y: 0.25, z });
-        else if (p === "high" && top >= 0.95) m.add(box(0.74, 0.42, 0.03), col, { y: 0.69, z });
-        else if (p === "tilt" && top >= 0.7) m.add(box(0.7, 0.62, 0.03), col, { rz: 0.17, rx: -0.08, x: 0.03, y: 0.44, z: z - 0.01 });
+        // cream sacks (D334, as the game's ruins have them): a big one resting on the storey's floor,
+        // a smaller one low or hanging high, one hanging askew; broken panels stay flat boards
+        const lump = (f + k + variant) % 2;
+        if (p === "full" && hi > 0.35) {
+          const h = Math.min(0.5, hi - 0.08);
+          m.add(sack(0.72, h, 0.075, lump), col, { y: 0.06 + h / 2, z });
+        } else if (p === "low") m.add(sack(0.7, 0.36, 0.065, lump), col, { y: 0.25, z });
+        else if (p === "high" && top >= 0.95) m.add(sack(0.66, 0.38, 0.06, lump), col, { y: 0.7, z });
+        else if (p === "tilt" && top >= 0.7) m.add(sack(0.66, 0.46, 0.07, lump), col, { rz: 0.17, rx: -0.08, x: 0.03, y: 0.44, z: z - 0.01 });
         else if (p === "broken") {
           m.add(box(0.36, Math.min(0.84, hi - 0.06), 0.03), col, { x: -0.19, y: (Math.min(0.9, hi) + 0.06) / 2, z });
           m.add(box(0.34, 0.36, 0.03), shade(col, 0.93), { rz: -0.14, x: 0.2, y: 0.25, z });
@@ -821,29 +881,29 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number): 
   }
 }
 
-/** A storey from afar: a block over its tile in the rust of its scaffolding (what makes ruins
- *  read from afar, Kyler), a pale panel set into each face that has one, a band of ivy low on the
- *  faces (all four at a column's foot, two above it, none on the highest ivy; `variant` picks the
- *  two), and a rusty top. */
+/** A storey from afar (D305, D334): a block over its tile in the near skeleton's own orange
+ *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a cream panel
+ *  where each face's sack or boards are, a band of ivy low on the faces (all four at a column's foot,
+ *  two above it, none on the highest ivy; `variant` picks the two), and the same colour on top. */
 function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0): void {
   const w = 0.86;
   for (let f = 0; f < 4; f++) {
     const panels = layout.panels.filter(([g]) => g === f).map(([, p]) => p);
     onFace(m, f, () => {
-      m.add(plane(w, height), RUIN.rust, { ry: Math.PI, y: height / 2, z: -w / 2 });
+      m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 });
       if (panels.length) {
-        // (a half or broken panel is smaller)
+        // (where the near sack or boards are: a big sack low, a small one low or high, one askew
+        // across the middle, broken boards over most of the face)
         const p = panels[0];
-        const ph = (p === "low" || p === "high" ? 0.4 : 0.66) * height;
+        const [ph, py] = p === "full" ? [0.5, 0.31] : p === "low" ? [0.4, 0.3] : p === "high" ? [0.4, 0.7] : p === "tilt" ? [0.46, 0.44] : [0.66, 0.5];
         const pw = p === "broken" ? 0.36 : 0.6;
-        const py = p === "high" ? height * 0.7 : p === "low" ? height * 0.3 : height * 0.5;
-        m.add(plane(pw, ph), RUIN.panel, { ry: Math.PI, x: p === "broken" ? 0.12 : 0, y: py, z: -w / 2 - 0.004 });
+        m.add(plane(pw, ph * height), RUIN.panel, { ry: Math.PI, x: p === "broken" ? 0.12 : 0, y: py * height, z: -w / 2 - 0.004 });
       }
       if (ivy === IVY_DENSE) m.add(plane(0.74, 0.42 * height), RUIN.leaf, { ry: Math.PI, y: 0.21 * height, z: -w / 2 - 0.008 });
       else if (ivy === IVY_MEDIUM && (f + variant) % 4 >= 2) m.add(plane(0.6, 0.3 * height), RUIN.leaf, { ry: Math.PI, y: 0.15 * height, z: -w / 2 - 0.008 });
     });
   }
-  m.add(plane(w, w), RUIN.top, { rx: -Math.PI / 2, y: height });
+  m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height });
 }
 
 /** A column's quarter turns: one more than its west neighbour and two more than its south one, so
@@ -1059,6 +1119,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       continue;
     }
     if (PLANTS.has(template)) {
+      // every tree upright on its tile, as in the game (D321, item 7: a knocked-down one is dead)
       const dead = !!(flags & DEAD);
       const s = (flags & YOUNG ? 0.5 : 0.85 + 0.3 * jitter(x, y, 1)) * (dead ? 0.95 : 1);
       const tint = dead ? 0.94 + 0.08 * jitter(x, y, 5) : 0.9 + 0.2 * jitter(x, y, 5);

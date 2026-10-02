@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { FAST_PAN, glideStep, MAX_DT, PAN_PER_SECOND, STILL, wanted, type Glide } from "../../src/render3d/cameraGlide";
+import { focusLost } from "../../src/render3d/focusLost";
 
 /** Hold `keys` for `ms`, then let go, at `frameMs` a frame: how far it went (screen heights), frames
  *  that moved while held, and how long it took to stop after letting go. */
@@ -79,5 +80,33 @@ describe("the camera keys' glide", () => {
     }
     expect(yaw).toBeGreaterThan(0);
     expect(wanted(new Set(["q"]), false).yaw).toBe(0);
+  });
+});
+
+// The window loses focus mid-edit (a screenshot tool): nothing keeps acting as if a key, Shift or the mouse
+// were still held (PLAN §20 D361, item 5).
+
+describe("the window loses focus", () => {
+  it("releases every camera key held and Shift's speed", () => {
+    const held = new Set(["w", "d", "q"]);
+    const glide: Glide = { x: 1, y: 1, yaw: 1, fast: true };
+    focusLost(held, glide, null, () => undefined);
+    expect(held.size).toBe(0);
+    expect(glide.fast).toBe(false);
+    // and with nothing held the camera comes to rest instead of going on
+    const s = glideStep(glide, wanted(held, true), MAX_DT);
+    expect(s.glide.x).toBeLessThan(1);
+  });
+
+  it("ends a drag in progress once, at the pointer's last place", () => {
+    const ended: { kind: string; id: number; x: number; y: number }[] = [];
+    focusLost(new Set(), { ...STILL }, { kind: "tool", id: 7, x: 120, y: 80 }, (d) => ended.push(d));
+    expect(ended).toEqual([{ kind: "tool", id: 7, x: 120, y: 80 }]);
+  });
+
+  it("does nothing to a drag when none is in progress", () => {
+    let calls = 0;
+    focusLost(new Set(["a"]), { ...STILL }, null, () => calls++);
+    expect(calls).toBe(0);
   });
 });

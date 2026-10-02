@@ -6,6 +6,7 @@
 // (resources/baseline.ts, Kyler's "Resources like the official maps"): the near-start groves and
 // patches come first, for the start requirements, and the baseline fills the rest of its budget.
 
+import * as portable from "../math/portable";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
 import { reachAt, walkDistance } from "../analysis/walk";
@@ -474,7 +475,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
             }
           return n >= 8 ? s : 0;
         });
-        const weights = LIVING_KINDS.map((k, j) => (room[j] > 0 ? Math.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
+        const weights = LIVING_KINDS.map((k, j) => (room[j] > 0 ? portable.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
         if (!weights.some((w) => w > 0)) break;
         const kind = LIVING_KINDS[lay.rng.weighted(weights)];
         used.add(kind);
@@ -640,7 +641,7 @@ function startLayout(rng: Rng, start: { x: number; y: number }, walk: Float64Arr
       const y = (i - x) / W;
       const dx = x - start.x;
       const dy = y - start.y;
-      const r = Math.sqrt(dx * dx + dy * dy);
+      const r = portable.sqrt(dx * dx + dy * dy);
       const c = r > 0 ? (dx * bx + dy * by) / r : 0;
       const d = walk[i] - reach;
       const yard = r < YARD ? (r * r * r * r) / (YARD * YARD * YARD * YARD) : 1;
@@ -810,7 +811,7 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
         for (let i = 0; i < N; i++) if (kindOf[i] === at(k) && free[i] && (!zone || zone[i])) n++;
         return n;
       });
-      const weights = KINDS.map((k, j) => (room[j] >= 8 ? Math.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
+      const weights = KINDS.map((k, j) => (room[j] >= 8 ? portable.sqrt(room[j]) * FLOOR_KINDS[k].like * (used.has(k) ? 0.5 : 1) : 0));
       if (!weights.some((w) => w > 0)) break;
       const kind = KINDS[rng.weighted(weights)];
       used.add(kind);

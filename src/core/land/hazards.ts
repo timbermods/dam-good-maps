@@ -13,6 +13,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
+import * as portable from "../math/portable";
 import { featureId } from "../features/ids";
 import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";

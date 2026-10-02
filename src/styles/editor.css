@@ -121,8 +121,16 @@ button[aria-pressed="true"] {
   position: absolute;
   top: 10px;
   left: 10px;
+  /* clear of the compass: the bar wraps to a second row before it reaches it */
+  right: 64px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  pointer-events: none;
+}
+
+.view3d-controls > * {
+  pointer-events: auto;
 }
 
 .view3d-controls button,
@@ -250,8 +258,11 @@ button[aria-pressed="true"] {
   overflow-y: auto;
 }
 
+/* the map column: the view's area, with the notices as a strip under it when there are any */
 .editor-map {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   /* the legend's width beside the map: the panels on the map's right keep clear of it */
@@ -264,6 +275,12 @@ button[aria-pressed="true"] {
 
 .editor-map:has(.view3d-frame.legend-open) {
   --legend-space: 214px;
+}
+
+.editor-map-area {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .editor-view {
@@ -304,8 +321,7 @@ button[aria-pressed="true"] {
   font-size: 1rem;
 }
 
-.editor-message,
-.editor-notices {
+.editor-message {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -315,9 +331,6 @@ button[aria-pressed="true"] {
   background: var(--overlay);
   box-shadow: var(--shadow);
   border: 1px solid var(--rule);
-}
-
-.editor-message {
   bottom: 52px;
   display: flex;
   gap: 10px;
@@ -339,14 +352,31 @@ button[aria-pressed="true"] {
   font-weight: 600;
 }
 
+/* the notices (D213's No badwater line, an import's changes): a quiet strip under the map, never
+   over it, so they cover no control in any layout; long lists scroll within it */
 .editor-notices {
-  top: 64px;
+  flex: 0 0 auto;
+  max-height: 30%;
+  overflow-y: auto;
+  padding: 6px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
   font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
 }
 
-.editor-notices p,
+.editor-notices p {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
 .editor-notices ul {
-  margin: 0 0 6px;
+  flex: 1 1 300px;
+  margin: 0;
+  padding-left: 18px;
 }
 
 .history {
@@ -543,10 +573,10 @@ button[aria-pressed="true"] {
   --side-panel-width: 214px;
 }
 
-/* the brush bar's place over the map: below the camera's buttons */
+/* the brush bar's place over the map: below the camera's buttons (however many rows they take) */
 .brush-bar-wrap {
   position: absolute;
-  top: 52px;
+  top: calc(18px + var(--view-controls-h, 34px));
   left: 10px;
   display: flex;
   flex-direction: column;
@@ -633,4 +663,145 @@ button[aria-pressed="true"] {
 .source-marker.feeding {
   outline: 2px solid var(--accent);
   font-weight: 600;
+}
+
+/* the source the pointer targets (D249): Delete removes it */
+.source-marker.target {
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+
+/* the Select row as a chip while a brush or a force is out (D259: one row at a time) */
+.select-chip-bar {
+  align-self: flex-start;
+  padding: 3px;
+}
+
+.select-chip {
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* the top-right corner, one tidy cluster (D345, B3; D368 (5)): the compass in the corner, the level control
+   beside it on the same line (larger and easy to see, as in Timberborn's own editor), Slow forces and Sound
+   beneath, from the level control's left edge to the compass's right; every piece one height, one gap
+   between them all (tests/e2e/viewAndHeader.spec.ts measures it) */
+.view3d-corner {
+  --corner-h: 44px;
+  --corner-gap: 8px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  grid-template-columns: auto var(--corner-h);
+  gap: var(--corner-gap);
+  align-items: center;
+  pointer-events: none;
+}
+
+.view3d-corner > * {
+  pointer-events: auto;
+}
+
+.view3d-corner .compass {
+  position: static;
+}
+
+.corner-level {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view3d-corner .layer-widget {
+  height: var(--corner-h);
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.view3d-corner .layer-widget button {
+  height: var(--corner-h);
+  min-width: 40px;
+  padding: 0 10px;
+  font-size: 1.2rem;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.view3d-corner .layer-widget output {
+  min-width: 3ch;
+  height: var(--corner-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  padding: 0 8px;
+}
+
+.view3d-corner .layer-widget.quiet output {
+  color: inherit;
+}
+
+.corner-below {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--corner-gap);
+  align-items: center;
+}
+
+.corner-below button {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  padding: 0 12px;
+  font-size: 0.85rem;
+  height: var(--corner-h);
+  border-radius: 8px;
+}
+
+/* Slow forces fills the line, so the switches span the cluster */
+.corner-below > button:first-child {
+  flex: 1;
+}
+
+/* the speaker: an icon, crossed out when the sounds are off (D361, item 8), square under the compass */
+.corner-below .reveal-group {
+  position: relative;
+}
+
+.corner-below .speaker {
+  width: var(--corner-h);
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* its volume opens beneath it, so nothing in the cluster moves */
+.corner-below .reveal-group .reveal {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  padding-top: var(--corner-gap);
+}
+
+.corner-below .reveal-group .reveal input {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.corner-below .speaker .crossed {
+  stroke: var(--bad);
+}
+
+.corner-below button[aria-pressed="true"] {
+  background: var(--accent);
+}
+
+/* the view bar leaves room for the corner's level control */
+.editor-view .view3d-controls {
+  right: 230px;
 }

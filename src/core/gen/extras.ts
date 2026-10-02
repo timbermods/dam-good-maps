@@ -13,6 +13,7 @@
 // ground with a level ring, away from water, in their band from the start (a third of the band
 // beyond its start where there is room), on ground the colony walks to when there is any there.
 
+import * as portable from "../math/portable";
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
@@ -366,7 +367,7 @@ function thornBelt(
     cy = by;
     const dx = mx - bx;
     const dy = my - by;
-    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
     // across the way: perpendicular to it
     ux = -dy / l;
     uy = dx / l;

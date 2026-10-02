@@ -71,7 +71,12 @@ async function main() {
   const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false });
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: this is D164, well before the High look existed, and "before" is run on a
+    // checkout of dev with no High to pick from at all; a capable GPU would otherwise draw "after"
+    // in High by itself (found auditing capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley`);
     await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 180_000 });
     await page.getByLabel("Open a map or a project file in the editor").setInputFiles(MAP);

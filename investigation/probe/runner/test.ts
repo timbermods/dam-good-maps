@@ -180,6 +180,45 @@ async function main(): Promise<void> {
     const tv2 = compare.evaluate({ L: new compare.Loaded(tdir, tp, tres), others: new Map(), model: null, modelError: null }, [catalogM.TALL.terrain])[0];
     check('tall checks: a lost voxel at 22 fails the terrain check', tv2.verdict === 'failed', tv2.detail);
   } else console.log('skip tall maps: run npx tsx tools/probe-tall.ts first');
+  const ceil = prepared.filter((p) => p.game.group === 'Ceiling');
+  if (catalogM.ceilingMaps().length) {
+    const raisedOk = (p: (typeof ceil)[number]) => p.game.ceiling!.raised.length > 0 && p.game.ceiling!.raised.every(([x, y]) => p.info.heights[y * p.info.W + x] > 16);
+    check('ceiling maps: every map up to 22 with the top layer empty and one floor per tile, with land the editor raised above 16', ceil.length === catalogM.ceilingMaps().length && ceil.every((p) => p.info.maxHeight === 22 && compare.fileColumns(p.info).count.every((n) => n === 1) && raisedOk(p)), ceil.map((p) => `${p.game.id} max ${p.info.maxHeight}, raised ${p.game.ceiling!.raised.length}`).join(', '));
+    check("ceiling maps: a 256² map, water above 16, and the editor's land at 22 on every map", ceil.some((p) => p.info.W === 256) && ceil.some((p) => p.game.ceiling!.wetAbove16 > 0) && ceil.every((p) => p.game.ceiling!.raisedAt22 > 0));
+    check('ceiling maps: each has its checks, a drought and a badtide, the ceiling poses and its watched water sampled', ceil.every((p) => ['tall-terrain', 'tall-water', 'ceiling-hazards', 'ceiling-build'].every((id) => p.checks.some((c) => c.id === id)) && p.map.moments.some((m) => m.id === 'drought1-start') && p.map.moments.some((m) => m.id === 'badtide2-start') && p.map.poses.some((x) => x.id === 'ceiling-close') && [...p.game.ceiling!.flowTiles, ...p.game.ceiling!.poolTiles].every(([x, y]) => p.map.tiles.some(([a, b]) => a === x && b === y))));
+    // the ceiling checks on a record that is the file itself, then with one raised voxel lost
+    const cp = ceil.find((p) => p.game.ceiling!.flowTiles.length > 0) ?? ceil[0];
+    const cdir = join(sandbox, 'compare-ceiling');
+    mkdirSync(cdir, { recursive: true });
+    const ccols = compare.fileColumns(cp.info);
+    // a source's strength as the file writes it: a number, or an exact float kept with its text
+    const strengthOf = (ws: unknown) => {
+      const v = (ws as { SpecifiedStrength: unknown }).SpecifiedStrength;
+      return typeof v === 'number' ? v : Number((v as { value: number }).value);
+    };
+    const csnap = (id: string, day: number) => ({ momentId: id, day, tick: 0, weather: 'temperate', width: cp.info.W, height: cp.info.H, depth: [...cp.info.depth], contamination: [...cp.info.contamination], floor: [...cp.info.floor], moisture: [...cp.info.moisture], soilContamination: [...cp.info.soilContamination], terrain: [...ccols.top], terrainColumns: [...ccols.count], layered: [], plants: [], sources: cp.info.entities.filter((e) => /Source$/.test(e.template)).map((e) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, source: { specified: strengthOf(e.components.WaterSource), current: 1, contamination: 0 } })) });
+    const cz = require('node:zlib') as typeof import('node:zlib');
+    const csnaps: string[] = [];
+    for (const m of cp.map.moments.filter((x) => x.snapshot)) {
+      const f = `${cp.game.id}-${m.id.replace(/[^A-Za-z0-9_-]/g, '_')}.snapshot.json.gz`;
+      writeFileSync(join(cdir, f), cz.gzipSync(JSON.stringify(csnap(m.id, m.day))));
+      csnaps.push(f);
+    }
+    const cents = cp.info.entities.filter((e) => e.template !== 'StartingLocation').map((e) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
+    const csamples = [0, 0.25, 0.5, 1, 1.5, 1.75].map((d) => ({ day: catalogM.D0 + d, tick: 0, weather: 'temperate', tiles: cp.map.tiles.map(([x, y]) => ({ x, y, columns: cp.info.depth[y * cp.info.W + x] > 0 ? [[cp.info.floor[y * cp.info.W + x], cp.info.depth[y * cp.info.W + x], 0]] : [], moisture: 0, soilContamination: 0 })) }));
+    const cs = cp.info.start;
+    const cres = { runId: 't', mapId: cp.game.id, title: 't', mapFile: '', status: 'done', log: [], notes: [], samples: csamples, snapshots: csnaps, shots: [{ momentId: 'start', pose: 'ceiling', file: 'x.jpg', day: catalogM.D0 }], entitiesAtStart: cents, entitiesAtEnd: cents, plantDeaths: [], loadingIssues: [], weather: [], weatherEvents: [], actions: [], start: { districtCenter: cs ? { id: 'dc', template: 'DistrictCenter.Folktails', x: cs.x, y: cs.y, z: cs.z, orientation: cs.orientation } : null, adults: 9, children: 4, bots: 0 } } as unknown as import('./job').MapResult;
+    const cv = compare.evaluate({ L: new compare.Loaded(cdir, cp, cres), others: new Map(), model: null, modelError: null }, cp.checks);
+    const cbad = cv.filter((x) => x.verdict !== 'passed' && !(x.id === 'tall-shots' && x.verdict === 'recorded') && !(x.id === 'ceiling-hazards' && x.verdict === 'not measurable'));
+    check(`ceiling checks: the file itself passes every check but the model's (${cp.game.id})`, cbad.length === 0 && cv.some((x) => x.id === 'ceiling-build' && x.verdict === 'passed'), cbad.map((x) => `${x.id} ${x.verdict}: ${x.detail}`).join(' | ') || cv.map((x) => `${x.id} ${x.verdict}`).join(', '));
+    const cend = cp.map.moments.find((x) => x.id === 'end')!;
+    const clost = csnap(cend.id, cend.day);
+    const [rx, ry] = cp.game.ceiling!.raised[0];
+    clost.terrain[ry * cp.info.W + rx] -= 1;
+    writeFileSync(join(cdir, csnaps.find((f) => f === `${cp.game.id}-end.snapshot.json.gz`)!), cz.gzipSync(JSON.stringify(clost)));
+    const cv2 = compare.evaluate({ L: new compare.Loaded(cdir, cp, cres), others: new Map(), model: null, modelError: null }, [catalogM.CEILING.build])[0];
+    check('ceiling checks: a lost voxel on the land the editor raised fails the upper-slopes check', cv2.verdict === 'failed', cv2.detail);
+  } else console.log('skip ceiling maps: run npx tsx tools/probe-ceiling.ts first');
   // the size maps (PLAN §20 D357 (9)): each at its size, the frame-time phases after its first day, and its checks
   const sized = prepared.filter((p) => p.game.group === 'Sizes');
   check('Sizes: six games at their sizes, the frame-time phases after the day-1 record', sized.length === 6 && sized.every((p) => p.info.W === p.game.sizes!.size[0] && p.info.H === p.game.sizes!.size[1] && p.map.perf?.phases.length === 3 && Math.abs(p.map.perf.startDay - (catalogM.D0 + 1.01)) < 1e-9 && p.map.moments.some((m) => m.snapshot && Math.abs(m.day - catalogM.D0 - 1) < 1e-9)), sized.map((p) => `${p.game.id} ${p.info.W}×${p.info.H}`).join(', '));

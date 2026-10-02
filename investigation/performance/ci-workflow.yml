@@ -1,0 +1,56 @@
+# Adoption example only: copy to .github/workflows in the milestone session.
+# A headful, interactive, dedicated Windows GPU runner is required. Busy/software CI fails closed.
+name: Terrain motion
+on: [workflow_dispatch]
+jobs:
+  smoothness:
+    runs-on: [self-hosted, Windows, terrain-performance]
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+        working-directory: investigation/performance
+      - run: git fetch --no-tags origin 84fe4d363cabb958429c07c02fc6a25738a360f8
+      - run: node prepare-look.mjs 84fe4d363cabb958429c07c02fc6a25738a360f8
+        working-directory: investigation/performance
+      - run: node build.mjs before
+        working-directory: investigation/performance
+      - run: node build.mjs after
+        working-directory: investigation/performance
+      - run: node test.mjs
+        working-directory: investigation/performance
+      - run: node --test metrics.test.mjs audio-worklet.test.mjs window-policy.test.mjs coverage.test.mjs drain.test.mjs continuous-load.test.mjs trial-plan.test.mjs
+        working-directory: investigation/performance
+      - run: node typecheck.mjs
+        working-directory: investigation/performance
+      - run: node typecheck.mjs --integrated
+        working-directory: investigation/performance
+      - run: python audio.test.py
+        working-directory: investigation/performance
+      - run: node verify.mjs
+        working-directory: investigation/performance
+      - run: node run.mjs --suite=core --phase=before
+        working-directory: investigation/performance
+      - run: node run.mjs --suite=core --phase=after
+        working-directory: investigation/performance
+      - run: node run.mjs --suite=core --mode=capture --phase=before
+        working-directory: investigation/performance
+      - run: node run.mjs --suite=core --mode=capture --phase=after
+        working-directory: investigation/performance
+      - run: node run.mjs --phase=after --hour --repeats=1
+        working-directory: investigation/performance
+      - run: node gate.mjs
+        working-directory: investigation/performance
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motion-evidence
+          path: investigation/performance/local/runs
+          retention-days: 7

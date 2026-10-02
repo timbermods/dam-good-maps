@@ -1,8 +1,8 @@
 // Live editing: terrain brushes (raise, lower, flatten, smooth, naturalize) painted in strokes.
 // Blocking, breakage (Kyler's brief): a stroke's operation replays to identical bytes; what the page
 // paints under the cursor is exactly what the operation builds; undo and redo are always correct,
-// and an incremental rebuild equals a full one; a stroke survives "Generate, keeping my edits" and
-// the project file.
+// and an incremental rebuild equals a full one; a stroke replays exactly onto its own land through
+// the project file (edits never replay onto new land, D336).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -10,6 +10,7 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applyBrush, brushProblems, BrushStroke, type BrushParams, type BrushTool } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { padTile } from "../../src/core/features/raster/terrain";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
@@ -264,7 +265,7 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     expect(brushProblems({ tool: "raise", size: 3, strength: 5, steps: 3, dabs: tile(5, 5) }, W, H)).not.toEqual([]);
   });
 
-  it("smooth, make walkable wears cliffs to 1-level steps, and the build puts natural slopes on the steps under it", () => {
+  it("a Smooth stroke saved with walkable (the editor offers it no more, D247) still wears cliffs to 1-level steps, the build still puts natural slopes on them, and a project replays it exactly", () => {
     const g = new Uint8Array(W * H).fill(4);
     for (let y = 0; y < H; y++) for (let x = 20; x < W; x++) g[y * W + x] = 8;
     const dabs: number[] = [];
@@ -288,6 +289,11 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     expect(s.built.entities.filter((e) => e.template === "Slope").length).toBeGreaterThan(slopesBefore);
     // a full build agrees
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    // saved and opened again, it replays exactly: the same ground, the same slopes
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
+    const slopes = (m: MapSession) => m.built.entities.filter((e) => e.template === "Slope").map((e) => `${e.x},${e.y},${e.orientation}`).sort();
+    expect(slopes(again)).toEqual(slopes(s));
   });
 
   it("a precise one-tile pit stays a pit through the build, and the page paints what the build makes", () => {
@@ -362,7 +368,9 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     expect(brushProblems({ tool: "raise", size: 3, strength: 5, edges: "ramped", dabs: tile(5, 5) }, W, H)).not.toEqual([]);
   });
 
-  it("on a map: a ramped flatten gets the natural slopes on its rim, and the trees on it ride the ground", () => {
+  // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
+  // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
+  it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
     // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0)
     const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
@@ -455,7 +463,7 @@ describe("undo and redo of strokes", () => {
   });
 });
 
-describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)", () => {
+describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))", () => {
   const THEMES: [ThemeId, number][] = [
     ["riverValley", 1],
     ["riverValley", 2],
@@ -480,7 +488,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
       py = Math.min(H - 1, Math.max(0, py + (rand() - 0.5) * 3));
       dabs.push(Math.min(4 * W - 1, Math.round(px * 4)), Math.min(4 * H - 1, Math.round(py * 4)));
     }
-    return { tool: "naturalize", size, strength: 1 + Math.floor(rand() * 10), seed: Math.floor(rand() * 1e6), dabs };
+    return { tool: "naturalize", size, strength: 1 + Math.floor(rand() * 10), seed: Math.floor(rand() * 1e6), weathers: true, dabs };
   }
 
   it("a Naturalize stroke over or beside a slope never breaks slopes.connect", () => {
@@ -512,7 +520,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
     }
   });
 
-  it("a Naturalize stroke over or beside a set piece never changes its protected tiles", () => {
+  it("a Naturalize stroke over or beside the start's pad never changes it (D368 (8))", () => {
     for (const [theme, seed] of THEMES) {
       const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
       const s = MapSession.fromGenerated(r, r.file);
@@ -520,7 +528,9 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
       const protect = s.terrainState().protect;
       const protectedTiles: number[] = [];
       for (let i = 0; i < protect.length; i++) if (protect[i]) protectedTiles.push(i);
-      expect(protectedTiles.length, `${theme} ${seed}: has a set piece's protected tiles`).toBeGreaterThan(0);
+      expect(protectedTiles.length, `${theme} ${seed}: has a start pad`).toBeGreaterThan(0);
+      const starts = s.terrainState().starts ?? [];
+      const onPad = (i: number) => padTile(starts, i % 96, Math.floor(i / 96));
       const before = s.built.heights.slice();
       const rand = mulberry(seed * 53);
       const targets: { x: number; y: number }[] = [];
@@ -537,9 +547,7 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
         expect(u.errors, `${theme} ${seed} at (${t.x}, ${t.y})`).toEqual([]);
       }
       const after = s.built.heights;
-      for (const i of protectedTiles) {
-        expect(after[i], `${theme} ${seed}: protected tile (${i % 96}, ${Math.floor(i / 96)}) changed (strokes at ${JSON.stringify(targets)})`).toBe(before[i]);
-      }
+      for (let i = 0; i < after.length; i++) if (onPad(i)) expect(after[i], `${theme} ${seed}: pad tile (${i % 96}, ${Math.floor(i / 96)}) changed`).toBe(before[i]);
       expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     }
   });
@@ -558,8 +566,8 @@ describe("Naturalize keeps slopes.connect and set pieces' protected tiles (D253)
           const s = MapSession.fromGenerated(r, r.file);
           s.setWaterMode("defer");
           const p = strokeAt(rand, 96, 96, foot.x + Math.floor((rand() - 0.5) * 4), foot.y + Math.floor((rand() - 0.5) * 4));
-          const { seed: noise, ...rest } = p;
-          const params: BrushParams = { ...rest, tool, ...(tool === "flatten" ? { level: Math.floor(rand() * 17) } : {}), ...(tool === "naturalize" ? { seed: noise } : {}) };
+          const { seed: noise, weathers, ...rest } = p;
+          const params: BrushParams = { ...rest, tool, ...(tool === "flatten" ? { level: Math.floor(rand() * 17) } : {}), ...(tool === "naturalize" ? { seed: noise, weathers } : {}) };
           expect(s.apply({ op: "brush", params }, "user", tool).errors, `canyon ${seed} ${tool}`).toEqual([]);
           const c = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
           expect(c.ok, `canyon ${seed} ${tool} at the stair's foot (${foot.x}, ${foot.y}): ${c.message}`).toBe(true);

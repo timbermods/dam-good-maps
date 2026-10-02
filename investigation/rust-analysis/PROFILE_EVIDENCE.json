@@ -1,0 +1,2321 @@
+{
+  "baselineCommit": "c336b37e",
+  "baselineSourceSha256": "44dfffbb24213eedf3a3144bc99ab3083dead10a0b7b38b33a9b3de3e3c3bc1c",
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "water": "d18a6f4d890d3f2e3f7b480e308242375c100e10",
+  "date": "2026-10-02T08:05:17.075Z",
+  "machine": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+  "threads": 16,
+  "version": "146.0.1",
+  "runtime": {
+    "executablePath": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-water\\local\\checkout\\investigation\\rust-water\\local\\profiles\\firefox-diagnostic\\firefox.exe",
+    "executableSha256": "d43cbdb5c898004d9b34aca96ae19a3a96ad65477ad7d71e179bb34ceed2b50a",
+    "archiveSha256": "b128de9a942e56f4ef6bd1b2dc7a4eb136c45af6cf613638cf44fda11732ba35",
+    "runtimeSha256": "4cbb28caecedc98fd98a5af0590d4aade4e66610e25befc23694410127835c19",
+    "firefoxUserPrefs": {
+      "javascript.options.wasm_baselinejit": false,
+      "javascript.options.wasm_optimizingjit": true,
+      "javascript.options.wasm_lazy_tiering": false
+    },
+    "upstream": "https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/firefox/juggler/content/Runtime.js"
+  },
+  "runtimeFingerprint": "42c177d8df9d9335110f8f7c64bc5137e4fee726a788723a0084b051e196d8bc",
+  "fingerprints": {
+    "browser": "ef5b8d9a234758bbed08f99b9f9146194032a1cc24cc9bad649e54491d0949b1",
+    "m9b": "f584fde85fe63ffc84e336c72fb1af958899544496832379ba645f0cb5f21675",
+    "native": "c1f45f9e110dedc38e17ec7edc66395dc395330f086f320e81fd79924139309f"
+  },
+  "binaries": {
+    "analysis.wasm": {
+      "sha256": "e62020161ae3d5a5c5e5b319deb30301fef996ea8029ae5b9422324cee671333",
+      "bytes": 1411733
+    },
+    "analysis.node": {
+      "sha256": "ae5e34152fd3a1c744c007649f94dd436dbb5c99ff167fc2a2701e54d7ebb530",
+      "bytes": 2247168
+    },
+    "analysis.exe": {
+      "sha256": "7473d4cb7921924a5760eb83b5fd9a6bc577bc245982027011d37289fe37bedc",
+      "bytes": 2209792
+    },
+    "followup/before-analysis.wasm": {
+      "sha256": "d06f5e782d8a2d65b50ab7dd0d2fe0603c5e2a4beae8c651bb985396f677143b",
+      "bytes": 1410139
+    }
+  },
+  "sources": {
+    "analysis.rs": "211949116cbc2fbd24c03b536d9c8a3d12894ebc9f49ad11f431f57b934895c0",
+    "api.ts": "e79a2a74098012ead9c52a05542eb689bead6af087e17963c9698f2285845c48",
+    "bench-generation.mjs": "581869adfaea55fa8993d93d20fd7c6f5bf59d3acef76f6388988c1670ac4d61",
+    "bench-m9b-native.mjs": "290b259842192b72737a2968134efd6fad6ae72fa918a23d7dae9dbc754bf7d4",
+    "bench-native.mjs": "ea09ab5b7da1b9cb280881f4cff6c19cefa9780b08716c3e75244ff9589fc863",
+    "bridge.ts": "0302bf32e6012874bb8527de4c13888435e33cdceff689df3a25568cfab6c29b",
+    "browser-m9b.mjs": "3eac7ab866f1b790c9c285a16eb3050ac3c8474abf23b48cd39108e2526d491d",
+    "browser-worker.mjs": "0323803ee0ad210d5745398ca5c5fc1c2815382520bca81fe20305a192271140",
+    "browser.mjs": "9c87c751e96cab162eb6fd962b900f7edd550460beecde053363c31b05438338",
+    "build-browser.mjs": "b31e47cc4f0be422d33ebc1b94841e08c36a7d5287fe65d0579236725b9c35d8",
+    "build-m9b-browser.mjs": "25793b7745fffb7f6ea970c1a43f47fd07b09d34f6237b083b7a80a284306484",
+    "build-native.mjs": "2f5d4b77bdc4bf564902637d6c7faed292e0bab215613de96fd753c62d1194ff",
+    "build.mjs": "2cc9ff6c8c68b9138ef00035c5825bce6a404cda96c73f46568126ead0e80105",
+    "codec.mjs": "745ccd60cf55c17a4b981649e2e2ea261c80feafdd1f86055410b78f6514e28d",
+    "common.mjs": "6c1faeed8ae2b12e3aabc0443784f030c135dba6484f7b114cc47001beff443b",
+    "compact.mjs": "33e38164ed7093bb6fb5525509aec88e9a5bd406fbf80500c68063ece6acf94f",
+    "compile.ps1": "3ba821f95d1cfe09b034a7c7114c37460442f0bff30dc6df8c1756037667031d",
+    "corpus.mjs": "2be7029779426d3ca9de427a22eb97dd03fdb3d7e0d06d915779726b49d3ed8d",
+    "exe-contract.mjs": "4398a080817bad4ba96cfbb6e747be8c610aedc0f6fa4acb40146b2e7f26ed7a",
+    "firefox-runtime.mjs": "982f459c72adff1d81dc1dc3d4d249337969066eab0847e2e94ed8712879a541",
+    "generation-profile.mjs": "f694fbaf04c708572ba2dc970e1983ea9a08361365248088831fd27c85c30e87",
+    "load.mjs": "d39127dc5e86d1c6bd1e308359531dda309db39f9c7f181fa183a45f6bd4c7a9",
+    "load.ps1": "f0c4dc42d33a55832b9f286de15abe92df499901ea4f46a954edf83c58677fec",
+    "m9b-worker.mjs": "c1e727955547ec2b61308288e563d6ef55725517eb32da17b952991cd829a0a5",
+    "native-export.mjs": "dcd159f1951dcfd1bf169b0af258b811376d5bf7c4afce4112503f121be034d5",
+    "native-water.ts": "952da656a3e0a95c849f389da81ac4164d7c636a9db62b312e03a5c1591d800c",
+    "native.mjs": "c94b31be9435e979e39cd83a2dd7e09ce1365621717c934048a1790abdc80214",
+    "prepare-firefox.py": "a1c00f021c4c17b786fd9b9daa09f9778baaba6fa5b1d47dc900f602671d0690",
+    "prepare-profile.ps1": "b9ae2b6f5e447f183df8bf8b2dd32dc2b2e2319faf4e45309fc95b0937013407",
+    "profile-firefox.mjs": "a44df25e68e2c31fcba3b16b7e230341e94d6bfa1ce575bd28b3580ccb417026",
+    "profile-worker.mjs": "fa48015489acb0f65739b4314c25e15cf66911c4b29dcc75a6fd70cdb81546c4",
+    "profile.mjs": "bb34305fda7467369f84b7b0bb50d1b29bc16f5c53214ed260179cc477039abe",
+    "replay.mjs": "f588f4fc938f4eb74c512af8e20ea1b4cd7bef643ba4e4f772eb77554ac22dee",
+    "smoke.mjs": "5a3bfb9b0db8908a0859d0ccbe18a343f6165e518090fe56f30a722c326973b7",
+    "summarize-profile.mjs": "b5ff4ae3e8bc45071a61c5a4935fd09a14539ce60dc6f11ba10205a7eebdc633",
+    "summarize.mjs": "353356da7c655e1a5d8d0fcda19e29a684985f48a5981b984fe6b29129575ee2",
+    "typecheck.mjs": "92700549db98f57f554cfb81fe643add32482d19ae7a4f6e920db77418c078d8",
+    "verify-guards.mjs": "532ae81c33789ca836dad3d7798f80a7dcb234e172845d62bde9f6ef66df9bfc",
+    "verify-ir.mjs": "f222d26f754cc26593cd5be4fd16631c033d32345f84a513f22df98adeb51177",
+    "verify-matrix.mjs": "4d755ad55f8261d84680fc221d04eff35360dc01292bd6cc78fa85b1a4eed52a",
+    "water-contract.mjs": "4be5a67a18f2bb5aebabc1d6c394637bcc9a802843630a08c5b60f4d83f90c3e",
+    "write-profile-report.mjs": "08f244cec55e3ad67e27cb69dd11de029166dcdb8048837a053be1e321601b40",
+    "write-report.mjs": "0b135218a7f56caf0a921fbcd5785e6c63a15d3d2c4fcebdf5677b56c538a5ab"
+  },
+  "status": {
+    "native": 872,
+    "browsers": {
+      "chromium": 872,
+      "firefox": 872,
+      "webkit": 872
+    },
+    "m9b": {
+      "chromium": 840,
+      "firefox": 840,
+      "webkit": 840
+    },
+    "missing": []
+  },
+  "gates": {
+    "native": "6ba94c329f0fc37efdea98d8e888cf8ef100b61c9213c43c2f0152a590728f38",
+    "chromium": "f5599b252c8bf16491f6bee84493f65603753fd1541ba023907e07cfa00a8c54",
+    "chromiumM9b": "5102358cfa87678689ca6205423c2639e621542b573ca94b312273fc89b0d56c",
+    "firefox": "8f57484a5e980e794c221b69f654ab1ca36a1f83b093033ed5f8d2eaea860672",
+    "firefoxM9b": "63f2671026808b5bcb383e087edf9bfcf9219d9ce91eeef8a8b9dd3258f80e00",
+    "webkit": "b9b5473bc4fa8a7b79a67fb0684ad2ff8887863fe2829bc1593efc156f43373b",
+    "webkitM9b": "3fb9df681fde62abd8314f240454434f6aabe3c08681092eee5c3cf41b0c4ca6",
+    "nativeExports": "dec2fcce8c68c6008707e1f7f8a216c9745f50c34923e444c131d5f30b8a87ec"
+  },
+  "contracts": {
+    "smoke": {
+      "checks": 1762,
+      "status": "pass"
+    },
+    "water-contract": {
+      "status": "pass",
+      "fixtures": 12,
+      "rules": [
+        "port",
+        "game"
+      ],
+      "comparisons": 744,
+      "mutableFields": [
+        "floor",
+        "dam",
+        "out",
+        "emitter strength",
+        "contamination"
+      ],
+      "fractionalTicks": true,
+      "independentHandles": true,
+      "dispose": true
+    },
+    "exe-contract": {
+      "status": "pass",
+      "threads": 16,
+      "records": [
+        {
+          "id": "edge-contract",
+          "sha256": "0aeb179044a60d9506b4e32ac41ca772c56b4cbd64dbbc5844ec8210113c6b53"
+        },
+        {
+          "id": "golden-badwater_mix",
+          "sha256": "5dc52220e1dedc99302b3285cc10e7fa5e4a62d057d8e0a0747c664bf5e08fc4"
+        },
+        {
+          "id": "golden-channel_gap",
+          "sha256": "e787a6010f260af2149c567efdaa3e8fc4b901ff4a59572c580b09e72c7dceea"
+        },
+        {
+          "id": "golden-channel_sealed",
+          "sha256": "e787a6010f260af2149c567efdaa3e8fc4b901ff4a59572c580b09e72c7dceea"
+        },
+        {
+          "id": "golden-confluence",
+          "sha256": "71a269b825fa6bc6e140282a81a6b11c5d1e13c54429c5d941b7a590fdadf21a"
+        },
+        {
+          "id": "golden-evaporation",
+          "sha256": "aeaadcabcb86b3aeacd5e1b8115cb19a7e2569b69c7d407e4a90adc88fb0d3c4"
+        },
+        {
+          "id": "golden-flat_plain",
+          "sha256": "c6358301d5542250fe2d5bcb0c81f0f608edb64866b7ef58277cd84dae5f3cb3"
+        },
+        {
+          "id": "golden-lake_sill",
+          "sha256": "675eec95d6ae6a9e60e564d245f4772449a668828bb5dcee08fefa10c58319cd"
+        },
+        {
+          "id": "golden-seep_pit",
+          "sha256": "9085e8c8de70204a7e7517f33177de36278895d117b59e1b28801a74b45b3cc9"
+        },
+        {
+          "id": "golden-terraces",
+          "sha256": "b200f66bad19b5d2182b9e1b8785bfc80e02bf556a68a46658f9a50e51ab10ca"
+        },
+        {
+          "id": "golden-valley_basin",
+          "sha256": "036f724191d4b868bcb0dd2a495f1ed2c619fe396cfde018cc71ca9fe5ab846b"
+        },
+        {
+          "id": "golden-waterfall",
+          "sha256": "551607336f8479cd993c18eecacfe36ab66b7b40f2f50be55f13d7ba3eb93a20"
+        },
+        {
+          "id": "golden-weir",
+          "sha256": "b1a89e7e715a0ad1b0e00a0b8dc5a314e3a786a7e7f2e7c20512cd9aa2519c0d"
+        },
+        {
+          "id": "m9b-any-128-1",
+          "sha256": "d32755a929186cc432b4b3cde0883f09edd7a49ae5e854feaa516d02dc9e756a"
+        },
+        {
+          "id": "m9b-any-256-1",
+          "sha256": "575aafeb5b4334466ca4da024e3ad5adeb7db8885651b1f8bd6500d1215abfae"
+        },
+        {
+          "id": "m9b-any-96-1",
+          "sha256": "16afb0725205240edb3b9c22b22a864a4562b477c31fb85e1d27e1fe3fe32377"
+        }
+      ]
+    },
+    "typecheck": {
+      "status": "pass",
+      "files": [
+        "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-analysis\\local\\checkout\\investigation\\rust-analysis\\bridge.ts",
+        "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\rust-analysis\\local\\checkout\\investigation\\rust-analysis\\native-water.ts"
+      ],
+      "typescript": "5.9.3"
+    },
+    "ir": {
+      "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+      "rows": [
+        {
+          "target": "wasm",
+          "sha256": "379a8f3ff6c60e2dac7370b22dc399a861f13d0bc160c22c90bea631c36d660a",
+          "bytes": 891839,
+          "status": "pass"
+        },
+        {
+          "target": "native",
+          "sha256": "5629fe99d3176d65cbbbba5802db2660562535e6ed51bed71fccc8897c11bcb7",
+          "bytes": 909726,
+          "status": "pass"
+        },
+        {
+          "target": "addon",
+          "sha256": "db335606a92866609ec8083f78caf284d6f32f4dc279232ce2c5a570943036e4",
+          "bytes": 1871354,
+          "status": "pass"
+        }
+      ]
+    },
+    "followup/guards": {
+      "status": "pass",
+      "source": "211949116cbc2fbd24c03b536d9c8a3d12894ebc9f49ad11f431f57b934895c0",
+      "tests": "\nrunning 3 tests\ntest guards::rejects_short_and_fractional_headers ... ok\ntest guards::rejects_link_indices ... ok\ntest guards::rejects_room_shape_before_raw_access ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "checkedBinary": "e7d64e0b67e4217717464d55b603c53f277897be8a6c22ae9b87b1aceee9418a",
+      "cases": 872,
+      "calls": 257237,
+      "recordsSha256": "4cd433955865ff0005f589336626f5327fe8616e718d6c4ff1e1911581dba35f"
+    }
+  },
+  "identity": {
+    "cases": 872,
+    "m9b": 840,
+    "calls": 257237,
+    "clockExclusions": [
+      "ms",
+      "cpu",
+      "spent[].ms"
+    ]
+  },
+  "aggregate": [
+    {
+      "size": 96,
+      "name": "levelRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.2733333333333334,
+        "worst": 0.3076190476190476
+      },
+      "before": {
+        "median": 0.3952380952380952,
+        "worst": 0.4107142857142857
+      },
+      "after": {
+        "median": 0.41428571428571426,
+        "worst": 0.4228571428571429
+      }
+    },
+    {
+      "size": 96,
+      "name": "distanceFrom",
+      "cells": 7,
+      "typescript": {
+        "median": 0.2421428571428572,
+        "worst": 0.2442857142857143
+      },
+      "before": {
+        "median": 0.11404761904761904,
+        "worst": 0.12333333333333334
+      },
+      "after": {
+        "median": 0.10547619047619047,
+        "worst": 0.10571428571428572
+      }
+    },
+    {
+      "size": 96,
+      "name": "spillLevels",
+      "cells": 7,
+      "typescript": {
+        "median": 2.1523809523809523,
+        "worst": 2.167857142857143
+      },
+      "before": {
+        "median": 0.8892857142857143,
+        "worst": 0.9647619047619048
+      },
+      "after": {
+        "median": 0.8952380952380953,
+        "worst": 0.9071428571428573
+      }
+    },
+    {
+      "size": 96,
+      "name": "walkDistance",
+      "cells": 7,
+      "typescript": {
+        "median": 0.9421428571428571,
+        "worst": 0.972857142857143
+      },
+      "before": {
+        "median": 0.24714285714285714,
+        "worst": 0.25285714285714284
+      },
+      "after": {
+        "median": 0.2621428571428571,
+        "worst": 0.29166666666666663
+      }
+    },
+    {
+      "size": 96,
+      "name": "landRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.28238095238095234,
+        "worst": 0.31976190476190475
+      },
+      "before": {
+        "median": 0.24833333333333335,
+        "worst": 0.25
+      },
+      "after": {
+        "median": 0.2373809523809524,
+        "worst": 0.27476190476190476
+      }
+    },
+    {
+      "size": 96,
+      "name": "walkRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.51,
+        "worst": 0.8171428571428571
+      },
+      "before": {
+        "median": 0.35547619047619045,
+        "worst": 0.35738095238095235
+      },
+      "after": {
+        "median": 0.3283333333333333,
+        "worst": 0.3392857142857143
+      }
+    },
+    {
+      "size": 96,
+      "name": "components",
+      "cells": 7,
+      "typescript": {
+        "median": 0.19857142857142857,
+        "worst": 0.20047619047619047
+      },
+      "before": {
+        "median": 0.17952380952380956,
+        "worst": 0.19404761904761905
+      },
+      "after": {
+        "median": 0.1714285714285714,
+        "worst": 0.17904761904761907
+      }
+    },
+    {
+      "size": 96,
+      "name": "damSites",
+      "cells": 7,
+      "typescript": {
+        "median": 196,
+        "worst": 201.57142857142858
+      },
+      "before": {
+        "median": 35.607142857142854,
+        "worst": 36.511904761904766
+      },
+      "after": {
+        "median": 32.32142857142857,
+        "worst": 34.261904761904766
+      }
+    },
+    {
+      "size": 96,
+      "name": "roomMap",
+      "cells": 7,
+      "typescript": {
+        "median": 8,
+        "worst": 9.285714285714286
+      },
+      "before": {
+        "median": 3.1988095238095235,
+        "worst": 3.245238095238095
+      },
+      "after": {
+        "median": 1.7428571428571427,
+        "worst": 1.785714285714286
+      }
+    },
+    {
+      "size": 96,
+      "name": "checks",
+      "cells": 7,
+      "typescript": {
+        "median": 286.14285714285717,
+        "worst": 287.57142857142856
+      },
+      "before": {
+        "median": 105,
+        "worst": 108.85714285714286
+      },
+      "after": {
+        "median": 106.85714285714286,
+        "worst": 113.71428571428571
+      }
+    },
+    {
+      "size": 96,
+      "name": "measures",
+      "cells": 7,
+      "typescript": {
+        "median": 3.357142857142857,
+        "worst": 5.071428571428571
+      },
+      "before": {
+        "median": 2.5976190476190477,
+        "worst": 4.173809523809524
+      },
+      "after": {
+        "median": 2.561904761904762,
+        "worst": 2.6714285714285713
+      }
+    },
+    {
+      "size": 96,
+      "name": "outcomes",
+      "cells": 7,
+      "typescript": {
+        "median": 9.07857142857143,
+        "worst": 17.571428571428573
+      },
+      "before": {
+        "median": 3.5535714285714284,
+        "worst": 22.88095238095238
+      },
+      "after": {
+        "median": 7.003571428571428,
+        "worst": 7.746428571428572
+      }
+    },
+    {
+      "size": 96,
+      "name": "m9bMeasures",
+      "cells": 7,
+      "typescript": {
+        "median": 0.4092857142857143,
+        "worst": 1.1047619047619048
+      },
+      "before": {
+        "median": 0.43952380952380954,
+        "worst": 0.7552380952380952
+      },
+      "after": {
+        "median": 0.36,
+        "worst": 0.43976190476190474
+      }
+    },
+    {
+      "size": 128,
+      "name": "levelRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.4761904761904762,
+        "worst": 0.652142857142857
+      },
+      "before": {
+        "median": 0.6766666666666666,
+        "worst": 0.7128571428571427
+      },
+      "after": {
+        "median": 0.6952380952380952,
+        "worst": 0.7161904761904763
+      }
+    },
+    {
+      "size": 128,
+      "name": "distanceFrom",
+      "cells": 7,
+      "typescript": {
+        "median": 0.39571428571428563,
+        "worst": 0.4914285714285714
+      },
+      "before": {
+        "median": 0.20500000000000002,
+        "worst": 0.21142857142857144
+      },
+      "after": {
+        "median": 0.21071428571428572,
+        "worst": 0.21571428571428572
+      }
+    },
+    {
+      "size": 128,
+      "name": "spillLevels",
+      "cells": 7,
+      "typescript": {
+        "median": 3.964285714285714,
+        "worst": 4.189285714285714
+      },
+      "before": {
+        "median": 1.5571428571428572,
+        "worst": 1.561904761904762
+      },
+      "after": {
+        "median": 1.5083333333333333,
+        "worst": 1.5714285714285714
+      }
+    },
+    {
+      "size": 128,
+      "name": "walkDistance",
+      "cells": 7,
+      "typescript": {
+        "median": 1.3714285714285717,
+        "worst": 1.686904761904762
+      },
+      "before": {
+        "median": 0.43571428571428567,
+        "worst": 0.4852380952380952
+      },
+      "after": {
+        "median": 0.3961904761904762,
+        "worst": 0.4011904761904762
+      }
+    },
+    {
+      "size": 128,
+      "name": "landRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.5469047619047619,
+        "worst": 0.5647619047619047
+      },
+      "before": {
+        "median": 0.49833333333333335,
+        "worst": 0.5109523809523809
+      },
+      "after": {
+        "median": 0.45714285714285713,
+        "worst": 0.49738095238095237
+      }
+    },
+    {
+      "size": 128,
+      "name": "walkRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 0.8878571428571428,
+        "worst": 1.2764285714285715
+      },
+      "before": {
+        "median": 0.6388095238095238,
+        "worst": 0.6454761904761905
+      },
+      "after": {
+        "median": 0.6785714285714286,
+        "worst": 0.6792857142857143
+      }
+    },
+    {
+      "size": 128,
+      "name": "components",
+      "cells": 7,
+      "typescript": {
+        "median": 0.3669047619047619,
+        "worst": 0.45809523809523817
+      },
+      "before": {
+        "median": 0.2966666666666667,
+        "worst": 0.42261904761904756
+      },
+      "after": {
+        "median": 0.40785714285714286,
+        "worst": 0.42333333333333334
+      }
+    },
+    {
+      "size": 128,
+      "name": "damSites",
+      "cells": 7,
+      "typescript": {
+        "median": 359,
+        "worst": 385.57142857142856
+      },
+      "before": {
+        "median": 64.28571428571429,
+        "worst": 66.85714285714286
+      },
+      "after": {
+        "median": 62.214285714285715,
+        "worst": 63.57142857142857
+      }
+    },
+    {
+      "size": 128,
+      "name": "roomMap",
+      "cells": 7,
+      "typescript": {
+        "median": 18.761904761904763,
+        "worst": 19.1547619047619
+      },
+      "before": {
+        "median": 8.264285714285714,
+        "worst": 8.61547619047619
+      },
+      "after": {
+        "median": 4.80952380952381,
+        "worst": 5.071428571428571
+      }
+    },
+    {
+      "size": 128,
+      "name": "checks",
+      "cells": 7,
+      "typescript": {
+        "median": 458.2857142857143,
+        "worst": 489.14285714285717
+      },
+      "before": {
+        "median": 185.57142857142858,
+        "worst": 196.42857142857142
+      },
+      "after": {
+        "median": 169.14285714285714,
+        "worst": 176.71428571428572
+      }
+    },
+    {
+      "size": 128,
+      "name": "measures",
+      "cells": 7,
+      "typescript": {
+        "median": 4.778571428571429,
+        "worst": 11.595238095238093
+      },
+      "before": {
+        "median": 4.078571428571428,
+        "worst": 5.778571428571428
+      },
+      "after": {
+        "median": 5.122619047619048,
+        "worst": 5.864285714285715
+      }
+    },
+    {
+      "size": 128,
+      "name": "outcomes",
+      "cells": 7,
+      "typescript": {
+        "median": 10.535714285714286,
+        "worst": 22.214285714285715
+      },
+      "before": {
+        "median": 10.709523809523812,
+        "worst": 23.142857142857142
+      },
+      "after": {
+        "median": 9.361904761904762,
+        "worst": 10.49642857142857
+      }
+    },
+    {
+      "size": 128,
+      "name": "m9bMeasures",
+      "cells": 7,
+      "typescript": {
+        "median": 0.7026190476190476,
+        "worst": 1.0952380952380953
+      },
+      "before": {
+        "median": 0.6626190476190477,
+        "worst": 0.9395238095238094
+      },
+      "after": {
+        "median": 0.6290476190476191,
+        "worst": 0.6452380952380953
+      }
+    },
+    {
+      "size": 256,
+      "name": "levelRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 2.0654761904761907,
+        "worst": 2.2523809523809524
+      },
+      "before": {
+        "median": 2.773809523809524,
+        "worst": 2.9083333333333328
+      },
+      "after": {
+        "median": 2.9726190476190473,
+        "worst": 2.982142857142857
+      }
+    },
+    {
+      "size": 256,
+      "name": "distanceFrom",
+      "cells": 7,
+      "typescript": {
+        "median": 1.7380952380952384,
+        "worst": 1.8523809523809527
+      },
+      "before": {
+        "median": 0.9709523809523811,
+        "worst": 0.9904761904761905
+      },
+      "after": {
+        "median": 0.9635714285714284,
+        "worst": 1.042857142857143
+      }
+    },
+    {
+      "size": 256,
+      "name": "spillLevels",
+      "cells": 7,
+      "typescript": {
+        "median": 17.214285714285715,
+        "worst": 18.785714285714285
+      },
+      "before": {
+        "median": 7.614285714285714,
+        "worst": 7.669047619047619
+      },
+      "after": {
+        "median": 7.666666666666666,
+        "worst": 8.609523809523811
+      }
+    },
+    {
+      "size": 256,
+      "name": "walkDistance",
+      "cells": 7,
+      "typescript": {
+        "median": 2.54404761904762,
+        "worst": 2.685714285714286
+      },
+      "before": {
+        "median": 1.0345238095238096,
+        "worst": 1.047380952380952
+      },
+      "after": {
+        "median": 1.047857142857143,
+        "worst": 1.1545238095238093
+      }
+    },
+    {
+      "size": 256,
+      "name": "landRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 2.371428571428571,
+        "worst": 2.4583333333333335
+      },
+      "before": {
+        "median": 2.039285714285714,
+        "worst": 2.214285714285714
+      },
+      "after": {
+        "median": 2.2285714285714286,
+        "worst": 2.3000000000000003
+      }
+    },
+    {
+      "size": 256,
+      "name": "walkRegions",
+      "cells": 7,
+      "typescript": {
+        "median": 3.3214285714285716,
+        "worst": 3.628571428571429
+      },
+      "before": {
+        "median": 2.569047619047619,
+        "worst": 2.601190476190476
+      },
+      "after": {
+        "median": 2.916666666666667,
+        "worst": 2.942857142857143
+      }
+    },
+    {
+      "size": 256,
+      "name": "components",
+      "cells": 7,
+      "typescript": {
+        "median": 1.094047619047619,
+        "worst": 1.1773809523809524
+      },
+      "before": {
+        "median": 1.1249999999999998,
+        "worst": 1.3776190476190477
+      },
+      "after": {
+        "median": 1.1095238095238096,
+        "worst": 1.1978571428571427
+      }
+    },
+    {
+      "size": 256,
+      "name": "damSites",
+      "cells": 7,
+      "typescript": {
+        "median": 472.85714285714283,
+        "worst": 518
+      },
+      "before": {
+        "median": 85,
+        "worst": 87.78571428571429
+      },
+      "after": {
+        "median": 84.38095238095238,
+        "worst": 86.28571428571429
+      }
+    },
+    {
+      "size": 256,
+      "name": "roomMap",
+      "cells": 7,
+      "typescript": {
+        "median": 866.8571428571429,
+        "worst": 889.5714285714286
+      },
+      "before": {
+        "median": 273.57142857142856,
+        "worst": 276.42857142857144
+      },
+      "after": {
+        "median": 214.57142857142858,
+        "worst": 216.85714285714286
+      }
+    },
+    {
+      "size": 256,
+      "name": "checks",
+      "cells": 7,
+      "typescript": {
+        "median": 952.4285714285714,
+        "worst": 959.1428571428571
+      },
+      "before": {
+        "median": 532.1428571428571,
+        "worst": 559.5714285714286
+      },
+      "after": {
+        "median": 508.7142857142857,
+        "worst": 524.1428571428571
+      }
+    },
+    {
+      "size": 256,
+      "name": "measures",
+      "cells": 7,
+      "typescript": {
+        "median": 20.904761904761905,
+        "worst": 24.214285714285715
+      },
+      "before": {
+        "median": 12.678571428571429,
+        "worst": 13.428571428571429
+      },
+      "after": {
+        "median": 13,
+        "worst": 13.130952380952381
+      }
+    },
+    {
+      "size": 256,
+      "name": "outcomes",
+      "cells": 7,
+      "typescript": {
+        "median": 26,
+        "worst": 50.142857142857146
+      },
+      "before": {
+        "median": 39.285714285714285,
+        "worst": 41.142857142857146
+      },
+      "after": {
+        "median": 27.857142857142858,
+        "worst": 44.785714285714285
+      }
+    },
+    {
+      "size": 256,
+      "name": "m9bMeasures",
+      "cells": 7,
+      "typescript": {
+        "median": 2.7190476190476187,
+        "worst": 9.25
+      },
+      "before": {
+        "median": 2.507142857142857,
+        "worst": 2.5857142857142854
+      },
+      "after": {
+        "median": 3.6714285714285717,
+        "worst": 3.795238095238095
+      }
+    }
+  ],
+  "generations": {
+    "typescript": {
+      "generation": {
+        "median": 17437.285714285714,
+        "worst": 17646.714285714286
+      },
+      "analysis": {
+        "median": 2181.714285714286,
+        "worst": 2212.4285714285716
+      },
+      "share": {
+        "median": 0.12537340014733622,
+        "worst": 0.12631437723255462
+      },
+      "samples": [
+        {
+          "ms": 17437.285714285714,
+          "analysis": 2181.714285714286,
+          "share": 0.12511776898436028
+        },
+        {
+          "ms": 17036.85714285714,
+          "analysis": 2152,
+          "share": 0.12631437723255462
+        },
+        {
+          "ms": 17646.714285714286,
+          "analysis": 2212.4285714285716,
+          "share": 0.12537340014733622
+        }
+      ]
+    },
+    "before": {
+      "generation": {
+        "median": 16383.714285714286,
+        "worst": 16788.428571428572
+      },
+      "analysis": {
+        "median": 1472.857142857143,
+        "worst": 1474.7142857142858
+      },
+      "share": {
+        "median": 0.0898976335385313,
+        "worst": 0.09114470460234761
+      },
+      "samples": [
+        {
+          "ms": 16788.428571428572,
+          "analysis": 1474.7142857142858,
+          "share": 0.08784111505373599
+        },
+        {
+          "ms": 16150.142857142857,
+          "analysis": 1472,
+          "share": 0.09114470460234761
+        },
+        {
+          "ms": 16383.714285714286,
+          "analysis": 1472.857142857143,
+          "share": 0.0898976335385313
+        }
+      ]
+    },
+    "after": {
+      "generation": {
+        "median": 16185.857142857143,
+        "worst": 16612.714285714286
+      },
+      "analysis": {
+        "median": 1351.857142857143,
+        "worst": 1388.5714285714287
+      },
+      "share": {
+        "median": 0.08358486185279777,
+        "worst": 0.08441946563183014
+      },
+      "samples": [
+        {
+          "ms": 16185.857142857143,
+          "analysis": 1334.4285714285713,
+          "share": 0.08244410905464206
+        },
+        {
+          "ms": 16013.57142857143,
+          "analysis": 1351.857142857143,
+          "share": 0.08441946563183014
+        },
+        {
+          "ms": 16612.714285714286,
+          "analysis": 1388.5714285714287,
+          "share": 0.08358486185279777
+        }
+      ]
+    }
+  },
+  "timingCells": 273,
+  "timingRecordsSha256": "b86fe3b339eabe73bf700194aaa98378b426b7571666c3d4121fda448c084d91",
+  "rawGenerationRows": [
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 9540,
+      "analysis": 1799,
+      "share": 0.18857442348008385,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 9798,
+      "analysis": 1442,
+      "share": 0.14717289242702591,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8882,
+      "analysis": 1139,
+      "share": 0.1282368835847782,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8757,
+      "analysis": 1169,
+      "share": 0.1334932054356515,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 9277,
+      "analysis": 1733,
+      "share": 0.18680607955157918,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 8839,
+      "analysis": 1252,
+      "share": 0.14164498246407964,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 8585,
+      "analysis": 1247,
+      "share": 0.1452533488642982,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8752,
+      "analysis": 1139,
+      "share": 0.1301416819012797,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 8711,
+      "analysis": 1779,
+      "share": 0.20422454368040407,
+      "identity": "34303e810f7085a17a70d337b5aa62aacfff4a17cabc299fb9cddcb95369ac10",
+      "theme": "any",
+      "load": {
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 19850,
+      "analysis": 1792,
+      "share": 0.09027707808564232,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 20717,
+      "analysis": 1505,
+      "share": 0.07264565332818458,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 19843,
+      "analysis": 1309,
+      "share": 0.06596784760368896,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 20404,
+      "analysis": 1272,
+      "share": 0.0623407175063713,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 20178,
+      "analysis": 1755,
+      "share": 0.08697591436217662,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 22035,
+      "analysis": 1365,
+      "share": 0.061946902654867256,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 22155,
+      "analysis": 1696,
+      "share": 0.07655156849469645,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 22988,
+      "analysis": 1454,
+      "share": 0.0632503915086132,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 20652,
+      "analysis": 1763,
+      "share": 0.08536703466976564,
+      "identity": "5f125c15a82a15d14c7cc012890421d46b2576e61c45e90288851e06507185c5",
+      "theme": "riverValley",
+      "load": {
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 16346,
+      "analysis": 1765,
+      "share": 0.10797748684693503,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 17128,
+      "analysis": 1273,
+      "share": 0.07432274638019618,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 15966,
+      "analysis": 1199,
+      "share": 0.07509708129775773,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 16200,
+      "analysis": 1242,
+      "share": 0.07666666666666666,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 18086,
+      "analysis": 1920,
+      "share": 0.10615946035607653,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 17205,
+      "analysis": 1575,
+      "share": 0.09154315605928509,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 18218,
+      "analysis": 1499,
+      "share": 0.08228126029201888,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 16742,
+      "analysis": 1371,
+      "share": 0.08188985784255166,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 18084,
+      "analysis": 1925,
+      "share": 0.10644768856447688,
+      "identity": "ac68f4b396c9e04bf7e33b25e8e173aafbcaf15945289a9f6647c7295784bca5",
+      "theme": "canyon",
+      "load": {
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 9607,
+      "analysis": 2030,
+      "share": 0.2113042573123764,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 8738,
+      "analysis": 1341,
+      "share": 0.15346761272602427,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8612,
+      "analysis": 1264,
+      "share": 0.14677194612169067,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8314,
+      "analysis": 1178,
+      "share": 0.14168871782535483,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 9688,
+      "analysis": 2012,
+      "share": 0.20767960363336085,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 8554,
+      "analysis": 1394,
+      "share": 0.1629646948795885,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 8906,
+      "analysis": 1327,
+      "share": 0.14900067370312148,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 8474,
+      "analysis": 1251,
+      "share": 0.14762803870663205,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 9882,
+      "analysis": 2004,
+      "share": 0.20279295689131754,
+      "identity": "69db704e8012da1eecc4a1fad157d2dad330ae1ba0b754ded5e8cd39c13b4f57",
+      "theme": "highlands",
+      "load": {
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 15469,
+      "analysis": 2461,
+      "share": 0.1590923783049971,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 14045,
+      "analysis": 1401,
+      "share": 0.09975080099679601,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 13791,
+      "analysis": 1298,
+      "share": 0.0941193532013632,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 13155,
+      "analysis": 1412,
+      "share": 0.10733561383504371,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 14090,
+      "analysis": 2459,
+      "share": 0.1745209368346345,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 13021,
+      "analysis": 1475,
+      "share": 0.11327855003455956,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 13261,
+      "analysis": 1435,
+      "share": 0.10821205037327501,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 13368,
+      "analysis": 1354,
+      "share": 0.10128665469778576,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 13554,
+      "analysis": 2508,
+      "share": 0.18503762726870296,
+      "identity": "346cc68eccc7953d38449c07fa81ccf9768c17bad37bdf41710621dd817154c5",
+      "theme": "lakeBasin",
+      "load": {
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 11716,
+      "analysis": 3289,
+      "share": 0.2807272106520997,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 11095,
+      "analysis": 1654,
+      "share": 0.1490761604326273,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 11459,
+      "analysis": 1676,
+      "share": 0.14626058120254823,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 10953,
+      "analysis": 1502,
+      "share": 0.13713137953072219,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 13283,
+      "analysis": 3188,
+      "share": 0.24000602273582775,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 12208,
+      "analysis": 1690,
+      "share": 0.13843381389252948,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 10373,
+      "analysis": 1592,
+      "share": 0.15347536874578233,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 10948,
+      "analysis": 1550,
+      "share": 0.14157837047862623,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 14839,
+      "analysis": 3421,
+      "share": 0.23054114158636027,
+      "identity": "dcf0b3e1109cc8b595e32b3243a286dc32bbfbcee770dd634fee7f315fa982ff",
+      "theme": "delta",
+      "load": {
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 39533,
+      "analysis": 2136,
+      "share": 0.05403080970328586,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "before",
+      "name": "generation",
+      "ms": 35998,
+      "analysis": 1707,
+      "share": 0.047419301072281796,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 0,
+      "backend": "after",
+      "name": "generation",
+      "ms": 34748,
+      "analysis": 1456,
+      "share": 0.041901692183722805,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "after",
+      "name": "generation",
+      "ms": 34312,
+      "analysis": 1688,
+      "share": 0.04919561669386804,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 34656,
+      "analysis": 1997,
+      "share": 0.05762349953831948,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 1,
+      "backend": "before",
+      "name": "generation",
+      "ms": 31189,
+      "analysis": 1553,
+      "share": 0.04979319631921511,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "before",
+      "name": "generation",
+      "ms": 33188,
+      "analysis": 1514,
+      "share": 0.04561889839701097,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "after",
+      "name": "generation",
+      "ms": 35017,
+      "analysis": 1601,
+      "share": 0.045720649970014564,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    },
+    {
+      "rep": 2,
+      "backend": "typescript",
+      "name": "generation",
+      "ms": 37805,
+      "analysis": 2087,
+      "share": 0.05520433805052242,
+      "identity": "58cc67ea16fca76f7b4677e72a09d5ad0beca50f85ac83b0555d3ec84ad1547e",
+      "theme": "islands",
+      "load": {
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    }
+  ],
+  "loads": {
+    "analysis": [
+      {
+        "id": "m9b-any-96-1",
+        "mean": 99.29681138064689,
+        "max": 100,
+        "samples": 9,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-any-128-1",
+        "mean": 98.37742200313254,
+        "max": 100,
+        "samples": 12,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-any-256-1",
+        "mean": 98.68658156546604,
+        "max": 100,
+        "samples": 29,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-riverValley-96-1",
+        "mean": 98.53901499256826,
+        "max": 99.90357664876427,
+        "samples": 9,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-riverValley-128-1",
+        "mean": 96.78590040343758,
+        "max": 100,
+        "samples": 13,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-riverValley-256-1",
+        "mean": 98.19164644336313,
+        "max": 100,
+        "samples": 30,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-canyon-96-1",
+        "mean": 100,
+        "max": 100,
+        "samples": 9,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-canyon-128-1",
+        "mean": 99.5369627713265,
+        "max": 100,
+        "samples": 11,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-canyon-256-1",
+        "mean": 99.61204433493053,
+        "max": 100,
+        "samples": 29,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-highlands-96-1",
+        "mean": 99.66776854170071,
+        "max": 100,
+        "samples": 9,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-highlands-128-1",
+        "mean": 99.31054501492136,
+        "max": 100,
+        "samples": 15,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-highlands-256-1",
+        "mean": 99.13623777346297,
+        "max": 100,
+        "samples": 37,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-lakeBasin-96-1",
+        "mean": 97.66751535401713,
+        "max": 100,
+        "samples": 10,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-lakeBasin-128-1",
+        "mean": 99.06880174762223,
+        "max": 100,
+        "samples": 16,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-lakeBasin-256-1",
+        "mean": 99.22469429913384,
+        "max": 100,
+        "samples": 48,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-delta-96-1",
+        "mean": 99.73102351523094,
+        "max": 100,
+        "samples": 9,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-delta-128-1",
+        "mean": 99.98198853108943,
+        "max": 100,
+        "samples": 16,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-delta-256-1",
+        "mean": 99.44591255903346,
+        "max": 100,
+        "samples": 63,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-islands-96-1",
+        "mean": 99.24556781246585,
+        "max": 100,
+        "samples": 21,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-islands-128-1",
+        "mean": 99.1056710522641,
+        "max": 100,
+        "samples": 28,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "id": "m9b-islands-256-1",
+        "mean": 99.86233250310639,
+        "max": 100,
+        "samples": 37,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    ],
+    "generation": [
+      {
+        "theme": "any",
+        "mean": 99.126392238922,
+        "max": 100,
+        "samples": 83,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "riverValley",
+        "mean": 98.96209820517271,
+        "max": 100,
+        "samples": 185,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "canyon",
+        "mean": 99.67740333127335,
+        "max": 100,
+        "samples": 152,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "highlands",
+        "mean": 99.5324859783817,
+        "max": 100,
+        "samples": 82,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "lakeBasin",
+        "mean": 99.33188650109594,
+        "max": 100,
+        "samples": 123,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "delta",
+        "mean": 99.58705844405037,
+        "max": 100,
+        "samples": 108,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      },
+      {
+        "theme": "islands",
+        "mean": 99.51226918839188,
+        "max": 100,
+        "samples": 313,
+        "source": "Windows PDH Processor(_Total) % Processor Time"
+      }
+    ]
+  },
+  "method": "Rotating three-way order; untimed initialization/warmup/identity; each analysis sample averages a calibrated loop of at least about 30 ms (cap 200 calls); complete generation uses one run per sample.",
+  "historicalFirefox": {
+    "typescript": {
+      "generation": {
+        "median": 30245.714285714286,
+        "worst": 31946.85714285714
+      },
+      "analysis": {
+        "median": 4032.5714285714284,
+        "worst": 4227.571428571428
+      },
+      "share": {
+        "median": 0.13287360665029285,
+        "worst": 0.13346761419783731
+      },
+      "load": {
+        "mean": [
+          100,
+          100,
+          100,
+          99.99958248485044,
+          99.99958248485044,
+          99.99958248485044,
+          100,
+          100,
+          100,
+          99.99908704315303,
+          99.99908704315303,
+          99.99908704315303,
+          100,
+          100,
+          100,
+          99.99919758786878,
+          99.99919758786878,
+          99.99919758786878,
+          99.99914563039896,
+          99.99914563039896,
+          99.99914563039896
+        ],
+        "max": 100
+      }
+    },
+    "wasm": {
+      "generation": {
+        "median": 31707.714285714286,
+        "worst": 33845
+      },
+      "analysis": {
+        "median": 7296.142857142857,
+        "worst": 7348.714285714285
+      },
+      "share": {
+        "median": 0.22376826575626918,
+        "worst": 0.23010623822954307
+      },
+      "load": {
+        "mean": [
+          100,
+          100,
+          100,
+          99.99958248485044,
+          99.99958248485044,
+          99.99958248485044,
+          100,
+          100,
+          100,
+          99.99908704315303,
+          99.99908704315303,
+          99.99908704315303,
+          100,
+          100,
+          100,
+          99.99919758786878,
+          99.99919758786878,
+          99.99919758786878,
+          99.99914563039896,
+          99.99914563039896,
+          99.99914563039896
+        ],
+        "max": 100
+      }
+    }
+  },
+  "measurementHashes": {
+    "analyses": "938e08b8cdb2da73975de6666705df580f602ef28ab0e0109262db307364b70b",
+    "generation": "fbeac59e33fe5dcedac62f9f91e1770218c75ccd53530834b4305a6086fc1c19"
+  }
+}

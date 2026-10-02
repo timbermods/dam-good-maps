@@ -4,8 +4,9 @@
   "private": true,
   "description": "Timberborn map generator: pick settings, preview the map, download a .timber file that plays in Timberborn 1.1.",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
+    "setup:machine": "node tools/setup-machine.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

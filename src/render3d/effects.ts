@@ -155,12 +155,14 @@ export interface SurgeLane {
   width: number;
 }
 
-/** Where a force's head is, which way it runs, and whether it is cutting. */
+/** Where a force's head is, which way it runs, whether it is cutting, and whether its water is
+ *  badwater. */
 export interface SurgeHead extends SurgeLane {
   dx: number;
   dy: number;
   cut: number;
   lanes?: SurgeLane[];
+  bad?: boolean;
 }
 
 /** A point of the head's last stretch, with its heading. */
@@ -223,6 +225,7 @@ export class Surge {
         pos.push(...a0, ...a1, ...b0, ...a1, ...b1, ...b0);
       }
     }
+    if (head) (this.mud.material as MeshBasicMaterial).color.set(css(head.bad ? JUICE.badMud : JUICE.mud));
     this.mud.geometry.dispose();
     this.mud.geometry = new BufferGeometry();
     this.mud.geometry.setAttribute("position", new Float32BufferAttribute(pos, 3));

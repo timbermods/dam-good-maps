@@ -81,7 +81,7 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t1);
   await page.keyboard.up("d");
   await rests(page);
-  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Flatten level" });
+  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" });
   await field.focus();
   const t0 = (await view(page)).target;
   await page.keyboard.down("d");

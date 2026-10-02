@@ -89,6 +89,16 @@ Each open choice, what was chosen, and why.
     terrain voxel for voxel (the game's terrain columns against the file's), stored water at the load and
     after a day (on the whole map and above 16), every object, the start at 22, the sources above 16, the
     water flowing and standing above 16, and the screenshots by eye.
+20. **Ceiling maps** (PLAN §20 D244, step 1: play near the top before the one ceiling is built):
+    `tools/probe-ceiling.ts` opens D172-style tall maps in the editor's own worker, as a player opens a
+    .timber, and edits them with its operations (Erupt, the Flatten and Raise brushes, the shelf's water
+    source), then exports them as the page does. The ceiling isn't built, so the editing runs in a child
+    process whose loader raises the editor's limit of 16 to 22 (the build's integrity pass, the brushes, a
+    brush's level in the operation schema); nothing else changes. The `Ceiling` group plays them for 8.5 days
+    (a 2-day drought and a 2-day badtide) and checks the load, the terrain voxel for voxel, the stored water
+    and the water the editor settled near its edits, the objects, the sources above 16, the hazards against
+    the cycle model, and the ground and objects on the land the editor raised. The probe cannot place
+    buildings, so building on the slopes stays on Kyler's hands-on checklist.
 20. **Each group made outside the repository writes its own maps** (Kyler, 2026-09-30). A group declares its writer in
     the catalog; `batch --group <name>` (or `--only` with its ids) calls it in the runner's own process before it
     plans: every map is built, compared by sha256 with the file on disk and rewritten if it differs, so a stale map is

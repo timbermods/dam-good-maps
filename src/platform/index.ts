@@ -230,16 +230,16 @@ async function nameTaken(folder: FileSystemDirectoryHandle, name: string): Promi
   }
 }
 
-/** "River Valley.timber" -> "River Valley (2).timber". */
+/** "dgm-river-valley-7.timber" -> "dgm-river-valley-7-2.timber" (D345, B10). */
 function withSuffix(name: string, n: number): string {
   const dot = name.lastIndexOf(".");
   const stem = dot === -1 ? name : name.slice(0, dot);
   const ext = dot === -1 ? "" : name.slice(dot);
-  return `${stem} (${n})${ext}`;
+  return `${stem}-${n}${ext}`;
 }
 
 /** Never overwrite a map with the same name (D162 amendment, Kyler 2026-09): the first name not
- *  already in the folder, trying "Name (2)", "Name (3)" and so on after the plain name. */
+ *  already in the folder, trying "name-2", "name-3" and so on after the plain name. */
 async function freeName(folder: FileSystemDirectoryHandle, name: string): Promise<string> {
   if (!(await nameTaken(folder, name))) return name;
   for (let n = 2; ; n++) {
@@ -276,7 +276,7 @@ export const liveDeps: SaveToTimberbornDeps = {
 /**
  * Save straight into the player's Timberborn Maps folder (D162): the first call asks the player
  * to pick it and remembers the folder; later calls reuse it, asking again only if permission has
- * lapsed. Never overwrites an existing map: a taken name is saved as "Name (2)" (then "(3)", and so
+ * lapsed. Never overwrites an existing map: a taken name is saved as "name-2" (then "-3", and so
  * on), reported back as `savedAs`. Falls back to the normal download - the same bytes, just not
  * placed in the folder - on every other browser, a declined picker or permission, or a failure
  * finding a free name or writing the file.

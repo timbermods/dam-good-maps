@@ -3,7 +3,7 @@
 Kyler's decisions, 2026-09-29. One workspace is a core part of Dam Good Maps' identity: generation, editing and sculpting are seamless.
 
 > Recorded as [PLAN.md §20](../PLAN.md#20-editor-decisions) D330, from Kyler's question-and-answer round on
-> [UI-QUESTIONS.md](UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
+> [UI-QUESTIONS.md](archive/UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
 
 ## 1. One workspace
 One window for everything. The map fills it from the first visit. There is no separate editor, no expand button, no full-screen mode and no "Refine this map" step. The keys are the same everywhere; Esc means what it means today; keys are ignored while typing in a field. Phones are view-only (D185): the map, the panel and Your maps to browse, with no editing.
@@ -19,8 +19,7 @@ Collapsible to a thin strip. Open on the first visit, then remembers how it was 
 - **Your maps** (D234): recent and starred edited maps.
 
 ## 4. The rows and Save
-- The rows over the map, top to bottom: the view bar (Watch beside Sound); the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select, and the Block tool at 3D step 3: the rows follow how a tool feels to use, D335); the forces (Erode joins them at 3D step 3); the active tool's settings with More. Where they sit and how they look is the design pass's.
-- **The forces row's order** (D352): three clusters in one row, by prominence: Carve, Craterize, Erupt (the most prominent, immediately understood) · Rift, Quake, Glaciate (the ground breaking and moving) · Erode, Deposit (the slower processes that reward experience). Forces not yet adopted take their place in this order. The first-run hint points at Carve.
+- The rows over the map, top to bottom: the view bar; the tools (Raise, Lower, Flatten, Smooth, Naturalize, Select, and the Block tool at 3D step 3: the rows follow how a tool feels to use, D335); the forces (in three clusters by prominence, D352: Carve, Craterize, Erupt · Rift, Quake, Glaciate · Erode, Deposit; Erode joins them at 3D step 3); the active tool's settings with More. Where they sit and how they look is the design pass's, with one placement fixed by Kyler (D345, B3, 2026-09-29): **the level control (▾ ∞ ▴) sits at the top right, beside the compass, larger and easier to see, as in Timberborn's own editor, with Slow forces and Sound (a speaker icon, crossed out when muted) in a row under it** (they were in the view bar; Slow forces was called Watch until D361); D368 (5) makes them one tidy cluster: the compass in the corner, the level control centred on its line, the row beneath on the cluster's edges, one height and one gap throughout. A long settings row takes a second line, and a tool's More opens as a compact grid panel (D345, B2).
 - **Save to Timberborn** is a primary button at the workspace's top-right, always visible whether the panel is open or collapsed, with the checks dot right beside it (its one-click fixes there). Download .timber and the project file are in the ⋯ menu.
 
 ## 5. Speed first

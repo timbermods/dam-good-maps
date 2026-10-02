@@ -1,0 +1,14 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {ROOT,HERE,LOCAL,deps,hash,json} from './common.mjs';
+const source=readFileSync(resolve(ROOT,'investigation/m9b/measures.ts'),'utf8');
+let body=source.slice(source.indexOf('  const b = r.built;'),source.indexOf('  if (cycle && r.bytes.length)'));
+const changedStart=body.indexOf('    changed: shownHeights ?'),changedEnd=body.indexOf('\n    fixes:',changedStart);
+if(changedStart<0||changedEnd<0)throw Error('M9b diagnostic extraction changed');
+body=body.slice(0,changedStart)+'    changed: generation.changed,'+body.slice(changedEnd);
+const captured=`import {levelRegions,cutShape,wearReach} from './api.js';\nconst TREES=new Set(['Pine','Birch','Oak','Maple','ChestnutTree','Mangrove']);\nexport function measureCaptured(r:any,theme:string,seed:number,size:number,generation:any){const firstLook=0,firstCandidate=0,final=0,cpuShare=0,shown=generation.shown;\n${body}\nreturn m;}`;
+writeFileSync(resolve(LOCAL,'m9b-captured.ts'),captured);
+const esbuild=deps.resolve('@esbuild/win32-x64/esbuild.exe');
+execFileSync(esbuild,[resolve(HERE,'m9b-worker.mjs'),'--bundle','--platform=browser','--format=esm','--target=es2022','--outfile='+resolve(LOCAL,'m9b-worker.js')],{stdio:'inherit'});
+json('m9b-browser-build.json',{source:hash(source),body:hash(body),generationDiagnostics:['shown','changed'],excluded:'Generator callbacks and clocks are already verified natively; all post-generation descriptive arithmetic retains the original source.'});

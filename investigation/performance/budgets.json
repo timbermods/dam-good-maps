@@ -1,0 +1,28 @@
+{
+  "status": "provisional-until-quiet-baselines-exist",
+  "defaultSuite": "core",
+  "suites": {
+    "core": {
+      "sizes": [256], "looks": ["standard", "high"], "captureRepeats": 1,
+      "platforms": [
+        { "browser": "edge", "profile": "native", "repeats": 5 },
+        { "browser": "edge", "profile": "laptop", "repeats": 1 }
+      ]
+    },
+    "full": {
+      "sizes": [128, 256], "looks": ["standard", "high"],
+      "browsers": ["edge", "firefox"], "profiles": ["native", "laptop"],
+      "repeats": 3, "captureRepeats": 3
+    }
+  },
+  "quiet": { "metric": "unrelatedCpuPercent", "requireOwnership": true, "cpuPercentMax": 25, "durationMs": 60000, "maxSampleGapMs": 30000, "samples": 2 },
+  "repeatJudgment": { "nativeRepeats": 5, "statistics": ["median", "worst"], "discardFor": "other-process load spike or invalid telemetry only; retain slow measured runs" },
+  "deferredBrowsers": { "firefox": "13 afternoon setup failures waiting for stable Top-down button; probe timeout and WebGL context loss recorded, root cause unproved. Optional full suite only until setup is reliable." },
+  "frame": { "absoluteHitchMs": 50, "neighborMultiplier": 2, "neighborWindow": 4, "p99Ms": 20 },
+  "longTaskMs": 50,
+  "glitches": 0,
+  "finalByteMismatches": 0,
+  "longSession": { "required": 1, "browser": "edge", "profile": "laptop", "size": 256, "look": "high", "durationMs": 3600000, "endP99RatioMax": 1.05, "gpuGeometryGrowthMax": 0, "gpuTextureGrowthMax": 0, "browserPrivateGrowthRatioMax": 1.1 },
+  "audio": { "dropouts": 0, "crackles": 0, "heldTextureReleaseMsMax": 150 },
+  "requiredManualOracles": ["terrain-holes-seams", "chunk-popping", "water-hover-through-land", "water-jumps", "lighting-shadow-reflection-flicker", "object-ground-following", "all-flicker", "audio-motion-sync", "audio-crackle-dropout"]
+}

@@ -617,8 +617,8 @@ async function captureMap(page: Page, tool: Page, m: MapSource, dir: string, bef
   if (MARKERS) await page.evaluate(() => (window.dgm3d!.renderer as unknown as { setMarkers?: (on: boolean) => void }).setMarkers?.(true));
   await page.waitForTimeout(300);
   await settle(page);
-  const sites = (await page.evaluate(() => window.dgmEditor!.worker.damSites())) as { sites: { tiles: Tile[] }[] };
-  const dam: Tile[] = sites.sites.flatMap((s) => s.tiles);
+  // (the dam-site layer is gone, D287: no dam site is drawn)
+  const dam: Tile[] = [];
   /** The dam sites the view shows (none in the clean view). */
   const shown: Tile[] = MARKERS || LABEL !== "clean" ? dam : [];
   // wait for the background check (it may replace the water once)
@@ -768,7 +768,12 @@ async function main() {
   const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false });
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    // Standard held: this is the original Map look (D86, D110, D114), well before the High look
+    // existed; a capable GPU would otherwise draw it in High by itself (found auditing
+    // capture-badwater.ts's same gap, D304's investigation)
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 400)));

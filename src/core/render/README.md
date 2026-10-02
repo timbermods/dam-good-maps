@@ -5,6 +5,6 @@ Top-down colours for a map: an elevation ramp with a north-west hillshade, plus 
 **Rules**
 - Pure arithmetic, so the thumbnail bytes are identical in every engine. The thumbnail is part of the deterministic `.timber`.
 
-**Start from**: `shade.ts` `shadeTiles`, `thumbnailRgba`, `thumbnailJpeg` (`THUMB_W` × `THUMB_H`, 960 × 540).
+**Start from**: `shade.ts` `shadeTiles`, `thumbnailRgba`, `thumbnailJpeg` (`THUMB_W` × `THUMB_H`, 960 × 540); `thumb.ts` `thumbnailPixels`, the small picture for Your maps and the candidates strip (D234).
 
 **Tests**: covered through the file bytes in `tests/unit/format.test.ts`. Run `npx vitest run tests/unit/format.test.ts`.

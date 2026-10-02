@@ -28,7 +28,7 @@ The generator:
 - **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
-  name is kept, and the new one is saved as "Name (2)".
+  name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **Download project file** keeps the map for editing later.
 
@@ -37,32 +37,43 @@ The editor:
   zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
 - Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
-- [ and ] size the brush, or hold F and move the mouse. Shift+scroll sets its strength. Shift while
-  painting swaps Raise and Lower. Esc cancels a stroke.
-- **Flatten** levels the ground to the height where you start. Ctrl+click picks another level; on
-  water, the riverbed's.
-- The row under the brushes holds their options: **Square**, **Precise**, **Straight lines** and
-  **Level lines**. **Flatten** adds **In steps** and **Edges**. **Smooth** adds **Make walkable**,
-  which lays the game's slopes.
+- { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
+  **Smooth** and **Naturalize**'s strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
+- **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
+  shown beside the pointer, with hard edges.
+- Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
+  either end, **Free** raises or digs softly.
+- The row under the brushes holds their options: **Size**, **Level**, **Mode** and **Sources**, then
+  **Square** and **Straight lines**. **Flatten** adds **In steps**.
+- **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
+  changes everything.
+- **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
+  removes them.
+- **Level lines** is a view switch beside **Height colours**. A slope goes exactly where you want it
+  from the shelf's **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
+- The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
+  a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
+- Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
+  Power. **Try another** gives a different result; **More** holds the details.
+- **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
 - The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
 - A new source's water flows at once. The row under the brushes sets its strength.
-- Over a placed source, Shift+scroll sets its strength. Drag it to move it. Click it to change or
+- Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
-- **Remove** (X) takes the object you click, or everything in the rectangle you drag. It never
-  changes the ground, and the start stays.
-- M selects an area, as does Ctrl+drag with a brush. Raise it, lower it, level it, dig it out or
-  clear its objects.
+- Point at an object or a source and press **Delete** to remove it. The start stays.
+- **Select** (M) marks an area, as does Ctrl+drag with a brush. Raise it, lower it, level it or dig
+  it out. **Delete** clears everything standing in it.
 - Drag the start to move it. Point at it to see its water, wood and berries.
-- The water flows as you edit. **Pause**, **Speed**, **Skip**, **Replay** and **Follow** control
+- The water flows as you edit. **Pause**, **Speed**, **Skip** and **Replay** control
   it. **Drought** and **Badtide** show what each does to the map.
 - A brush over water clears the water around it, so you see the bed. **Clear water** (T) clears all
   of it.
-- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Moisture**,
-  **Badwater**, **Drought**, **Dam sites**, **Minimap** and **Sound**.
+- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Badwater**,
+  **Minimap** and **Sound**.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
@@ -93,8 +104,8 @@ Real places:
 | [EDITOR_PLAN.md](EDITOR_PLAN.md) | The plan for the in-browser map editor and the Claude integration. |
 | [docs/README.md](docs/README.md) | Which documents are current and which are history. |
 | [ROADMAP.md](ROADMAP.md) | One milestone order for both plans. |
-| [AUDIT.md](AUDIT.md) | The audit that reconciled both plans with the investigation. Kyler's answers to its decisions are in PLAN.md §20. |
-| [docs/ingame-log.md](docs/ingame-log.md) | The in-game checks each milestone needs. They are deferred for now and listed as pending. |
+| [AUDIT.md](docs/archive/AUDIT.md) | The audit that reconciled both plans with the investigation. Kyler's answers to its decisions are in PLAN.md §20. |
+| [docs/ingame-log.md](docs/archive/ingame-log.md) | The in-game checks each milestone needs. They are deferred for now and listed as pending. |
 | [FORMAT.md](FORMAT.md) | The `.timber` map format as the game writes it in 1.1. |
 | [investigation/](investigation/README.md) | Every study behind the plans, what became of it, and where its adopted pieces live. |
 | [investigation/REPORT.md](investigation/REPORT.md) | What the game's code, data and maps say about map rules and design, with the numbers behind every threshold. |
@@ -178,5 +189,11 @@ under New game.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Timberborn is a game by Mechanistry; this project is not affiliated
-with Mechanistry.
+Copyright (c) 2026 Timbermods. Free software under the [GNU Affero General Public License v3](LICENSE) (or any later
+version): use, study, modify and share it freely. If you distribute a modified version, or run one as a website or
+service, you must offer its full source to its users under the same licence.
+
+The maps you make with Dam Good Maps are yours; the code's licence doesn't cover them. Versions published before
+2026-10-01 stay under the MIT licence they were released with.
+
+Timberborn is a game by Mechanistry; this project is not affiliated with Mechanistry.

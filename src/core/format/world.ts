@@ -13,6 +13,51 @@ export const EDITOR_MAX_HEIGHT = 16;
  *  20260925-tall); the in-game map editor edits only up to `EDITOR_MAX_HEIGHT`. */
 export const GAME_MAX_HEIGHT = 22;
 
+/** The editor's one height ceiling, on every map (PLAN §20 D244): D172's tall maximum. The brushes,
+ *  the forces, Select's levels and the build's integrity pass all stop here. */
+export const CEILING = GAME_MAX_HEIGHT;
+
+/** A map whose land goes above `EDITOR_MAX_HEIGHT` is a tall map (D172, D244); at or below it, a
+ *  standard one again. */
+export function isTall(heights: ArrayLike<number>): boolean {
+  for (let i = 0; i < heights.length; i++) if (heights[i] > EDITOR_MAX_HEIGHT) return true;
+  return false;
+}
+
+/** A tall map's note in its description (D172 (4), D244), in plain words: what the probe found the
+ *  in-game editor does with it (run ceiling-20260927). */
+export const TALL_NOTE = "Timberborn's map editor opens and saves this map as it is, but can't raise land above level 16.";
+
+/** A generated map's own words for its tall land, a sentence of its description (pack.ts). They are
+ *  its tall note: a generated map, exported and opened again as a file, carries one note, never
+ *  two, and exports the same bytes (D244, D341). */
+export function generatedTallSentence(top: number): string {
+  return `The land rises to level ${top}: the game's map editor edits only up to level ${EDITOR_MAX_HEIGHT}.`;
+}
+const GENERATED_TALL = new RegExp(` ?The land rises to level (\\d+): the game's map editor edits only up to level ${EDITOR_MAX_HEIGHT}\\.`);
+
+/** The description with the tall note when the map is tall, and without it when it isn't. A
+ *  generated map's own words count as the note: kept while it is tall (their level following `top`
+ *  when given), taken out when it is standard again. */
+export function withTallNote(description: string, tall: boolean, top?: number): string {
+  const own = GENERATED_TALL.exec(description);
+  if (own) {
+    if (!tall) return withTallNote(description.replace(GENERATED_TALL, ""), false);
+    if (top === undefined || Number(own[1]) === top) return description;
+    return description.replace(GENERATED_TALL, (m) => m.replace(`level ${own[1]}:`, `level ${top}:`));
+  }
+  const has = description.split("\n\n").some((p) => p.trim() === TALL_NOTE);
+  // (a description that has it and should, or hasn't and shouldn't, stays exactly as it is)
+  if (has === tall) return description;
+  const bare = description
+    .split("\n\n")
+    .filter((p) => p.trim() !== TALL_NOTE)
+    .join("\n\n")
+    .trimEnd();
+  if (!tall) return bare;
+  return bare ? `${bare}\n\n${TALL_NOTE}` : TALL_NOTE;
+}
+
 export interface WorldModel {
   gameVersion: string;
   timestamp: string;

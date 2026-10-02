@@ -12,6 +12,7 @@
 // - Landforms are drawn by their outline, with a height and an edge style.
 // - Set pieces are planned by their shared builders; moving one plans it again at its new place.
 
+import * as portable from "../math/portable";
 import { buildMap, START_CLEAR_RADIUS, type BuildResult } from "../features/build";
 import { bedAt, pathField, pointAtArc, polygonMask } from "../features/geometry";
 import { edgeStep, landformLevel } from "../features/raster/terrain";
@@ -123,7 +124,7 @@ function snapTo(p: Point, e: Edge, W: number, H: number): Point {
 
 function arcLength(path: readonly Point[]): number {
   let l = 0;
-  for (let i = 0; i + 1 < path.length; i++) l += Math.sqrt((path[i + 1][0] - path[i][0]) ** 2 + (path[i + 1][1] - path[i][1]) ** 2);
+  for (let i = 0; i + 1 < path.length; i++) l += portable.sqrt(portable.pow(path[i + 1][0] - path[i][0], 2) + portable.pow(path[i + 1][1] - path[i][1], 2));
   return l;
 }
 
@@ -195,7 +196,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
         const uy = pts[i + 1][1] - pts[i][1];
         const vx = pts[j + 1][0] - pts[j][0];
         const vy = pts[j + 1][1] - pts[j][1];
-        if (ux * vx + uy * vy < -0.5 * Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
+        if (ux * vx + uy * vy < -0.5 * portable.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))) return fail("the river turns back on itself: draw it without hairpin turns");
         continue;
       }
       if (segmentSegment(pts[i], pts[i + 1], pts[j], pts[j + 1]) < clearance) return fail("the river comes back too close to itself: draw it without loops");
@@ -237,7 +238,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
       let under = Infinity;
       for (let y = Math.max(0, Math.floor(p[1] - reach)); y <= Math.min(H - 1, Math.ceil(p[1] + reach)); y++)
         for (let x = Math.max(0, Math.floor(p[0] - reach)); x <= Math.min(W - 1, Math.ceil(p[0] + reach)); x++) {
-          if ((x - p[0]) ** 2 + (y - p[1]) ** 2 > reach * reach) continue;
+          if (portable.pow(x - p[0], 2) + portable.pow(y - p[1], 2) > reach * reach) continue;
           const i = y * W + x;
           if (ctx.channel?.[i]) {
             for (const f of ctx.features) if (f.kind === "river" && f.id !== id && f.id !== exitRiver && !crossed.has(f.id) && nearPath(f.params.path, x, y) < f.params.width / 2 + 0.5) crossed.add(f.id);
@@ -291,7 +292,7 @@ export function planRiver(req: RiverRequest, ctx: PlanContext, id: string, origi
     const [ex, ey] = pts[pts.length - 1];
     const rr = width / 2 + 2;
     for (let y = Math.max(0, Math.floor(ey - rr)); y <= Math.min(H - 1, Math.ceil(ey + rr)); y++)
-      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if ((x - ex) ** 2 + (y - ey) ** 2 <= rr * rr) endTiles.push(y * W + x);
+      for (let x = Math.max(0, Math.floor(ex - rr)); x <= Math.min(W - 1, Math.ceil(ex + rr)); x++) if (portable.pow(x - ex, 2) + portable.pow(y - ey, 2) <= rr * rr) endTiles.push(y * W + x);
   }
   const extra: EditOp[] = [];
   if (exitRiver) {
@@ -371,7 +372,7 @@ function pointSegment(p: Point, a: Point, b: Point): number {
   else if (t > 1) t = 1;
   const dx = a[0] + t * vx - p[0];
   const dy = a[1] + t * vy - p[1];
-  return Math.sqrt(dx * dx + dy * dy);
+  return portable.sqrt(dx * dx + dy * dy);
 }
 
 /** The least distance between two segments (0 when they cross). */
@@ -399,7 +400,7 @@ function nearPath(path: readonly Point[], x: number, y: number): number {
     const py = ay + t * vy - y;
     best = Math.min(best, px * px + py * py);
   }
-  return Math.sqrt(best);
+  return portable.sqrt(best);
 }
 
 // -------------------------------------------------------------------------------------- lakes
@@ -1002,8 +1003,9 @@ export function cornerFor(x: number, y: number, o: Orientation): [number, number
 }
 
 /** The operations that move the start to the nearest spot where it stands well (a fix for the
- *  start checks), or null when there is none within 24 tiles. */
-export function moveStartNear(s: MapSession, fromX: number, fromY: number): EditOp[] | null {
+ *  start checks), or null when there is none within 24 tiles. `level`: only where its ground is
+ *  level already (a start a force carries, D257: the force's land stays as it made it). */
+export function moveStartNear(s: MapSession, fromX: number, fromY: number, level = false): EditOp[] | null {
   const b = s.built;
   const { W, H } = b;
   const feat = s.features.find((f): f is StartFeature => f.kind === "start");
@@ -1014,7 +1016,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number): Edit
   for (let r = 1; r <= 24; r++) {
     const ring: [number, number][] = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([fromX + dx, fromY + dy]);
-    ring.sort((a, b2) => (a[0] - fromX) ** 2 + (a[1] - fromY) ** 2 - ((b2[0] - fromX) ** 2 + (b2[1] - fromY) ** 2) || a[1] - b2[1] || a[0] - b2[0]);
+    ring.sort((a, b2) => portable.pow(a[0] - fromX, 2) + portable.pow(a[1] - fromY, 2) - (portable.pow(b2[0] - fromX, 2) + portable.pow(b2[1] - fromY, 2)) || a[1] - b2[1] || a[0] - b2[0]);
     for (const [x, y] of ring) {
       if (x < 2 || y < 2 || x > W - 3 || y > H - 3) continue;
       if (feat) {
@@ -1024,7 +1026,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number): Edit
         let ok = true;
         for (let yy = y - 2; yy <= y + 2 && ok; yy++) for (let xx = x - 2; xx <= x + 2 && ok; xx++) if (b.water[yy * W + xx] > 0.05 || b.channel[yy * W + xx]) ok = false;
         for (let yy = y - rr; yy <= y + rr && ok; yy++) for (let xx = x - rr; xx <= x + rr && ok; xx++) if (pieces[yy * W + xx]) ok = false;
-        if (!ok || startProblem(b, x, y, o, false, feat.id, pieces)) continue;
+        if (!ok || startProblem(b, x, y, o, level, feat.id, pieces)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
         return [{ op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
       }
@@ -1034,6 +1036,48 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number): Edit
     }
   }
   return null;
+}
+
+/** Whether an edit that changed the tiles `changed` broke the start's own ground (D257): it stood on
+ *  some of them, and now it is off level ground, in a river, on an object or off the map there. */
+export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): boolean {
+  const b = s.built;
+  const { W } = b;
+  const feat = s.features.find((f): f is StartFeature => f.kind === "start");
+  const ent = b.entities.find((e) => e.template === "StartingLocation");
+  if (!feat && !ent) return false;
+  const o: Orientation = feat ? feat.params.orientation : ent!.orientation;
+  const [x, y] = feat ? feat.params.position : startCentre(ent!.x, ent!.y, o);
+  const corner = cornerFor(x, y, o);
+  const door = startEntranceTile(corner[0], corner[1], o);
+  const tiles = [door[1] * W + door[0]];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
+  if (!tiles.some((i) => changed.has(i))) return false;
+  const why = startProblem(b, x, y, o, true, feat ? feat.id : ent!.owner, pieceTiles(s));
+  return why !== null && why !== "under water";
+}
+
+/** Where the map's start stands (its middle), or null without one. */
+export function startMiddle(s: MapSession): [number, number] | null {
+  const feat = s.features.find((f): f is StartFeature => f.kind === "start");
+  if (feat) return [feat.params.position[0], feat.params.position[1]];
+  const e = s.built.entities.find((g) => g.template === "StartingLocation");
+  return e ? startCentre(e.x, e.y, e.orientation) : null;
+}
+
+/** The operations that carry the start off ground a force broke (D257: a force is bound only by
+ *  nature; the editor keeps one start, on level ground): worked out on the map with the force
+ *  applied, which is then taken back. Empty when the start still stands well, or has nowhere to go. */
+export function carryStartOps(s: MapSession, force: EditOp): EditOp[] {
+  if (force.op !== "forceResult") return [];
+  if (!s.apply(force, "user").ok) return [];
+  try {
+    if (!startBrokenBy(s, new Set(force.params.tiles))) return [];
+    const at = startMiddle(s);
+    return (at && moveStartNear(s, at[0], at[1], true)) || [];
+  } finally {
+    s.undo();
+  }
 }
 
 export type { Facing };

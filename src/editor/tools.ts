@@ -4,7 +4,6 @@
 
 import { FOOTPRINTS, type Orientation } from "../core/format/footprints";
 import type { ToolRequest } from "../worker/session";
-import { DAM_OVERLAY } from "../render3d/palette";
 
 /** Source's options: a source's water, clean or bad, and its strength in blocks per second
  *  (clean: one tile, at most 8; bad: 3 × 3, at most 72). */
@@ -19,7 +18,8 @@ export interface ToolOptions {
 export const SOURCE_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 export const BADWATER_STRENGTHS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 72];
 
-export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1.5, badwaterStrength: 1 };
+/** The strengths a placed source starts at: the game's own (its blueprints' `DefaultStrength`: WaterSource 1, BadwaterSource 3; D323 item 46). Both are among the official maps' (docs/FINDINGS.md "Sources"). */
+export const DEFAULT_OPTIONS: ToolOptions = { sourceBad: false, sourceStrength: 1, badwaterStrength: 3 };
 
 /** The Coordinates that centre a template's rotated footprint on the tile clicked. */
 export function coordinatesAt(template: string, x: number, y: number, o: Orientation): [number, number] {
@@ -57,13 +57,27 @@ export type Rgba = [number, number, number, number];
 /** A selection: its outline only, so its own ground shows through. */
 export const SELECTED: Rgba = [255, 208, 90, 190];
 export const MOVING: Rgba = [110, 214, 255, 150];
+/** The object the plain pointer would pick where it is (D360 a). */
+export const HOVERED: Rgba = [255, 255, 255, 150];
 export const DRAWING: Rgba = [150, 235, 120, 140];
+/** A drawn force's band, under its edge (D344, A3): the force's width along its line, softly. */
+export const DRAWING_BAND: Rgba = [150, 235, 120, 70];
+/** A force's reach round the cursor (D312): a faint ring. */
+export const FAINT: Rgba = [230, 240, 230, 70];
+/** What a Select action's hover shows it would raise, and lower (D323 item 6). */
+export const RAISES: Rgba = [90, 200, 110, 140];
+export const LOWERS: Rgba = [240, 160, 70, 150];
 export const GOOD: Rgba = [80, 200, 90, 170];
 export const BAD: Rgba = [230, 60, 50, 180];
-/** Dam sites: alpha 255 draws them hatched light and dark with a dark rim (the 3D view), so they
- *  show on any ground or water in any colours (Map look, D114). */
-export const DAM: Rgba = [...DAM_OVERLAY];
+/** A start that fits but misses some requirement (D361). */
+export const WARN: Rgba = [235, 170, 40, 180];
+/** The start's overlay colour by its status (D361). */
+export const STATUS_COLOR: Record<"ok" | "warn" | "blocked", Rgba> = { ok: GOOD, warn: WARN, blocked: BAD };
+/** The start's ghost tint by its status: true green, "warn" amber, false red. */
+export const GHOST_OK: Record<"ok" | "warn" | "blocked", boolean | "warn"> = { ok: true, warn: "warn", blocked: false };
 export const PROBLEM: Rgba = [230, 60, 50, 150];
+/** The locked land outside the working area (D254): dimmed. */
+export const LOCKED: Rgba = [16, 20, 28, 120];
 
 export interface OverlayLayer {
   tiles: ArrayLike<number>;

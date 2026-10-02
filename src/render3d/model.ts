@@ -174,6 +174,7 @@ export interface EntityInput {
   variant?: string;
   /** A source's strength. */
   strength?: number;
+  /** A force knocked it down (a dead tree), and it lies along (dx, dy). */
 }
 
 export function entityView(list: readonly EntityInput[]): EntityView {

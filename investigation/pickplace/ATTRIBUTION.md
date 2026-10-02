@@ -5,7 +5,7 @@ Data: `s3://elevation-tiles-prod/terrarium`. Provider notices below apply to eve
 
 Changes: bilinear resampling, cropped patches, monotonic vertical mapping and integer quantisation; designed game water sources, natural slopes, simulated water and planted game resources. No edge sealing, walls or rims. These are modified data, not endorsed by the providers.
 
-No Google imagery or elevation is used. A pasted coordinate is only a location. No basemap or land mask is used by this prototype. Notices apply to the previews as well as map exports. Local code is adapted from the MIT-licensed Dam Good Maps landscape pipeline.
+No Google imagery or elevation is used. A pasted coordinate is only a location. No basemap or land mask is used by this prototype. Notices apply to the previews as well as map exports. Local code is adapted from the AGPL v3-licensed Dam Good Maps landscape pipeline.
 
 The following upstream notice is preserved from https://github.com/tilezen/joerd/blob/master/docs/attribution.md (SHA-256 2ce4d3414b4592d17ad56a5af57feb480686ddcfb0a3e4ea0b566d28cde13567).
 

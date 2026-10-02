@@ -1,0 +1,8 @@
+--- a/src/core/land/genome.ts
++++ b/src/core/land/genome.ts
+@@ -978,2 +978,5 @@
+   }
++  // Canyon keeps a main inflow when Rivers permits it: its incision needs a river, not only small springs.
++  if (g.theme === "canyon" && s.water.rivers > 0) g.hydro.inflows = Math.max(1, g.hydro.inflows);
++
+ }

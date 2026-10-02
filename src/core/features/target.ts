@@ -6,7 +6,7 @@
 
 import { distanceFrom } from "../math/grid";
 import { pathField, polygonMask, type PathField } from "./geometry";
-import type { Feature, Point, RiverFeature } from "./schema";
+import type { Feature, Point, RiverFeature, StartFeature } from "./schema";
 
 /** A set of tiles: an inclusive bounding rectangle and, optionally, a mask inside it. */
 export interface TileRegion {
@@ -127,6 +127,13 @@ export class BuildTarget {
   river(id: string): RiverFeature | undefined {
     const f = this.features.get(id);
     return f && f.kind === "river" ? f : undefined;
+  }
+
+  /** The map's start features (their pads: Naturalize leaves them as they are, D368 (8)). */
+  starts(): StartFeature[] {
+    const out: StartFeature[] = [];
+    for (const f of this.features.values()) if (f.kind === "start") out.push(f);
+    return out;
   }
 
   pathField(riverId: string): PathField {
