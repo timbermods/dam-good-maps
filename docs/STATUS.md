@@ -15,20 +15,26 @@ handover is [HANDOFF.md](HANDOFF.md); the running log is the "Progress log" issu
 > README's licence section; both pages' footers link **Source**. Versions before 2026-10-01 stay MIT. Released as
 > `licence-agpl-done` (commit 2ac8b654, release PR #154, `main` at 87c73a0; the deploy and the live check passed).
 
-## Summary for Kyler (updated 2026-10-01, 07:00 PDT: the session ended; the next runs on another machine)
+## Summary for Kyler (updated 2026-10-01, evening: the forces, the High look and the AGPL licence are released; D380–D383 recorded)
 
-The session on your main PC ended at 07:00 PDT on 2026-10-01, with your allowance at about 90%. Everything is pushed, no
-agent or background task is running, and a new milestone session resumes from [HANDOFF.md §0](HANDOFF.md) by running
-`npm run setup:machine` first. The planning chat's handoff is [CHAT-HANDOFF.md](CHAT-HANDOFF.md).
+Everything is pushed and no agent or background task is running. A new milestone session resumes from
+[HANDOFF.md §0](HANDOFF.md) by running `npm run setup:machine` first; the planning chat's handoff is
+[CHAT-HANDOFF.md](CHAT-HANDOFF.md).
 
-**Released this morning: the forces** (`forces-done`, [#149](https://github.com/timbermods/dam-good-maps/pull/149), on your yes, D375). The public site shows all five
-forces; the deploy and the live check passed. The High look's release is next (D284, D346).
+**Released today:** the forces (`forces-done`, [#149](https://github.com/timbermods/dam-good-maps/pull/149), D375), the
+High look (`map-look-2-done`, #151, D378) and the AGPL v3 licence (`licence-agpl-done`, #154, D379). Also done: the handoff
+proved on a fresh clone, 109 merged branches deleted, CI that skips its heavy suites for documents-only changes.
+
+**Decided today (PLAN §20):** D380 performance is a requirement (a speed regression blocks a merge); D381 the Rust order
+(water, then the five forces, then their planning and the checks, then new forces in Rust, then the generator, then
+perhaps the editor's operations); D382 no outside users for now (re-pin freely; Kyler's own maps keep opening); D383 the
+dam sketch tool, then the reservoir finder; D377's 20-second tour restated. The next free decision is D384.
 
 **Waiting for you**
 
-1. **Codex's settings round 2** starts from `feature/m9b` at a69c9f11 or later.
-2. **Codex's open investigations:** smoothness (#107, the 2–5 AM trial), multi-core water (#130), scaling to 512 (#132).
-3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+1. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+2. **Codex's open work:** multi-core water (#130) and the Rust water's Firefox slowdown, in flight; the verdicts on the
+   other investigations are in [HANDOFF.md §0](HANDOFF.md).
 
 **Where things stand**
 
@@ -41,9 +47,27 @@ forces; the deploy and the live check passed. The High look's release is next (D
   planned lakes at their level, speed at 256², the re-pins (its CI is red on maps that moved), then your review set.
 - **Merged into `dev` as investigations:** determinism, startup, the collaboration architecture, the 3D view, Deposit,
   the Landslide (not adopted), and Codex's seven M9b audits (three adopted, four held).
-- **Added after the High look's release (D378):** Craterize clicked quickly sometimes skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check every force); tests for an eruption in High and for the highlight on High's basin sources.
-- **Decided, for right after the forces release:** Carve's river born as it cuts (D371), Glaciate's 3.5 s timing
-  (D374), startup part 1 (D367), and **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees). Later, in polish: the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
+- **Post-release list, in order** (D378, D380, D381; `build`, Opus 5.5, high; ROADMAP has a section for each):
+  1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force
+     should skip to its end while the new one plays in full. Check every force.
+  2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
+  3. **Moving water and the Flow view** (Codex's flow investigation): always-on moving water in both looks; the Flow view's
+     lanes off by default; paths built in the water worker; it must pass the smoothness harness. Then **renderer R1** from the
+     performance audit (#152), using the smoothness investigation's traced stall causes: water blending, brush updates, the
+     High look's lighting.
+  4. **Carve's river born as it cuts** (D371), **Glaciate's Fast timing** (D374), **startup part 1** (D367); **Carve's
+     Maturity** (D355) and **Deposit's adoption** (D364) are built directly in Rust after the forces' port (D381).
+  5. **Shift+F resets what F changes on every tool** (a force's Size and Power to Auto; a brush's Size and strength to
+     defaults); it never starts resizing or triggers Shift's invert.
+  6. **A Strength slider for Smooth and Naturalize** in their settings row, moving live with F+scroll and `[ ]`.
+  7. **Trees on soil an edit has dried out** get a "dry soil, will die" hint in the readout and with Markers on (D376).
+  8. **After the forces' Rust port:** a **Sources setting for every force** (Ride, the default; Keep; Clear) in More.
+  9. **Check whether the README and the website need a line about the High look.**
+  10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
+  11. **One quiet measuring window**, once Codex's current tasks land, timing every speed investigation in turn (the faster
+      settle, D359, among them).
+  12. **Later: a Codex round on Canyon and Highlands at 96².**
+  Then the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
 - **Last-allowance session, 2026-10-01 (small tasks, each pushed):**
   1. **The handoff is proved.** A fresh clone of `dev` in a temporary folder ran `npm run setup:machine` end to end:
      six worktrees and the probe folder created, `npm ci` in all of them and in the probe's own folder, the four probe

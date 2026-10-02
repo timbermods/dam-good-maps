@@ -6,18 +6,16 @@
 > where failure is expensive and hard to see; keep reports short. The cheapest model and effort that does the job
 > (§7's table), and a real check before any code change is reported done. The full rule is at the top of `CLAUDE.md`.
 
-> **The High look is released (Kyler's yes, 2026-10-01, D378):** `map-look-2-done` (#75 into `dev` at ae2133f5; tag at 1416a9b2; release PR #151, `main` at 39b04114; the deploy and the live check passed, and the live site shows the 3D view with **Look: High**); High where the computer runs it
-> smoothly, Standard as the fallback, switchable. He checked the preview: the forces all work great in High, an eruption in High
-> works amazingly, and the look reads as Timberborn. **Post-release list, added by him:** Craterize clicked quickly sometimes
-> skips the new crater's strike animation (the previous force should skip to its end while the new one plays in full; check
-> every force); tests for an eruption in High and for the highlight on High's basin sources.
+> **Refreshed 2026-10-01, evening.** Released today: the forces (D375), the High look (D378) and the AGPL licence (D379).
+> New decisions: D380 performance is a requirement, D381 the Rust order, D382 no outside users for now, D383 the dam
+> sketch tool. §0 is current; the next free decision is D384.
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. This page says what's in
 flight, what to do next and how things are run here. Then read `CLAUDE.md`, `docs/STATUS.md`, `EDITOR_PLAN.md` (before any
 editor work), `PLAN.md` §20 (every decision, D1–D379) and `ROADMAP.md`. Kyler (he/him) owns the project and decides
 everything.
 
-## 0. Resume here (2026-10-01, 07:00 PDT: the session ended on Kyler's main PC; the next one runs on another machine)
+## 0. Resume here (refreshed 2026-10-01, evening: the session ended on Kyler's main PC; the next one runs on another machine)
 
 **First, run one command** in the repository's main clone, yourself, on your first start:
 
@@ -57,37 +55,82 @@ Then: start the session in the main clone at Opus 5.5, high, so `.claude/agents/
 
 **State at the end (everything is pushed; no agent or background task is running):**
 
-1. **The forces are released** (`forces-done`, #149, `main` e5a6bf35, 2026-10-01; Kyler's yes, D375). `FORCES_RELEASED`
-   is true and the public site shows all five. **The High look is released** (D284, D346, D378: #75 merged into `dev` at ae2133f5 after Kyler's yes on the preview, tag
-   `map-look-2-done`; the release record is in `docs/STATUS.md`). The first task now is the post-release list (item 2).
-   The D341 flake (`tests/e2e/save-to-timberborn.spec.ts:65`,
-   "browserContext.close: Test ended") is fixed in the test (the test ended before its download finished; see
-   `docs/STATUS.md`). Item 34 (WORK.md, hand-back notes, one file per decision) was due at this release boundary and
-   is not done.
-2. **Right after the release** (`build`, Opus 5.5, high; ROADMAP has a section for each): **the quick-click bug (D378: Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force should skip to its end while the new one plays in full; check every force)**, **tests for an eruption in High and for the highlight on High's basin sources (D378)**, Carve's river born as it cuts
-   (D371), Glaciate's Fast timing (D374), startup part 1 (D367), **trees on dry soil say so** (D376: "Oak, grown · dry soil, will die" in the hover readout and a subtle mark with Markers on; a hint, never a change to the trees), Carve's Maturity (D355), Deposit's adoption (D364), then
-   (the High look's release is done) the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
-3. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s
-   "Hand-over (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373);
-   failing absolutes 2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed);
-   **first merge `dev` into `feature/m9b`** (the forces are released there) and re-measure against the committed
-   baseline; then a trial keeping planned lakes at their level, the 96² start class (Any 31, Islands 4, Highlands 14),
-   the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), then the
-   review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and
-   settings are held; Codex's settings round 2 starts from a69c9f11 or later. The forces release is on `dev` now:
-   when `dev` is merged into `feature/m9b`, fold `resources.mine_reach` into M9b's `resources.mine_site`.
-4. **Codex's open investigations** (hold until Kyler says): smoothness (#107, its 2–5 AM trial of 2026-10-01 pending),
-   multi-core water (#130), scaling to 512 (#132). `docs/CHAT-HANDOFF.md` has the full table.
-5. **What didn't make it** (the faster water settle, D359, still has to be timed on a quiet machine; item 34, the
-   document reorganisation, is the next session's first small task). **Done in the last-allowance session
-   (2026-10-01, `docs/STATUS.md`):** the setup command proved on a fresh clone, the save-to-Timberborn flake fixed,
-   September's Progress log copied to `docs/progress-log/2026-09.md` (October's goes in at that month's end, §7),
-   and a consistency sweep of these documents. The 109 remote branches already merged into `dev` or `main` are deleted
-   (log in `docs/merged-branches.md`) and #95 now targets `dev`.
-6. **Stopped mid-work at the end:** nothing. Every agent finished and reported; the only process left was the
-   keep-awake script, stopped with the session.
-6b. **Added to step 3, polish:** the **20-second live tour** of the editor's best controls (D377; built in step 3, polish, with M13; ROADMAP has its section).
+1. **Released today:** the forces (`forces-done`, #149, `main` e5a6bf35; D375), the High look (`map-look-2-done`, #151, `main`
+   39b04114; D378; the live site shows Look: High) and the AGPL v3 licence (`licence-agpl-done`, #154, `main` 87c73a0; D379;
+   versions before 2026-10-01 stay MIT). Also done: the setup command proved on a fresh clone, the D341 flake fixed in the
+   test, September's Progress log copied (`docs/progress-log/2026-09.md`; October's goes in at that month's end), 109 merged
+   branches deleted (`docs/merged-branches.md`), #95 retargeted to `dev`, and CI that skips its heavy suites for
+   documents-only changes (`tools/ci-changes.mjs`).
+2. **Decided today** (PLAN §20): **D380** performance is a critical requirement (every feature meets its speed budget before it
+   ships; a speed regression blocks a merge like a failing test); **D381** the Rust order (water; the five forces, TypeScript
+   tagged `ts-forces-final`; the forces' planning and the checks; the Rift, Deposit and Carve's Maturity directly in Rust
+   and every later force; the generator after M9b; the editor's operations if the audit justifies it; interface and rendering
+   stay in TypeScript); **D382** no outside users for now (re-pin freely; Kyler's own maps and projects keep opening or
+   convert automatically); **D383** the dam sketch tool at the end of step 1, then the reservoir finder (replacing D287's
+   guessed dam sites); D377's 20-second tour restated. The next free decision is **D384**.
+3. **The post-release list, in order** (`build`, Opus 5.5, high; ROADMAP has a section for each):
+   1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the previous force
+      should skip to its end while the new one plays in full. Check every force.
+   2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
+   3. **Moving water and the Flow view** (Codex's flow investigation): always-on moving water in both looks; the Flow view's
+      lanes off by default; paths built in the water worker; it must pass the smoothness harness. Then **renderer R1** from the
+      performance audit (#152), using the smoothness investigation's traced stall causes: water blending, brush updates, the
+      High look's lighting.
+   4. **Carve's river born as it cuts** (D371), **Glaciate's Fast timing** (D374), **startup part 1** (D367); **Carve's
+      Maturity** (D355) and **Deposit's adoption** (D364) are built directly in Rust after the forces' port (D381).
+   5. **Shift+F resets what F changes on every tool** (a force's Size and Power to Auto; a brush's Size and strength to
+      defaults); it never starts resizing or triggers Shift's invert.
+   6. **A Strength slider for Smooth and Naturalize** in their settings row, moving live with F+scroll and `[ ]`.
+   7. **Trees on soil an edit has dried out** get a "dry soil, will die" hint in the readout and with Markers on (D376).
+   8. **After the forces' Rust port:** a **Sources setting for every force** (Ride, the default; Keep; Clear) in More.
+   9. **Check whether the README and the website need a line about the High look.**
+   10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
+   11. **One quiet measuring window**, once Codex's current tasks land, timing every speed investigation in turn (the faster
+       settle, D359, among them).
+   12. **Later: a Codex round on Canyon and Highlands at 96².**
+   Then the parity batch (#95) and "The page is the editor" (#92) with startup part 2.
+4. **The Codex verdicts (2026-10-01)**, in the order the milestone session handles them:
+   - **Approved, to merge as investigations** (the milestone session merges them at a boundary; only Codex's own commits where
+     a branch started from an unreleased one):
+     - **Short join codes** (#150): findings go into `docs/COLLAB-BRIEF.md` (the codec; a QR code next; WebKit and
+       cross-network still unverified).
+     - **The performance audit** (#152): its ranked roadmap guides the order of the speed work.
+     - **Small starts** (#153).
+     - **Generation speed, rounds 1 and 2** (#155): round 1 is byte-identical, about 6% less CPU at 256²; round 2 about 12%
+       fewer redraws with every quality share equal or better, zero must-pass failures, shown land unchanged and identical
+       across three engines. **Adopt round 1, then round 2.**
+   - **The smoothness investigation (#107): paused.** Kyler sees no large-brush freeze on his own machine, so the 3–4 s
+     stall is most likely an artefact of measuring under 100% load. Merge it as an investigation (its harness and
+     findings) and adopt none of its fixes (the buffer experiment showed no gain). Its harness is the gate that renderer R1
+     and moving water must pass, measured in a quiet window. The water status "0%" after undo is confirmed fixed on `dev`.
+   - **The Rust water port (#156): approved** (D381). Adopt the native build for batch jobs now (M9b's measures, theme
+     measures, nightly checks: the 840-map settle batch drops from 281 s to 146 s), without waiting for M9b's release. In
+     the browser, use the Rust settle in Chromium (about 1.7–2.5× faster) and keep TypeScript in Firefox and WebKit
+     (Firefox's WebAssembly was about 4× slower, WebKit slightly slower) until a short Codex round explains Firefox's
+     slowdown. Threading stays experimental. Add Rust 1.90, the wasm32 target and the Rust build to CI and the setup
+     command.
+   - **Scaling round 4 (#132): approved for adoption.** Files about a quarter of round 3's (7 MiB at 256², 20 MiB at
+     512²), reopening about 1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step
+     jump back (1.5–6 s today), memory over a long session, and native Safari storage.
+   - **M9b's adoption order** (`feature/m9b`, #70): small starts, then generation speed (round 1, then round 2), then Lake
+     Basin round 2 (only after a quiet-machine timing shows it is no slower than today), then the settings round 2 last
+     (still held: theme-outcome regressions, small lake gains, speed misses); re-measure after each. **M9b must not
+     release slower than `dev` at 256²** (D380). Three contract tests were already failing on the base (#155 disclosed
+     them): confirm what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained.
+   - **In flight with Codex:** multi-core water (`investigation/parallel-water`, #130) and the Rust water's Firefox slowdown.
+5. **M9b** (`m9b-build`, Opus 5.5, xhigh; `feature/m9b`, #70): start a fresh agent on `docs/progress/m9b.md`'s "Hand-over
+   (2026-10-01)". In short: Islands, Delta and River Valley adopted on the strict D348 base (D370, D373); failing absolutes
+   2 / 0 / 0 at 96² / 128² / 256² over 840 maps (tip e292cefe, code 13d1f1a2; the dam walls fixed). **First merge `dev` into
+   `feature/m9b`** (the forces are released there) and re-measure against the committed baseline, folding
+   `resources.mine_reach` into M9b's `resources.mine_site`; then follow item 4's adoption order, the 96² start class (Any 31,
+   Islands 4, Highlands 14), the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that
+   moved), then the review set for Kyler and one pooled probe batch (his yes). Canyon, Highlands, Lake Basin and settings
+   are held; Codex's settings round 2 starts from a69c9f11 or later.
+6. **What didn't make it:** item 34 (WORK.md, hand-back notes, one file per decision; the document reorganisation) is the
+   next session's first small task; the faster settle's timing (D359) joins the one quiet measuring window (item 3's
+   list).
 7. **Held as before:** Real places (D319, #35), the Weather view (#73), 3D step 1's wiring (#71), the Dependabot majors.
+   **Stopped mid-work:** nothing.
 
 The sections below are the earlier handoffs' record. Where they differ from §0, §0 is current.
 
@@ -194,7 +237,7 @@ and whether it's held for Kyler. Each branch's progress doc (`docs/progress/<nam
    capture tools and the held Dependabot majors #24, #25).
 
 **Pending numbers across branches** (renumber at merge): M9b's decisions-pending #134 is its own branch's; the next free
-number on `dev` is **#94**. The next decision is **D380**.
+number on `dev` is **#94**. The next decision is **D384**.
 
 ## 2. Branches at the pause (2026-09-27, evening)
 
@@ -309,7 +352,7 @@ the session chose. **Held Dependabot majors:** #24 (TypeScript 7.0), #25 (@types
   `docs/chats/<date>.md`; add any new major turn to `docs/HISTORY.md`; skim the living docs against what was just built
   (CLAUDE.md, D188).
 - **A finding worth keeping** (D316): it gets a line in [docs/FINDINGS.md](FINDINGS.md), with its number or rule and a link to where it is measured; a finding a later one replaces is marked stale, not dropped.
-- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D380), and into the living docs in the same change
+- **Decisions:** Kyler's decisions go into `PLAN.md` §20 (the next is D384), and into the living docs in the same change
   (D188: EDITOR_PLAN, PLAN, ROADMAP, CLAUDE.md, STATUS). The next pending number is #94 ("Pending numbers across branches", §1;
   M9a's #87–#90 and #93 are in, #80–#82 are Real places' defaults on #35's branch). **Every review is measured against
   [docs/PERFECT.md](PERFECT.md)** (D225); read it before M9b. Defaults chosen while Kyler is away

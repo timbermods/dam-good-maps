@@ -38,6 +38,9 @@ Dam Good Maps: a map generator for Timberborn. The README says what the reposito
 
 ## Standing rules
 
+- **Performance is a requirement (PLAN §20 D380, `docs/PERFECT.md`):** slowness in generation, the forces, batch jobs,
+  analysis or the editor degrades the experience. Every feature meets its speed budget before it ships; a speed
+  regression blocks a merge like a failing test, measured in a quiet window.
 - **Tooltips (PLAN §20, D351, D361, D368):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an
   accurate tooltip: a short phrase that tells its purpose at a glance, with its shortcut at the end as a small key cap
   ("Carve a river" then a key cap 7); no second sentence, no technical detail, no key in brackets. Whoever changes a

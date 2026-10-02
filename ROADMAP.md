@@ -2141,6 +2141,26 @@ reported. PLAN §20 D357 has the whole decision.
   `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
   "4–256 per axis".
 
+## The Rust order (D381)
+
+Performance is a requirement (D380), so the exact core moves to Rust in this order, each port byte-identical and tagged
+before its TypeScript is deleted: (1) the water settle (Codex's `investigation/rust-water`, #156: native builds for batch
+jobs now; Chromium uses the Rust settle in the browser, Firefox and WebKit keep TypeScript until Firefox's WebAssembly
+slowdown is explained; threading stays experimental; Rust 1.90 and the wasm32 target join CI and the setup command);
+(2) the five released forces (their TypeScript tagged `ts-forces-final`, then deleted); (3) the forces' planning, the
+analysis and the checks; (4) the Rift, Deposit and Carve's Maturity adopted directly in Rust, and every later force
+(Erode, future demos) built in Rust; (5) the generator, after M9b's release; (6) the editor's operations and undo, if the
+performance audit shows the boundary cost justifies it. The interface and the rendering stay in TypeScript.
+
+## The dam sketch tool (D383)
+
+At the end of step 1, after the Weather view (it needs the Rust water and "The page is the editor"). The player draws a
+wall of any shape and height under the game's dam, levee and floodgate rules; the reservoir fills behind it, simulated
+with the game-exact water; the tool shows the water held, the days of drought covered, the tiles needed and what it
+floods. Nothing is suggested or guessed, and nothing is saved unless real objects are placed. Later, on the same engine:
+the reservoir finder (each basin's storable water and the exact tiles to wall, every candidate checked by simulation),
+replacing D287's guessed dam sites.
+
 ## Collaborative editing (D349)
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built; the notes below record how it came about.
