@@ -387,6 +387,9 @@ export interface ShaderHooks {
   waterDecl?: string;
   /** A water surface of its own, before clear water (c, alpha, foam, n, g, depth, cont, shore, V, lit). */
   water?: string;
+  /** True (an expression) where `water` draws the surface itself: the Standard surface's textures are then
+   *  drawn once where they are, not carried by the current twice over (D353; the High look's own water). */
+  waterOwnSurface?: string;
   // falls
   fallVertexDecl?: string;
   /** Before the fall's vertex is placed (p, kind, land). */
@@ -1001,7 +1004,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             vec2 sl;
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
-            if (dot(drift, drift) < 1e-6) surfaceAt(g, t, slow, bad, fine, sl, fn, glints, pale, bubbles);
+            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) surfaceAt(g, t, slow, bad, fine, sl, fn, glints, pale, bubbles);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);

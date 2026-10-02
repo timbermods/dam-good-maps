@@ -366,6 +366,8 @@ export function waterHooks(): ShaderHooks {
     ...lit(["hlWater", "hlSection", "hlRiver"]),
     // (after the shared palette's GLSL: the surface uses its blend)
     waterDecl: WATER_FUNCTIONS,
+    // (High's surface moves with the current itself: the Standard one beneath it stays as it was)
+    waterOwnSurface: "hlWater > 0.5",
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
     // and the sources' upwelling (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
