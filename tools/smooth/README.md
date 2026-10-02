@@ -49,6 +49,14 @@ Every timing carries the run's outside and total CPU (min/median/max), and every
 One row per cell, before and after each as `median [min-max]`. A cell **passes** when after's median p99, median
 worst frame and median hitch count are each no higher than the highest value among before's runs (within before's
 spread). Otherwise it reads **SLOWER** and names the metrics. `incomplete` means fewer runs than `--repeats`.
+
+Noise alone fails a metric of a round about 8% of the time, so a cell that fails runs again, up to twice more (Kyler,
+2026-10-02; `verdict.ts` `cellOutcome`): it fails for real when two of its rounds fail, and after a failure it passes
+only with two passing rounds and every run of the cell together passing. Every run stays in the results; the row
+shows every run together and its rounds.
+
+`--pause` asks a running series to stop after the cell it is on; the series' own command resumes it at the first
+unfinished cell (an interrupted cell keeps the runs it finished).
 Exit code 1 if any cell is SLOWER, 2 if the series stopped.
 
 ## Files
@@ -64,8 +72,8 @@ Exit code 1 if any cell is SLOWER, 2 if the series stopped.
 
 - `--unqualified` skips the quiet-machine rule (to try the tool on a busy PC); its series is kept apart and marked
   UNQUALIFIED in the report. Never evidence.
-- On this PC (Ryzen 9800X3D, 165 Hz, RTX 4080 Super) a run takes, native Chrome, about 22-30 s at 128� and 29 s (orbit),
-  60 s (force), 100 s (brush) at 256�, plus any wait for a quiet machine.
+- On this PC (Ryzen 9800X3D, 165 Hz, RTX 4080 Super) a run takes, native Chrome, about 22-30 s at 128² and 29 s (orbit),
+  60 s (force), 100 s (brush) at 256², plus any wait for a quiet machine.
 - 512² does not exist: the generator and the editor stop at 256².
 - The app is only driven through what tests/e2e use (`window.dgmEditor`, `window.dgm3d`, the UI); the recorder is
   injected into the page. Nothing in `src/` is touched. A build without those hooks cannot be measured.

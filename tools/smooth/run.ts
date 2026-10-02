@@ -11,10 +11,11 @@ import { firefoxSetup, listGpus, pickIntegrated, launch, newPage, throttle, read
 import { branchPoint, ensureBuild, serve, LOCAL, ROOT } from "./builds";
 import { LoadMonitor, sleep } from "./monitor";
 import { PROBE } from "./probe";
-import { expand, parseFilters, remaining, type BuildSide, type Filters, type RunSpec } from "./plan";
+import { cellKey, expand, parseFilters, remaining, roundRuns, type BuildSide, type Cell, type Filters, type RunSpec } from "./plan";
 import { machineLines, markdown, printSummary, summarize, type Discard, type Entry, type RunResult } from "./report";
 import { DRIVERS, findSpots, openMap } from "./scenarios";
 import { frameStats } from "./stats";
+import { cellOutcome } from "./verdict";
 
 // ---------------------------------------------------------------------------------------------------- arguments
 
@@ -24,7 +25,7 @@ interface Args {
   env: Record<BuildSide, Record<string, string>>;
 }
 
-const BOOLEANS = new Set(["record", "dry", "report", "help", "unqualified"]);
+const BOOLEANS = new Set(["record", "dry", "report", "help", "unqualified", "pause"]);
 
 function parseArgs(argv: string[]): Args {
   const flags: Record<string, string | undefined> = {};
@@ -59,6 +60,9 @@ const HELP = `npm run smooth -- [options]
   --dry                 print the plan and the time estimate, run nothing
   --report              print the report of what is already measured, run nothing
   --record [--label x]  write results/<date>-<label>.md (a short summary; raw data stays in local/)
+  --pause               ask the running series to stop after the cell it is on; the same command as before resumes it
+                        at the first unfinished cell (every finished cell's runs are kept)
+A cell that fails runs again, up to twice more (verdict.ts cellOutcome): it fails for real when two rounds fail.
 Maps stop at 256 squared, so there is no 512 size.`;
 
 // ---------------------------------------------------------------------------------------------------- series files
@@ -100,7 +104,14 @@ async function main(): Promise<number> {
   const label = args.flags.label ?? "run";
 
   const lockFile = join(LOCAL, "smooth.lock");
+  const pauseFile = join(LOCAL, "smooth.pause");
   mkdirSync(LOCAL, { recursive: true });
+  if (args.bool.has("pause")) {
+    writeFileSync(pauseFile, new Date().toISOString());
+    console.log("asked the running series to stop after its current cell (run the series' own command again to resume)");
+    return 0;
+  }
+  if (existsSync(pauseFile)) unlinkSync(pauseFile);
   if (existsSync(lockFile)) {
     const l = JSON.parse(readFileSync(lockFile, "utf8")) as { pid: number };
     try {
@@ -132,7 +143,9 @@ async function main(): Promise<number> {
   console.log(`estimated time: ${hm(estimate(todo, history))} (without waiting for a quiet machine)`);
 
   const finish = (): number => {
-    const e = readLines<Entry>(resultsFile).filter((x) => plan.some((p) => p.key === x.key));
+    // (the plan's cells, re-run rounds included)
+    const planned = new Set(plan.map((p) => cellKey(p.cell)));
+    const e = readLines<Entry>(resultsFile).filter((x) => planned.has(x.key.split("|").slice(0, 4).join("|")));
     const gpus = gpuList.map((g) => g.name);
     info.machine = machineLines(e, gpus);
     const s = summarize(e, filters.repeats, info);
@@ -149,7 +162,7 @@ async function main(): Promise<number> {
   let gpuList: Gpu[] = [];
 
   if (args.bool.has("dry")) return 0;
-  if (args.bool.has("report") || !todo.length) return finish();
+  if (args.bool.has("report")) return finish();
 
   writeFileSync(lockFile, JSON.stringify({ pid: process.pid }));
   const servers = { before: await serve(before.dist), after: await serve(after.dist) };
@@ -172,39 +185,65 @@ async function main(): Promise<number> {
   try {
     if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU at most 25% within 15 minutes");
     const attempts = new Map<string, number>();
-    const queue = [...todo];
     let n = 0;
-    while (queue.length) {
-      const spec = queue.shift()!;
-      const tries = attempts.get(spec.key) ?? 0;
-      if (tries >= 6) {
-        console.log(`  giving up on ${spec.key} for now (6 attempts)`);
-        continue;
-      }
-      attempts.set(spec.key, tries + 1);
-      const t0 = Date.now();
-      const outcome = await executeRun(spec, servers[spec.build].url, before.id, after.id, monitor, integrated, join(dir, "raw")).catch((e: unknown) => {
-        if (e instanceof StopSeries) throw e;
-        return { error: e instanceof Error ? e.message.split("\n")[0] : String(e) };
-      });
-      n++;
-      const tag = `[${n}/${todo.length}] ${spec.cell.config} ${spec.cell.size} ${spec.cell.look} ${spec.cell.scenario} ${spec.build}#${spec.repeat}`;
-      if ("error" in outcome) {
-        console.log(`${tag}: error, retried later: ${outcome.error}`);
-        appendFileSync(resultsFile, JSON.stringify({ kind: "discard", key: spec.key, reason: `error: ${outcome.error}`, load: null, at: new Date().toISOString(), wallMs: Date.now() - t0 } satisfies Discard) + "\n");
-        if ((attempts.get(spec.key) ?? 0) < 3) queue.unshift(spec);
-        continue;
-      }
-      if (outcome.kind === "discard") {
-        console.log(`${tag}: discarded, ${outcome.reason}${outcome.load?.worst ? " (" + outcome.load.worst.map((t) => `${t.name} ${t.cpu}%`).join(", ") + ")" : ""}; requeued`);
+    /** Measure these runs (a load-discarded run is requeued; an error retried up to three times); false when one
+     *  could not be measured. */
+    const measure = async (specs: RunSpec[]): Promise<boolean> => {
+      const queue = [...specs];
+      let complete = true;
+      while (queue.length) {
+        const spec = queue.shift()!;
+        const tries = attempts.get(spec.key) ?? 0;
+        if (tries >= 6) {
+          console.log(`  giving up on ${spec.key} for now (6 attempts)`);
+          complete = false;
+          continue;
+        }
+        attempts.set(spec.key, tries + 1);
+        const t0 = Date.now();
+        const outcome = await executeRun(spec, servers[spec.build].url, before.id, after.id, monitor, integrated, join(dir, "raw")).catch((e: unknown) => {
+          if (e instanceof StopSeries) throw e;
+          return { error: e instanceof Error ? e.message.split("\n")[0] : String(e) };
+        });
+        n++;
+        const tag = `[${n}] ${spec.cell.config} ${spec.cell.size} ${spec.cell.look} ${spec.cell.scenario} ${spec.build}#${spec.repeat}${spec.round > 1 ? ` round ${spec.round}` : ""}`;
+        if ("error" in outcome) {
+          console.log(`${tag}: error, retried later: ${outcome.error}`);
+          appendFileSync(resultsFile, JSON.stringify({ kind: "discard", key: spec.key, reason: `error: ${outcome.error}`, load: null, at: new Date().toISOString(), wallMs: Date.now() - t0 } satisfies Discard) + "\n");
+          if ((attempts.get(spec.key) ?? 0) < 3) queue.unshift(spec);
+          else complete = false;
+          continue;
+        }
+        if (outcome.kind === "discard") {
+          console.log(`${tag}: discarded, ${outcome.reason}${outcome.load?.worst ? " (" + outcome.load.worst.map((t) => `${t.name} ${t.cpu}%`).join(", ") + ")" : ""}; requeued`);
+          appendFileSync(resultsFile, JSON.stringify(outcome) + "\n");
+          queue.unshift(spec); // requalify (the monitor dropped its lease), then again
+          continue;
+        }
         appendFileSync(resultsFile, JSON.stringify(outcome) + "\n");
-        queue.unshift(spec); // requalify (the monitor dropped its lease), then again
-        continue;
+        const st = outcome.stats;
+        const o = outcome.load.outside;
+        console.log(`${tag}: p99 ${st.p99Ms?.toFixed(1)} worst ${st.worstMs?.toFixed(1)} hitches ${st.hitches} long tasks ${st.longTasks ?? "unavailable"}, outside CPU ${o ? `${o.min.toFixed(0)}/${o.median.toFixed(0)}/${o.max.toFixed(0)}%` : "n/a"}, ${Math.round(outcome.wallMs / 1000)} s`);
       }
-      appendFileSync(resultsFile, JSON.stringify(outcome) + "\n");
-      const s = outcome.stats;
-      const o = outcome.load.outside;
-      console.log(`${tag}: p99 ${s.p99Ms?.toFixed(1)} worst ${s.worstMs?.toFixed(1)} hitches ${s.hitches} long tasks ${s.longTasks ?? "unavailable"}, outside CPU ${o ? `${o.min.toFixed(0)}/${o.median.toFixed(0)}/${o.max.toFixed(0)}%` : "n/a"}, ${Math.round(outcome.wallMs / 1000)} s`);
+      return complete;
+    };
+    // cell by cell, in the plan's order: its first round, then re-runs while the rule asks for them
+    const cells: Cell[] = [];
+    for (const r of plan) if (!cells.some((c) => cellKey(c) === cellKey(r.cell))) cells.push(r.cell);
+    for (const cell of cells) {
+      for (;;) {
+        const mine = readLines<Entry>(resultsFile).filter((e): e is RunResult => e.kind === "run" && cellKey(e.cell) === cellKey(cell));
+        const o = cellOutcome(mine, filters.repeats);
+        if (o.state !== "more") break;
+        if (existsSync(pauseFile)) {
+          unlinkSync(pauseFile);
+          throw new StopSeries(`paused before ${cellKey(cell)} (--pause)`);
+        }
+        const round = o.rounds.length + 1;
+        if (round > 1 && !mine.some((r) => (r.round ?? 1) === round)) console.log(`  ${cellKey(cell)}: round ${round - 1} came out ${o.rounds[round - 2]}; running it again (round ${round})`);
+        const have = new Set(mine.map((r) => r.key));
+        if (!(await measure(roundRuns(cell, filters.repeats, round).filter((r) => !have.has(r.key))))) break;
+      }
     }
   } catch (e) {
     if (!(e instanceof StopSeries)) throw e;
@@ -255,6 +294,7 @@ async function executeRun(spec: RunSpec, url: string, beforeId: string, afterId:
       ...base,
       build: spec.build,
       repeat: spec.repeat,
+      round: spec.round,
       cell: spec.cell,
       buildId: spec.build === "before" ? beforeId : afterId,
       env,

@@ -6,7 +6,7 @@ import { busyProcesses, idleLine, isQualified, judgeRun, quietSuffix, RULES, typ
 import { abbaOrder, expand, parseFilters, remaining, runKey } from "../../tools/smooth/plan";
 import { buildRows, summarize, type Entry, type RunResult } from "../../tools/smooth/report";
 import { deltas, frameStats, median, percentile, spread } from "../../tools/smooth/stats";
-import { cellVerdict, compareMetric, type RunRecord } from "../../tools/smooth/verdict";
+import { cellOutcome, cellVerdict, compareMetric, type RunRecord } from "../../tools/smooth/verdict";
 
 describe("frame statistics", () => {
   it("takes the gaps between frame stamps", () => {
@@ -203,5 +203,32 @@ describe("the report", () => {
     expect(s.slower).toBe(1); // after's p99 median 20 is above before's highest 19
     expect(s.table[2]).toContain("**SLOWER** (p99)");
     expect(s.verdictLine).toContain("1 SLOWER");
+  });
+});
+
+describe("the re-run rule (Kyler, 2026-10-02)", () => {
+  const r = (build: "before" | "after", repeat: number, round: number, p99: number) => ({
+    key: `k|${build}|${repeat}|r${round}`,
+    build,
+    repeat,
+    round,
+    stats: { p99Ms: p99, worstMs: p99, hitches: 0 } as RunRecord["stats"],
+  });
+  /** A round of 5+5: before p99s 10..14, after p99s at `after`. */
+  const round = (n: number, after: number) => [1, 2, 3, 4, 5].flatMap((k) => [r("before", k, n, 9 + k), r("after", k, n, after)]);
+  it("passes on a first round that passes, with no re-run", () => {
+    expect(cellOutcome(round(1, 12), 5)).toMatchObject({ state: "pass", rounds: ["pass"] });
+  });
+  it("runs again after a failing round, and fails for real when two rounds fail", () => {
+    expect(cellOutcome(round(1, 20), 5).state).toBe("more");
+    expect(cellOutcome([...round(1, 20), ...round(2, 20)], 5)).toMatchObject({ state: "fail", rounds: ["SLOWER", "SLOWER"] });
+  });
+  it("after one failing round, needs two passing rounds and the median of all its runs passing", () => {
+    expect(cellOutcome([...round(1, 20), ...round(2, 12)], 5).state).toBe("more");
+    expect(cellOutcome([...round(1, 20), ...round(2, 12), ...round(3, 12)], 5)).toMatchObject({ state: "pass", rounds: ["SLOWER", "pass", "pass"] });
+    expect(cellOutcome([...round(1, 20), ...round(2, 12), ...round(3, 20)], 5).state).toBe("fail");
+  });
+  it("waits for a round to finish before judging it (a resumed cell)", () => {
+    expect(cellOutcome(round(1, 12).slice(0, 7), 5)).toMatchObject({ state: "more", rounds: [] });
   });
 });

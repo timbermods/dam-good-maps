@@ -6,7 +6,7 @@ import { idleLine, type RunLoad, type Triple } from "./load";
 import { cellKey, CONFIG_LABELS, type Cell } from "./plan";
 import type { Env } from "./probe";
 import type { FrameStats } from "./stats";
-import { cellVerdict, VERDICT_METRICS, type CellVerdict, type MetricName, type RunRecord } from "./verdict";
+import { cellOutcome, VERDICT_METRICS, type CellOutcome, type CellVerdict, type MetricName, type RunRecord } from "./verdict";
 
 export interface RunResult extends RunRecord {
   kind: "run";
@@ -60,7 +60,9 @@ const tri = (t: Triple | null): string => (t ? `${t.min.toFixed(0)}/${t.median.t
 
 export interface CellRow {
   cell: Cell;
+  /** Every run of the cell together (the medians and ranges shown); its verdict is the cell's outcome. */
   verdict: CellVerdict;
+  outcome: CellOutcome;
   outside: Triple | null;
   total: Triple | null;
   /** The medians of the information columns. */
@@ -80,13 +82,17 @@ export function buildRows(entries: readonly Entry[], repeats: number): CellRow[]
   for (const rs of cells.values()) {
     const before = rs.filter((r) => r.build === "before");
     const after = rs.filter((r) => r.build === "after");
-    const v = cellVerdict(before, after, repeats);
+    const outcome = cellOutcome(rs, repeats);
+    // (a round that failed and waits for its re-run reads slower until the re-run says otherwise)
+    const failing = outcome.state === "fail" || (outcome.state === "more" && outcome.rounds[outcome.rounds.length - 1] === "SLOWER");
+    const v: CellVerdict = { ...outcome.pooled, verdict: outcome.state === "pass" ? "pass" : failing ? "SLOWER" : "incomplete" };
     const lt = (side: RunResult[]) => (side.length && side.every((r) => r.stats.longTasks !== null) ? median(side.map((r) => r.stats.longTasks as number)) : null);
     const st = (side: RunResult[]) => median(side.map((r) => Object.values(r.settleMs).reduce((s, x) => s + x, 0)));
     const looks = new Set(rs.map((r) => r.env.look));
     rows.push({
       cell: rs[0].cell,
       verdict: v,
+      outcome,
       outside: mergeTriples(rs.map((r) => r.load.outside)),
       total: mergeTriples(rs.map((r) => r.load.total)),
       longTasks: { before: lt(before), after: lt(after) },
@@ -118,7 +124,9 @@ export function summarize(entries: readonly Entry[], repeats: number, info: { be
   ];
   const lines = rows.map((r) => {
     const v = r.verdict;
-    const verdict = v.verdict === "SLOWER" ? `**SLOWER** (${v.slower.map((m) => ({ p99Ms: "p99", worstMs: "worst", hitches: "hitches" })[m]).join(", ")})` : v.verdict === "incomplete" ? `incomplete (${v.nBefore}+${v.nAfter} runs)` : "pass";
+    const names = (ms: MetricName[]) => ms.map((m) => ({ p99Ms: "p99", worstMs: "worst", hitches: "hitches" })[m]).join(", ");
+    const rounds = (r.outcome.rounds.length > 1 ? ` (rounds: ${r.outcome.rounds.join(", ")})` : "") + (r.outcome.state === "more" && v.verdict === "SLOWER" ? " (re-run pending)" : "");
+    const verdict = (v.verdict === "SLOWER" ? `**SLOWER**${v.slower.length ? ` (${names(v.slower)})` : ""}` : v.verdict === "incomplete" ? `incomplete (${v.nBefore}+${v.nAfter} runs)` : "pass") + rounds;
     const note = r.failedLook ? ` (drew ${r.drewLook})` : "";
     return `| ${r.cell.size} | ${r.cell.look}${note} | ${CONFIG_LABELS[r.cell.config]} | ${r.cell.scenario} | ${cellText(v, "p99Ms", "before", 1)} | ${cellText(v, "p99Ms", "after", 1)} | ${cellText(v, "worstMs", "before", 1)} | ${cellText(v, "worstMs", "after", 1)} | ${cellText(v, "hitches", "before", 0)} | ${cellText(v, "hitches", "after", 0)} | ${tri(r.outside)} / ${tri(r.total)} | ${verdict} |`;
   });
@@ -169,7 +177,7 @@ export function markdown(s: Summary, label: string, date: string): string {
     ...s.header.map((h) => `- ${h}`),
     `- **${s.idle.text}**`,
     "",
-    "Each metric is median [min-max] over the runs of that build. A cell passes when after's median p99, worst frame and hitch count are each no higher than before's highest run (tools/smooth/README.md).",
+    "Each metric is median [min-max] over the runs of that build. A round passes when after's median p99, worst frame and hitch count are each no higher than before's highest run; a cell that fails runs again, up to twice more, and fails for real when two rounds fail (it passes after a failure only with two passing rounds and every run together passing; verdict.ts cellOutcome, tools/smooth/README.md).",
     "",
     ...s.table,
     "",

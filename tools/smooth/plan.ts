@@ -32,11 +32,22 @@ export interface RunSpec {
   build: BuildSide;
   /** 1..repeats, counted per build. */
   repeat: number;
+  /** The cell's round: 1, or a re-run after a failure (verdict.ts `cellOutcome`). */
+  round: number;
   key: string;
 }
 
 export const cellKey = (c: Cell): string => `${c.config}|${c.size}|${c.look}|${c.scenario}`;
-export const runKey = (c: Cell, build: BuildSide, repeat: number): string => `${cellKey(c)}|${build}|${repeat}`;
+export const runKey = (c: Cell, build: BuildSide, repeat: number, round = 1): string => `${cellKey(c)}|${build}|${repeat}${round > 1 ? `|r${round}` : ""}`;
+
+/** One round of a cell's runs, in ABBA order. */
+export function roundRuns(cell: Cell, repeats: number, round: number): RunSpec[] {
+  const seen: Record<BuildSide, number> = { before: 0, after: 0 };
+  return abbaOrder(repeats).map((build) => {
+    const repeat = ++seen[build];
+    return { cell, build, repeat, round, key: runKey(cell, build, repeat, round) };
+  });
+}
 
 /** ABBA across a cell's repeats: before, after, after, before, before, after ... so slow drift cancels. */
 export function abbaOrder(repeats: number): BuildSide[] {
@@ -60,12 +71,7 @@ export function expand(f: Filters): RunSpec[] {
     for (const size of f.sizes)
       for (const look of f.looks)
         for (const scenario of f.scenarios) {
-          const cell: Cell = { config, size, look, scenario };
-          const seen: Record<BuildSide, number> = { before: 0, after: 0 };
-          for (const build of abbaOrder(f.repeats)) {
-            const repeat = ++seen[build];
-            out.push({ cell, build, repeat, key: runKey(cell, build, repeat) });
-          }
+          out.push(...roundRuns({ config, size, look, scenario }, f.repeats, 1));
         }
   return out;
 }
