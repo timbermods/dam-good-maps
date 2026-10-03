@@ -1,17 +1,16 @@
 // Release gate (D385), brushes: the working area's feathered edge (D254, D259; EDITOR_PLAN "The working
 // area is Select's open selection"): "A feathered edge: a tile changes at most as many levels as it is
-// steps inside the area, so edited land meets locked land a level a tile, never a cliff." A Naturalize
-// stroke inside an open selection breaks it: its weathering changes tiles by more levels than they are
-// steps inside the area (`areaDepth`), up to three levels on the area's own edge, a cliff against the
-// locked land beside it, and up to eleven a few tiles in. (Its ground before the build's integrity
-// pass, `pre7`, already breaks it: the stroke itself, not the pass.)
+// steps inside the area, so edited land meets locked land a level a tile, never a cliff." The release
+// gate's bug hunt (D385) found a Naturalize stroke inside an open selection breaking it: its
+// weathering counted the feather from each dab's land, not the stroke's first, and its order repairs
+// (`keepOrder`) ignored it, up to three levels on the area's own edge and eleven a few tiles in.
 
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { MapSession } from "../../../src/core/doc/session";
-import { areaDepth, type BrushParams } from "../../../src/core/features/raster/brush";
-import { generate } from "../../../src/core/gen/generate";
-import { makeSpec, type ThemeId } from "../../../src/core/spec/mapspec";
+import type { EditOp } from "../../src/core/doc/ops";
+import { MapSession } from "../../src/core/doc/session";
+import { areaDepth, type BrushParams } from "../../src/core/features/raster/brush";
+import { generate } from "../../src/core/gen/generate";
+import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 
 const W = 64;
 
@@ -41,7 +40,7 @@ function apply(theme: ThemeId, seed: number, p: BrushParams): string[] {
 }
 
 describe("a Naturalize stroke keeps the working area's feathered edge (D254)", () => {
-  it("River valley 64², seed 5: Size 16, Strength 10, inside the area x 49–63, y 17–39: no tile changes by more levels than its steps inside (today (49, 27..29), on the area's edge, drop 3)", () => {
+  it("River valley 64², seed 5: Size 16, Strength 10, inside the area x 49–63, y 17–39: no tile changes by more levels than its steps inside (it was: (49, 27..29) on the area's edge dropped 3)", () => {
     const changed = apply("riverValley", 5, {
       tool: "naturalize",
       size: 16,
@@ -54,7 +53,7 @@ describe("a Naturalize stroke keeps the working area's feathered edge (D254)", (
     expect(changed).toEqual([]);
   });
 
-  it("Canyon 64², seed 2: Size 8, Strength 10, inside the area x 11–29, y 18–36: no tile changes by more levels than its steps inside (today (23, 27), 7 steps in, drops 11)", () => {
+  it("Canyon 64², seed 2: Size 8, Strength 10, inside the area x 11–29, y 18–36: no tile changes by more levels than its steps inside (it was: (23, 27), 7 steps in, dropped 11)", () => {
     const changed = apply("canyon", 2, {
       tool: "naturalize",
       size: 8,
