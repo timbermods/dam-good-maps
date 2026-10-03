@@ -5,7 +5,7 @@
 // checks list and the indicators carry them now.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openSection } from "./open";
+import { centreOn, openEditor, openSection } from "./open";
 
 type Check = { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } };
 // the species words, then the saplings' wood, shown apart as growing
@@ -46,6 +46,7 @@ test("the start requirements follow the settings, and the editor's start follows
   // which the validator passed
   const start = (await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
   const at = (x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
+  await centreOn(page, start.position[0], start.position[1]);
   const s0 = await at(start.position[0], start.position[1]);
   const s1 = await at(start.position[0] - 1, start.position[1]);
   await page.mouse.move(s0.x, s0.y);

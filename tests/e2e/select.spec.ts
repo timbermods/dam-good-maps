@@ -9,7 +9,7 @@
 // water.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { centreOn, openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -302,6 +302,7 @@ test("Delete sources (D315): removes only the water or badwater source in the se
 
   // select a small box around it and Delete sources: only that source goes
   const row = page.getByRole("group", { name: "Selection" });
+  await centreOn(page, one.x, one.y);
   const a = await client(page, one.x - 3, one.y - 3);
   const b = await client(page, one.x + 3, one.y + 3);
   await page.mouse.move(a.x, a.y);

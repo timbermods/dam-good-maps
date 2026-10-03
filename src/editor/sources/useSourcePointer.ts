@@ -24,7 +24,7 @@ export interface SourcePointerSlice {
   grabSource: (hit: TileHit | null, ev?: PointerEvent) => PointerTool | null;
   objectUnder: (x: number, y: number) => number | undefined;
   objectTiles: (k: number) => number[];
-  grabObject: (hit: TileHit | null) => PointerTool | null;
+  grabObject: (hit: TileHit | null, pick?: boolean) => PointerTool | null;
   strengthTick: number;
   strengthOfEntity: (k: number) => number;
   liveStrength: (e: { x: number; y: number }, v: number | null) => void;
@@ -152,7 +152,9 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < infoRef.current.H)
       .map(([x, y]) => y * W + x);
   }
-  function grabObject(hit: TileHit | null): PointerTool | null {
+  /** A press on an object. With Select in hand a drag on the land marks an area, so a press grabs only the
+   *  object already picked (it moves it); `pick`: the press is Select's plain click, which picks it. */
+  function grabObject(hit: TileHit | null, pick = false): PointerTool | null {
     if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
@@ -161,6 +163,8 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     if (k === undefined) return null;
     const template = e.templates[e.template[k]];
     const at: [number, number] = [e.x[k], e.y[k]];
+    const held = ed.pickedObjectRef.current;
+    if (!pick && !(held && held.template === template && held.x === at[0] && held.y === at[1])) return null;
     const orientation = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
     const flipped = (e.flags[k] & FLIPPED) !== 0;
     const record = enqueue(() => api.entitiesAt(hit.x, hit.y)).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);

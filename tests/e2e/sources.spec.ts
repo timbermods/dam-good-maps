@@ -4,7 +4,7 @@
 // however quickly the notches come.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { centreOn, openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -75,6 +75,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     ["in a row", rx + 1, ry, 3],
   ] as const) {
     // the source picked: its row shows
+    await centreOn(page, x, y);
     const p = await client(page, x, y);
     await page.mouse.move(p.x + 3, p.y);
     await page.mouse.move(p.x, p.y);

@@ -63,3 +63,13 @@ export async function openLegend(page: Page): Promise<Locator> {
   await expect(panel).toBeVisible();
   return panel;
 }
+
+/** Bring a tile to the middle of the view, clear of the chrome along the map's edges (the toolbar holds Select's
+ *  line whenever nothing else is in hand, so it reaches further down than a bare toolbar). */
+export async function centreOn(page: Page, x: number, y: number): Promise<void> {
+  await page.evaluate(([a, b]) => {
+    const r = window.dgm3d!.renderer;
+    r.setView({ target: [a + 0.5, r.getView().target[1], -(b + 0.5)] });
+  }, [x, y] as [number, number]);
+  await page.waitForTimeout(300);
+}

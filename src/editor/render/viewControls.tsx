@@ -87,7 +87,11 @@ export function hoverHandler(ed: Ed) {
     const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
     const tilesUnder = pick === undefined ? null : objectTiles(pick);
     setHoverObject((cur) => (cur === tilesUnder || (cur && tilesUnder && cur.length === tilesUnder.length && cur[0] === tilesUnder[0]) ? cur : tilesUnder));
-    if (canvas) canvas.style.cursor = free && (t || onStart || pick !== undefined) ? "grab" : "";
+    // (an object's drag moves it once it is picked; before that a drag on it marks an area, Select being in hand)
+    const e = ed.mirror.current.entities;
+    const held = ed.pickedObjectRef.current;
+    const pickedHere = pick !== undefined && !!held && held.template === e.templates[e.template[pick]] && held.x === e.x[pick] && held.y === e.y[pick];
+    if (canvas) canvas.style.cursor = free && (t || onStart || pickedHere) ? "grab" : "";
     hoverStart(!!free && onStart);
   };
 }

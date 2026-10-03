@@ -3,7 +3,7 @@
 // (an object on its door) shows the problem at once, with a one-click fix.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { centreOn, openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -19,6 +19,7 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
 
   // dragged a tile: the indicators read the spot (the three start requirements, D85; wood in logs,
   // D164); Esc puts it back
+  await centreOn(page, start.position[0], start.position[1]);
   const p0 = await client(page, start.position[0], start.position[1]);
   const p1 = await client(page, start.position[0], start.position[1] + 1);
   await page.mouse.move(p0.x, p0.y);
