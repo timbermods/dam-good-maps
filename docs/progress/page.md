@@ -337,11 +337,10 @@ checkpoint.
 
 ## Asked of the milestone session
 
-- **A rename in the core** (the build, change 5): the page keeps a renamed map's name in Your maps and names its
-  saved .timber and project files with it (`namedFile`), but the document's own name (`meta.name`) stays the
-  generator's, so a project file opened elsewhere shows the old name. A session rename (`meta.name`, one plain core
-  call) would close that.
-- **Your maps' size field** (`feature/yourmaps-size`): the drawer's rows show the size once it is on dev.
+- **A rename operation in the core** (the build, change 5; Kyler has asked the milestone session, 2026-10-02): until it
+  is on dev the page keeps a renamed map's name in Your maps and names its saved .timber and project files with it
+  (`namedFile`), while the document's own name (`meta.name`) stays the generator's. Once it lands, the drawer's
+  name field sends the operation instead.
 - M9b's candidate events (the strip), Sources: Placed · None and the automatic water fix (checkpoint 2).
 - A signal that the water under the pointer changed, for the hover readout (checkpoint 5).
 - The engines for Remove unfed water and Fill (checkpoint 5).

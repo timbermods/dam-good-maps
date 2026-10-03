@@ -269,8 +269,11 @@ than the room above the water bar. Where this section says otherwise, the verdic
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
 - **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a press
-  on a source, the start or an object picks it up. The camera: the middle button turns it and the right button
-  pans, as on dev, and the keys turn and move it.
+  on a source, the start or an object picks it up, a plain click clears the selection. Alt takes tiles away only
+  from a selection; with none, Alt+click picks a tile's layer as everywhere (D207).
+- **The mouse with Select in hand (Kyler, 2026-10-02):** as on dev: a left-drag on the land marks an area, the middle
+  button turns the view, the right button pans; the keys turn and move it. This replaces v4-01's "the right button
+  turns the view".
 - **Phones** stay view-only (D185).
 
 **The rule.** Wherever Kyler hasn't asked for a change, the current editor on dev wins: layout, spacing, sizes,
