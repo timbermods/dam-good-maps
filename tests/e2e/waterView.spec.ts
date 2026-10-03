@@ -10,6 +10,20 @@ import { expect, test, type Page } from "@playwright/test";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
+// An edit's answer is quick, but the worker then settles the water and checks the map, and a click on a
+// source asks that same worker which sources stand there: it is answered when the work in hand is done. On
+// a free machine that is a fraction of a second; with software-rendered frames and four runs at once, the
+// answer took from 0.1 s to 9 s, and about one in three passed the 5 s the check waits (D341). So the
+// selecting clicks wait for the water and the checks, which is what the answer waits on (the dot reads
+// "Checking" from the edit's answer until the check of that map has come). The page also shows an edit's
+// step a little after the worker answered it: once in 44 runs it took over 5 s, so the step is waited for
+// as long as the stroke's water below.
+const lastStep = (page: Page, label: string) => expect.poll(async () => (await info(page)).history.at(-1)!.label, { message: `the last step is "${label}"`, timeout: 45_000 }).toBe(label);
+const settled = async (page: Page) => {
+  await idle(page);
+  await page.evaluate(() => window.dgmEditor!.worker.whenWaterSettles());
+  await expect(page.getByRole("button", { name: /^Checks: (Ready to play|\d+ things? to look at)/ })).toBeVisible({ timeout: 90_000 });
+};
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
 const clear = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.clearWater);
 const clearNear = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.clearNear);
@@ -133,21 +147,23 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const sp = await client(page, ...spot!);
   await page.mouse.click(sp.x, sp.y);
   await idle(page);
-  expect((await info(page)).history.at(-1)!.label).toBe("Place water source");
+  await lastStep(page, "Place water source");
   await page.keyboard.press("Escape");
+  await settled(page);
   // clean or bad belongs to the source: selected, it becomes a badwater source in one step
   await page.mouse.click(sp.x, sp.y);
   const insp = page.getByRole("group", { name: /Water source, selected/ });
   await expect(insp).toBeVisible();
   await insp.getByRole("combobox", { name: "Water" }).selectOption("bad");
   await idle(page);
-  await expect.poll(async () => (await info(page)).history.at(-1)!.label).toBe("Make a source badwater");
+  await lastStep(page, "Make a source badwater");
+  await settled(page);
   // selected, Delete removes it and its water recedes
   await page.mouse.click(sp.x, sp.y);
   await expect(page.getByRole("group", { name: /Badwater source, selected/ })).toBeVisible();
   await page.keyboard.press("Delete");
   await idle(page);
-  await expect.poll(async () => (await info(page)).history.at(-1)!.label).toBe("Remove a badwater source");
+  await lastStep(page, "Remove a badwater source");
 
   // the water's speed: normal by default, instant straight to the result
   const speed = page.getByRole("combobox", { name: "Water speed" });
