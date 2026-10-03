@@ -14,13 +14,13 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D435), STATUS and HANDOFF.
+  free: D437), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
   session folds them into PLAN when its work merges. A control the core's items need is agreed through Kyler.
 - **The renderer session** (Opus 5.5, high; Kyler's PC; `feature/moving-water`) builds moving water and the Flow view, then
-  renderer R1. PR #165 is a draft with CI green; it merges on Kyler's yes. It never edits PLAN, STATUS or HANDOFF.
+  renderer R1. PR #165 merges once dev is merged into it, CI is green and its 6-cell smoothness check passes (D435, D436). It never edits PLAN, STATUS or HANDOFF.
 
 ## In flight
 
@@ -40,7 +40,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 |---|---|---|---|---|
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430, D432) and Delta (D416) accepted; re-pins done, CI green at 49d87d74 or later; the 840-map measures are running (96² and 128² done, 0 failing absolutes); then the quiet window and the D148 re-pins |
 | The page | `feature/page` | #163 draft | `-page` | Page session; the build is under way (see above) |
-| Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
+| Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; merges when its 6-cell check passes on the merged branch (D436) |
 | Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound is not started |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |

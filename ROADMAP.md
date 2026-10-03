@@ -58,7 +58,7 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
    3. **Moving water and the Flow view** (Codex's flow investigation; built by the renderer session on
       `feature/moving-water`, D398; this session merges its PR when green and Kyler says yes): always-on moving water in both looks; the Flow
-      view's lanes off by default; paths built in the water worker; it must pass the smoothness harness. Then **renderer
+      view's lanes off by default; paths built in the water worker; it must pass the smoothness check (D435). Then **renderer
       R1** from the performance audit (#152), using the smoothness investigation's traced stall causes: water blending,
       brush updates, the High look's lighting.
    4. **Carve's river born as it cuts** (D371), **Glaciate's Fast timing** (D374), **startup part 1** (D367), each its
