@@ -1,14 +1,12 @@
 // The one-page editor's layout (DESIGN.md, "The one-page editor"): at every supported size, with the New map
-// drawer closed and open, the legend closed and open, at every chrome scale Kyler can try (?ui=), and with
-// each view layer on, no two pieces of chrome overlap; the map's info sits at the window's centre clear of
+// drawer closed and open, the legend closed and open, and with each view layer on (no scale-up at any size,
+// Kyler 2026-10-02 19:32), no two pieces of chrome overlap; the map's info sits at the window's centre clear of
 // its neighbours; the right column shares its edges to the pixel; toggling a view layer moves nothing; every
 // control stands on a solid background, and its words meet WCAG AA.
 
 import { expect, test, type Page } from "@playwright/test";
 
 const SIZES: [number, number][] = [[1280, 720], [1366, 768], [1440, 900], [1536, 864], [1920, 1080], [2560, 1440], [3440, 1440]];
-/** The chrome's scale-ups Kyler can try (main.tsx, ?ui=); they apply from 1800px wide. */
-const SCALES = ["1.0", "1.05", "1.1", "1.15"];
 /** The view layers: each on, nothing moves. */
 const LAYERS = ["Height colours", "Level lines", "Markers", "Flow", "Clear water", "Badwater"];
 
@@ -143,7 +141,11 @@ async function check(page: Page, w: number, state: string) {
     same(panel.l, legend.l, "the panel's left edge is Legend's");
     same(panel.r, legend.r, "the panel's right edge is Legend's");
     same(panel.t - legend.b, gap, "the gap under Legend");
-    same(water.t - panel.b, gap, "the gap above the water bar");
+    // as tall as its content, never past one gap above the water bar: it reaches that gap only when it scrolls
+    const fit = await page.locator(".legend-panel").evaluate((e) => ({ scrolls: e.scrollHeight > e.clientHeight + 1, head: e.firstElementChild!.getBoundingClientRect().top - e.getBoundingClientRect().top, foot: e.getBoundingClientRect().bottom - e.lastElementChild!.getBoundingClientRect().bottom }));
+    expect(water.t - panel.b, `the panel ends at least one gap above the water bar (${state})`).toBeGreaterThanOrEqual(gap - 0.15);
+    if (fit.scrolls) same(water.t - panel.b, gap, "a panel that scrolls ends one gap above the water bar");
+    else same(fit.foot, fit.head, "the panel's space at its foot is its head's");
   }
   for (const c of await contrast(page)) {
     expect(c.solid, `${c.name}: a solid background (${state})`).toBe(true);
@@ -157,13 +159,11 @@ for (const [w, h] of SIZES) {
     test.setTimeout(600_000);
     await page.setViewportSize({ width: w, height: h });
     await openEditor(page);
-    // the scale-up applies from 1800px wide: below that one value is every value
-    for (const ui of w >= 1800 ? SCALES : ["1.1"]) {
-      await page.evaluate((v) => document.documentElement.style.setProperty("--ui-scale", v), ui);
+    {
       for (const drawer of [false, true]) {
         if (drawer) await page.getByRole("button", { name: "New map" }).click();
         for (const legend of [false, true]) {
-          const state = `ui ${ui}, drawer ${drawer ? "open" : "closed"}, legend ${legend ? "open" : "closed"}`;
+          const state = `drawer ${drawer ? "open" : "closed"}, legend ${legend ? "open" : "closed"}`;
           if (legend) await page.getByRole("button", { name: "Legend", exact: true }).click();
           await settle(page, w, h);
           const before = await check(page, w, state);

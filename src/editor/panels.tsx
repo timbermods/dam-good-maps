@@ -30,7 +30,7 @@ export const LAYER_NAMES: Record<LayerKind, string> = {
 /** What the water layer on the map shows, in a line or two. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
   let text = "";
-  if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
+  if (kind === "badwater") text = "Badwater: dark brown · Contaminated soil: light brown";
   else if (kind === "roofed")
     text = layers.roofed.length
       ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`

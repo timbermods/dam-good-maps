@@ -26,8 +26,7 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
     const el = bar.current;
     const view = el?.parentElement;
     if (!el || !view || typeof ResizeObserver === "undefined") return;
-    // (in the bar's own CSS pixels: its height on screen over its zoom, when the chrome is scaled up)
-    const note = () => view.style.setProperty("--water-bar-h", `${el.getBoundingClientRect().height / (parseFloat(getComputedStyle(el).zoom) || 1)}px`);
+    const note = () => view.style.setProperty("--water-bar-h", `${el.getBoundingClientRect().height}px`);
     note();
     const watch = new ResizeObserver(note);
     watch.observe(el);

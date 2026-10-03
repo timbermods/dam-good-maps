@@ -229,6 +229,12 @@
   align-content: start;
 }
 
+/* the column is 13px wider than dev's (Kyler, 19:32), so every legend line fits on one line: the level control
+   takes the width (8px of padding each side becomes 14.5px), and Slow forces, which fills the column, follows */
+.view3d-corner .corner-level .layer-widget output {
+  padding: 0 14.5px;
+}
+
 .corner-legend {
   grid-column: 1 / -1;
   height: var(--corner-h);
@@ -245,7 +251,11 @@
 
 .legend-panel {
   grid-column: 1 / -1;
-  align-self: stretch;
+  /* as tall as its content, the same padding at its foot as at its top; never past one gap above the water bar
+     (the column's last row ends there), where taller content scrolls inside it */
+  align-self: start;
+  max-height: 100%;
+  box-sizing: border-box;
   /* the panel takes the column's width and never widens it: its lines don't count toward the grid's tracks */
   contain: inline-size;
   min-height: 0;
@@ -257,6 +267,11 @@
   background: var(--panel);
   box-shadow: var(--shadow);
   font-size: 0.8rem;
+}
+
+.legend-panel > .pick-list:last-child {
+  /* (the list's own top margin, so the foot's space equals the head's) */
+  margin-bottom: 2px;
 }
 
 .legend-panel .pick-line {
@@ -276,23 +291,4 @@
 
 .editor.drawer-open .layer-legend {
   margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
-}
-
-/* ---- large screens: the chrome scales up from 1800px wide, the map does not. The scale is 1.1, or ?ui= on the
-   address for Kyler to try others (temporary; main.tsx) */
-@media (min-width: 1800px) {
-  .editor-bar,
-  .editor-main > .shelf,
-  .drawer,
-  .brush-bar-wrap,
-  .view3d-controls,
-  .view3d-corner,
-  .editor-view .minimap,
-  .readout,
-  .water-bar,
-  .layer-legend,
-  .editor-notices,
-  .history {
-    zoom: var(--ui-scale, 1.1);
-  }
 }

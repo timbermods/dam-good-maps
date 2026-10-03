@@ -335,9 +335,7 @@ export function View3D(props: View3DProps) {
       <ul class="pick-list">{clean.map(item)}</ul>
       {marked.length ? (
         <>
-          <p class="panel-head">
-            <b>Markers</b> on:
-          </p>
+          <p class="panel-head">Markers on:</p>
           <ul class="pick-list">{marked.map(item)}</ul>
         </>
       ) : null}
