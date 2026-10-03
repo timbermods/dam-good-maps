@@ -84,6 +84,14 @@ export type Look = Tier | "light";
  *  a clear red. */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
+/** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
+export interface FrameInsets {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
+
 export interface ViewState {
   mode: ViewMode;
   /** Turn around the target: 0 looks north. */
@@ -1981,9 +1989,29 @@ export class MapRenderer {
   /** The map waits to be framed until the canvas has a size. */
   private framePending = false;
 
+  /** The edges of the canvas the page's controls cover (CSS pixels): the map is framed clear of them. */
+  private insets: FrameInsets = { top: 0, left: 0, bottom: 0, right: 0 };
+
+  /** The page's controls over the canvas's edges (CSS pixels, each 0 or more; the ones left out keep
+   *  theirs): the next framing (Reset view, a view switched, a new map) fits the map in what is left.
+   *  The camera never moves for it by itself (D265: a panel opening or closing leaves the view as it
+   *  is). A reason when refused, nothing changed; else null. */
+  setFrameInsets(i: Partial<FrameInsets>): string | null {
+    for (const [k, v] of Object.entries(i)) if (!(k in this.insets) || typeof v !== "number" || !Number.isFinite(v) || v < 0) return `An inset is a number of pixels, 0 or more: ${k} was ${String(v)}`;
+    this.insets = { ...this.insets, ...i };
+    return null;
+  }
+
+  /** The edges framing keeps clear (CSS pixels). */
+  get frameInsets(): FrameInsets {
+    return { ...this.insets };
+  }
+
   /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
-   *  the canvas's middle, whatever the view (orbit or top-down) and however big the window. The map's
-   *  four corners are projected; the distance scales to fit them and the target moves to centre them. */
+   *  the canvas's middle, whatever the view (orbit or top-down) and however big the window; clear of
+   *  the page's controls (`setFrameInsets`), in the part of the canvas they leave (a side they would
+   *  leave under a quarter of the canvas is framed whole). The map's four corners are projected; the
+   *  distance scales to fit them and the target moves to centre them. */
   frameMap(): void {
     const m = this.map;
     if (!m) return;
@@ -2013,13 +2041,21 @@ export class MapRenderer {
       return { x0, y0, x1, y1 };
     };
     const r = this.canvas.getBoundingClientRect();
+    // the part of the canvas the page's controls leave
+    const ins = this.insets;
+    const across = w - ins.left - ins.right >= w / 4;
+    const down = h - ins.top - ins.bottom >= h / 4;
+    const left = across ? ins.left : 0;
+    const top = down ? ins.top : 0;
+    const fw = across ? w - ins.left - ins.right : w;
+    const fh = down ? h - ins.top - ins.bottom : h;
     for (let pass = 0; pass < 4; pass++) {
       let b = box();
-      const s = Math.max((b.x1 - b.x0) / (w * 0.86), (b.y1 - b.y0) / (h * 0.86));
+      const s = Math.max((b.x1 - b.x0) / (fw * 0.86), (b.y1 - b.y0) / (fh * 0.86));
       if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
       b = box();
       const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
-      const mid = this.pickAtLevel(r.left + w / 2, r.top + h / 2, level);
+      const mid = this.pickAtLevel(r.left + left + fw / 2, r.top + top + fh / 2, level);
       if (!at || !mid) break;
       this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
     }

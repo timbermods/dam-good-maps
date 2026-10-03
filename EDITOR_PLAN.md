@@ -101,7 +101,9 @@ The editor's parts as they are now; their placement and styling are the design p
   Timberborn's own editor) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
   speaker icon, crossed out when muted; its volume opens beneath it); one height and one gap throughout
   (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
-  B1).
+  B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
+  (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
+  is left; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
