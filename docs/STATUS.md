@@ -103,7 +103,12 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 
 ## Waiting for Kyler
 
-1. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything; this session pauses its heavy work for it.
+1. **The quiet window didn't happen (D414, D434).** 02:00–03:30: the runner counted an idle orphaned vite preview as a
+   build tool (a leftover of this session's agents; stopped at 03:31) though the load was 2%; 03:32–05:02: the load stayed at
+   15–18% from two Claude app processes (the page session, most likely), above the runner's 6% limit. Nothing was timed;
+   the Naturalize bench didn't run either. Choose: a time when the page session is idle; a runner that accepts the app's
+   steady load (start at a mean of 20% or less, the load recorded beside every timing, pausing on spikes); or another
+   machine.
 2. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
 3. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
 4. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
