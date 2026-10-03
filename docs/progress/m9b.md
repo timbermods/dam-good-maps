@@ -224,6 +224,49 @@ from pins. Each was traced to its cause and fixed (e3130755). The quick suite ne
 - **Latent, outside M9b's code:** `pickStart` still scores NaN on a tile the walkable land leaves
   unlabelled, which the editor's locked mask can do. Treating such a start as joining no land would
   close it. Left for the editor's owner.
+- CI on #70 went green at 49d87d74. Browser shard 4 failed once first, on `waterView.spec.ts` line
+  176: a 10 s poll for water in a stroke's channel on River Valley 96² seed 8, a map these fixes don't
+  touch. The same line failed once before, at 0eb655a0. The rerun passed.
+
+**The 840-map measure** (`m5-accepted`, 8 jobs, src as at e3130755; against the baseline 3569e67c):
+
+- **Failing an absolute: 0 / 0 / 0** at 96², 128², 256².
+- **Lands changed: Any, Delta and Islands only**, all 40 seeds of each at every size. The other four
+  themes are unchanged, map for map.
+- **All three outcomes: 178 / 210 / 211** of 280 (before: 220 / 230 / 230). Every loss is in the three
+  redesigned themes. Seeds 1–20, the target 14 of 20:
+
+  | Theme | 96² | 128² | 256² |
+  |---|---|---|---|
+  | Any | 16, water (4) | 17, water (3) | 17, water (3) |
+  | River Valley | 18, promise (1) | 18, promise (1) | 16, water (3) |
+  | Canyon | 14, promise (4) | 17, promise (3) | 15, water (4) |
+  | Highlands | **10**, promise (8) | 15, promise (5) | 17, promise (3) |
+  | Lake Basin | **13**, promise (7) | **13**, water (6) | **12**, promise (7) |
+  | Delta | 15, water (5) | 15, water (5) | 14, water (5) |
+  | Islands | **2**, promise (18) | **12**, promise (7) | 14, water (4) |
+
+- **Islands at 96² keeps its promise on 2 of 20.** The promise asks for 3 islands or more, the main
+  body a quarter of the map, and 5% of the land apart. At 96² most of the safe version's seas read 0 to
+  2 islands. Kyler judged the safe version at 128², where it keeps the promise on 13 of 20 here.
+  Nothing is changed for it: Kyler decides.
+- **Delta misses the water outcome on 5 of 20 at every size** (before, it missed the standout on 1
+  or 2). Why each misses is not yet read.
+- Fixes used: "rising basin fed gently" on 5 maps at 256² (1 before): Lake Basin 24 as before, and
+  Islands 5, 19, 20 and 32, whose seas were still rising. No way out was worn. No map was shown more
+  than once.
+- Time, under load (8 jobs), the medians of the CPU-scaled time to the map against the baseline's.
+  The four unchanged themes match within a few per cent. The three changed ones are slower:
+
+  | Theme | 96² | 128² | 256² |
+  |---|---|---|---|
+  | Islands | 8.0 → 10.0 s | 11.4 → 14.3 s | 42.7 → 50.9 s |
+  | Delta | 5.4 → 6.4 s | 8.7 → 9.9 s | 18.7 → 22.5 s |
+  | Any | 6.8 → 6.5 s | 8.3 → 8.7 s | 25.0 → 27.9 s |
+
+  Islands is the slowest theme at 256². D380's comparison with `dev` waits for the quiet window.
+- The rows are committed as the new baseline, `investigation/m9b/baseline/e3130755-*.jsonl.gz`
+  (`compare.py e3130755 <run>`).
 
 ### Islands accepted: the safe version (D429–D430, 2026-10-02, 19:12), and islands to expand to
 
