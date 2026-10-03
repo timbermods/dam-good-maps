@@ -554,7 +554,7 @@ describe("a carve in the document (breakage rule)", () => {
     expect(Math.max(...surfaces) - Math.min(...surfaces)).toBeLessThan(1e-9);
     const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok, settles.message).toBe(true);
-    expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);
+    expect(settles.message).toMatch(/a sealed lake keeps slowly evaporating/);
     // the same carve without its kept water: the game's settle from the land and the sources alone
     const bare = MapSession.fromGenerated(r, r.file);
     const { lake: _lake, ...params } = op.params;

@@ -89,7 +89,7 @@ export class Collector {
     for (let k = 0; k < this.checks.length; k++) {
       const c = this.checks[k];
       if (!which(c.id) || c.applicable === false) continue;
-      this.checks[k] = { ...c, ok: true, severity: "info", approximate: reason, message: `approximate (${reason}): ${c.message}` };
+      this.checks[k] = { ...c, ok: true, severity: "info", approximate: reason, message: `Approximate (${reason}): ${c.message}` };
     }
   }
 }
