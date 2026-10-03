@@ -12,7 +12,7 @@ import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
 import { PROVIDER_NOTICES } from "../../src/core/places/attribution";
-import { placeDescription, placeTimber } from "../../src/core/places/place";
+import { CONVERSION_FAULT_CHECKS, galleryIndex, GALLERY_HIDING_FAULT, inGallery, PLACE_FAULT_CHECKS, placeDescription, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, placeData, sha256 } from "./placesCommon";
@@ -58,6 +58,42 @@ describe("the gallery's data", () => {
     console.log(`real places: index ${size("index.json")} B, data ${data} B (largest ${Math.max(...INDEX.places.map((p) => size(p.data)))} B), cards ${cards} B`);
     expect(size("index.json")).toBeLessThan(64_000);
     expect(Math.max(...INDEX.places.map((p) => size(p.data)))).toBeLessThan(64_000);
+  });
+});
+
+describe("the gallery leaves out the places whose start reaches no fed water (D421)", () => {
+  const gallery = galleryIndex(INDEX);
+  const hidden = INDEX.places.filter((p) => !inGallery(p));
+
+  it("records each place's own faults, from its build, in the index", () => {
+    for (const p of INDEX.places) {
+      expect(p.faults, p.id).toEqual(PLACE_FAULT_CHECKS.filter((id) => p.faults.includes(id)));
+      for (const id of CONVERSION_FAULT_CHECKS) expect(p.faults as string[], p.id).not.toContain(id);
+    }
+  });
+
+  it("hides exactly the places with the start-water fault, never by a list of names", () => {
+    expect(GALLERY_HIDING_FAULT).toBe("start.water");
+    expect(hidden.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
+    // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
+    expect(hidden.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
+    expect(hidden.length).toBe(33);
+    expect(gallery.places.map((p) => p.id)).toEqual(INDEX.places.filter((p) => !PLACES_START_WITHOUT_FED_WATER.has(p.id)).map((p) => p.id));
+    expect(gallery.places.length).toBe(INDEX.count - 33);
+  });
+
+  it("lists what is left with its own count, families and sizes, and keeps the others in the repository", () => {
+    expect(gallery.count).toBe(gallery.places.length);
+    expect(gallery.families.map((f) => f.id)).toEqual(INDEX.families.map((f) => f.id).filter((id) => gallery.places.some((p) => p.family === id)));
+    expect(gallery.sizes).toEqual(INDEX.sizes.filter((s) => gallery.places.some((p) => p.size === s)));
+    for (const p of hidden) {
+      expect(existsSync(join(PLACES_DIR, p.data)), p.data).toBe(true);
+      expect(existsSync(join(PLACES_DIR, p.image)), p.image).toBe(true);
+    }
+    // a place whose fault is fixed shows again, and nothing else changes
+    const fixed = galleryIndex({ ...INDEX, places: INDEX.places.map((p, i) => (i === INDEX.places.indexOf(hidden[0]) ? { ...p, faults: p.faults.filter((f) => f !== "start.water") } : p)) });
+    expect(fixed.count).toBe(gallery.count + 1);
+    expect(fixed.places.some((p) => p.id === hidden[0].id)).toBe(true);
   });
 });
 
