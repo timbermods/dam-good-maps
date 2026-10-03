@@ -16,6 +16,7 @@ import {
   objectsOnNewGround,
   moveEdit,
   moveStartNear,
+  startClears,
   startBrokenBy,
   startMiddle,
   planContextOf,
@@ -59,7 +60,9 @@ import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import { validateMap, type Validation } from "../core/validate/checks";
 import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
-import type { TerrainState } from "../core/features/raster/strokePreview";
+import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
+import type { BrushParams, Rect } from "../core/features/raster/brush";
+import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
@@ -405,7 +408,9 @@ function viewUpdate(s: MapSession): ViewUpdate {
     markSent(s);
     return all;
   }
-  if (prev.terrain !== b.cache.terrain) out.terrain = s.terrainState();
+  const water = s.showsStoredWater ? "stored" : b.water;
+  // (the terrain the page paints on carries the settled water too: a Naturalize stroke keeps it, D399)
+  if (prev.terrain !== b.cache.terrain || water !== prev.water) out.terrain = s.terrainState();
   if (prev.heights !== b.heights) {
     const rect = changedRect(b.W, b.H, prev.heights, b.heights);
     if (rect) {
@@ -413,7 +418,6 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.terrainRect = rect;
     }
   }
-  const water = s.showsStoredWater ? "stored" : b.water;
   if (water !== prev.water) out.water = waterOf(s);
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
   // (a rebuild that placed the same objects again sends none: the page keeps its own)
@@ -912,7 +916,7 @@ function opened(s: MapSession): SessionOpen {
   return sessionView();
 }
 
-/** "Refine this map": open the map the generator just made. */
+/** Opens the map the generator just made in the editor. */
 export function refine(): SessionOpen {
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
@@ -1646,7 +1650,8 @@ function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: num
   if (s.mode !== "import") {
     const z = s.built.heights[y * s.size.x + x];
     const feature = { id: crypto.randomUUID(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel: z, player: 0 } } as unknown as Feature;
-    const r = s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Place the start");
+    // (the generation's objects under it go in the same step, D368 (10))
+    const r = s.applyAll([...startClears(s, x, y, o), { op: "addFeature", params: { feature } }], "user", "Place the start");
     return changed(s, r.ok, r.errors, t0);
   }
   const [cx, cy] = cornerFor(x, y, o);
@@ -2577,3 +2582,55 @@ export function forcing(): boolean {
 }
 
 export const carving = forcing;
+
+// ------------------------------------------------- Naturalize, weathered here (PLAN §20 D422)
+
+/** A Naturalize stroke weathered in the worker (D422): the page sends its dabs as they come and shows
+ *  the land that comes back (core/features/raster/remoteStroke.ts); the worker runs the preview the
+ *  page would, on the same land, so what is shown is what the operation builds. */
+let weathering: { session: MapSession; preview: StrokePreview; shown: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null = null;
+
+/** A stroke begins, with the page's settings and the ground under sources and objects it leaves. */
+export function weatherBegin(settings: Omit<BrushParams, "dabs">, ground: Runs): void {
+  const s = need();
+  const shown = s.built.heights.slice();
+  const own = { ...settings };
+  weathering = { session: s, preview: new StrokePreview(own, s.terrainState(), shown, s.size.x, s.size.y, ground), shown, settings: own };
+}
+
+/** What a stroke's dabs (or its riding pieces) changed: the shown heights in the rectangle, and its
+ *  settings as recorded so far; the water answers it at once (D197). */
+function weathered(r: Rect | null): WeatheredLand | null {
+  const w = weathering;
+  if (!r || !w) return null;
+  const W = w.session.size.x;
+  const bw = r.x1 - r.x0 + 1;
+  const heights = new Uint8Array(bw * (r.y1 - r.y0 + 1));
+  for (let y = r.y0; y <= r.y1; y++) heights.set(w.shown.subarray(y * W + r.x0, y * W + r.x1 + 1), (y - r.y0) * bw);
+  draftStroke(r, heights);
+  return { rect: r, heights, settings: { ...w.settings } };
+}
+
+export function weatherAdd(dabs: number[], pressure?: number[]): WeatheredLand | null {
+  const w = weathering;
+  if (!w || w.session !== session) return null;
+  return weathered(w.preview.add(dabs, pressure));
+}
+
+export function weatherFinish(rigid: [number, number, number, number][]): WeatheredLand | null {
+  const w = weathering;
+  if (!w || w.session !== session) return null;
+  return weathered(w.preview.finish(rigid));
+}
+
+/** The stroke's dabs are all in: its heights before the integrity pass and its protected tiles. */
+export function weatherEnd(): { pre: Uint8Array; protect: Uint8Array } | null {
+  const w = weathering;
+  weathering = null;
+  if (!w || w.session !== session) return null;
+  return { pre: w.preview.pre.slice(), protect: w.preview.protect.slice() };
+}
+
+export function weatherCancel(): void {
+  weathering = null;
+}

@@ -75,6 +75,39 @@ export interface PlaceIndexEntry {
   /** The .timber's size in bytes and its sha256: every build of the place gives this file. */
   bytes: number;
   sha256: string;
+  /** The playability checks this place's own map fails, recorded when the tool builds it
+   *  (`PLACE_FAULT_CHECKS`): what the gallery reads to leave a place out until it is fixed. */
+  faults: string[];
+}
+
+/** The checks tools/real-places.ts records per place in `faults`, as the generate profile gives them
+ *  on the place's own build. The conversion-wide ones every place has (the edge wall, the missing
+ *  mine site and badwater source, D151, D200) are not recorded. */
+export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
+
+/** What every place as converted has, and what Real places 2 removes: not a reason to leave one out. */
+export const CONVERSION_FAULT_CHECKS = ["terrain.edge_wall", "resources.mine_site", "resources.badwater_source"] as const;
+
+/** The fault that keeps a place out of the gallery (D421): its start reaches no water a source
+ *  feeds, so the map cannot be played from the start. Real places 2 fixes the place, the next run of
+ *  the tool no longer records it, and the place shows again. */
+export const GALLERY_HIDING_FAULT = "start.water";
+
+/** A place the gallery lists: one without `GALLERY_HIDING_FAULT` on its map. */
+export const inGallery = (e: Pick<PlaceIndexEntry, "faults">): boolean => !e.faults.includes(GALLERY_HIDING_FAULT);
+
+/** The index as the gallery page shows it: the places left out (D421) gone, and the count, the
+ *  families and the sizes of what is left. The places left out stay in the index and their data
+ *  and cards stay published, so they still build, test and open by their link. */
+export function galleryIndex(index: PlaceIndex): PlaceIndex {
+  const places = index.places.filter(inGallery);
+  return {
+    ...index,
+    count: places.length,
+    families: index.families.filter((f) => places.some((p) => p.family === f.id)),
+    sizes: index.sizes.filter((s) => places.some((p) => p.size === s)),
+    places,
+  };
 }
 
 export interface PlaceIndex {

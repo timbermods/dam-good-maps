@@ -1,0 +1,183 @@
+diff --git a/src/editor/brushes.ts b/src/editor/brushes.ts
+index 203a89e9..b3cb32a3 100644
+--- a/src/editor/brushes.ts
++++ b/src/editor/brushes.ts
+@@ -37,6 +37,7 @@ import type { MapRenderer, PointerTool } from "../render3d";
+ import type { TileHit } from "../render3d/pick";
+ import { BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
+ import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
++import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
+ import { tilesToRuns } from "../core/math/grid";
+ 
+ export type { BrushTool };
+@@ -181,6 +182,9 @@ export interface PainterHost {
+   /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
+    *  (D368 (8)). */
+   objectGround?(): [number, number, number][];
++  /** The worker's weathering (D422): a Naturalize stroke's land is worked out there, the page showing
++   *  what comes back. */
++  weather?: WeatherChannel;
+   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
+    *  a stroke changes only its tiles, feathered toward its edge. */
+   area?(): [number, number, number][] | null;
+@@ -193,7 +197,8 @@ export interface PainterHost {
+ const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
+ 
+ interface StrokeState {
+-  preview: StrokePreview;
++  /** The stroke's preview: the page's own, or (a Naturalize stroke, D422) the worker's. */
++  preview: StrokePreview | RemotePreview;
+   settings: Omit<BrushParams, "dabs">;
+   dabs: number[];
+   /** A pen's pressure per dab (null: a mouse). */
+@@ -207,6 +212,9 @@ interface StrokeState {
+   dabAt: [number, number];
+   lastDab: number;
+   raf: number;
++  /** Points the pointer reached since the last frame: pressed together in the next one, so a stroke
++   *  works out its land at most once a frame however many pointer events arrive (D380). */
++  queued: [number, number][];
+   /** Ground changed since it last went to the water, and when it last went. */
+   drafted: Rect | null;
+   draftAt: number;
+@@ -550,6 +558,8 @@ export class BrushPainter {
+   }
+ 
+   private begin(x: number, y: number, ev: PointerEvent): void {
++    // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
++    if (this.committing) return;
+     const h = this.host;
+     const s = h.settings();
+     let tool = s.tool;
+@@ -601,7 +611,10 @@ export class BrushPainter {
+     // below that water's surface, once it leaves it)
+     const channel = settings.channel ? this.channelStart(x, y) : null;
+     if (channel) Object.assign(settings, channel.wet[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
+-    const preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
++    // a Naturalize stroke is weathered in the worker (D422), the land following a frame or two behind
++    // the cursor (but for a straight line, drawn again from its start at every move, and Keep)
++    const remote = tool === "naturalize" && !!h.weather && !s.straight && !keepSources;
++    const preview = remote ? this.remotePreview(settings) : new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+     // the stroke follows the cursor on the level it started on (a target's, for Flatten), so the
+     // brush stays under the pointer while the ground rises or sinks beneath it
+     const plane = tool === "flatten" && target !== null ? target : h.renderer.heightAt(Math.floor(x), Math.floor(y));
+@@ -619,6 +632,7 @@ export class BrushPainter {
+       dabAt: at,
+       lastDab: performance.now(),
+       raf: 0,
++      queued: [],
+       drafted: null,
+       draftAt: 0,
+       anchor: s.straight ? at : null,
+@@ -632,6 +646,19 @@ export class BrushPainter {
+     this.loop();
+   }
+ 
++  /** A preview whose land the worker works out (D422): its land is drawn as it comes. */
++  private remotePreview(settings: Omit<BrushParams, "dabs">): RemotePreview {
++    const h = this.host;
++    const t = h.terrain();
++    return new RemotePreview(settings, h.heights(), h.W, h.H, this.ground, h.weather!, (r) => this.landed(r), t.pre.slice(), t.protect);
++  }
++
++  /** The worker's land for a stroke arrived (D422): drawn now (its water flows there already). */
++  private landed(r: Rect): void {
++    this.host.renderer.updateTerrainRect(this.host.heights(), r);
++    if (this.stroke) this.feel();
++  }
++
+   /** The pointer moved while painting: dabs along the way, a fifth of the brush apart (or the whole
+    *  straight line again). */
+   private moveTo(ev: PointerEvent): void {
+@@ -661,8 +688,11 @@ export class BrushPainter {
+       this.straight(ev);
+       return;
+     }
+-    if (points.length) this.dab(points);
+-    else this.showCursor();
++    if (points.length) {
++      st.queued.push(...points);
++      st.dabAt = points[points.length - 1];
++    }
++    this.showCursor();
+     this.say(ev);
+   }
+ 
+@@ -726,7 +756,6 @@ export class BrushPainter {
+       h.renderer.updateTerrainRect(h.heights(), changed);
+       const d = st.drafted;
+       st.drafted = d ? { x0: Math.min(d.x0, changed.x0), y0: Math.min(d.y0, changed.y0), x1: Math.max(d.x1, changed.x1), y1: Math.max(d.y1, changed.y1) } : { ...changed };
+-      this.sendDraft(false);
+       this.feel();
+     }
+     this.showCursor();
+@@ -763,8 +792,12 @@ export class BrushPainter {
+     if (!st) return;
+     st.raf = requestAnimationFrame(() => {
+       if (this.stroke !== st) return;
+-      if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
+-      this.sendDraft(false);
++      if (st.queued.length) this.dab(st.queued.splice(0));
++      else if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
++      // the water's draft once the frame showing the land is drawn
++      setTimeout(() => {
++        if (this.stroke === st) this.sendDraft(false);
++      }, 0);
+       this.loop();
+     });
+   }
+@@ -843,10 +876,34 @@ export class BrushPainter {
+     const st = this.stroke;
+     if (!st) return;
+     cancelAnimationFrame(st.raf);
++    // (what the pointer reached since the last frame, pressed before the stroke ends)
++    if (st.queued.length) this.dab(st.queued.splice(0));
++    // (the worker's stroke: once its land is all in)
++    if (st.preview instanceof RemotePreview) {
++      this.stroke = null;
++      const preview = st.preview;
++      this.committing = preview
++        .settled()
++        .then(() => {
++          this.rideWhole(st);
++          return preview.done();
++        })
++        .then(() => this.finishEnd(st))
++        .finally(() => (this.committing = null));
++      return;
++    }
+     this.stroke = null;
+-    const h = this.host;
+     this.rideObjects(st);
+     this.rideWhole(st);
++    this.finishEnd(st);
++  }
++
++  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it. */
++  private committing: Promise<void> | null = null;
++
++  /** The stroke's dabs are all in: it becomes one operation. */
++  private finishEnd(st: StrokeState): void {
++    const h = this.host;
+     h.painting(false);
+     if (st.anchor) h.note?.(null, null);
+     h.renderer.refreshShadows();
+diff --git a/src/editor/view/useReady.ts b/src/editor/view/useReady.ts
+index eb1aeda5..419d137e 100644
+--- a/src/editor/view/useReady.ts
++++ b/src/editor/view/useReady.ts
+@@ -192,6 +192,14 @@ export function useReady(ed: Ed): ReadySlice {
+       // the water flows on the stroke while it is painted (D197)
+       draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
+       cancelDraft: () => void api.cancelDraft(),
++      // a Naturalize stroke's land, worked out in the worker (D422)
++      weather: {
++        begin: (settings, ground) => api.weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number])),
++        add: (dabs, pressure) => api.weatherAdd(dabs, pressure),
++        finish: (rigid) => api.weatherFinish(rigid),
++        end: () => api.weatherEnd(),
++        cancel: () => void api.weatherCancel(),
++      },
+     });
+     r.onSlice = (level) => setSliceLevel(level);
+     r.onMarkers = (on) => setMarkersOn(on);

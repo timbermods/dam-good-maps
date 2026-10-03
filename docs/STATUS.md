@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D427), STATUS and HANDOFF.
+  free: D433), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft: its `DESIGN.md` and two directions so far. Its Editor.tsx split
   (#169) is merged into `dev` (dde77fb2). It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -39,7 +39,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 | Work | Branch | PR | Worktree | State |
 |---|---|---|---|---|
-| M9b | `feature/m9b` | #70 draft | `-m9b` | Islands and Delta redesign (D407: Kyler's verdict on the review set blocks the release); defaults accepted (D405, D406); then the measures, the D148 re-pins, 256² speed and Lake Basin round 2 |
+| M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430) and Delta (D416) accepted; dev's fixes taken in; next the check that every Islands map has an island to expand to (D429), the three re-pins, then the quiet window (02:00), the 840-map measures and the D148 re-pins |
 | The page | `feature/page` | #163 draft | `-page` | Page session; design stage |
 | Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
 | Naturalize | `feature/naturalize` | #170 draft | none | Round 3 in progress after Kyler's verdict on round 2 |
@@ -80,21 +80,18 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 
 ## Waiting for Kyler
 
-1. **The Naturalize round-3 sheets**, when ready (#170).
-2. **M9b's next Islands sheet** (D417): Delta's shape is accepted (D416); Islands has another shape round, then 30 seeds
-   at 128² beside M9a's. Also pending #155 (sea maps draw no Hanging valleys or Farmland past a gorge), his to overrule.
-3. **Your yes on #165**, after your look at moving water and its gate passing (D415).
-4. **The quiet window** (about 2 hours): after you accept the Islands and Delta sheets, or at 2:00 on Saturday 2026-10-03
-   (Pacific), whichever comes first (D414); this session pauses all heavy work for it.
-5. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
-6. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
-7. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+1. **Your yes on #165**, after your look at moving water and its gate passing (D415).
+2. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything
+   now that Islands is accepted; this session pauses its heavy work for it.
+3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+4. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
+5. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
 
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: Islands (D417), and Real places in the gallery (D421: hide the 33 places whose start reaches no fed water; fix
-`tools/real-places.ts` and re-render the cards). The settle fix (D413) is on dev (#175).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Islands no longer blocks the release: its safe version is accepted (D430, D432), with a known shortfall: 12 of 30 seeds
+at 128² have no island to expand to (5, 8, 9, 11, 12, 14, 17, 19, 20, 22, 24, 27), fixed by an Islands round after the release. Real places in the gallery (D421) is done on its PR: the 33 places whose start reaches no fed water are hidden, `tools/real-places.ts` is fixed and the cards re-rendered. The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 

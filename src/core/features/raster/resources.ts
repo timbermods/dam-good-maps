@@ -27,7 +27,18 @@ export interface ResourceGround {
   channel?: Uint8Array | null;
   /** Tiles a regeneration kept (locks): generated features place nothing there. */
   locked: Uint8Array | null;
+  /** The tiles taken before the entity edits (an edited generated map's derived objects): what a
+   *  kept object (KeptTiles) yields to. An object a force carried onto a kept tile never keeps that
+   *  tile's own from standing: the force carried it away too, or removed it, and the edits say so. */
+  before?: Uint8Array | null;
 }
+
+/** An edited generated map's resources (PLAN §20 D368 (10), D404): the tiles where the generation
+ *  placed the feature's objects. Only those stand, and the water and moisture under them never take
+ *  one away or bring one back: a tree or a bush is marked dead or alive from the ground under it
+ *  (dead where it is dry, flooded or contaminated, as the game kills it), a ruin column stays. An edit that floods them and a later one that drains them
+ *  leave the same objects, so no edit ever adds one. */
+export type KeptTiles = ReadonlySet<number>;
 
 export interface Placed {
   entities: EntitySpec[];
@@ -35,8 +46,9 @@ export interface Placed {
   tiles: number[];
 }
 
-function take(g: ResourceGround, f: Feature, i: number, out: Placed): boolean {
-  if (g.occupied[i] || g.water[i] > 0 || g.channel?.[i]) return false;
+function take(g: ResourceGround, f: Feature, i: number, out: Placed, kept: KeptTiles | null = null): boolean {
+  if (kept && !kept.has(i)) return false;
+  if ((kept ? (g.before ?? g.occupied)[i] : g.occupied[i]) || (!kept && g.water[i] > 0) || g.channel?.[i]) return false;
   if (g.locked && g.locked[i] && f.origin === "generated") return false;
   g.occupied[i] = 1;
   out.tiles.push(i);
@@ -55,13 +67,15 @@ export function resourceOrder(features: readonly Feature[]): (BerryPatchFeature 
   return out;
 }
 
-export function rasterizeResource(f: BerryPatchFeature | ForestFeature | RuinFieldFeature, g: ResourceGround): Placed {
-  if (f.kind === "berryPatch") return rasterizeBerries(f, g);
-  if (f.kind === "forest") return rasterizeForest(f, g);
-  return rasterizeRuins(f, g);
+/** A resource feature's objects on the ground; with `kept` (an edited generated map), only the
+ *  generation's own, whatever the water and moisture under them (KeptTiles). */
+export function rasterizeResource(f: BerryPatchFeature | ForestFeature | RuinFieldFeature, g: ResourceGround, kept: KeptTiles | null = null): Placed {
+  if (f.kind === "berryPatch") return rasterizeBerries(f, g, kept);
+  if (f.kind === "forest") return rasterizeForest(f, g, kept);
+  return rasterizeRuins(f, g, kept);
 }
 
-function rasterizeBerries(f: BerryPatchFeature, g: ResourceGround): Placed {
+function rasterizeBerries(f: BerryPatchFeature, g: ResourceGround, kept: KeptTiles | null): Placed {
   const { W } = g;
   const out: Placed = { entities: [], tiles: [] };
   const sPlace = hash32(g.seed, f.id, "place");
@@ -71,17 +85,19 @@ function rasterizeBerries(f: BerryPatchFeature, g: ResourceGround): Placed {
     const x = i % W;
     const y = (i - x) / W;
     if (i < 0 || i >= g.heights.length) continue;
-    if (f.params.density < 1 && tileHash01(sPlace, x, y) >= f.params.density) continue;
-    if (g.moisture[i] <= 0 || g.soilContamination[i] > 0) continue; // a bush on dry or contaminated soil dies
-    if (!take(g, f, i, out)) continue;
+    if (!kept && f.params.density < 1 && tileHash01(sPlace, x, y) >= f.params.density) continue;
+    if (!kept && (g.moisture[i] <= 0 || g.soilContamination[i] > 0)) continue; // a bush on dry or contaminated soil dies
+    if (!take(g, f, i, out, kept)) continue;
     const ripe = tileHash01(sRipe, x, y) < f.params.ripeShare;
     const regrowth = Math.round((0.1 + 0.8 * tileHash01(sGrow, x, y)) * 1000) / 1000;
-    out.entities.push(bush({ id: entityId(f.id, "BlueberryBush", i), owner: f.id, x, y, z: g.heights[i], ripe, regrowth }));
+    // (a kept bush, D404: dead where its ground now kills it, dry, flooded or contaminated)
+    const dead = !!kept && (g.moisture[i] <= 0 || g.soilContamination[i] > 0 || g.water[i] > 0);
+    out.entities.push(bush({ id: entityId(f.id, "BlueberryBush", i), owner: f.id, x, y, z: g.heights[i], ripe, regrowth, ...(dead ? { dead } : {}) }));
   }
   return out;
 }
 
-function rasterizeForest(f: ForestFeature, g: ResourceGround): Placed {
+function rasterizeForest(f: ForestFeature, g: ResourceGround, kept: KeptTiles | null): Placed {
   const { W } = g;
   const out: Placed = { entities: [], tiles: [] };
   const species = (Object.keys(f.params.speciesMix) as TreeSpecies[]).sort();
@@ -95,7 +111,7 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround): Placed {
     if (i < 0 || i >= g.heights.length) continue;
     const x = i % W;
     const y = (i - x) / W;
-    if (f.params.density < 1 && tileHash01(sPlace, x, y) >= f.params.density) continue;
+    if (!kept && f.params.density < 1 && tileHash01(sPlace, x, y) >= f.params.density) continue;
     let sp = species[0];
     if (species.length > 1 && total > 0) {
       let k = tileHash01(sSpecies, x, y) * total;
@@ -110,7 +126,11 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround): Placed {
     const moist = g.moisture[i] > 0;
     const poisoned = g.soilContamination[i] > 0;
     let dead: boolean;
-    if (sp === "Succulent") {
+    if (kept) {
+      // (the generation's tree, kept: dead or alive by the ground under it now, dead in water, D404)
+      const wet = g.water[i] > 0;
+      dead = f.params.life === "dead" || wet || poisoned || (sp === "Succulent" ? moist : !moist);
+    } else if (sp === "Succulent") {
       if (moist || poisoned || f.params.life === "dead") continue; // succulents live only on dry, clean soil
       dead = false;
     } else if (f.params.life === "alive") {
@@ -118,7 +138,7 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround): Placed {
       dead = false;
     } else if (f.params.life === "dead") dead = true;
     else dead = !moist || poisoned; // auto: official maps store trees on dry soil dead
-    if (!take(g, f, i, out)) continue;
+    if (!take(g, f, i, out, kept)) continue;
     let growth = 1;
     if (!dead && tileHash01(sYoung, x, y) < f.params.youngShare) {
       growth = Math.round((0.2 + 0.75 * tileHash01(sGrowth, x, y)) * 1000) / 1000;
@@ -175,7 +195,7 @@ export function assignRuinHeights(tiles: number[], W: number, rng: Rng, mix: num
   return out;
 }
 
-function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
+function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround, kept: KeptTiles | null): Placed {
   const { W } = g;
   const out: Placed = { entities: [], tiles: [] };
   const tiles = runsToTiles(f.params.area, W).filter((i) => i >= 0 && i < g.heights.length);
@@ -185,7 +205,7 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
     // the official maps' look (resources/baseline.ts)
     const c = ruinColumns(tiles, W, stream(g.seed, f.id, "heights"), f.params.layout.tallness);
     tiles.forEach((i, k) => {
-      if (cleared?.has(i) || !take(g, f, i, out)) return;
+      if (cleared?.has(i) || !take(g, f, i, out, kept)) return;
       const h = c.storeys[k];
       out.entities.push(ruin({ id: entityId(f.id, `RuinColumnH${h}`, i), owner: f.id, x: i % W, y: (i - (i % W)) / W, z: g.heights[i], height: h, variant: c.variants[k], orientation: c.orientations[k] }));
     });
@@ -195,7 +215,7 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround): Placed {
   const sVariant = hash32(g.seed, f.id, "variant");
   const sOrient = hash32(g.seed, f.id, "orientation");
   tiles.forEach((i, k) => {
-    if (cleared?.has(i) || !take(g, f, i, out)) return;
+    if (cleared?.has(i) || !take(g, f, i, out, kept)) return;
     const x = i % W;
     const y = (i - x) / W;
     const variant = RUIN_VARIANTS[Math.floor(tileHash01(sVariant, x, y) * RUIN_VARIANTS.length)];

@@ -80,6 +80,9 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
        built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
        picker and parallel loading).
    13. **Later: a Codex round on Canyon and Highlands at 96².**
+   14. **An Islands round** (D432), measured by `investigation/m9b/islands-reach.ts`: every map has an island of 150+ tiles
+       to expand to, reachable from the start across water as the game allows; islands kept apart from the shore, and layouts
+       that read as lakes or rivers redrawn (today 12 of 30 seeds at 128² fall short).
 4. **The Codex adoptions** (section below): the Rust water, the analysis (after M9b's release, D391) and the forces,
    multi-core water, scaling round 4, generation speed.
 
@@ -406,6 +409,11 @@ short in-game descriptions with a link to a credits page; the maps built at depl
 byte check nightly and in the release check; clean titles; 3D thumbnails rendered on a GPU and lazy-loaded; every place
 rebuilt without perimeter walls, water free to drain, at 256² where the data allows with its signature as the focal point; and
 the gallery grown to about 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
+
+**Meanwhile (D421, done):** the gallery leaves out the 33 places whose start reaches no fed water (the page filters by each
+place's recorded `start.water` fault, `src/core/places/place.ts`), so a place shows again once round 2 fixes it; they stay
+in the repository and still build. `tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and
+berry shortfalls wait for round 2.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
@@ -822,15 +830,15 @@ its stacked-dams scene (which predicts dry) is fixed first, and its calibration 
 operations; each browser rebuilds the map from it, so both see identical terrain and water (every change is a deterministic
 operation, D158, D342).
 
-- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
-- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply code
-  to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with one-click
-  copy and each step plainly worded.
-- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay; a
-  network that blocks the connection is told plainly. One player hosts and keeps the order of operations.
+- **Always through a relay, joined with a short room code** (D431, amends D362): every session goes through a managed TURN
+  relay (Cloudflare Realtime TURN the candidate), with no direct peer-to-peer path; the relay sees only encrypted traffic.
+  The host's **Invite** gives a short room code; the guest types or pastes it. A small serverless function (a Cloudflare
+  Worker the candidate) hands out short-lived relay credentials and passes the connection setup, never carries map data and
+  keeps nothing once connected. Codes are short-lived and single-use. If the relay or function is down, collaboration is
+  unavailable and the page says so plainly; editing alone is unaffected. One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and intended
   action).
-- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join works, with 324-character codes; the
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join worked (324-character codes; superseded by D431, as are the short-codes findings, #150); the
   maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of
   the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never
   sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across
