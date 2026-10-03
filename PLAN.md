@@ -1240,7 +1240,7 @@ the `.timber` in the artifact, whose downloads allowlist has no `.timber`).
 ## 20. Editor decisions
 
 These are the decisions in force, by topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](docs/archive/decisions.md); a number missing here is superseded or completed there.
-New decisions are written here once, under their topic, with the next free number (D429; only the milestone session hands out numbers), and move to the archive when superseded or completed.
+New decisions are written here once, under their topic, with the next free number (D431; only the milestone session hands out numbers), and move to the archive when superseded or completed.
 
 ### How we work (sessions, models, reviews, documents, merging, releases)
 
@@ -1323,6 +1323,8 @@ New decisions are written here once, under their topic, with the next free numbe
 - **D426** (amends D423): Islands takes the safe sheet's layouts (de36b1ba) and grows one island in each large enough for the start: off-centre, in a different place each seed, never a central island in a moat inside a ring of land; where a layout truly can't hold one, the start falls back to the shore. The new sheet is judged beside the safe and big-island sheets. Pending #155–#157 are accepted (sea maps draw no Hanging valleys or Farmland past a gorge; a Delta draws no gathering crater; Delta's arms 0.4 of the river and its floors 1–4 tiles). Kyler, 2026-10-02.
 - **D427** (amends D426, with D417, D423): The grown-island sheet (be9b645c) is not accepted: islands in a moat (13, 17, nearly 3), the ring of land on most maps, a square sea (29), maps reading as land with lakes (6, 9, 10, 22, 27, 30), 17 of 30 starts on the mainland, the promise down to 14. The cause is the safe layouts' centred sea inside a ring of land; the next round fixes the sea's layout so it breaks the ring on most maps (as seeds 23–25 and 28–30 of 3fbb21f7) and the grown island lies off-centre in open water, the ring at most about one map in four. Its sheet counts by seed the islands in a moat, ring-of-land maps, maps reading as land with lakes and island starts. If most starts can't go on an island with the promise near the safe version's 20, Kyler chooses between that sheet and releasing the safe version with island starts parked until after the release. Kyler, 2026-10-02.
 - **D428** (with D411): An island start at 128² needs 1,200 walkable tiles (Buildable land's number), not 1,966 (12% of the map). Kyler, 2026-10-02.
+- **D429** (supersedes D423's "the start belongs on an island", D426's island start, and D428, which lapses with the grown variant): The start on an island is not required. What Kyler wants from Islands is islands to expand to: every map has at least one island large enough to build on, reachable from the start across water as the game allows. Kyler, 2026-10-02.
+- **D430** (with D407, D417): Islands releases in its safe version (all 30 seeds at 128² pass, the promise on 20, all three outcomes on 19); the grown and big-island variants are not adopted, their patches kept in `investigation/m9b/` as history. Islands no longer blocks M9b's release. Kyler, 2026-10-02.
 
 ### Water
 
