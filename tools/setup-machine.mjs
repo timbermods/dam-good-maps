@@ -154,6 +154,23 @@ const gh = tryRun("gh", ["auth", "status"], main);
 (gh !== null ? ready : missing).push(gh !== null ? "gh, logged in" : "gh: not installed or not logged in (run `gh auth login`; Kyler creates any token)");
 const dotnet = tryRun("dotnet", ["--list-sdks"], main);
 (dotnet && /^8\./m.test(dotnet) ? ready : missing).push(dotnet && /^8\./m.test(dotnet) ? "the .NET 8 SDK (the probe's mod)" : "the .NET 8 SDK: not found (only the probe's mod needs it)");
+// Rust (the Rust ports, PLAN §20 D381, D442): rustup reads rust-toolchain.toml and fetches the pinned compiler
+// and the wasm32 target itself on first use. Checked, never installed here: rustup installs for this user only.
+const RUST_HOW = "install rustup for this user from https://rustup.rs (on Windows rustup-init.exe; no admin needed; with no Visual Studio C++ tools, choose the host x86_64-pc-windows-gnu), then run `rustup toolchain install` in the repository";
+const cargoHome = join(homedir(), ".cargo", "bin");
+const onPath = tryRun("rustup", ["--version"], main) !== null;
+const rustTool = (t) => (onPath ? t : join(cargoHome, t));
+if (tryRun(rustTool("rustup"), ["--version"], main) === null) missing.push(`Rust: rustup not found (only the Rust ports need it): ${RUST_HOW}`);
+else {
+  const pin = join(root, "rust-toolchain.toml");
+  const pinned = existsSync(pin) ? /channel\s*=\s*"([^"]+)"/.exec(readFileSync(pin, "utf8"))?.[1] : undefined;
+  const installed = tryRun(rustTool("rustup"), ["toolchain", "list"], main) ?? "";
+  const targets = pinned ? (tryRun(rustTool("rustup"), ["target", "list", "--installed", "--toolchain", pinned], main) ?? "") : "";
+  if (!onPath) missing.push(`Rust: ${slash(cargoHome)} is not on PATH (open a new terminal, or add it)`);
+  if (!pinned || !installed.split("\n").some((l) => l.startsWith(pinned))) missing.push(`Rust ${pinned ?? "(no rust-toolchain.toml in this checkout)"}: not installed (run \`rustup toolchain install\` in the repository)`);
+  else if (!/^wasm32-unknown-unknown$/m.test(targets)) missing.push(`Rust's wasm32-unknown-unknown target: not installed (run \`rustup target add wasm32-unknown-unknown --toolchain ${pinned}\`)`);
+  else ready.push(`Rust ${pinned} with the wasm32 target (the Rust ports; npx tsx tools/rust/check.ts)`);
+}
 const py = tryRun("python", ["--version"], main);
 (py ? ready : missing).push(py ? `${py} (the oracle)` : "python: not found (only `npm run oracle` needs it, with prototype/requirements.txt)");
 

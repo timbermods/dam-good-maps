@@ -56,7 +56,8 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    sub-agent in its own worktree, in parallel with M9b, keeping CPU use reasonable while the page session runs its checks.
    No speed re-timing gates (D441): a port is adopted when byte-identical (D366's checks, in CI) and passing the 6-cell
    check (D435) where it applies. Firefox's speed is never measured (D440).
-   (a) Rust 1.90, the wasm32 target and the Rust build into CI and the setup command, with `portable.rs` (#171, narrowed);
+   (a) Rust 1.90, the wasm32 target and the Rust build into CI and the setup command, with `portable.rs` (#171, narrowed;
+   built on `feature/rust-toolchain`: `rust/`, `tools/rust/check.ts`, CI's `rust` job, the whole-source guard);
    (b) the Rust water (#156), native for batch jobs and in the browser, in every engine at every size, its TypeScript
    tagged and deleted (D381); (c) the forces (#158) as soon as Codex's corpus reads ready; (d) the analysis (#157) and the
    generator, after M9b's release. Details in "The Codex adoptions" below.

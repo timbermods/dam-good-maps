@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
 
 # Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in four shards, the
-# Python oracle, generation, and the cross-engine determinism check. They fail only on
+# Python oracle, generation, the cross-engine determinism check and the Rust build. They fail only on
 # breakage. Timings are information, not gates: each job's summary lists them against their
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
 # (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
 #
 # A change that only touches documents, LICENSE or package.json's descriptive fields (not dependencies,
-# devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines) and
+# devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines, rust) and
 # finishes in minutes: the `changes` job decides (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). A
 # skipped job counts as passed for merge and release (tools/release.sh). Any other change, a manual run, or a
 # change it can't compare keeps the full suite, unchanged. `test` always runs: the typecheck and the build, then
@@ -176,8 +176,8 @@ jobs:
   # The same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node, compared
   # bit for bit (PLAN §2.1, §20 D366; tools/determinism/). The short list: every theme, brush and force
   # setting, one generation seed, short sequences. The full list runs nightly on the CPU matrix
-  # (nightly.yml). The guard against native approximate maths in the core is in the quick suite
-  # (tests/unit/portable.test.ts).
+  # (nightly.yml). The whole-source guard against engine-dependent maths in the core, the workers and the data
+  # tools is in the quick suite (tests/unit/portable.test.ts, tools/portable-guard.ts; D401).
   engines:
     needs: changes
     if: needs.changes.outputs.heavy == 'true'
@@ -202,3 +202,38 @@ jobs:
           name: determinism-smoke
           path: .scratch/determinism/smoke/*.json
           retention-days: 7
+
+  # The Rust ports (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
+  # The maths guard over the Rust source, its optimized IR, its assembly and its Wasm (no libm, no FMA, no
+  # transcendental intrinsics), then rust/portable bit for bit against src/core/math/portable.ts: natively, in
+  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts).
+  rust:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Rust 1.90 and the wasm32 target (rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustc --version
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'rust/Cargo.lock', 'rust/.cargo/config.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - run: npm ci
+      - name: Install Chromium, Firefox and WebKit for Playwright
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: The Rust maths guard, strict builds, and the same bits as portable.ts in every engine
+        run: npx tsx tools/rust/check.ts --engines

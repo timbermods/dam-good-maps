@@ -92,13 +92,20 @@ Node:
   maths (`core/math/portable.ts`, D366).
   - `Math.sin/cos/tan/exp/log/pow/hypot/atan2/sqrt` and `**` are implementation-approximated in the
     language, and engines do differ (D366 measured it: Glaciate's heights, Craterize's fallen trees,
-    the Badtide's contamination). None of them appears in `src/core/`: `tests/unit/portable.test.ts`
-    rejects one, with a short allow-list.
+    the Badtide's contamination). None of them appears in the core, the workers or the tools that produce
+    data: the whole-source guard (`tools/portable-guard.ts`, run by `tests/unit/portable.test.ts`, D401)
+    rejects them and every way around it (aliases, `Math[…]`, strings a page evaluates, `eval`, unaudited
+    WebAssembly). The renderer, the camera and the picture-making tools are outside it.
   - `portable.ts`: the polynomial sine, cosine and exp of `core/math/detmath.ts` (an odd polynomial
     through x¹⁷ on an argument reduced to [−π/2, π/2], error below 1e-13; D15), and fixed-order
     `atan`, `atan2`, `log`, `log2`, `hypot`, `tanh` and `pow` (an integer power multiplies; any other
-    is exp(y·log x)), with `sqrt` from WebAssembly's correctly rounded `f64.sqrt`. They are for finite
-    map arguments, not a general maths library.
+    is exp(y·log x)), plus `tan`, `asin`, `acos`, `asinh` and `rem`, with `sqrt` from WebAssembly's
+    correctly rounded `f64.sqrt` (or an exact integer square root where a page refuses WebAssembly). They
+    are for finite map arguments, not a general maths library.
+  - The Rust ports share one copy of the same maths, `rust/portable` (D401), built with Rust 1.90
+    (`rust-toolchain.toml`) and strict floating point (no FMA, no libm). `tools/rust/check.ts` audits the
+    Rust source, its optimized IR, assembly and Wasm, and compares every function with `portable.ts` bit
+    for bit, natively and in Chromium, Firefox and WebKit; CI's `rust` job runs it.
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.
