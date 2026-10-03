@@ -28,7 +28,7 @@ export interface YourMapEntry {
   savedToTimberborn: number | null;
   /** The project file's size in bytes. */
   bytes: number;
-  /** The map's width and height in tiles ("128×128"); absent only for a map whose project can't be read (the list shows nothing). */
+  /** The map's width and height in tiles ("128Ã—128"); absent only for a map whose project can't be read (the list shows nothing). */
   size?: { w: number; h: number };
 }
 
