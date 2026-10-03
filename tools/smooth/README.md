@@ -47,7 +47,9 @@ while it runs: browsers run headed, and a hidden or unfocused page voids its rou
   one busy core is about 6%, and Codex, a game or a busy tab sits well above 10%.
 - A run whose timed part goes above either, or whose page was hidden or lost focus, **voids its whole round**: the
   round's runs stay on record but count for nothing, and the round is measured again, so before and after are only
-  ever compared under the same conditions. The report counts the voided attempts and says **PC idle: yes/no**.
+  ever compared under the same conditions. The report counts the voided attempts and says **PC idle: yes/no** by
+  this same rule over the runs it kept (Kyler, 2026-10-03: the line and the rule can't disagree); samples above 5%
+  are counted and their busy processes named, as information.
 - The page is checked every second while timed. A page that stops answering, draws nothing for 5 s while visible,
   focused and answering, or loses its WebGL context is a **hang**: the cell fails on it alone (HANG in the report).
 - A run longer than 20 minutes is stuck: its browser is closed and the run retried. The series stops after 15
