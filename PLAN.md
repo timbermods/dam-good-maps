@@ -728,7 +728,8 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    water has settled, the water no running source and no stored lake reaches (`sim/fed.ts`: from their tiles, any
    wet neighbour whose floor stands no higher than the reached surface) is taken away, with any water Remove unfed
    water drained, and the water settles on from there, by the same test and limit; a map with none keeps its
-   bytes. The Python oracle does the same (golden fixture `plateau_pit`).
+   bytes. The Python oracle does the same (golden fixture `plateau_pit`). An imported map's own standing water that
+   no source of its file feeds is a stored lake of the map (D457), kept like a Fill.
 3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7 significant digits, depths
    under 1e-6 dry), outflows 0, soil moisture and contamination at steady state, and the evaporation modifiers of the
    settled water.
