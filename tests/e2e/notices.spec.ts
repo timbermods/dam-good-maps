@@ -33,12 +33,9 @@ for (const size of [
   test(`notices (${size.name}): the No badwater line (D213) covers no control, with a force's rows open`, async ({ page }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
     await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-    // (the panel and the rows plate do not fit side by side in a narrow window: the player collapses the panel)
-    if (size.name === "narrow") await page.getByRole("button", { name: "Collapse the panel" }).click();
     await page.getByRole("button", { name: "Minimap" }).click();
 
     // every source away (the map's badwater springs with them): the map is a No badwater map now
-    await page.keyboard.press("m");
     await page.keyboard.press("Control+a");
     const row = page.getByRole("group", { name: "Selection" });
     for (const name of [/^Water sources/, /^Badwater sources/]) {

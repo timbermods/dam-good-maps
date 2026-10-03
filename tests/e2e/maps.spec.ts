@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { expect, test } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { openEditor, openFileMenu, waitForEditor } from "./open";
 import { MapSession } from "../../src/core/doc/session";
 import { normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
@@ -65,8 +65,7 @@ test.describe("every investigation map imports, renders and exports unchanged (l
       // export without edits: nothing blocks, nothing worth a look
       await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 120_000 });
       const download = page.waitForEvent("download", { timeout: 120_000 });
-      await page.getByRole("button", { name: "More", exact: true }).click();
-      await page.getByRole("menuitem", { name: "Download .timber" }).click();
+      await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
       const d = await download;
       // an opened map downloads as dgm- plus its name (D345 B10): Beaverome.timber as dgm-beaverome.timber
       expect(d.suggestedFilename()).toBe(namedFile(name.replace(/\.timber$/i, "")));

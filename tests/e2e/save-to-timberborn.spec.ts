@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, openFileMenu } from "./open";
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytesOf = async (path: string | null) => new Uint8Array(readFileSync(path!));
@@ -42,15 +42,14 @@ test.describe("the Save plate", () => {
     await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
   });
 
-  test("Save to Timberborn falls back to the same bytes as the menu's Download .timber", async ({ page }) => {
+  test("Save to Timberborn falls back to the same bytes as the File menu's Download .timber", async ({ page }) => {
     await declinesThePicker(page);
     await openEditor(page, "s=1&z=96&d=n&t=riverValley");
     const saveButton = page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Save to Timberborn" });
     await expect(saveButton).toBeVisible();
 
     const plainDownload = page.waitForEvent("download", { timeout: 120_000 });
-    await page.getByRole("button", { name: "More", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Download .timber" }).click();
+    await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
     const plain = await plainDownload;
     const expected = await bytesOf(await plain.path());
 

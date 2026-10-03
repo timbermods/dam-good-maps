@@ -5,7 +5,7 @@
 // checks list and the indicators carry them now.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, openSection } from "./open";
 
 type Check = { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } };
 // the species words, then the saplings' wood, shown apart as growing
@@ -29,9 +29,8 @@ test("the start requirements follow the settings, and the editor's start follows
   expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 30, 178]);
   for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) expect(c[id].ok, id).toBe(true);
 
-  // the settings are the thresholds: Minimum starting wood 75 moves the check's limit
-  await page.getByRole("button", { name: "Advanced: start rules", exact: true }).click();
-  const sheet = page.getByRole("dialog", { name: "Advanced: start rules settings" });
+  // the settings are the thresholds: Minimum starting wood 75 moves the check's limit (set in the New map drawer)
+  const sheet = await openSection(page, "Advanced: start rules");
   await sheet.getByLabel("Minimum starting wood (logs)").fill("75");
   await sheet.getByLabel("Minimum starting wood (logs)").dispatchEvent("change");
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
@@ -40,7 +39,8 @@ test("the start requirements follow the settings, and the editor's start follows
   c = await checks(page);
   expect(c["start.wood"].limit).toBe(75);
 
-  // the editor: the indicators name the three requirements with the map's numbers
+  // the editor: the indicators name the three requirements with the map's numbers (the drawer closed again)
+  await page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true }).click();
   await page.getByRole("button", { name: "Top-down" }).click();
   // the start dragged on the map, a tile over and back: the indicators read the start's own place,
   // which the validator passed

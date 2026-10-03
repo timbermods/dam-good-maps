@@ -1,6 +1,6 @@
 // Every tool and control has an accurate tooltip when hovered (PLAN §20 D351, item B12): every tool and force,
 // every option in a settings row and in More, every view toggle, every shelf item, every button in the
-// panel and the ⋯ menu says in one plain line what it does, and its key where it has one. This test
+// New map drawer, the legend and the File menu says in one plain line what it does, and its key where it has one. This test
 // collects the interactive controls from the rendered page, in every state the editor has, and fails
 // on any control with no tooltip (its own `title`, or the label or group that holds it).
 //
@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openDrawer, openEditor, openFileMenu, openSection } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -139,8 +139,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
     await page.keyboard.press("Escape");
   }
 
-  // Select, its row and its Delete menu
-  await page.keyboard.press("m");
+  // Select (in hand once the brushes and forces are put away), its row and its Delete menu
   await page.getByRole("group", { name: "How to select" }).getByRole("button", { name: "Whole map" }).click();
   await check("Select with a selection");
   await page.getByRole("group", { name: "Selection" }).getByRole("button", { name: "Delete", exact: true }).click();
@@ -186,16 +185,18 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("an object picked");
   await page.keyboard.press("x");
 
-  // the header's menu, the history, the checks dot, the minimap and the water bar
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await check("the ⋯ menu");
+  // the header's File menu, the history, the checks dot, the legend, the minimap and the water bar
+  await openFileMenu(page);
+  await check("the File menu");
   await page.getByRole("menuitem", { name: /^History/ }).click();
   await check("the history");
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^History/ }).click();
+  await (await openFileMenu(page)).getByRole("menuitem", { name: /^History/ }).click();
   await page.getByRole("button", { name: /^Checks:/ }).click();
   await check("the checks list");
   await page.getByRole("button", { name: /^Checks:/ }).click();
+  await page.getByRole("button", { name: "Legend", exact: true }).click();
+  await check("the legend");
+  await page.getByRole("button", { name: "Legend", exact: true }).click();
   await page.getByRole("button", { name: "Minimap" }).click();
   await check("the minimap");
   await page.getByRole("button", { name: "Badwater", exact: true }).click();
@@ -205,7 +206,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   expect((await info(page)).W).toBeGreaterThan(0);
 });
 
-test("every control in the panel and in each settings sheet has a tooltip", async ({ page }) => {
+test("every control in the New map drawer and in each settings sheet has a tooltip", async ({ page }) => {
   test.setTimeout(200_000);
   await page.setViewportSize({ width: 1400, height: 1000 });
   await openEditor(page, "s=9&z=96&d=n&t=riverValley");
@@ -214,19 +215,19 @@ test("every control in the panel and in each settings sheet has a tooltip", asyn
     const m = [...(await untitled(page)), ...(await wordy(page))];
     if (m.length) missing[state] = m;
   };
-  await check("the panel");
-  // each section's sheet, with every field it holds
+  await check("the editor with the drawer closed");
+  await openDrawer(page);
+  await check("the drawer");
+  // each section's sheet, with every field it holds (Esc closes it)
   for (const section of ["Terrain", "Water", "Hazards", "Resources", "Advanced: start rules", "Limits for this size"]) {
-    await page.getByRole("button", { name: section, exact: true }).click();
-    await expect(page.getByRole("dialog", { name: `${section} settings` })).toBeVisible();
+    await openSection(page, section);
     await check(`the ${section} sheet`);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
-  // the collapsed panel's strip
-  await page.getByRole("button", { name: "Collapse the panel" }).click();
-  await check("the collapsed panel");
-  await page.getByRole("button", { name: "Open the panel" }).click();
+  // the drawer closed again
+  await page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true }).click();
+  await check("the drawer closed again");
   expect(missing, "controls with no tooltip, by state").toEqual({});
 });
 

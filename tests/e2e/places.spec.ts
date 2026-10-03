@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { openDrawer, openEditor, openFileMenu, waitForEditor } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -118,24 +118,23 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   expect(info.kind).toBe("import");
   expect(info.name).toBe(SMALL.name);
   expect([info.W, info.H]).toEqual([SMALL.size, SMALL.size]);
-  // (the address keeps the place's own link; the page's #edit is gone with the old page, D330)
+  // (the address keeps the place's own link)
   expect(new URL(page.url()).hash).toBe(`#place=${SMALL.id}`);
   await expect(page.getByRole("heading", { level: 1, name: SMALL.name })).toBeVisible();
 
-  // the menu's Download .timber (the primary button saves into Timberborn's folder)
+  // the File menu's Download .timber (the primary button saves into Timberborn's folder)
   const download = page.waitForEvent("download", { timeout: 120_000 });
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Download .timber" }).click();
+  await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
   expect(d.suggestedFilename()).toBe(namedFile(SMALL.name));
   expect(sha256(new Uint8Array(readFileSync(await d.path())))).toBe(SMALL.sha256);
   expect(errors).toEqual([]);
 });
 
-test("the page links to the gallery, and a place never replaces a map with edits unasked", async ({ page }) => {
+test("a real place replaces the open map without asking, and the replaced map stays in Your maps with its edit", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  // a map with an edit in the editor, autosaved
+  // a map with an edit in the editor, kept in Your maps once the edit settles
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));
@@ -147,29 +146,24 @@ test("the page links to the gallery, and a place never replaces a map with edits
   await page.evaluate(() => window.dgmEditor!.idle());
   await page.keyboard.press("Escape");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().edits)).toBe(1);
-  await expect(page.getByText("saved in this browser")).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("dgm.autosaveEdits")), { timeout: 30_000 }).toBe("1");
-  await page.goto("./");
-  await page.getByRole("link", { name: "Real places" }).click();
+  await page.waitForTimeout(2500);
+  await page.goto("./real-places/");
   await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
 
-  // Refine asks first; Cancel keeps the saved map, its edit with it
+  // Refine opens the place at once: nothing is asked, however the open map stands
   await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
-  const ask = page.getByRole("alertdialog");
-  await expect(ask).toContainText("Opening this real place replaces River Valley, which is saved in this browser with its edits.");
-  await expect(ask.getByRole("button", { name: "Save project file" })).toBeVisible();
-  await ask.getByRole("button", { name: "Cancel" }).click();
-  await waitForEditor(page);
-  const kept = await page.evaluate(() => window.dgmEditor!.info());
-  expect(kept.name).toBe("River Valley");
-  expect(kept.edits).toBe(1);
-
-  // asked again and accepted: the place opens
-  await page.goto("./real-places/");
-  await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Open this real place" }).click();
   await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
   expect(await page.evaluate(() => window.dgmEditor!.info().name)).toBe(SMALL.name);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+
+  // the map it replaced is in Your maps, its edit with it, and its row opens it again
+  await openDrawer(page);
+  const yours = page.getByRole("region", { name: "Your maps" });
+  await expect(yours.getByRole("button")).toHaveCount(2);
+  await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
+  await yours.getByRole("button", { name: /^River Valley/ }).click();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name), { timeout: 60_000 }).toBe("River Valley");
+  expect((await page.evaluate(() => window.dgmEditor!.info())).edits).toBe(1);
 });
 
 test.describe("on a phone", () => {

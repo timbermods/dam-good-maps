@@ -423,8 +423,9 @@ export function App() {
       const data = await replacing(async () => generator.openPlace(await fetchPlace(id)));
       enterEditor(data, { kind: "place" }, id);
     } catch (e) {
-      setError(`The real place could not be opened: ${words(e)}`);
+      // (a map made instead, then the words: making it clears the page's message)
       if (!session) await run(init.spec);
+      setError(`The real place could not be opened: ${words(e)}`);
     } finally {
       setOpening(null);
       setBusy(false);

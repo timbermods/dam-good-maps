@@ -1,16 +1,16 @@
 // Generate always makes a new map (PLAN §20 D323, feedback item 20; D330: the map is the editor's from the
 // start): every press rolls a fresh seed; typing a seed pins it (a small lock beside the box) and Generate
 // then makes that map again until it is unlocked or cleared; opening a share link pins its seed; the Dice
-// button is gone. The seed in the box, the panel's map card, the address, the link and the map open in the
-// editor are always the map shown.
+// button is gone. The seed in the drawer's box, the header's line under the name, the address, the link and the
+// map open in the editor are always the map shown. Generate runs from the New map drawer.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { generateButton, openDrawer, openEditor } from "./open";
 
 const seedBox = (page: Page) => page.locator("#seed");
 const lock = (page: Page) => page.getByRole("button", { name: /^Seed kept/ });
-/** The panel's Generate (the submit button; it says what is being made while a map is). */
-const generate = (page: Page) => page.getByRole("form", { name: "Settings" }).locator('button[type="submit"]');
+/** The drawer's Generate (the submit button; it says what is being made while a map is). */
+const generate = generateButton;
 const seedOf = (link: string) => link.match(/[#&]s=(\d+)/)![1];
 /** The seed the editor's map was made from. */
 const editorSeed = (page: Page) => page.evaluate(() => window.dgmEditor?.info().spec?.seed);
@@ -37,9 +37,9 @@ async function press(page: Page) {
   }
   throw new Error("six random maps in a row failed their checks");
 }
-/** The seed of the map on show: the card's facts line, the address, the link and the editor's map, which must agree. */
+/** The seed of the map on show: the header's line under the name, the address, the link and the editor's map, which must agree. */
 async function shownSeed(page: Page): Promise<string> {
-  const card = (await page.locator(".map-card .facts").textContent())!.match(/seed (\d+)/)![1];
+  const card = (await page.locator(".editor-title .muted").textContent())!.match(/seed (\d+)/)![1];
   const link = (await page.evaluate(() => window.dgm!.current!()))!.link;
   expect(seedOf(link)).toBe(card);
   expect(seedOf(new URL(page.url()).hash)).toBe(card);
@@ -48,9 +48,10 @@ async function shownSeed(page: Page): Promise<string> {
 }
 const sha = async (page: Page) => (await page.evaluate(() => window.dgm!.current!()))!.sha256;
 
-test("Generate rolls a fresh seed every press; the box, the card, the address, the link and the editor show the map made", async ({ page }) => {
+test("Generate rolls a fresh seed every press; the box, the header, the address, the link and the editor show the map made", async ({ page }) => {
   test.setTimeout(240_000);
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openDrawer(page);
   // a link pinned its seed: unpin it, then Generate rolls
   await expect(lock(page)).toBeVisible();
   await lock(page).click();
@@ -64,7 +65,7 @@ test("Generate rolls a fresh seed every press; the box, the card, the address, t
   const third = await shownSeed(page);
   expect(third).not.toBe(second);
   expect(await seedBox(page).inputValue()).toBe(third);
-  // the map card names the map the editor holds
+  // the header names the map the editor holds
   const info = await page.evaluate(() => window.dgmEditor!.info());
   await expect(page.getByRole("heading", { level: 1, name: info.name })).toBeVisible();
 });
@@ -72,6 +73,7 @@ test("Generate rolls a fresh seed every press; the box, the card, the address, t
 test("a typed seed is pinned: Generate makes the same map until it is unlocked or cleared; a share link pins its seed; no Dice", async ({ page }) => {
   test.setTimeout(240_000);
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openDrawer(page);
   // a link pins its seed
   await expect(lock(page)).toBeVisible();
   await expect(page.getByRole("button", { name: "Dice" })).toHaveCount(0);
@@ -102,9 +104,10 @@ test("a typed seed is pinned: Generate makes the same map until it is unlocked o
   expect(await shownSeed(page)).not.toBe("777");
 });
 
-test("while a new map is being made, Generate waits; the map on show stays one map: the card's, the address's and the editor's", async ({ page }) => {
+test("while a new map is being made, Generate waits; the map on show stays one map: the header's, the address's and the editor's", async ({ page }) => {
   test.setTimeout(240_000);
   await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
+  await openDrawer(page);
   await lock(page).click();
   const before = await page.evaluate(() => window.dgm!.current!()!.made);
   const first = await shownSeed(page);

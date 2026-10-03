@@ -143,7 +143,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   expect((await labels(page)).filter((l) => l === "Place water source")).toHaveLength(1);
 });
 
-test("B7: X puts down what is held; the plain pointer picks an object and drags it", async ({ page }) => {
+test("B7: X puts down what is held and Select stays in hand; a press picks an object and drags it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   await page.getByRole("button", { name: "Top-down" }).click();
@@ -158,12 +158,17 @@ test("B7: X puts down what is held; the plain pointer picks an object and drags 
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" }).click();
   await page.keyboard.press("x");
   await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" })).toHaveAttribute("aria-pressed", "false");
-  // and Select, with its selection
-  await page.getByRole("button", { name: "Select (M)" }).click();
+  // and a selection: X clears it, and Select stays in hand
+  const select = page.getByRole("button", { name: "Select (M)" });
+  await expect(select).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "How to select" }).getByRole("button", { name: "Whole map" }).click();
+  expect((await page.evaluate(() => window.dgmEditor!.selection())).length).toBeGreaterThan(0);
   await page.keyboard.press("x");
-  await expect(page.getByRole("group", { name: "How to select" })).toHaveCount(0);
+  expect(await page.evaluate(() => window.dgmEditor!.selection())).toEqual([]);
+  await expect(select).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "How to select" })).toBeVisible();
 
-  // a mine site placed, then picked with a click and dragged with the plain pointer
+  // a mine site placed, then picked with a click and dragged (Select in hand: a press on an object picks it up)
   const spot = await flatDry(page, 4);
   expect(spot).not.toBeNull();
   const [mx, my] = spot!;
@@ -206,7 +211,7 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   test.setTimeout(240_000);
   await open(page);
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("button", { name: "Select (M)" }).click();
+  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
   // Whole map is among the marking icons
   const modes = row.getByRole("group", { name: "How to select" });

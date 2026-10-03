@@ -116,6 +116,8 @@ export function useSelect(ed: Ed): SelectSlice {
     const r = renderer.current;
     if (!r || !selecting || brushTool || tool || shelf) return;
     const t = selectTool(selection.current, selectHost());
+    // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
+    Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
     r.tool = t;
     return () => {
       if (r.tool === t) r.tool = null;

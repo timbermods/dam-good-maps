@@ -350,14 +350,15 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await idle(page);
   expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
   await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);
-  // Shift adds, and Esc closes it
+  // Shift adds, and Esc clears it (Select stays in hand)
   await page.keyboard.down("Shift");
   const q2 = await client(page, c0[0] + 3, c0[1]);
   await page.mouse.click(q2.x, q2.y);
   await page.keyboard.up("Shift");
   await expect(sel.getByRole("status")).toHaveText("7 × 5 tiles (31)");
   await page.keyboard.press("Escape");
-  await expect(sel).toHaveCount(0);
+  expect(await page.evaluate(() => window.dgmEditor!.selection())).toEqual([]);
+  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
 
   // Ctrl+drag with a brush out selects too: the brush stays out, and the Select row is a chip
   // beside it (D259: one row at a time)

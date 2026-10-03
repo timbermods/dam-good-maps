@@ -1,10 +1,10 @@
 // ROADMAP M4 acceptance, as D336 and D330 have it: the page opens a generated map in the editor at once;
-// Generate over an edited map asks first, and Cancel keeps it with its edits, through the page itself. Also:
-// the editor's tools, the start dragged on the map, undo and redo, the history, the export and the autosave
-// on the next visit.
+// Generate over an edited map replaces it without asking and keeps it, edits and all, in Your maps, through the
+// page itself. Also: the editor's tools, the start dragged on the map, undo and redo, the history, the export
+// and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { generateButton, openEditor, openFileMenu, openSection, waitForEditor } from "./open";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -19,7 +19,7 @@ async function drag(page: Page, from: [number, number], to: [number, number]) {
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 
-test("open → edit → Generate asks first and Cancel keeps the player's edits → the autosave brings them back", async ({ page }) => {
+test("open → edit → Generate replaces the map without asking and Your maps keeps the edits → a reload brings the open map back", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
@@ -96,40 +96,42 @@ test("open → edit → Generate asks first and Cancel keeps the player's edits 
   expect((await info(page)).history.map((h) => h.applied)).toEqual([true, true, false]);
   await page.getByRole("button", { name: "Redo (Ctrl+Y)" }).click();
   await page.evaluate(() => window.dgmEditor!.idle());
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^History/ }).click();
+  await (await openFileMenu(page)).getByRole("menuitem", { name: /^History/ }).click();
   await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move start" })).toBeVisible();
 
-  // saved from the editor (export profile): the quiet dot says it is ready to play, and the menu's
+  // saved from the editor (export profile): the quiet dot says it is ready to play, and the File menu's
   // Download .timber gives the file
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 60_000 });
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Download .timber" }).click();
+  await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
   expect((await download).suggestedFilename()).toBe("dgm-river-valley-4244.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
-  // Generate over the edited map asks first, and Cancel keeps the map exactly as it was (edits never replay
-  // onto new land, D336; a new map would need "Close it")
-  await page.getByRole("button", { name: "Resources", exact: true }).click();
-  await page.getByRole("dialog", { name: "Resources settings" }).getByLabel("Grove size").selectOption("bigWoods");
-  await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
-  const ask = page.getByRole("alertdialog");
-  await expect(ask).toContainText("closes River Valley and its 3 edits");
-  await ask.getByRole("button", { name: "Cancel" }).click();
-  await expect(ask).toHaveCount(0);
+  // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);
+  // the edited map stays in Your maps, and its row brings it back with its edits
+  const madeBefore = await page.evaluate(() => window.dgm!.current!()!.made);
+  await (await openSection(page, "Resources")).getByLabel("Grove size").selectOption("bigWoods");
+  await generateButton(page).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
+  await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
+  expect((await info(page)).edits).toBe(0);
+  const yours = page.getByRole("region", { name: "Your maps" });
+  await expect(yours.getByRole("button")).toHaveCount(2);
+  await yours.locator("button:not([aria-current])").click();
+  await expect.poll(async () => (await info(page)).edits, { timeout: 60_000 }).toBe(3);
 
   // the edited map as it was, its edits all there
   i = await info(page);
   expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
+  expect(i.history.length).toBe(3);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);
   expect((i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(moved.position);
   expect(await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered)).toBeLessThan(ground);
   expect(await springs()).toBe(1);
 
-  // the autosave: a reload in the editor opens the same map with its edits
+  // a reload of the address opens the open map with its edits, from Your maps, not a fresh generation
   await page.waitForTimeout(2500);
   await page.reload();
   await waitForEditor(page);
@@ -166,7 +168,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   await expect(page.locator(".readout")).toContainText(/height \d+/i);
 });
 
-test("the next visit, with no link in the address, opens the autosaved map with its edits", async ({ page }) => {
+test("the next visit, with no link in the address, opens the map left open, with its edits", async ({ page }) => {
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("button", { name: "Lower brush (2)" }).click();

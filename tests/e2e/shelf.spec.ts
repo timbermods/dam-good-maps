@@ -289,8 +289,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   await page.keyboard.press("Control+z");
   await idle(page);
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(true);
-  // (the whole map: Select, then Ctrl+A, Delete: everything, the start with it)
-  await page.keyboard.press("m");
+  // (the whole map: Select is in hand, then Ctrl+A, Delete: everything, the start with it)
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Delete");
   await idle(page);
@@ -307,9 +306,9 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
 
 // ------------------------------------------------------------------------------ D323: items 11, 12 and 32
 
-test("a drag never offers to open a file; a file dropped from outside the page still does (item 11)", async ({ page }) => {
+test("a drag never opens a file; a file dropped from outside the page does, without asking (item 11)", async ({ page }) => {
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
-  // one edit, so that opening a file would ask to close the map and its edits
+  // one edit, so that a wrongly opened file would replace an edited map
   const [x, y] = (await openGround(page, 1))[0];
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();
   await clickTile(page, x, y);
@@ -330,14 +329,18 @@ test("a drag never offers to open a file; a file dropped from outside the page s
     icon.remove();
   });
   await expect(dialog).toHaveCount(0);
-  // a file from outside: it offers to open it
+  // (nothing was opened: no error, and the map is the edited one)
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect((await info(page)).edits).toBe(1);
+  // a file from outside: it is opened at once, nothing asked (this one is no map, so the page says it could not be opened)
   await page.evaluate(() => {
     const dt = new DataTransfer();
     dt.items.add(new File(["x"], "Other.timber", { type: "application/octet-stream" }));
     window.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
     window.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
   });
-  await expect(dialog).toContainText("Opening Other.timber closes");
+  await expect(page.getByRole("alert")).toContainText("Other.timber could not be opened");
+  await expect(dialog).toHaveCount(0);
 });
 
 test("one label beside the pointer for what is picked, none when nothing is; Esc or a right-click puts it away (item 32)", async ({ page }) => {

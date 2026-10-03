@@ -1,11 +1,11 @@
-// The view and the Save plate (PLAN §20 D184, D205, D207, D330), through the page: the plate's two icons,
-// its one primary button and its menu; the quiet dot and its list; the first run's three hints,
+// The view and the header (PLAN §20 D184, D205, D207, D330), through the page: the map's name and its line,
+// the plate's two icons, its one primary button and the File menu; the quiet dot and its list; the first run's three hints,
 // each gone once done and never back; the minimap, its toggle and a click that moves the camera;
 // camera bookmarks, kept with the project; the start's reach while the pointer is on it; the
 // brushes working only the visible land under a cut.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { openEditor, openFileMenu, waitForEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,20 +17,24 @@ async function open(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 }
 
-test("the Save plate, the quiet dot, the first run's hints, the minimap and camera bookmarks", async ({ page }) => {
+test("the header, the quiet dot, the first run's hints, the minimap and camera bookmarks", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await open(page);
 
-  // the Save plate: two icons, one primary button, and a menu with the rest
+  // the header: the open map's name and its line (seed and size), New map on the left, shut
+  await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
+  await expect(page.locator(".editor-title .muted")).toHaveText("seed 4242 · 96×96");
+  await expect(page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+  // the Save plate: two icons, one primary button, and the File menu with the rest
   const edit = page.getByRole("toolbar", { name: "Edit" });
   await expect(edit.getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeDisabled();
   await expect(edit.getByRole("button", { name: "Redo (Ctrl+Y)" })).toBeDisabled();
   await expect(edit.getByRole("button", { name: "Save to Timberborn" })).toHaveClass(/primary/);
-  await edit.getByRole("button", { name: "More", exact: true }).click();
-  const menu = page.getByRole("menu", { name: "More" });
-  for (const item of ["Open…", "Save project", "Download .timber", "Clear everything", "History", "Copy link", "New map"]) await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
+  const menu = await openFileMenu(page);
+  for (const item of ["Open…", "Save project", "Download .timber", "Clear everything", "History", "About"]) await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
 
@@ -89,7 +93,7 @@ test("the Save plate, the quiet dot, the first run's hints, the minimap and came
   await page.keyboard.press("Shift+Digit2");
   await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
   expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
-  // kept with the project: the autosave brings them back after a reload
+  // kept with the project: Your maps keeps them, and a reload of the address brings the open map back with them
   await page.waitForTimeout(2500);
   await page.reload();
   await waitForEditor(page);
@@ -158,23 +162,23 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   expect(errors).toEqual([]);
 });
 
-test("D368 (5), D330: the top right is one tidy cluster: the compass in the corner, the level control beside it, Slow forces and Sound beneath on the cluster's edges, the shelf under them, one height and one gap throughout", async ({ page }, testInfo) => {
+test("D368 (5), D330: the top right is one tidy cluster: the compass in the corner, the level control beside it, Slow forces and Sound beneath, the Legend button under them, all on the cluster's edges, one height and one gap throughout", async ({ page }, testInfo) => {
   await open(page);
   await page.waitForTimeout(500);
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
-  // (DESIGN.md, "Layout": one height and one gap for every plate outside the panel, everything 12px from the window's edge)
-  const HEIGHT = 38;
-  const GAP = 6;
-  const EDGE = 12;
+  // (the cluster's own: one height and one gap for every piece, 10px from the view's top and right edges; the right
+  // column's exact edges at every window size are pinned in layout.spec.ts)
+  const HEIGHT = 44;
+  const GAP = 8;
+  const EDGE = 10;
   const measure = async () => {
     const view = await box(page.locator(".editor-view .view3d"));
-    const save = await box(page.getByRole("toolbar", { name: "Edit" }));
     const compass = await box(page.locator(".view3d-corner .compass"));
     const level = await box(page.locator(".view3d-corner .corner-level"));
     const slow = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
     const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
-    const shelf = await box(page.locator(".shelf"));
-    return { view, save, compass, level, slow, sound, shelf };
+    const legend = await box(page.getByRole("button", { name: "Legend", exact: true }));
+    return { view, compass, level, slow, sound, legend };
   };
   const near = (a: number, b: number, what: string) => expect(Math.abs(a - b), `${what}: ${a} against ${b}`).toBeLessThanOrEqual(1);
   // at rest (the whole world showing) and with a layer cut (the level control keeps its width)
@@ -183,12 +187,12 @@ test("D368 (5), D330: the top right is one tidy cluster: the compass in the corn
       await page.getByRole("button", { name: "Lower the visible layer" }).click();
       await expect(page.getByRole("button", { name: "Show every layer" })).toBeVisible();
     }
-    const { view, save, compass, level, slow, sound, shelf } = await measure();
+    const { view, compass, level, slow, sound, legend } = await measure();
     const right = (b: { x: number; width: number }) => b.x + b.width;
     const bottom = (b: { y: number; height: number }) => b.y + b.height;
-    // the compass in the corner, under the Save plate
+    // the compass in the corner of the view
     near(view.x + view.width - right(compass), EDGE, `${state}: the compass's right margin`);
-    near(compass.y - bottom(save), GAP, `${state}: the compass under the Save plate`);
+    near(compass.y - view.y, EDGE, `${state}: the compass's top margin`);
     // the level control beside it, on its line, one height, one gap
     near(level.y, compass.y, `${state}: the level control on the compass's line`);
     near(level.height, HEIGHT, `${state}: the level control's height`);
@@ -207,10 +211,11 @@ test("D368 (5), D330: the top right is one tidy cluster: the compass in the corn
       ["Sound", sound],
     ] as const)
       near(b.height, HEIGHT, `${state}: ${name}'s height`);
-    // the shelf under them at the same width
-    near(shelf.x, slow.x, `${state}: the shelf from the cluster's left edge`);
-    near(right(shelf), right(sound), `${state}: the shelf to the cluster's right edge`);
-    near(shelf.y - bottom(slow), GAP, `${state}: the gap above the shelf`);
+    // the Legend button under them, spanning the cluster
+    near(legend.x, slow.x, `${state}: Legend from the cluster's left edge`);
+    near(right(legend), right(sound), `${state}: Legend to the cluster's right edge`);
+    near(legend.y - bottom(slow), GAP, `${state}: the gap above Legend`);
+    near(legend.height, HEIGHT, `${state}: Legend's height`);
   }
   // (a picture for Kyler's eye: the cluster, at rest)
   await page.getByRole("button", { name: "Show every layer" }).click();

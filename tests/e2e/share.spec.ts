@@ -1,19 +1,19 @@
 // ROADMAP M6: share links reproduce byte-identical files, through the page in Chromium (Node's side
-// is tests/contract/share.test.ts). Opening a link generates its map; the page's own "Copy link"
-// gives a link that opens the same map again, and both equal Node's bytes.
+// is tests/contract/share.test.ts). Opening a link generates its map and opens it in the editor; the address
+// always holds the open map's share link (D330), which opens the same map again in a fresh browser, and both
+// equal Node's bytes.
 
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { openEditor, openSection, waitForEditor } from "./open";
 import { generate } from "../../src/core/gen/generate";
 import { encodeSpecFragment } from "../../src/core/spec/mapspec";
 import { shareCases } from "../shareCases";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
-test("a share link opens the same map, byte for byte, in every theme", async ({ page, context }) => {
+test("a share link opens the same map, byte for byte, in every theme; the address holds the link", async ({ page, browser }) => {
   test.setTimeout(360_000);
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   for (const spec of shareCases()) {
     const fragment = encodeSpecFragment(spec);
     const node = sha(generate(spec).bytes);
@@ -22,25 +22,23 @@ test("a share link opens the same map, byte for byte, in every theme", async ({ 
     const shown = await page.evaluate(() => window.dgm!.current!());
     expect(shown?.passed, fragment).toBe(true);
     expect(shown?.sha256, fragment).toBe(node);
-    // the page's own link carries the same spec
-    await page.getByRole("button", { name: "More", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Copy link" }).click();
-    await expect(page.getByText("Link copied.")).toBeVisible();
-    const link = await page.evaluate(() => navigator.clipboard.readText());
-    expect(link.split("#")[1], fragment).toBe(fragment);
-    // and opening it in a fresh page gives the same bytes
-    const other = await context.newPage();
+    // the address bar holds the open map's link, which carries the same spec
+    const link = page.url();
+    expect(new URL(link).hash, fragment).toBe("#" + fragment);
+    expect(shown?.link.split("#")[1], fragment).toBe(fragment);
+    // and opening it in a fresh browser (its own Your maps, so the map is made again, not reopened) gives the same bytes
+    const fresh = await browser.newContext();
+    const other = await fresh.newPage();
     await other.goto(link);
     await waitForEditor(other);
     expect((await other.evaluate(() => window.dgm!.current!()))?.sha256, link).toBe(node);
-    await other.close();
+    await fresh.close();
   }
 });
 
 test("changing a setting and generating puts it in the link", async ({ page }) => {
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
-  await page.getByRole("button", { name: "Water", exact: true }).click();
-  await page.getByRole("dialog", { name: "Water settings" }).getByLabel("Waterfalls").selectOption("many");
+  await (await openSection(page, "Water")).getByLabel("Waterfalls").selectOption("many");
   const first = await page.evaluate(() => window.dgm!.current!()?.sha256);
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
   // (the new map, not the first one still showing: generating takes its time on a slow machine)
@@ -51,8 +49,8 @@ test("changing a setting and generating puts it in the link", async ({ page }) =
 });
 
 test("the drought reserve guard disables what a small map cannot hold", async ({ page }) => {
-  await page.goto("./#s=5&t=riverValley&z=56&d=h");
-  await page.getByRole("button", { name: "Water", exact: true }).click();
+  await openEditor(page, "s=5&t=riverValley&z=56&d=h");
+  await openSection(page, "Water");
   const plenty = page.locator("#reserve option[value=plenty]");
   await expect(plenty).toHaveJSProperty("disabled", true);
   await expect(plenty).toContainText("too big for this map size");

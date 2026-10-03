@@ -3,7 +3,7 @@
 // by the worker, is the one painted, byte for byte; undo and redo show at once; Esc cancels a
 // stroke with no trace; Shift inverts; Ctrl+click takes the land's level as the target (D322); [ ]
 // size, and Shift+wheel the strength of Smooth and Naturalize (D196; the height brushes' target,
-// D322); the stroke is still there after a reload (the autosave).
+// D322); the stroke is still there after a reload (Your maps keeps it).
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor } from "./open";
@@ -127,7 +127,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await page.keyboard.press("Escape");
   await expect(bar.getByRole("button", { name: "Smooth brush (4)" })).toHaveAttribute("aria-pressed", "false");
 
-  // the strokes are kept: a reload opens the map with them (the autosave)
+  // the strokes are kept: a reload opens the map with them (from Your maps)
   i = await info(page);
   const kept = await heights(page);
   await page.waitForTimeout(2500);
