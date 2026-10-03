@@ -81,8 +81,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## Waiting for Kyler
 
 1. **Your yes on #165**, after your look at moving water and its gate passing (D415).
-2. **The quiet window** (about 2 hours): at 2:00 on Saturday 2026-10-03
-   (Pacific), whichever comes first (D414); this session pauses all heavy work for it.
+2. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything
+   now that Islands is accepted; this session pauses its heavy work for it.
 3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
 4. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
 5. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
