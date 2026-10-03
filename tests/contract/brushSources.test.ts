@@ -73,12 +73,14 @@ describe("brushes and water sources (D249)", () => {
     const h0 = s.built.heights.slice();
     const was = strength(s, BAD);
     const piece: [number, number, number, number] = [x + 6, y - 1, x + 8, y + 1];
-    // the control: without the piece riding whole, the falloff leaves its ground uneven
+    // the control: without the piece riding whole, the falloff would leave its ground uneven, so the
+    // stroke is refused with its reason and changes nothing (D342 (4); the release gate, D385)
     const loose = session();
-    expect(loose.s.apply({ op: "brush", params: raise(x, y) }, "user", "Raise").errors).toEqual([]);
-    const lo = new Set<number>();
-    for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x + 6; xx <= x + 8; xx++) lo.add(loose.s.built.heights[yy * W + xx]);
-    expect(lo.size).toBeGreaterThan(1);
+    const before = loose.s.built.heights.slice();
+    const steps = loose.s.history().length;
+    expect(loose.s.apply({ op: "brush", params: raise(x, y) }, "user", "Raise").errors[0]).toMatch(/badwater source at .* off level ground/);
+    expect(Array.from(loose.s.built.heights)).toEqual(Array.from(before));
+    expect(loose.s.history().length).toBe(steps);
 
     expect(s.apply({ op: "brush", params: raise(x, y, [piece]) }, "user", "Raise").errors).toEqual([]);
     const h = s.built.heights;

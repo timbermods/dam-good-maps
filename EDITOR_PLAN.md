@@ -694,7 +694,8 @@ stroke records the options it used:
 - Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
-  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249; the working
+  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a step whose
+  stroke would leave such a source off level ground is refused with its reason); the working
   area it was painted in, `area`, D254: runs, feathered; `steps`; a pen's pressure per dab). Strokes saved before
   D322, D270 or D247 (precise or ramped strokes with their `slopes`, Smooth's walkable flag, soft Flatten's level)
   replay exactly (`tests/contract/strokesBeforeD322.test.ts`).

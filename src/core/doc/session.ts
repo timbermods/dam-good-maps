@@ -17,6 +17,7 @@ import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type Base
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
+import { entityTiles } from "../features/edits";
 import { limitRuns, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -484,10 +485,14 @@ export class MapSession {
     const slopeTiles = new Set<number>();
     const starts = new Set(this.st.features.filter((f) => f.kind === "start").map((f) => f.id));
     let otherStarts = 0;
+    const startObjects = new Map<string, string>();
     for (const e of this.cur.entities) {
       entityIds.add(e.id);
       if (e.template === "Slope") slopeTiles.add(e.y * W + e.x);
-      else if (e.template === "StartingLocation" && !starts.has(e.owner)) otherStarts++;
+      else if (e.template === "StartingLocation") {
+        if (starts.has(e.owner)) startObjects.set(e.id, e.owner);
+        else otherStarts++;
+      }
     }
     const errors = validateOp(op, {
       state: this.st,
@@ -500,6 +505,7 @@ export class MapSession {
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
+      startObjects,
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -514,16 +520,43 @@ export class MapSession {
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    const before = this.cur;
+    const mark = this.mark();
     const applied = this.applyChecked(op, origin, label);
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
+    const tilted = this.tiltedSource([op], before, mark);
+    if (tilted) return { ok: false, errors: [tilted], applied: [], dirty: null };
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
+  }
+
+  /** A step with a brush stroke that leaves a source of several tiles (a BadwaterSource) off level
+   *  ground, its ground changed under it, is taken back with its reason: the game would not load the
+   *  map (D249: a source rides a stroke whole, the stroke's `rigid` pieces, or keeps its ground;
+   *  D342 (4): refused, never left broken). The page lists the pieces that ride; another caller of
+   *  the operation must too. Null when the step stands. */
+  private tiltedSource(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark): string | null {
+    if (!ops.some((o) => o.op === "brush")) return null;
+    const { W, H } = this.cur;
+    const now = this.cur.heights;
+    for (const e of this.cur.entities) {
+      if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+      if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
+      if (!tiles.some((i) => before.heights[i] !== now[i])) continue;
+      const step = this.stepSince(mark);
+      if (step) this.takeBack(step);
+      return `the stroke would leave the ${e.template === "BadwaterSource" ? "badwater source" : "source"} at (${e.x}, ${e.y}) off level ground: list it in the stroke's rigid pieces, or keep its ground`;
+    }
+    return null;
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const before = this.cur;
+    const mark = this.mark();
     const done: AppliedOp[] = [];
     for (const op of ops) {
       const errors = this.check(op);
@@ -541,6 +574,8 @@ export class MapSession {
     }
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
+    const tilted = this.tiltedSource(ops, before, mark);
+    if (tilted) return { ok: false, errors: [tilted], applied: [], dirty: null };
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
