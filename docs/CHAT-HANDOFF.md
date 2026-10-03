@@ -26,12 +26,13 @@ them for detail on any decision.
   `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
   session builds the startup service worker (D397). Neither session touches the other's
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
-- **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) builds moving water and the Flow view, then
-  renderer R1, on branch `feature/moving-water`, gated by the shared runner in `tools/smooth/` (built from
-  `investigation/performance`, #107). The milestone
-  session merges its PR when it is green and Kyler says yes.
+- **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) works on its own branches off `dev`. Moving
+  water, the Flow view and renderer R1 are merged (#165, D446). Its current work: the quick-click PR (post-release items 1
+  and 2), then D371 and D374, playback only. Its gate is the 6-cell check in `tools/smooth/` (D435); the milestone session
+  merges each PR when CI is green and that check passes, if it ran one (D436).
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
+  On Kyler's PC, Codex works only in its own clone, never in the renderer session's checkout.
 
 ## Models (D389)
 
