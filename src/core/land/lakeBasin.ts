@@ -1,15 +1,17 @@
 // Lake Basin's shaping only. The shared drainage, rasterizer, settle and checks are unchanged.
 import type { Genome } from './genome';
-import { makeSpec, type Settings, type Difficulty } from '../spec/mapspec';
+import { THEME_PRESETS, type Settings, type Difficulty } from '../spec/mapspec';
 import { stream } from '../math/rng';
 import { DIRS8 } from './num';
 
-/** Confine adoption to the measured default Normal square-map path, as the other prototypes do. */
+/** Every Lake Basin map, whatever its settings, intentions or siblings (Kyler, 2026-10-03; the
+ *  release-gate generator hunt's finding 1: adoption was confined to the default Normal square-map
+ *  path, so Another like this and every setting away from the preset lost the theme). The player's
+ *  Rivers count (`exactInflows`) and a Lakes setting away from the preset's keep their lean. */
 export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, seed: number,
-  attempt: number, designedFor: Difficulty = 'normal'): void {
-  if (g.theme !== 'lakeBasin' || designedFor !== 'normal' || W !== H || W < 96 || W > 256) return;
-  const preset = makeSpec({ seed, theme: 'lakeBasin', size: { x: W, y: H } });
-  if (JSON.stringify(s) !== JSON.stringify(preset.settings)) return;
+  attempt: number, _designedFor: Difficulty = 'normal'): void {
+  if (g.theme !== 'lakeBasin') return;
+  const preset = THEME_PRESETS.lakeBasin;
   const rng = stream(seed, 'lake-basin-catchment', attempt);
   const side = Math.min(W, H);
   const focus: [number, number] = [rng.range(0.44, 0.56), rng.range(0.44, 0.56)];
@@ -48,7 +50,7 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   g.hydro.incise = 0;
   g.hydro.floor = Math.min(g.hydro.floor, 0.5);
   g.hydro.reachSprings = false;
-  g.hydro.lakeBudget = 0.36;
+  if (s.water.lakes === preset.lakes) g.hydro.lakeBudget = 0.36;
   g.hanging = 0;
   g.troughs = Math.min(g.troughs, 0.25);
   g.lakeSprings = Math.min(g.lakeSprings, 0.25);

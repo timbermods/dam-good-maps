@@ -322,6 +322,11 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     if (!colonies || validateSpec(spec).length) {
       spec.colonies = before;
       problems.push(`colonies "${c}" are not valid`);
+    } else if (colonies.count !== 1) {
+      // (room for Timber Together, D5: the generator builds one colony until a milestone schedules
+      // more, so the link opens as one, with a word, instead of throwing in the generator)
+      spec.colonies = before;
+      problems.push(`colonies "${c}": multi-colony maps are not built yet, so the map has one colony`);
     }
   }
   for (const [key, field] of [["sp", "setPieces"], ["k", "constraints"]] as const) {

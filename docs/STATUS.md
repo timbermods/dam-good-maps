@@ -29,7 +29,9 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 **The milestone session's work now:**
-- **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits.
+- **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits, on every Lake Basin
+  map (Kyler, 2026-10-03: whatever its settings, intentions or siblings; `fix/m9b-generator-findings`, the release-gate
+  generator hunt's fixes, `docs/progress/m9b.md`).
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source
   guard); (b) the Rust water is wired, not switched on (`feature/rust-water`: `rust/water`, its Wasm committed,

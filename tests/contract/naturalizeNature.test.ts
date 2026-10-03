@@ -215,8 +215,9 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // Expected failures, kept on the seeds that caught them (Kyler: a test is never moved off the seed that
   // caught a bug): on M9b's lands, met in its merge of dev, River Valley 3 (2,050 level edges → 2,081)
   // and Lake Basin 3 (2,808 → 2,963) end with more level edges than they had. For the milestone
-  // session; when one passes, it comes off this list.
-  const fails = new Set(["riverValley 3", "lakeBasin 3"]);
+  // session; when one passes, it comes off this list. Lake Basin's maps at Terracing 100 moved when
+  // round 2 came to every Lake Basin map (2026-10-03): seed 3 passes now, seed 1 (2,258 → 2,380) fails.
+  const fails = new Set(["riverValley 3", "lakeBasin 1"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],

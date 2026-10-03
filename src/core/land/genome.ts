@@ -20,7 +20,7 @@
 import * as portable from "../math/portable";
 import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
-import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
+import { EDITOR_LEVEL, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
 import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
 import { clamp, unit } from "./num";
 import { TWO_PI } from "../math/detmath";
@@ -909,11 +909,12 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.terrace.share = clamp(g.terrace.share + 0.15, 0, 1);
     g.noise.amp *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
-  // the highest terrain (item 36): a cap on every map; at its default (22 from Verticality 70, 16
-  // below) a tall map's top is Verticality's, and one drawn tall by Variety keeps it too
+  // the highest terrain (item 36): a ceiling on every map that no Variety goes past (Kyler,
+  // 2026-10-03; the release-gate generator hunt's finding 3: a land drawn tall by Variety kept the
+  // default cap's 22 under a Highest terrain of 16); a tall land under a cap of 16 or lower is not tall
   const cap = s.terrain.highestTerrain;
   if (!g.tall) g.top = Math.min(g.top, cap, EDITOR_TOP);
-  else if (cap < highestTerrainDefault(s.terrain.verticality)) {
+  else {
     g.top = Math.min(g.top, cap);
     if (g.top <= EDITOR_TOP) g.tall = false;
   }
