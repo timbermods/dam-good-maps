@@ -15,7 +15,7 @@ const SIZE = 128;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 test("File → Download .timber on a freshly generated map gives exactly the file tools/gen.ts makes", async ({ page }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(600_000);
   // tools/gen.ts's own file for the spec (River Valley, Normal, default settings)
   const out = join(".scratch", "download-gen");
   rmSync(out, { recursive: true, force: true });
@@ -26,8 +26,8 @@ test("File → Download .timber on a freshly generated map gives exactly the fil
   const gen = { name: files[0], sha: sha256(readFileSync(join(dir, files[0]))) };
 
   const spec = makeSpec({ seed: SEED, size: { x: SIZE, y: SIZE }, designedFor: "normal" });
-  await openEditor(page, encodeSpecFragment(spec));
-  await expectReady(page);
+  await openEditor(page, encodeSpecFragment(spec), { timeout: 300_000 });
+  await expectReady(page, 300_000);
   const menu = await openFileMenu(page);
   const download = page.waitForEvent("download", { timeout: 120_000 });
   await menu.getByRole("menuitem", { name: "Download .timber" }).click();

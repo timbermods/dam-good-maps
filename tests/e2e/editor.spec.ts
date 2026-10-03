@@ -116,6 +116,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
   await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
   expect((await info(page)).edits).toBe(0);
+  // (the Resources sheet stays open over the drawer's lower part across the new map: back to the list first)
+  await page.getByRole("dialog", { name: "Resources settings" }).getByRole("button", { name: "Resources" }).click();
   const yours = page.getByRole("region", { name: "Your maps" });
   await expect(yours.getByRole("button")).toHaveCount(2);
   await yours.locator("button:not([aria-current])").click();

@@ -76,9 +76,10 @@
   color: var(--warn);
 }
 
-/* the view bar wraps before the top-right cluster, never under it (the cluster is wider than the compass alone) */
+/* the view bar wraps before the top-right cluster, never under it (the cluster is wider than the compass alone, and
+   13px wider than dev's since the build: 184px + 13px) */
 .editor-view .view3d-controls {
-  right: 184px;
+  right: 197px;
 }
 
 /* ---- every control on the map has a solid background */

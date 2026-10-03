@@ -89,17 +89,19 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const frames = () => page.evaluate(() => (window as unknown as { dgmShown: number[] }).dgmShown);
   await page.mouse.click(p.x, p.y);
   await idle(page);
+  // pause holds it, while it flows ("Pause water" is unavailable once the water is settled, never hidden)
+  const pause = bar.getByRole("button", { name: "Pause water", exact: true });
+  await expect(pause).toBeEnabled({ timeout: 10_000 });
+  await pause.click();
+  const held = await wet(page);
+  await page.waitForTimeout(600);
+  expect(await wet(page)).toBe(held);
+  await bar.getByRole("button", { name: "Play water", exact: true }).click();
   // it grows over the frames, not in one step: the page shows at least four different waters on its way
   await expect.poll(async () => new Set(await frames()).size, { timeout: 60_000 }).toBeGreaterThanOrEqual(4);
   expect(Math.max(...(await frames()))).toBeGreaterThan(w0);
   await expect(bar.getByRole("status")).toContainText(/Water flowing|Water settled/);
-
-  // pause holds it
-  await bar.getByRole("button", { name: "Pause", exact: true }).click();
-  const held = await wet(page);
-  await page.waitForTimeout(600);
-  expect(await wet(page)).toBe(held);
-  await bar.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(pause).toBeDisabled({ timeout: 60_000 });
 
   // it ends at the map's water: what the worker has, what the export gets
   await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 60_000 });

@@ -101,7 +101,7 @@ test("the header names the open map: a generated map, then an opened file, the r
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
   await expect(page.locator(".editor-title .muted")).toHaveText("seed 4242 · 96×96");
-  expect(new URL(page.url()).hash).toMatch(/^#s=4242&/);
+  expect(new URL(page.url()).hash).toMatch(/^#(v=[^&]+&)?s=4242&/);
 
   // the file replaces it without asking: the header names the file's map, its size alone, and the address is empty
   await page.getByLabel("Open a map or project file").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
