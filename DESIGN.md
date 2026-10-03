@@ -289,7 +289,7 @@ than the room above the water bar. Where this section says otherwise, the verdic
 
 **Layout 2 mockups (2026-10-03): the design to build.** Kyler's Layout 2, settled over eight rounds of mockups on
 2026-10-03, for 2560×1440 and 1920×1080 only (smaller windows are not designed). Captures of the real page
-rearranged (River Valley 4242 at 128², two states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
+rearranged (River Valley 4242 at 128², three states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
 - **The header:** at the left, **Map Generator** opens and closes the left panel: a tinted button (the mint at 12%
   behind it, a mint outline at 60%), a small folded-map icon in the mint and the name in the heading's weight; lit
   like the toggles (mint fill, dark ink) while the panel is open. At rest Save to Timberborn stays the only filled
@@ -303,11 +303,18 @@ rearranged (River Valley 4242 at 128², two states at both sizes): [docs/design/
   core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
   128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
-  Markers, Flow, See-through, Badwater (Under roofs added when a map has roofs). Each row has a 14px square checkbox
+  Markers, Flow, See-through, Badwater (Under roofs added when a map has roofs), then **Legend**, last. Each row has a
+  14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
   Timberborn's settings; the row itself is never lit, and a click anywhere on it toggles it; several can be on. An
   overlay's legend sits beside its row while it is on (Heights: "Ground height", the ramp, the map's lowest and
   highest level).
+- **The Legend,** ticked, is the key to the normal view: the legend panel as the page draws it (the ground colours,
+  Water, Badwater, Mixed water where present, Walls, Dead trees, Trees and bushes, every object on the map, and under
+  "Markers on:" the markers' meanings), directly under the Show column, its left edge on the column's, as wide as
+  its longest line (183px on River Valley 4242), down to 8px above the minimap at most. Its rows are 20px, even,
+  at the legend's own type size; content taller than the room scrolls inside it. At 1920×1080 River Valley 4242's 21
+  lines need 456px of the 472px there (16px to spare); at 2560×1440 there are 832px.
 - **Top middle:** the water controls in one row, centred in the map area: Water settled (plain text), Pause water,
   Speed, Skip, Replay, Drought, Badtide, each control floating on its own. An unavailable one (Pause water, Skip and
   Replay while the water is settled) has a fainter plate (the plate's colour at 38%, no shadow) and fainter words
@@ -335,6 +342,9 @@ rearranged (River Valley 4242 at 128², two states at both sizes): [docs/design/
     group on whole cells; the bar never moves.
 
 Where it doesn't fit, and what the mockups do:
+- **The Legend at 1920×1080** has 16px to spare on River Valley 4242 (21 lines). A map with more lines (Mixed
+  water, Blockage, Other objects, Under roofs' row in the column) passes the room and scrolls inside the panel; each
+  line more takes 20px.
 - **The objects menu** clears everything at both sizes, panel open or closed, with Raise's settings too: it starts
   168px right of the bar and its settings at 1920×1080 with the panel open (344px closed; 488px and 664px at
   2560×1440), 405px below the top-right controls at 1920×1080 (765px at 2560×1440). It lies over the map's lower
