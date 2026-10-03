@@ -287,9 +287,9 @@ than the room above the water bar. Where this section says otherwise, the verdic
 - **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
   cause before #163 merges.
 
-**Layout 2 mockups (2026-10-03): the design to build.** Kyler's Layout 2, settled over six rounds of mockups on
+**Layout 2 mockups (2026-10-03): the design to build.** Kyler's Layout 2, settled over seven rounds of mockups on
 2026-10-03, for 2560×1440 and 1920×1080 only (smaller windows are not designed). Captures of the real page
-rearranged (River Valley 4242 at 128², five states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
+rearranged (River Valley 4242 at 128², four states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
 - **The header:** at the left, **Map Generator** opens and closes the left panel: a tinted button (the mint at 12%
   behind it, a mint outline at 60%), a small folded-map icon in the mint and the name in the heading's weight; lit
   like the toggles (mint fill, dark ink) while the panel is open. At rest Save to Timberborn stays the only filled
@@ -299,9 +299,9 @@ rearranged (River Valley 4242 at 128², five states at both sizes): [docs/design
   title), Theme and Seed (with Keep), Size, the sections Terrain, Water, Hazards, Resources, Difficulty, Limits for
   this size (each opening in place), the counts (Mine sites, Berry patches, Ruin fields, Forests, Rivers), then
   **Your maps**: two to a row, each the map's whole picture in a square box about 142px wide (never cropped: a
-  map that isn't square sits centred in it), its name and size under it, the open map marked.
-- **Your maps' pictures** are the core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), shown scaled to the
-  box; the core never enlarges, so a 128² map's picture is 128px and a 192² map's 192px.
+  map that isn't square sits centred in it), its name and size under it, the open map marked. The pictures are the
+  core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
+  128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
   Markers, Flow, See-through, Badwater (Under roofs added when a map has roofs). Each row has a 14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
@@ -309,35 +309,39 @@ rearranged (River Valley 4242 at 128², five states at both sizes): [docs/design
   overlay's legend sits beside its row while it is on (Heights: "Ground height", the ramp, the map's lowest and
   highest level).
 - **Top middle:** the water controls in one row, centred in the map area: Water settled (plain text), Pause water,
-  Speed, Skip, Replay, Drought, Badtide, each control floating on its own.
+  Speed, Skip, Replay, Drought, Badtide, each control floating on its own. An unavailable one (Pause water, Skip and
+  Replay while the water is settled) has a fainter plate (the plate's colour at 38%, no shadow) and fainter words
+  (42%); available ones are unchanged.
 - **Top right:** the camera group (Top-down, Reset view, the compass), then the height slice, Slow forces and the
-  sound under them, as a three-column grid 310px wide (the sound under the compass); the **Objects** button
-  (125×44px, lit while open) left of the camera row. Its grid opens under the Slow forces row, right-aligned with
-  it: dev's tiles (76px wide, 48px pictures, the name under the picture) in Water, Start, Plants, Ruins and Land, rows
-  of up to four under their headings, on one 340×523px panel.
+  sound under them, as a three-column grid 310px wide (the sound under the compass).
+- **Bottom right: the objects,** a menu always shown: one object per row, its picture then its name, under the
+  headings Water, Start, Plants, Ruins, Land, on one panel 166px wide and 606px tall. Rows are 30px tall, 2px apart,
+  the pictures 28px, 8px before the name, every picture and name on one line down the list; a heading is 15px with
+  6px above it. The panel's right edge is on the page's 10px margin (the top-right controls' too) and its bottom
+  level with the bar's bottom. Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
   Carve, Craterize, Erupt, Quake, Glaciate; eleven 76px cells, icon above name, keys only in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
   spans whole cells, its label above its control, on one row:
   - **Select:** How to select 6 (cells 1–6, one shape per cell, icon above its name: Rectangle, Circle, Freehand,
-    Brush, Wand, Whole map) · Select 5 (7–11: "Drag on the map", then Shift and Alt as key caps, "Shift adds · Alt
-    takes away", and the close button at the group's end).
+    Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
+    ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
   - **Carve** and the other forces: Power 3 · Size 3 (with Auto) · What it leaves 3 · More 2.
+  - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
     group on whole cells; the bar never moves.
 
 Where it doesn't fit, and what the mockups do:
-- **The objects grid and the water row:** the grid opens 72px below the water row's band at both sizes, panel open
-  or closed. The Objects button shares the band: it clears the water row by 48px at 1920×1080 with the panel open
-  (224px closed; 368px and 544px at 2560×1440).
-- **The objects grid lies over the map's right side** (340×523px) while it is open; the default view doesn't make
-  room for it.
-- **The objects need a panel behind them** for their headings and tiles; every control floats without one. Start's
-  row holds one tile.
+- **The objects menu** clears everything at both sizes, panel open or closed, with Raise's settings too: it starts
+  168px right of the bar and its settings at 1920×1080 with the panel open (344px closed; 488px and 664px at
+  2560×1440), 291px below the top-right controls at 1920×1080 (651px at 2560×1440). It lies over the map's lower
+  right corner, and the default view doesn't make room for it.
+- **The objects menu needs a panel behind it** for its headings and rows; every control floats without one.
+- **Select has no close button:** the selection closes with Esc or X only (its tooltip held those keys).
 - **Your maps at 1920×1080:** with five maps the panel scrolls by 178px, so the third row of pictures starts below
-  the fold. At 2560×1440 nothing scrolls.
+  the fold. At 2560×1440 nothing scrolls. A 128² map's stored picture is 128px, shown slightly enlarged in its box.
 - **"Water settled"** is plain text over the map's sky, with a dark text shadow so it reads.
 - **The minimap** sits 38px higher than on dev (86px from the bottom, not 48) to make room for the coordinates' line
   between it and the readout; the coordinates take the readout's plate.
