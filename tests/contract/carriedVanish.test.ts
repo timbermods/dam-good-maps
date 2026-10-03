@@ -1,21 +1,21 @@
 // Release gate (D385), forces: "carried objects land where the force put them" (D425; EDITOR_PLAN
 // "Only the player places objects": "the objects a force carries leave their ground together and land
 // where it put them"). The build applies a force's carried objects as quiet moves and leaves out one
-// put down on ground another object holds (`applyEntityEdits`, core/features/edits.ts). It records the
-// held ground once, at the first quiet move of the whole log, and never updates it for the objects
-// removed or moved by hand after that (only quiet moves and placements update it). So once any force
-// has carried something, an object a later force carries onto a tile where an object stood that the
-// player has since deleted or moved is silently left out: it vanishes, though the force found that
-// tile free and its operation lists it as carried there.
+// put down on ground another object holds (`applyEntityEdits`, core/features/edits.ts). It recorded the
+// held ground once, at the first quiet move of the whole log, and never updated it for the objects
+// removed or moved by hand after that (the release gate's bug hunt, D385). So once any force had
+// carried something, an object a later force carried onto a tile where an object stood that the
+// player had since deleted or moved was silently left out: it vanished, though the force found that
+// tile free and its operation listed it as carried there.
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../../src/core/doc/document";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { MapSession } from "../../../src/core/doc/session";
-import { QUAKE_DEFAULTS } from "../../../src/core/forces/quake";
-import { makeSpec } from "../../../src/core/spec/mapspec";
-import { runGenerate } from "../../../src/worker/api";
-import * as ed from "../../../src/worker/session";
+import { decodeProject } from "../../src/core/doc/document";
+import type { EditOp } from "../../src/core/doc/ops";
+import { MapSession } from "../../src/core/doc/session";
+import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 
 const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
