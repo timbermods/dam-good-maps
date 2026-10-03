@@ -1,17 +1,16 @@
-// The High look's per-map textures: the ambient occlusion (#65) and the water's flow, contamination
-// and rough water (#38, #67). A whole map's are made in a worker (bake.worker.ts) and arrive a moment
-// after the map; until then the ground has no occlusion and the water no current (a quiet start, never
-// a wait). An edit's own tiles are redone here at once. A newer request always wins over an older.
+// The renderer's bake worker (`Baker`: both looks' moving water, motion.ts) and the High look's
+// ambient occlusion (#65). A whole map's occlusion is made in the worker (bake.worker.ts) and arrives a
+// moment after the map; until then the ground has none (a quiet start, never a wait). An edit's own
+// tiles are redone here at once. A newer request always wins over an older.
 
 import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
-import type { EntityView, SurfaceWater } from "../model";
+import type { EntityView } from "../model";
 import { DEAD } from "../model";
 import { AMBIENT_REACH, ambientRect, canopyCover, canopyInto, canopyKind, runBake, type BakeJob, type BakeResult, type Canopies } from "./bake";
-import type { RoughCounts } from "./flow";
 
 type Job = BakeJob extends infer J ? (J extends { id: number } ? Omit<J, "id"> : never) : never;
 
-/** The worker the fields are made in (one per High look), or the page's thread where a worker can't
+/** The worker the fields are made in (one per view), or the page's thread where a worker can't
  *  start. */
 export class Baker {
   private worker: Worker | null = null;
@@ -36,13 +35,14 @@ export class Baker {
     }
   }
 
-  run(job: Job): Promise<BakeResult> {
+  /** A job, its arrays in `transfer` handed over (the caller's own copies). */
+  run(job: Job, transfer: ArrayBuffer[] = []): Promise<BakeResult> {
     const id = this.next++;
     const full = { ...job, id } as BakeJob;
     if (!this.worker) return new Promise((resolve) => setTimeout(() => resolve(runBake(full)), 0));
     return new Promise((resolve) => {
       this.waiting.set(id, resolve);
-      this.worker!.postMessage(full);
+      this.worker!.postMessage(full, transfer);
     });
   }
 
@@ -149,61 +149,5 @@ export class AmbientField {
   dispose(): void {
     this.latest = -1;
     this.texture.dispose();
-  }
-}
-
-export class FlowField {
-  /** The flow (RG, 128 still) and the smoothed contamination (B); the rough water (R). */
-  readonly flow: DataTexture;
-  readonly rough: DataTexture;
-  counts: RoughCounts = { falls: 0, rapids: 0, obstacles: 0, wet: 0 };
-  ms = 0;
-  private latest = 0;
-  private done = 0;
-  private baked = false;
-
-  /** Whether the last bake asked for has arrived. */
-  get ready(): boolean {
-    return this.done === this.latest;
-  }
-
-  constructor(
-    readonly W: number,
-    readonly H: number,
-    private baker: Baker,
-    private changed: () => void,
-  ) {
-    this.flow = texture(W, H, [128, 128, 0, 255]);
-    this.rough = texture(W, H, [0, 0, 0, 255]);
-  }
-
-  /** The water changed: its flow and rough water again, a moment later (a new map's contamination
-   *  shows at once, unsmoothed, until its first bake arrives). */
-  update(heights: Uint8Array, sw: SurfaceWater): void {
-    const id = ++this.latest;
-    if (!this.baked) {
-      const f = this.flow.image.data as Uint8Array;
-      for (let i = 0; i < this.W * this.H; i++) f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, sw.contamination[i] || 0)) * 255);
-      this.flow.needsUpdate = true;
-    }
-    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), lower: [] };
-    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights: heights.slice(), sw: copy }).then((r) => {
-      if (id !== this.latest || r.kind !== "flow") return;
-      this.done = id;
-      (this.flow.image.data as Uint8Array).set(r.flow);
-      (this.rough.image.data as Uint8Array).set(r.rough);
-      this.flow.needsUpdate = true;
-      this.rough.needsUpdate = true;
-      this.counts = r.counts;
-      this.ms = r.ms;
-      this.baked = true;
-      this.changed();
-    });
-  }
-
-  dispose(): void {
-    this.latest = -1;
-    this.flow.dispose();
-    this.rough.dispose();
   }
 }

@@ -387,3 +387,30 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
   }
   return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
 }
+
+/** The outflows a map stores (`ColumnOutflows`, FORMAT.md §4.3) of each tile's surface water (its
+ *  highest wet level), four a tile in the simulation's order (−y, −x, +y, +x: the tokens' Bottom,
+ *  Left, Top and Right; each `outflowToken`'s flow), for the view's moving water; null when the file
+ *  has none that fit. */
+export function storedOutflows(singletons: JsonObject, W: number, H: number): Float64Array | null {
+  const wm = singletons.WaterMapNew;
+  if (!isObject(wm) || !isObject(wm.WaterColumns) || !isObject(wm.ColumnOutflows)) return null;
+  const plane = W * H;
+  const levels = "Levels" in wm ? num(wm.Levels) : 1;
+  const columns = String(wm.WaterColumns.Array).split(" ");
+  const flows = String(wm.ColumnOutflows.Array).split(" ");
+  if (columns.length !== levels * plane || flows.length !== columns.length) return null;
+  const out = new Float64Array(plane * 4);
+  for (let i = 0; i < plane; i++)
+    for (let level = levels - 1; level >= 0; level--) {
+      const k = level * plane + i;
+      if (columns[k] === "0" || !(Number(columns[k].split(":")[0]) > 0.001)) continue;
+      if (flows[k] !== "0") {
+        // (each part "0" or "target|flow")
+        const f = flows[k].split(":");
+        for (let d = 0; d < 4; d++) out[i * 4 + d] = Number((f[d] ?? "0").split("|")[1]) || 0;
+      }
+      break;
+    }
+  return out;
+}

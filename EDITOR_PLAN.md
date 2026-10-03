@@ -514,6 +514,12 @@ Two looks (Map look 2, D147, D242, D250, D284):
   splash rings, rough water below falls (#67). #67's visible seasons wait for the Drought and Badtide day-by-day
   view (D286 (4)).
 
+In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
+threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
+where two currents join, all gone where the water is still. The **Flow** view (off by default) adds a few glowing
+streaks travelling down those lanes, fast water's longer and brighter, badwater's dim embers; until the page has
+its switch, `?flow=on` in the address turns it on.
+
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
 along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
 cream sacks, contamination as the game's sparse orange-red veins, falls teal with lighter streaks. Readability is the
@@ -894,12 +900,19 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
     force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
+  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
+    view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
+    the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
+    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+    texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
+    ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
+    changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion and the water's flow made in a
-    small worker (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core

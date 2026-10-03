@@ -138,15 +138,19 @@ export function shadowTopsPair(W: number, H: number, heights: Uint8Array, caster
   return { hi: shadowTops(W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra), lo: shadowTops(W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra) };
 }
 
+/** The shadow map's samples `shadowPairRect` redoes for tiles x0…x1 × y0…y1 (unclipped): the
+ *  shadows they cast reach south-east of them. */
+export function shadowPairArea(x0: number, y0: number, x1: number, y1: number): { sx0: number; sy0: number; sx1: number; sy1: number } {
+  const R = SHADOW_RES;
+  const reach = shadowReach();
+  return { sx0: R * x0, sx1: R * (x1 + 1) + reach, sy0: R * y0 - reach, sy1: R * (y1 + 1) };
+}
+
 /** Redo the tops of a pair round tiles that changed (x0…x1 × y0…y1), and write their bytes into
  *  the shadow map `bytes` (RGBA per sample). Equal to baking the whole map again. */
 export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, x0: number, y0: number, x1: number, y1: number): void {
   const R = SHADOW_RES;
-  const reach = shadowReach();
-  const sx0 = R * x0;
-  const sx1 = R * (x1 + 1) + reach;
-  const sy0 = R * y0 - reach;
-  const sy1 = R * (y1 + 1);
+  const { sx0, sy0, sx1, sy1 } = shadowPairArea(x0, y0, x1, y1);
   shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1);
   shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1);
   const SW = W * R;
