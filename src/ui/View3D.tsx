@@ -48,8 +48,12 @@ export interface View3DProps {
   togglesInButtons?: boolean;
   /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
   besideHeight?: ComponentChildren;
-  /** Whether the legend shows (the editor: only while an overlay is on, D184). */
+  /** Whether the legend shows beside the view (the editor has it in its corner instead). */
   showLegend?: boolean;
+  /** The legend as the editor's: a named **Legend** button under the corner's switches, lit while
+   *  open, and the panel under it over the map, from the button's edges down to the water bar
+   *  (Kyler, 2026-10-02). The open state is remembered as the docked legend's is. */
+  legendInCorner?: boolean;
   /** The look's menu among the view's buttons (the editor has it in its header instead). */
   lookMenu?: boolean;
 }
@@ -272,7 +276,7 @@ export function View3D(props: View3DProps) {
   const item = (e: PresentEntry) => (
     <li key={e.label}>
       {e.tiles.length ? (
-        <button type="button" class="pick-line" aria-pressed={pointed === e.key} onClick={() => point(e)} title="Show these on the map">
+        <button type="button" class="pick-line" aria-pressed={pointed === e.key} onClick={() => point(e)} title="Show on the map">
           <span class="swatch" style={{ background: e.swatch }} aria-hidden="true" />
           {e.label}
         </button>
@@ -288,7 +292,7 @@ export function View3D(props: View3DProps) {
     setLegendOpen(open);
     saveLegend(open);
   };
-  const showLegend = props.showLegend ?? true;
+  const showLegend = !props.legendInCorner && (props.showLegend ?? true);
   const toggles = (
     <>
       <button type="button" aria-pressed={ground === "height"} onClick={toggleGround} title="Colour the ground by height instead of by soil">
@@ -320,6 +324,25 @@ export function View3D(props: View3DProps) {
     </>
   );
 
+  // the legend's lines: what is on the map, then what Markers adds
+  const legendBody = (
+    <>
+      {props.togglesInButtons ? null : (
+        <div class="toggle-row" role="group" aria-label="Map colours">
+          {toggles}
+        </div>
+      )}
+      <ul class="pick-list">{clean.map(item)}</ul>
+      {marked.length ? (
+        <>
+          <p class="panel-head">
+            <b>Markers</b> on:
+          </p>
+          <ul class="pick-list">{marked.map(item)}</ul>
+        </>
+      ) : null}
+    </>
+  );
   const compassDial = (
     <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
       <div ref={compass} class="needle">
@@ -350,6 +373,16 @@ export function View3D(props: View3DProps) {
           <div class="corner-level">{props.cornerLevel}</div>
           {compassDial}
           {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
+          {props.legendInCorner ? (
+            <button type="button" class="corner-legend" aria-pressed={legendOpen} aria-expanded={legendOpen} aria-controls={legendId} onClick={() => fold(!legendOpen)} title="What the map's colours mean">
+              Legend
+            </button>
+          ) : null}
+          {props.legendInCorner && legendOpen ? (
+            <aside class="legend-panel" id={legendId} aria-label="Legend">
+              {legendBody}
+            </aside>
+          ) : null}
         </div>
       ) : (
         compassDial
@@ -368,22 +401,7 @@ export function View3D(props: View3DProps) {
           </button>
           {legendOpen ? (
             <div class="side-panel-body" id={legendId}>
-              {props.togglesInButtons ? null : (
-                <div class="toggle-row" role="group" aria-label="Map colours">
-                  {toggles}
-                </div>
-              )}
-              <ul class="pick-list">{clean.map(item)}</ul>
-              {marked.length ? (
-                <>
-                  <p class="panel-head">
-                    With <b>Markers</b> on:
-                  </p>
-                  <ul class="pick-list">{marked.map(item)}</ul>
-                  <p class="note">From afar, dead trees, slope arrows and the start are drawn larger.</p>
-                </>
-              ) : null}
-              <p class="note">Click a line to show it on the map.</p>
+              {legendBody}
             </div>
           ) : null}
         </aside>

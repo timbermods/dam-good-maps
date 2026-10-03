@@ -44,13 +44,13 @@ test("the legend sits beside the map, lists what is on it, points to it, and fol
   await expect.poll(() => lines.count()).toBeGreaterThan(4);
   const n = await lines.count();
   expect(n).toBeLessThan(25);
-  for (const text of ["Living trees and bushes", "Water: darker is deeper", "The start: district center"]) await expect(legend).toContainText(text);
+  for (const text of ["Trees and bushes", "Water", "Start"]) await expect(legend).toContainText(text);
   // the toggles live in it
   await expect(legend.getByRole("button", { name: "Height colours" })).toBeVisible();
   await expect(legend.getByRole("button", { name: "Markers" })).toBeVisible();
 
   // a click points to those things on the map; Esc clears it
-  const trees = legend.getByRole("button", { name: "Living trees and bushes" });
+  const trees = legend.getByRole("button", { name: "Trees and bushes" });
   await trees.click();
   await expect(trees).toHaveAttribute("aria-pressed", "true");
   expect(await highlighted(page)).toBeGreaterThan(10);

@@ -29,8 +29,8 @@ test("the 3D view is clean until Markers turns the information layer on", async 
   expect(s.markers).toBe(false);
   expect(s.arrows).not.toBe(true);
   const legend = page.locator(".view3d-legend");
-  await expect(legend).toContainText("Slopes: stone ramps");
-  await expect(legend).toContainText("With Markers on");
+  await expect(legend).toContainText("Slope");
+  await expect(legend).toContainText("Markers on:");
 
   // on: the arrows show, and the choice lasts into the editor
   await button.click();

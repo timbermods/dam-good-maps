@@ -15,7 +15,7 @@ test("the 3D legend names every meaning the map shows, only those, and no dam si
   await page.getByRole("button", { name: "3D", exact: true }).click();
   await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
   const legend = page.locator(".view3d-legend");
-  for (const text of ["Living trees and bushes", "The start: district center", "Slopes: arrows point uphill", "Ruins", "Mine site", "Geothermal field", "Water source", "Badwater source", "drawn larger"])
+  for (const text of ["Trees and bushes", "Start", "Slope arrows", "Ruins", "Mine site", "Geothermal field", "Water source", "Badwater source"])
     await expect(legend).toContainText(text);
   // water mixed with badwater is named when the map has some, and only then
   const mixed = await page.evaluate(() => {
@@ -23,8 +23,8 @@ test("the 3D legend names every meaning the map shows, only those, and no dam si
     for (let i = 0; i < m.W * m.H; i++) if (m.surface.depth[i] > 0.05 && m.surface.contamination[i] >= 0.05 && m.surface.contamination[i] < 0.9) return true;
     return false;
   });
-  if (mixed) await expect(legend).toContainText("Water mixed with badwater");
-  else await expect(legend).not.toContainText("Water mixed with badwater");
+  if (mixed) await expect(legend).toContainText("Mixed water");
+  else await expect(legend).not.toContainText("Mixed water");
   const hatched = await page.evaluate(() => {
     const d = window.dgm3d!.renderer.overlayData()!;
     let n = 0;

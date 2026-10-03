@@ -1,12 +1,16 @@
 /* The page is the editor (D330), on the current editor's skeleton: only what the one-page prototype changes.
    Everything else is the editor's own stylesheet. */
 
-/* ---- the header: New map at the left edge; the name with its line; the brand at the window's centre */
+/* ---- the header: New map at the left edge; the map's info at the window's exact centre, capped so it never
+   reaches either side group (the header measures how far they reach: --side-l, --side-r) */
 .editor-bar {
   position: relative;
   flex-wrap: nowrap;
+  justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
+  /* dev's height: the name and its line set it there; here they sit outside the flow */
+  min-height: 67px;
 }
 
 .editor-bar .new-map {
@@ -21,30 +25,26 @@
 }
 
 .editor-title {
-  flex: 0 1 auto;
-}
-
-.editor-actions {
-  margin-left: auto;
-}
-
-.editor-bar .brand {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font: 700 0.95rem/1 "Bitter", Georgia, serif;
+  flex: none;
+  max-width: calc(100% - 2 * max(var(--side-l, 0px), var(--side-r, 0px)) - 24px);
+  text-align: center;
+}
+
+.editor-title .muted {
+  display: block;
   white-space: nowrap;
-  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .editor-actions {
   flex: none;
   flex-wrap: nowrap;
+  margin-left: auto;
 }
 
 /* the checks' words beside the dot */
@@ -219,7 +219,67 @@
   margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
 }
 
-/* ---- large screens: the chrome scales up by 1.2, the map does not */
+/* ---- the right column (Kyler, 2026-10-02): one exact right edge for the level row, Slow forces and Sound, the
+   Legend button, the legend panel and the water bar; the column's left edge is Slow forces'. Row 1's level control
+   is Slow forces' width and the compass Sound's; the Legend button spans the column; the panel under it runs down
+   to one gap above the water bar, over the map, so nothing resizes or moves */
+.view3d-corner {
+  bottom: calc(10px + var(--water-bar-h, 34px) + var(--corner-gap));
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: start;
+}
+
+.corner-legend {
+  grid-column: 1 / -1;
+  height: var(--corner-h);
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.corner-legend[aria-pressed="true"] {
+  background: var(--accent);
+}
+
+.legend-panel {
+  grid-column: 1 / -1;
+  align-self: stretch;
+  /* the panel takes the column's width and never widens it: its lines don't count toward the grid's tracks */
+  contain: inline-size;
+  min-height: 0;
+  overflow-y: auto;
+  /* a line wider than the column is cut at the panel's edge, never wrapped or shrunk (DESIGN.md reports which) */
+  overflow-x: hidden;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
+}
+
+.legend-panel .pick-line {
+  white-space: nowrap;
+}
+
+.legend-panel .panel-head {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* the Badwater caption: the layer's explanation, above the minimap's place at the lower left, over nothing */
+.layer-legend {
+  bottom: calc(48px + 168px + 8px);
+}
+
+.editor.drawer-open .layer-legend {
+  margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
+}
+
+/* ---- large screens: the chrome scales up from 1800px wide, the map does not. The scale is 1.1, or ?ui= on the
+   address for Kyler to try others (temporary; main.tsx) */
 @media (min-width: 1800px) {
   .editor-bar,
   .editor-main > .shelf,
@@ -230,8 +290,9 @@
   .editor-view .minimap,
   .readout,
   .water-bar,
+  .layer-legend,
   .editor-notices,
   .history {
-    zoom: 1.2;
+    zoom: var(--ui-scale, 1.1);
   }
 }

@@ -130,6 +130,25 @@ export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
+  // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
+  // the header learns how far each side group reaches (--side-l, --side-r) and the info's width is capped
+  const bar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const note = () => {
+      const h = el.getBoundingClientRect();
+      const l = el.querySelector(".new-map")?.getBoundingClientRect();
+      const r = el.querySelector(".editor-actions")?.getBoundingClientRect();
+      el.style.setProperty("--side-l", `${l ? Math.ceil(l.right - h.left) : 0}px`);
+      el.style.setProperty("--side-r", `${r ? Math.ceil(h.right - r.left) : 0}px`);
+    };
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
+    return () => watch.disconnect();
+  }, []);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
@@ -151,22 +170,15 @@ export function Header(p: HeaderProps) {
   const primary = p.canFolder ? "timberborn" : "download";
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
-    <header class="editor-bar">
+    <header class="editor-bar" ref={bar}>
       <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the New map drawer" : "Make a new map: its settings open on the left"} onClick={p.onDrawer}>
         New map
       </button>
       <div class="editor-title">
-        <h1>{p.info.name}</h1>
+        <h1 title={p.info.name}>{p.info.name}</h1>
         <span class="muted">
           {p.saveState && /fail|off/.test(p.saveState) ? p.saveState : `${p.info.kind === "generated" && p.info.spec ? `seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
-      </div>
-      <div class="brand" aria-label="Dam Good Maps">
-        <svg class="mark" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-          <path d="M2 4.5h10M2 8h10" />
-          <path d="M1.5 11.5c1.8 0 1.8-1.6 3.6-1.6s1.8 1.6 3.6 1.6 1.8-1.6 3.8-1.6" />
-        </svg>
-        <span>Dam Good Maps</span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>

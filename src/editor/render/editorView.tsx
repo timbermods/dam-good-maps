@@ -43,7 +43,8 @@ export function editorView(ed: Ed, props: EditorProps) {
               togglesInButtons
               lookMenu={false}
               besideHeight={levelLinesButton(ed)}
-              showLegend={layer !== "none"}
+              legendInCorner
+              legendOpen={false}
               viewButtons={viewButtons(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} onStep={(dir) => renderer.current?.stepSlice(dir)} onReset={() => renderer.current?.setSlice(null)} />}
               cornerBelow={cornerButtons(ed)}

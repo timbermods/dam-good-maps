@@ -3,6 +3,7 @@
 // by itself (D265: no Follow).
 // Built from the shared bar and button styles (D176).
 
+import { useEffect, useRef } from "preact/hooks";
 import { WATER_SPEEDS, type WaterPlayer, type WaterSpeed } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 
@@ -19,8 +20,24 @@ const SPEED_NAMES: Record<WaterSpeed, string> = { slower: "Slower", normal: "Nor
 export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
   const progress = p.progress;
   const status = p.words ?? (progress !== null ? `Water flowing… ${Math.round(progress * 100)}%` : "Water settled");
+  // the view reads the bar's height from --water-bar-h: the legend panel ends one gap above it
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    const view = el?.parentElement;
+    if (!el || !view || typeof ResizeObserver === "undefined") return;
+    // (in the bar's own CSS pixels: its height on screen over its zoom, when the chrome is scaled up)
+    const note = () => view.style.setProperty("--water-bar-h", `${el.getBoundingClientRect().height / (parseFloat(getComputedStyle(el).zoom) || 1)}px`);
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    return () => {
+      watch.disconnect();
+      view.style.removeProperty("--water-bar-h");
+    };
+  }, []);
   return (
-    <div class="map-bar water-bar" role="toolbar" aria-label="Water time">
+    <div ref={bar} class="map-bar water-bar" role="toolbar" aria-label="Water time">
       <span class="bar-status" role="status">
         {status}
       </span>

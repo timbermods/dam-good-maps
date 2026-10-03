@@ -59,7 +59,7 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   // the legend says what the colours mean
   const legend = page.locator(".view3d-legend");
   await expect(legend).toBeVisible();
-  for (const text of ["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead"]) await expect(legend).toContainText(text);
+  for (const text of ["Moist ground", "Dry ground", "Contaminated ground", "Water", "Badwater", "Walls", "Dead trees"]) await expect(legend).toContainText(text);
   await expect(legend).not.toContainText("dam site");
 
   // the default camera: the game's angle
@@ -83,7 +83,7 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("height");
-  await expect(legend).toContainText("Ground by height: low to high");
+  await expect(legend).toContainText("Ground height");
   await expect(legend).not.toContainText("Moist ground");
   // the choice lasts: the editor's view opens with height colours too
   await page.getByRole("button", { name: "Refine this map" }).click();
