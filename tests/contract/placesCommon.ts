@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { namedFile } from "../../src/core/gen/pack";
 import { readTimber } from "../../src/core/format/timber";
-import { decodePlaceFile, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodePlaceFile, PLACE_FAULT_CHECKS, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 
@@ -204,6 +204,9 @@ export function checkShard(k: number, n: number): void {
       expect(f.startWater).toBe(PLACES_START_WITHOUT_FED_WATER.has(entry.id));
       expect(f.food).toBe(PLACES_SHORT_OF_BERRIES.has(entry.id));
       expect(f.plants).toBe(PLACES_PLANTS_ON_DRY_SOIL.has(entry.id));
+      // the faults the index records are the ones this build has: the gallery hides by them (D421)
+      const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
+      expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
       // the missing mine site only warns on export: the gallery's download works

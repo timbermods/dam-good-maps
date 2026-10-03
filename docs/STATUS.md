@@ -93,8 +93,7 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: Islands (D417), and Real places in the gallery (D421: hide the 33 places whose start reaches no fed water; fix
-`tools/real-places.ts` and re-render the cards). The settle fix (D413) is on dev (#175).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Also blocking the release: Islands (D417). Real places in the gallery (D421) is done on its PR: the 33 places whose start reaches no fed water are hidden, `tools/real-places.ts` is fixed and the cards re-rendered. The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 

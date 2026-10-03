@@ -11,9 +11,12 @@
 //   name, landform family, scale and a plain line on how it plays (src/core/places/place.ts);
 // - cards/<id>.jpg: the card's picture, our own top-down render (src/core/render/shade.ts) of the
 //   map with its settled water, north up;
-// - index.json: every place for the gallery page, with the sha256 of its .timber.
+// - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
+//   its own map has (`faults`, from the generate profile's checks): the page leaves out the places
+//   whose start reaches no fed water until they are fixed (D421, src/core/places/place.ts).
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
-// export profile and every check of the generate profile; the tool stops on any that does not.
+// export profile and every check of the generate profile but the known faults (the conversion's, which
+// every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
 // Everything it writes is the same bytes on every run.
 //
 // The product never imports from investigation/ (tests/unit/boundaries.test.ts); this tool reads the
@@ -34,14 +37,18 @@ import {
   placeEntities,
   placeFileName,
   validatePlace,
+  PLACE_FAULT_CHECKS,
+  CONVERSION_FAULT_CHECKS,
   PLACE_FORMAT,
   type PlaceData,
   type PlaceIndex,
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { writeTimber } from "../src/core/format/timber";
+import { namedFile } from "../src/core/gen/pack";
 import { shadeTiles } from "../src/core/render/shade";
 import { validateMap } from "../src/core/validate/checks";
+import type { CheckResult } from "../src/core/validate/report";
 
 const LIBRARY = "investigation/landscapes/library";
 const OUT = "public/real-places";
@@ -249,11 +256,18 @@ for (const item of items) {
   const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
-  const blocking = v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate);
-  if (!v.report.passed || !strict.report.passed) failures++;
-  const strictFails = strict.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id);
+  const counts = (c: CheckResult) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate;
+  const blocking = v.report.checks.filter(counts);
+  const strictFails = strict.report.checks.filter(counts).map((c) => c.id);
+  // the conversion's known faults (every place has them, D151, D200) and the places' own recorded
+  // ones are not failures of the tool; anything else is, and so is a map the game would not load
+  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS]);
+  const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
+  const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
+  if (unknown.length || !loads) failures++;
+  const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
   console.log(
-    `${v.report.passed ? "ok  " : "FAIL"} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
+    `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : ""),
   );
@@ -272,8 +286,9 @@ for (const item of items) {
     image: `cards/${place.id}.jpg`,
     bytes: bytes.length,
     sha256: sha256(bytes),
+    faults: [...faults],
   });
-  if (placeFileName(place) !== `${place.name}.timber`) throw new Error("file name");
+  if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
 }
 if (failures) {
   console.error(`${failures} place(s) failed a check: nothing written`);
