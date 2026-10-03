@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D462), STATUS and HANDOFF.
+  free: D464), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -117,7 +117,8 @@ Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect
 shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
 gallery (D421; amended by D445: every place shown again with a "No reachable water" note, #193). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), on dev, #198);
 **the coherence review** (D386, D461: a separate session on Kyler's PC once M9b is on `dev`, report and cleanup plan only,
-`src/core/`, `src/worker/`, `tools/`); the release itself waits for its report, then Kyler decides; and **M9b's own release steps** (the measures,
+`src/core/`, `src/worker/`, `tools/`); the release itself waits for its report, then Kyler decides; its cleanup runs as PRs from Kyler's PC once M9b is on
+`dev`, merged in order (D462, D463); and **M9b's own release steps** (the measures,
 the re-pins, the tag).
 
 ## Probe batches
