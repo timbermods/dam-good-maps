@@ -1,0 +1,98 @@
+{
+  "$comment": "The high-level map of Dam Good Maps' roadmap for the roadmap canvas. Only structure lives here (which steps exist, their lane, tag, branch, PRs and what they follow); everything that changes comes from ROADMAP.md, docs/STATUS.md, PLAN.md, git tags and GitHub when extract.mjs runs. Add a card when ROADMAP gains a step; the Health view lists sections, tags and STATUS rows no card covers.",
+  "lanes": [
+    { "id": "generator", "name": "Generator and themes", "color": "#2f8f5b" },
+    { "id": "water", "name": "Water", "color": "#2b7bb9" },
+    { "id": "editor", "name": "Editor and forces", "color": "#d9822b" },
+    { "id": "look", "name": "Look and page", "color": "#8a56c2" },
+    { "id": "places", "name": "Real places", "color": "#1f9e9e" },
+    { "id": "terrain3d", "name": "3D terrain", "color": "#8c6239" },
+    { "id": "perf", "name": "Performance and Rust", "color": "#c73e5a" },
+    { "id": "collab", "name": "Collaboration and Claude", "color": "#4a5fc1" },
+    { "id": "process", "name": "Process and housekeeping", "color": "#6b7280" }
+  ],
+  "milestones": [
+    { "id": "m1", "title": "M1. Shared core and end-to-end slice", "lane": "generator", "kind": "milestone", "tags": ["m1-done"], "roadmap": "^M1\\.", "after": [] },
+    { "id": "m2", "title": "M2. Water, playability and validation profiles", "lane": "water", "kind": "milestone", "tags": ["m2-done"], "roadmap": "^M2\\.", "after": ["m1"] },
+    { "id": "m3", "title": "M3. Map document and operations engine, delivery spike", "lane": "editor", "kind": "milestone", "tags": ["m3-done"], "roadmap": "^M3\\.", "after": ["m2"] },
+    { "id": "m4", "title": "M4. Shared 3D view and editor shell", "lane": "look", "kind": "milestone", "tags": ["m4-done"], "roadmap": "^M4\\.", "after": ["m3"] },
+    { "id": "m5", "title": "M5. Set pieces, land and water tools, slopes, fixes", "lane": "editor", "kind": "milestone", "tags": ["m5-done"], "roadmap": "^M5\\.", "after": ["m4"] },
+    { "id": "m6", "title": "M6. Full settings, sharing, themes I", "lane": "generator", "kind": "milestone", "tags": ["m6-done"], "roadmap": "^M6\\.", "after": ["m5"] },
+    { "id": "m7", "title": "M7. Resources, map objects, themes II", "lane": "generator", "kind": "milestone", "tags": ["m7-done"], "roadmap": "^M7\\.", "after": ["m6"] },
+    { "id": "m8", "title": "M8. Water preview and background validation in the editor", "lane": "water", "kind": "milestone", "tags": ["m8-done"], "roadmap": "^M8\\.", "after": ["m7"] },
+    { "id": "map-look", "title": "Map look: the clean look", "lane": "look", "kind": "step", "tags": ["map-look-done", "look-contamination-done", "look-waterfalls-done", "look-badwater-done", "look-mine-ruins-done"], "roadmap": "^Map look$", "after": ["m8"] },
+    { "id": "real-places", "title": "Real places: a gallery of real-terrain maps", "lane": "places", "kind": "step", "tags": ["real-places-done"], "roadmap": "^Real places$", "after": ["map-look"] },
+    { "id": "start-edge-rules", "title": "Start and edge rules", "lane": "generator", "kind": "step", "tags": ["start-edge-rules-done"], "roadmap": "^Start and edge rules", "after": ["real-places"] },
+    { "id": "resources", "title": "Resources like the official maps", "lane": "generator", "kind": "step", "roadmap": "^Resources like the official maps", "status": "released", "statusNote": "Merged with the start and edge rules (PR #43, generator 0.6.2); no tag of its own.", "prs": [43], "after": ["start-edge-rules"] },
+    { "id": "badwater", "title": "Badwater on every map", "lane": "water", "kind": "step", "roadmap": "^Badwater on every map", "status": "released", "statusNote": "Built on feature/badwater-source and merged into dev (generator 0.6.3); released with the steps that followed, no tag of its own.", "after": ["resources"] },
+    { "id": "live-editing", "title": "Live editing: the brushes shape the land", "lane": "editor", "kind": "step", "tags": ["live-editing-done"], "roadmap": "^Live editing", "after": ["m8", "badwater"] },
+    { "id": "save-to-timberborn", "title": "Save to Timberborn", "lane": "editor", "kind": "step", "tags": ["save-to-timberborn-done"], "roadmap": "^Save to Timberborn", "after": ["live-editing"] },
+    { "id": "m9a", "title": "M9a. The generator from design version 2", "lane": "generator", "kind": "milestone", "tags": ["m9a-done"], "roadmap": "^M9\\. Terrain", "after": ["m2", "start-edge-rules"] },
+    { "id": "forces", "title": "The forces: Carve, Craterize, Erupt, Quake, Glaciate", "lane": "editor", "kind": "step", "tags": ["forces-done"], "summary": "The five forces and the editor around them: Power and Size on every force, one key habit, the brushes' target level, modes and sources options, Select, Delete and the shelf, tooltips with key caps, sounds, cross-browser determinism with a three-engine CI check, and only the player placing objects. Released on Kyler's yes (D375).", "decisions": ["D375", "D361", "D368", "D366"], "prs": [77, 149], "after": ["live-editing"] },
+    { "id": "map-look-2", "title": "Map look 2: the High look", "lane": "look", "kind": "step", "tags": ["map-look-2-done"], "roadmap": "^Map look 2", "prs": [75, 151], "after": ["forces", "map-look"] },
+    { "id": "licence", "title": "The AGPL licence", "lane": "process", "kind": "step", "tags": ["licence-agpl-done"], "summary": "The repository moved to AGPL-3.0-or-later (D379); the README's licence section and both pages' footers link the source. Versions before 2026-10-01 stay MIT.", "decisions": ["D379"], "after": [] },
+    { "id": "preview-workflow", "title": "The /preview/ deploy slot", "lane": "process", "kind": "step", "tags": ["preview-workflow-done"], "summary": "The deploy workflow can publish any branch at /preview/ (noindex), run by hand with preview_ref. The slot belongs to the page session while it works (D396).", "decisions": ["D396"], "after": [] },
+    { "id": "release-gate", "title": "Before the next release: the release gate and the editor-core items", "lane": "editor", "kind": "gate", "orderBlock": "^Before the next release", "statusSection": "release gate", "order": ["release gate", "editor-core items", "before the next release", "coherence review"], "decisions": ["D385", "D386", "D387"], "prs": [164, 167, 170], "status": "in-flight", "statusNote": "The water and the editor's core must be perfect before the next release (D385). Done on dev: the water-changed signal (#164), Remove unfed water and Fill (#167), Naturalize's land effect (#170). Still blocking: Naturalize's sound, the coherence review (D386), M9b's own release steps.", "after": ["forces", "map-look-2"], "statusMatch": "^Naturalize|^The editor-core" },
+    { "id": "page", "title": "The page is the editor, with the design pass", "lane": "look", "kind": "step", "tags": ["design-done"], "roadmap": "^The page is the editor", "branch": "feature/page", "prs": [163, 161, 169], "statusMatch": "^The page\\b", "order": ["the page is the editor", "page session", "salvaged core"], "after": ["save-to-timberborn", "map-look-2", "release-gate"] },
+    { "id": "m9b", "title": "M9b. Composition and variety", "lane": "generator", "kind": "milestone", "tags": ["m9b-done"], "roadmap": "^M9b", "branch": "feature/m9b", "prs": [70], "statusMatch": "^M9b", "order": ["m9b"], "after": ["m9a", "resources"] },
+    { "id": "rust", "title": "The Rust order: the exact core moves to Rust", "lane": "perf", "kind": "step", "roadmap": "^The Rust order", "orderBlock": "^The Rust adoptions", "branch": "feature/rust-toolchain", "prs": [187, 156, 158, 157, 171], "order": ["rust adoptions", "rust order"], "decisions": ["D381", "D442", "D441", "D440"], "after": ["forces", "m9b"] },
+    { "id": "codex", "title": "The Codex adoptions", "lane": "perf", "kind": "group", "roadmap": "^The Codex adoptions", "statusTable": "Investigation", "order": ["codex adoptions"], "after": [], "status": "in-flight", "statusNote": "Codex builds on investigation/<name> branches; the milestone session merges each as an investigation at a boundary and adopts it on Kyler's verdict." },
+    { "id": "post-release", "title": "The post-release list", "lane": "editor", "kind": "group", "orderBlock": "^The post-release list", "order": ["post-release list"], "decisions": ["D378", "D380", "D381"], "after": ["release-gate"] },
+    { "id": "moving-water", "title": "Moving water, the Flow view and renderer R1", "lane": "look", "kind": "step", "branch": "feature/moving-water", "prs": [165], "order": ["moving water"], "decisions": ["D398", "D446", "D435"], "summary": "Always-on moving water in both looks and the Flow view (lanes off by default), built by the renderer session on feature/moving-water; adopted with #165 (D446) after the 6-cell smoothness check passed. Renderer R1 from the performance audit (#152) follows: water blending, brush updates, the High look's lighting.", "after": ["map-look-2"] },
+    { "id": "startup", "title": "Startup: maps open fast (D367)", "lane": "perf", "kind": "step", "roadmap": "^Startup", "order": ["startup part 1", "startup part 2", "service worker"], "after": ["page"] },
+    { "id": "carve-river", "title": "Carve's river is born as it cuts (D371)", "lane": "editor", "kind": "step", "roadmap": "^Carve's river", "order": ["carve's river born"], "after": ["forces"] },
+    { "id": "glaciate-fast", "title": "Glaciate in Fast: the ice carves as it advances (D374)", "lane": "editor", "kind": "step", "roadmap": "^Glaciate in Fast", "order": ["glaciate's fast timing"], "after": ["forces"] },
+    { "id": "followups", "title": "Follow-ups to the editor and the look", "lane": "look", "kind": "group", "roadmap": "^Follow-ups to the editor", "status": "later", "after": ["map-look-2"] },
+    { "id": "parity", "title": "The parity batch and Crop map to selection", "lane": "editor", "kind": "step", "roadmap": "^The parity batch", "branch": "feature/parity", "prs": [95], "statusMatch": "^Parity", "order": ["parity batch"], "after": ["m9b", "post-release"] },
+    { "id": "weather", "title": "The Weather view: Drought and Badtide, day by day", "lane": "water", "kind": "step", "tags": ["weather-view-done"], "roadmap": "^Weather view", "branch": "feature/weather-days", "prs": [73], "statusMatch": "^Drought and Badtide", "order": ["weather view"], "after": ["page", "parity"] },
+    { "id": "custom-sizes", "title": "Custom map sizes (D357)", "lane": "generator", "kind": "step", "roadmap": "^Custom map sizes", "order": ["custom map sizes"], "after": ["weather"] },
+    { "id": "dam-sketch", "title": "The dam sketch tool (D383)", "lane": "water", "kind": "step", "roadmap": "^The dam sketch tool", "prs": [159, 166], "order": ["dam sketch tool"], "after": ["custom-sizes", "rust", "page"], "status": "planned", "statusNote": "The engine (#159, #166) is merged as an investigation, not adopted (D392, D403); the tool waits for the Rust water and the page." },
+    { "id": "pick-a-place", "title": "Pick a place", "lane": "places", "kind": "step", "tags": ["pick-a-place-done"], "roadmap": "^Pick a place", "order": ["pick a place"], "after": ["dam-sketch", "page"] },
+    { "id": "terrain-3d", "title": "Terrain above terrain, in four steps", "lane": "terrain3d", "kind": "group", "roadmap": "^Terrain above terrain", "order": ["four 3d steps", "terrain above terrain"], "after": ["m9a"] },
+    { "id": "3d-1", "title": "3D step 1: Foundations", "lane": "terrain3d", "kind": "step", "tags": ["3d-foundations-done"], "roadmap": "^1\\. Foundations", "branch": "feature/terrain3d-a", "prs": [71], "statusMatch": "^3D terrain, step 1", "order": ["foundations"], "parent": "terrain-3d", "after": ["m9a"] },
+    { "id": "3d-2", "title": "3D step 2: the view", "lane": "terrain3d", "kind": "step", "tags": ["3d-view-done"], "roadmap": "^2\\. The view", "parent": "terrain-3d", "after": ["3d-1", "map-look-2"] },
+    { "id": "3d-3", "title": "3D step 3: creating them (Erode and the Block tool)", "lane": "terrain3d", "kind": "step", "tags": ["3d-creating-done"], "roadmap": "^3\\. Creating them", "parent": "terrain-3d", "after": ["3d-2", "rust"] },
+    { "id": "3d-4", "title": "3D step 4: generation", "lane": "terrain3d", "kind": "step", "tags": ["3d-generation-done"], "roadmap": "^4\\. Generation", "parent": "terrain-3d", "after": ["3d-3", "m9b"] },
+    { "id": "tour", "title": "The 20-second tour (D377)", "lane": "editor", "kind": "step", "roadmap": "^The 20-second tour", "order": ["20-second tour", "polish until mature"], "after": ["3d-4", "pick-a-place"] },
+    { "id": "m13", "title": "M13. Problem reports, shortcuts and help, a final performance pass", "lane": "process", "kind": "milestone", "roadmap": "^M13", "order": ["m13"], "after": ["tour"] },
+    { "id": "collab", "title": "Collaborative editing (D349)", "lane": "collab", "kind": "milestone", "roadmap": "^Collaborative editing", "order": ["collaborative editing"], "after": ["m13"] },
+    { "id": "m12", "title": "M12. Claude integration", "lane": "collab", "kind": "milestone", "roadmap": "^M12", "order": ["m12"], "status": "deferred", "after": ["collab"] },
+    { "id": "real-places-2", "title": "Real places, second round", "lane": "places", "kind": "step", "tags": ["real-places-2-done"], "roadmap": "^Real places, second round", "branch": "feature/real-places-2", "prs": [35], "statusMatch": "^Real places, round 2", "order": ["real places' second round"], "status": "parked", "after": ["real-places", "badwater"] },
+    { "id": "housekeeping", "title": "Housekeeping", "lane": "process", "kind": "group", "roadmap": "^Housekeeping", "order": ["housekeeping"], "status": "ongoing", "after": [], "statusMatch": "^Source groups" },
+    { "id": "later", "title": "Later", "lane": "process", "kind": "group", "roadmap": "^Later$", "status": "later", "after": ["m12"] }
+  ],
+  "statusGroups": [
+    { "id": "released", "name": "Released", "hint": "Tagged <step>-done and merged into main; live on the site." },
+    { "id": "on-dev", "name": "Built, not released", "hint": "Merged into dev; goes live with the next release." },
+    { "id": "in-flight", "name": "In flight", "hint": "On a branch with a PR, or being built now." },
+    { "id": "planned", "name": "Planned, in order", "hint": "In ROADMAP's order of work, not started." },
+    { "id": "ongoing", "name": "Ongoing", "hint": "No milestone or gate; each item ships when convenient." },
+    { "id": "parked", "name": "Parked or deferred", "hint": "Waits for Kyler's word." },
+    { "id": "later", "name": "Later", "hint": "Wanted, not yet scheduled." }
+  ],
+  "process": {
+    "summary": "How a change travels from Kyler's decision to the live site, and how the documents record it.",
+    "nodes": [
+      { "id": "kyler", "title": "Kyler decides", "text": "Every decision is recorded once in PLAN.md §20 with the next free D-number; superseded ones move to docs/archive/decisions.md. Defaults a session chose while Kyler was away sit in docs/decisions-pending.md until he overrules or accepts them.", "stat": "decisions" },
+      { "id": "roadmap", "title": "ROADMAP orders the work", "text": "ROADMAP.md holds the open steps in one order (the release gate, then the post-release list, then the rest) with what each delivers and what blocks it. Finished steps move verbatim to docs/archive/roadmap.md.", "stat": "order" },
+      { "id": "sessions", "title": "Sessions build on branches", "text": "The milestone session (Opus 5.5) builds the core, water and generator; the page session (Fable 5.1) builds the page; the renderer session builds moving water and renderer R1. Each works in its own worktree and branch; Codex builds investigations on investigation/<name>.", "stat": "sessions" },
+      { "id": "pr", "title": "A PR into dev, green", "text": "Nothing merges into dev red (D341). CI runs the quick suite, byte checks on generated maps, the retired-terms check and the determinism smoke. A docs-only change skips the heavy jobs.", "stat": "prs" },
+      { "id": "kyler-eye", "title": "Kyler's eye", "text": "Acceptance covers only what a player would notice or what would break (D115). Visual work is judged from captures against docs/PERFECT.md; probe batches play maps in the real game.", "stat": "waiting" },
+      { "id": "tag", "title": "Tag <step>-done", "text": "A step Kyler approves is tagged on its green dev commit. Released steps' tags: git tag -l '*-done'.", "stat": "tags" },
+      { "id": "release", "title": "Merge into main, deploy, live check", "text": "tools/release.sh opens a PR from the tag into main, merges it as a merge commit, watches the GitHub Pages deploy and the live check. If the live check fails, the release merge is reverted.", "stat": "release" },
+      { "id": "record", "title": "STATUS and the Progress log", "text": "docs/STATUS.md is rewritten at every step and stop (no history); every finish, release, batch or park gets a comment on issue #57; living docs are updated in the same PR (D188).", "stat": "log" }
+    ],
+    "sideFlows": [
+      {
+        "from": "sessions",
+        "to": "pr",
+        "label": "Codex: investigation/<name> → merged as an investigation at a boundary → Kyler's verdict → adopted into src/ (or not)"
+      },
+      {
+        "from": "kyler-eye",
+        "to": "roadmap",
+        "label": "Anything Kyler finds in the water or the editor's core blocks the release until fixed (D385)"
+      }
+    ]
+  }
+}
