@@ -61,11 +61,13 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 35 since D252's start planting, D148: the test needs four stretches of flat, dry, empty
-  // ground at level 4 or above for the pits, the stroke, the plateau and the Select tool, and a mine
-  // site standing unturned; seed 24, used since M9a's first maps, now has room for only two, and
-  // 0.7.0's 4242 for none)
-  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
+  // (seed 34 since batch 5, seed 35 since D252's start planting, D148: the test needs four stretches
+  // of flat, dry, empty ground at level 4 or above for the pits, the stroke, the plateau and the
+  // Select tool, and a mine site standing unturned; seed 24, used since M9a's first maps, had room for
+  // only two, and 0.7.0's 4242 for none. Seed 34 on M9b's maps: its two flat pits once filled with
+  // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
+  // stays)
+  await openEditor(page, "s=34&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

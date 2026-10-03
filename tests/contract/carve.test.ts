@@ -23,7 +23,7 @@ import { storedWater } from "../../src/core/format/world";
 import { oxbowBasin, oxbowLake } from "../../src/core/forces/carve/water";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
-import { TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
+import { SETTLE_DAYS, TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -522,12 +522,15 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("an oxbow lake's water is kept with its carve: the map settles with it, the project and the file keep it, and undo takes it away", () => {
-    // (a carve that cuts a bend off on 0.7.0's maps, M9a: Canyon 96² seed 5, from the southwest
-    // toward the northeast; seed 1's course leaves no oxbow now)
-    const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
+    // (a carve that cuts a bend off and seals its lake on 0.8.0's maps: Highlands 96² seed 2, from
+    // (48, 86) toward (48, 10); Canyon 96² seed 5 until M9b turned and replanned the land, seed 11
+    // until its water took the game's rules, seed 22 until batch 5 raised the land on its floor, seed
+    // 44 until D333's maps, where no Canyon seed to 400 seals one; Highlands 96² seed 8 with the carve's seed 4 since
+    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none, D148)
+    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [20, 80], 1200, {}, [76, 16]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 4, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
@@ -536,10 +539,11 @@ describe("a carve in the document (breakage rule)", () => {
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
     // only the lake still changes, by evaporating: the water has settled (D222), the settle stops
-    // there, well before its cap (D413), and the quiet dot says so
+    // there, before its cap (D413), and the quiet dot says so (on M9b's Highlands 8 the rest of the
+    // water steadies after four days, 3,072 ticks; the cap is SETTLE_DAYS, D358)
     expect(s.built.settle.settled).toBe(false);
     expect(s.built.settle.steadyTicks).toBe(s.built.settle.ticks);
-    expect(s.built.settle.ticks).toBeLessThanOrEqual(TICKS_PER_DAY);
+    expect(s.built.settle.ticks).toBeLessThan(SETTLE_DAYS * TICKS_PER_DAY);
     // the lake is stored with the water its carve kept (D413): it stopped draining before saving,
     // and the game evaporates it from there. This carve kept it mid-flow (its surface 2 to 12 over a
     // rim at 4), so it is stored at rest, levelled into its hollow up to its lowest rim (the release
@@ -647,7 +651,7 @@ describe("a carve at work in the editor's worker", () => {
     for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
     expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
-    // (the water stays as it was: no frame carries any)
+    // (no frame carries water: a carve's own flows as a stroke's does, carveBornAsItCuts.test.ts)
     expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
     const back = ed.carveCancel();

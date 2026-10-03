@@ -113,8 +113,12 @@ export function runModel(bytes: Uint8Array, name: string, cycles: Cycle[], endDa
     const d = model.sim.D[i];
     return { depth: d, contamination: d > 0 ? model.sim.C[i] : 0, surface: model.sim.F[i] + d, moisture: model.M[i], soilContamination: model.SC[i] };
   };
+  // The game shows its water one simulation step behind its clock: each tick runs FinishParallelTick
+  // (step T−1 lands), then the singletons (the clock reaches T, ThreadSafeWaterMap copies, the probe
+  // reads), then StartParallelTick (step T). So the model's state after T−1 ticks is what the game shows
+  // at tick T. Aligned so, the 2026-09-29 samples agree to 1e-6 through a drought's ramps (M9b progress).
   const take = () => {
-    const now = day();
+    const now = day() + 1 / TICKS_PER_DAY;
     while (sDays.length && now >= sDays[0] - 1e-9) {
       sDays.shift();
       out.samples.push({ day: now, tiles: tiles.map(([x, y]) => tileOf(x, y)) });

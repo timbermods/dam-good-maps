@@ -45,7 +45,9 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   // brush's options take two lines; the map is framed whole and centred, D345 B1, so the view is centred on the
   // two spots below, clear of the rows)
   await page.setViewportSize({ width: 1280, height: 960 });
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  // (seed 4244 on M9b's maps, D148: 4242's highlands have no 13 × 13 dry patch below level 12 twice 14 tiles
+  // apart far from the start; 4244 has one at (16, 56))
+  await openEditor(page, "s=4244&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 

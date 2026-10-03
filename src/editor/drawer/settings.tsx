@@ -8,7 +8,7 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import { clone } from "../../core/spec/mergepatch";
 import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
-import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, LAKE_CHOICES, limitsText, OFF_SOME, reserveGuard, RESERVES, STYLES, type Choice } from "../../ui/settingsModel";
+import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, highestMax, LAKE_CHOICES, limitsText, OFF_SOME, reserveGuard, RESERVES, setVerticality, SOURCES, STYLES, type Choice } from "../../ui/settingsModel";
 
 export interface SettingsProps {
   spec: MapSpec;
@@ -48,6 +48,7 @@ export const HINT: Record<string, string> = {
   relief: "How much the land rises and falls",
   verticality: "How steep and tall the cliffs and slopes are",
   highest: "The highest level the land may reach",
+  variety: "How far the land strays from its theme",
   terracing: "How much land is cut into terraces",
   buildable: "Flat land to build on",
   rivers: "How many rivers cross the map",
@@ -56,6 +57,7 @@ export const HINT: Record<string, string> = {
   reserve: "Water kept to last through a drought",
   lakes: "How many lakes and basins the map has",
   falls: "How many waterfalls the rivers make",
+  sources: "Keep the water sources, or start with none",
   badwater: "Badwater on the map",
   "badwater-distance": "Badwater's distance from the start",
   thorns: "Thorns that block some ways",
@@ -180,8 +182,9 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
       return (
         <>
           <Slider id="relief" label="Relief" value={s.terrain.relief} min={0} max={100} band={band("relief", spec)} onChange={(v) => set((c) => (c.terrain.relief = v))} />
-          <Slider id="verticality" label="Verticality" value={s.terrain.verticality} min={0} max={100} band={band("verticality", spec)} onChange={(v) => set((c) => (c.terrain.verticality = v))} />
-          <Slider id="highest" label="Highest terrain" value={s.terrain.highestTerrain} min={10} max={16} band={band("highestTerrain", spec)} onChange={(v) => set((c) => (c.terrain.highestTerrain = v))} />
+          <Slider id="verticality" label="Verticality" value={s.terrain.verticality} min={0} max={100} band={band("verticality", spec)} onChange={(v) => set((c) => setVerticality(c.terrain, v))} />
+          <Slider id="variety" label="Variety" value={s.terrain.variety} min={0} max={100} band={band("variety", spec)} onChange={(v) => set((c) => (c.terrain.variety = v))} />
+          <Slider id="highest" label="Highest terrain" value={s.terrain.highestTerrain} min={10} max={highestMax(s.terrain.verticality)} band={band("highestTerrain", spec)} onChange={(v) => set((c) => (c.terrain.highestTerrain = v))} />
           <Slider id="terracing" label="Terracing" value={s.terrain.terracing} min={0} max={100} band={band("terracing", spec)} onChange={(v) => set((c) => (c.terrain.terracing = v))} />
           <Pick id="buildable" label="Buildable land" value={s.terrain.buildableLand} choices={BUILDABLE} band={band("buildableLand", spec)} onChange={(v) => set((c) => (c.terrain.buildableLand = v))} />
         </>
@@ -202,6 +205,7 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
           />
           <Pick id="lakes" label="Lakes and basins" value={s.water.lakes} choices={LAKE_CHOICES} band={band("lakes", spec)} onChange={(v) => set((c) => (c.water.lakes = v))} />
           <Pick id="falls" label="Waterfalls" value={s.water.waterfalls} choices={FALLS} band={band("waterfalls", spec)} onChange={(v) => set((c) => (c.water.waterfalls = v))} />
+          <Pick id="sources" label="Sources" value={s.water.sources ?? "placed"} choices={SOURCES} band={band("sources", spec)} onChange={(v) => set((c) => (c.water.sources = v))} />
         </>
       );
     case "Hazards":
@@ -243,7 +247,7 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
           <Slider id="ruins" label="Ruins and scrap" value={s.resources.ruins} min={25} max={300} step={5} unit="%" band={band("ruins", spec)} onChange={(v) => set((c) => (c.resources.ruins = v))} />
           <Pick id="relics" label="Relics" value={s.resources.relics} choices={OFF_SOME} band={band("relics", spec)} onChange={(v) => set((c) => (c.resources.relics = v))} />
           <Pick id="geothermal" label="Geothermal fields" value={s.resources.geothermal} choices={OFF_SOME} band={band("geothermal", spec)} onChange={(v) => set((c) => (c.resources.geothermal = v))} />
-          <Slider id="mines" label="Mine sites" value={s.resources.mineSites} min={1} max={4} band={band("mineSites", spec)} onChange={(v) => set((c) => (c.resources.mineSites = v))} />
+          <Slider id="mines" label="Mine sites" value={s.resources.mineSites} min={2} max={4} band={band("mineSites", spec)} onChange={(v) => set((c) => (c.resources.mineSites = v))} />
         </>
       );
     case "Difficulty":

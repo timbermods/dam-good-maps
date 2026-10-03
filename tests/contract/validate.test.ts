@@ -80,15 +80,15 @@ describe("validation profiles (PLAN §19.5)", () => {
     for (const p of ["generate", "export", "import"] as const) expect(blocks(p, { ...adv, ok: false })).toBe(false);
     // the map objects' placement check applies to a map with relics, fields and mine sites (M7), and
     // is not applicable, never blocking, on a map without them. Every generated map has a mine site
-    // (Kyler, 2026-09-25), so the map without them is a generated one with its objects taken out of
-    // its plan (D148: this used to ask for no mine sites)
+    // (Kyler, 2026-09-25; two since item 47), so the map without them is a generated one with its
+    // objects taken out of its plan (D148: this used to ask for no mine sites, then one)
     const ex = r.report.checks.find((c) => c.id === "extras.placement")!;
     expect(ex.applicable).not.toBe(false);
     expect(ex.ok).toBe(true);
-    const none = { ...spec.settings, hazards: { ...spec.settings.hazards, thornBelts: "off" as const }, resources: { ...spec.settings.resources, relics: "off" as const, geothermal: "off" as const, mineSites: 1 } };
+    const none = { ...spec.settings, hazards: { ...spec.settings.hazards, thornBelts: "off" as const }, resources: { ...spec.settings.resources, relics: "off" as const, geothermal: "off" as const, mineSites: 2 } };
     const bare = generate({ ...makeSpec({ seed: 4242, size: { x: 96, y: 96 } }), settings: none });
     const noObjects = bare.features.filter((f) => f.kind !== "mapObject" || !(f.params.kind in EXTRA_BANDS));
-    expect(noObjects.length).toBe(bare.features.length - 1);
+    expect(noObjects.length).toBe(bare.features.length - 2);
     const na = validateBuilt(bare.spec, noObjects, bare.built).report.checks.find((c) => c.id === "extras.placement")!;
     expect(na.applicable).toBe(false);
     expect(na.ok).toBe(true);

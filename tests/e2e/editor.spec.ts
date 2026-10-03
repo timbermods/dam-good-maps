@@ -22,11 +22,14 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("open → edit → Generate replaces the map without asking and Your maps keeps the edits → a reload brings the open map back", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 4244 since M9a, D148: on 0.7.0's 4242 the start stands on a floodplain a level above the
-  // river's outlet, and the spring below floods it, halving the land it walks to: the checks then
-  // warn of its berries and wood, rightly)
-  // the editor opens the generated map in 3D at once
-  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (seed 4262 on M9b's maps, D148: the edited 4261 shows a geothermal field within 2 tiles of water, a
+  // thing to look at; seed 4261 since D333, D148: on 4254's map the start moved two tiles west has little wood and
+  // its plants dry out in a drought, which the quiet dot rightly counts; seed 4254 since batch 5,
+  // 4244's berries drying out; seed 4244 since M9a: on 0.7.0's 4242 the start stood on a floodplain
+  // a level above the river's outlet, and the spring below flooded it)
+  // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
+  // refine: the editor opens the generated map in 3D
+  await openEditor(page, "s=4262&z=96&d=n&t=riverValley");
   await expect(page.getByRole("heading", { name: "River Valley" })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Top-down" }).click();
@@ -106,7 +109,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 60_000 });
   const download = page.waitForEvent("download");
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4244.timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4262.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);
@@ -170,8 +173,9 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   await page.evaluate(() => window.dgmEditor!.idle());
   expect((await info(page)).edits).toBe(1);
   expect((await info(page)).history.at(-1)!.label).toBe("Delete a level of ground");
-  // hover reads the tile in plain words
-  const q = await page.evaluate(() => window.dgmEditor!.tileToClient(40, 40));
+  // hover reads the tile in plain words (a tile of the start's own dry pad: (40, 40) is water on
+  // D333's map, D148)
+  const q = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [start.position[0] + 2, start.position[1]] as [number, number]);
   await page.mouse.move(q.x, q.y);
   await expect(page.locator(".readout")).toContainText(/height \d+/i);
 });

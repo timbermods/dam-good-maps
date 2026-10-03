@@ -39,7 +39,7 @@ DIFFICULTY = {
                "drought_days": 4, "colony": 40},
     "normal": {"water_dist": 20, "wood_r20": 200, "bushes_r20": 30, "badwater_min": 15, "ruin_min": 15,
                "drought_days": 9, "colony": 50},
-    "hard":   {"water_dist": 28, "wood_r20": 0, "bushes_r20": 20, "badwater_min": 8, "ruin_min": 12,
+    "hard":   {"water_dist": 28, "wood_r20": 0, "bushes_r20": 30, "badwater_min": 8, "ruin_min": 12,
                "drought_days": 30, "colony": 50},
 }
 

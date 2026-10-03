@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { planContextOf, planLake, planLandform } from "../../src/core/doc/tools";
 import { writeTimber } from "../../src/core/format/timber";
-import { generate } from "../../src/core/gen/generate";
+import { generate, MAX_ATTEMPTS } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { staleWater } from "../../src/core/sim/preview";
 import { waterModel } from "../../src/core/sim/model";

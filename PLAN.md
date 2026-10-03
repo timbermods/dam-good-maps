@@ -219,9 +219,10 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Range | Default | Maps to |
 |---|---|---|---|
 | Relief | Gentle 0 – 100 Dramatic | 55 | Height range p5–p95 = 7 + 0.08·relief levels (official 9–15, median 13); cliff-tile share 0.06 + 0.0018·relief (official 0.07–0.24, median 0.16). |
-| Highest terrain | 10 – 16 | 16 | Terrain never exceeds this; 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (D172). |
+| Highest terrain | 10 – 22 | 16; 22 at Verticality 70+ | Terrain never exceeds this; 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (D172). The default follows Verticality (16 below 70, 22 from 70; M9b, decisions-pending #139); a link from before 0.8.0 at Verticality 70+ with 16 reads as 22. |
 | Terracing | Smooth 0 – 100 Distinct | 50 | The share of height steps that are one level: 0.86 − 0.0059·terracing (official median 0.62). |
 | Buildable land | Tight, Normal, Generous | Normal | Land walkable from the start through slopes of at least 750 / 1,300 / 2,500 tiles (official median 1,296), flat share 0.40 / 0.52 / 0.60; it shapes the valley floor's width, the terrace edges and where the cliffs go. |
+| Variety | 0 – 100 | 70 | How far the land strays from its theme's ranges (`vy`, M9b, D276); at 100 anything goes. A spec stored before it opens with 70. |
 
 ### 5.3 Water
 
@@ -232,6 +233,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | River flow | Trickle, Normal, Strong, Lush | Normal | Total clean source strength: 0.6× / 1× / 2× / 4× the size-aware official median (medium 2.2, large 1.2, max 1.1 per 10k tiles; Lush is about the workshop median), in sources mostly 0.5 each, in rows of 3–8 across a channel. It sets river size and how fast reservoirs refill, **not** drought survival. |
 | Drought reserve | Scarce, Normal, Plenty | Normal | Minimum stored water near the start, as a multiple of the colony's drought need (§11.4): 1× / 1.5× / 3×. This is what makes droughts forgiving. It is information the generator prefers, never a guard (#67): a larger reserve than the theme's adds valley lakes and has the generator try up to four more attempts for natural water or a dam site holding the need; a smaller one takes valley lakes away. Not every combination fits a small map: reservoirs are 2 deep on Easy and Normal and 3 on Hard (Hard with Normal needs about 590 tiles, with Plenty 1,170), so the panel disables combinations whose reservoir would exceed 15% of the map area and says why (smallest sides: Normal with Plenty 51, Hard with Scarce 52, Hard with Normal 63, Hard with Plenty 89); every size preset fits every combination. |
 | Lakes and basins | None, Few, Some, Many | Some | Natural basins of 20+ tiles that hold water without a dam: 0 / 0.5× / 1× / 2× the official median for the size (small 1.5, medium 4, large 15.5, max 15), as riverside ponds the river keeps full and that keep their water through a drought. |
+| Sources | Placed, None | Placed | **None** (D330, D331; the UI brief §8): the map as generated, then every water and badwater source and its water removed, keeping the dry valleys, basins and pits they carved, the trees and bushes as generated. Item 47's water must-haves don't apply: the water checks say "No water source" as information until a source runs. Share link `so=n`; Real places take it too. |
 | Waterfalls | Off, Few, Many | Few | Bed drops of 2+ levels: 0 / 1–2 / 3–6, on rivers, carrying their flow, 1–9 tiles wide like official falls (§9.2). |
 
 ### 5.4 Hazards
@@ -255,7 +257,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). |
 | Relics | Off, Some | Some | 1–3 small (13–70 tiles out), 1–2 medium (40–140) from 128² (0–1 below), one large (140+) from 192². |
 | Geothermal fields | Off, Some | Some | 30–120 tiles out, flat, dry, outside flood reach: 1 / 2 / 3 by size (under 128², from 128², from 192²). |
-| Mine sites | 1 – 4 | 1 / 2 / 3 / 3 by size | Every map has at least one (old links with 0 open with 1). Flat 5×5 with a level ring, dry, 60+ tiles out (official 24–173, median 89): 80+ where there is room, and on ground the colony walks to when there is any at that distance. |
+| Mine sites | 2 – 4 | 2 / 2 / 3 / 3 by size | Every map has at least two the colony reaches from its start without crossing water or climbing a cliff, at least 24 tiles out (item 47, D325, D363; old links with 0 or 1 open with 2); maps under 80² need only one reached (D333 (7)). Flat 5×5 with a level ring, dry, 60+ tiles out where there is room (official 24–173, median 89), their ground levelled while the land is shaped (D363, `land/minePads.ts`). |
 
 The resource amount checks are information: a warning under half the official median at the map's settings, never a
 reason to reject a map (`src/core/resources/` places them for generated maps and Real places alike). On maps under
@@ -387,8 +389,10 @@ Maps are grown, not drawn (D108, D208, D209). `generate` (`src/core/gen/generate
    features rasterize to: `build` is the shared pipeline of §19.8, the same code the editor runs after every edit.
    Set pieces (§9) are shared builders (§19.3).
 
-Planned (M9b, D275): each finished map is rotated or mirrored into one of its 8 orientations, so all 8 appear and none
-over a quarter; the flow axis is not drawn during layout. §7.1–§7.4 (concept, macro layout, set pieces, terrain) were
+Each map is turned into one of its 8 orientations, so all 8 appear and none over a quarter (D275, `land/orient.ts`): the
+land is turned right after the field is made, from a random stream of its own, and the rivers, the start and the objects
+are found on the turned land; a map that is not square takes the 4 orientations that keep its sides. The flow axis is not
+drawn during layout. §7.1–§7.4 (concept, macro layout, set pieces, terrain) were
 the layout-band planners the processes replaced; they are in the archive.
 
 ### 7.0 Normalise
@@ -440,6 +444,10 @@ amended). What an edit leaves out of reach is reported by the checks, never repa
      as a spring at a valley's head or below a ridge, never inside a river or lake another source already fills and
      never downstream; more flow comes from more sources side by side at the head, or from their strength; each
      tributary has its own source at its own head (`water.source_in_flow`, §11.3).
+   - **A river's water runs its planned course** (D447): no lower water on a channel's bank takes it before its
+     course ends. A course with another river's channel or a lake on its bank, lower than its bed, runs down to that
+     water's level there; an arm of a fan or a split cut across a tributary takes the tributary down to its level
+     from there; an oxbow lake keeps a bank to every water but at its join.
    - **Maps need not hold their water** (D152): rivers leave the map at their own level, lakes may drain, and nothing
      is built along the map's edges to keep water in (no edge walls, D151, `terrain.edge_wall`, §11.2). The sealed
      mouths above are how a river enters, not a wall. The badwater basin's rim holds badwater, not the map's water,
@@ -487,11 +495,31 @@ map from the same seed. After `MAX_ATTEMPTS` (12) attempts, show the best failin
 
 ### 7.9 Candidates
 
-Each attempt builds one candidate. Planned (M9b; D273, D278, replacing the 12-component score and K = 3): the
-generator makes candidates until one meets the five outcomes (the theme's signature, at least one standout
-intention, readable water), within a capped number of attempts, showing the first candidate at once and progress
-after it, never a frozen wait. Only true near-duplicates of other maps are rejected; resemblance is otherwise
-information (D223). Another like this makes one sibling per click (D278).
+Each attempt builds one candidate (D278, D325, D329, D348; replacing the 12-component score and K = 3). The first
+candidate that passes the absolutes (plays exactly right, the starting-logs floor, item 47's must-haves) is the map,
+shown at once and never swapped. Its outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
+`analysis/signature.ts`, `gen/outcomes.ts`; a standout intention); when it misses the promise or readable water, a worker
+of its own looks for a sibling that meets all three (`gen/versions.ts`, up to 6), and only a missed promise gets a note
+naming what the version has (D333 (5)). Only true near-duplicates are rejected; resemblance is otherwise information
+(D223). Another like this makes one sibling per click (D278).
+
+**The first land shown is the map** (D348, D370): a land is shown once it passes every check the land alone can judge,
+and is never replaced. Those checks: its courses; no inflow's head under water held downstream; the Rivers count; no
+source in a flow; no wall along an edge; a start on the planned water its land holds, a second place for one, and room
+for the mine sites (D363); no slow sea over a shelf (D358); no ground above 16 unless tall; no ruler-straight channel or
+dam wall on its planned water, its lakes' banks read alone, and no dam wall on the pre-fill alone (its water under 0.2
+deep left out). At 128² and under (`SHOW_PROVED_MOST`, small starts, #153) it is shown only once its actual settled
+start reaches its mine pair, so a land whose settled start fails can still be drawn again; above 128² it is shown at
+once, for D278's time to editable land (a default for Kyler). A land whose planned water misses the promise or a
+readable story is drawn again first (up to 6 lands at 128², 4 to 192², 3 above). The planned water is read as its land holds it (`plannedWater` with `held`). The badwater
+hollows are dug and the mine sites' and start's pads levelled (`land/minePads.ts`) while the land is shaped. What needs
+settled water is fixed on that land: the start moves to another on the same settled water (three in all), gets a spring
+by it (D330), or is planned again; the mine sites the colony reaches are read by one function (`validate/playability.ts`
+`colonyReach`, `minesReached`, D342) for the check and the generator alike. Water that does not settle (D350): outlets
+are widened while the land is shaped (`levels.ts` `widenOutlets`, `carveOutlets`); a rising basin at 256² in River
+Valley or Lake Basin, or a sea still rising at 256², is fed more gently (0.7, 0.49, 0.343 of its feeders, recorded in the features), and a prepared land
+keeps its heights: the worn way out (`water/outletWear.ts`) no longer runs on generated maps (generation speed round 2,
+#155; a default for Kyler against D350 (b)). The settle runs up to 6 game days (D358).
 
 ### 7.10 Output
 
@@ -512,7 +540,17 @@ genome's ranges, and Variety and intentions vary the land within. No theme's map
 The presets are §6's; there is no per-theme layout planner and no table of named premises or landmark variants (D275,
 D278); the named premises that became intentions are in design version 2 §6 (`docs/archive/m9-design.md`) and D274.
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
-waterfall-lake intentions (D209).
+waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
+draws one of D209's sea layouts, islands with relief of their own and springs on them, inside a rim whose line wanders,
+rounded at the corners; on three sea maps in four the sea lies off the middle and broad headlands break the land round
+it, an inland sea in a ring of land on the fourth; its start may stand on an island that holds what it needs (D410,
+D411), not required (D429). Delta's river
+comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
+direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
+narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
+Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
+basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
+curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
 
 ---
 
@@ -753,8 +791,9 @@ each tile's saturation modifier, shared over the flat pool (0.0535 a day on wide
 corners); colony drinking is 0.424 per beaver per day. A test compares this with running the sim with sources off for
 9 days on fixtures with basins: they agree within 5% of the stored volume.
 
-**Performance.** The active set must be exact: wet cells plus their 4-neighbours, recomputed every substep and kept as
-an index list rather than a full-grid scan (a once-per-tick set changed the settled volume by 5%). The settle starts
+**Performance.** The active set must be exact: wet cells plus their 4-neighbours, exact every substep and kept as
+an index list rather than a full-grid scan (a once-per-tick set changed the settled volume by 5%); it is kept up to
+date as tiles turn wet or dry rather than rebuilt (D359). The settle starts
 from the priority-flood fill, which roughly halves its ticks. The canonical settle is computed from the document alone (§19.7). Measured (M2): 0.07 s at 128² and 0.39 s at 256² for
 River Valley at Normal; Lake Basin is the slow theme, 1.15 s at 128² and 3.0 s at 256² (D68). CI reports the 256²
 settle median on every push as a number that never fails a build (D145). The editor's interactive preview re-settles
@@ -911,8 +950,11 @@ A generated map's name in the game's list is its theme's, or "Dam Good Map" for 
 description (`map_metadata.json`) says what it is, its size and difficulty, its badwater (the No badwater choice is
 recorded, D200) and, on a map whose land rises above 16, that the game's map editor edits only up to level 16 (D172).
 The saved file is `dgm-<theme>-<seed>.timber` (a seed typed as a word made file-safe; a real place or an opened file by
-its name; D345, B10). Planned (M9b; D274, D278): a name and a one-line "how it plays" description from the map's
-standout intention and its read-back features, checked on 30 hand-checked maps (10 at Variety 100).
+its name; D345, B10). The map card's name and one-line "how it plays" description (D274, D278, `gen/names.ts`) come from the standout
+intention (a few titles each, some with the land's noun), chosen by the seed and never a title the names study forbids
+(`core/data/forbiddenNames.json`); a map without a standout takes a plain name from its land. The line is the
+standout's sentence and one thing read from the map (the start's water in the first drought, a dam site near the start,
+where the badwater lies, the woods). The in-game file's name and description are unchanged.
 
 ---
 
@@ -946,6 +988,9 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 ### 14.3 Map card
 
 - **Map card:** the name and description; key facts (size and theme, sources and strength, badwater, trees with their
+- **Another like this** (D278 (1c)): a sibling of the map shown, one per click, on the page and in the editor's menu:
+  the same theme, settings and intentions on different land (D143), with its own share link (`vr=`, `in=`); a sibling
+  whose land matches the map it came from (85% of tiles within a level) is passed over for the next.
   living share, bushes, scrap and ruin fields, the start's distance to water, the start rules of §5.6 with the starting
   wood and the logs still growing); the validation report, all green with a count or the failures expanded.
 
@@ -1077,6 +1122,9 @@ reproduces its map without running the retry loop again).
   water, wood, food and reachable land within a tolerance, and a minimum separation). Until then the schema accepts
   only `{count: 1, mod: "none"}`, and nothing may assume a map has one start in a way that would block this.
 - Imported maps have no spec (`spec: null` in the document); their difficulty comes from `meta.designedFor`.
+- M9b's fields: `settings.terrain.variety` (Variety, `vy`, 0–100, default 70; a spec stored before it opens with the
+  default); `variation?` (Another like this: the sibling's index, `vr`) and `intentions?` (the intentions a sibling
+  keeps, at most 2, `in`).
 
 ### 19.2 Parametric features
 
@@ -1255,7 +1303,7 @@ the `.timber` in the artifact, whose downloads allowlist has no `.timber`).
 ## 20. Editor decisions
 
 These are the decisions in force, by topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](docs/archive/decisions.md); a number missing here is superseded or completed there.
-New decisions are written here once, under their topic, with the next free number (D461; only the milestone session hands out numbers), and move to the archive when superseded or completed.
+New decisions are written here once, under their topic, with the next free number (D467; only the milestone session hands out numbers), and move to the archive when superseded or completed.
 
 ### How we work (sessions, models, reviews, documents, merging, releases)
 
@@ -1274,6 +1322,9 @@ New decisions are written here once, under their topic, with the next free numbe
 - **D316** (with D380) *(tightened by D454; D380's speed gate superseded by D453)*: Compute is a resource, effort matches the stakes, quality is never compromised (top of CLAUDE.md and HANDOFF; every session, agent and investigation, and prompts from the planning chat and Codex). Invest in what compounds (reusable code, findings kept concise and findable, the project's history); spend little on what doesn't (one-off reports, ceremonial captures, re-verifying by hand what's verified, speculative edge cases, measures no decision uses); cheap automated checks stay broad (what's cut is agent time, not safety nets); verify deeply where failure is expensive and hard to see (the water matching the game, files the game loads, saved projects opening, determinism behind share links, release gates). Reports are short; a measure that drives no decision is information. Use the cheapest model and effort that does the job; before any report, measurement or manual check ask whether it will be used again or changes a decision, and where a prompt asks for more, follow it and say so in one line. Performance is part of what perfect means (D380; PERFECT.md, CLAUDE.md): every feature meets its speed budget before it ships, and a speed regression blocks a merge like a failing test (measured in a quiet window; the smoothness investigation's harness gates the renderer and moving water).
 - **D301** (with D251, D317, D318, D341, D389): The model plan (the `.claude/agents/` definitions, which name full model ids, and HANDOFF's table): Opus where judgment is the product, Sonnet where the job is written down, scripts where it's only waiting. The milestone session is Opus 5.5 at high. `m9b-build` (Opus 5.5, xhigh) builds M9b; `build` (Opus 5.5, high) builds the forces, editor changes, the water and 3D engines, the generator's processes, Erode and the like (anything touching the water simulation, the generator or the forces stays there); `build-light` (Sonnet 5.5, high) builds from a written spec (mechanical merges and CI fix-ups without real conflicts, review sets and contact sheets, work touching layout or other work's tests, the document prune), going back to `build` if it needs judgment on the water, generator or forces; `build-light-medium` and `routine` (Sonnet 5.5, medium) take self-contained mechanical work (docs, routine fixes, re-pins, test updates within one area, recording decisions, STATUS, the Progress log). Waiting is done by background scripts that report when they finish, never by an agent polling. Never use Fable unless Kyler explicitly asks (he has, for the page session and D386's review); never raise any model's effort on your own; never start sub-agents at max. Screenshots and captures are downscaled before a model reads them unless the detail is what's judged.
 - **D388** (with D384–D386): Two sessions. The milestone session handles everything except "The page is the editor" and its design; a page session (Fable 5.1, high) does only the page, in its own worktree and branch `feature/page`, started once the prune has landed. The page session owns the page, the editor's interface, Editor.tsx and its split; the milestone session owns the core, the water, the generator, its documents and PLAN §20's numbering, STATUS and HANDOFF; neither touches the other's files. The page session records its design decisions in DESIGN.md and `docs/progress/page.md`, folded into PLAN when its work merges. **D384:** the design pass is in step 1, built with "The page is the editor" with Kyler's sittings at each checkpoint: it defines Dam Good Maps' own look, guided by `docs/UI-BRIEF.md` and Timberborn's warmth as the High look carries it, using the impeccable-app-flow skill, leaving a DESIGN.md; it may borrow from the timbermods "walnut lodge" palette but isn't bound by it; 3D's own controls are designed when 3D arrives; the frame is styled once, in the design pass (D296). **D385:** the water and the editor's core must be perfect before the next release; anything Kyler finds in them blocks it. **D386:** once Kyler is satisfied with the quality, before the next release, a whole-codebase coherence review on Fable 5.1 at high (dead code, duplication, inconsistent patterns, things built twice) with a cleanup plan.
+- **D461** (amends D386): The coherence review runs in a separate session on Kyler's PC once M9b is on `dev`: a report and a cleanup plan only, scoped to `src/core/`, `src/worker/` and `tools/`. The milestone session carries M9b through its release steps and merges it into `dev`; the release itself (the tag and `main`) waits for the review's report, then Kyler decides. Kyler, 2026-10-03.
+- **D462** (with D386, D461): The coherence review's eight decisions (#204): (1) edgeLip doesn't go into the forces; `edgeSources.ts` is deleted with the dead code; (2) old carve operations are converted to `forceResult` when a project opens, then the carve op's branches are deleted; (3) the six set pieces' replay sides are deleted with their planners; (4) `legend.ts` and `levers.ts` are deleted (the page has its own), and `library/strip.ts`, `saver.ts` and `when.ts` go too unless the page session says it uses them; (5) one rule for source-group member ids (only newly planned forces' ids change); (6) Naturalize's flood moves onto `land/drainage` (one re-pin if bytes move); (7) safe-water-uphill is deleted; (8) the water port fork is dropped at the Rust re-port, and Real places round 2 moves to the game's rules when unparked (D293). Kyler, 2026-10-03 (`docs/archive/feedback/2026-10-03-coherence-answers.md`).
+- **D463** (with D461, D442): The coherence review's cleanup (its ten groups) runs as PRs from a session on Kyler's PC once M9b is on `dev`, one group per PR in the report's order; the milestone session merges each when CI is green, in order. Group 4 (force planning into the core) lands before Codex's post-M9b forces step, which builds on it. Kyler, 2026-10-03 (`docs/archive/feedback/2026-10-03-coherence-answers.md`).
 - **D395**: "The page is the editor" is rebuilt fresh under D384's design pass; part 1 (`feature/page-editor-1`, #92) is not its base. Its headless core is salvaged onto `dev` first as core work (the legend and levers, `src/core/library/`, the thumbnail, the spec differ, `src/platform/yourMaps.ts`, `tools/first-visit-maps.ts` with D343's deploy step, and their contract tests; none of `src/page/`, `page.css`, `workbench/` or the page's e2e test); #92 is closed as superseded and its branch kept as a record until the new page ships; `feature/page` starts from `dev`. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-codex-verdicts.md`).
 - **D396**: The `/preview/` slot belongs to the page session while it works; the milestone session asks Kyler before publishing anything else there. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-codex-verdicts.md`).
 - **D398** (amends D388): Post-release item 3, moving water and the Flow view and then renderer R1, is handed to a **renderer session** on a separate machine, on branch `feature/moving-water`. The milestone session doesn't build them; it merges that session's PR when it is green and Kyler says yes. The smoothness investigation (#107) is merged as an investigation, its harness only and none of its fixes, since that harness is the renderer session's gate. Kyler, 2026-10-02.
@@ -1322,6 +1373,8 @@ New decisions are written here once, under their topic, with the next free numbe
 ### The generator
 
 - **D458** (with D453): Lake Basin round 2 is adopted on M9b. The ported patch is brought onto `feature/m9b` again, with Kyler approving the permission prompt. Kyler, 2026-10-03 (`docs/archive/feedback/2026-10-03-everything-open.md`).
+- **D464** (with D273 (2), D458): A Lake Basin map looks like a Lake Basin whatever its settings, intentions or siblings. The generator bug hunt's six findings (#205, `investigation/release-gate-generator`) are fixed as one PR into `feature/m9b` (`fix/m9b-generator-findings`) from a session on Kyler's PC, merged into M9b when CI is green, before M9b's release. Kyler, 2026-10-03.
+- **D466** (with D341, D449): The five settings experiments in the nightly suite (Verticality, Drought reserve, Lakes and basins, Waterfalls, Designed for: the shortfalls held for settings round 2) are marked as expected failures, each naming the held settings round 2; Designed for's is dropped when D449's core change lands. The Rust water switch (#212) goes ahead once the nightly is green. Kyler, 2026-10-03.
 - **D85** (with D104, D107, D153, D164, D227): The start requirements (§5.6, §11.4), with thresholds by difficulty (Easy / Normal / Hard), are the reasons to reject a map. (1) Water without stairs: clean pumpable water (depth ≥ 0.3, contamination < 0.05) with a walking path from the start to a shore tile over the map's own terrain and natural slopes (never player-built stairs) within 12 / 20 / 28 tiles' walk, measured to the shore tile, where a pump on that shore reaches the surface (0–2 levels below); rivers, lakes and ponds count (D153). (2) **Minimum starting wood** counts logs by each species' real yield (Pine 2, Birch 1, Oak 8, Maple 6, Chestnut 4, Mangrove 2; the Succulent yields water, not logs), only grown trees (saplings show separately, "plus about N logs growing"; dead grown trees count), within 20 tiles' walk: Easy 250, Normal 200, Hard none beyond the floor (D164, D227). (3) At least 40 / 30 / 20 living berry bushes (BlueberryBush) within 20 tiles' walk, slopes allowed, across any number of patches. "Living" means not dead and on soil where it survives at steady state (moist, dry-footed, clean); walks are bounded at 64 tiles. The thresholds are player settings (`sw`, Minimum starting wood `st`, Minimum starting bushes `sb`; changing Designed for resets them; imports use their difficulty's defaults) and the generator never aims below a minimum. The other start rules (badwater distance, defaults 30 / 15 / 8, range 8–60; ruin distance; stored drought water; walkable land `start.reach`) stay settings and generation targets with an advisory map-card warning and never reject a map. Unchanged load checks: the start's footprint on flat ground, a free entrance, exactly one start. `start.dry` keeps rejecting (water on the start is a broken start); lakeside starts stay a housekeeping item, and the floor rule (water counts only at or above the start's floor) applies only to water under roofs (D107, D145). `start.reach_water` is folded into `start.water`.
 - **D224** (with D227, D229, D252): The starting-logs floor, a hard requirement like "plays exactly right": every map, at every difficulty, has at least **the floor** of logs reachable on foot from the district center (over the map's ground and natural slopes, never stairs) within about 40 tiles' walk; without enough logs to build a Forester the game is over. It is computed from the game's own data for the installed version: the worst still-viable route to a Forester across both factions, plus the first essentials (a water pump, a dwelling and, for Iron Teeth, a Breeding Pod), plus about 10%, never below 120. **For 1.1.2.4-52e959e-sw it is 178 logs** (Iron Teeth's route 99: Inventor 12, Industrial Lumber Mill 20, Large Power Wheel 50, Forester 10 logs and 7 planks; plus Deep Water Pump 12, Barrack 40, Breeding Pod 10; 161; plus 10%; Folktails 88). `tools/log-floor.ts` computes it from `Blueprints.zip` and pins it with the game version in `src/core/data/log-floor.json`, recomputed whenever the game version changes. It is not configurable (Minimum starting wood only goes up from it; Hard may place its wood a longer walk away). A blocking check for generated maps, Real places and Pick a place; the editor shows it on the quiet dot without blocking export. It is met in varied, natural ways (groves along a river, a forest across a stream, oaks on a plateau, pines in a side valley; never the same forest beside every start), and the start's wood and berry planting is spread over the 20-tile walk, reading the land, so no two starts get the same ring within about 10 tiles; the contact sheet and a start-area sheet are checked for starts that look alike.
 - **D167** (with D168, D169, D170, D171): Resources like the official maps, for generated maps, Real places and Pick a place. Scrap ruins scale with map size (measured density by size, the Ruins setting moving around it), measured in scrap (15 per storey) so varied heights don't change a map's metal; ruins look and vary like the official maps (column heights 1 to 8 storeys, a few tall towers among shorter columns, irregular fields, the A to E variant mix). Trees: count per tile area, living and dead share (roughly two-thirds of official pines, oaks and birches are dead) and species mix scale with map size within the official typical range (25th–75th percentiles), varying from map to map, the Forests setting moving around that baseline; living on moist ground, dead on dry. Resources come in clusters by the official maps' measured clustering by size (berry bushes in patches, trees in groves with clearings between).
@@ -1436,6 +1489,7 @@ New decisions are written here once, under their topic, with the next free numbe
 - **D437** (amends D400) *(the corpus superseded by D453)*: The Rust forces' identity corpus (#158 round 3) checks 256² only: 2,000 native and 2,000 Node-Wasm cases and 500 per browser engine, per force; 128² and 512² are dropped (no map is larger than 256²). Codex runs it on Kyler's PC; adoption follows when #158 reads ready, under D381. Kyler, 2026-10-02.
 - **D438** (with D381, D281): New forces are built in Rust on top of the adopted Rust forces (#158), only after that adoption, never in TypeScript first. Erode waits for #158's adoption and is then built directly in Rust on the forces port (its investigation stays the reference). Kyler, 2026-10-02.
 - **D444** (with D381, D438, D442, D366): New forces built in Rust keep the refining loop fast and have a defined check from their first commit. (1) The forces adoption (D442 (c)) includes a watch rebuild: saving a Rust force's source rebuilds its Wasm and reloads it in the running dev server with no manual steps, so changing a Rust force feels like changing a TypeScript one; the water adoption (D442 (b)) uses the same mechanism if it fits cheaply. (2) A force with no TypeScript original (Erode, the Rift, Deposit, Carve's Maturity) is correct when, from its first commit, native, Node-Wasm, Chromium, Firefox and WebKit produce the same bytes (checked in CI as part of D366's determinism check, at a cheap count) and it has its own contract tests in the core (D342), including D356's visible effect at Power 0 and D368 (10)'s no added objects; its Codex investigation is the reference for behaviour and look only. Kyler, 2026-10-02.
+- **D465** (with D381, D442 (d), D342, D463): The Rust checks port (#207, `investigation/rust-checks`): 65,155 checks across 309 maps match the TypeScript exactly, native and Node-Wasm. Adoption follows in order: M9b on `dev`, the coherence cleanup's group 6 (the checks' walk graph), and the analysis's adoption (D442 (d)); then the comparison is rerun against `dev`, and the checks switch to Rust with their TypeScript deleted (D381). The inputs it hands back today (a facing outside the four, an unknown difficulty and the like) become one-line refusals in the Rust (D342), with no TypeScript fallback. The native binary is built reproducibly (no linker timestamp) when adopted. Kyler, 2026-10-03.
 - **D448** (with D381, D438, D442, D279–D281, D286): The stacked-column water engine for terrain above terrain (#71, `feature/terrain3d-a`: `src/core/sim/stack.ts`, `stackModel.ts`, `stackPrefill.ts`, `columns.ts`, `src/core/format/stacked.ts`) is never wired into `dev` in TypeScript: it is new exact computation, so under D381 Codex ports it into the same Rust water crate, after the Rust water's adoption, with the one-column fast path being today's water unchanged. #71's golden fixtures, verified against the game, are its identity check in every engine, with D366's three-engine check in CI. The foundations step (converting `core/terrain`, the build and the validators to runs) then wires in the Rust stacked engine; #71's TypeScript engine stays as the reference (the PR stays open) and is never adopted. Nothing else in the 3D steps' order changes. Kyler, 2026-10-03.
 - **D401** (with D366, D380): Portable maths (#171) is merged as an investigation and adopted narrowed: the one shared `portable.rs` for every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking maths never reaches a replay). Adopted only after a quiet-window timing shows no slowdown (D380) *(timing gate dropped by D441)*. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-codex-four.md`).
 - **D439** (with D316, D380, D435) *(timing work superseded by D453)*: No multi-hour measurement runs (profiling sessions, long timing series, extra quiet windows) unless Kyler says one is critical. Speed checks take minutes: the 6-cell smoothness check, or a short benchmark of the thing changed. Correctness and byte-identity checks run in CI or as needed. Tonight's 02:00 window (D414, D434) runs as planned. Kyler, 2026-10-02 (`docs/archive/feedback/2026-10-02-measuring-and-rust.md`).

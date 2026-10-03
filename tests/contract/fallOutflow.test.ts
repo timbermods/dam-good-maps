@@ -18,10 +18,11 @@ const SX = [1, -1, 0, 0];
 const SY = [0, 0, 1, -1];
 
 describe("the flow over a fall's lip, with the settle's outflows", () => {
+  // (on M9b's maps, D148: a lip over the map's edge is rare, rivers leaving at their own level; these two
+  // hold one each, Highlands 5's the finding above; dev's Highlands 8 and Delta 4 and 2 hold none)
   it.each([
-    ["highlands", 8, [63, 0]],
-    ["delta", 4, [127, 90]],
-    ["delta", 2, [127, 26]],
+    ["highlands", 5, [86, 127]],
+    ["canyon", 2, [127, 58]],
   ] as [ThemeId, number, [number, number]][])("%s %i: every lip, the map's edge included, pours the settle's outflow", (theme, seed, [ex, ey]) => {
     const W = 128;
     const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } })).built;

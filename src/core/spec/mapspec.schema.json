@@ -22,6 +22,8 @@
     "theme": { "enum": ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
     "archetype": { "enum": ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
     "premise": { "type": "string" },
+    "variation": { "type": "integer", "minimum": 0, "maximum": 999 },
+    "intentions": { "type": "array", "maxItems": 2, "items": { "enum": ["under-cliff", "landmark", "farmland-past-gorge", "safe-water-uphill", "falls-shield", "hidden-valley", "high-lake", "meeting-waters", "long-view", "snaking-river", "crater-rivers", "cliff-falls-lake", "oxbow", "stepped-lakes", "split-island", "twin-falls", "upper-lower", "hanging-valleys", "two-ways", "badwater-rich", "relic-pinnacle", "plug-lake", "district-behind"] } },
     "designedFor": { "enum": ["easy", "normal", "hard"] },
     "settings": {
       "type": "object",
@@ -31,13 +33,14 @@
         "terrain": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["relief", "highestTerrain", "terracing", "buildableLand", "verticality"],
+          "required": ["relief", "highestTerrain", "terracing", "buildableLand", "verticality", "variety"],
           "properties": {
             "relief": { "type": "integer", "minimum": 0, "maximum": 100 },
-            "highestTerrain": { "type": "integer", "minimum": 10, "maximum": 16 },
+            "highestTerrain": { "type": "integer", "minimum": 10, "maximum": 22 },
             "terracing": { "type": "integer", "minimum": 0, "maximum": 100 },
             "buildableLand": { "enum": ["tight", "normal", "generous"] },
-            "verticality": { "type": "integer", "minimum": 0, "maximum": 100 }
+            "verticality": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "variety": { "type": "integer", "minimum": 0, "maximum": 100 }
           }
         },
         "water": {
@@ -50,7 +53,8 @@
             "riverFlow": { "enum": ["trickle", "normal", "strong", "lush"] },
             "droughtReserve": { "enum": ["scarce", "normal", "plenty"] },
             "lakes": { "enum": ["none", "few", "some", "many"] },
-            "waterfalls": { "enum": ["off", "few", "many"] }
+            "waterfalls": { "enum": ["off", "few", "many"] },
+            "sources": { "enum": ["placed", "none"] }
           }
         },
         "hazards": {
@@ -87,7 +91,7 @@
             "ruins": { "type": "integer", "minimum": 25, "maximum": 300 },
             "relics": { "enum": ["off", "some"] },
             "geothermal": { "enum": ["off", "some"] },
-            "mineSites": { "type": "integer", "minimum": 1, "maximum": 4 }
+            "mineSites": { "type": "integer", "minimum": 2, "maximum": 4 }
           }
         },
         "start": {

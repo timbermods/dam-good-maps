@@ -7,6 +7,8 @@
 // problems warn and are noted in the map's description when the player exports anyway. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
+
+import { waterFix, type WaterFix } from "../core/doc/waterFix";
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -72,7 +74,7 @@ import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/v
 import { changedRect } from "../render3d/mesh";
 import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
-import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
+import { CarveRun, modelFor, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import { edgeAim } from "../core/forces/carve/edge";
@@ -291,7 +293,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components };
-    out.push({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
   }
   return out;
 }
@@ -383,14 +385,14 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice() };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids] };
 }
 
 /** The page has these objects already: every field it reads the same, a source's strength and a ruin's
  *  model among them (D368 (4): a strength changed alone was once not sent, and the source's label and
  *  row stayed on the old number). */
 function sameEntityView(a: EntityView, b: EntityView | null): boolean {
-  if (!b || a.count !== b.count || a.templates.join() !== b.templates.join() || a.owners.join() !== b.owners.join()) return false;
+  if (!b || a.count !== b.count || a.templates.join() !== b.templates.join() || a.owners.join() !== b.owners.join() || a.ids.join() !== b.ids.join()) return false;
   const eq = (p: ArrayLike<number>, q: ArrayLike<number>) => {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
@@ -981,6 +983,13 @@ export function hasSession(): boolean {
 
 export function check(op: EditOp): string[] {
   return need().check(op);
+}
+
+/** D330's automatic water fix (doc/waterFix.ts, the UI brief §5): the operations that fix the open
+ *  map's start water checks once its water settled (a spring by the start), or null; the page
+ *  applies them as one step. */
+export function waterFixOps(): WaterFix | null {
+  return waterFix(need());
 }
 
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
@@ -2218,6 +2227,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     heatSent: false,
     viewAt: -Infinity,
   };
+  startForceWater(force);
   return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb, gesture };
 }
 
@@ -2358,6 +2368,86 @@ export function forceAdvance(steps: number): ForceFrame | null {
   return forceFrame(f);
 }
 
+// ------------------------------------------------------------- a force's own water (D371)
+
+/** The water flowing on a carve's land as it is shown (D371): the map's own water, the carve's source
+ *  running from its first step, on the ground as each frame has it, so the river is born as it cuts,
+ *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
+ *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
+ *  settled water, as after any edit. A dry canyon has none. */
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array } | null = null;
+let forceWaterToken = 0;
+
+function startForceWater(f: NonNullable<typeof force>): void {
+  forceWater = null;
+  const token = ++forceWaterToken;
+  const p = f.play;
+  if (!p || p.run.settings.dry) return;
+  const m = p.map;
+  const model = modelFor(m);
+  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice() };
+  if (autoWater) setTimeout(() => void runForceWater(token), 0);
+}
+
+/** The force's water now, to flow on from (null: it has none). */
+function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
+  const w = forceWater;
+  if (!w || w.force !== f) return null;
+  const sim = w.sim;
+  return { model: w.model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+}
+
+function endForceWater(): void {
+  forceWater = null;
+  forceWaterToken++;
+}
+
+/** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
+ *  flows before the cut); its floor brought to the ground shown. */
+function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
+  const p = w.force.play!;
+  if (p.shown === 0) return false;
+  const h = p.map.heights;
+  for (let i = 0; i < h.length; i++)
+    if (h[i] !== w.ground[i]) {
+      w.model.floor[i] += h[i] - w.ground[i];
+      w.ground[i] = h[i];
+    }
+  return true;
+}
+
+/** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
+ *  themselves, as they run `settleWater`); null when the force has none. */
+export function flowForceWater(ticks: number): Float64Array | null {
+  const w = forceWater;
+  if (!w || force !== w.force) return null;
+  if (forceWaterFlows(w)) w.sim.run(ticks);
+  return w.sim.D.slice();
+}
+
+async function runForceWater(token: number): Promise<void> {
+  let last = 0;
+  for (;;) {
+    const w = forceWater;
+    if (!w || token !== forceWaterToken || force !== w.force || w.force.session !== session) return;
+    if (forceWaterFlows(w)) {
+      const t0 = performance.now();
+      while (performance.now() - t0 < WATER_SLICE_MS) w.sim.run(2);
+      if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
+        last = performance.now();
+        const D = w.sim.D;
+        let moved = !w.sent;
+        for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - w.sent![i]) > 0.01) moved = true;
+        if (moved) {
+          w.sent = D.slice();
+          listener({ kind: "water", version, water: waterOf(w.force.session, { depth: D, contamination: w.sim.C, out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
+        }
+      }
+    }
+    await breathe();
+  }
+}
+
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
 export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
@@ -2396,7 +2486,11 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   const s = session;
   if (f && (gesture === undefined || f.gesture === gesture)) {
     force = null;
+    const flowing = forceWater?.force === f;
+    endForceWater();
     if (!s || f.session !== s) return { taken: null };
+    // (the force's water frames still on their way give way to the map's water)
+    if (flowing) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
     const view = restoreView(s);
     kickWater();
     return { ...view, taken: "work" };
@@ -2459,7 +2553,12 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   // (a gesture taken back is never kept, D341: nothing lands after Esc)
   if (!f || f.session !== s || (gesture !== undefined && f.gesture !== gesture)) return { ...changed(s, false, ["There is no force at work"], t0), kept: false };
   force = null;
+  // (the water it flowed as it worked: the map's water flows on from it, D371)
+  const flowed = forceWaterState(f);
+  endForceWater();
   const refused = (errors: string[]) => {
+    // (the force's water frames still on their way give way to the map's water)
+    if (flowed) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
     const view = restoreView(s);
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
@@ -2480,7 +2579,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     // (its drawn path, D321 item 41: the curve's points from the origin to the end, kept with its record)
     if (params && aimed && req.via?.length) params = { ...params, where: { ...params.where, path: [origin, ...req.via, aimed].map(([x, y]) => [x, y] as [number, number]) } };
     if (!params) return refused([req.source ? "Its water found nothing to carve from there: more Power, or drag from Unleash to aim it" : "Nothing was carved"]);
-    water = r.liveWater();
+    water = flowed ?? r.liveWater();
   } else {
     const r = f.staged!;
     // a force stopped part way (Esc aside) keeps its whole result: the stages only show it

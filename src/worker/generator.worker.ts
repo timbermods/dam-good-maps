@@ -11,7 +11,7 @@ import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
 import { viewBuffers } from "../render3d/model";
-import { emptyWaterFile, runGenerate, type GenerateResponse, type GenProgress } from "./api";
+import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -53,6 +53,12 @@ const api = {
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
     const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined, seedWord);
     return transfer(r, responseBuffers(r));
+  },
+  /** D329's background search (a worker of its own): a sibling of the map that meets all three
+   *  outcomes, or null. */
+  async findVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
+    const r = await runFindVersion(from);
+    return r ? transfer(r, responseBuffers(r)) : null;
   },
   /** The last generated map without pre-filled water, or null. */
   emptyWater(): { bytes: Uint8Array; name: string } | null {

@@ -55,6 +55,8 @@ export interface EditorProps {
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
+  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
+  onAnother?(info: SessionInfo): void;
   /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
   /** The map's name as the page keeps it (renamed in the header's title through the core, D443). */

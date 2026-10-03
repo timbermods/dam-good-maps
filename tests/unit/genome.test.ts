@@ -77,7 +77,9 @@ describe("the genome", () => {
     for (const k of ["ridge", "trough", "basin", "caldera", "mesa", "mesaField", "escarpment", "cone", "plateau", "knolls"]) expect(kinds.has(k as never)).toBe(true);
   });
 
-  it("draws zero, one or two intentions, never two that pull the start two ways", () => {
+  // (M9b, D273 (3): every map has a character, so none is no longer drawn; it drew none on a
+  // quarter of maps before)
+  it("draws one or two intentions, never none, never two that pull the start two ways", () => {
     const counts = [0, 0, 0];
     for (let seed = 1; seed <= 400; seed++) {
       const ids = drawIntentions(seed % 2 ? "any" : "canyon", 30, stream(seed, "test-intentions"));
@@ -85,8 +87,8 @@ describe("the genome", () => {
       for (const id of ids) expect(ACTIVE).toContain(id);
       if (ids.length === 2) expect(clashes(ids[0], ids[1])).toBe(false);
     }
-    expect(counts[0]).toBeGreaterThan(60);
-    expect(counts[1]).toBeGreaterThan(150);
-    expect(counts[2]).toBeGreaterThan(60);
+    expect(counts[0]).toBe(0);
+    expect(counts[1]).toBeGreaterThan(200);
+    expect(counts[2]).toBeGreaterThan(100);
   });
 });

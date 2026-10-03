@@ -16,7 +16,7 @@
 //   over) would come from nowhere, so it is taken away (`withoutUnfed`), as is the water a removal
 //   drained (the model's `drained`).
 
-import { WaterSim, type WaterModel, type WaterState } from "./water";
+import { WaterSim, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Water deeper than this is water to the player: the hover readout's line (doc/describeTile.ts),
  *  and a body of water's (analysis/walk.ts WATER_BODY). Remove unfed water counts its pools and
@@ -126,7 +126,7 @@ export function keptSeeds(m: WaterModel): Uint8Array | null {
  *  `keptSeeds`): the water the pre-fill left where none goes (D385) and the water a removal drained
  *  (the model's `drained`, D387 (2)). A new simulation on the water as it stands, those tiles dry and
  *  still, at the same tick; null when there is none (nothing changes). */
-export function withoutUnfed(m: WaterModel, sim: WaterSim): WaterSim | null {
+export function withoutUnfed(m: WaterModel, sim: WaterSim, opts: WaterSimOptions = {}): WaterSim | null {
   const state: WaterState = { depth: sim.D.slice(), contamination: sim.C.slice() };
   const out = sim.out.slice();
   const fed = fedTiles(m, state.depth, keptSeeds(m));
@@ -139,7 +139,7 @@ export function withoutUnfed(m: WaterModel, sim: WaterSim): WaterSim | null {
     any = true;
   }
   if (!any) return null;
-  const next = new WaterSim(m, state);
+  const next = new WaterSim(m, state, opts);
   next.out.set(out);
   next.ticks = sim.ticks;
   return next;

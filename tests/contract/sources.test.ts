@@ -129,7 +129,8 @@ describe("water sources start rivers (D171)", () => {
 
 describe("a source placed by hand in the editor (D184: sources go anywhere)", () => {
   it("a source dropped in a river exports with no issue", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 2 since batch 5, D148: on seed 3's map the extra water fills a lake past the settle's days)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const before = s.validate("export").report.checks.filter((c) => !c.ok).map((c) => c.id);

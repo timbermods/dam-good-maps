@@ -243,7 +243,9 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=3&z=128&d=n&t=lakeBasin");
+  // (seed 5 on M9b's maps, D148: seed 3's lake basin is nowhere 2 deep, its deepest water 1.8; seed 5 shows
+  // about a thousand tiles of each in view)
+  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
   const depths = await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     r.setLookChoice("high", false);
@@ -285,5 +287,162 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   expect(depths.shallow).toBeGreaterThan(10);
   expect(depths.deep).toBeGreaterThan(10);
   expect(depths.deepLuma).toBeLessThan(depths.shallowLuma);
+  expect(errors).toEqual([]);
+});
+
+test("an eruption in High (D378): its plume rises, its lava glows on High's ground, and High stays drawn", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("./#s=4242&z=96&d=n&t=highlands");
+  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
+  await page.getByRole("button", { name: "Refine this map" }).click();
+  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await page.getByRole("button", { name: "Top-down" }).click();
+  expect(await look(page)).toBe("high");
+  await page.keyboard.press("0");
+  await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
+  // dry ground in the middle of the view, clear of the rows over the map
+  const at = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
+    for (let d = 0; d < m.W / 3; d++)
+      for (const [x, y] of [[m.W / 2 + d, m.H / 2 + d], [m.W / 2 - d, m.H / 2 + d], [m.W / 2 + d, m.H / 2 - d], [m.W / 2 - d, m.H / 2 - d]].map(([a, b]) => [Math.round(a), Math.round(b)])) {
+        const p = window.dgmEditor!.tileToClient(x, y);
+        if (m.surface.depth[y * m.W + x] > 0 || p.y < below || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
+        return p;
+      }
+    return null;
+  });
+  expect(at).not.toBeNull();
+  // measured in the page at its last frame, its land final and its lava hottest (however slowly the
+  // browser draws: software drawing on CI takes seconds to keep it, and the lava cools meanwhile)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
+    /** How many pixels of the frame drawn now are lava's colour: a strong orange-red, which High's
+     *  ground never is by itself. */
+    const lava = () => {
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+      g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] > 150 && px[i] > 2.2 * px[i + 1] && px[i] > 3 * px[i + 2]) n++;
+      return n;
+    };
+    const set = r.setForceMoment.bind(r);
+    r.setForceMoment = (m) => {
+      set(m);
+      if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
+      const s = r.forceShowing?.erupt ?? null;
+      const hot = lava();
+      // against the same land with its moment gone
+      r.clearForce();
+      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
+    };
+  });
+  await page.mouse.click(at!.x, at!.y);
+  // the plume shows while it works, in High
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.forceShowing?.erupt ?? null), { timeout: 15_000 }).not.toBeNull();
+  expect(await look(page)).toBe("high");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 30_000 }).toBeNull();
+  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } }).glow))!;
+  expect(glow.cooling).not.toBeNull();
+  expect(glow.cooling!).toBeLessThan(0.5);
+  expect(glow.look).toBe("high");
+  // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava)
+  expect(glow.hot - glow.cold, JSON.stringify(glow)).toBeGreaterThan(2000);
+  expect(glow.hot, JSON.stringify(glow)).toBeGreaterThan(5 * glow.cold);
+  expect(errors).toEqual([]);
+});
+
+test("High's basin sources highlight as Standard's do (D378): a source turns a clear red (D249), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  const result = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    /** The frame drawn now, read back, and how many device pixels a CSS pixel is. */
+    const readFrame = () => {
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const W = g.drawingBufferWidth;
+      const H = g.drawingBufferHeight;
+      const px = new Uint8Array(W * H * 4);
+      g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+      return { px, W, H, k: W / r.canvas.clientWidth };
+    };
+    const m = r.mapState()!;
+    const e = m.entities;
+    /** Each kind's first source: its tile (as the page highlights it), its middle, and whether its
+     *  basin shows above the water there. */
+    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean }> = {};
+    for (let k = 0; k < e.count; k++) {
+      const name = e.templates[e.template[k]];
+      if ((name !== "WaterSource" && name !== "BadwaterSource") || sources[name]) continue;
+      let x = e.x[k];
+      let y = e.y[k];
+      if (name === "BadwaterSource") {
+        const o = e.orientation[k];
+        x += o === 0 || o === 1 ? 1 : -1;
+        y += o === 0 || o === 3 ? 1 : -1;
+      }
+      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(m.surface.depth[y * m.W + x] > 0.25) };
+    }
+    const out: Record<string, Record<string, { red: number; glow: number }>> = {};
+    let back = 0;
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      r.setClock(12.5);
+      r.resetView();
+      const f0 = readFrame();
+      /** Round each source's middle on screen: how much redder than green, and the colour itself. */
+      const at = (f: typeof f0) =>
+        Object.fromEntries(
+          Object.entries(sources).map(([name, s]) => {
+            const p = r.project(s.x + 0.5, m.heights[s.middle] + 0.3, -(s.y + 0.5));
+            const cx = Math.round(p.x * f.k);
+            const cy = f.H - 1 - Math.round(p.y * f.k);
+            const rgb = [0, 0, 0];
+            for (let dy = -3; dy <= 3; dy++)
+              for (let dx = -3; dx <= 3; dx++) {
+                const o = ((cy + dy) * f.W + cx + dx) * 4;
+                for (let c = 0; c < 3; c++) rgb[c] += f.px[o + c] / 49;
+              }
+            return [name, rgb];
+          }),
+        );
+      const plain = at(f0);
+      r.highlightObjects(Object.values(sources).map((s) => s.tile));
+      const red = at(readFrame());
+      r.highlightObjects(null);
+      r.setSourceGlow(Object.values(sources).map((s) => s.middle));
+      const glow = at(readFrame());
+      r.setSourceGlow([]);
+      const f1 = readFrame();
+      for (let i = 0; i < f0.px.length; i++) back = Math.max(back, Math.abs(f0.px[i] - f1.px[i]));
+      out[look] = Object.fromEntries(
+        Object.keys(sources).map((name) => {
+          const [a, b] = [plain[name], red[name]];
+          return [name, { red: b[0] - b[1] - (a[0] - a[1]), glow: Math.max(...glow[name].map((v: number, c: number) => Math.abs(v - a[c]))) }];
+        }),
+      );
+    }
+    return { sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, s.dry])), out, back, look: r.look };
+  });
+  const { standard, high } = result.out;
+  expect(result.look).toBe("high");
+  // a source turns a clear red where its basin shows (a bad source under its own pool barely does, in
+  // either look: the badwater over it hides it)
+  expect(high.WaterSource.red).toBeGreaterThan(25);
+  expect(high.WaterSource.red).toBeGreaterThan(standard.WaterSource.red * 0.75);
+  // the water over a source the pointer's water comes from glows, clean and bad, as in Standard
+  for (const name of ["WaterSource", "BadwaterSource"]) {
+    expect(high[name].glow, name).toBeGreaterThan(3);
+    expect(high[name].glow, name).toBeGreaterThan(standard[name].glow * 0.6);
+  }
+  // and both go exactly (software drawing on CI may stray a little on a redraw)
+  expect(result.back).toBeLessThanOrEqual(8);
   expect(errors).toEqual([]);
 });

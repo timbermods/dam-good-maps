@@ -10,7 +10,8 @@
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { proxy } from "comlink";
-import { createGenerator, readFile, saveFile, storage } from "../platform";
+import { createBackground, createGenerator, readFile, saveFile, storage } from "../platform";
+import { sameLand } from "../core/analysis/story";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { YourMapsSaver } from "../core/library/saver";
@@ -147,6 +148,14 @@ export function App() {
   const difficulty = "normal" as const;
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
+  /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
+  const [sibling, setSibling] = useState<{ variation: number; intentions: string[] } | null>(init.spec.variation ? { variation: init.spec.variation, intentions: init.spec.intentions ?? [] } : null);
+  /** D329: a version of the map that meets every outcome, found in the background, for the player to take or
+   *  ignore (until the candidates strip is drawn). */
+  const [version, setVersion] = useState<{ response: GenerateResponse; note: string } | null>(null);
+  /** A version found for its water alone, kept quietly (D333 (5)): Another like this shows it. */
+  const quiet = useRef<GenerateResponse | null>(null);
+  const background = useRef<ReturnType<typeof createBackground> | null>(null);
   const [busy, setBusy] = useState(false);
   /** While a new map is made: its stage and first look. */
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -203,8 +212,12 @@ export function App() {
   }, []);
 
   const spec = useMemo(
-    () => ({ ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }), settings }),
-    [seedText, size, difficulty, theme, settings],
+    (): MapSpec => ({
+      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }),
+      settings,
+      ...(sibling ? { variation: sibling.variation, ...(sibling.intentions.length ? { intentions: sibling.intentions } : {}) } : {}),
+    }),
+    [seedText, size, difficulty, theme, settings, sibling],
   );
   // the settings differ from the open map's (a fresh seed alone is not a change: Generate rolls one anyway)
   const changed = useMemo(() => {
@@ -219,14 +232,17 @@ export function App() {
     setSize(s.size);
     setTheme(s.theme);
     setSettings(s.settings);
+    setSibling(s.variation ? { variation: s.variation, intentions: s.intentions ?? [] } : null);
   }
 
   // a theme pre-fills every setting (PLAN §6), at Normal's start rules; a size sets the default number of mine sites
   function chooseTheme(t: ThemeId) {
+    setSibling(null);
     setTheme(t);
     setSettings(defaultSettings(t, difficulty, size));
   }
   function chooseSize(z: { x: number; y: number }) {
+    setSibling(null);
     setSize(z);
     setSettings((s) => ({ ...s, resources: { ...s.resources, mineSites: mineSitesForSize(z.x, z.y) } }));
   }
@@ -336,10 +352,51 @@ export function App() {
 
   // ------------------------------------------------------------------------------ generating
 
+  /** D329: stop any background search (a new map was asked for). */
+  function stopBackground() {
+    background.current?.stop();
+    background.current = null;
+    quiet.current = null;
+    setVersion(null);
+  }
+
+  /** D329: the map missed an outcome that matters (its theme's promise, or readable water): look for a version
+   *  that meets all three in a worker of its own, while the player keeps going. Only a missed promise gets a
+   *  note (D333 (5)); a version found for its water is kept quietly. */
+  function searchVersion(r: GenerateResponse) {
+    stopBackground();
+    if (!r.passed || !r.version) return;
+    const note = r.version.note;
+    const bg = createBackground();
+    background.current = bg;
+    void bg.api.findVersion({ spec: r.spec, intentions: r.intentions, heights: r.heights }).then(
+      (found) => {
+        if (background.current !== bg) return;
+        bg.stop();
+        background.current = null;
+        if (!found?.passed) return;
+        if (note) setVersion({ response: found, note });
+        else quiet.current = found;
+      },
+      () => undefined,
+    );
+  }
+
+  /** A version found in the background opens in the editor: its project file, the same map. */
+  async function openVersion(r: GenerateResponse) {
+    setVersion(null);
+    stopBackground();
+    setSibling(r.spec.variation ? { variation: r.spec.variation, intentions: r.spec.intentions ?? r.intentions } : null);
+    shown = r;
+    made++;
+    enterEditor(await replacing(() => generator.openProject(r.project)), { kind: "generated" });
+  }
+
   /** The latest run: a result from an older one is never shown over it. */
   const runId = useRef(0);
-  async function run(s: MapSpec, tries = 0) {
+  async function run(s: MapSpec, tries = 0): Promise<GenerateResponse | null> {
     const id = ++runId.current;
+    stopBackground();
     setBusy(true);
     setError(null);
     performance.mark("dgm:generate");
@@ -350,24 +407,32 @@ export function App() {
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       const r = await generator.generate(
         s,
-        proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+        proxy((p: GenProgress) =>
+          setProgress((q) =>
+            p.kind === "stage"
+              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null }
+              : p.kind === "candidate"
+                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p }
+                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null },
+          ),
+        ),
         seedWord,
       );
-      if (id !== runId.current) return;
+      if (id !== runId.current) return null;
       if (!r.passed) {
         setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
-        if (session) return;
+        if (session) return null;
         // with no map open yet (a link's map that fails its checks), the same settings with another seed, so the
         // page is never left without a map; the message says why
         if (tries < 5) {
           const seed = randomSeed();
           setSeedText(String(seed));
           setSeedPinned(false);
-          return void run({ ...s, seed }, tries + 1);
+          return run({ ...s, seed }, tries + 1);
         }
-        return;
+        return null;
       }
       shown = r;
       made++;
@@ -375,8 +440,11 @@ export function App() {
       // the map is the editor's from the start: there is no step between making it and shaping it
       enterEditor(await replacing(() => generator.refine()), { kind: "generated" });
       performance.mark("dgm:opened");
+      searchVersion(r);
+      return r;
     } catch (e) {
       setError(words(e));
+      return null;
     } finally {
       if (id === runId.current) {
         setBusy(false);
@@ -385,11 +453,32 @@ export function App() {
     }
   }
 
+  /** Another like this (D278 (1c)): a sibling of the map open, the same theme, settings and intentions on
+   *  different land, with its own share link; never a clone of the map it came from (a sibling whose land
+   *  matches it is passed over for the next). A version the background search kept quietly is shown at once. */
+  async function anotherLikeThis() {
+    const from = shown;
+    if (!from) return;
+    const kept = quiet.current;
+    if (kept) return void (await openVersion(kept));
+    let variation = (from.spec.variation ?? 0) + 1;
+    for (let tries = 0; tries < 3; tries++) {
+      const next = { variation, intentions: from.spec.intentions ?? from.intentions };
+      setSibling(next);
+      const s: MapSpec = { ...from.spec, variation: next.variation, ...(next.intentions.length ? { intentions: next.intentions } : {}) };
+      delete s.accepted;
+      const r = await run(s);
+      if (!r || !sameLand(from.heights, r.heights)) return;
+      variation++;
+    }
+  }
+
   /** Generate (D323, item 20): a kept seed makes its map again; otherwise a fresh seed each press, shown
    *  in the box. Every Generate makes a new map (D336); the one it replaces stays in Your maps. */
   function generate(over?: { theme: ThemeId }) {
     if (seedPinned && !over) return void run(spec);
     const seed = randomSeed();
+    setSibling(null);
     setSeedText(String(seed));
     setSeedPinned(false);
     const t = over?.theme ?? theme;
@@ -543,6 +632,16 @@ export function App() {
         ×
       </button>
     </p>
+  ) : version ? (
+    <p class="error floating quiet" role="status">
+      {version.note}
+      <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
+        Open it
+      </button>
+      <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>
+        ×
+      </button>
+    </p>
   ) : note ? (
     <p class="error floating quiet" role="status">
       {note}
@@ -576,6 +675,7 @@ export function App() {
         saveState={saveState}
         name={name}
         onRename={rename}
+        onAnother={() => guard(() => void anotherLikeThis(), "Another like this")}
         onPicture={(get) => (picture.current = get)}
         drawer={drawer}
         drawerOpen={drawerOpen}

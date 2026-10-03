@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D461), STATUS and HANDOFF.
+  free: D467), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -29,7 +29,9 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 **The milestone session's work now:**
-- **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits.
+- **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits, on every Lake Basin
+  map (Kyler, 2026-10-03: whatever its settings, intentions or siblings; `fix/m9b-generator-findings`, the release-gate
+  generator hunt's fixes, `docs/progress/m9b.md`).
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source
   guard); (b) the Rust water is wired, not switched on (`feature/rust-water`: `rust/water`, its Wasm committed,
@@ -116,7 +118,9 @@ Nothing waiting. The coherence review (D386) waits for his word, when he is sati
 Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
 shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
 gallery (D421; amended by D445: every place shown again with a "No reachable water" note, #193). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), on dev, #198);
-**the coherence review** (D386), once Kyler is satisfied; and **M9b's own release steps** (the measures,
+**the coherence review** (D386, D461: a separate session on Kyler's PC once M9b is on `dev`, report and cleanup plan only,
+`src/core/`, `src/worker/`, `tools/`); the release itself waits for its report, then Kyler decides; its cleanup runs as PRs from Kyler's PC once M9b is on
+`dev`, merged in order (D462, D463); and **M9b's own release steps** (the measures,
 the re-pins, the tag).
 
 ## Probe batches

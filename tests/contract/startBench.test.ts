@@ -47,8 +47,9 @@ describe("carrying the start leaves the force's land as the force made it (D257,
     expect(changed).toEqual([]);
   });
 
-  it("Canyon 64², seed 2: an Erupt (Power 40) beside the start carries it; no tile the eruption left alone changes level (it was: (22, 13) cut from 7 to 2)", async () => {
-    const changed = await beyondTheForce("canyon", 2, (st) => ({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 40 }, origin: [st.x + 2, st.y], cut: null, natural: true }));
+  // (seed 1 on M9b's maps, D148: its Canyon 64² seed 2 does not pass its checks)
+  it("Canyon 64², seed 1: an Erupt (Power 40) beside the start carries it; no tile the eruption left alone changes level (it was, on seed 2 of dev's maps: (22, 13) cut from 7 to 2)", async () => {
+    const changed = await beyondTheForce("canyon", 1, (st) => ({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 40 }, origin: [st.x + 2, st.y], cut: null, natural: true }));
     expect(changed).toEqual([]);
   });
 

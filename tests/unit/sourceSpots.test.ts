@@ -26,6 +26,7 @@ function view(list: { template: string; x: number; y: number }[]): EntityView {
     owner: new Uint16Array(n),
     variant: new Uint8Array(n),
     strength: new Float32Array(n),
+    ids: new Array<string>(n).fill(""),
   };
 }
 

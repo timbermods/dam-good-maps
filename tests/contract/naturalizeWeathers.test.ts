@@ -20,7 +20,8 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 const W = 96;
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Slope|RuinColumnH\d+)$/;
 
-function session(seed = 3): MapSession {
+// (seed 1 on M9b's maps, D148: seed 3 has no 19 × 19 stretch of dry, open ground below level 12 away from the start; the best has 16 bad tiles)
+function session(seed = 1): MapSession {
   const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");

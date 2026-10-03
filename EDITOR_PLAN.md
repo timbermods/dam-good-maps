@@ -60,7 +60,8 @@ window, and Maps opens the generator's settings in a drawer in the palette's col
   Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Save project, Download .timber, Clear everything, History, About).
+  Save project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
+  M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
 - **One left column** at one width (352px): the palette (four tools to a row, each with its picture and name) or
   the Maps drawer; opening or closing the drawer swaps them, and nothing else on the screen moves or changes size.
 - **The Maps drawer:** **Generate** and **Surprise me** pinned at its top; under them, scrolling as one panel: what
@@ -209,7 +210,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
-  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking.
+  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
+  new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·
@@ -217,7 +219,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
-  any edit. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
+  any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
+  as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
+  channel (shown as a stroke's water is); kept (or skipped to its end), the map's water flows on from that water, so
+  nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
@@ -811,15 +816,17 @@ opened, are listed but never blamed on the player's edits and do not block its e
   columns are kept the same way (`BuildInput.generatedResources`, `raster/resources.ts` `KeptTiles`): only those
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
-  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. What
+  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
+  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
   objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
-  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
-  walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the
+  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
+  the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
   asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`

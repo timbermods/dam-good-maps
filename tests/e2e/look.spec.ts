@@ -52,7 +52,9 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 4247: a map with dead trees, a dam site and badwater for every line of the legend; 4242's
+  // has no dead tree on D333's maps, D148)
+  await openEditor(page, "s=4247&z=96&d=n&t=riverValley");
 
   // the legend says what the colours mean
   const legend = await openLegend(page);

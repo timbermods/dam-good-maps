@@ -1635,10 +1635,17 @@ export class MapRenderer {
   private forceFx: ForceEffects | null = null;
 
   /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
-   *  effects play on their own clocks. Not with reduced motion, not in software. */
+   *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
+   *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
-    if (!this.juicy || m.verb === "carve") return;
-    this.forceFxOf().set(m);
+    if (!this.juicy) return;
+    if (m.verb === "carve") this.forceFx?.set(m);
+    else this.forceFxOf().set(m);
+  }
+
+  /** The forces' moments playing now, each its place and age, or null (tests). */
+  get forceShowing(): ReturnType<ForceEffects["showing"]> | null {
+    return this.forceFx?.showing() ?? null;
   }
 
   /** The force was kept: its tails play out (dust settling, lava cooling). */
@@ -2663,5 +2670,6 @@ function oneObject(template: string, orientation: number): EntityView {
     owner: Uint16Array.of(0),
     variant: Uint8Array.of(NO_VARIANT),
     strength: Float32Array.of(0),
+    ids: [""],
   };
 }

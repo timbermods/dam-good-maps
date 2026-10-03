@@ -241,6 +241,8 @@ export interface HeaderProps {
   /** The New map drawer: open, and its switch. */
   drawerOpen: boolean;
   onDrawer(): void;
+  /** Another like this (D278 (1c)): a sibling of a generated map. */
+  onAnother?(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
 }
@@ -361,6 +363,20 @@ export function Header(p: HeaderProps) {
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
+              {p.info.kind === "generated" && p.onAnother ? (
+                <li role="none">
+                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
+                    Another like this
+                  </button>
+                </li>
+              ) : null}
+              {p.info.kind === "generated" && p.onAnother ? (
+                <li role="none">
+                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
+                    Another like this
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
                   About

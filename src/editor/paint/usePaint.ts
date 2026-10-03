@@ -261,7 +261,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         // a force at work shows its own water; the map's settled view comes after it
         if (ed.forcer.current?.running) {
           if (e.kind === "settled" && e.version === infoRef.current.version) ed.deferred.current.push(e.view);
-          return;
+          // (a force's own water, flowing as it works, shows as a stroke's does, D371)
+          if (!(e.kind === "water" && e.draft)) return;
         }
         if (e.kind === "water" && e.draft) {
           // the water on a stroke being painted: shown as it comes (D197), the latest once a frame at

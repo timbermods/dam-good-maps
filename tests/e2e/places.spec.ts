@@ -133,8 +133,9 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
 
 test("a real place replaces the open map without asking, and the replaced map stays in Your maps with its edit", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  // (a generated map's name is its own since M9b, from its standout, D278)
+  // a map in the editor, autosaved
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  // a map with an edit in the editor, kept in Your maps once the edit settles
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));

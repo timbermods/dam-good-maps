@@ -16,7 +16,8 @@ import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import type { WaterModel } from "../sim/water";
+import type { WaterModel, WaterRules } from "../sim/water";
+import type { SoilRules } from "../sim/soil";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
 import { checkPlayability, rulesFor, type PlayabilityAnalysis } from "./playability";
 import { tilesToRuns } from "../math/grid";
@@ -482,10 +483,14 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
+  /** The water rules for the validator's own settle (without `water`), and the soil rules: the
+   *  defaults when absent (sim/water.ts, sim/soil.ts; D308). */
+  waterRules?: WaterRules;
+  soilRules?: SoilRules;
   /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
-   *  given, the playability check `resources.mine_reach` reports what edits cut off since. */
+   *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */
   mineCutAtOpen?: ReadonlySet<number>;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
@@ -523,7 +528,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
     const w = file.world;
     const objects: MapObject[] = mapObjects(w);
     model = opts.water?.model ?? waterModel(w.sizeX, w.sizeY, surface, objects);
-    water = opts.water?.settled ?? canonicalSettle(model);
+    water = opts.water?.settled ?? canonicalSettle(model, opts.waterRules ? { rules: opts.waterRules } : {});
     analysis = checkPlayability(
       {
         W: w.sizeX,
@@ -535,6 +540,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
         rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal", String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "")),
         features: opts.features ?? null,
         ids: w.entities.filter((e) => placementOf(e)).map((e) => String(e.Id)),
+        ...(opts.soilRules ? { soilRules: opts.soilRules } : {}),
         ...(opts.mineCutAtOpen ? { mineCutAtOpen: opts.mineCutAtOpen } : {}),
       },
       c,

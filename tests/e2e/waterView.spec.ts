@@ -35,15 +35,18 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 15 since M9a, D148: 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there
-  // one group of sources feeds the water, where three rivers join on most maps)
-  await openEditor(page, "s=15&z=96&d=n&t=riverValley");
+  // (seed 33 since D333, D148: seed 15's river now has a tributary above its 60%; seed 15 since M9a:
+  // 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there one group of sources feeds
+  // the water, where three rivers join on most maps)
+  // (seed 8 at 20% of its river on M9b's maps, D148: the water joins up, so past the
+  // first third of seed 8 three source groups feed a spot; at 0.1 to 0.3 of its path, one does)
+  await openEditor(page, "s=8&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const path = (i.features.find((f) => f.kind === "river")!.params as { path: [number, number][] }).path;
-  const mid = path[Math.floor(path.length * 0.6)];
+  const mid = path[Math.floor(path.length * 0.2)];
   const m: [number, number] = [Math.round(mid[0]), Math.round(mid[1])];
   const mp = await client(page, ...m);
 

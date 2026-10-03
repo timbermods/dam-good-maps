@@ -30,7 +30,8 @@ function spotFor(template: string, taken: Set<number>): [number, number] {
 
 describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
   it("each kind of thing the editor places is named, with its key fact and the ground under it", async () => {
-    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
+    // (seed 2 on M9b's maps, D148: the start's footprint is read at (+1, +1) of its anchor, which only holds for orientation Cw0, and seed 4's start now faces another way)
+    await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const taken = new Set<number>();
@@ -112,7 +113,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
   });
 
   it("the description follows the water: re-asking after the water under a tile changes gives the new depth, with nothing else to refresh", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    // (seed 1 on M9b's maps, D148: seed 3's River Valley has no dry, flat, empty 7×7 at level 5 or
+    // above, 6 tiles clear of the water, that the test edits on)
+    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));

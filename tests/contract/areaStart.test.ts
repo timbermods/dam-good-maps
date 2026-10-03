@@ -20,22 +20,24 @@ import * as ed from "../../src/worker/session";
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("a force leaves the locked land, and the ground above the layer showing, as they are (D254, D259, D207)", () => {
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 39) inside a 27 × 12 area from (15, 33) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // (on M9b's map, D148: its start stands at (19, 22), so the area lies east of it, across its west edge,
+  // and the Erupt 9 tiles from it)
+  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 27 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 33; y < 45; y++) area.push([y, 15, 41]);
+    for (let y = 16; y < 28; y++) area.push([y, 21, 47]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
-    // (the start stands across the area's east edge, partly inside it)
-    expect([start.x, start.y]).toEqual([40, 39]);
+    // (the start stands across the area's west edge, partly inside it)
+    expect([start.x, start.y]).toEqual([19, 22]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [28, 39], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [28, 22], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
@@ -48,18 +50,20 @@ describe("a force leaves the locked land, and the ground above the layer showing
     expect(changed).toEqual([]);
   });
 
-  it("Highlands 64², seed 3: a Craterize (Power 44) at (41, 38) with the layer cut at level 5 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
+  // (seed 10 on M9b's maps, D148: seed 3's start stands at level 13, with few objects above it; seed 10's
+  // at (50, 29), level 10, with 149)
+  it("Highlands 64², seed 10: a Craterize (Power 44) at (51, 28) with the layer cut at level 10 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 10, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
-    const cut = 5;
+    const cut = 10;
     const before = open().built;
     const hidden = (i: number) => before.heights[i] > cut;
     const above = before.entities.filter((e) => e.template !== "StartingLocation" && hidden(e.y * W + e.x));
     expect(above.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [41, 38], cut, natural: true }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [51, 28], cut, natural: true }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
