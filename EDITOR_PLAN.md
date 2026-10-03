@@ -168,7 +168,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
-  large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
+  large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
+  in its own 3.5 seconds once worked out (D374), eased (slow as the ice grips, steady through, settling gently), its
+  advance, the land changing, three quarters of it. **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
   filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking.

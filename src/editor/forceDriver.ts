@@ -51,12 +51,38 @@ export function paceOf(verb: Verb): { steps: number; ms: number } {
   return verb === "erupt" ? ERUPT_PACE : verb === "glaciate" ? GLACIATE_PACE : FORCE_PACE;
 }
 
+/** A glacier's showing in Fast (D374): its own 3.5 seconds once it is worked out, however long that
+ *  took (its plan gives its stages only when it is whole), so the carving is never squeezed into what
+ *  is left of two seconds after a long gathering. */
+export const GLACIATE_SHOW_MS = 3500;
+/** The share of a glacier's showing its advance takes (the land changing; the melt-back the rest). */
+export const GLACIATE_ADVANCE_SHARE = 0.75;
+/** A glacier's advance, in its steps (core/forces/glaciate/run.ts `ADVANCE_STEPS`; kept here so the
+ *  page never loads the glacier's own code, and held equal to it by forceDriver.test). */
+export const GLACIATE_ADVANCE_STEPS = 30;
+
 /** How long a force's showing takes (ms), once it is worked out: its `total` steps at its own pace,
  *  compressed to Fast's two seconds from the gesture (`workedMs` already gone working it out, never
- *  below MIN_SHOW_MS); Slow forces four times Fast's own. */
+ *  below MIN_SHOW_MS); a glacier its own 3.5 seconds (D374); Slow forces four times Fast's own. */
 export function showMs(verb: Verb, total: number, speed: ForceSpeed, workedMs: number): number {
+  if (verb === "glaciate") return (speed === "watch" ? WATCH_FACTOR : 1) * GLACIATE_SHOW_MS;
   const fast = Math.min(total * paceOf(verb).ms, FAST_MS);
   return speed === "watch" ? WATCH_FACTOR * fast : Math.min(fast, Math.max(MIN_SHOW_MS, FAST_MS - workedMs));
+}
+
+/** The steps shown `u` of the way through a force's showing (0 to 1): evenly for every force but a
+ *  glacier, whose showing eases (D374): slow as the ice grips, steady through, settling gently, its
+ *  advance (the land changing) over GLACIATE_ADVANCE_SHARE of the time and its melt-back the rest. */
+export function shownAt(verb: Verb, total: number, u: number): number {
+  u = Math.max(0, Math.min(1, u));
+  if (verb !== "glaciate") return total * u;
+  // (the time eased: a third of the steady pace at each end, two thirds above it through the middle;
+  // the advance ends GLACIATE_ADVANCE_SHARE of the way through the showing itself)
+  const eased = (v: number) => v - (0.65 * Math.sin(2 * Math.PI * v)) / (2 * Math.PI);
+  const w = eased(u);
+  const a = Math.min(GLACIATE_ADVANCE_STEPS, total);
+  const at = eased(GLACIATE_ADVANCE_SHARE);
+  return w <= at ? (a * w) / at : a + ((total - a) * (w - at)) / (1 - at);
 }
 
 /** When the land is final, from the gesture (ms), as the driver plans it: the worked-out time plus
@@ -337,7 +363,7 @@ export class ForceDriver {
           length = showMs(st.verb, f.total, st.speed, worked);
           this.timing = { worked: Math.round(worked), due: Math.round(dueMs(st.verb, f.total, st.speed, worked)), final: 0, kept: 0, total: f.total, show: Math.round(length), speed: st.speed };
         }
-        const target = f.total * Math.min(1, (t - from - held) / Math.max(1, length));
+        const target = shownAt(st.verb, f.total, (t - from - held) / Math.max(1, length));
         n = Math.max(0, Math.ceil(target - f.shown));
       }
       if (n > 0 || f.done) {
