@@ -55,8 +55,9 @@ const HELP = `npm run smooth -- [options]
   --before <ref>        the build to beat (default: where this branch left origin/dev, git merge-base; pin a sha for a long series)
   --after <ref|worktree> the build under test (default worktree: the working tree)
   --before-env K=V      (repeatable) environment for building that side, e.g. VITE_X=off; same for --after-env
+With no filters: the gate (Kyler, 2026-10-03): Chrome native, 256², both looks, the three scenarios, 3 runs a build.
   --sizes 128,256       --looks standard,high   --configs chromium,chromium-4x,igpu-4x,firefox,webkit
-  --scenarios orbit,brush,force   --repeats 5
+  --scenarios orbit,brush,force   --repeats 3
   --cells "chromium|128|high|orbit,firefox|256|standard|brush"   only these cells (config|size|look|scenario)
   --unqualified         do not wait for a quiet machine or discard for load (to try the tool; not evidence; own series)
   --dry                 print the plan and the time estimate, run nothing
@@ -64,20 +65,27 @@ const HELP = `npm run smooth -- [options]
   --record [--label x]  write results/<date>-<label>.md (a short summary; raw data stays in local/)
   --pause               ask the running series to stop after the cell it is on; the same command as before resumes it
                         at the first unfinished cell (every finished cell's runs are kept)
-A cell that fails runs again, up to twice more (verdict.ts cellOutcome): it fails for real when two rounds fail.
+A cell fails on a clear regression only: the branch's median p99 more than 20% above dev's, or its median hitches
+above dev's highest run (verdict.ts); a hang fails it on its own.
 Maps stop at 256 squared, so there is no 512 size.`;
 
 // ---------------------------------------------------------------------------------------------------- series files
 
 const readLines = <T>(file: string): T[] => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as T) : []);
 
-/** Rough seconds per run when nothing has been measured yet: measured on this PC (Chrome, native, High, a busy machine), the other
- *  configurations scaled; replaced by the series' own medians as runs finish. */
+/** Seconds per run when the series has measured nothing yet: the medians of the 2026-10-02 series on this PC
+ *  (Ryzen 9800X3D, RTX 4080 Super; 853 runs, browser start included); replaced by the series' own as runs finish. */
 function guessSeconds(spec: RunSpec): number {
   const big = spec.cell.size > 160;
-  const base = { orbit: big ? 29 : 22, brush: big ? 100 : 29, force: big ? 62 : 28 }[spec.cell.scenario];
-  const factor = { chromium: 1, "chromium-4x": big ? 2.5 : 1.3, "igpu-4x": big ? 2.5 : 1.3, firefox: big ? 2 : 1.4, webkit: big ? 1.5 : 1.2 }[spec.cell.config];
-  return Math.round(base * factor);
+  const measured: Record<string, [number, number, number]> = {
+    // [orbit, brush, force] at 128², then at 256²
+    chromium: big ? [22, 50, 33] : [19, 19, 19],
+    "chromium-4x": big ? [22, 54, 34] : [19, 22, 21],
+    "igpu-4x": big ? [23, 54, 34] : [19, 22, 19],
+    firefox: big ? [28, 78, 50] : [21, 25, 23],
+    webkit: big ? [23, 54, 36] : [19, 21, 21],
+  };
+  return measured[spec.cell.config][["orbit", "brush", "force"].indexOf(spec.cell.scenario)];
 }
 
 function estimate(todo: RunSpec[], history: RunResult[]): number {

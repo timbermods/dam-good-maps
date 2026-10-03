@@ -8,6 +8,13 @@ export const LOOKS = ["standard", "high"] as const;
 export const SCENARIOS = ["orbit", "brush", "force"] as const;
 export const CONFIG_IDS = ["chromium", "chromium-4x", "igpu-4x", "firefox", "webkit"] as const;
 
+/** The gate by default (Kyler's decision, 2026-10-03): Chrome on the discrete GPU, native, at 256², both looks, the
+ *  three scenarios, three runs on each build: 6 cells, 36 runs. The rest (128², CPU 4x, the integrated GPU, Firefox,
+ *  WebKit) only when asked for (--sizes, --configs, --cells). */
+export const DEFAULT_SIZES = [256] as const;
+export const DEFAULT_CONFIGS = ["chromium"] as const;
+export const DEFAULT_REPEATS = 3;
+
 export const CONFIG_LABELS = {
   chromium: "Chrome, native",
   "chromium-4x": "Chrome, CPU 4x slower",
@@ -92,14 +99,15 @@ function pick<T extends string>(arg: string | undefined, all: readonly T[], what
 
 /** The filter flags (--sizes 128 --looks high ...), checked. Sizes beyond 256 are refused (see SIZES). */
 export function parseFilters(a: Record<string, string | undefined>): Filters {
-  const sizes = a.sizes ? a.sizes.split(",").map(Number) : [...SIZES];
+  // (--cells names its own cells: any size and configuration may be among them)
+  const sizes = a.sizes ? a.sizes.split(",").map(Number) : a.cells ? [...SIZES] : [...DEFAULT_SIZES];
   for (const s of sizes) if (!Number.isInteger(s) || s < 32 || s > 256) throw new Error(`size ${s}: maps run from 32 to 256 (the generator and the editor stop at 256)`);
-  const repeats = a.repeats ? Number(a.repeats) : 5;
+  const repeats = a.repeats ? Number(a.repeats) : DEFAULT_REPEATS;
   if (!Number.isInteger(repeats) || repeats < 1) throw new Error(`repeats ${a.repeats}: a whole number from 1`);
   return {
     sizes,
     looks: pick(a.looks, LOOKS, "look"),
-    configs: pick(a.configs, CONFIG_IDS, "configuration"),
+    configs: a.configs || a.cells ? pick(a.configs, CONFIG_IDS, "configuration") : [...DEFAULT_CONFIGS],
     scenarios: pick(a.scenarios, SCENARIOS, "scenario"),
     repeats,
     ...(a.cells ? { cells: a.cells.split(",").map((c) => c.trim()) } : {}),

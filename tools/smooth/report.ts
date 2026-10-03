@@ -198,7 +198,7 @@ export function markdown(s: Summary, label: string, date: string): string {
     ...s.header.map((h) => `- ${h}`),
     `- **${s.idle.text}**`,
     "",
-    "Each metric is median [min-max] over the runs of that build. A round passes when after's median p99, worst frame and hitch count are each no higher than before's highest run; a cell that fails runs again, up to twice more, and fails for real when two rounds fail (it passes after a failure only with two passing rounds and every run together passing; verdict.ts cellOutcome, tools/smooth/README.md).",
+    "Each metric is median [min-max] over the runs of that build. A cell fails only on a clear regression: the branch's median p99 more than 20% above dev's median, or its median hitch count above dev's highest run; the worst frame is shown, not judged (Kyler, 2026-10-03; tools/smooth/README.md).",
     "",
     ...s.table,
     "",

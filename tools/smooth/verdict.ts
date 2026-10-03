@@ -1,6 +1,7 @@
-// The verdict (agreed with Kyler, PLAN §20 D380: nothing may get slower): per cell, "after" passes when its median p99,
-// its median worst frame and its median hitch count are each no higher than the highest value among the "before" runs
-// (that is, within before's own spread). Pure; tested in tests/unit/smooth.test.ts.
+// The verdict (Kyler's decision, 2026-10-03, replacing the within-spread rule of PLAN §20 D380's first gate): a cell
+// fails only on a clear regression: the branch's ("after") median p99 frame more than 20% above dev's ("before")
+// median, or the branch's median hitch count above dev's highest run. The worst frame is shown, not judged. One
+// round, no re-runs; a hang (run.ts) fails the cell on its own. Pure; tested in tests/unit/smooth.test.ts.
 
 import { spread, type FrameStats, type Spread } from "./stats";
 
@@ -19,12 +20,17 @@ export interface RunRecord {
 }
 
 export type MetricName = "p99Ms" | "worstMs" | "hitches";
+/** The metrics shown; of them, only p99 and hitches are judged (JUDGED). */
 export const VERDICT_METRICS: MetricName[] = ["p99Ms", "worstMs", "hitches"];
+export const JUDGED: MetricName[] = ["p99Ms", "hitches"];
+/** How much worse the branch's median p99 may be than dev's median before it is a regression. */
+export const P99_MARGIN = 1.2;
 
 export interface MetricCompare {
   before: Spread | null;
   after: Spread | null;
-  /** After's median is within before's spread (not above its highest run). */
+  /** Not a clear regression (p99: after's median at most 20% above before's; hitches: after's median at most
+   *  before's highest run; worst frame: always, as it is not judged). */
   ok: boolean;
 }
 
@@ -39,22 +45,24 @@ export interface CellVerdict {
   nAfter: number;
 }
 
-export function compareMetric(before: readonly (number | null)[], after: readonly (number | null)[]): MetricCompare {
+export function compareMetric(before: readonly (number | null)[], after: readonly (number | null)[], metric: MetricName = "hitches"): MetricCompare {
   const b = spread(before);
   const a = spread(after);
-  return { before: b, after: a, ok: !!b && !!a && a.median <= b.max };
+  if (!b || !a) return { before: b, after: a, ok: false };
+  const ok = metric === "p99Ms" ? a.median <= b.median * P99_MARGIN : metric === "hitches" ? a.median <= b.max : true;
+  return { before: b, after: a, ok };
 }
 
 export function cellVerdict(before: readonly RunRecord[], after: readonly RunRecord[], wanted: number): CellVerdict {
   const metrics = {} as Record<MetricName, MetricCompare>;
-  for (const m of VERDICT_METRICS) metrics[m] = compareMetric(before.map((r) => r.stats[m]), after.map((r) => r.stats[m]));
-  const slower = VERDICT_METRICS.filter((m) => metrics[m].before && metrics[m].after && !metrics[m].ok);
-  const complete = before.length >= wanted && after.length >= wanted && VERDICT_METRICS.every((m) => metrics[m].before && metrics[m].after);
+  for (const m of VERDICT_METRICS) metrics[m] = compareMetric(before.map((r) => r.stats[m]), after.map((r) => r.stats[m]), m);
+  const slower = JUDGED.filter((m) => metrics[m].before && metrics[m].after && !metrics[m].ok);
+  const complete = before.length >= wanted && after.length >= wanted && JUDGED.every((m) => metrics[m].before && metrics[m].after);
   return { verdict: slower.length ? "SLOWER" : complete ? "pass" : "incomplete", metrics, slower, nBefore: before.length, nAfter: after.length };
 }
 
-/** Rounds a cell may have: the first, and up to two re-runs (Kyler, 2026-10-02). */
-export const MAX_ROUNDS = 3;
+/** Rounds a cell has: one (Kyler, 2026-10-03: no re-runs; the clear-regression rule needs none). */
+export const MAX_ROUNDS = 1;
 
 export interface CellOutcome {
   /** pass, a real failure, or another round to run. */
@@ -67,39 +75,13 @@ export interface CellOutcome {
   pooled: CellVerdict;
 }
 
-/** A cell's outcome under the re-run rule (Kyler, 2026-10-02): a cell that fails its first round runs again, up
- *  to twice more; it fails for real when two of its rounds fail; it passes only when its first round passes, or two
- *  of its rounds pass and the median of all its runs passes too (every run counted, none dropped). Noise alone fails
- *  one metric of a round about 8% of the time; two failing rounds, well under 1%. */
+/** A cell's outcome: its round's verdict once all its runs are in (more: still measuring); a hang fails it on its own. */
 export function cellOutcome(runs: readonly RunRecord[], wanted: number): CellOutcome {
-  const roundOf = (r: RunRecord) => r.round ?? 1;
-  const all = cellVerdict(
-    runs.filter((r) => r.build === "before"),
-    runs.filter((r) => r.build === "after"),
-    wanted,
-  );
-  const rounds: Verdict[] = [];
-  for (let k = 1; k <= MAX_ROUNDS; k++) {
-    const rs = runs.filter((r) => roundOf(r) === k);
-    // (a round is judged only once all its runs are in: a resumed cell's half round waits)
-    if (rs.filter((r) => r.build === "before").length < wanted || rs.filter((r) => r.build === "after").length < wanted) break;
-    const v = cellVerdict(
-      rs.filter((r) => r.build === "before"),
-      rs.filter((r) => r.build === "after"),
-      wanted,
-    );
-    if (v.verdict === "incomplete") break;
-    rounds.push(v.verdict);
-  }
-  const pooled = { ...all, verdict: (rounds.length ? all.verdict : "incomplete") as Verdict };
+  const before = runs.filter((r) => r.build === "before");
+  const after = runs.filter((r) => r.build === "after");
+  const pooled = cellVerdict(before, after, wanted);
   const hung = runs.find((r) => r.hang);
-  if (hung) return { state: "fail", hang: `${hung.build} ${hung.repeat}: ${hung.hang}`, rounds, pooled };
-  const passes = rounds.filter((v) => v === "pass").length;
-  const fails = rounds.length - passes;
-  let state: CellOutcome["state"];
-  if (rounds[0] === "pass") state = "pass";
-  else if (fails >= 2) state = "fail";
-  else if (passes >= 2) state = pooled.verdict === "pass" ? "pass" : "fail";
-  else state = rounds.length >= MAX_ROUNDS ? "fail" : "more";
-  return { state, rounds, pooled };
+  if (hung) return { state: "fail", hang: `${hung.build} ${hung.repeat}: ${hung.hang}`, rounds: [], pooled };
+  if (before.length < wanted || after.length < wanted) return { state: "more", rounds: [], pooled: { ...pooled, verdict: "incomplete" } };
+  return { state: pooled.verdict === "pass" ? "pass" : "fail", rounds: [pooled.verdict], pooled };
 }

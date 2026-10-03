@@ -124,34 +124,29 @@ const run = (build: "before" | "after", repeat: number, p99: number, worst: numb
 });
 const five = (build: "before" | "after", p99s: number[], worsts: number[], hitches: number[]) => p99s.map((p, i) => run(build, i + 1, p, worsts[i], hitches[i]));
 
-describe("the verdict", () => {
-  const before = five("before", [17, 18, 17.5, 19, 17], [30, 35, 33, 40, 31], [0, 1, 0, 2, 0]);
-  it("passes when after's medians are within before's spread (no higher than its highest run)", () => {
-    const after = five("after", [18, 19, 17, 18, 17], [33, 38, 30, 36, 32], [0, 1, 1, 0, 1]);
-    const v = cellVerdict(before, after, 5);
-    expect(v.verdict).toBe("pass");
-    expect(v.slower).toEqual([]);
+describe("the verdict (Kyler, 2026-10-03: a clear regression only)", () => {
+  const three = (build: "before" | "after", p99s: number[], hitches: number[]) => p99s.map((p, i) => run(build, i + 1, p, 99, hitches[i]));
+  const before = three("before", [10, 11, 12], [0, 2, 1]);
+  it("passes up to 20% worse median p99 and up to dev's highest hitch count", () => {
+    expect(cellVerdict(before, three("after", [13.2, 13.2, 13.2], [2, 2, 2]), 3).verdict).toBe("pass");
   });
-  it("is SLOWER when any one median goes above before's highest run, and names the metric", () => {
-    const after = five("after", [17, 17, 17, 17, 17], [50, 52, 48, 55, 60], [0, 0, 0, 0, 0]);
-    const v = cellVerdict(before, after, 5);
+  it("fails on a median p99 more than 20% worse than dev's median, and names it", () => {
+    const v = cellVerdict(before, three("after", [13.3, 13.3, 13.3], [0, 0, 0]), 3);
     expect(v.verdict).toBe("SLOWER");
-    expect(v.slower).toEqual(["worstMs"]);
-    const hitchy = cellVerdict(before, five("after", [17, 17, 17, 17, 17], [30, 30, 30, 30, 30], [3, 4, 3, 5, 3]), 5);
-    expect(hitchy.slower).toEqual(["hitches"]);
+    expect(v.slower).toEqual(["p99Ms"]);
   });
-  it("compares the median, so one slow run among five does not fail, three do", () => {
-    expect(cellVerdict(before, five("after", [17, 17, 17, 25, 17], [30, 30, 30, 90, 30], [0, 0, 0, 0, 0]), 5).verdict).toBe("pass");
-    expect(cellVerdict(before, five("after", [25, 25, 25, 17, 17], [30, 30, 30, 90, 30], [0, 0, 0, 0, 0]), 5).slower).toEqual(["p99Ms"]);
+  it("fails on more hitches than dev's highest run (the branch's median)", () => {
+    expect(cellVerdict(before, three("after", [10, 10, 10], [3, 3, 0]), 3).slower).toEqual(["hitches"]);
+    expect(cellVerdict(before, three("after", [10, 10, 10], [3, 0, 0]), 3).verdict).toBe("pass");
   });
-  it("equal to before's highest run passes (no higher than)", () => {
-    expect(compareMetric([1, 2, 3], [3, 3, 3]).ok).toBe(true);
-    expect(compareMetric([1, 2, 3], [3.1, 3.1, 3.1]).ok).toBe(false);
+  it("shows the worst frame without judging it", () => {
+    const after = [1, 2, 3].map((k) => run("after", k, 10, 900, 0));
+    expect(cellVerdict(before, after, 3).verdict).toBe("pass");
+    expect(compareMetric([1, 2, 3], [900, 900, 900], "worstMs").ok).toBe(true);
   });
-  it("is incomplete with fewer runs than wanted, but still reports a regression it can already see", () => {
-    expect(cellVerdict(before.slice(0, 3), five("after", [17, 17, 17, 17, 17], [30, 30, 30, 30, 30], [0, 0, 0, 0, 0]), 5).verdict).toBe("incomplete");
-    expect(cellVerdict(before, five("after", [30, 30], [90, 90], [9, 9]), 5).verdict).toBe("SLOWER");
-    expect(cellVerdict([], [], 5).verdict).toBe("incomplete");
+  it("is incomplete with fewer runs than wanted", () => {
+    expect(cellVerdict(before.slice(0, 2), three("after", [10, 10, 10], [0, 0, 0]), 3).verdict).toBe("incomplete");
+    expect(cellVerdict([], [], 3).verdict).toBe("incomplete");
   });
 });
 
@@ -161,11 +156,12 @@ describe("the plan", () => {
     const runs = expand({ sizes: [128], looks: ["standard"], configs: ["chromium"], scenarios: ["orbit"], repeats: 5 });
     expect(runs.map((r) => `${r.build[0]}${r.repeat}`)).toEqual(["b1", "a1", "a2", "b2", "b3", "a3", "a4", "b4", "b5", "a5"]);
   });
-  it("expands the full matrix: 5 configurations x 2 looks x 2 sizes x 3 scenarios x 5 repeats x 2 builds (maps stop at 256, so no 512)", () => {
+  it("by default is the 6-cell gate: Chrome native, 256², both looks, 3 scenarios, 3 runs a build (Kyler, 2026-10-03)", () => {
     const f = parseFilters({});
-    expect(f.sizes).toEqual([128, 256]);
-    expect(expand(f).length).toBe(5 * 2 * 2 * 3 * 5 * 2);
-    expect(new Set(expand(f).map((r) => r.key)).size).toBe(600);
+    expect(f).toMatchObject({ sizes: [256], configs: ["chromium"], repeats: 3 });
+    expect(expand(f).length).toBe(6 * 3 * 2);
+    // the rest only when asked for
+    expect(expand(parseFilters({ sizes: "128,256", configs: "chromium,chromium-4x,igpu-4x,firefox,webkit", repeats: "5" })).length).toBe(5 * 2 * 2 * 3 * 5 * 2);
   });
   it("resumes: runs already measured are skipped", () => {
     const runs = expand(parseFilters({ sizes: "128", configs: "chromium", scenarios: "orbit", repeats: "2" }));
@@ -178,7 +174,7 @@ describe("the plan", () => {
     expect(() => parseFilters({ configs: "opera" })).toThrow(/unknown configuration/);
     expect(() => parseFilters({ looks: "med" })).toThrow(/unknown look/);
     expect(() => parseFilters({ repeats: "0" })).toThrow(/repeats/);
-    expect(parseFilters({ looks: "high", scenarios: "brush,force" })).toMatchObject({ looks: ["high"], scenarios: ["brush", "force"], repeats: 5 });
+    expect(parseFilters({ looks: "high", scenarios: "brush,force" })).toMatchObject({ looks: ["high"], scenarios: ["brush", "force"], repeats: 3 });
   });
 });
 
@@ -202,51 +198,27 @@ describe("the report", () => {
     at: "2026-10-02T00:00:00Z",
   });
   it("prints a row per cell with before and after as median [min-max], the CPU, the verdict and the PC idle line", () => {
-    const entries: Entry[] = [1, 2].flatMap((n) => [result("before", n, 17 + n), result("after", n, 18 + n)]);
+    const entries: Entry[] = [1, 2].flatMap((n) => [result("before", n, 17 + n), result("after", n, 25 + n)]);
     expect(buildRows(entries, 2)).toHaveLength(1);
     const s = summarize(entries, 2, { before: "origin/dev abc", after: "worktree def", machine: [] });
     expect(s.table[2]).toContain("19.0 [18.0-19.0]"); // upper median of 18, 19
     expect(s.table[2]).toContain("1/2/4 / 10/12/20");
     expect(s.idle.text).toMatch(/^PC idle: yes/);
-    expect(s.slower).toBe(1); // after's p99 median 20 is above before's highest 19
+    expect(s.slower).toBe(1); // after's p99 median 27 is more than 20% above before's 19
     expect(s.table[2]).toContain("**SLOWER** (p99)");
     expect(s.verdictLine).toContain("1 SLOWER");
   });
 });
 
-describe("the re-run rule (Kyler, 2026-10-02)", () => {
-  const r = (build: "before" | "after", repeat: number, round: number, p99: number) => ({
-    key: `k|${build}|${repeat}|r${round}`,
-    build,
-    repeat,
-    round,
-    stats: { p99Ms: p99, worstMs: p99, hitches: 0 } as RunRecord["stats"],
+describe("a cell's outcome", () => {
+  const r = (build: "before" | "after", repeat: number, p99: number) => ({ key: `k|${build}|${repeat}`, build, repeat, stats: { p99Ms: p99, worstMs: p99, hitches: 0 } as RunRecord["stats"] });
+  const round = (after: number) => [1, 2, 3].flatMap((k) => [r("before", k, 10), r("after", k, after)]);
+  it("is its one round's verdict, with no re-runs (Kyler, 2026-10-03)", () => {
+    expect(cellOutcome(round(11), 3)).toMatchObject({ state: "pass" });
+    expect(cellOutcome(round(13), 3)).toMatchObject({ state: "fail" });
   });
-  /** A round of 5+5: before p99s 10..14, after p99s at `after`. */
-  const round = (n: number, after: number) => [1, 2, 3, 4, 5].flatMap((k) => [r("before", k, n, 9 + k), r("after", k, n, after)]);
-  it("passes on a first round that passes, with no re-run", () => {
-    expect(cellOutcome(round(1, 12), 5)).toMatchObject({ state: "pass", rounds: ["pass"] });
-  });
-  it("runs again after a failing round, and fails for real when two rounds fail", () => {
-    expect(cellOutcome(round(1, 20), 5).state).toBe("more");
-    expect(cellOutcome([...round(1, 20), ...round(2, 20)], 5)).toMatchObject({ state: "fail", rounds: ["SLOWER", "SLOWER"] });
-  });
-  it("after one failing round, needs two passing rounds and the median of all its runs passing", () => {
-    expect(cellOutcome([...round(1, 20), ...round(2, 12)], 5).state).toBe("more");
-    expect(cellOutcome([...round(1, 20), ...round(2, 12), ...round(3, 12)], 5)).toMatchObject({ state: "pass", rounds: ["SLOWER", "pass", "pass"] });
-    expect(cellOutcome([...round(1, 20), ...round(2, 12), ...round(3, 20)], 5).state).toBe("fail");
-  });
-  it("waits for a round to finish before judging it (a resumed cell)", () => {
-    expect(cellOutcome(round(1, 12).slice(0, 7), 5)).toMatchObject({ state: "more", rounds: [] });
-  });
-});
-
-describe("the re-run rule on a half-measured round", () => {
-  it("never judges a round before all its runs are in, even one already slower", () => {
-    const r = (build: "before" | "after", repeat: number, round: number, p99: number) => ({ key: `k|${build}|${repeat}|r${round}`, build, repeat, round, stats: { p99Ms: p99, worstMs: p99, hitches: 0 } as RunRecord["stats"] });
-    const first = [1, 2, 3, 4, 5].flatMap((k) => [r("before", k, 1, 10), r("after", k, 1, 20)]);
-    const half = [r("before", 1, 2, 10), r("after", 1, 2, 20), r("after", 2, 2, 20)];
-    expect(cellOutcome([...first, ...half], 5)).toMatchObject({ state: "more", rounds: ["SLOWER"] });
+  it("waits for all its runs before judging", () => {
+    expect(cellOutcome(round(13).slice(0, 5), 3).state).toBe("more");
   });
 });
 
