@@ -323,8 +323,8 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
     return null;
   });
   expect(at).not.toBeNull();
-  // measured in the page the moment it is kept, its lava hottest (however slowly the browser draws:
-  // software drawing on CI takes seconds to get back to the test, and the lava cools meanwhile)
+  // measured in the page at its last frame, its land final and its lava hottest (however slowly the
+  // browser draws: software drawing on CI takes seconds to keep it, and the lava cools meanwhile)
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
@@ -339,9 +339,10 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       for (let i = 0; i < px.length; i += 4) if (px[i] > 150 && px[i] > 2.2 * px[i + 1] && px[i] > 3 * px[i + 2]) n++;
       return n;
     };
-    const done = r.forceDone.bind(r);
-    r.forceDone = () => {
-      done();
+    const set = r.setForceMoment.bind(r);
+    r.setForceMoment = (m) => {
+      set(m);
+      if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
       const s = r.forceShowing?.erupt ?? null;
       const hot = lava();
       // against the same land with its moment gone
