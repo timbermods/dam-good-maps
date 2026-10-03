@@ -23,3 +23,5 @@ public/first-visit/
 .claude/settings.local.json
 # smooth: the renderer smoothness gate keeps builds, raw frames and state here (tools/smooth/README.md)
 tools/smooth/local/
+# Rust build output (tools/rust/check.ts)
+rust/target/

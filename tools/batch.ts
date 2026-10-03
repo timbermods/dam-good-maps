@@ -20,6 +20,7 @@ import { MapSession } from "../src/core/doc/session";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
 import { officialRange } from "../src/core/gen/calibrated";
 import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
+import { atan2, hypot } from "../src/core/math/portable";
 import { badwaterBudget } from "../src/core/resources/badwater";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 
@@ -115,9 +116,9 @@ for (const seed of seeds) {
           }
         const dx = cx / n - sx;
         const dy = cy / n - sy;
-        floorDist.push(Math.round(Math.hypot(dx, dy)));
+        floorDist.push(Math.round(hypot(dx, dy)));
         // (y runs south to north: north is +y)
-        const dir = COMPASS[Math.round((Math.atan2(dy, dx) / (Math.PI / 4) + 8)) % 8];
+        const dir = COMPASS[Math.round((atan2(dy, dx) / (Math.PI / 4) + 8)) % 8];
         floorDirs.set(dir, (floorDirs.get(dir) ?? 0) + 1);
       }
     }

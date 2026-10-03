@@ -13,6 +13,7 @@ import { QUAKE_DEFAULTS } from "../src/core/forces/quake";
 import { makeSpec, type ThemeId } from "../src/core/spec/mapspec";
 import { MapSession } from "../src/core/doc/session";
 import { decodeProject } from "../src/core/doc/document";
+import { cos, hypot, sin } from "../src/core/math/portable";
 import { runGenerate } from "../src/worker/api";
 import * as ed from "../src/worker/session";
 
@@ -72,7 +73,7 @@ for (const W of SIZES) {
   let best = -1;
   for (let y = 8; y < W - 8; y += 2)
     for (let x = 8; x < W - 8; x += 2) {
-      if (Math.hypot(x - st.x, y - st.y) < W / 5 || s.built.water[y * W + x] > 0) continue;
+      if (hypot(x - st.x, y - st.y) < W / 5 || s.built.water[y * W + x] > 0) continue;
       if (s.built.heights[y * W + x] > best) {
         best = s.built.heights[y * W + x];
         at = [x, y];
@@ -87,7 +88,7 @@ for (const W of SIZES) {
     ["erupt", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 100, size: ERUPT_SIZE_MAX, flows: "heavy" }, origin: mid, cut: null }],
     // (a fissure's breadth is its drawn shape's, D344 A6: a long line at the largest Size, and a small loop)
     ["erupt fissure", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 100, size: ERUPT_SIZE_MAX, flows: "heavy" }, origin: [4, Math.round(W * 0.3)], path: [{ x: 4, y: W * 0.3 }, { x: W - 5, y: W * 0.7 }], cut: null, natural: true }],
-    ["erupt fissure, small loop", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 100, size: ERUPT_SIZE_MAX, flows: "heavy" }, origin: [mid[0] + 5, mid[1]], path: Array.from({ length: 25 }, (_, k) => ({ x: mid[0] + 5 * Math.cos((k / 24) * Math.PI * 2), y: mid[1] + 5 * Math.sin((k / 24) * Math.PI * 2) })), cut: null, natural: true }],
+    ["erupt fissure, small loop", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 100, size: ERUPT_SIZE_MAX, flows: "heavy" }, origin: [mid[0] + 5, mid[1]], path: Array.from({ length: 25 }, (_, k) => ({ x: mid[0] + 5 * cos((k / 24) * Math.PI * 2), y: mid[1] + 5 * sin((k / 24) * Math.PI * 2) })), cut: null, natural: true }],
     ["quake lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 100 }, path: [{ x: 4, y: W * 0.3 }, { x: W - 5, y: W * 0.7 }], side: 1, cut: null }],
     ["quake slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 100 }, path: [{ x: 4, y: W * 0.3 }, { x: W - 5, y: W * 0.7 }], side: 1, cut: null }],
     ["glaciate", { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power: 100, size: GLACIATE_SIZE_MAX }, origin: at, cut: null }],

@@ -113,9 +113,9 @@ function land(spec: SizeSpec): Plan {
       const floor = bed(ul) + 1, rim = floor + 3, outlet = floor + 2;
       for (let u = ul - r - 2; u <= ul + r + 2; u++)
         for (let v = vl - r - 2; v <= vl + r + 2; v++) {
-          const i = at(u, v), dd = (u - ul) ** 2 + (v - vl) ** 2;
+          const i = at(u, v), dd = (u - ul) * (u - ul) + (v - vl) * (v - vl);
           if (dd <= r * r) (heights[i] = floor), (kind[i] = 3);
-          else if (dd <= (r + 2) ** 2 && kind[i] === 0) heights[i] = Math.max(heights[i], rim);
+          else if (dd <= (r + 2) * (r + 2) && kind[i] === 0) heights[i] = Math.max(heights[i], rim);
         }
       // the outlet: two tiles wide, from the lake's edge to the valley floor
       for (let v = vl - side * r; side > 0 ? v >= 0 : v < S; v -= side) {

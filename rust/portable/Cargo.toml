@@ -1,0 +1,10 @@
+[package]
+name = "portable"
+description = "The portable maths every Rust port shares: the same bits as src/core/math/portable.ts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"

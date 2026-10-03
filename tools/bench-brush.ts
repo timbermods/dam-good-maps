@@ -30,6 +30,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { sin } from "../src/core/math/portable";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -162,7 +163,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.mouse.down();
   for (let k = 0; k < 480; k++) {
     const t = k / 480;
-    await page.mouse.move(at.x + 260 * t, at.y + 70 * Math.sin(t * 7));
+    await page.mouse.move(at.x + 260 * t, at.y + 70 * sin(t * 7));
     await page.waitForTimeout(6);
   }
   await page.waitForTimeout(700);

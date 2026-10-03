@@ -41,3 +41,13 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 `npm run setup:machine` (`tools/setup-machine.mjs`): on a fresh clone, creates the worktrees the plan uses, installs their
 dependencies, writes the probe allow rules for this machine's paths into `.claude/settings.local.json`, checks the tools
 the work needs and prints what's ready and what's missing. Safe to run again; `--dry-run`, `--all`, `--no-install`.
+Among the tools it checks is Rust (rustup, the pinned 1.90.0 and the wasm32 target); it says how to install them for
+the user and never installs anything system-wide.
+
+## Rust and the maths guards
+
+`npx tsx tools/rust/check.ts [--engines]`: the Rust maths guard (`tools/rust/guard.mjs`), strict builds of `rust/` with
+their IR, assembly and Wasm audited, and `rust/portable` against `src/core/math/portable.ts` bit for bit (natively, in
+Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's `rust` job runs it; `rust/README.md`
+has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
+tools (D401), run by `tests/unit/portable.test.ts`.

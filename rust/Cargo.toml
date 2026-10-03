@@ -1,0 +1,17 @@
+# The Rust ports (PLAN §20 D381, D442). Every crate shares one portable.rs (the `portable` crate, D401) and is
+# built with strict floating point: no FMA, no libm, no transcendental intrinsics (tools/rust/guard.mjs).
+[workspace]
+resolver = "2"
+members = ["portable", "portable-check"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
