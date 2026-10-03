@@ -323,41 +323,44 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
     return null;
   });
   expect(at).not.toBeNull();
+  // measured in the page the moment it is kept, its lava hottest (however slowly the browser draws:
+  // software drawing on CI takes seconds to get back to the test, and the lava cools meanwhile)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
+    /** How many pixels of the frame drawn now are lava's colour: a strong orange-red, which High's
+     *  ground never is by itself. */
+    const lava = () => {
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+      g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] > 150 && px[i] > 2.2 * px[i + 1] && px[i] > 3 * px[i + 2]) n++;
+      return n;
+    };
+    const done = r.forceDone.bind(r);
+    r.forceDone = () => {
+      done();
+      const s = r.forceShowing?.erupt ?? null;
+      const hot = lava();
+      // against the same land with its moment gone
+      r.clearForce();
+      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
+    };
+  });
   await page.mouse.click(at!.x, at!.y);
   // the plume shows while it works, in High
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.forceShowing?.erupt ?? null), { timeout: 15_000 }).not.toBeNull();
   expect(await look(page)).toBe("high");
-  // kept, its lava still hot: the glow on High's ground, against the same land with its moment gone
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 30_000 }).toBeNull();
-  const glow = await page.evaluate(() => {
-    const r = window.dgm3d!.renderer;
-    /** The frame drawn now, read back, and how many device pixels a CSS pixel is. */
-    const readFrame = () => {
-      r.renderNow();
-      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
-      const W = g.drawingBufferWidth;
-      const H = g.drawingBufferHeight;
-      const px = new Uint8Array(W * H * 4);
-      g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
-      return { px, W, H, k: W / r.canvas.clientWidth };
-    };
-    const s = r.forceShowing?.erupt ?? null;
-    // lava's colour: a strong orange-red, which High's ground never is by itself
-    const lava = (f: ReturnType<typeof readFrame>) => {
-      let n = 0;
-      for (let i = 0; i < f.px.length; i += 4) if (f.px[i] > 150 && f.px[i] > 2.2 * f.px[i + 1] && f.px[i] > 3 * f.px[i + 2]) n++;
-      return n;
-    };
-    const hot = lava(readFrame());
-    r.clearForce();
-    const cold = lava(readFrame());
-    return { cooling: s?.cooling ?? null, hot, cold, look: r.look };
-  });
+  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } }).glow))!;
   expect(glow.cooling).not.toBeNull();
-  expect(glow.cooling!).toBeLessThan(2);
+  expect(glow.cooling!).toBeLessThan(0.5);
   expect(glow.look).toBe("high");
-  expect(glow.hot).toBeGreaterThan(200);
-  expect(glow.cold).toBeLessThan(glow.hot / 20);
+  // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava)
+  expect(glow.hot - glow.cold, JSON.stringify(glow)).toBeGreaterThan(2000);
+  expect(glow.hot, JSON.stringify(glow)).toBeGreaterThan(5 * glow.cold);
   expect(errors).toEqual([]);
 });
 
