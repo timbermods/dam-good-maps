@@ -17,6 +17,7 @@ import {
   moveEdit,
   moveStartNear,
   startCarriedBack,
+  startCarry,
   startClears,
   startBrokenBy,
   startMiddle,
@@ -2508,7 +2509,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     handoff = null;
     return refused(res.errors);
   }
-  carryStart(s, params, back);
+  carryStart(s, params, back, { inside: f.request.area ? areaDepth(f.request.area, f.before.W, f.before.H) : null, cut: f.request.cut });
   const seq = lastSeq(s)!;
   const seriesBefore = series;
   if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
@@ -2579,18 +2580,12 @@ function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Arr
  *  an object) carries the start to the nearest level ground where it stands well, in the same undo
  *  step (D257: a force is bound only by nature; the editor keeps the map playable). With no such
  *  ground within reach it stays, and the checks say what is wrong. */
-function carryStart(s: MapSession, params: ForceResultParams, back: EditOp[] = []): boolean {
-  if (!startBrokenBy(s, new Set(params.tiles))) return false;
-  const at = startMiddle(s);
-  const ops = at ? moveStartNear(s, at[0], at[1], true) : null;
-  if (!ops) return false;
+function carryStart(s: MapSession, params: ForceResultParams, back: EditOp[], limits: { inside: Uint8Array | null; cut: number | null }): boolean {
+  const carry = startCarry(s, params, limits);
+  if (!carry) return false;
   const label = s.history().filter((h) => h.applied).at(-1)?.label;
   s.undo();
-  // (the objects cleared for the start go with the force's own, so a Try another that replaces the
-  // force brings them back with it)
-  const cleared = ops.flatMap((o) => (o.op === "deleteEntities" ? o.params.entities : []));
-  const carried = cleared.length ? { ...params, removed: [...params.removed, ...cleared.filter((id) => !params.removed.includes(id))] } : params;
-  const r = s.applyAll([{ op: "forceResult", params: carried }, ...back, ...ops.filter((o) => o.op !== "deleteEntities")], "user", label);
+  const r = s.applyAll([{ op: "forceResult", params: carry.params }, ...back, ...carry.ops], "user", label);
   if (r.ok) return true;
   s.applyAll([{ op: "forceResult", params }, ...back], "user", label);
   return false;

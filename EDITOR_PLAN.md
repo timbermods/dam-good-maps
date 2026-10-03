@@ -198,7 +198,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
-  where it stands well, in the same undo step; the quiet dot then says what the force left short at the start
+  where it stands well, in the same undo step: its bench's ground level already, inside the working area and at or
+  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Try
+  another replaces that carry with the force. The quiet dot then says what the force left short at the start
   (water, wood and berries, the starting-logs floor), each with its one-click fix (move the start, plant berry
   bushes, plant oaks).
 - **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
