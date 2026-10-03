@@ -94,7 +94,7 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
 3. **Custom map sizes** (D357), then **the dam sketch tool** (D383).
 4. **Pick a place** (placement as written in its section; the design pass now comes earlier, D384).
 5. **The four 3D steps** (terrain above terrain): Foundations starts alongside M9b (new modules only); the view, creating
-   them (Erode and the Block tool), generation.
+   them (Erode, in Rust after #158's adoption, D438, and the Block tool), generation.
 6. **Polish until mature:** every feature feeling finished; the 20-second tour (D377) and **M13** (problem reports,
    shortcuts and help, a final performance pass), all done before collaborative editing's first users (D349).
 7. **Collaborative editing** (D349), then **M12 (Claude)** (D277, D342), then **Later**.
@@ -164,9 +164,10 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   rows stay on TypeScript. First the quiet measuring window re-times the improved port in Chromium, WebKit and native (only
   Firefox was re-timed) and compares the full M9b batch (about 18.5 minutes on 16 threads on a loaded machine) against the
   TypeScript batch.
-- **The Rust forces** (#158, D400): round 2's speed is accepted, provisional until a quiet window. Adoption waits for round
-  3's identity corpus (2,000 per force and size for native and Node-Wasm, 500 per browser engine) and the open gates;
-  nothing to do until then. Round 1's lesson applies to every port: share the map in typed memory, one call per
+- **The Rust forces** (#158, D400, D437): round 2's speed is accepted, provisional until a quiet window. Adoption waits for
+  round 3's identity corpus at 256² only (2,000 native and 2,000 Node-Wasm cases and 500 per browser engine, per force; Codex
+  runs it on Kyler's PC) and the open gates, under D381; nothing to do here until #158 reads ready. New forces (Erode first)
+  are then built directly in Rust on the adopted port, never in TypeScript first (D438). Round 1's lesson applies to every port: share the map in typed memory, one call per
   operation, never serialized.
 - **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
   every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
@@ -521,7 +522,8 @@ After the view (D280 (3)).
 **Where the tools sit (D335, Kyler, 2026-09-29):** the Block tool (`investigation/block-tool`, D335) sits on the tools row with Raise, Lower, Flatten, Smooth, Naturalize and Select, not on the forces row, whatever code it's built on (the forces core included): the rows follow how a tool feels to use, and Block is a precise hand tool. Erode stays on the forces row.
 
 **Delivers**
-1. **Erode**, a new force, adopted from its investigation (`investigation/erode`, D281) onto the
+1. **Erode**, a new force, built directly in Rust on the adopted Rust forces (#158) once that adoption lands, never
+   in TypeScript first (D438), with its investigation (`investigation/erode`, D281) as the reference, on the
    forces core, under the forces' principles (D257: bound only by nature; D258: no predicted route
    or outline). Wind and water wear rock: a cave or alcove at a cliff's foot, an overhang where hard
    rock caps softer rock, an arch through a thin ridge; the land decides which; every shape obeys
