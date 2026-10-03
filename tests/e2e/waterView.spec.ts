@@ -94,15 +94,16 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
   await expect(widget.locator("output")).toHaveText("∞");
   // the widget (Kyler, 2026-10-03: ▾ value ▴ only): the first step down from the whole world goes to the map's highest
-  // ground, then one lower, one up, and a click on the value is back to the whole world; Esc never resets it
-  await widget.getByRole("button", { name: "Lower the visible layer" }).click();
-  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
+  // ground less one, as the game steps, then one lower, one up, and a click on the value is back to the whole world;
+  // Esc never resets it
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
+  await widget.getByRole("button", { name: "Lower the visible layer" }).click();
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 2);
   await widget.getByRole("button", { name: "Raise the visible layer" }).click();
-  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await page.keyboard.press("Escape");
-  expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
+  expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await widget.locator("output").click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 

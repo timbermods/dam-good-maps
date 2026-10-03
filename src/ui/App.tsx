@@ -491,6 +491,7 @@ export function App() {
     },
     seedPinned,
     onUnpinSeed: () => setSeedPinned(false),
+    onPinSeed: () => setSeedPinned(true),
     onSize: chooseSize,
     onTheme: chooseTheme,
     onSettings: setSettings,

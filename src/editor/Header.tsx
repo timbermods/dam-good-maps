@@ -59,7 +59,11 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
     <span class="checks-dot-wrap" ref={wrap}>
       <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
-        {d.count ? <span class="dot-count">{d.count}</span> : null}
+        {d.count ? (
+          <span class="dot-count" aria-hidden="true">
+            {d.count}
+          </span>
+        ) : null}
         <span class="dot-words">{d.words}</span>
       </button>
       {p.open ? (
@@ -74,14 +78,12 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
           {c?.blocking.length ? (
             <section class="bad">
               <h3>Fix these first</h3>
-              <p class="note">The map can't be saved until they are fixed.</p>
               <Items items={c.blocking} actions={p.actions} />
             </section>
           ) : null}
           {c?.warnings.length || p.flags?.length ? (
             <section class="warn">
               <h3>Worth a look</h3>
-              {c?.warnings.length ? <p class="note">Saving notes them in the map's description.</p> : null}
               {p.flags?.length ? (
                 <ul>
                   {p.flags.map((f) => (
@@ -112,7 +114,6 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
           {c?.existing.length ? (
             <section>
               <h3>In the map when you opened it</h3>
-              <p class="note">These stay as they were, and never stop a save.</p>
               <Items items={c.existing} />
             </section>
           ) : null}

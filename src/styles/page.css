@@ -52,10 +52,18 @@
   visibility: hidden;
 }
 
-/* below about 1,000px wide the checks' words give way to the dot alone */
+/* the count is said once: in the words; below about 1,000px wide the words give way to the dot and its number */
+.checks-dot .dot-count {
+  display: none;
+}
+
 @media (max-width: 999px) {
   .checks-dot .dot-words {
     display: none;
+  }
+
+  .checks-dot .dot-count {
+    display: inline;
   }
 }
 
@@ -127,22 +135,31 @@
   flex: 1;
 }
 
+/* Generate and Surprise me split where Theme and Seed do: the same two columns, gap and padding, and the same room
+   kept for the body's scrollbar */
 .drawer-go {
   flex: none;
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--rule);
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }
 
-.drawer-go .primary {
-  flex: 1;
+.drawer-go button {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drawer-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 10px 12px 12px;
 }
 
@@ -208,9 +225,19 @@
   gap: 4px;
 }
 
-.drawer-seed .icon-button {
+.drawer-seed input {
+  flex: 1;
+}
+
+.drawer-seed .seed-keep {
   flex: none;
-  padding: 0 6px;
+  padding: 0 10px;
+}
+
+.drawer-seed .seed-keep[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 /* the sections: each opens in place under its own row, pushing only the rows below it; several at once */
@@ -256,6 +283,7 @@
 
 .your-maps ul {
   list-style: none;
+  min-width: 0;
   margin: 0;
   padding: 0;
   display: grid;
@@ -264,6 +292,7 @@
 }
 
 .your-maps button {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -455,6 +484,7 @@
   min-width: 1ch;
 }
 
+/* a clean field of exactly the title's size: a quiet ground behind the text, no outline bars beside it */
 .editor-title h1.title-editing input {
   position: absolute;
   inset: 0;
@@ -462,12 +492,13 @@
   min-width: 0;
   padding: 0;
   border: 0;
+  border-radius: 3px;
   margin: 0;
-  background: none;
+  background: var(--bg);
   color: inherit;
   font: inherit;
   text-align: center;
-  outline-offset: 2px;
+  outline: none;
 }
 
 .editor-title .title-problem {

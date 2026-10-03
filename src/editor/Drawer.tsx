@@ -69,7 +69,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
       >
         <div class="drawer-go">
           <button type="submit" class="primary" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
-            {m.busy ? m.busyWords : m.changed ? "Generate (settings changed)" : "Generate"}
+            {m.busy ? m.busyWords : "Generate"}
           </button>
           <button type="button" class="ghost" disabled={m.busy} title="Make a map of any kind" onClick={m.onSurprise}>
             Surprise me
@@ -77,17 +77,15 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
         </div>
         <div class="drawer-body">
           <ul class="drawer-legend" aria-label="On this map">
-            {legend
-              .filter(([, , n]) => n > 0)
-              .map(([t, name, n]) => {
-                const src = icon(t);
-                return (
-                  <li key={t}>
-                    {src ? <img src={src} alt="" width={24} height={24} /> : <span class="shelf-blank" aria-hidden="true" style={{ width: 24, height: 24 }} />}
-                    <b>{n}</b> {name}
-                  </li>
-                );
-              })}
+            {legend.map(([t, name, n]) => {
+              const src = icon(t);
+              return (
+                <li key={t}>
+                  {src ? <img src={src} alt="" width={24} height={24} /> : <span class="shelf-blank" aria-hidden="true" style={{ width: 24, height: 24 }} />}
+                  <b>{n}</b> {name}
+                </li>
+              );
+            })}
           </ul>
           <div class="drawer-fields">
             <label class="field" for="theme" {...tip("The kind of land the map leans toward")}>
@@ -104,14 +102,9 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
               <span class="field-head">Seed</span>
               <span class="drawer-seed">
                 <input id="seed" value={m.seedText} autoComplete="off" onInput={(e) => m.onSeed((e.target as HTMLInputElement).value)} />
-                {m.seedPinned ? (
-                  <button type="button" class="ghost icon-button" aria-label="Seed kept: click to unlock" title="Seed kept: click to unlock it" onClick={m.onUnpinSeed}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <rect x="5" y="11" width="14" height="9" rx="2" />
-                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                    </svg>
-                  </button>
-                ) : null}
+                <button type="button" class="ghost seed-keep" aria-pressed={m.seedPinned} title={m.seedPinned ? "Generate makes this map again" : "Keep this seed for the next Generate"} onClick={() => (m.seedPinned ? m.onUnpinSeed() : m.onPinSeed())}>
+                  Keep
+                </button>
               </span>
             </label>
             <label class="field wide" for="size" {...tip(HINT.size)}>

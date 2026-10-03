@@ -179,7 +179,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
     <ul>
       {items.map((c) => (
         <li key={c.id + c.message}>
-          {c.message[0].toUpperCase() + c.message.slice(1)} <code>{c.id}</code>
+          {c.message[0].toUpperCase() + c.message.slice(1)}
           {actions && c.fix?.length ? (
             <>
               {" "}

@@ -1,7 +1,7 @@
 // The visible layers (PLAN §20 D207; Kyler, 2026-10-03): one control, ▾ [value] ▴, at one fixed width so nothing
 // in the right column ever moves. The value runs up to 22 (the game's highest terrain), then ∞, on every map: the
-// first step down from ∞ goes straight to the map's highest level, and stepping up runs through every level to 22,
-// then ∞. A click on the value shows the whole world again; held and dragged up or down, it steps with the pointer.
+// first step down from ∞ goes to the map's highest ground less one (the first layer that hides anything, as the
+// game steps), and stepping up runs through every level to 22, then ∞. A click on the value shows the whole world again; held and dragged up or down, it steps with the pointer.
 // Alt+scroll and Alt+middle-click do the game's own stepping on the map.
 
 import { useRef } from "preact/hooks";
@@ -13,7 +13,7 @@ export const TOP_LEVEL = 22;
 export interface LayerWidgetProps {
   /** The layer the world is cut at, or null (the whole world). */
   level: number | null;
-  /** The map's highest level (its highest ground). */
+  /** Where the first step down from ∞ goes: the map's highest ground less one. */
   highest(): number;
   /** Cut the world at a level, or null for the whole world. */
   onSet(level: number | null): void;

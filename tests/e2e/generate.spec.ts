@@ -1,5 +1,5 @@
 // Generate always makes a new map (PLAN §20 D323, feedback item 20; D330: the map is the editor's from the
-// start): every press rolls a fresh seed; typing a seed pins it (a small lock beside the box) and Generate
+// start): every press rolls a fresh seed; typing a seed pins it ("Keep" beside the box, lit) and Generate
 // then makes that map again until it is unlocked or cleared; opening a share link pins its seed; the Dice
 // button is gone. The seed in the drawer's box, the header's line under the name, the address, the link and the
 // map open in the editor are always the map shown. Generate runs from the Maps drawer.
@@ -8,7 +8,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { generateButton, openDrawer, openEditor } from "./open";
 
 const seedBox = (page: Page) => page.locator("#seed");
-const lock = (page: Page) => page.getByRole("button", { name: /^Seed kept/ });
+/** The seed's Keep: a named toggle, always there, lit while the seed is kept. */
+const lock = (page: Page) => page.getByRole("button", { name: "Keep", exact: true });
+const kept = (page: Page) => lock(page).getAttribute("aria-pressed").then((v) => v === "true");
 /** The drawer's Generate (the submit button; it says what is being made while a map is). */
 const generate = generateButton;
 const seedOf = (link: string) => link.match(/[#&]s=(\d+)/)![1];
@@ -33,7 +35,7 @@ async function press(page: Page) {
     }
     await expect(generate(page)).toBeEnabled({ timeout: 60_000 });
     await page.getByRole("alert").getByRole("button", { name: "Dismiss" }).click();
-    if (await lock(page).count()) throw new Error("the pinned seed's map did not pass its checks");
+    if (await kept(page)) throw new Error("the pinned seed's map did not pass its checks");
   }
   throw new Error("six random maps in a row failed their checks");
 }
@@ -53,9 +55,9 @@ test("Generate rolls a fresh seed every press; the box, the header, the address,
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await openDrawer(page);
   // a link pinned its seed: unpin it, then Generate rolls
-  await expect(lock(page)).toBeVisible();
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "true");
   await lock(page).click();
-  await expect(lock(page)).toHaveCount(0);
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "false");
   const first = await shownSeed(page);
   await press(page);
   const second = await shownSeed(page);
@@ -75,7 +77,7 @@ test("a typed seed is pinned: Generate makes the same map until it is unlocked o
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await openDrawer(page);
   // a link pins its seed
-  await expect(lock(page)).toBeVisible();
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Dice" })).toHaveCount(0);
   const a = await sha(page);
   await press(page);
@@ -83,14 +85,14 @@ test("a typed seed is pinned: Generate makes the same map until it is unlocked o
   expect(await sha(page)).toBe(a);
   // clear the box: unpinned; Generate rolls
   await seedBox(page).fill("");
-  await expect(lock(page)).toHaveCount(0);
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "false");
   await press(page);
   const rolled = await shownSeed(page);
   expect(rolled).not.toBe("4242");
-  await expect(lock(page)).toHaveCount(0);
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "false");
   // typing a seed pins it
   await seedBox(page).fill("777");
-  await expect(lock(page)).toBeVisible();
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "true");
   await press(page);
   expect(await shownSeed(page)).toBe("777");
   const b = await sha(page);
@@ -99,7 +101,7 @@ test("a typed seed is pinned: Generate makes the same map until it is unlocked o
   expect(await sha(page)).toBe(b);
   // unlocking lets Generate roll again, and the box shows the new seed
   await lock(page).click();
-  await expect(lock(page)).toHaveCount(0);
+  await expect(lock(page)).toHaveAttribute("aria-pressed", "false");
   await press(page);
   expect(await shownSeed(page)).not.toBe("777");
 });

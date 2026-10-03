@@ -1,13 +1,13 @@
 // The height slice, "Visible layers" (PLAN §20 D207; Kyler, 2026-10-03): one control, ▾ [value] ▴, and nothing else.
 // The value runs up to 22 (the game's highest terrain) then ∞ on every map; the first step down from ∞ goes straight
-// to the map's highest ground; stepping up runs level by level to 22, then ∞; a click on the value shows the whole
+// to the map's highest ground less one (the first layer that hides anything, as the game steps); stepping up runs level by level to 22, then ∞; a click on the value shows the whole
 // world; the control keeps one width whatever the value, so nothing beside it ever moves. (Alt+scroll and
 // Alt+middle-click on the map step the renderer's own way: waterView.spec.ts.)
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
 
-test("the height slice: first down from ∞ is the map's highest ground, up runs to 22 then ∞, a click on the value is ∞, one width throughout", async ({ page }) => {
+test("the height slice: first down from ∞ is the map's highest ground less one, up runs to 22 then ∞, a click on the value is ∞, one width throughout", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -32,18 +32,14 @@ test("the height slice: first down from ∞ is the map's highest ground, up runs
   await expect(output).toHaveAttribute("title", "Show the whole world");
   const wide = await width();
 
-  // the first step down is the map's highest ground (the game's highest terrain, 22, at most)
-  const top = await page.evaluate(() => {
-    const m = window.dgm3d!.renderer.mapState()!;
-    return { ground: Math.max(...m.heights), hiding: window.dgm3d!.renderer.topHiding() + 1 };
-  });
-  expect(top.hiding).toBe(top.ground);
-  expect(top.ground).toBeGreaterThan(10);
-  const first = Math.min(22, top.ground);
+  // the first step down is the map's highest ground less one, as the game steps (22 at most)
+  const top = await page.evaluate(() => Math.max(...window.dgm3d!.renderer.mapState()!.heights));
+  expect(top).toBeGreaterThan(10);
+  const first = Math.min(22, top - 1);
   await lower.click();
   await expect(output).toHaveText(String(first));
   expect(await slice()).toBe(first);
-  same(await width(), wide, `the width at the highest ground (${first}) against ∞`);
+  same(await width(), wide, `the width at the first step (${first}) against ∞`);
 
   // down to 9, one level a step; the width holds at 9
   for (let v = first - 1; v >= 9; v--) {
@@ -53,7 +49,7 @@ test("the height slice: first down from ∞ is the map's highest ground, up runs
   expect(await slice()).toBe(9);
   same(await width(), wide, "the width at 9 against ∞");
 
-  // up, level by level, past the highest ground to 22, then ∞
+  // up, level by level, past the map's top to 22, then ∞
   const seen: string[] = [];
   let at = "9";
   for (let guard = 0; guard < 30 && at !== "∞"; guard++) {

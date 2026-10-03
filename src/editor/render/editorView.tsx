@@ -45,7 +45,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               legendInCorner
               legendOpen={false}
               viewButtons={viewButtons(ed)}
-              cornerLevel={<LayerWidget level={sliceLevel} highest={() => (renderer.current ? renderer.current.topHiding() + 1 : 0)} onSet={(level) => renderer.current?.setSlice(level)} />}
+              cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}
               cornerBelow={cornerButtons(ed)}
 
               onHover={hoverHandler(ed)}

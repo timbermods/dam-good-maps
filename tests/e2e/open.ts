@@ -42,7 +42,7 @@ export async function openDrawer(page: Page): Promise<Locator> {
   return drawer;
 }
 
-/** The drawer's submit button: "Generate", "Generate (settings changed)", or the progress words while a map is made. */
+/** The drawer's submit button: "Generate", or the progress words while a map is made. */
 export const generateButton = (page: Page): Locator => page.getByRole("form", { name: "Settings" }).locator('button[type="submit"]');
 
 /** Open the drawer and one of its settings sections (Terrain, Water, Hazards, Resources, Difficulty, "Limits for this

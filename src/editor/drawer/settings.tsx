@@ -17,6 +17,8 @@ export interface SettingsProps {
   /** The seed is kept (typed, or from a link): Generate makes that map again. */
   seedPinned: boolean;
   onUnpinSeed(): void;
+  /** Keep the seed in the box: Generate makes that map again. */
+  onPinSeed(): void;
   onSize(size: { x: number; y: number }): void;
   onTheme(theme: ThemeId): void;
   onSettings(s: Settings): void;
