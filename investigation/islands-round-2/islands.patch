@@ -1,0 +1,516 @@
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index 16c99fde..cdf7bd0d 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
+ import { risenBasin, wearOutlet } from "../water/outletWear";
+ import { WaterSim } from "../sim/water";
+ import { prefill, spillLevels } from "../sim/prefill";
+-import { seaLevel, standIslandsClear } from "../land/islands";
++import { islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
+ import { unit } from "../land/num";
+ import { entityJson } from "../format/entities";
+ import { mapObjects, type MapObject } from "../sim/model";
+@@ -173,7 +173,7 @@ export interface GenerationInfo {
+   preWet?: number;
+   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
+    *  a readable water story), before its water settled: what the land-stage screen judged. */
+-  planned?: { promise: boolean; water: boolean };
++  planned?: { promise: boolean; water: boolean; island?: number };
+   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
+   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
+   start: StartPick | null;
+@@ -345,6 +345,8 @@ interface LandStage {
+   hollows: Omit<Hazards, "heights"> | null;
+ }
+
++/** An island to expand to (D429): the dry tiles it needs at 128², by area (`islandToExpandTo`). */
++const EXPAND_TILES = 150;
+ /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
+  *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
+  *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
+@@ -1329,9 +1331,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
+   }
+   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
+-  // ground, is parted from it by a strait)
++  // ground, is parted from it by a strait; D432: on every sea map, the layout's islands only, never
++  // D417's headlands, which are the shore's own)
+   if (g.seaLayout) {
+-    const isles = g.parts.filter((p) => p.isle).map((p) => {
++    const isles = g.parts.filter((p) => p.isle && !p.head).map((p) => {
+       const o = (g.orientation ?? 0) as LandOrientation;
+       const px = p.at[0] * (W - 1);
+       const py = p.at[1] * (H - 1);
+@@ -1343,8 +1346,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+     });
+     const keepI = new Uint8Array(N);
+     for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
+-    // (only round an inland sea: where the ring breaks, an island may reach the land round it, D417)
+-    if (g.seaRing) standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
++    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
+   }
+   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
+   // shallower there)
+@@ -1779,6 +1781,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+           screened.count++;
+           return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
+         }
++        // (D429, D432: an Islands map has an island to expand to, large enough to build on and
++        // reachable from the shore across water as the game allows; a land without one is drawn again
++        // like one missing the promise. The size is Kyler's 150 tiles at 128², by area.)
++        if (shown.theme === "islands" && g.seaLayout) {
++          const island = islandToExpandTo(hLand, est, W, H);
++          info.planned.island = island;
++          // (from 128² up: at 96² the sea has little room for islands and the shore little for a
++          // start, and a land drawn again for this missed the start more often, D433)
++          if (!lastAttempt && opts.screen !== false && N >= 128 * 128 && screened.count < landScreen(W, H) && island < EXPAND_TILES * (N / (128 * 128))) {
++            screened.count++;
++            return fail("an island to expand to (planned)", null, false);
++          }
++        }
+       }
+     }
+     let second: StartPick | null = null;
+diff --git a/src/core/land/genome.ts b/src/core/land/genome.ts
+index 8a8fe00c..6b4c379c 100644
+--- a/src/core/land/genome.ts
++++ b/src/core/land/genome.ts
+@@ -47,6 +47,8 @@ export interface Part {
+   shape?: "round" | "valley" | "sea";
+   /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
+   isle?: boolean;
++  /** A headland of the land round the sea (D417): the shore's own, never parted from it. */
++  head?: boolean;
+ }
+
+ /** The six themes the generator knows, without "Any". */
+@@ -646,14 +648,23 @@ const SEA_GROW = 1.12;
+  * the rest of the genome keeps its draws.
+  */
+ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
++  const first = g.parts.length;
+   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+   g.seaLayout = layout;
+-  g.seaRing = layout === "edge" || rng.float() < 0.25;
++  // (D427, D432: never one large island in a moat inside a ring of land: the central layout breaks
++  // the ring)
++  g.seaRing = layout === "edge" || (rng.float() < 0.25 && layout !== "central");
+   g.tiltKind = "radial";
+   g.regional.warped = true;
+   const side = Math.min(W, H);
+-  // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
+-  const shrink = Math.max(0.75, 1 - 0.05 * attempt);
++  // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps;
++  // D432: above 128² only. At 128² and under the lands drawn again had mostly missed the promise,
++  // which a smaller sea misses more surely, and the land that passed in the end had little sea)
++  // (and under 128² the sea is drawn smaller by the side's ratio, and smaller again for each land
++  // drawn before, so the shore keeps room for a start on a small map, whose sea crowds it: the
++  // layouts' radii are the side's share, the islands' the area's, and a start's needs are the game's)
++  const again = Math.max(0.75, 1 - 0.05 * attempt);
++  const shrink = W * H > 128 * 128 ? again : W * H < 128 * 128 ? Math.min(1, portable.sqrt(side / 128)) * again : 1;
+   // (D350: on a larger map fewer, larger islands, the same share of the land: count × area^0.3, size
+   // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
+   const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
+@@ -666,11 +677,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+   // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
+   // floor, a spine along it and a peak or two off its middle, so the erosion cuts valleys down its
+   // flanks and the terraces step it, never a flat table with a bump
+-  const island = (at: [number, number], R: number, rise: number, depth: number) => {
++  // (each island's parts, the island first, so the island moves as one piece)
++  const groups: { from: number; to: number; head: boolean }[] = [];
++  const island = (at: [number, number], R: number, rise: number, depth: number, head = false) => {
+     const turn = rng.float();
+     const [ax, ay] = unit(turn);
+     const r = R * isleK;
+-    g.parts.push({ kind: "isle", at, size: r, height: depth * 1.1 + rise * 0.75 * tallK, turn, extra: 1 + 0.9 * rng.float(), soft: 0, isle: true });
++    const from = g.parts.length;
++    g.parts.push({ kind: "isle", at, size: r, height: depth * 1.1 + rise * 0.75 * tallK, turn, extra: 1 + 0.9 * rng.float(), soft: 0, isle: true, ...(head ? { head: true } : {}) });
+     // a spine along it, and a peak off its middle, sometimes two
+     g.parts.push({ kind: "ridge", at, size: r * (1 + 0.5 * rng.float()), height: rise * (0.2 + 0.15 * rng.float()) * tallK, turn: turn + 0.25 * (rng.float() < 0.5 ? 1 : 0), extra: r * (0.25 + 0.12 * rng.float()), soft: 0 });
+     const peaks = 1 + Math.floor(2 * rng.float());
+@@ -678,6 +692,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+       const off = r * (0.15 + 0.35 * rng.float()) * (k ? -1 : 1);
+       g.parts.push({ kind: "isle", at: [at[0] + (ax * off) / W, at[1] + (ay * off) / H], size: r * (0.3 + 0.2 * rng.float()), height: rise * (0.15 + 0.2 * rng.float()) * tallK, turn: rng.float(), extra: 1 + rng.float(), soft: 0 });
+     }
++    groups.push({ from, to: g.parts.length, head });
+   };
+   let tilt = 3 + rng.float();
+   switch (layout) {
+@@ -704,12 +719,19 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+       g.focus = [0.35 + 0.3 * rng.float(), 0.3 + 0.06 * rng.float()];
+       const R = side * (0.4 + 0.08 * rng.float());
+       const depth = 8 + 2 * rng.float();
+-      sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
++      const along = rng.float() < 0.5 ? 0 : 0.5;
++      const asp = 1.9 + 0.7 * rng.float();
++      sea([g.focus[0], g.focus[1]], R, depth, along, asp);
++      // (D432: the islands lie off the mainland, within a strait of its shore, not in the sea's
++      // middle out of reach of either shore: a third to three quarters of the way from the sea's
++      // middle to the mainland's side, spread along the coast)
++      const minor = (R * shrink * SEA_GROW) / portable.sqrt(asp);
+       const count = n(3 + 2 * rng.float());
+       for (let k = 0; k < count; k++) {
+         const [vx, vy] = unit(rng.float());
+         const r = 0.7 * portable.sqrt(rng.float()) * R;
+-        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + (vy * r * 0.6) / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
++        const off = (0.3 + 0.45 * Math.abs(vy)) * minor;
++        island(along === 0 ? [g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + off / H] : [g.focus[0] + off / W, g.focus[1] + (vx * r * 1.6) / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
+       }
+       tilt = 6 + 1.5 * rng.float();
+       // (its water leaves by the coast: the south edge is the way out, D275 turns it)
+@@ -731,7 +753,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+         const size = k === 0 ? 14 + 4 * rng.float() : 7 + 5 * rng.float();
+         const x = g.focus[0] * W + vx * d;
+         const y = g.focus[1] * H + vy * d;
+-        if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.25 + 4)) continue;
++        // (D432: a strait between neighbours: the field's island runs out to about 1.4 of its radius)
++        if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.5 + 6)) continue;
+         placed.push([x, y, size]);
+         island([x / W, y / H], size, 3.5 + 4.5 * rng.float() + (k === 0 ? 2 : 0), depth);
+         k++;
+@@ -752,13 +775,15 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+       const ccy = g.focus[1] * H + ax * bend;
+       // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
+       const base = turn + (bend > 0 ? -0.25 : 0.25);
+-      const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
++      // (D432: the arc spans two radii and its islands are smaller, so neighbours keep a strait and
++      // the chain reads as islands, not one broken ridge joined to the shore at both ends)
++      const span = (2 * R) / Math.abs(bend) / TWO_PI;
+       const count = 4 + Math.floor(3 * rng.float());
+       for (let k = 0; k < count; k++) {
+         const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
+         const [ux, uy] = unit(base + t * span);
+         const mid = 1 - Math.abs(t) * 1.3;
+-        const size = 6 + 11 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
++        const size = 5 + 9 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
+         island([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 3 + 5 * Math.max(0.2, mid) + 2 * rng.float(), depth);
+       }
+       break;
+@@ -819,7 +844,45 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+   if (!g.seaRing) {
+     const [ox, oy] = unit(rng.float());
+     const sh = 0.08 + 0.06 * rng.float();
+-    for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
++    // (D432: the islands move with their sea, as one piece; left where the sea was drawn, those on
++    // its far side stood in the land round it, joined to it by high ground no strait could part)
++    const sea = g.parts.find((q) => q.shape === "sea")!;
++    const to: [number, number] = [clamp(sea.at[0] + ox * sh, 0.2, 0.8), clamp(sea.at[1] + oy * sh, 0.2, 0.8)];
++    const dx = to[0] - sea.at[0];
++    const dy = to[1] - sea.at[1];
++    for (let k = first; k < g.parts.length; k++) {
++      const q = g.parts[k];
++      q.at = [q.at[0] + dx, q.at[1] + dy];
++    }
++  }
++  // (D432: an island stands in the sea, clear of the rim of land round it: its centre keeps the
++  // rim's width and its own foot from the map's edges (the foot of the field's island runs to about
++  // 1.4 of its radius, long along its axis), else it is drawn in toward the sea's middle until it
++  // does; one rooted in the rim was the shore's own, joined to it by high ground no strait could part)
++  {
++    const sea = g.parts.find((q) => q.shape === "sea")!;
++    for (const grp of groups) {
++      if (grp.head) continue;
++      const p = g.parts[grp.from];
++      const foot = p.size * portable.sqrt(p.extra) * 0.9 + 4;
++      const mx = (0.12 * side + foot) / W;
++      const my = (0.12 * side + foot) / H;
++      const lo: [number, number] = [Math.min(mx, 0.5), Math.min(my, 0.5)];
++      const hi: [number, number] = [Math.max(1 - mx, 0.5), Math.max(1 - my, 0.5)];
++      // the island's centre, pulled along its line to the sea's middle until it lies within
++      let t = 1;
++      for (const a of [0, 1] as const) {
++        const d = p.at[a] - sea.at[a];
++        if (p.at[a] < lo[a] && d < 0) t = Math.min(t, (sea.at[a] - lo[a]) / -d);
++        if (p.at[a] > hi[a] && d > 0) t = Math.min(t, (hi[a] - sea.at[a]) / d);
++      }
++      if (t >= 1) continue;
++      const nx = sea.at[0] + (p.at[0] - sea.at[0]) * t;
++      const ny = sea.at[1] + (p.at[1] - sea.at[1]) * t;
++      const ddx = nx - p.at[0];
++      const ddy = ny - p.at[1];
++      for (let k = grp.from; k < grp.to; k++) g.parts[k].at = [g.parts[k].at[0] + ddx, g.parts[k].at[1] + ddy];
++    }
+   }
+   // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
+   // it, their high ground an island's, so the shore is land and channels, never a frame)
+@@ -829,12 +892,32 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+     for (let k = 0; k < heads; k++) {
+       const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
+       // (from the map's middle out to near its edge, along this bearing)
+-      const reach = 0.5 - (0.1 + 0.06 * rng.float());
++      let reach = 0.5 - (0.1 + 0.06 * rng.float());
+       const scale = Math.max(Math.abs(vx), Math.abs(vy));
+-      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
++      const R = 13 + 6 * rng.float();
++      // (D432: a headland keeps clear of the layout's islands, a strait between: one reaching in
++      // over an island joined it to the shore by its own high ground. It moves out toward the edge
++      // until clear, and where it can't, it isn't drawn.)
++      const foot = R * isleK * portable.sqrt(1.9) * 0.9 + 4;
++      const clear = (rx: number, ry: number) => groups.every((grp) => {
++        if (grp.head) return true;
++        const q = g.parts[grp.from];
++        return portable.hypot((q.at[0] - rx) * W, (q.at[1] - ry) * H) >= foot + q.size * portable.sqrt(q.extra) * 0.9 + 4;
++      });
++      while (reach < 0.46 && !clear(0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach)) reach += 0.02;
++      if (!clear(0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach)) continue;
++      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], R, 4 + 3 * rng.float(), seaDepth, true);
+     }
+   }
+-  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
++  // (D432: the sea is the map's water, not a lake of the budget: the budget is the most the settings
++  // allow a lake (half the map), so the hydrology never cuts the sea's sill down to fit it. Cut down,
++  // the sill fell to the sea's floor and the rivers' channels ran on through it and out, and the sea
++  // drained: most open layouts at 128² had no sea at the land stage.)
++  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float(), 0.5);
++  // (D432: the sea's outlet pours over its sill: a river's bed past a lake is cut `incise` levels
++  // under the ground beside it, and the sea's sill with it; a shallow sea drained to its floor. On
++  // a sea's map the rivers run shallow channels, cut one level under the land.)
++  g.hydro.incise = Math.min(g.hydro.incise, 0.4);
+   // the sea is fed from the heights round it: springs, whose rivers pour down into it (a river from
+   // an edge enters low on the bowl's rim, and no sea stands above where its water comes in)
+   g.hydro.inflows = 0;
+diff --git a/src/core/land/islands.ts b/src/core/land/islands.ts
+index cee39a0a..92786443 100644
+--- a/src/core/land/islands.ts
++++ b/src/core/land/islands.ts
+@@ -12,12 +12,12 @@ import * as portable from "../math/portable";
+
+ const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+-/** Dry land (over `S`), labelled by 4-connected mass; the label of the largest. */
+-function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Array; main: number } {
++/** Dry land (over `S`), labelled by 4-connected mass, and which masses touch the map's edge (the
++ *  shore holding the sea; D432: on an open map the sea reaches the edge and the shore is several). */
++function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Array; shore: Set<number> } {
+   const N = W * H;
+   const lab = new Int32Array(N).fill(-1);
+-  let main = -1;
+-  let mainSize = 0;
++  const shore = new Set<number>();
+   for (let s0 = 0; s0 < N; s0++) {
+     if (lab[s0] >= 0 || h[s0] <= S) continue;
+     const q = [s0];
+@@ -26,6 +26,7 @@ function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Arr
+       const c = q[k];
+       const x = c % W;
+       const y = (c - x) / W;
++      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) shore.add(s0);
+       for (const [dx, dy] of N4) {
+         const xx = x + dx;
+         const yy = y + dy;
+@@ -37,12 +38,8 @@ function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Arr
+         }
+       }
+     }
+-    if (q.length > mainSize) {
+-      mainSize = q.length;
+-      main = s0;
+-    }
+   }
+-  return { lab, main };
++  return { lab, shore };
+ }
+
+ /** The sea's level: the spill level of the largest basin below it (the priority flood from the map's
+@@ -81,58 +78,158 @@ export function seaLevel(h: Uint8Array, W: number, H: number): number {
+   return S < 0 || best < 0.05 * N ? -1 : S;
+ }
+
+-/** Each island (centre and radius, tiles) joined to the largest land mass by low ground is parted
+- *  from it by a strait, when a cut of that ground does it. `keep` is left as it is. Returns how many
+- *  were parted. */
++/** Each island (centre and radius, tiles) joined to the shore by low ground is parted from it by a
++ *  strait, when a cut of that ground does it. The islands are cut round together, so one joined to
++ *  the shore only through its neighbours (an atoll's crescent, a chain) parts with them (D432); the
++ *  ground round an island that stays joined whatever the cut (a ridge joins it, or it is the shore's
++ *  own) goes back as it was. `keep` is left as it is. Returns how many were parted. */
+ export function standIslandsClear(h: Uint8Array, W: number, H: number, isles: readonly { x: number; y: number; r: number; aspect?: number; ux?: number; uy?: number }[], keep: Uint8Array | null, floor: number): number {
+   const N = W * H;
+   const S = seaLevel(h, W, H);
+   if (S < 0) return 0;
+   const cutTo = Math.max(floor, S - 1);
+-  let parted = 0;
++  const { lab, shore } = masses(h, W, H, S);
++  // each island's core (its dry ground within three quarters of its radius) and the band round it
++  const cores: number[][] = [];
++  const bands: number[][] = [];
+   for (const isle of isles) {
+-    const { lab, main } = masses(h, W, H, S);
+     const cx = Math.round(isle.x);
+     const cy = Math.round(isle.y);
+-    if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+-    // (D417: a long island is an ellipse, `aspect` long along (ux, uy): the distances below are in
+-    // its radius, and the strait follows its coast; a round one as before)
+-    const asp = isle.aspect ?? 1;
+-    const ma = isle.r * portable.sqrt(asp);
+-    const mi = isle.r / portable.sqrt(asp);
+-    const ux = isle.ux ?? 1;
+-    const uy = isle.uy ?? 0;
+-    const far = (mi + 4) / mi;
+-    const nd = (x: number, y: number): number => {
+-      const dx = x - cx;
+-      const dy = y - cy;
+-      const a = (dx * ux + dy * uy) / ma;
+-      const b = (-dx * uy + dy * ux) / mi;
+-      return portable.sqrt(a * a + b * b);
+-    };
+-    // the island's core: its dry ground within three quarters of its radius
+     const core: number[] = [];
+-    const R = ma + 4;
+-    for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
+-      for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
+-        if (nd(x, y) <= 0.75 && h[y * W + x] > S) core.push(y * W + x);
+-      }
+-    if (!core.length || !core.some((i) => lab[i] === main)) continue;
+-    // (the island is the mainland's own when most of the mainland lies within it: nothing to part)
+-    const before: [number, number][] = [];
+-    for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
+-      for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
+-        const i = y * W + x;
+-        const d = nd(x, y);
+-        if (d <= 0.75 || d > far || lab[i] !== main || keep?.[i] || h[i] > S + 2) continue;
+-        before.push([i, h[i]]);
+-        h[i] = cutTo;
+-      }
+-    if (!before.length) continue;
++    const band: number[] = [];
++    if (cx >= 0 && cy >= 0 && cx < W && cy < H) {
++      // (D417: a long island is an ellipse, `aspect` long along (ux, uy): the distances below are in
++      // its radius, and the strait follows its coast; a round one as before)
++      const asp = isle.aspect ?? 1;
++      const ma = isle.r * portable.sqrt(asp);
++      const mi = isle.r / portable.sqrt(asp);
++      const ux = isle.ux ?? 1;
++      const uy = isle.uy ?? 0;
++      const far = (mi + 4) / mi;
++      const R = ma + 4;
++      for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(H - 1, Math.ceil(cy + R)); y++)
++        for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(W - 1, Math.ceil(cx + R)); x++) {
++          const dx = x - cx;
++          const dy = y - cy;
++          const a = (dx * ux + dy * uy) / ma;
++          const b = (-dx * uy + dy * ux) / mi;
++          const d = portable.sqrt(a * a + b * b);
++          const i = y * W + x;
++          if (d <= 0.75) {
++            if (h[i] > S) core.push(i);
++          } else if (d <= far && shore.has(lab[i]) && !keep?.[i] && h[i] <= S + 2) band.push(i);
++        }
++    }
++    // (an island with no dry core, or one not joined to the shore, has nothing to part)
++    const joined = core.length > 0 && core.some((i) => shore.has(lab[i]));
++    cores.push(joined ? core : []);
++    bands.push(joined ? band : []);
++  }
++  // the cut, round every island at once
++  const before = new Map<number, number>();
++  for (const band of bands) for (const i of band) if (!before.has(i)) before.set(i, h[i]);
++  for (const i of before.keys()) h[i] = cutTo;
++  // (a cut that opened the sea a way out below its level, through the shore beside its sill or its
++  // outlet, goes back: the sea keeps its level)
++  {
++    const spill = edgeSpill(h, W, H);
++    for (const [i, v] of before) if (spill[i] < S) h[i] = v;
++  }
++  // islands still joined to the shore get their ground back, and the rest are checked again, until
++  // every island cut round stands apart
++  const stays = new Uint8Array(isles.length);
++  for (;;) {
+     const after = masses(h, W, H, S);
+-    const apart = core.some((i) => after.lab[i] >= 0 && after.lab[i] !== after.main && h[i] > S);
+-    if (apart) parted++;
+-    else for (const [i, v] of before) h[i] = v;
++    let more = false;
++    for (let k = 0; k < isles.length; k++) {
++      if (stays[k] || !cores[k].length) continue;
++      const apart = cores[k].some((i) => after.lab[i] >= 0 && !after.shore.has(after.lab[i]));
++      if (!apart) {
++        stays[k] = 1;
++        more = true;
++      }
++    }
++    if (!more) break;
++    const cut = new Uint8Array(N);
++    for (let k = 0; k < isles.length; k++) if (!stays[k]) for (const i of bands[k]) cut[i] = 1;
++    for (const [i, v] of before) if (!cut[i]) h[i] = v;
+   }
++  let parted = 0;
++  for (let k = 0; k < isles.length; k++) if (cores[k].length && !stays[k]) parted++;
+   return parted;
+ }
++
++/** An island to expand to (D429, D432, Kyler's check): the largest island on the land, in tiles,
++ *  reachable from the shore across water as the game allows; 0 when there is none. Dry is land over
++ *  the sea's level with no more than 0.05 of the water `D` on it; an island is a dry mass that
++ *  touches no edge of the map; it is reached across at most `strait` tiles of water at a time (a
++ *  bridge, levees or a dam), from the shore (the largest dry mass touching an edge, where the start
++ *  stands) or from any island reached. */
++export function islandToExpandTo(h: Uint8Array, D: ArrayLike<number>, W: number, H: number, strait = 8): number {
++  const N = W * H;
++  const S = seaLevel(h, W, H);
++  const dry = (i: number) => !(D[i] > 0.05) && h[i] > S;
++  const lab = new Int32Array(N).fill(-1);
++  const size: number[] = [];
++  const edge: boolean[] = [];
++  for (let s0 = 0; s0 < N; s0++) {
++    if (lab[s0] >= 0 || !dry(s0)) continue;
++    const id = size.length;
++    const q = [s0];
++    lab[s0] = id;
++    let e = false;
++    for (let k = 0; k < q.length; k++) {
++      const c = q[k];
++      const x = c % W;
++      const y = (c - x) / W;
++      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) e = true;
++      for (const [dx, dy] of N4) {
++        const xx = x + dx;
++        const yy = y + dy;
++        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
++        const j = yy * W + xx;
++        if (lab[j] < 0 && dry(j)) {
++          lab[j] = id;
++          q.push(j);
++        }
++      }
++    }
++    size.push(q.length);
++    edge.push(e);
++  }
++  // (from the largest shore mass, the start's likeliest land: a shore the sea splits in two may
++  // reach an island from the side the start is not on)
++  const reached = new Uint8Array(size.length);
++  let shore = -1;
++  for (let m = 0; m < size.length; m++) if (edge[m] && (shore < 0 || size[m] > size[shore])) shore = m;
++  if (shore < 0) return 0;
++  reached[shore] = 1;
++  for (let grew = true; grew; ) {
++    grew = false;
++    const dist = new Int16Array(N).fill(-1);
++    const q: number[] = [];
++    for (let i = 0; i < N; i++) if (lab[i] >= 0 && reached[lab[i]]) { dist[i] = 0; q.push(i); }
++    for (let k = 0; k < q.length; k++) {
++      const c = q[k];
++      if (dist[c] > strait) continue;
++      const x = c % W;
++      const y = (c - x) / W;
++      for (const [dx, dy] of N4) {
++        const xx = x + dx;
++        const yy = y + dy;
++        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
++        const j = yy * W + xx;
++        if (dist[j] >= 0) continue;
++        if (lab[j] >= 0) {
++          if (!reached[lab[j]]) { reached[lab[j]] = 1; grew = true; }
++          continue;
++        }
++        dist[j] = dist[c] + 1;
++        q.push(j);
++      }
++    }
++  }
++  let best = 0;
++  for (let m = 0; m < size.length; m++) if (!edge[m] && reached[m] && size[m] > best) best = size[m];
++  return best;
++}
