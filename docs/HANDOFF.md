@@ -34,7 +34,8 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **The page session** (Fable 5.1, high; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
-- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release item 3: moving
+- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release items 1 and 2 on
+  its own PR (merged when CI is green and its 6-cell check passes, if it ran one) and item 3: moving
   water and the Flow view, then renderer R1. This session doesn't build them; it merges #165 once the renderer has merged dev into it, CI is green and
   its 6-cell smoothness check passes on the merged branch (D436), never during a quiet window that measures what it touches.
   The gate is `tools/smooth/` (built from `investigation/performance`, #107): a 6-cell check, Chrome on the discrete GPU at
@@ -46,6 +47,8 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
   `waterJourney.ts`: keep this session's changes there small, and tell Kyler before large ones. The water's bytes, when
   it settles and the pinned digests don't change; High's surface-gradient flow estimate (pending #111) is replaced by the
   simulation's current; the Rust water must keep exposing `out`.
+- **Codex on Kyler's PC** works in its own clone there, never in the renderer session's (a Codex task switched the
+  renderer's checkout at 00:33 on 2026-10-03).
 - **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler
   ([his message](archive/feedback/2026-10-02-two-sessions.md)).
 

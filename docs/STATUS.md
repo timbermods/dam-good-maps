@@ -26,8 +26,8 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
-**The milestone session's work now:**
-
+**The milestone session's work now:** Post-release items 1 and 2 (the quick-click bug; tests for an eruption in High and the highlight on
+  High's basin sources, D378) are its next PR, merged when CI is green and its 6-cell check passes if it ran one.
 - **M9b's quiet window** (D414): runs at 02:00 on Saturday 2026-10-03; heavy work pauses for it.
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source

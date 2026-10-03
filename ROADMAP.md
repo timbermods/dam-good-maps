@@ -62,9 +62,10 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    tagged and deleted (D381); (c) the forces (#158) as soon as Codex's corpus reads ready; (d) the analysis (#157) and the
    generator, after M9b's release. Details in "The Codex adoptions" below.
 4. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
-   1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the
+   1. **The quick-click bug** (D378; built by the renderer session on its own PR, merged when CI is green and its 6-cell
+      check passes if it ran one): Craterize clicked quickly sometimes skips the new crater's strike animation; the
       previous force should skip to its end while the new one plays in full. Check every force.
-   2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
+   2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378; the renderer session, with item 1).
    3. **Moving water and the Flow view** (Codex's flow investigation; built by the renderer session on
       `feature/moving-water`, D398; this session merges its PR when green and Kyler says yes): always-on moving water in both looks; the Flow
       view's lanes off by default; paths built in the water worker; it must pass the smoothness check (D435). Then **renderer
