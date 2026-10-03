@@ -824,7 +824,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
     pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
     (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
-    §10; `tests/contract/waterFromNowhere.test.ts`).
+    §10; `tests/contract/waterFromNowhere.test.ts`). The preview does the same once its water stops: the
+    pre-fill's water that only the walk's thin water joined to fed water goes, and the water runs on from there.
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

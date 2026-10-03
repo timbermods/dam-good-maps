@@ -14,8 +14,8 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MapSession } from "../../../src/core/doc/session";
-import { openHeights, rect, sourceOp } from "./synthetic";
+import { MapSession } from "../../src/core/doc/session";
+import { openHeights, rect, sourceOp } from "./gateWater";
 
 /** Dig, place a source in the pit, settle; delete the source in preview mode: the preview's stopped
  *  water and then the canonical settle's, on the pit's middle tile. */
