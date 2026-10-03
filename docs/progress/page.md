@@ -159,3 +159,9 @@ run's hints' final form (5), the first visit's ready-made map (6), phones (7).
   portrait and landscape with its sheets; 1280 and 1024 wide; the rows' hierarchy; the plates at rest and in use,
   with the shelf both ways; the moments in words. It also proposes one width for the whole right column, which
   removes the wide Save plate. Nothing of it is built.
+- **2026-10-02, the reversal.** Kyler set the floating-plate layout aside after seeing it beside the current editor,
+  and asked for the one-page editor rebuilt on the current editor's skeleton with its dark chrome, keeping the
+  system's tokens, roles, tests, Select in hand, the checks list, File, the brush patch and the D380 work (DESIGN.md,
+  "Set aside"). Two mockups for where the generator goes (a drawer in the palette's place; two views switched in the
+  header), each beside the current editor captured from dev at 1440×900 and 1920×1080: `docs/design/editor-v6-*`.
+  Nothing visual is built until he chooses.

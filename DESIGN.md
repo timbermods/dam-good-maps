@@ -235,6 +235,33 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 - The panel collapses: it narrows to its strip over 200 ms and the rows slide beside it; the camera stays where it is.
 - The shelf, if it opens only while placing: it unrolls downward over 180 ms.
 
+## Set aside: the floating plates (Kyler, 2026-10-02)
+
+Side by side with the current editor, the floating-plate layout (v4 and its system round, mockups 01–35) was worse:
+controls scattered over seven plates, chunky cells that ate the map, wood plates competing with the terrain, and
+alignment that never settled. It is set aside. **The current editor's layout is kept** and refined on its own
+skeleton: the docked header strip (the brand mark, the map's name and its facts on the left; Undo, Redo, the checks
+with their Fix/Show list, Save to Timberborn as the only lit control, Look and File on the right); the object palette
+docked on the left (pictures with their names beneath, in groups); the compact toolbar top-left (the view layers,
+the tools, the forces with their own treatment, the options; every control named, keys only in tooltips); the level
+control, Slow forces and Sound top-right; the minimap bottom-left; the readout where it is; its dark chrome, so the
+map leads. Its flaws are fixed: it scales up on large screens, the header's right end isn't crowded, the options row
+isn't cramped. Kept from the plates round: the tokens, colour roles, type scale and icon family, the no-overlap and
+contrast tests, Select in hand, the checks list, "File", the brush worker patch, the core wiring and the D380 work.
+
+**Where the generator goes** is Kyler's choice between two mockups (`docs/design/editor-v6-*`, each beside the
+current editor at 1440×900 and 1920×1080): (1) "New map" in the header opens a full-height drawer on the left in
+the palette's place, lying over the map's left edge without moving the view, the minimap hidden while it is open,
+one click closing it; (2) two views of one page switched in the header, "New map" and "Edit", the generator view
+with the settings column, a large preview, the card and the versions strip. In both, a share link still generates
+and opens straight in the editor.
+
+Where the refined editor departs from the current one: the header gains the brand mark and the facts line under the
+name, and "File" replaces the ⋯ menu; the checks' words sit beside the dot; the view layers are pills, lit when on,
+after the two camera buttons; the forces have their own band; the options row may take a second line; Pause water
+shows unavailable rather than hidden; the colour roles hold (lit for Save only, selected for on-states). The
+sections below record the plates round as history.
+
 ## The system (v5, proposed with the v4 mockups 22–26): one set of tokens for every plate
 
 *Awaiting Kyler's yes. Once accepted it replaces the Tokens table above.*
