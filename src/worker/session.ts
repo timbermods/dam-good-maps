@@ -916,7 +916,7 @@ function opened(s: MapSession): SessionOpen {
   return sessionView();
 }
 
-/** "Refine this map": open the map the generator just made. */
+/** Opens the map the generator just made in the editor. */
 export function refine(): SessionOpen {
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
