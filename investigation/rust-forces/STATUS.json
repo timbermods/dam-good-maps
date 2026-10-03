@@ -1,5 +1,5 @@
 {
-  "baseline": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+  "baseline": "4799800ff4cc14093de8aabf68aa0e7385c32248",
   "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
   "implemented": [
     "footprint",
@@ -9,6 +9,9 @@
     "carve",
     "glaciate"
   ],
+  "sizes": [
+    256
+  ],
   "requiredCounts": {
     "native": 2000,
     "node-wasm": 2000,
@@ -16,8 +19,9 @@
     "firefox": 500,
     "webkit": 500
   },
-  "performance": "Round 2 accepted by user; provisional until a quiet window. No round-3 timings.",
+  "performance": "Speed gates dropped by D441. No performance timings or quiet-window requirement.",
   "gates": {
+    "postM9bOracle": false,
     "portableArithmetic": true,
     "carve": true,
     "glaciate": true,
@@ -25,8 +29,8 @@
     "existingTestsAgainstRust": false,
     "thousandsPerForcePerSizePerTarget": false,
     "existingCrossEngineDeterminism": false,
-    "performanceAcceptance": true,
     "completeIntegrationAdapter": false,
     "productExportBytes": true
-  }
+  },
+  "adoption": "blocked"
 }

@@ -6,7 +6,7 @@ foreach($ownedRootText in $RootIds.Split(',')){
  $ownedRootId=[int]::Parse($ownedRootText)
  $ownedRoot=$allOwnedCandidates | Where-Object {$_.ProcessId -eq $ownedRootId}
  if(!$ownedRoot){continue}
- if($ownedRoot.Name -ne 'node.exe' -or !($ownedRoot.CommandLine.Contains($Scope)) -or $ownedRoot.CommandLine -notmatch '(check|browser)\.mjs'){throw ('Refusing unidentified root PID '+$ownedRootId)}
+ if($ownedRoot.Name -ne 'node.exe' -or !($ownedRoot.CommandLine.Contains($Scope)) -or $ownedRoot.CommandLine -notmatch '(identity-matrix|check|browser|compare|lifecycle-chain|edge-check|footprint-check|verifier-check|existing-tests|suite-replay|existing-browser|evidence|acceptance)\.mjs'){throw ('Refusing unidentified root PID '+$ownedRootId)}
  $ownedIds=[Collections.Generic.HashSet[int]]::new();[void]$ownedIds.Add($ownedRootId)
  do{$foundOwned=$false;foreach($ownedCandidate in $allOwnedCandidates){if($ownedIds.Contains([int]$ownedCandidate.ParentProcessId)-and !$ownedIds.Contains([int]$ownedCandidate.ProcessId)){[void]$ownedIds.Add([int]$ownedCandidate.ProcessId);$foundOwned=$true}}}while($foundOwned)
  # Stop the wrapper first so it cannot create descendants while its tree is retired.

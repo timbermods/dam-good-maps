@@ -1,31 +1,36 @@
 # Rust forces — round 3
 
-**Identity only; not adoptable.** Round-2 speed is accepted provisionally; no timing work this round. Product files unchanged.
+**NOT READY** — 256² only (D437); Firefox included (D440); speed gates dropped (D441). No performance benchmarks. Product files unchanged.
+Oracle: dev 4799800ff4cc14093de8aabf68aa0e7385c32248. Ported current sealed-basin stopping/remaining-volume rule, unfed-water removal and second canonical settle, and carried-object collisions with the start/standing kept slopes. Shared portable.rs unchanged.
 
-Overnight plan: 8 independent workers, 25 cases/shard, 2,520 shards; estimated 9.8 hours (9.0–10.2); projected peak CPU budget 100%, unmeasured. Longest remaining shards first; at most 6 simultaneous 512² shards, 2 browsers/engine; stop admission below 10 GiB free RAM. Uses the existing pilot only, with 20% contention allowance. Full counts unchanged.
+Pilot 7.04 min; matrix projected 1.80 h, actual pending. Existing suites/replays are additional. See [SCHEDULE.md](SCHEDULE.md).
 
-Scheduling handoff: [SCHEDULE.md](SCHEDULE.md) gives the one assigned machine's full share and observed pilot duration per target/size. All round 3 workloads remain stopped until Kyler explicitly authorizes a window; the other measurement job has priority.
+| Force at 256² | Native | Node-Wasm | Chromium | Firefox | WebKit |
+|---|---:|---:|---:|---:|---:|
+| footprint | 20 | 20 | 5 | 5 | 5 |
+| craterize | 20 | 20 | 5 | 5 | 5 |
+| erupt | 20 | 20 | 5 | 5 | 5 |
+| quake | 20 | 20 | 5 | 5 | 5 |
+| carve | 20 | 20 | 5 | 5 | 5 |
+| glaciate | 20 | 20 | 5 | 5 | 5 |
 
-Shared portable.rs applied; strict native/Wasm source, IR, assembly and unstripped Wasm guard PASS.
+Required: 2,000 native and Node-Wasm, 500 each browser per force: 33,000 target checks. Identity failure payloads retained: 0; each fix is recorded in [IDENTITY-FIXES.md](IDENTITY-FIXES.md). Refused inputs match exactly (0 paired native/Node cases).
 
-allWaterAndPlaybackRecords closed: Missing a separate completeness proof: the gate was coupled to finishing the random corpus; full typed raw/final water, every playback tape and total/step timing are now checked against the complete TS record.
-productExportBytes closed: Missing separate current-arithmetic proof of native opaque-component order/JsonFloat tokens through the actual product writer; native and all Wasm bindings now compare .timber bytes independently of corpus completion.
+- postM9bOracle: OPEN
+- portableArithmetic: PASS
+- carve: PASS
+- glaciate: PASS
+- allWaterAndPlaybackRecords: PASS
+- existingTestsAgainstRust: OPEN
+- thousandsPerForcePerSizePerTarget: OPEN
+- existingCrossEngineDeterminism: OPEN
+- completeIntegrationAdapter: OPEN
+- productExportBytes: PASS
 
-Pilot: 37.6 minutes; projected sequential full matrix 62.6 hours; mean / peak total CPU 20.6% / 57.8% (shared PC, including other sessions). Projection includes cold verification and browser startup, not force planning timings.
+acceptance.mjs: NOT READY — postM9bOracle, existingTestsAgainstRust, thousandsPerForcePerSizePerTarget, existingCrossEngineDeterminism, completeIntegrationAdapter.
 
-Counts are Native / Node-Wasm / Chromium / Firefox / WebKit for each cell.
+Full authorization withdrawn: no matrix or full suites started tonight. Wait for M9b on dev and a newly named window. [M9B-PREP.md](M9B-PREP.md): 2–4 hours estimated for re-pin/audit, game defaults, guards and a new pilot if the inspected head remains unchanged; refresh the projection then.
 
-| Force | 128² | 256² | 512² |
-|---|---|---|---|
-| footprint | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
-| craterize | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
-| erupt | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
-| quake | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
-| carve | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
-| glaciate | 20/20/5/5/5 | 20/20/5/5/5 | 20/20/5/5/5 |
+Whole-machine pilot CPU: mean 15.0%, peak 34.9%; includes other sessions.
 
-Required per cell: native/Node-Wasm 2,000; browsers 500. Identity errors: 0; refused gestures are compared exactly and reported separately (2 paired native/Node cases).
-
-acceptance.mjs verdict: NOT READY — existingTestsAgainstRust, thousandsPerForcePerSizePerTarget, existingCrossEngineDeterminism, completeIntegrationAdapter. Full matrix awaits a user-named window. Final-arithmetic suites/retained checks also wait for that window; their time is excluded from the projection.
-
-Regenerate: [INTEGRATION.md](INTEGRATION.md). Large generated outputs and exact failure payloads stay in ignored local/round3/. Adoption tags ts-forces-final and deletes TypeScript in the separate milestone session; this investigation creates no tag.
+Regenerate: [INTEGRATION.md](INTEGRATION.md). Large bundles, Wasm, executables, maps, exports, IR, failures and corpora stay in ignored local/round3-dev256/ (D195). ts-forces-final and TypeScript deletion belong to the adoption session; this investigation creates no tag.

@@ -4,7 +4,7 @@ import {resolve,dirname} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {gzipSync,brotliCompressSync} from 'node:zlib';
 import {HERE,ROOT,LOCAL,deps,hash,json} from './common.mjs';
-const base='4aab909e23016902cbbe6ffaeddeece786176ab3';
+const base=JSON.parse(readFileSync(resolve(HERE,'baseline-check.json'))).oracle;
 const nodePaths=[resolve(dirname(deps.resolve('esbuild/package.json')),'..')];
 const meta={base,portableSha256,guardSha256,inputs:{}};
 for(const name of ['build.rs','shared-math.mjs','src/lib.rs','rust/main.rs','Cargo.toml','Cargo.lock','.cargo/config.toml','protocol.ts','typed-result.ts','api.ts','worker.ts','suite-adapter.ts','check.mjs','existing-tests.mjs','browser.mjs','native-bench.mjs','edge-check.mjs','lifecycle-chain.mjs','native-fixtures.mjs','load.mjs','load.ps1','common.mjs','prepare-firefox.py','existing-browser.mjs','identity-matrix.mjs','verify-ir.mjs','suite-replay.mjs','footprint-check.mjs','verifier-check.mjs'])meta.inputs[name]=hash(readFileSync(resolve(HERE,name)));

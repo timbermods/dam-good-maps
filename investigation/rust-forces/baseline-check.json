@@ -1,16 +1,24 @@
 {
-  "oracle": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-  "observedDev": "b4c211b07db8bcc50dff62be66e2042f10262137",
-  "unchanged": [
-    "src/core/forces",
-    "src/core/math",
-    "src/core/sim",
-    "src/core/format",
-    "src/core/gen",
-    "existing force contracts and browser suites",
-    "investigation/rust-water",
-    "investigation/perf-audit"
+  "oracle": "4799800ff4cc14093de8aabf68aa0e7385c32248",
+  "previousOracle": "4aab909e23016902cbbe6ffaeddeece786176ab3",
+  "pinnedAt": "2026-10-02T23:12:00-07:00",
+  "method": "git fetch --no-tags origin dev; inspect full src/core and src/worker diff from previous oracle; trace force imports",
+  "portChanges": [
+    "D413: sealedBasins closed/drying, rest-volume normalization, stop immediately on sealed-only evaporation, closedBasins at last check",
+    "D385/D387 canonicalRun: remove unfed water by source/kept-seed connectivity, preserve flows/ticks and re-settle once; D413 restore closed basins from prefill",
+    "D425 literalOf: moved objects landing on StartingLocation footprint or still-standing kept slopes are removed in original order"
   ],
-  "method": "git diff --name-only (pinned oracle to observed dev)",
-  "result": "no relevant changed files"
+  "unchanged": [
+    "portable Rust source and guard hashes",
+    "TypeScript portable maths",
+    "force planners, playback and footprint transform apart from result.ts",
+    "water numerical substeps and model.ts",
+    "prefill numerical start and flow/spill algorithms",
+    "product package.json and package-lock.json",
+    "format writer and world/export serialization"
+  ],
+  "otherDiff": "Generated-resource lifetime/source-group stable ids, brush/weather, document/library and worker updates are executed by the current TS input/finalization/presentation/export oracle; no additional Rust force computation change. Slopes slopeTiles/slopeStands added as literalOf dependency.",
+  "diffArtifact": "local/dev-core-worker.diff",
+  "result": "Current dev changes ported; 1% 256-square pilot and strict native/Wasm guards pass; adoption waits for M9b and full corpus",
+  "postM9bMerged": false
 }

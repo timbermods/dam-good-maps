@@ -1,27 +1,29 @@
-# Round 3 scheduling handoff
+# Round 3 schedule
 
-**Stopped. No Rust forces round 3 workload may start on this PC until Kyler explicitly authorizes it after the other job's measurements.** Process inspection on 2026-10-02 found no running process referencing this investigation. No compilation, identity run, browser run or benchmark was started for this handoff. There is no automatic scheduled start.
+**Full-run authorization withdrawn.** Tonight's current-dev pilot has finished. No matrix, full suite or automatic future start is scheduled. Wait for M9b on dev, the port/new pilot, and Kyler's newly named window. RUN-AUTHORIZATION.json blocks both full controller entry points.
+
+Oracle **4799800ff4cc14093de8aabf68aa0e7385c32248**; shared portable.rs unchanged. Only 256² remains (D437); Firefox remains (D440); speed gates are dropped (D441). These are elapsed verification costs, not planner benchmarks.
 
 | Machine | Assigned share | Workers | Projected elapsed | Projected peak CPU |
 |---|---|---|---|---|
-| Kyler's shared PC, 8 cores / 16 threads | 100%: 99,000 target checks, 2,520 shards | 8 | 9.79 h; range 8.97–10.19 h | 100%, unmeasured |
+| Kyler's shared PC, 8 cores / 16 threads | 100%: 33,000 target checks, 840 shards | 8 | 1.80 h; range 1.65–1.87 h | 100%, budgeted and unmeasured |
 
-Only this PC has been identified and measured; no other machine is assigned work. Workers are process slots on this PC, not eight machines. They share one queue rather than reserving a fixed engine or force per slot, to avoid an uneven finish.
+Only this PC is assigned. Worker slots share a queue. Full counts are 2,000 native, 2,000 Node-Wasm and 500 each Chromium, Firefox and WebKit for each of footprint, Craterize, Erupt, Quake, Carve and Glaciate: exactly 30 cells. No count is dropped at 256².
 
-Observed time per part from the existing sequential 1% pilot, summed across all six computations. Columns are elapsed **minutes**, including TS reference computation, exact comparison, exports and cold startup. Native and Node-Wasm are checked together and cannot be given independent durations from this pilot.
+| Part | Measured one-worker pilot seconds | Projected serial worker-hours | Full target checks |
+|---|---:|---:|---:|
+| Native + Node-Wasm, paired | 207.366 | 5.760 | 24,000 |
+| Chromium | 62.702 | 1.742 | 3,000 |
+| Firefox | 65.236 | 1.812 | 3,000 |
+| WebKit | 85.424 | 2.373 | 3,000 |
+| Parts total | 420.728 | 11.687 | 33,000 |
 
-| Part | 128² | 256² | 512² | Total pilot minutes | Full projected serial worker-hours | Full target checks |
-|---|---:|---:|---:|---:|---:|---:|
-| Native + Node-Wasm, paired | 0.858 | 3.678 | 16.037 | 20.573 | 34.288 | 72,000 |
-| Chromium | 0.304 | 1.108 | 3.993 | 5.406 | 9.010 | 9,000 |
-| Firefox | 0.394 | 1.097 | 3.048 | 4.539 | 7.566 | 9,000 |
-| WebKit | 0.334 | 1.230 | 5.502 | 7.067 | 11.778 | 9,000 |
-| Total | 1.890 | 7.114 | 28.581 | 37.585 | 62.641 | 99,000 |
+Pilot counts per force: 20 native + 20 Node-Wasm, 5 each browser. All **330 target checks passed, zero identity errors**. Controller wall time was **422.459 s (7 min 2 s)**, including 1.731 s outside shard execution. Whole-machine Windows PDH CPU averaged **15.0%**, peaked **34.9%** over 418 samples, including other sessions. Chromium 145.0.7632.6 was selected from the installed executable after the locked driver's Chromium download timed out; Firefox 155.0 and WebKit 26.6 ran through the locked driver. Every engine's exact rows are retained in local/. No Firefox speed settings were used.
 
-Pilot counts per force/size: 20 native + 20 Node-Wasm, 5 per browser. Full counts: 2,000 native + 2,000 Node-Wasm, 500 per browser, for footprint, Craterize, Erupt, Quake, Carve and Glaciate at all three sizes. Every count remains required. Rounded entries may not add exactly. The observed part durations come from sealed sequential completion timestamps; there is one pilot sample per cell, so no repeated-duration median/worst or parallel per-part measurement exists. Total machine CPU during the pilot was mean 20.6%, peak 57.8%, including other sessions.
+There is one verification pilot observation per cell, explicitly requested as one worker. No repeated planner timings or measured parallel per-part durations are claimed. Native/Node time is combined. Costs include TS reference computation, verification, exports and startup. Parallel parts overlap: serial worker-hours are not elapsed overnight slots. The static scheduler predicts **1.499 h**, plus a **20% allowance = 1.799 h**; the range allows 10–25%. Parallel scaling, memory pressure and later seeds remain unmeasured. Full existing suites/replays are additional and were not run tonight.
 
-The full parts run concurrently: do not add the worker-hours to schedule overnight elapsed time. Static scheduling predicts 8.16 hours, plus 20% contention allowance = **9.79 hours**. The 8.97–10.19-hour range uses 10–25% allowance; parallel scaling and later seeds remain unmeasured. Reserve about 10 hours with a possible small overrun, or stop at the window end and resume the outstanding exact cases later. This is the random matrix only; final-arithmetic existing suites/replays need additional time, not yet measured.
+Eight independent workers take non-overlapping 25-case shards, longest estimated remaining first; at most six browsers and two per engine. Pause admission below 10 GiB free RAM. Arithmetic and reductions inside each case remain serial. Stop on the first identity failure, retain exact bytes, fix without tolerance, then resume only matching fingerprints. Stop only owned process trees at the named window's end. The model conservatively includes every case rather than deducting the pilot.
 
-Each shard has 25 independent cases. Longest estimated remaining shards first; at most six simultaneous 512² shards, six browser workers total and two per engine; pause admission below 10 GiB free RAM. Arithmetic and reduction order inside each force remain serial and unchanged. Stop on the first identity error, preserve its payload, fix exactly and resume. At the authorized window's end, stop only this runner's owned process trees and retain completed checkpoints. Passed pilot cases may be reused only with matching arithmetic/binary fingerprints; projection conservatively includes every case again.
+**After M9b:** estimate 2–4 hours to re-pin/audit, enable the reused game rules and six-day cap, rebuild/guard and rerun the pilot; see [M9B-PREP.md](M9B-PREP.md). Refresh this projection before the full run. Tonight's 1.80 h is a pre-M9b estimate, not an adoption schedule commitment.
 
-The controller requires explicit user-authorized start/end timestamps and must be invoked inside that window. It does not schedule a future start. See [INTEGRATION.md](INTEGRATION.md) for the command and final gates. Regenerate the cost model with `node plan-matrix.mjs` and validate with `node plan-check.mjs`; both read compact evidence and run a static simulation only. [parallel-plan.json](parallel-plan.json) records the machine allocation and per-part seconds; [pilot-shard-costs.json](pilot-shard-costs.json) records all 72 force/size/target observations and pilot hashes. Large run outputs and failure payloads remain gitignored under `local/round3/` (D195).
+Regenerate compact observations from a completed pilot with `node plan-matrix.mjs --from-pilot`; validate with `node plan-check.mjs`. Both only read/simulate. [parallel-plan.json](parallel-plan.json) records the machine share, [pilot-shard-costs.json](pilot-shard-costs.json) all 24 observations and fingerprints. Raw pilot/build/export/checkpoint data stay under ignored local/round3-dev256/, with sealed-pilot copies retained (D195). [INTEGRATION.md](INTEGRATION.md) gives the build/pilot recipe and later gates.

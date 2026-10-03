@@ -1,18 +1,21 @@
 {
-  "status": "planned-not-run-await-user-window",
+  "status": "waiting-for-post-M9b-dev-and-new-window",
+  "oracle": "4799800ff4cc14093de8aabf68aa0e7385c32248",
+  "sizes": [
+    256
+  ],
   "machine": {
     "logicalThreads": 16,
     "physicalCores": 8
   },
   "limits": {
     "workers": 8,
-    "large512": 6,
     "browsers": 6,
     "perEngine": 2,
     "memoryReserveGiB": 10
   },
   "shardCases": 25,
-  "shards": 2520,
+  "shards": 840,
   "requiredCounts": {
     "native": 2000,
     "node-wasm": 2000,
@@ -20,38 +23,8 @@
     "firefox": 500,
     "webkit": 500
   },
-  "targetChecks": 99000,
+  "targetChecks": 33000,
   "counts": {
-    "native/footprint/512": 2000,
-    "node-wasm/footprint/512": 2000,
-    "chromium/footprint/512": 500,
-    "firefox/footprint/512": 500,
-    "webkit/footprint/512": 500,
-    "native/craterize/512": 2000,
-    "node-wasm/craterize/512": 2000,
-    "chromium/craterize/512": 500,
-    "firefox/craterize/512": 500,
-    "webkit/craterize/512": 500,
-    "native/erupt/512": 2000,
-    "node-wasm/erupt/512": 2000,
-    "chromium/erupt/512": 500,
-    "firefox/erupt/512": 500,
-    "webkit/erupt/512": 500,
-    "native/quake/512": 2000,
-    "node-wasm/quake/512": 2000,
-    "chromium/quake/512": 500,
-    "firefox/quake/512": 500,
-    "webkit/quake/512": 500,
-    "native/carve/512": 2000,
-    "node-wasm/carve/512": 2000,
-    "chromium/carve/512": 500,
-    "firefox/carve/512": 500,
-    "webkit/carve/512": 500,
-    "native/glaciate/512": 2000,
-    "node-wasm/glaciate/512": 2000,
-    "chromium/glaciate/512": 500,
-    "firefox/glaciate/512": 500,
-    "webkit/glaciate/512": 500,
     "native/footprint/256": 2000,
     "node-wasm/footprint/256": 2000,
     "chromium/footprint/256": 500,
@@ -81,85 +54,54 @@
     "node-wasm/glaciate/256": 2000,
     "chromium/glaciate/256": 500,
     "firefox/glaciate/256": 500,
-    "webkit/glaciate/256": 500,
-    "native/footprint/128": 2000,
-    "node-wasm/footprint/128": 2000,
-    "chromium/footprint/128": 500,
-    "firefox/footprint/128": 500,
-    "webkit/footprint/128": 500,
-    "native/craterize/128": 2000,
-    "node-wasm/craterize/128": 2000,
-    "chromium/craterize/128": 500,
-    "firefox/craterize/128": 500,
-    "webkit/craterize/128": 500,
-    "native/erupt/128": 2000,
-    "node-wasm/erupt/128": 2000,
-    "chromium/erupt/128": 500,
-    "firefox/erupt/128": 500,
-    "webkit/erupt/128": 500,
-    "native/quake/128": 2000,
-    "node-wasm/quake/128": 2000,
-    "chromium/quake/128": 500,
-    "firefox/quake/128": 500,
-    "webkit/quake/128": 500,
-    "native/carve/128": 2000,
-    "node-wasm/carve/128": 2000,
-    "chromium/carve/128": 500,
-    "firefox/carve/128": 500,
-    "webkit/carve/128": 500,
-    "native/glaciate/128": 2000,
-    "node-wasm/glaciate/128": 2000,
-    "chromium/glaciate/128": 500,
-    "firefox/glaciate/128": 500,
-    "webkit/glaciate/128": 500
+    "webkit/glaciate/256": 500
   },
   "basis": {
     "file": "pilot-shard-costs.json",
-    "sha256": "ea276b5f2e9c30efbc7ba7d09d259544304c08d2a5b8904b321e5731ee5abc87",
-    "pilotSeconds": 2255.099,
-    "method": "Sequential sealed pilot shard completion mtimes, including cold verification and startup; no new workload run"
+    "sha256": "c33f6734369c14cc62aff576afc96051653060e7f08943b771b44f8e4e3e018c",
+    "pilotSeconds": 422.459,
+    "method": "Observed sequential current-dev 256² identity pilot shard elapsed durations; includes reference computation, exact verification, exports and startup, not planner timings"
   },
   "projection": {
-    "sequentialHours": 62.64147218153272,
-    "balancedIdealHours": 8.155381562889959,
+    "sequentialHours": 11.686888888888904,
+    "balancedIdealHours": 1.4994197916666663,
     "contentionAllowance": 0.2,
-    "plannedHours": 9.78645787546795,
+    "plannedHours": 1.7993037499999993,
     "rangeHours": [
-      8.970919719178955,
-      10.194226953612448
+      1.649361770833333,
+      1.8742747395833326
     ],
     "peakCpuPercent": 100,
     "peakCpuStatus": "Projected saturation budget, not measured; includes auxiliary browser/JIT/GC threads",
-    "scope": "Full 99,000-target random matrix only; final-arithmetic existing suite replays are additional",
-    "uncertainty": "Only a sequential 1% sample exists. Parallel scaling, memory pressure and later seeds are unmeasured; 10 hours is a target, not a guarantee."
+    "scope": "Exactly 33,000 random target checks at 256²; final-arithmetic existing suites/replays additional",
+    "uncertainty": "Only a sequential 1% sample exists. Parallel scaling, memory pressure and later seeds are unmeasured. Refresh this projection after the post-M9b port and pilot."
   },
   "simulation": {
-    "seconds": 29359.37362640385,
-    "completed": 2520,
+    "seconds": 5397.911249999998,
+    "completed": 840,
     "maxActive": 8,
-    "max512": 6,
     "laneSeconds": [
-      29359.37362640385,
-      29359.37362640385,
-      28413.954876403823,
-      28413.954876403823,
-      28033.03948699949,
-      28033.03948699949,
-      27012.122167968817,
-      27012.122167968817
+      5397.911249999998,
+      5397.911249999998,
+      5234.0062499999985,
+      5234.0062499999985,
+      5212.816249999997,
+      5212.816249999997,
+      5215.02,
+      5215.02
     ]
   },
-  "execution": "Eight independent single-case-at-a-time processes; deterministic per-case computation unchanged. Longest estimated remaining shards first. At most six 512² and two browsers per engine. Pause admission below 10 GiB available RAM. Stop at the named window end or the first failure; retain case checkpoints and failure payloads, never waive counts.",
+  "execution": "Eight independent single-case-at-a-time processes; arithmetic unchanged. Longest estimated remaining shards first. At most six browsers and two per engine. Pause admission below 10 GiB available RAM. Stop at the named window end or the first failure; retain checkpoints/failure payloads, never waive counts.",
   "machineAssignments": [
     {
       "machine": "Kyler shared PC",
       "logicalThreads": 16,
       "workers": 8,
       "share": 1,
-      "targetChecks": 99000,
-      "shards": 2520,
-      "status": "Stopped; no workload until Kyler explicitly authorizes a window",
-      "projectedHours": 9.78645787546795,
+      "targetChecks": 33000,
+      "shards": 840,
+      "status": "Full authorization withdrawn; wait for M9b on dev and a newly named window",
+      "projectedHours": 1.7993037499999993,
       "projectedPeakCpuPercent": 100
     }
   ],
@@ -167,91 +109,35 @@
     {
       "machine": "Kyler shared PC",
       "target": "native + Node-Wasm (paired)",
-      "requiredTargetChecks": 72000,
+      "requiredTargetChecks": 24000,
       "pilotCasesPerForceSize": 20,
-      "pilotSeconds": 1234.3788161621094,
-      "projectedSerialWorkerHours": 34.28830044894748,
-      "bySize": [
-        {
-          "size": 128,
-          "pilotSeconds": 51.50075415039063
-        },
-        {
-          "size": 256,
-          "pilotSeconds": 220.66620654296875
-        },
-        {
-          "size": 512,
-          "pilotSeconds": 962.21185546875
-        }
-      ]
+      "pilotSeconds": 207.366,
+      "projectedSerialWorkerHours": 5.7601666666666675
     },
     {
       "machine": "Kyler shared PC",
       "target": "chromium",
-      "requiredTargetChecks": 9000,
+      "requiredTargetChecks": 3000,
       "pilotCasesPerForceSize": 5,
-      "pilotSeconds": 324.3531149902344,
-      "projectedSerialWorkerHours": 9.009808749728734,
-      "bySize": [
-        {
-          "size": 128,
-          "pilotSeconds": 18.24994482421875
-        },
-        {
-          "size": 256,
-          "pilotSeconds": 66.49325854492187
-        },
-        {
-          "size": 512,
-          "pilotSeconds": 239.60991162109374
-        }
-      ]
+      "pilotSeconds": 62.702,
+      "projectedSerialWorkerHours": 1.7417222222222222
     },
     {
       "machine": "Kyler shared PC",
       "target": "firefox",
-      "requiredTargetChecks": 9000,
+      "requiredTargetChecks": 3000,
       "pilotCasesPerForceSize": 5,
-      "pilotSeconds": 272.3671105957032,
-      "projectedSerialWorkerHours": 7.565753072102867,
-      "bySize": [
-        {
-          "size": 128,
-          "pilotSeconds": 23.63337060546875
-        },
-        {
-          "size": 256,
-          "pilotSeconds": 65.84956787109375
-        },
-        {
-          "size": 512,
-          "pilotSeconds": 182.88417211914063
-        }
-      ]
+      "pilotSeconds": 65.236,
+      "projectedSerialWorkerHours": 1.8121111111111112
     },
     {
       "machine": "Kyler shared PC",
       "target": "webkit",
-      "requiredTargetChecks": 9000,
+      "requiredTargetChecks": 3000,
       "pilotCasesPerForceSize": 5,
-      "pilotSeconds": 423.99395678710937,
-      "projectedSerialWorkerHours": 11.777609910753037,
-      "bySize": [
-        {
-          "size": 128,
-          "pilotSeconds": 20.033689697265626
-        },
-        {
-          "size": 256,
-          "pilotSeconds": 73.81565112304688
-        },
-        {
-          "size": 512,
-          "pilotSeconds": 330.1446159667969
-        }
-      ]
+      "pilotSeconds": 85.424,
+      "projectedSerialWorkerHours": 2.3728888888888893
     }
   ],
-  "partsBasis": "Observed elapsed durations derived from the sealed sequential pilot completion timestamps, including TS reference, exact comparisons, exports and startup. One pilot sample per cell: not repeated planner timings, no per-part median/worst available. Native and Node-Wasm time is combined. Parts run concurrently in the shared queue; serial worker-hours are not separate overnight wall-clock slots."
+  "partsBasis": "One sequential identity pilot sample per cell; not repeated planner timings. Native/Node time is combined. Parts run concurrently; serial worker-hours are not overnight wall-clock slots."
 }

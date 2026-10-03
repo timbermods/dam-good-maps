@@ -45,6 +45,7 @@ mod water {
         active: Vec<usize>,
         refs: Vec<i32>,
         pos: Vec<usize>,
+        settle_closed: Option<Vec<bool>>,
     }
     fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
         if v < lo {
@@ -153,6 +154,7 @@ mod water {
                 active: Vec::with_capacity(n),
                 refs: vec![0; n],
                 pos: vec![usize::MAX; n],
+                settle_closed: None,
             };
             s.seep = vec![1; s.emitters.len()];
             s.validate_shape();
@@ -379,14 +381,7 @@ mod water {
             }
             sum
         }
-        pub fn steady_sealed(
-            &self,
-            prev: &[f64],
-            vol: f64,
-            sealed: &[usize],
-            tol: f64,
-            share: f64,
-        ) -> bool {
+        pub fn sealed_basins(&self, prev: &[f64], sealed: &[usize]) -> (Vec<bool>, Vec<bool>) {
             let mut feeds = vec![false; self.n];
             for e in &self.emitters {
                 if e.strength > 0.0 {
@@ -397,6 +392,7 @@ mod water {
             }
             let mut seen = vec![false; self.n];
             let mut drying = vec![false; self.n];
+            let mut closed = vec![false; self.n];
             for &s in sealed {
                 if seen[s] || !(self.d[s] > 0.0 || prev[s] > 0.0) {
                     continue;
@@ -424,12 +420,20 @@ mod water {
                 }
                 if !open {
                     for i in basin {
+                        closed[i] = true;
                         if !(self.d[i] > prev[i]) {
                             drying[i] = true;
                         }
                     }
                 }
             }
+            (closed, drying)
+        }
+        pub fn closed_basins(&self) -> Option<&[bool]> {
+            self.settle_closed.as_deref()
+        }
+        pub fn steady_sealed(&self, prev: &[f64], sealed: &[usize], tol: f64, share: f64) -> bool {
+            let (_, drying) = self.sealed_basins(prev, sealed);
             let mut rest = 0.0;
             let mut rest_prev = 0.0;
             let mut moved = 0;
@@ -443,7 +447,7 @@ mod water {
                     moved += 1;
                 }
             }
-            (rest - rest_prev).abs() / max(vol, 1e-9) < 0.002
+            (rest - rest_prev).abs() / max(rest, 1e-9) < 0.002
                 && moved as f64 <= share * self.n as f64
         }
         pub fn settle(
@@ -453,12 +457,11 @@ mod water {
             tol: f64,
             share: f64,
             sealed: &[usize],
-            until: bool,
         ) -> (bool, Option<u64>) {
             let checks = (days * 768.0 / every as f64).floor() as u64;
             let mut prev = self.d.clone();
             let mut vol = self.volume();
-            let mut steady = None;
+            self.settle_closed = None;
             for k in 0..checks {
                 self.run(every, 1.0);
                 let v = self.volume();
@@ -469,23 +472,24 @@ mod water {
                     .filter(|(a, b)| (*a - *b).abs() > tol)
                     .count();
                 if (v - vol).abs() / max(v, 1e-9) < 0.002 && moved as f64 <= share * self.n as f64 {
+                    if !sealed.is_empty() {
+                        self.settle_closed = Some(self.sealed_basins(&prev, sealed).0);
+                    }
                     return (true, None);
                 }
-                if !sealed.is_empty()
-                    && steady.is_none()
-                    && self.steady_sealed(&prev, v, sealed, tol, share)
-                {
-                    steady = Some(self.ticks);
-                    if until {
-                        return (false, steady);
-                    }
+                if !sealed.is_empty() && self.steady_sealed(&prev, sealed, tol, share) {
+                    self.settle_closed = Some(self.sealed_basins(&prev, sealed).0);
+                    return (false, Some(self.ticks));
                 }
                 if k + 1 < checks {
                     prev.clone_from(&self.d);
                     vol = v;
                 }
             }
-            (false, steady)
+            if !sealed.is_empty() {
+                self.settle_closed = Some(self.sealed_basins(&prev, sealed).0);
+            }
+            (false, None)
         }
     }
 
@@ -813,10 +817,10 @@ mod water {
                 let every = r.u32();
                 let tol = r.f64();
                 let share = r.f64();
-                let until = r.u32() != 0;
+                let _legacy_reserved = r.u32();
                 let ns = r.u32();
                 let sealed = (0..ns).map(|_| r.u32() as usize).collect::<Vec<_>>();
-                (settled, steady) = s.settle(days, every as u64, tol, share, &sealed, until);
+                (settled, steady) = s.settle(days, every as u64, tol, share, &sealed);
             }
             if op != 2 {
                 let snap = snapshot(&s, settled, steady);
@@ -1009,8 +1013,10 @@ fn smooth(v: f64) -> f64 {
     let v = clamp(v, 0.0, 1.0);
     v * v * (3.0 - 2.0 * v)
 }
-use portable_math::{sin, cos, exp, log, pow, atan, atan2};
-fn hypot(x: f64, y: f64) -> f64 { portable_math::hypot(&[x, y]) }
+use portable_math::{atan, atan2, cos, exp, log, pow, sin};
+fn hypot(x: f64, y: f64) -> f64 {
+    portable_math::hypot(&[x, y])
+}
 fn hash(seed: f64, k: f64) -> f64 {
     let mut x = ((seed as u64 as u32)
         ^ ((k as i64 as u32).wrapping_add(1).wrapping_mul(0x9e3779b9)))
@@ -5848,8 +5854,10 @@ impl CarveState {
                     let q = u.floor() as i32;
                     let f = u - q as f64;
                     let r = |q: i32| {
-                        portable_math::rem(force_hash(&[seed.to_string(), q.to_string(), sd.to_string()]) as f64, 1000.0)
-                            / 1000.0
+                        portable_math::rem(
+                            force_hash(&[seed.to_string(), q.to_string(), sd.to_string()]) as f64,
+                            1000.0,
+                        ) / 1000.0
                     };
                     let e = f * f * (3.0 - 2.0 * f);
                     let swell = 0.75 + 0.5 * (r(q) * (1.0 - e) + r(q + 1) * e);
@@ -6233,19 +6241,7 @@ fn carve_oxbow_water(run: &CarveState, basin: &[usize]) -> Option<RetainedWater>
     }
     let closure = run.closure.as_ref()?;
     let model = force_water_model(closure);
-    let (depth, contamination) = force_prefill(&model, None);
-    let mut sim = water::Sim::new(
-        model.w,
-        model.h,
-        model.floor,
-        model.dam,
-        model.emitters,
-        depth,
-        contamination,
-        false,
-        false,
-    );
-    sim.settle(4.0, 128, 0.005, 0.005, &[], false);
+    let sim = force_canonical_settle(&model, None);
     let floor = force_water_model(&run.map).floor;
     let mut tiles = basin.to_vec();
     tiles.sort_unstable();
@@ -6309,6 +6305,115 @@ struct ForceWaterModel {
     floor: Vec<f64>,
     dam: Option<Vec<f64>>,
     emitters: Vec<water::Emitter>,
+}
+// Current dev canonicalRun: remove unfed water once, re-settle, then keep sealed water.
+// Sources and the optional retained lake are the only seeds; a force model has no drained edits.
+fn force_canonical_settle(model: &ForceWaterModel, retained: Option<&RetainedWater>) -> water::Sim {
+    let (start_d, start_c) = force_prefill(model, retained);
+    let new_sim = |d, c| {
+        water::Sim::new(
+            model.w,
+            model.h,
+            model.floor.clone(),
+            model.dam.clone(),
+            model.emitters.clone(),
+            d,
+            c,
+            false,
+            false,
+        )
+    };
+    let mut sim = new_sim(start_d.clone(), start_c.clone());
+    let mut sealed = retained.map_or_else(Vec::new, |r| r.tiles.clone());
+    sealed.sort_unstable();
+    sealed.dedup();
+    sim.settle(4.0, 128, 0.005, 0.005, &sealed);
+    let n = model.w * model.h;
+    let mut fed = vec![false; n];
+    let mut queue = Vec::with_capacity(n);
+    for e in &model.emitters {
+        if !(e.strength > 0.0) {
+            continue;
+        }
+        for &i in &e.cells {
+            if !fed[i] {
+                fed[i] = true;
+                queue.push(i);
+            }
+        }
+    }
+    let mut seeds = vec![false; n];
+    for &i in &sealed {
+        seeds[i] = true;
+    }
+    for i in 0..n {
+        if seeds[i] && !fed[i] && sim.d[i] > 0.0 {
+            fed[i] = true;
+            queue.push(i);
+        }
+    }
+    let mut head = 0;
+    while head < queue.len() {
+        let i = queue[head];
+        head += 1;
+        if !(sim.d[i] > 0.0) {
+            continue;
+        }
+        let surface = model.floor[i] + sim.d[i];
+        let x = i % model.w;
+        let y = i / model.w;
+        let neighbors = [
+            if y > 0 { Some(i - model.w) } else { None },
+            if x > 0 { Some(i - 1) } else { None },
+            if y + 1 < model.h {
+                Some(i + model.w)
+            } else {
+                None
+            },
+            if x + 1 < model.w { Some(i + 1) } else { None },
+        ];
+        for j in neighbors.into_iter().flatten() {
+            if fed[j] || !(sim.d[j] > 0.0) || !(model.floor[j] <= surface) {
+                continue;
+            }
+            let limit = model.dam.as_ref().map_or(-1.0, |dam| dam[j]);
+            if limit >= 0.0 && model.floor[j] < surface.ceil() && surface - model.floor[j] < limit {
+                continue;
+            }
+            fed[j] = true;
+            queue.push(j);
+        }
+    }
+    let mut d = sim.d.clone();
+    let mut c = sim.c.clone();
+    let mut out = sim.out.clone();
+    let mut any = false;
+    for i in 0..n {
+        if !(d[i] > 0.0) || fed[i] {
+            continue;
+        }
+        d[i] = 0.0;
+        c[i] = 0.0;
+        out[4 * i..4 * i + 4].fill(0.0);
+        any = true;
+    }
+    if any {
+        let ticks = sim.ticks;
+        sim = new_sim(d, c);
+        sim.out = out;
+        sim.ticks = ticks;
+        sim.settle(4.0, 128, 0.005, 0.005, &sealed);
+    }
+    if let Some(closed) = sim.closed_basins().map(<[bool]>::to_vec) {
+        for i in 0..n {
+            if closed[i] {
+                sim.d[i] = start_d[i];
+                sim.c[i] = start_c[i];
+                sim.out[4 * i..4 * i + 4].fill(0.0);
+            }
+        }
+    }
+    sim
 }
 fn force_water_model(m: &Map) -> ForceWaterModel {
     let mut model = ForceWaterModel {
@@ -9774,8 +9879,10 @@ impl Volcano {
                     if d > reach || d * 0.99 > best_score {
                         continue;
                     }
-                    let bucket =
-                        portable_math::rem((((atan2(dy as f64, dx as f64) + PI) / (PI * 2.0)) * 12.0).floor(), 12.0);
+                    let bucket = portable_math::rem(
+                        (((atan2(dy as f64, dx as f64) + PI) / (PI * 2.0)) * 12.0).floor(),
+                        12.0,
+                    );
                     let score = d * (1.0 + 0.3 * hash(n(s0, "seed"), 940.0 + bucket));
                     if score < best_score {
                         best_score = score;
@@ -11038,7 +11145,7 @@ fn literal(before: &Map, after: &Map) -> Literal {
             Some(&after.entities[i])
         }
     };
-    let removed: Vec<_> = before
+    let mut removed: Vec<_> = before
         .entities
         .iter()
         .filter(|e| now(e.id_key).is_none() && !kept_object(e))
@@ -11050,13 +11157,44 @@ fn literal(before: &Map, after: &Map) -> Literal {
             removed_slots.push(e.slot as f64);
         }
     }
+    let mut held = vec![false; before.w * before.h];
+    for b in &before.entities {
+        if b.template.as_ref() == "StartingLocation" {
+            for i in before.footprint(b, 0) {
+                held[i] = true;
+            }
+        } else if kept_object(b) && b.template.as_ref() == "Slope" {
+            let (dx, dy) = match b.orientation.as_ref() {
+                "Cw90" => (-1.0, 0.0),
+                "Cw180" => (0.0, 1.0),
+                "Cw270" => (1.0, 0.0),
+                _ => (0.0, -1.0),
+            };
+            let inside =
+                |x: f64, y: f64| x >= 0.0 && y >= 0.0 && x < before.w as f64 && y < before.h as f64;
+            if inside(b.x, b.y) && inside(b.x + dx, b.y + dy) && inside(b.x - dx, b.y - dy) {
+                let tile = |x: f64, y: f64| y as usize * before.w + x as usize;
+                let i = tile(b.x, b.y);
+                if after.heights[tile(b.x + dx, b.y + dy)] as u16 == after.heights[i] as u16 + 1
+                    && after.heights[tile(b.x - dx, b.y - dy)] == after.heights[i]
+                {
+                    held[i] = true;
+                }
+            }
+        }
+    }
     let mut moved = vec![];
     let mut moved_rows = vec![];
     for b in &before.entities {
         if let Some(e) = now(b.id_key) {
             if !kept_object(b) && (n(e, "x") != n(b, "x") || n(e, "y") != n(b, "y")) {
-                moved.push((s(b, "id").to_string(), n(e, "x"), n(e, "y")));
-                moved_rows.extend([b.slot as f64, e.x, e.y]);
+                if after.footprint(e, 0).iter().any(|&i| held[i]) {
+                    removed.push(b.id.to_string());
+                    removed_slots.push(b.slot as f64);
+                } else {
+                    moved.push((s(b, "id").to_string(), n(e, "x"), n(e, "y")));
+                    moved_rows.extend([b.slot as f64, e.x, e.y]);
+                }
             }
         }
     }
