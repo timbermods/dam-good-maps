@@ -1,8 +1,8 @@
 // Every force is fast, with a choice to watch (PLAN §20 D321, item 29), through the page. Fast, the
 // default: each force's land is final within about two seconds of its gesture, however large. Slow forces
 // (in the view bar beside Sound, remembered): about four times as long, and a click anywhere jumps it
-// straight to its final land, kept as one step. The water stays as it was until the land is final
-// (item 30): no frame of a force carries any.
+// straight to its final land, kept as one step. No frame of a force carries water (item 30; a carve's
+// river flows as it cuts, sent as a stroke's water is, D371).
 //
 // DGM_BENCH_FORCES=1 also times each force's largest case (Power 100, its largest size) at 128² and
 // 256², the numbers item 29 asks for (information, never a failure).
