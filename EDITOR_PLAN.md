@@ -412,7 +412,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D264: Ctrl+A); hovering any action tints the land it would change; Esc or X closes. **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number,
   then the water re-settles (a lake keeps its surface and becomes that deep; a river ends about that deep, and the
-  report says so if any ended deeper). Select's actions are exact, with hard edges; objects and sources ride changed
+  report says so if any ended deeper). Select's actions are exact, with hard edges (a lone tile too), and a Raise
+  that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
