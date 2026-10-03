@@ -288,38 +288,40 @@ than the room above the water bar. Where this section says otherwise, the verdic
   cause before #163 merges.
 
 **Layout 2 mockups (2026-10-03).** The targets are 2560×1440 and 1920×1080 only (1280 and 1366 dropped from the
-brief, Kyler 2026-10-03). Round 3 of Kyler's brief, as captures of the real page rearranged (River Valley 4242 at
-128², five states at both sizes): [docs/design/layout2.html](docs/design/layout2.html). Round 3 widens the left
-column from 175px to 262px: "Map Generation" fits its tab on one line, Generate and Surprise me sit side by side
-(both pinned), Size has its normal padding, the minimap is the column's inner width (245px), and "Water settled" is
-plain text on the water row's baseline.
-The objects' groups: **Water** (Water source, Badwater source, Natural dam) · **Start** (Start) · **Plants** (Pine,
-Birch, Oak, Berry bush) · **Ruins** (Ruin, Mine site, Relic) · **Land** (Slope, Thorns, Blockage, Geothermal field).
-**How the objects fit at 1920×1080:** today's tile, the picture over its name, two to a row filling the column.
-Spacing first: rows 2px apart, the two tiles in a row 6px apart, padding 2px top, 3px foot, 2px sides, 1px between
-picture and name; groups 4px apart, each heading 14px high with 1px under it; the list's padding 4px top and foot.
-Then the picture: **38px at 1920×1080** (tiles 119.5×59px), **48px at 2560×1440** (119.5×69px). Every name fits on one
-line at this width.
-**Proposed alternative** ([the capture](docs/design/layout2-alt-objects-beside-1920x1080.jpg), state 1 at 1920×1080):
-each picture beside its name keeps the pictures at 48px at both sizes (tiles 119.5×56px); five names then take two
-lines beside their picture (Water source, Badwater source, Natural dam, Berry bush, Geothermal field).
-Where the brief still doesn't fit, and what the mockups do:
-- **The objects' pictures at 1920×1080** are 38px, not 48, so the five groups show whole above the footer (above).
-- **The footer** is 312px tall with a 245px minimap, so at 1920×1080 the Map Generation tab scrolls by 71px:
-  Your maps is entirely below the fold. At 2560×1440 nothing scrolls.
-- **Map Generation keeps one field to a row** at 245px. Theme and Seed side by side would leave the seed 59px
-  beside its Keep, and two columns of counts would cut "4 Berry patches".
-- **"Water settled"** is plain text over the map's sky, with a dark text shadow so it reads. Speed keeps its plate,
-  since it holds a control.
+brief, Kyler 2026-10-03). Round 4 of Kyler's brief, as captures of the real page rearranged (River Valley 4242 at
+128², seven states at both sizes): [docs/design/layout2.html](docs/design/layout2.html). Round 4 drops the tabs: the
+header's **Map Generator** button opens and closes the 352px map generation panel (feature/page's drawer, its
+content as now, Your maps as picture tiles); the minimap goes back to the map's bottom left with the coordinates and
+the readout under it; the objects move to the top right, left of the right-hand column (A: the grid always open;
+B: an **Objects** button that opens it); the water controls go to the bottom right; the Show toggles stay alone at
+the top left; the bar is as in round 3.
+**The Map Generator button:** a tinted button, not a filled one: the mint at 12% behind it, a mint outline at 60%,
+a small folded-map icon in the mint and the name in the heading's weight. While the panel is open it is lit like
+the toggles (mint fill, dark ink). At rest Save to Timberborn stays the only filled control.
+**The objects:** dev's tiles (76px wide, 48px pictures, the name under the picture) in the five groups as rows of up
+to four, each under its heading, on one panel 340×523px whose top edge is the right-hand column's top edge, 8px left
+of it. In B the button is Slow forces' size (125×44px) in that place, lit while open, with the grid 8px under it.
+Where the brief doesn't fit, and what the mockups do:
+- **Seven states at two sizes make 14 captures,** not the 16 the request counted.
+- **The water controls at 1920×1080** need 567px on one row; beside the bar there are 323px with the panel open and
+  499px with it closed. They take two right-aligned rows (Water settled, Pause water, Speed; then Skip, Replay,
+  Drought, Badtide), with their gaps 4px and padding 8px (not 6 and 10) so the first row keeps 12px from the bar's
+  settings with the panel open. At 2560×1440 they take one row.
+- **Variant A's grid lies over the map** (340×523px at the top right) and covers part of the land; the default view
+  doesn't make room for it. B, closed, covers nothing.
+- **The objects need a panel behind them** for their headings and tiles; the no-plates rule is kept for the controls.
+  Start's row holds one tile.
+- **Closing the panel widens the map area** to the whole window and the bar re-centres in it. The mockups frame the
+  map afresh in each state; in the build the camera stays put when the panel opens or closes (D265).
+- **"Water settled"** is plain text over the map's sky, with a dark text shadow so it reads.
+- **The minimap** sits 38px higher than on dev (86px from the bottom, not 48) to make room for the coordinates'
+  line between it and the readout; the coordinates take the readout's plate.
 - **The map behind the bar:** today's camera frames the map in the whole map area, so the bar and its settings
-  (102–140px tall) would cover its south corner. The mockups frame it between the water row and the bar with a
-  one-line settings row (the build needs insets in `frameMap()`). Raise's two lines still cover about 8px of land at
-  1920×1080.
+  (102–140px tall) would cover its south corner. The mockups frame it between the Show row and the bar with a
+  one-line settings row (the build needs insets in `frameMap()`); Raise's two lines come close to that corner.
 - **The top right:** with the compass in the camera row, the slice can't stay beside it. The cluster is a
   three-column grid, 310px wide: Top-down, Reset view and the compass, then the slice, Slow forces and the sound
   (still under the compass).
-- **The heights legend** can't sit under the Show row, where the water row is: it sits under the water row at the
-  Heights toggle's left edge. Its swatch is the ramp's unlit colours, so the lit land looks lighter.
 - **The coordinates repeat the readout's height** ("Z 10" over "Height 10, dry soil"). Shown as asked; the readout
   could drop its height.
 
