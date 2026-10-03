@@ -18,6 +18,7 @@ import {
   objectsOnNewGround,
   moveEdit,
   moveStartNear,
+  startClears,
   startBrokenBy,
   startMiddle,
   planContextOf,
@@ -1655,7 +1656,8 @@ function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: num
   if (s.mode !== "import") {
     const z = s.built.heights[y * s.size.x + x];
     const feature = { id: crypto.randomUUID(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel: z, player: 0 } } as unknown as Feature;
-    const r = s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Place the start");
+    // (the generation's objects under it go in the same step, D368 (10))
+    const r = s.applyAll([...startClears(s, x, y, o), { op: "addFeature", params: { feature } }], "user", "Place the start");
     return changed(s, r.ok, r.errors, t0);
   }
   const [cx, cy] = cornerFor(x, y, o);

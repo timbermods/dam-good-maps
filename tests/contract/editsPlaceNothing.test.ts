@@ -127,6 +127,30 @@ describe("an edit never places an object (D368 (10))", () => {
       expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`)).toEqual([]);
     }, 120000);
   }
+
+  it("a Quake Lift after a wide Flatten adds nothing back: what the Flatten's ground and water took stays gone (D404)", async () => {
+    // (the finding, Highlands seed 3 at 128²: the Flatten flooded groves, bushes and ruin fields and
+    // broke slopes' steps; a Lift that drained the ground or gave a step back brought them back, 122
+    // objects on one side of the fault and 266 on the other. The build re-marks a kept tree dead or
+    // alive and keeps every bush and ruin column where the generation put them; a slope an edit
+    // broke stays gone)
+    await open(3);
+    const dabs: number[] = [];
+    for (let y = 30; y <= 100; y += 4) for (let x = 14; x <= 124; x += 4) dabs.push(x * 4, y * 4);
+    expect(ed.apply({ op: "brush", params: { tool: "flatten", size: 14, strength: 10, level: 8, dabs } }, "user", "flatten").errors).toEqual([]);
+    const before = entities();
+    for (const side of [1, -1] as const) {
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 80 }, path: [{ x: 4, y: 64.5 }, { x: W * 0.5, y: 64.5 }, { x: W - 5, y: 64.5 }], side, cut: null, natural: true });
+      const now = entities();
+      expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`), `the Lift on side ${side}`).toEqual([]);
+      // the project replays to the map a build from scratch gives, and undo gives the Flatten's map back
+      const replay = MapSession.open(decodeProject(ed.project().bytes));
+      const shown = (es: ReturnType<typeof entities>) => es.map((e) => `${e.template} ${e.id}@${e.x},${e.y},${e.z}`);
+      expect(shown(replay.built.entities)).toEqual(shown(replay.fullBuild().entities));
+      ed.undo();
+      expect(shown(entities())).toEqual(shown(before));
+    }
+  }, 300000);
 });
 
 describe("a spring the build derives again after an edit keeps its id (PLAN §19.4, D314)", () => {
