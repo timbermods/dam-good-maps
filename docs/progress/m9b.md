@@ -198,6 +198,33 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### After acceptance: CI on #70 green again, then the 840-map measures (2026-10-02, night)
+
+CI on #70 was red on two jobs after the Islands and Delta acceptance, both from the sea's code, not
+from pins. Each was traced to its cause and fixed (e3130755). The quick suite needed no re-pin.
+
+- **`engines`: Islands 128² seed 1 differed in Chromium.** Chromium's sort differed from node's,
+  Firefox's and WebKit's. The cause was a start scored NaN.
+  - The sea's shelves (D410) rise a level and leave the planned water.
+  - The kept-water mask still marked them, so the start's walkable land gave them no label.
+  - A start on a shelf scored NaN, and a sort over NaN scores runs differently in each engine.
+  - Fix: the risen shelves leave the mask, so they count as dry land.
+  - The smoke list then matched, Chromium against node: 183 cases, 0 mismatches.
+- **`oracle`: Islands 256² seed 19 never settled** (`water.settles`, with no start and no mine sites
+  after it).
+  - Its sea, 21,911 tiles, was still rising over its one narrow way out at the end of the six days.
+  - The fix for a rising basin at 256², a gentler inflow (0.7, 0.49, 0.343 of its feeders, #155), ran
+    only for River Valley and Lake Basin. It now runs for a sea too, and the map passes.
+  - The change can reach only 256² sea maps whose water failed to settle.
+  - CI's oracle list then passed locally: 21 maps, 0 failures, 0 disagreements. This map takes
+    79 s, the slowest of the 21.
+- The quick suite passes locally with both fixes, with no re-pin (179 files, 1,305 tests). The
+  re-pins after D416 and D430 were already made: badwater (Any 23), smallStarts (Islands 4) and
+  objects (Islands 3).
+- **Latent, outside M9b's code:** `pickStart` still scores NaN on a tile the walkable land leaves
+  unlabelled, which the editor's locked mask can do. Treating such a start as joining no land would
+  close it. Left for the editor's owner.
+
 ### Islands accepted: the safe version (D429–D430, 2026-10-02, 19:12), and islands to expand to
 
 Kyler released the safe version: all 30 pass, the promise on 20, all three outcomes on 19

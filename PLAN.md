@@ -506,7 +506,7 @@ settled water is fixed on that land: the start moves to another on the same sett
 by it (D330), or is planned again; the mine sites the colony reaches are read by one function (`validate/playability.ts`
 `colonyReach`, `minesReached`, D342) for the check and the generator alike. Water that does not settle (D350): outlets
 are widened while the land is shaped (`levels.ts` `widenOutlets`, `carveOutlets`); a rising basin at 256² in River
-Valley or Lake Basin is fed more gently (0.7, 0.49, 0.343 of its feeders, recorded in the features), and a prepared land
+Valley or Lake Basin, or a sea still rising at 256², is fed more gently (0.7, 0.49, 0.343 of its feeders, recorded in the features), and a prepared land
 keeps its heights: the worn way out (`water/outletWear.ts`) no longer runs on generated maps (generation speed round 2,
 #155; a default for Kyler against D350 (b)). The settle runs up to 6 game days (D358).
 
