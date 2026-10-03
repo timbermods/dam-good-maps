@@ -200,7 +200,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
-  where it stands well, in the same undo step; the quiet dot then says what the force left short at the start
+  where it stands well, in the same undo step: its bench's ground level already, inside the working area and at or
+  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Try
+  another replaces that carry with the force. The quiet dot then says what the force left short at the start
   (water, wood and berries, the starting-logs floor), each with its one-click fix (move the start, plant berry
   bushes, plant oaks).
 - **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
@@ -321,8 +323,30 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
   applies and recorded in it, so a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8),
-  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). Pen
-  pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
+  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). It
+  weathers like nature (D387 (4), D399; `raster/weather.ts`): edges, read softly, wander in and out along one
+  smooth noise fixed to the map's tiles, in curves the size of Size (wider with Strength, so a strong stroke
+  bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
+  up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
+  with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
+  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
+  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
+  terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
+  edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
+  stay flat; little knobs and pits wear away; the effect fades out across the ring's
+  outer part, so there is no seam; and painting the same spot again changes less and less. The water stays
+  where it stood: from the settled water the session has when the stroke begins, a wet tile is never raised and
+  a dry tile beside water never comes down below that water's surface (recorded in the stroke, `shore` and
+  `pools`, with where water stood round it, `rim`). It keeps the downhill order: no tile it changes ends above
+  or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
+  tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
+  is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
@@ -390,7 +414,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D264: Ctrl+A); hovering any action tints the land it would change; Esc or X closes. **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number,
   then the water re-settles (a lake keeps its surface and becomes that deep; a river ends about that deep, and the
-  report says so if any ended deeper). Select's actions are exact, with hard edges; objects and sources ride changed
+  report says so if any ended deeper). Select's actions are exact, with hard edges (a lone tile too), and a Raise
+  that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
@@ -493,6 +518,12 @@ Two looks (Map look 2, D147, D242, D250, D284):
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
   splash rings, rough water below falls (#67). #67's visible seasons wait for the Drought and Badtide day-by-day
   view (D286 (4)).
+
+In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
+threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
+where two currents join, all gone where the water is still. The **Flow** view (off by default) adds a few glowing
+streaks travelling down those lanes, fast water's longer and brighter, badwater's dim embers; until the page has
+its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
 along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
@@ -665,7 +696,8 @@ stroke records the options it used:
 - Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
-  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249; the working
+  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
+  doesn't list one it would leave off level ground gets it riding whole, never a refusal, D270); the working
   area it was painted in, `area`, D254: runs, feathered; `steps`; a pen's pressure per dab). Strokes saved before
   D322, D270 or D247 (precise or ramped strokes with their `slopes`, Smooth's walkable flag, soft Flatten's level)
   replay exactly (`tests/contract/strokesBeforeD322.test.ts`).
@@ -686,7 +718,11 @@ the stored base, D37). The log replays only onto that generation: undo and redo,
 links. **Edits never replay onto new land** (D336): an edit only means something on the land it was made for, so
 nothing replaces a document's generation under its log, at any size or setting, and there is no rebuild with a newer
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
-away; an older map opens exactly as it was saved.
+away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
+its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+
+After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
 **Stable identity** is `PLAN.md` §19.4: generated features are hashed from the seed, their kind and their role in the
 plan, the player's and Claude's placements get a stored UUID, entities are hashed from their owning feature. Edits
@@ -770,7 +806,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
     the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
-    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
+    the lake is written with the water its carve kept, levelled into its hollow if it would not stand as kept
+    (`PLAN.md` §10, §11.3).
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
@@ -782,7 +819,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     off the map, the level is at or below the ground); its `days` come from the game's evaporation
     (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
-    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
+    edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -796,7 +834,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
     pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
     (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
-    §10; `tests/contract/waterFromNowhere.test.ts`).
+    §10; `tests/contract/waterFromNowhere.test.ts`). The preview does the same once its water stops: the
+    pre-fill's water that only the walk's thin water joined to fed water goes, and the water runs on from there.
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
@@ -876,12 +915,23 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
     force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
+  - A brush's land is drawn once a frame (`renderer.ts` `flushTerrain`): of the rectangles its updates named, only
+    the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
+    and tile data along each changed row's reach, the shadows over their bounds), the same as redoing the
+    rectangles.
+  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
+    view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
+    the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
+    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+    texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
+    ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
+    changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion and the water's flow made in a
-    small worker (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
@@ -931,12 +981,9 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   imports, renders and validates, and with no edits re-exports its normalized world byte for byte; the two 0.6
   heightmap maps import through the `Heights` conversion; the 90-layer workshop map keeps layers 0–21 with a
   warning and exports with the standard 23.
-- **Performance budgets on 256×256.** Under Kyler's one rule (`PLAN.md` §20, D115) they are information, reported at
-  each step; what blocks is what a player feels: the editor stays responsive, tool feedback comes within a frame,
-  slower work runs in the background, and the page never freezes. Tool feedback within one frame (16 ms), with
-  lightweight proxies while dragging; a feature edit committed in ≤ 100 ms; instant checks ≤ 50 ms; a dirty-chunk
-  remesh ≤ 5 ms per chunk; the water preview after a local edit ≤ 2 s (warm start; CI reports it as a number,
-  never a failed build, D145); the canonical full settle for export ≤ 3 s as the target (`PLAN.md` §10).
+- **Speed (D453, D454).** No measured budgets; Kyler judges speed by using the tool. What blocks is what a player feels:
+  the editor stays responsive, tool feedback comes within a frame, slower work runs in the background, and the page never
+  freezes.
 - **End to end** (Playwright): generate, edit, export, re-import, compare.
 - **In-game checklist** for the milestones that need one (deferred, logged as pending in
   `docs/archive/ingame-log.md`, D11): the map loads, water settles as the preview showed, the district center

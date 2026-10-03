@@ -24,6 +24,7 @@
     "bench:3d": "tsx tools/bench3d.ts",
     "bench:preview": "tsx tools/bench-preview.ts",
     "bench:brush": "tsx tools/bench-brush.ts",
+    "smooth": "tsx tools/smooth/run.ts",
     "batch": "tsx tools/batch.ts",
     "sheet": "tsx tools/sheet.ts",
     "fixtures": "python tools/export-fixtures.py",

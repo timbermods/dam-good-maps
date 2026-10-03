@@ -545,9 +545,13 @@ describe("a carve in the document (breakage rule)", () => {
     expect(s.built.settle.steadyTicks).toBe(s.built.settle.ticks);
     expect(s.built.settle.ticks).toBeLessThan(SETTLE_DAYS * TICKS_PER_DAY);
     // the lake is stored with the water its carve kept (D413): it stopped draining before saving,
-    // and the game evaporates it from there
+    // and the game evaporates it from there. This carve kept it mid-flow (its surface 2 to 12 over a
+    // rim at 4), so it is stored at rest, levelled into its hollow up to its lowest rim (the release
+    // gate's bug hunt, D385: stored as kept, the game moved it by up to 8 levels at once)
     const floor = s.built.waterModel.floor;
-    lake.tiles.forEach((i, k) => expect(s.built.water[i]).toBe(floor[i] === lake.floor[k] ? lake.depth[k] : Math.max(0, lake.floor[k] + lake.depth[k] - floor[i])));
+    const surfaces = lake.tiles.filter((i) => s.built.water[i] > 0).map((i) => floor[i] + s.built.water[i]);
+    expect(surfaces.length).toBeGreaterThan(lake.tiles.length / 2);
+    expect(Math.max(...surfaces) - Math.min(...surfaces)).toBeLessThan(1e-9);
     const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok, settles.message).toBe(true);
     expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);

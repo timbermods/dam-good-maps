@@ -24,6 +24,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readTimber } from "../src/core/format/timber";
+import { exp, log, pow } from "../src/core/math/portable";
 import { groundOfFile, measureResources, MAP_TREES, RUIN_VARIANT_IDS, type ResourceMeasures } from "../src/core/resources/measure";
 
 const arg = (name: string, fallback: string) => {
@@ -41,7 +42,7 @@ const ANCHORS = { "96²": 96 * 96, "128²": 128 * 128, "192²": 192 * 192, "256�
 
 // ------------------------------------------------------------------------------------------ stats
 
-const round = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
+const round = (v: number, d = 3) => Math.round(v * pow(10, d)) / pow(10, d);
 function quantile(values: readonly number[], p: number): number {
   const s = [...values].sort((a, b) => a - b);
   if (!s.length) return NaN;
@@ -62,8 +63,8 @@ const SPREAD_CLASSES = new Set(["large", "max"]);
 
 /** The class medians' rate at `area`: joined linearly in ln(area) between the classes, flat beyond. */
 function curveAt(medians: readonly number[], area: number): number {
-  const x = Math.log(area);
-  const xs = CLASS_AREA.map((a) => Math.log(a));
+  const x = log(area);
+  const xs = CLASS_AREA.map((a) => log(a));
   if (x <= xs[0]) return medians[0];
   for (let k = 1; k < xs.length; k++) if (x <= xs[k]) return medians[k - 1] + ((x - xs[k - 1]) / (xs[k] - xs[k - 1])) * (medians[k] - medians[k - 1]);
   return medians[medians.length - 1];
@@ -71,8 +72,8 @@ function curveAt(medians: readonly number[], area: number): number {
 
 /** The size trend for the outlier rule: ln(rate) fitted as a line in ln(area). */
 function trend(points: { area: number; value: number }[]): (area: number) => number {
-  const xs = points.map((p) => Math.log(p.area));
-  const ys = points.map((p) => Math.log(p.value));
+  const xs = points.map((p) => log(p.area));
+  const ys = points.map((p) => log(p.value));
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const my = ys.reduce((a, b) => a + b, 0) / ys.length;
   let sxy = 0;
@@ -82,7 +83,7 @@ function trend(points: { area: number; value: number }[]): (area: number) => num
     sxx += (x - mx) * (x - mx);
   });
   const slope = sxx > 0 ? sxy / sxx : 0;
-  return (area: number) => Math.exp(my + slope * (Math.log(area) - mx));
+  return (area: number) => exp(my + slope * (log(area) - mx));
 }
 
 interface Fit {
@@ -137,7 +138,7 @@ const fits: Record<string, Fit & { what: string; maps: number; bySize: Record<st
 function fitRate(r: Rate, rows: MapRow[]): void {
   const pts = rows.map((row) => ({ name: row.name, area: row.area, value: r.of(row.m), cls: row.sizeClass }));
   const t = trend(pts);
-  const logs = pts.map((p) => Math.log(p.value / t(p.area)));
+  const logs = pts.map((p) => log(p.value / t(p.area)));
   const q1 = quantile(logs, 0.25);
   const q3 = quantile(logs, 0.75);
   const out = pts.filter((_, k) => logs[k] < q1 - 1.5 * (q3 - q1) || logs[k] > q3 + 1.5 * (q3 - q1));

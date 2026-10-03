@@ -87,7 +87,7 @@ function startOnTop(d: Draft, water: Float64Array): { x: number; y: number; z: n
       for (let dy = 0; dy < 3 && flat; dy++) for (let dx = 0; dx < 3 && flat; dx++) if (at(x + dx, y + dy) !== top) flat = false;
       const [ex, ey] = startEntranceTile(x, y, "Cw0");
       if (!flat || at(ex, ey) !== top || !dry(x, y)) continue;
-      const dist = (x - start.x) ** 2 + (y - start.y) ** 2;
+      const dist = (x - start.x) * (x - start.x) + (y - start.y) * (y - start.y);
       if (dist < bestD) (bestD = dist), (best = [x, y]);
     }
   if (!best) throw new Error(`no flat 3×3 at level ${top} for the start`);

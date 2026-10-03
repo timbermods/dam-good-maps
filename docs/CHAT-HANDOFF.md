@@ -26,12 +26,13 @@ them for detail on any decision.
   `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
   session builds the startup service worker (D397). Neither session touches the other's
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
-- **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) builds moving water and the Flow view, then
-  renderer R1, on branch `feature/moving-water`, gated by the shared runner in `tools/smooth/` (built from
-  `investigation/performance`, #107). The milestone
-  session merges its PR when it is green and Kyler says yes.
+- **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) works on its own branches off `dev`. Moving
+  water, the Flow view and renderer R1 are merged (#165, D446). Its current work: the quick-click PR (post-release items 1
+  and 2), then D371 and D374, playback only. The milestone session
+  merges each PR when CI is green (D453).
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
+  On Kyler's PC, Codex works only in its own clone, never in the renderer session's checkout.
 
 ## Models (D389)
 
@@ -46,6 +47,8 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
   judging them. Report what fell short as plainly as what worked.
 - **Prompts stand alone.** Code blocks are the exact text Kyler sends; prose is for him. Each prompt says where it goes and
   needs nothing from the chat to make sense. A prompt is never assumed sent until Kyler says so.
+- **No excess checks (D454), above every other rule on checks.** No excessive tests, timings or validation, only when genuinely
+  necessary or when Kyler asks; CI, the nightly suite, bug-catching checks and a real check before "done" stay.
 - **Compute is a resource (D316–D318).** Effort matches the stakes; quality is never compromised. Invest in what compounds;
   spend little on ceremony. The cheapest model and effort that does the job; a real check before anything is reported done;
   short reports.
@@ -65,8 +68,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **Edits never replay onto new land (D336).** One key habit for every tool: F (or `{ }`) is Size, `[ ]` or F+scroll is
   strength (D368 (1), (11)).
 - **Before a release, fix only what's wrong;** polish comes after, in its own step.
-- **Performance is a requirement (D380).** Every feature meets its speed budget before it ships; a speed regression blocks a
-  merge like a failing test, measured in a quiet window.
+- **Speed (D453).** Kyler judges speed by using the tool; something that feels slow is a bug. No quiet windows or timing gates.
 - **The Rust order (D381).** The exact core moves to Rust, each port byte-identical and tagged before its TypeScript is
   deleted: water, the five forces, their planning and the checks, new forces directly, the generator, perhaps the editor's
   operations. The interface and rendering stay in TypeScript.
@@ -87,8 +89,6 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
   text in `investigation/README.md`); original or clearly licensed assets only; a `git diff` check before the PR; "don't
   wait for my replies". Each branch gets an INTEGRATION.md for adoption.
 - Shared-code findings are reported separately from a prototype's own shaping, so Claude's agent fixes each once.
-- **Quiet windows:** Codex's performance measurements need the machine quiet; the session pauses every heavy job for the
-  window Kyler names.
 
 ## Where things live after the prune (D390)
 
@@ -98,7 +98,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D424.**
+- **The next free decision number is D461.**
 
 ## How the planning chat checks in
 
@@ -107,6 +107,7 @@ view captures with `git show`. Prefer git over the GitHub REST API, which rate-l
 
 ## Ideas parked for later
 
-- **Hosting on Cloudflare Workers with Static Assets:** when multi-core water is adopted (GitHub Pages can't set the
-  isolation headers; today's plan is a service worker).
+- **Hosting on Cloudflare Workers with Static Assets:** two reasons now. Multi-core water needs the isolation headers
+  GitHub Pages can't set (today's plan is a service worker), and collaborative editing needs a small function for the room
+  code and the relay's credentials (D431).
 - **Co-op starts:** an idea only, nothing decided.

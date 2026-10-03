@@ -265,6 +265,9 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
+  // a project saved without a stored name opens with the name it has always had (D382)
+  const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
+  if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = doc.spec ? mapName(doc.spec) : "Imported map";
   checkDocument(doc);
   if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;
@@ -306,6 +309,19 @@ export function checkDocument(doc: MapDocument): void {
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
 }
 
+/** A map's name as the player typed it, trimmed; an empty one is refused with a one-line reason (D443). */
+export type NameResult = { ok: true; name: string } | { ok: false; reason: string };
+export function cleanMapName(name: string): NameResult {
+  const t = name.trim();
+  return t ? { ok: true, name: t } : { ok: false, reason: "A map needs a name" };
+}
+
+/** Whether a map's name is no longer the one it was given: a generated map's own name (its theme's)
+ *  keeps its seed-based file name; a renamed one is named like any named map (D443). */
+export function isRenamed(spec: MapSpec | null, name: string): boolean {
+  return !spec || name !== mapName(spec);
+}
+
 /** The project file's name: the map's saved name (D345, B10) with its own extension. */
 export function projectFileName(spec: MapSpec, seedWord?: string): string {
   return fileName(spec, seedWord).replace(/\.timber$/, ".damgoodmaps.json");
@@ -313,5 +329,5 @@ export function projectFileName(spec: MapSpec, seedWord?: string): string {
 
 /** The project file's name for any document. */
 export function documentFileName(doc: MapDocument): string {
-  return doc.spec ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
+  return doc.spec && !isRenamed(doc.spec, doc.meta.name) ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
 }

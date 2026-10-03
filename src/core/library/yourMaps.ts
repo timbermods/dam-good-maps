@@ -5,6 +5,8 @@
 // failed. The store itself is a platform adapter (src/platform/yourMaps.ts: IndexedDB); the
 // background saving is `saver.ts`.
 
+import { gunzipSync, strFromU8 } from "fflate";
+
 /** Unstarred maps kept (D234 (4)). */
 export const KEEP = 30;
 
@@ -26,6 +28,45 @@ export interface YourMapEntry {
   savedToTimberborn: number | null;
   /** The project file's size in bytes. */
   bytes: number;
+  /** The map's width and height in tiles ("128�128"); absent only for a map whose project can't be read (the list shows nothing). */
+  size?: { w: number; h: number };
+}
+
+/** A project file's map size, read from its base header without rebuilding the map; null if unreadable. */
+export function projectSize(project: Uint8Array): { w: number; h: number } | null {
+  try {
+    const text = strFromU8(project[0] === 0x1f && project[1] === 0x8b ? gunzipSync(project) : project);
+    const base = (JSON.parse(text) as { base?: { sizeX?: unknown; sizeY?: unknown } }).base;
+    const w = base?.sizeX, h = base?.sizeY;
+    return typeof w === "number" && typeof h === "number" && w > 0 && h > 0 ? { w, h } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The entry with its size filled from the project when it has none (the same entry if nothing to add). */
+export function withSize(entry: YourMapEntry, project: Uint8Array): YourMapEntry {
+  if (entry.size) return entry;
+  const size = projectSize(project);
+  return size ? { ...entry, size } : entry;
+}
+
+/** A project file's stored map name, read without rebuilding the map; null if unreadable or absent. */
+export function projectName(project: Uint8Array): string | null {
+  try {
+    const text = strFromU8(project[0] === 0x1f && project[1] === 0x8b ? gunzipSync(project) : project);
+    const name = (JSON.parse(text) as { meta?: { name?: unknown } }).meta?.name;
+    return typeof name === "string" && name.trim() ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The entry named as its project file's stored name says (D443): a rename in the editor reaches
+ *  Your maps on the next save (the same entry if the names agree). */
+export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMapEntry {
+  const name = projectName(project);
+  return name && name !== entry.name ? { ...entry, name } : entry;
 }
 
 /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage

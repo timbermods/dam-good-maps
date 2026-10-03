@@ -304,6 +304,9 @@ export interface BuildCache {
   soil: Float64Array | null;
   /** Occupancy when the resources were placed, and each resource feature's output. */
   occupiedBeforeResources: Uint8Array | null;
+  /** The water the resources were placed against: the settle's, or the last settled water carried
+   *  over to new ground (the "defer" mode), which `settle` does not hold. */
+  resourceWater: Float64Array | null;
   /** The tiles taken before the entity edits: what the generation's kept resources yield to. */
   occupiedBeforeEdits: Uint8Array | null;
   resources: Map<string, ResourceEntry>;
@@ -966,6 +969,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moisture: null,
     soil: null,
     occupiedBeforeResources: null,
+    resourceWater: null,
     occupiedBeforeEdits: null,
     resources: new Map(),
     resourceOrder: [],
@@ -1095,7 +1099,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     prev.resourceOrder.filter((id) => orderSet.has(id)).join() === order.filter((id) => prev.resources.has(id)).join();
   if (reusable) {
     changedTiles = new Uint8Array(N);
-    const pw = prev!.settle?.water.depth ?? none;
+    // (the water they were placed against: carried-over water is not the cache's settle, and objects
+    // placed against it are placed again once the settle is adopted, D366)
+    const pw = prev!.resourceWater ?? prev!.settle?.water.depth ?? none;
     const pm = prev!.moisture ?? none;
     const ps = prev!.soil ?? none;
     const ph = prev!.terrain.heights;
@@ -1156,7 +1162,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     ...withWater,
     entities: finalEntities,
     dirty: null,
-    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, occupiedBeforeEdits, resources, resourceOrder: order }),
+    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, resourceWater: water, occupiedBeforeEdits, resources, resourceOrder: order }),
   };
   if (prevResult) result.dirty = dirtyInfo(prevResult, result, region);
   return result;

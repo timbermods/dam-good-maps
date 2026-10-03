@@ -5,7 +5,7 @@ Dam Good Maps is a one-person passion project. There is no launch date; the goal
 A whimsical, surprising terrain is put in front of me. I play with it: flatten the land to connect two rivers, craterize the whole area, add a few water sources. It looks interesting now, so let's play. From opening Dam Good Maps to playing a map I love takes minutes, and getting it into the game is one click, with no file handling.
 
 ## Performance
-Speed is part of perfect (PLAN §20 D380). Slowness in generation, the forces, batch jobs, analysis or the editor degrades the experience, so every feature meets its speed budget before it ships, and a speed regression blocks a merge like a failing test. Budgets are measured in a quiet window; the smoothness investigation's harness is the gate for the renderer and moving water.
+Speed is part of perfect (PLAN §20 D453). Kyler judges it by using the tool, and something that feels slow is a bug like any other. There are no measured budgets and no speed gates.
 
 ## Maps
 1. Every map feels designed by nature, not a program: no ruler-straight channels, stamped shapes or copied pieces.

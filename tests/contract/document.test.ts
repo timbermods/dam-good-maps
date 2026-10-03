@@ -93,17 +93,23 @@ describe("project files (PLAN §19.6)", () => {
     // unedited, it is the stored file byte for byte
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
     // what the generator made stays as it was saved (no rebuild keeps the edits: edits never replay
-    // onto new land, D336); the player's own edits apply to the stored map
+    // onto new land, D336); the player's edits apply to the stored map, a generated feature's too
+    // (it leaves the stored map and is built as it now says, D336 (2))
     expect(s.notices[0]).not.toMatch(/rebuild/);
     expect("rebuildWithCurrentGenerator" in s).toBe(false);
-    const forest = r.features.find((f) => f.kind === "forest")!;
-    expect(s.apply({ op: "updateFeature", params: { id: forest.id, patch: { params: { density: 0.5 } } } }).errors[0]).toMatch(/keeps what generator 0\.1\.9 made as it was saved/);
+    const forest = r.features.find((f) => f.kind === "forest" && r.built.entities.some((e) => e.owner === f.id))!;
+    const trees = () => s.built.entities.filter((e) => e.owner === forest.id).length;
+    const before = trees();
+    expect(s.apply({ op: "updateFeature", params: { id: forest.id, patch: { params: { density: 0.05 } } } }).ok).toBe(true);
+    expect(trees()).toBeLessThan(before);
+    expect(s.orphans()).toEqual([]);
     expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: box(3, 3, 6, 6), level: 14 } }).ok).toBe(true);
     expect(s.built.heights[4 * W + 4]).toBe(14);
     // and reopening it replays them onto the same land
     const again = MapSession.open(decodeProject(s.project()));
     expect(again.mode).toBe("frozen");
     expect(sha(again.exportTimber().bytes)).toBe(sha(s.exportTimber().bytes));
+    s.undo();
     s.undo();
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
   });

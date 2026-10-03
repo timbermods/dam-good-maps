@@ -40,36 +40,71 @@ const RATE: Record<WaterSpeed, number> = { slower: 1, normal: 3, faster: 8, inst
 /** Frames that ease the last of the journey into the settled water. */
 const EASE = 16;
 
-/** Water between two frames (t from 0 to 1): each tile's depth and contamination in between, its
- *  floor from the later frame. */
+/** Where each tile's column is in a frame being blended (−1: none), and the tiles the later frame has:
+ *  kept between blends, cleared after each (a whole map's worth, not one a blend). */
+let columnOf = new Int32Array(0).fill(-1);
+let inLater = new Uint8Array(0);
+
+/** Water between two frames (t from 0 to 1): each tile's depth, contamination and outflows in between,
+ *  its floor from the later frame. */
 export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
-  const at = new Map<number, number>();
-  for (let k = 0; k < a.count; k++) at.set(a.tile[k], k);
-  const tiles: number[] = [];
-  const floor: number[] = [];
-  const depth: number[] = [];
-  const contamination: number[] = [];
-  const seen = new Set<number>();
+  let most = -1;
+  for (let k = 0; k < a.count; k++) if (a.tile[k] > most) most = a.tile[k];
+  for (let k = 0; k < b.count; k++) if (b.tile[k] > most) most = b.tile[k];
+  if (columnOf.length <= most) {
+    columnOf = new Int32Array(most + 1).fill(-1);
+    inLater = new Uint8Array(most + 1);
+  }
+  // (a tile with several columns, under caves: its last one, as a map lookup would keep)
+  for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = k;
+  const ca = a.outflow;
+  const cb = b.outflow;
+  const most2 = a.count + b.count;
+  const tile = new Int32Array(most2);
+  const floor = new Float32Array(most2);
+  const depth = new Float32Array(most2);
+  const contamination = new Float32Array(most2);
+  const outflow = cb ? new Float32Array(most2 * 4) : null;
+  let n = 0;
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
-    seen.add(i);
-    const j = at.get(i);
-    tiles.push(i);
-    floor.push(b.floor[k]);
-    depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
-    contamination.push((j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t);
+    inLater[i] = 1;
+    const j = columnOf[i];
+    tile[n] = i;
+    floor[n] = b.floor[k];
+    depth[n] = (j < 0 ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
+    contamination[n] = (j < 0 ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t;
+    if (outflow) for (let c = 0; c < 4; c++) outflow[n * 4 + c] = (j < 0 || !ca ? cb![k * 4 + c] : ca[j * 4 + c]) * (1 - t) + cb![k * 4 + c] * t;
+    n++;
   }
   for (let k = 0; k < a.count; k++) {
     const i = a.tile[k];
-    if (seen.has(i)) continue;
+    if (inLater[i]) continue;
     const d = a.depth[k] * (1 - t);
     if (d <= 0.001) continue;
-    tiles.push(i);
-    floor.push(a.floor[k]);
-    depth.push(d);
-    contamination.push(a.contamination[k]);
+    tile[n] = i;
+    floor[n] = a.floor[k];
+    depth[n] = d;
+    contamination[n] = a.contamination[k];
+    if (outflow && ca) outflow.set(ca.subarray(k * 4, k * 4 + 4), n * 4);
+    n++;
   }
-  return { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+  for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = -1;
+  for (let k = 0; k < b.count; k++) inLater[b.tile[k]] = 0;
+  const w: WaterView = { count: n, tile: tile.slice(0, n), floor: floor.slice(0, n), depth: depth.slice(0, n), contamination: contamination.slice(0, n) };
+  if (outflow) w.outflow = outflow.slice(0, n * 4);
+  return w;
+}
+
+/** A frame easing toward the settled water, blended only if it is shown (a skipped one never is). */
+function easing(from: WaterFrame, to: WaterView, t: number, done: number): WaterFrame {
+  let water: WaterView | null = null;
+  return {
+    get water() {
+      return (water ??= blendWater(from.water, to, t));
+    },
+    done,
+  };
 }
 
 export class WaterPlayer {
@@ -131,7 +166,7 @@ export class WaterPlayer {
     // (waiting for frames: the clock starts again from the frame on screen)
     if (!this.timer && this.at >= this.frames.length - 1) this.restartClock();
     this.finished = false;
-    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) this.frames.push({ water: blendWater(last.water, f.water, k / (EASE + 1)), done: last.done + ((1 - last.done) * k) / (EASE + 1) });
+    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) this.frames.push(easing(last, f.water, k / (EASE + 1), last.done + ((1 - last.done) * k) / (EASE + 1)));
     this.frames.push(f);
     if (f.final) this.finished = true;
     this.kick();

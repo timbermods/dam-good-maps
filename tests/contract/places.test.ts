@@ -12,7 +12,7 @@ import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
 import { PROVIDER_NOTICES } from "../../src/core/places/attribution";
-import { placeDescription, placeTimber } from "../../src/core/places/place";
+import { CONVERSION_FAULT_CHECKS, galleryIndex, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, placeData, sha256 } from "./placesCommon";
@@ -58,6 +58,40 @@ describe("the gallery's data", () => {
     console.log(`real places: index ${size("index.json")} B, data ${data} B (largest ${Math.max(...INDEX.places.map((p) => size(p.data)))} B), cards ${cards} B`);
     expect(size("index.json")).toBeLessThan(64_000);
     expect(Math.max(...INDEX.places.map((p) => size(p.data)))).toBeLessThan(64_000);
+  });
+});
+
+describe("the gallery shows every place, with a note on those whose start reaches no fed water (D445)", () => {
+  const gallery = galleryIndex(INDEX);
+  const noWater = INDEX.places.filter((p) => placeNote(p) !== null);
+
+  it("records each place's own faults, from its build, in the index", () => {
+    for (const p of INDEX.places) {
+      expect(p.faults, p.id).toEqual(PLACE_FAULT_CHECKS.filter((id) => p.faults.includes(id)));
+      for (const id of CONVERSION_FAULT_CHECKS) expect(p.faults as string[], p.id).not.toContain(id);
+    }
+  });
+
+  it("lists every place, none left out", () => {
+    expect(gallery.places.map((p) => p.id)).toEqual(INDEX.places.map((p) => p.id));
+    expect(gallery.count).toBe(INDEX.count);
+    expect(gallery.count).toBe(gallery.places.length);
+    expect(gallery.families).toEqual(INDEX.families);
+    expect(gallery.sizes).toEqual(INDEX.sizes);
+  });
+
+  it("notes \"No reachable water\" on exactly the places with the start-water fault, by the checks, never by a list of names", () => {
+    expect(NO_WATER_FAULT).toBe("start.water");
+    expect(NO_WATER_NOTE).toBe("No reachable water");
+    expect(noWater.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
+    // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
+    expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
+    expect(noWater.length).toBe(33);
+    // no other fault gets a note
+    for (const p of INDEX.places) if (!p.faults.includes("start.water")) expect(placeNote(p), p.id).toBeNull();
+    expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();
+    // a place whose fault is fixed loses its note
+    expect(placeNote({ faults: noWater[0].faults.filter((f) => f !== "start.water") })).toBeNull();
   });
 });
 

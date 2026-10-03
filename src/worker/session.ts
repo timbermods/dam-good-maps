@@ -18,6 +18,8 @@ import {
   objectsOnNewGround,
   moveEdit,
   moveStartNear,
+  startCarriedBack,
+  startCarry,
   startClears,
   startBrokenBy,
   startMiddle,
@@ -62,7 +64,9 @@ import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import { validateMap, type Validation } from "../core/validate/checks";
 import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
-import type { TerrainState } from "../core/features/raster/strokePreview";
+import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
+import type { BrushParams, Rect } from "../core/features/raster/brush";
+import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
@@ -88,6 +92,7 @@ import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth } from "../core/features/raster/brush";
+import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -285,7 +290,19 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
+ *  water's own, else the settle's, else the stored file's. */
+function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+  const view = columnsWaterOf(s, live, ground);
+  // (a build without the outflows, for measuring their own cost: tools/smooth)
+  if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
+  const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
+  const outflow = outflowsOf(view, s.size.x, s.size.y, out);
+  if (outflow) view.outflow = outflow;
+  return view;
+}
+
+function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
   const roofed = s.roofedTiles;
   if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
@@ -408,7 +425,9 @@ function viewUpdate(s: MapSession): ViewUpdate {
     markSent(s);
     return all;
   }
-  if (prev.terrain !== b.cache.terrain) out.terrain = s.terrainState();
+  const water = s.showsStoredWater ? "stored" : b.water;
+  // (the terrain the page paints on carries the settled water too: a Naturalize stroke keeps it, D399)
+  if (prev.terrain !== b.cache.terrain || water !== prev.water) out.terrain = s.terrainState();
   if (prev.heights !== b.heights) {
     const rect = changedRect(b.W, b.H, prev.heights, b.heights);
     if (rect) {
@@ -416,7 +435,6 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.terrainRect = rect;
     }
   }
-  const water = s.showsStoredWater ? "stored" : b.water;
   if (water !== prev.water) out.water = waterOf(s);
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
   // (a rebuild that placed the same objects again sends none: the page keeps its own)
@@ -673,7 +691,7 @@ async function runDraft(token: number): Promise<void> {
       for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - d.sent![i]) > 0.01) moved = true;
       if (moved) {
         d.sent = D.slice();
-        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
+        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
       }
     }
     await breathe();
@@ -730,7 +748,7 @@ async function runWater(token: number): Promise<void> {
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
-      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C }), done, ticks });
+      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C, out: j.job.sim.out }), done, ticks });
     }
     if (r) {
       finishWater(j, r);
@@ -794,7 +812,7 @@ export function startWeather(hazard: Hazard): void {
         t += gap;
         const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
         if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C }), Math.min(days, t / TICKS_PER_DAY), soil);
+        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
       }
       await breathe();
     }
@@ -809,7 +827,7 @@ export function startWeather(hazard: Hazard): void {
         r = back.advance(4);
         if (!r && back.ticks - last >= frameGap(back.ticks)) {
           last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C }), days);
+          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
         }
       }
       if (r) break;
@@ -915,7 +933,7 @@ function opened(s: MapSession): SessionOpen {
   return sessionView();
 }
 
-/** "Refine this map": open the map the generator just made. */
+/** Opens the map the generator just made in the editor. */
 export function refine(): SessionOpen {
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
@@ -1560,6 +1578,8 @@ export function clearEverything(): SessionUpdate & { removed: number[] } {
 export function applySelection(ops: EditOp[], label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
+  ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
   const r = s.applyAll(ops, "user", label);
   if (!r.ok) return changed(s, false, r.errors, t0);
   if (startBrokenBy(s, new Set(tiles))) {
@@ -1988,7 +2008,7 @@ function sessionForceMap(s: MapSession): FullForceMap {
   const fallen = m.entities
     .filter((e) => down.has(e.id))
     .map((e) => ({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[e.y * W + e.x], dx: down.get(e.id)!.dx, dy: down.get(e.id)!.dy, length: e.template === "Oak" ? 2.6 : 2 }));
-  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen };
+  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen, usedIds: s.usedEntityIds() };
 }
 
 /** The same map for Craterize, Erupt and Quake: they work on plain copies of the objects (an
@@ -2493,12 +2513,14 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   handoff = water;
   // (where the history stood: its Esc, arriving after this keep, takes it back exactly, D341)
   const mark = s.mark();
-  const res = s.apply({ op: "forceResult", params }, "user");
+  // (Try another replaces the force's start carry too: the start goes back where it stood, D220)
+  const back = f.replaces !== undefined ? startCarriedBack(s, f.replaces, f.before.entities) : [];
+  const res = s.applyAll([{ op: "forceResult", params }, ...back], "user");
   if (!res.ok) {
     handoff = null;
     return refused(res.errors);
   }
-  carryStart(s, params);
+  carryStart(s, params, back, { inside: f.request.area ? areaDepth(f.request.area, f.before.W, f.before.H) : null, cut: f.request.cut });
   const seq = lastSeq(s)!;
   const seriesBefore = series;
   if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
@@ -2569,16 +2591,14 @@ function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Arr
  *  an object) carries the start to the nearest level ground where it stands well, in the same undo
  *  step (D257: a force is bound only by nature; the editor keeps the map playable). With no such
  *  ground within reach it stays, and the checks say what is wrong. */
-function carryStart(s: MapSession, params: ForceResultParams): boolean {
-  if (!startBrokenBy(s, new Set(params.tiles))) return false;
-  const at = startMiddle(s);
-  const ops = at ? moveStartNear(s, at[0], at[1], true) : null;
-  if (!ops) return false;
+function carryStart(s: MapSession, params: ForceResultParams, back: EditOp[], limits: { inside: Uint8Array | null; cut: number | null }): boolean {
+  const carry = startCarry(s, params, limits);
+  if (!carry) return false;
   const label = s.history().filter((h) => h.applied).at(-1)?.label;
   s.undo();
-  const r = s.applyAll([{ op: "forceResult", params }, ...ops], "user", label);
+  const r = s.applyAll([{ op: "forceResult", params: carry.params }, ...back, ...carry.ops], "user", label);
   if (r.ok) return true;
-  s.apply({ op: "forceResult", params }, "user");
+  s.applyAll([{ op: "forceResult", params }, ...back], "user", label);
   return false;
 }
 
@@ -2588,3 +2608,55 @@ export function forcing(): boolean {
 }
 
 export const carving = forcing;
+
+// ------------------------------------------------- Naturalize, weathered here (PLAN §20 D422)
+
+/** A Naturalize stroke weathered in the worker (D422): the page sends its dabs as they come and shows
+ *  the land that comes back (core/features/raster/remoteStroke.ts); the worker runs the preview the
+ *  page would, on the same land, so what is shown is what the operation builds. */
+let weathering: { session: MapSession; preview: StrokePreview; shown: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null = null;
+
+/** A stroke begins, with the page's settings and the ground under sources and objects it leaves. */
+export function weatherBegin(settings: Omit<BrushParams, "dabs">, ground: Runs): void {
+  const s = need();
+  const shown = s.built.heights.slice();
+  const own = { ...settings };
+  weathering = { session: s, preview: new StrokePreview(own, s.terrainState(), shown, s.size.x, s.size.y, ground), shown, settings: own };
+}
+
+/** What a stroke's dabs (or its riding pieces) changed: the shown heights in the rectangle, and its
+ *  settings as recorded so far; the water answers it at once (D197). */
+function weathered(r: Rect | null): WeatheredLand | null {
+  const w = weathering;
+  if (!r || !w) return null;
+  const W = w.session.size.x;
+  const bw = r.x1 - r.x0 + 1;
+  const heights = new Uint8Array(bw * (r.y1 - r.y0 + 1));
+  for (let y = r.y0; y <= r.y1; y++) heights.set(w.shown.subarray(y * W + r.x0, y * W + r.x1 + 1), (y - r.y0) * bw);
+  draftStroke(r, heights);
+  return { rect: r, heights, settings: { ...w.settings } };
+}
+
+export function weatherAdd(dabs: number[], pressure?: number[]): WeatheredLand | null {
+  const w = weathering;
+  if (!w || w.session !== session) return null;
+  return weathered(w.preview.add(dabs, pressure));
+}
+
+export function weatherFinish(rigid: [number, number, number, number][]): WeatheredLand | null {
+  const w = weathering;
+  if (!w || w.session !== session) return null;
+  return weathered(w.preview.finish(rigid));
+}
+
+/** The stroke's dabs are all in: its heights before the integrity pass and its protected tiles. */
+export function weatherEnd(): { pre: Uint8Array; protect: Uint8Array } | null {
+  const w = weathering;
+  weathering = null;
+  if (!w || w.session !== session) return null;
+  return { pre: w.preview.pre.slice(), protect: w.preview.protect.slice() };
+}
+
+export function weatherCancel(): void {
+  weathering = null;
+}

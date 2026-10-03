@@ -1,0 +1,18 @@
+[package]
+name = "portable-check"
+description = "Checks portable maths against portable.ts: a Wasm export and a native stdin filter (tools/rust/check.mjs)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "portable-check"
+path = "src/main.rs"
+
+[dependencies]
+portable = { path = "../portable" }
