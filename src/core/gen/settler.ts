@@ -208,6 +208,16 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
   return d;
 }
 
+/** The walkable land a start at tile i would join (`SettlerOptions.foot`), in tiles. A tile without
+ *  a label (one the land analysis left out, as it leaves out water and the editor's locked ground)
+ *  joins none: 0, so it fails the start's minimum and fits not at all, and the score is never NaN
+ *  (a NaN score sorts differently from engine to engine, D366). */
+export function footAt(foot: SettlerOptions["foot"], i: number): number {
+  if (!foot) return 0;
+  const k = foot.lab[i];
+  return k >= 0 && k < foot.size.length ? foot.size[k] : 0;
+}
+
 export function pickStart(
   h: Uint8Array,
   W: number,
@@ -337,7 +347,8 @@ export function pickStart(
         if (!sameLevel && !(wa <= waterRule - 5)) continue;
         if (!sameLevel) w = wa;
         // the ground reached without stairs
-        if (opts.foot && opts.minFoot && opts.foot.size[opts.foot.lab[i]] < opts.minFoot) continue;
+        const foot = footAt(opts.foot, i);
+        if (opts.foot && opts.minFoot && foot < opts.minFoot) continue;
         // drought-aware: pumpable water within the rule after the first drought
         let droughtOk: boolean | undefined;
         if (walkKept) {
@@ -364,7 +375,7 @@ export function pickStart(
         if (moistNear < (pass === 0 ? 160 : 110)) continue;
         const room = Math.min(1, regions.size[regions.labels[i]] / roomWant);
         // the land the start's ground joins, against what Buildable land asks for (PLAN §5.2)
-        const footFit = opts.foot && opts.footWant ? Math.min(1, opts.foot.size[opts.foot.lab[i]] / opts.footWant) : 1;
+        const footFit = opts.foot && opts.footWant ? Math.min(1, foot / opts.footWant) : 1;
         const kinds: [string, number][] = [
           ["lake", dLake[i] < 12 ? prefs[0] : 0],
           ["river", dLake[i] >= 12 ? prefs[1] * 0.8 : 0],

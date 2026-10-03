@@ -725,7 +725,10 @@ export class MapSession {
    *  says. Null for a document that stored no owners (it builds them as before). */
   generatedResources(): ReadonlyMap<string, ReadonlySet<number>> | null {
     const c = this.resourcesCache;
-    if (c && c.key === this.gen.base && c.features === this.st.features) return c.tiles;
+    // (keyed on the features themselves, not on their list: an operation changes the list in place,
+    // and each feature it changes is a new object, ops.ts `applyOp`; keyed on the list, a feature
+    // changed after the first build kept the generation's tiles until the project was reopened)
+    if (c && c.key === this.gen.base && sameItems(c.features, this.st.features)) return c.tiles;
     let all = c && c.key === this.gen.base ? c.all : null;
     if (!all && this.gen.base.owners) {
       all = new Map();
@@ -744,7 +747,7 @@ export class MapSession {
         if (kept && b && (b === f || shape(b) === shape(f))) tiles.set(f.id, kept);
       }
     }
-    this.resourcesCache = { key: this.gen.base, features: this.st.features, all, tiles };
+    this.resourcesCache = { key: this.gen.base, features: [...this.st.features], all, tiles };
     return tiles;
   }
 
@@ -979,6 +982,13 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** The same items in the same order (the same objects). */
+function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
