@@ -197,7 +197,9 @@ below).
 Performance is a requirement (D380), so the exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI and the 6-cell check where it applies, no speed re-timing, D441), each port byte-identical and tagged
 before its TypeScript is deleted: (1) the water settle (above); (2) the five released forces (their TypeScript tagged
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
-Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust; (5) the
+Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
+watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
+its own contract tests (D444); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 
@@ -527,7 +529,7 @@ After the view (D280 (3)).
 
 **Delivers**
 1. **Erode**, a new force, built directly in Rust on the adopted Rust forces (#158) once that adoption lands, never
-   in TypeScript first (D438), with its investigation (`investigation/erode`, D281) as the reference, on the
+   in TypeScript first (D438), checked as D444 defines (the same bytes in every engine in CI, its own contract tests), with its investigation (`investigation/erode`, D281) as the reference, on the
    forces core, under the forces' principles (D257: bound only by nature; D258: no predicted route
    or outline). Wind and water wear rock: a cave or alcove at a cliff's foot, an overhang where hard
    rock caps softer rock, an arch through a thin ridge; the land decides which; every shape obeys
