@@ -100,6 +100,11 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 3. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
 4. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
 
+5. **The Rust water and the artifact spike (D381, D442):** the spike page (`tests/e2e/spike.spec.ts`, M12-era, D277)
+   runs under the Claude artifact CSP, which refuses WebAssembly. Choose: (1) skip spike.spec with a note pointing at D277
+   and delete the TypeScript water; or (2) keep the TypeScript simulation as a no-Wasm fallback for that page only. Until
+   then the Rust water is adopted everywhere else and the TypeScript water stays for that page.
+
 ## The release gate (D385–D387)
 
 Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
