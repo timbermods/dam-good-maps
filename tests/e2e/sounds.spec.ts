@@ -40,7 +40,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await idle(page);
   expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toMatch(/Raise/);
   // meanwhile the bank came, every recording once
-  await expect.poll(() => new Set(fetched).size, { timeout: 30_000 }).toBe(24);
+  await expect.poll(() => new Set(fetched).size, { timeout: 30_000 }).toBe(26);
   await expect.poll(async () => (await sound(page))!.ready, { timeout: 30_000 }).toBe(true);
 
   // a tree placed: its accent plays

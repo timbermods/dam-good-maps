@@ -32,14 +32,15 @@ describe("the sound bank (D226)", () => {
     // D313: re-encoded from the round's original 192 kbps to 256 kbps (measurably less encoding
     // error for a modest size increase), so no longer byte-identical to investigation/juice-2's
     // frozen 192 kbps copy; the crop and content are, checked here by duration.
-    expect(bytes).toBe(1_090_848);
+    // D459 added Naturalize's two recordings (leaves, leaves-bed: 96,088 bytes)
+    expect(bytes).toBe(1_186_936);
     const credits = readFileSync(`${DIR}/SOUNDS.md`, "utf8");
     expect(credits).toMatch(/CC0 1\.0/);
-    for (const who of ["Kenney", "Independent.nu", "ezwa", "TinyWorlds", "Tom_Kaszuba", "SamsterBirdies"]) expect(credits).toContain(who);
+    for (const who of ["Kenney", "Independent.nu", "ezwa", "TinyWorlds", "Tom_Kaszuba", "SamsterBirdies", "qubodup"]) expect(credits).toContain(who);
     // (the same recordings as the round's own, just re-encoded, D313)
     const original = JSON.parse(readFileSync("investigation/juice-2/bank.json", "utf8")) as { id: string; duration: number }[];
     const originalById = new Map(original.map((m) => [m.id, m.duration]));
-    for (const m of manifest) expect(originalById.get(m.id), m.id).toBeCloseTo(m.duration, 3);
+    for (const m of manifest) if (!m.provenance.startsWith("qubodup")) expect(originalById.get(m.id), m.id).toBeCloseTo(m.duration, 3);
     expect(bankUrl("audio/wood-a.mp3")).toMatch(/sounds\/juice-2\/audio\/wood-a\.mp3$/);
     expect(existsSync("src/editor/juice/synth.ts") || existsSync("src/editor/juice/worklet.ts")).toBe(false);
   });

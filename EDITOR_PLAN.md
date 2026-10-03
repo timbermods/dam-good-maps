@@ -902,7 +902,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     a placed object's pop and wiggle scales its own instance; a force's moment (`forces.ts`) plays on its own clock
     from fixed pools, at the showing's pace, never the water's speed, and none play with reduced motion or in
     software rendering. Every tree stands upright on its tile (`settleKnocked` in `core/forces/objects.ts`). The
-    sounds (`src/editor/juice/`): recorded CC0 foley (24 files in `public/sounds/juice-2/`, with a manifest and
+    sounds (`src/editor/juice/`): recorded CC0 foley (26 files in `public/sounds/juice-2/`, with a manifest and
     provenance, `SOUNDS.md`), fetched and decoded on the first click or key and played by the browser's own audio
     thread (no synthesis, no worklet); one engine for the editor's lifetime, never waited on: a sound asked for
     while the bank loads, while paused or off, or past the limits (72 recordings, 20 sounds, four held beds, ten
