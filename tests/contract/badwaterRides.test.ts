@@ -4,8 +4,8 @@
 // the core validates and applies) does this only when its caller lists the source as a `rigid` piece;
 // the page works that out itself (src/editor/brushes.ts `rides`), so any other caller of the core
 // (Claude's steps, a script, the Rust port's tests) got a stroke that left the source floating, a
-// load error the export refuses, accepted as valid (the release gate's bug hunt, D385). Such a step is
-// now refused with its reason (MapSession `tiltedSource`).
+// load error the export refuses, accepted as valid (the release gate's bug hunt, D385). The session now
+// gives such a step again with the source riding whole (MapSession `rideTilted`; never refused, D270).
 
 import { describe, expect, it } from "vitest";
 import type { EditOp } from "../../src/core/doc/ops";

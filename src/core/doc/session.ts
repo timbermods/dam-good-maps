@@ -522,34 +522,53 @@ export class MapSession {
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();
+    const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
-    const tilted = this.tiltedSource([op], before, mark);
-    if (tilted) return { ok: false, errors: [tilted], applied: [], dirty: null };
+    const again = this.rideTilted([op], before, mark, seq);
+    if (again) return this.ridden(() => this.apply(again[0], origin, label));
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
 
-  /** A step with a brush stroke that leaves a source of several tiles (a BadwaterSource) off level
-   *  ground, its ground changed under it, is taken back with its reason: the game would not load the
-   *  map (D249: a source rides a stroke whole, the stroke's `rigid` pieces, or keeps its ground;
-   *  D342 (4): refused, never left broken). The page lists the pieces that ride; another caller of
-   *  the operation must too. Null when the step stands. */
-  private tiltedSource(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark): string | null {
-    if (!ops.some((o) => o.op === "brush")) return null;
+  /** A step whose brush stroke left a source of several tiles (a BadwaterSource) off level ground,
+   *  its ground changed under it, is taken back and given again with that source riding the stroke
+   *  whole (its rectangle among the stroke's `rigid` pieces, taking its middle tile's level): D249,
+   *  a source rides the ground under a brush, never left floating (the game would not load it), and
+   *  D270, a brush stroke over a source is never refused. The page lists the pieces that ride; this
+   *  covers any other caller of the operation. The operations to give again, or null when the step
+   *  stands (it is never given again twice). */
+  private rideTilted(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark, seq: number): EditOp[] | null {
+    if (this.riding || !ops.some((o) => o.op === "brush")) return null;
     const { W, H } = this.cur;
     const now = this.cur.heights;
+    const rects: [number, number, number, number][] = [];
     for (const e of this.cur.entities) {
       if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
-      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+      const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+      const tiles = cells.map(([x, y]) => y * W + x);
       if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
       if (!tiles.some((i) => before.heights[i] !== now[i])) continue;
-      const step = this.stepSince(mark);
-      if (step) this.takeBack(step);
-      return `the stroke would leave the ${e.template === "BadwaterSource" ? "badwater source" : "source"} at (${e.x}, ${e.y}) off level ground: list it in the stroke's rigid pieces, or keep its ground`;
+      const xs = cells.map(([x]) => x);
+      const ys = cells.map(([, y]) => y);
+      rects.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
     }
-    return null;
+    if (!rects.length) return null;
+    const step = this.stepSince(mark);
+    if (!step || !this.takeBack(step)) return null;
+    this.seqNext = seq;
+    return ops.map((o) => (o.op === "brush" ? { ...o, params: { ...o.params, rigid: [...(o.params.rigid ?? []), ...rects] } } : o));
+  }
+
+  private riding = false;
+  private ridden(give: () => ApplyResult): ApplyResult {
+    this.riding = true;
+    try {
+      return give();
+    } finally {
+      this.riding = false;
+    }
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
@@ -557,6 +576,7 @@ export class MapSession {
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
     const before = this.cur;
     const mark = this.mark();
+    const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
       const errors = this.check(op);
@@ -574,8 +594,8 @@ export class MapSession {
     }
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
-    const tilted = this.tiltedSource(ops, before, mark);
-    if (tilted) return { ok: false, errors: [tilted], applied: [], dirty: null };
+    const again = this.rideTilted(ops, before, mark, seq);
+    if (again) return this.ridden(() => this.applyAll(again, origin, label));
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
