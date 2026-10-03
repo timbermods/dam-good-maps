@@ -34,18 +34,21 @@ export interface RunSpec {
   repeat: number;
   /** The cell's round: 1, or a re-run after a failure (verdict.ts `cellOutcome`). */
   round: number;
+  /** The round's attempt: 1, or again after a busy PC voided it (run.ts). */
+  attempt: number;
   key: string;
 }
 
 export const cellKey = (c: Cell): string => `${c.config}|${c.size}|${c.look}|${c.scenario}`;
-export const runKey = (c: Cell, build: BuildSide, repeat: number, round = 1): string => `${cellKey(c)}|${build}|${repeat}${round > 1 ? `|r${round}` : ""}`;
+export const runKey = (c: Cell, build: BuildSide, repeat: number, round = 1, attempt = 1): string =>
+  `${cellKey(c)}|${build}|${repeat}${round > 1 ? `|r${round}` : ""}${attempt > 1 ? `|a${attempt}` : ""}`;
 
-/** One round of a cell's runs, in ABBA order. */
-export function roundRuns(cell: Cell, repeats: number, round: number): RunSpec[] {
+/** One round of a cell's runs (one attempt at it), in ABBA order. */
+export function roundRuns(cell: Cell, repeats: number, round: number, attempt = 1): RunSpec[] {
   const seen: Record<BuildSide, number> = { before: 0, after: 0 };
   return abbaOrder(repeats).map((build) => {
     const repeat = ++seen[build];
-    return { cell, build, repeat, round, key: runKey(cell, build, repeat, round) };
+    return { cell, build, repeat, round, attempt, key: runKey(cell, build, repeat, round, attempt) };
   });
 }
 

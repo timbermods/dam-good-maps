@@ -37,7 +37,27 @@ export interface Discard {
   wallMs: number;
 }
 
-export type Entry = RunResult | Discard;
+/** A round attempt voided (a busy PC or an unfocused page during one of its runs): its runs stay on record but
+ *  count for nothing, and the round is measured again. */
+export interface Void {
+  kind: "void";
+  /** The cell, round and attempt voided: `cellKey|r<round>|a<attempt>`. */
+  key: string;
+  reason: string;
+  at: string;
+  wallMs: number;
+}
+
+export type Entry = RunResult | Discard | Void;
+
+/** The voided attempt a run belongs to, as `Void.key`. */
+export const attemptKey = (r: { cell: Cell; round?: number; attempt?: number }): string => `${cellKey(r.cell)}|r${r.round ?? 1}|a${r.attempt ?? 1}`;
+
+/** The runs that count: kept, and not in a voided attempt. */
+export function liveRuns(entries: readonly Entry[]): RunResult[] {
+  const voided = new Set(entries.filter((e): e is Void => e.kind === "void").map((e) => e.key));
+  return entries.filter((e): e is RunResult => e.kind === "run" && !voided.has(attemptKey(e)));
+}
 
 const f1 = (v: number | null | undefined): string => (v === null || v === undefined ? "n/a" : v.toFixed(1));
 const f0 = (v: number | null | undefined): string => (v === null || v === undefined ? "n/a" : String(Math.round(v)));
@@ -75,7 +95,7 @@ export interface CellRow {
 const median = (a: number[]): number | null => (a.length ? [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)] : null);
 
 export function buildRows(entries: readonly Entry[], repeats: number): CellRow[] {
-  const runs = entries.filter((e): e is RunResult => e.kind === "run");
+  const runs = liveRuns(entries);
   const cells = new Map<string, RunResult[]>();
   for (const r of runs) cells.set(cellKey(r.cell), [...(cells.get(cellKey(r.cell)) ?? []), r]);
   const rows: CellRow[] = [];
@@ -115,8 +135,9 @@ export interface Summary {
 
 export function summarize(entries: readonly Entry[], repeats: number, info: { before: string; after: string; machine: string[]; unq?: boolean }): Summary {
   const rows = buildRows(entries, repeats);
-  const runs = entries.filter((e): e is RunResult => e.kind === "run");
+  const runs = liveRuns(entries);
   const discards = entries.filter((e): e is Discard => e.kind === "discard");
+  const voids = entries.filter((e): e is Void => e.kind === "void").length;
   const idle = idleLine([...runs.map((r) => r.load), ...discards.flatMap((d) => (d.load ? [d.load] : []))]);
   const tableHead = [
     "| size | look | configuration | scenario | p99 ms before | p99 ms after | worst ms before | worst ms after | hitches before | hitches after | CPU outside / total % (min/med/max) | verdict |",
@@ -126,7 +147,7 @@ export function summarize(entries: readonly Entry[], repeats: number, info: { be
     const v = r.verdict;
     const names = (ms: MetricName[]) => ms.map((m) => ({ p99Ms: "p99", worstMs: "worst", hitches: "hitches" })[m]).join(", ");
     const rounds = (r.outcome.rounds.length > 1 ? ` (rounds: ${r.outcome.rounds.join(", ")})` : "") + (r.outcome.state === "more" && v.verdict === "SLOWER" ? " (re-run pending)" : "");
-    const verdict = (v.verdict === "SLOWER" ? `**SLOWER**${v.slower.length ? ` (${names(v.slower)})` : ""}` : v.verdict === "incomplete" ? `incomplete (${v.nBefore}+${v.nAfter} runs)` : "pass") + rounds;
+    const verdict = r.outcome.hang ? `**HANG** (${r.outcome.hang})` : (v.verdict === "SLOWER" ? `**SLOWER**${v.slower.length ? ` (${names(v.slower)})` : ""}` : v.verdict === "incomplete" ? `incomplete (${v.nBefore}+${v.nAfter} runs)` : "pass") + rounds;
     const note = r.failedLook ? ` (drew ${r.drewLook})` : "";
     return `| ${r.cell.size} | ${r.cell.look}${note} | ${CONFIG_LABELS[r.cell.config]} | ${r.cell.scenario} | ${cellText(v, "p99Ms", "before", 1)} | ${cellText(v, "p99Ms", "after", 1)} | ${cellText(v, "worstMs", "before", 1)} | ${cellText(v, "worstMs", "after", 1)} | ${cellText(v, "hitches", "before", 0)} | ${cellText(v, "hitches", "after", 0)} | ${tri(r.outside)} / ${tri(r.total)} | ${verdict} |`;
   });
@@ -140,7 +161,7 @@ export function summarize(entries: readonly Entry[], repeats: number, info: { be
     table: [...tableHead, ...lines],
     slower,
     incomplete,
-    verdictLine: `${rows.length} cells: ${passed} pass, ${slower} SLOWER, ${incomplete} incomplete; ${runs.length} runs kept, ${discards.length} discarded`,
+    verdictLine: `${rows.length} cells: ${passed} pass, ${slower} SLOWER, ${incomplete} incomplete; ${runs.length} runs kept, ${discards.length} discarded, ${voids} round attempts voided and measured again`,
   };
 }
 

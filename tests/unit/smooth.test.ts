@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { busyProcesses, idleLine, isQualified, judgeRun, quietSuffix, RULES, type LoadSample } from "../../tools/smooth/load";
 import { abbaOrder, expand, parseFilters, remaining, runKey } from "../../tools/smooth/plan";
-import { buildRows, summarize, type Entry, type RunResult } from "../../tools/smooth/report";
+import { buildRows, liveRuns, summarize, type Entry, type RunResult } from "../../tools/smooth/report";
 import { deltas, frameStats, median, percentile, spread } from "../../tools/smooth/stats";
 import { cellOutcome, cellVerdict, compareMetric, type RunRecord } from "../../tools/smooth/verdict";
 
@@ -57,9 +57,13 @@ describe("load rules", () => {
     expect(quietSuffix(gap)[0].at).toBe(75_000);
     expect(isQualified(gap, 100_000)).toBe(false);
   });
-  it("a sample of exactly 25% is still quiet", () => {
-    expect(quietSuffix([sample(0, 25), sample(1000, 25.1)]).length).toBe(0);
-    expect(quietSuffix([sample(0, 25), sample(1000, 24)]).length).toBe(2);
+  it("a sample of exactly 10% is still quiet (Kyler, 2026-10-02: 10%, not 25%)", () => {
+    expect(quietSuffix([sample(0, 10), sample(1000, 10.1)]).length).toBe(0);
+    expect(quietSuffix([sample(0, 10), sample(1000, 9)]).length).toBe(2);
+  });
+  it("outside GPU above 10% is not quiet either; a sample without GPU counters is judged on its CPU", () => {
+    expect(quietSuffix([sample(0, 2, { gpu: 40 }), sample(1000, 2, { gpu: 1 })]).length).toBe(1);
+    expect(quietSuffix([sample(0, 2, { gpu: null }), sample(1000, 2)]).length).toBe(2);
   });
 });
 
@@ -93,18 +97,22 @@ describe("a run's load", () => {
     expect(judgeRun(noOwner, 10_500, 20_500).reason).toMatch(/accounting/);
   });
   it("reports busy outside processes above 5% and phrases the PC idle line", () => {
-    const withBusy = rows.map((s) => (s.at >= 12_000 && s.at <= 14_000 ? sample(s.at, 12, { top: [{ name: "MsMpEng", cpu: 9 }, { name: "chrome", cpu: 3 }] }) : s));
+    const withBusy = rows.map((s) => (s.at >= 12_000 && s.at <= 14_000 ? sample(s.at, 8, { top: [{ name: "MsMpEng", cpu: 6 }, { name: "chrome", cpu: 2 }] }) : s));
     const j = judgeRun(withBusy, 10_500, 20_500);
     expect(j.valid).toBe(true);
     expect(j.over5).toBe(3);
-    expect(busyProcesses(withBusy)[0]).toEqual({ name: "MsMpEng", maxCpu: 9, samples: 3 });
+    expect(busyProcesses(withBusy)[0]).toEqual({ name: "MsMpEng", maxCpu: 6, samples: 3 });
     expect(idleLine([judgeRun(rows, 10_500, 20_500)])).toMatchObject({ idle: true });
     expect(idleLine([judgeRun(rows, 10_500, 20_500)]).text).toMatch(/PC idle: yes/);
     const loud = idleLine([j, j, j]);
     expect(loud.idle).toBe(false);
-    expect(loud.text).toMatch(/PC idle: NO.*MsMpEng 9%/);
+    expect(loud.text).toMatch(/PC idle: NO.*MsMpEng 6%/);
     expect(idleLine([]).text).toMatch(/unknown/);
-    expect(RULES.cpuMax).toBe(25);
+    expect(RULES.cpuMax).toBe(10);
+    expect(RULES.gpuMax).toBe(10);
+    // a game on the GPU voids the run even with the CPU quiet
+    const game = rows.map((s) => (s.at >= 12_000 && s.at <= 14_000 ? sample(s.at, 2, { gpu: 60, gpuTop: [{ name: "game", gpu: 60 }] }) : s));
+    expect(judgeRun(game, 10_500, 20_500)).toMatchObject({ valid: false, reason: "outside GPU 60% > 10%" });
   });
 });
 
@@ -247,5 +255,23 @@ describe("measuring chosen cells", () => {
     const f = parseFilters({ cells: "chromium|128|high|orbit, firefox|256|standard|brush", repeats: "1" });
     const keys = [...new Set(expand(f).map((r) => r.key.split("|").slice(0, 4).join("|")))];
     expect(keys).toEqual(["chromium|128|high|orbit", "firefox|256|standard|brush"]);
+  });
+});
+
+describe("busy rounds and hangs (Kyler, 2026-10-02)", () => {
+  const cell = { config: "chromium" as const, size: 128, look: "standard" as const, scenario: "orbit" as const };
+  const res = (build: "before" | "after", repeat: number, attempt: number, extra: object = {}) =>
+    ({ kind: "run", key: `k|${build}|${repeat}|a${attempt}`, build, repeat, round: 1, attempt, cell, stats: { p99Ms: 10, worstMs: 10, hitches: 0 }, ...extra }) as unknown as Entry;
+  it("a voided round attempt counts for nothing; the next attempt's runs do", () => {
+    const entries: Entry[] = [res("before", 1, 1), res("after", 1, 1), { kind: "void", key: "chromium|128|standard|orbit|r1|a1", reason: "outside CPU 30% > 10%", at: "", wallMs: 0 } as Entry, res("before", 1, 2)];
+    expect(liveRuns(entries).map((r) => r.key)).toEqual(["k|before|1|a2"]);
+  });
+  it("a hang fails the cell on its own, whatever its frame times", () => {
+    const runs = [1, 2, 3, 4, 5].flatMap((k) => [res("before", k, 1), res("after", k, 1, k === 3 ? { hang: "did not answer for 64.0 s" } : {})]) as unknown as RunRecord[];
+    expect(cellOutcome(runs, 5)).toMatchObject({ state: "fail", hang: "after 3: did not answer for 64.0 s" });
+  });
+  it("attempts get their own keys", () => {
+    expect(runKey(cell, "after", 2, 1, 2)).toBe("chromium|128|standard|orbit|after|2|a2");
+    expect(runKey(cell, "after", 2, 3, 2)).toBe("chromium|128|standard|orbit|after|2|r3|a2");
   });
 });

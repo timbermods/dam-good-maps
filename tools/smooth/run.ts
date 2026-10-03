@@ -7,12 +7,13 @@
 
 import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import { firefoxSetup, listGpus, pickIntegrated, launch, newPage, throttle, readEnv, CONFIGS, type Gpu } from "./browsers";
 import { branchPoint, ensureBuild, serve, LOCAL, ROOT } from "./builds";
 import { LoadMonitor, sleep } from "./monitor";
 import { PROBE } from "./probe";
 import { cellKey, expand, parseFilters, remaining, roundRuns, type BuildSide, type Cell, type Filters, type RunSpec } from "./plan";
-import { machineLines, markdown, printSummary, summarize, type Discard, type Entry, type RunResult } from "./report";
+import { attemptKey, liveRuns, machineLines, markdown, printSummary, summarize, type Discard, type Entry, type RunResult, type Void } from "./report";
 import { DRIVERS, findSpots, openMap } from "./scenarios";
 import { frameStats } from "./stats";
 import { cellOutcome } from "./verdict";
@@ -95,6 +96,44 @@ class StopSeries extends Error {}
  *  retried, as any other error. The longest qualified runs take under 2 minutes; a quiet-machine wait
  *  inside a run can take up to 15. */
 const RUN_LIMIT_MS = 20 * 60_000;
+
+/** A frame or an unanswered check longer than this is a hang (the longest qualified frames are well under a second). */
+const HANG_MS = 5_000;
+
+/** The page's health through the timed part, checked every second: how long it went without answering, and how
+ *  often it was hidden or without focus, and whether its WebGL context was lost. */
+function watchPage(page: Page): { stop(): Promise<{ maxGapMs: number; hidden: number; unfocused: number; lost: number; checks: number }> } {
+  let stopped = false;
+  let last = Date.now();
+  const r = { maxGapMs: 0, hidden: 0, unfocused: 0, lost: 0, checks: 0 };
+  const loop = (async () => {
+    while (!stopped) {
+      const answer = await Promise.race([
+        page.evaluate(() => ({ visible: document.visibilityState === "visible", focus: document.hasFocus(), lost: (window as unknown as { __smoothLost?: number }).__smoothLost ?? 0 })).catch(() => null),
+        sleep(3000).then(() => null),
+      ]);
+      const now = Date.now();
+      if (answer) {
+        r.maxGapMs = Math.max(r.maxGapMs, now - last);
+        last = now;
+        r.checks++;
+        if (!answer.visible) r.hidden++;
+        if (!answer.focus) r.unfocused++;
+        r.lost = Math.max(r.lost, answer.lost);
+      }
+      await sleep(1000);
+    }
+  })();
+  return {
+    async stop() {
+      stopped = true;
+      await loop;
+      // (the stretch since the last answer counts too; one second between checks is expected)
+      r.maxGapMs = Math.max(r.maxGapMs, Date.now() - last) - 1000;
+      return r;
+    },
+  };
+}
 
 function withLimit<T>(p: Promise<T>, ms: number, onLimit: () => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -207,7 +246,9 @@ async function main(): Promise<number> {
     let open: { close(): Promise<void> } | null = null;
     /** Measure these runs (a load-discarded run is requeued; an error retried up to three times); false when one
      *  could not be measured. */
-    const measure = async (specs: RunSpec[]): Promise<boolean> => {
+    /** Measure these runs (an error is retried up to three times): "void" when a busy PC or an unfocused page voided
+     *  the round (its runs count for nothing; it is measured again), false when a run could not be measured. */
+    const measure = async (specs: RunSpec[]): Promise<boolean | "void"> => {
       const queue = [...specs];
       let complete = true;
       while (queue.length) {
@@ -234,10 +275,11 @@ async function main(): Promise<number> {
           continue;
         }
         if (outcome.kind === "discard") {
-          console.log(`${tag}: discarded, ${outcome.reason}${outcome.load?.worst ? " (" + outcome.load.worst.map((t) => `${t.name} ${t.cpu}%`).join(", ") + ")" : ""}; requeued`);
+          // the whole round attempt goes: its before and after runs are compared only under the same conditions
+          console.log(`${tag}: ${outcome.reason}${outcome.load?.worst ? " (" + outcome.load.worst.map((t) => `${t.name} ${t.cpu}%`).join(", ") + ")" : ""}; round ${spec.round} voided and measured again`);
           appendFileSync(resultsFile, JSON.stringify(outcome) + "\n");
-          queue.unshift(spec); // requalify (the monitor dropped its lease), then again
-          continue;
+          appendFileSync(resultsFile, JSON.stringify({ kind: "void", key: attemptKey(spec), reason: outcome.reason, at: new Date().toISOString(), wallMs: 0 } satisfies Void) + "\n");
+          return "void";
         }
         appendFileSync(resultsFile, JSON.stringify(outcome) + "\n");
         const st = outcome.stats;
@@ -251,7 +293,8 @@ async function main(): Promise<number> {
     for (const r of plan) if (!cells.some((c) => cellKey(c) === cellKey(r.cell))) cells.push(r.cell);
     for (const cell of cells) {
       for (;;) {
-        const mine = readLines<Entry>(resultsFile).filter((e): e is RunResult => e.kind === "run" && cellKey(e.cell) === cellKey(cell));
+        const all = readLines<Entry>(resultsFile);
+        const mine = liveRuns(all).filter((e) => cellKey(e.cell) === cellKey(cell));
         const o = cellOutcome(mine, filters.repeats);
         if (o.state !== "more") break;
         if (existsSync(pauseFile)) {
@@ -260,8 +303,10 @@ async function main(): Promise<number> {
         }
         const round = o.rounds.length + 1;
         if (round > 1 && !mine.some((r) => (r.round ?? 1) === round)) console.log(`  ${cellKey(cell)}: round ${round - 1} came out ${o.rounds[round - 2]}; running it again (round ${round})`);
+        const attempt = 1 + all.filter((e): e is Void => e.kind === "void" && e.key.startsWith(`${cellKey(cell)}|r${round}|`)).length;
         const have = new Set(mine.map((r) => r.key));
-        if (!(await measure(roundRuns(cell, filters.repeats, round).filter((r) => !have.has(r.key))))) break;
+        const done = await measure(roundRuns(cell, filters.repeats, round, attempt).filter((r) => !have.has(r.key)));
+        if (done === false) break;
       }
     }
   } catch (e) {
@@ -297,24 +342,41 @@ async function executeRun(spec: RunSpec, url: string, beforeId: string, afterId:
     await driver.prepare(page, spots);
     if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU at most 25% within 15 minutes");
     await page.bringToFront();
+    await page.evaluate(() => {
+      const w = window as unknown as { __smoothLost: number };
+      w.__smoothLost = 0;
+      for (const c of document.querySelectorAll("canvas")) c.addEventListener("webglcontextlost", () => w.__smoothLost++);
+    });
     await page.evaluate(() => window.__smooth.begin());
     const from = Date.now();
+    const health = watchPage(page);
     const extras = await driver.timed(page, spots);
+    const h = await health.stop();
     const raw = await page.evaluate(() => window.__smooth.end());
     const to = Date.now();
 
     const load = await monitor.judge(from, to);
     const base = { key: spec.key, at: new Date().toISOString(), wallMs: Date.now() - t0 };
     if (!load.valid) return { kind: "discard", ...base, reason: load.reason ?? "load", load };
-    if (raw.hidden > 0) return { kind: "discard", ...base, reason: `page hidden for ${raw.hidden} frames`, load };
+    // (the harness's own faults: the page was covered, hidden or lost focus; the run says nothing about the map)
+    if (raw.hidden > 0 || h.hidden > 0) return { kind: "discard", ...base, reason: `page hidden (${Math.max(raw.hidden, h.hidden)} checks)`, load };
+    if (h.unfocused > 0) return { kind: "discard", ...base, reason: `page lost focus (${h.unfocused} checks)`, load };
     const stats = frameStats(raw.frames, raw.longTasks ? raw.tasks : null, raw.t1 - raw.t0);
-    writeFileSync(join(rawDir, spec.key.replace(/[|]/g, "_") + ".json"), JSON.stringify({ spec: spec.key, env, from, to, extras, frames: raw.frames, tasks: raw.tasks, load }));
+    // a real hang, which fails the cell on its own: the page stopped answering, drew nothing while visible and
+    // focused, or lost its WebGL context
+    let frameGap = 0;
+    for (let k = 1; k < raw.frames.length; k++) frameGap = Math.max(frameGap, raw.frames[k] - raw.frames[k - 1]);
+    const hang =
+      h.lost > 0 ? "lost its WebGL context" : h.maxGapMs > HANG_MS ? `did not answer for ${(h.maxGapMs / 1000).toFixed(1)} s` : frameGap > HANG_MS ? `drew nothing for ${(frameGap / 1000).toFixed(1)} s while visible, focused and answering` : undefined;
+    writeFileSync(join(rawDir, spec.key.replace(/[|]/g, "_") + ".json"), JSON.stringify({ spec: spec.key, env, from, to, extras, frames: raw.frames, tasks: raw.tasks, load, health: h }));
     return {
       kind: "run",
       ...base,
+      ...(hang ? { hang } : {}),
       build: spec.build,
       repeat: spec.repeat,
       round: spec.round,
+      attempt: spec.attempt,
       cell: spec.cell,
       buildId: spec.build === "before" ? beforeId : afterId,
       env,

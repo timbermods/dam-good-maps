@@ -1,6 +1,9 @@
-// The machine-load rules (the performance investigation's, PLAN §20 D380 and investigation/performance/INTEGRATION.md):
-// a series starts only after the other-process CPU was at most 25% for 60 consecutive sampled seconds; a run whose
-// timed part saw outside CPU above 25%, a sample that is missing, or a gap over 30 s is discarded and requeued.
+// The machine-load rules (from the performance investigation's, PLAN §20 D380 and investigation/performance/INTEGRATION.md;
+// tightened on Kyler's word, 2026-10-02, after a series ran beside Codex): measuring starts only after the outside
+// CPU and the outside GPU were each at most 10% for 60 consecutive sampled seconds; a run whose timed part saw
+// either above 10%, a sample that is missing, or a gap over 30 s is voided with its whole round (run.ts), which is
+// measured again. 10%: a quiet PC here sits at 1-3% and one busy core is about 6%, while Codex, a game or a busy tab
+// sits well above it; 25% let three or four busy cores through.
 // "Outside" is everything except the runner, its sampler and the measured browser's process tree (load.ps1 does the
 // accounting). Pure functions, tested in tests/unit/smooth.test.ts.
 
@@ -15,20 +18,25 @@ export interface LoadSample {
   ownership: boolean;
   /** The busiest outside processes, for the record. */
   top?: { name: string; cpu: number }[];
+  /** The 3D engines' use by outside processes (percent of one engine, summed); null or missing where Windows has
+   *  no GPU counters (then the GPU is not judged). */
+  gpu?: number | null;
+  gpuTop?: { name: string; gpu: number }[];
 }
 
 export interface LoadRules {
   cpuMax: number;
+  gpuMax: number;
   quietMs: number;
   maxGapMs: number;
   /** Stop the series after this long without (re)qualifying. */
   giveUpMs: number;
 }
 
-export const RULES: LoadRules = { cpuMax: 25, quietMs: 60_000, maxGapMs: 30_000, giveUpMs: 15 * 60_000 };
+export const RULES: LoadRules = { cpuMax: 10, gpuMax: 10, quietMs: 60_000, maxGapMs: 30_000, giveUpMs: 15 * 60_000 };
 
 export const sampleOk = (s: LoadSample, r: LoadRules = RULES): boolean =>
-  s.ownership && s.outside !== null && s.outside >= 0 && s.outside <= r.cpuMax;
+  s.ownership && s.outside !== null && s.outside >= 0 && s.outside <= r.cpuMax && (s.gpu === null || s.gpu === undefined || s.gpu <= r.gpuMax);
 
 /** The newest stretch of good samples with no gap over the limit (any bad sample or gap restarts it). */
 export function quietSuffix(rows: readonly LoadSample[], r: LoadRules = RULES): LoadSample[] {
@@ -74,6 +82,8 @@ export interface RunLoad {
   samples: number;
   outside: Triple | null;
   total: Triple | null;
+  /** Outside GPU use (null: no counters). */
+  gpu?: Triple | null;
   /** The busiest outside processes in the worst sample, when the run was discarded for load. */
   worst?: LoadSample["top"];
   /** Samples with outside CPU above 5%, and the outside processes that were busy in them. */
@@ -149,11 +159,14 @@ export function judgeRun(rows: readonly LoadSample[], from: number, to: number, 
   const seg = segment(rows, from, to);
   const out = seg.map((s) => s.outside).filter((x): x is number => x !== null);
   const tot = seg.map((s) => s.total).filter((x): x is number => x !== null);
-  const base = { samples: seg.length, outside: triple(out), total: triple(tot), over5: out.filter((x) => x > BUSY_PCT).length, busy: busyProcesses(seg) };
+  const gpus = seg.map((s) => s.gpu).filter((x): x is number => typeof x === "number");
+  const base = { samples: seg.length, outside: triple(out), total: triple(tot), gpu: triple(gpus), over5: out.filter((x) => x > BUSY_PCT).length, busy: busyProcesses(seg) };
   if (seg.length < 2 || seg[0].at > from || seg[seg.length - 1].at < to) return { ...base, valid: false, reason: "missing load samples" };
   for (let i = 1; i < seg.length; i++) if (seg[i].at - seg[i - 1].at > r.maxGapMs) return { ...base, valid: false, reason: "gap in load samples" };
   if (seg.some((s) => !s.ownership || s.outside === null || s.outside < 0)) return { ...base, valid: false, reason: "load sample without process accounting" };
   const spike = seg.filter((s) => (s.outside as number) > r.cpuMax).sort((a, b) => (b.outside as number) - (a.outside as number))[0];
   if (spike) return { ...base, valid: false, reason: `outside CPU ${(spike.outside as number).toFixed(0)}% > ${r.cpuMax}%`, worst: spike.top };
+  const gpuSpike = seg.filter((s) => typeof s.gpu === "number" && s.gpu > r.gpuMax).sort((a, b) => (b.gpu as number) - (a.gpu as number))[0];
+  if (gpuSpike) return { ...base, valid: false, reason: `outside GPU ${(gpuSpike.gpu as number).toFixed(0)}% > ${r.gpuMax}%`, worst: (gpuSpike.gpuTop ?? []).map((t) => ({ name: t.name, cpu: t.gpu })) };
   return { ...base, valid: true };
 }

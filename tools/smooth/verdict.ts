@@ -10,6 +10,11 @@ export interface RunRecord {
   repeat: number;
   /** The cell's round (1, then up to two re-runs after a failure; missing: 1). */
   round?: number;
+  /** The round's attempt (missing: 1). */
+  attempt?: number;
+  /** The page hung during the run (it stopped answering, drew nothing for seconds, or lost its WebGL context):
+   *  the cell fails outright, whatever its frame times. */
+  hang?: string;
   stats: FrameStats;
 }
 
@@ -54,6 +59,8 @@ export const MAX_ROUNDS = 3;
 export interface CellOutcome {
   /** pass, a real failure, or another round to run. */
   state: "pass" | "fail" | "more";
+  /** A run's hang, when one hung (the cell fails on it alone). */
+  hang?: string;
   /** Each finished round's own verdict, in order. */
   rounds: Verdict[];
   /** Every run of the cell together: the medians and ranges the report shows. */
@@ -85,6 +92,8 @@ export function cellOutcome(runs: readonly RunRecord[], wanted: number): CellOut
     rounds.push(v.verdict);
   }
   const pooled = { ...all, verdict: (rounds.length ? all.verdict : "incomplete") as Verdict };
+  const hung = runs.find((r) => r.hang);
+  if (hung) return { state: "fail", hang: `${hung.build} ${hung.repeat}: ${hung.hang}`, rounds, pooled };
   const passes = rounds.filter((v) => v === "pass").length;
   const fails = rounds.length - passes;
   let state: CellOutcome["state"];

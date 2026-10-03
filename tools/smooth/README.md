@@ -44,6 +44,18 @@ missing sample, a gap over 30 s, or a hidden page. The series stops after 15 min
 Every timing carries the run's outside and total CPU (min/median/max), and every report ends its header with
 **PC idle: yes/no**, naming the busy outside processes whenever outside CPU went above 5%.
 
+## Load, focus and hangs (Kyler, 2026-10-02)
+
+- Measuring starts after 60 s with the CPU and the GPU used by processes outside the runner each at most **10%**
+  (the GPU from Windows' GPU Engine counters: a game or a busy tab shows only there). A quiet PC here sits at 1-3%,
+  one busy core is about 6%, and Codex, a game or a busy tab sits well above 10%.
+- A run whose timed part goes above either, or whose page was hidden or lost focus, **voids its whole round**: the
+  round's runs stay on record but count for nothing, and the round is measured again, so before and after are only
+  ever compared under the same conditions. The report counts the voided attempts.
+- The page is checked every second while timed. A page that stops answering, draws nothing for 5 s while visible,
+  focused and answering, or loses its WebGL context is a **hang**: the cell fails on it alone (HANG in the report).
+- A run longer than 20 minutes is stuck: its browser is closed and the run retried.
+
 ## Reading the verdict
 
 One row per cell, before and after each as `median [min-max]`. A cell **passes** when after's median p99, median
