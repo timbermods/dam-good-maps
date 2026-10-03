@@ -9,7 +9,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor } from "./open";
-import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
+import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -123,7 +123,8 @@ test("Fast (the default): each force's land is final within about two seconds of
     // software-drawing machine's frames only adding to it (DGM_BENCH_FORCES times the real thing)
     console.log(`${c.name}: worked out ${t.worked} ms, land final ${t.final} ms (planned ${t.due})${software ? " (software rendering)" : ""}`);
     expect(t.speed, c.name).toBe("fast");
-    expect(t.due, c.name).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
+    // (a glacier: its own 3.5 seconds once worked out, D374)
+    expect(t.due, c.name).toBeLessThanOrEqual(c.name === "Glaciate" ? t.worked + GLACIATE_SHOW_MS + 1 : Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
     await page.keyboard.press("Control+z");
     await idle(page);
   }

@@ -305,11 +305,17 @@ export class WaterMotion {
     return this.stats.triangles > 0 || this.streaks.visible;
   }
 
-  dispose(): void {
+  /** Off the scene, its work stopped, its materials kept (a new map's own compile to the same programs
+   *  while these live, so they are reused, not compiled again); `dispose` lets them go. */
+  retire(): void {
     this.disposed = true;
     this.latest = -1;
     clearTimeout(this.timer);
     this.scene.remove(this.cues, this.streaks);
+  }
+
+  dispose(): void {
+    this.retire();
     this.cues.geometry.dispose();
     (this.cues.material as ShaderMaterial).dispose();
     this.streaks.geometry.dispose();

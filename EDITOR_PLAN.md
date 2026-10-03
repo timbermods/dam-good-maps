@@ -140,7 +140,9 @@ window, and Maps opens the generator's settings in a drawer in the palette's col
   map, as tall as its content (scrolling inside past one gap above the water bar): every line a name (Moist ground,
   Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Level lines, Contamination edge, Mine site
   outline), a click showing its things on the map. **Every camera view frames the whole map, centred in the map
-  area** (D345, B1).
+  area** (D345, B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
+  (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
+  is left; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
   first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
@@ -207,7 +209,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
-  large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
+  large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
+  in its own 3.5 seconds once worked out (D374), eased (slow as the ice grips, steady through, settling gently), its
+  advance, the land changing, three quarters of it. **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
   filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
@@ -971,6 +975,12 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
+  - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
+    `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws
+    in the look that will be drawn, compiles its programs (`compileAsync`) and waits for the GPU; the 3D view takes
+    that renderer, canvas and context, with `takePreparedRenderer`, so the map's first frame compiles nothing new
+    (`tests/e2e/rendererWarmup.spec.ts`). A map's moving water is retired, not dropped, until the next map's first
+    frame, so a new map reuses its programs too.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,

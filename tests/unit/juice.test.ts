@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SOUND, engineVolume, Juice, loadSound, placeSound, type SoundEngine } from "../../src/editor/juice";
 import type { ForceCue } from "../../src/core/forces/runs";
+import { GLACIATE_ADVANCE_STEPS, GLACIATE_PACE, GLACIATE_SHOW_MS, GLACIATE_STEPS, showingAt } from "../../src/editor/forceDriver";
 import type { MapRenderer } from "../../src/render3d";
 
 function fakeRenderer() {
@@ -23,10 +24,12 @@ function fakeRenderer() {
 
 function fakeEngine() {
   const log: string[] = [];
-  const e: SoundEngine & { settingsSeen: unknown[] } = {
+  const spans: Record<string, number> = {};
+  const e: SoundEngine & { settingsSeen: unknown[]; spans: Record<string, number> } = {
     settingsSeen: [],
+    spans,
     unlock: async () => true,
-    play: (name, _p, o) => (log.push(`play ${name}${o?.phase ? ":" + o.phase : ""}`), o?.id ?? 1),
+    play: (name, _p, o) => (o?.span !== undefined && (spans[`${name}:${o.phase}`] = o.span), log.push(`play ${name}${o?.phase ? ":" + o.phase : ""}`), o?.id ?? 1),
     start: (name, _p, id) => (log.push(`start ${name} ${id}`), id ?? "x"),
     update: (id) => void log.push(`update ${id}`),
     stop: (id) => void log.push(`stop ${id}`),
@@ -97,6 +100,22 @@ describe("the editor's juice", () => {
     j.strokeSound("tree", 2, 2, 4);
     j.undo();
     expect(log).toEqual(["start naturalize stroke", "stop stroke", "play undo"]);
+  });
+
+  it("a glacier's sounds keep to its eased showing (D374): the advance's ends as the land stops changing, the meltwater's as the land settles", () => {
+    const { r } = fakeRenderer();
+    const { e } = fakeEngine();
+    const j = new Juice(() => r, DEFAULT_SOUND, e);
+    // its 50 steps in Fast's 3.5 seconds: the pace the page sends with each cue
+    const pace = (GLACIATE_STEPS * GLACIATE_PACE.ms) / GLACIATE_SHOW_MS;
+    const at = (phase: ForceCue["phase"], stage: number): ForceCue => ({ ...cue("glaciate", phase), pace, glaciate: { seconds: stage / 10 } });
+    j.forceMoment(at("advance", 1));
+    j.forceMoment(at("retreat", GLACIATE_ADVANCE_STEPS + 1));
+    const show = GLACIATE_SHOW_MS / 1000;
+    expect(e.spans["glaciate:advance"]).toBeCloseTo((showingAt("glaciate", GLACIATE_STEPS, GLACIATE_ADVANCE_STEPS) - showingAt("glaciate", GLACIATE_STEPS, 1)) * show, 6);
+    expect(e.spans["glaciate:retreat"]).toBeCloseTo((1 - showingAt("glaciate", GLACIATE_STEPS, GLACIATE_ADVANCE_STEPS + 1)) * show, 6);
+    // the advance ends three quarters of the way through: about 2.6 seconds from its start
+    expect(e.spans["glaciate:advance"] + showingAt("glaciate", GLACIATE_STEPS, 1) * show).toBeCloseTo(0.75 * show, 6);
   });
 
   it("a force's cues play once each; Esc stops every sound of it at once", () => {
