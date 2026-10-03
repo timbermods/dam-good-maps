@@ -266,14 +266,27 @@ text), 15px (Save, Generate, the map's name in Bitter 700). Weights 400 and 600 
 **Icons.** One family: 16px, 1.7px stroke, round caps, optically centred, for the tools, the view plate, Undo,
 Redo, Sound and More. The forces' icons sit on a *selected* disc, dark when the force is held.
 
-**The right column**, top to bottom: the map plate (Save lit, full width; Undo | Redo; More; "● Ready to play"),
-the view plate ("∨ Level: All ∧"; Top-down | Reset view; Slow forces; Look: High with Sound as a square cell at
-the row's end, a speaker green when on and red struck through when off, named in its tooltip), and Place objects,
-with the shelf under it as a two-column grid of compact cells (picture, then the name on up to two lines), its five
-groups divided, ending on a whole row with a chevron saying there is more. An icon-only cell is always a square of
-the cell height. The compass is an indicator, not a control: a round plate floating on the map on the top line,
-midway between the rows and the right column. The bottom right holds only the water plate. Generate and Surprise
+**The right column**, top to bottom: the map plate (Save lit, full width; Undo | Redo; File; "● Ready to play"),
+the view plate ("∨ Level: All ∧"; Top-down | Reset view; Slow forces; Look: High), and Place objects, with the
+shelf under it as a two-column grid of compact cells (picture, then the name on up to two lines) flowing in group
+order with no breaks, an odd last object on a full row, ending on a whole row with a chevron saying there is more.
+An icon-only cell is always a square of the cell height. **The top line:** the brand bar, the rows, a small plate
+holding the compass (an indicator, not a control) and Sound's square (a speaker, green when on, red and struck
+through when off, named in its tooltip), and Save, sharing one top edge and one first-row centre; the compass plate
+sits midway between the rows and the right column. The bottom right holds only the water plate. Generate and Surprise
 me are two cells of one height, Generate in *action*.
+
+**The states** (mockups 27–35, all at 1440×900): the first visit before a map exists (the map area empty, a centred
+plate saying what is being made with its progress, every cell quiet until the land exists); generating (the Generate
+cell shows the stage with its progress inside it, the map dims under a plate saying the new land rises into place
+when it is ready; editing never waits); a map with problems ("3 to look at" with the amber dot, and its list under
+the map plate: Fix these first, Worth a look, each line with Fix and Show cells); a settings sheet; the File menu
+(Open…, Save project, Download the .timber file, Copy link, History, About); a force in hand with its More panel as
+further lines of the same plate; a selection with Select's line (what is marked, Level with Set, Cut down and Fill
+up, Up 1, Down 1, Delete, Take away every object, Crop map); placing an object (the ghost's footprint in the ok green,
+"Place here" in the system's note, the shelf cell selected); a tooltip with its key cap. The water plate reads "Pause
+water", shown unavailable while the water is settled, never hidden. Everything drawn on the map (the brush ring, a
+ghost's label, a force's ring) uses the system's type, colours and radii.
 
 **The brand.** The panel's bar reads "◆ Dam Good Maps · <map name>": a small mark of our own (two logs over a
 wave, drawn as a 14px line icon; no game assets), the brand in Bitter in the quiet colour, then the map's name in
