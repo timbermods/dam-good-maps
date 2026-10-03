@@ -176,7 +176,10 @@ for (const [w, h] of SIZES) {
             const after = await check(page, w, `${state}, ${layer} on`);
             for (const b of before) {
               const a = after.find((x) => x.name === b.name);
-              expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} stays put with ${layer} on (${state})`).toBe(true);
+              // (the legend panel is as tall as its content, Kyler's change 7: a layer that changes the legend's
+              // lines, Height colours, changes its height; its top and its sides never move)
+              const foot = b.name === ".legend-panel" || (a && edge(a.b) === edge(b.b));
+              expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && foot, `${b.name} stays put with ${layer} on (${state})`).toBe(true);
             }
             await button.click();
           }

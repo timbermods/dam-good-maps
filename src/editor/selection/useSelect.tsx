@@ -118,6 +118,24 @@ export function useSelect(ed: Ed): SelectSlice {
     const t = selectTool(selection.current, selectHost());
     // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
     Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
+    // Select is the resting tool, so a press on what the pointer picks (a source, the start, an object) is left to
+    // the pointer as it was before Select was always in hand (a click picks it, Ctrl+click adds a source to a row);
+    // with a selection open, Select takes every press, as it always did
+    const down = t.down.bind(t);
+    const up = t.up.bind(t);
+    let press: { x: number; y: number } | null = null;
+    t.down = (hit, ev) => {
+      if (hit && !selection.current.count && (ed.targetAt(hit.x, hit.y) || ed.objectUnder(hit.x, hit.y) !== undefined || (ed.startHere && Math.max(Math.abs(hit.x - ed.startHere.x), Math.abs(hit.y - ed.startHere.y)) <= 1))) return false;
+      press = { x: ev.clientX, y: ev.clientY };
+      return down(hit, ev);
+    };
+    // a plain click on the land also does what the pointer's click does there (it puts a picked source down)
+    t.up = (hit, ev) => {
+      up(hit, ev);
+      const p = press;
+      press = null;
+      if (p && Math.abs(ev.clientX - p.x) + Math.abs(ev.clientY - p.y) < 4 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey) r.onClick?.(hit, ev);
+    };
     r.tool = t;
     return () => {
       if (r.tool === t) r.tool = null;

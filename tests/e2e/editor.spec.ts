@@ -121,7 +121,9 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   const yours = page.getByRole("region", { name: "Your maps" });
   await expect(yours.getByRole("button")).toHaveCount(2);
   await yours.locator("button:not([aria-current])").click();
-  await expect.poll(async () => (await info(page)).edits, { timeout: 60_000 }).toBe(3);
+  // (the editor opens again for the map from Your maps: wait for it before asking it anything)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().edits ?? -1), { timeout: 60_000 }).toBe(3);
+  await waitForEditor(page);
 
   // the edited map as it was, its edits all there
   i = await info(page);
