@@ -89,7 +89,11 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
        built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
        picker and parallel loading).
    13. **Later: a Codex round on Canyon and Highlands at 96².**
-   14. **An Islands round** (D432), measured by `investigation/m9b/islands-reach.ts`: every map has an island of 150+ tiles
+   14. **"Designed for" removed from the core** (D449), after M9b's release: difficulty leaves the spec, the share link's
+       `d` key, the generator's start rules, both validators (an imported map's designedFor ignored, Normal's values apply)
+       and the description's wording; PLAN §5.6 rewritten; the "Difficulty" section's settings (Starting wood, Max walk to
+       water, Starting berries, Start area, No ruins within) default to today's Normal values; re-pin freely (D382).
+   15. **An Islands round** (D432), measured by `investigation/m9b/islands-reach.ts`: every map has an island of 150+ tiles
        to expand to, reachable from the start across water as the game allows; islands kept apart from the shore, and layouts
        that read as lakes or rivers redrawn (today 12 of 30 seeds at 128² fall short); it reports, at 96² and 128², the
        3-island promise (96² holds on 2 of 20 today) and that measure (D433).
