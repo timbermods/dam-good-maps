@@ -250,10 +250,10 @@ D380 work.
 - **The header:** a named **New map** button at the left edge, above the palette column, shown selected while the
   drawer is open; the map's name with one line under it, "seed 4242 · 128×128" (an opened file shows its size; if
   saving in the browser fails, that line says so instead); the brand mark and "Dam Good Maps" at the window's exact
-  centre, in the quiet colour, over nothing; on the right Undo, Redo, the checks dot with its words, Save to
+  centre, in the quiet colour and the wordmark's face (Bitter), over nothing; on the right Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Save project, Download .timber, Clear everything,
-  History, About). The brand fits beside both side groups from about 1,240px wide; narrower windows are not yet
-  designed (a proposal is in docs/progress/page.md).
+  History, About). The brand clears both side groups from 1,242px wide with "Ready to play" showing and from 1,418px with the
+  checks' longest words; narrower windows are not yet designed (a proposal is in docs/progress/page.md).
 - **The palette:** exactly the current editor's, one two-column grid in its order, no breaks.
 - **The toolbar:** the current editor's rows, buttons, padding and gaps, with Flow among the view layers; the forces
   keep their icons; the options row is the current one, one line, More at its end.
@@ -275,6 +275,8 @@ D380 work.
 6. The view bar wraps before the top-right cluster instead of running under it at 1280 wide (a bug the no-overlap
    test found; dev reserved room for the compass alone).
 7. The chrome at 1.2× from 1800px wide, as asked.
+8. The brand's name set in Bitter, the wordmark face accepted with Lamplight v3; the mark and the name are new, so
+   dev has no look for them to keep. The rest of the header is the editor's own type.
 
 ## Set aside: the floating plates (Kyler, 2026-10-02)
 

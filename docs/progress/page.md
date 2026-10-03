@@ -171,9 +171,10 @@ run's hints' final form (5), the first visit's ready-made map (6), phones (7).
   `/preview/`. The rule from here: where Kyler hasn't asked for a change, dev's editor wins; the v4 system's tokens,
   colour roles and grouped shelf are set aside (DESIGN.md, "The one-page editor"). `tests/e2e/layout.spec.ts`
   checks no overlap, the brand's centre, solid backgrounds and WCAG AA at the seven sizes, drawer closed and open.
-  - The brand fits beside both side groups from about 1,240px wide (the right group is 525px, the left 235px, the
-    brand 152px). Proposal for narrower windows, not built: below 1,240px the brand keeps only its mark at the
-    centre; below about 1,000px the mark joins the left block after the name.
-  - The toolbar's longest row (the view bar, 1,025px at 1×) fits between the open drawer and the top-right group
-    from 1,560px wide; at 1440×900 it wraps onto two lines as dev's does on narrow windows, with the drawer open or
-    closed from 1,366 down. Reported, not changed.
+  - The brand (152px) clears both side groups from 1,242px wide while the dot says "Ready to play" (the right
+    group is 525px, the left 219px); the dot's longest words, "Checking, as the water flows", widen the right group
+    to 613px, and then it clears from 1,418px. Proposal for narrower windows, not built: below 1,420px the brand
+    keeps only its mark at the centre; below about 1,000px the mark joins the left block after the name.
+  - The toolbar's longest row (the view bar, 771px at 1×) fits on one line with the drawer closed at every size
+    covered; with the drawer open it fits from about 1,316px wide (at 1440×900 it ends 10px short of the top-right
+    group), and wraps onto two lines below that, as dev's does on narrow windows. Reported, not changed.
