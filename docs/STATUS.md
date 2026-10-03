@@ -81,6 +81,18 @@ verdicts are in ROADMAP, "The Codex adoptions"):
    `docs/progress/m9b.md`).
 6. **Later:** the service worker for startup part 2 (D397), with multi-core water's adoption.
 
+## Queued after tonight's quiet window (02:00, then the Naturalize bench, D434)
+
+1. **A dev bug from the nightly suite:** a reopened project file loses the dead blueberry bushes that edits leave standing
+   (D425), so its export differs (`properties.test.ts`, all four presets; dev at 478fefad fails too).
+2. **An M9b bug:** after a force edit, a spring river's source row gets a new id (`groupIds`, #172), when the land shifts
+   the row a tile (`editSequences`, every theme on M9b's maps); a fix may move source ids in every file (D382 allows it).
+3. **M9b's Delta:** the water outcome misses on 5 of 20 at every size (planned river courses partly dry): trace the cause.
+4. **`pickStart`'s latent NaN** (src/core/gen/settler.ts) where a tile has no walkable-land label.
+5. **The gallery shows every Real place again** (D445).
+6. **The third waterView.spec flake** (line ~144, the selected source group not visible after a click; D341).
+7. **Resume:** the Rust adoptions (D442), M9b's release steps, #182, #184, #186 and #183 (merging as CI turns green).
+
 ## Waiting for Kyler
 
 1. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything; this session pauses its heavy work for it.
