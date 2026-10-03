@@ -350,14 +350,23 @@
   align-content: start;
 }
 
-/* the column is 13px wider than dev's (Kyler, 19:32), so every legend line fits on one line: the level control
-   takes the width (8px of padding each side becomes 14.5px), and Slow forces, which fills the column, follows */
+/* the column is 13px wider than dev's (Kyler, 19:32; dev's first track is 112px, set by its level control), so every
+   legend line fits on one line; its width is fixed, so the level control is one width for every value, ∞ to 22
+   (Kyler, 2026-10-03): the control fills the track and its value takes what the arrows leave. Slow forces fills the
+   track too */
+.view3d-corner {
+  grid-template-columns: 125px var(--corner-h);
+}
+
+.view3d-corner .corner-level .layer-widget {
+  display: flex;
+  width: 100%;
+}
+
 .view3d-corner .corner-level .layer-widget output {
-  padding: 0 14.5px;
-  /* one width for every value, ∞ to 22, so the control never changes width (Kyler, 2026-10-03) */
-  width: 3ch;
-  min-width: 3ch;
-  box-sizing: content-box;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
   cursor: pointer;
 }
 
@@ -417,7 +426,8 @@
 
 /* the map's name, renamed in place: the button and the field take exactly the title's place, size and font */
 .editor-title .title-button {
-  display: block;
+  display: inline-block;
+  vertical-align: top;
   max-width: 100%;
   padding: 0;
   border: 0;
@@ -431,33 +441,31 @@
   cursor: text;
 }
 
-.editor-title .title-edit {
-  display: inline-grid;
+.editor-title h1.title-editing .title-wrap {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
   max-width: 100%;
 }
 
-.editor-title .title-edit::after,
-.editor-title .title-edit input {
-  grid-area: 1 / 1;
-  font: inherit;
+.editor-title h1.title-editing .title-button {
+  visibility: hidden;
+  /* (spaces typed count, so the field never shrinks to nothing) */
+  white-space: pre;
+  min-width: 1ch;
+}
+
+.editor-title h1.title-editing input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-width: 0;
   padding: 0;
   border: 0;
   margin: 0;
-  white-space: pre;
-}
-
-/* (the hidden copy of the text sets the field's width, so the title keeps its size while it is typed) */
-.editor-title .title-edit::after {
-  content: attr(data-text);
-  visibility: hidden;
-  overflow: hidden;
-}
-
-.editor-title .title-edit input {
-  width: 100%;
-  min-width: 1ch;
   background: none;
   color: inherit;
+  font: inherit;
   text-align: center;
   outline-offset: 2px;
 }

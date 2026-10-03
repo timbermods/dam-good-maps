@@ -338,7 +338,7 @@ export function App() {
 
   /** The latest run: a result from an older one is never shown over it. */
   const runId = useRef(0);
-  async function run(s: MapSpec) {
+  async function run(s: MapSpec, tries = 0) {
     const id = ++runId.current;
     setBusy(true);
     setError(null);
@@ -359,6 +359,15 @@ export function App() {
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
         if (session) return;
+        // with no map open yet (a link's map that fails its checks), the same settings with another seed, so the
+        // page is never left without a map; the message says why
+        if (tries < 5) {
+          const seed = randomSeed();
+          setSeedText(String(seed));
+          setSeedPinned(false);
+          return void run({ ...s, seed }, tries + 1);
+        }
+        return;
       }
       shown = r;
       made++;

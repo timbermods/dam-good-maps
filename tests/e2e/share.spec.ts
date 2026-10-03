@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { openEditor, openSection, waitForEditor } from "./open";
+import { openDrawer, openEditor, openSection, waitForEditor } from "./open";
 import { generate } from "../../src/core/gen/generate";
 import { defaultSettings, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 import { shareCases } from "../shareCases";
@@ -64,8 +64,15 @@ test("changing a setting and generating puts it in the link", async ({ page }) =
 });
 
 test("the drought reserve guard disables what a small map cannot hold", async ({ page }) => {
-  // (a Normal map's Plenty reserve needs about 380 tiles of reservoir: more than 15% of a 48² map)
-  await openEditor(page, "s=5&t=riverValley&z=48&d=n");
+  // (a Normal map's Plenty reserve needs about 380 tiles of reservoir: more than 15% of a 48² map; the size is set
+  // in the drawer, as most 48² River Valley seeds fail their checks and a link to one would open another seed)
+  await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
+  await openDrawer(page);
+  await page.locator("#size").selectOption("custom");
+  await page.locator("#size-x").fill("48");
+  await page.locator("#size-x").press("Tab");
+  await page.locator("#size-y").fill("48");
+  await page.locator("#size-y").press("Tab");
   await openSection(page, "Water");
   const plenty = page.locator("#reserve option[value=plenty]");
   await expect(plenty).toHaveJSProperty("disabled", true);

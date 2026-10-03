@@ -18,6 +18,8 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   const facts = title.locator(".muted");
   const field = page.getByLabel("Map name");
   const info = () => page.evaluate(() => window.dgmEditor!.info());
+  /** The name the core stores (D443): the worker's session, where saves take it from. */
+  const stored = () => page.evaluate(async () => (await window.dgmEditor!.worker.sessionInfo())?.name);
   const box = async (loc: Locator) => (await loc.boundingBox())!;
   const same = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }, what: string) => {
     for (const k of ["x", "y", "width", "height"] as const) expect(Math.abs(a[k] - b[k]), `${what}: ${k} ${a[k]} against ${b[k]}`).toBeLessThanOrEqual(1);
@@ -46,7 +48,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await page.keyboard.press("Escape");
   await expect(field).toHaveCount(0);
   await expect(button).toHaveText("River Valley");
-  expect((await info()).name).toBe("River Valley");
+  expect(await stored()).toBe("River Valley");
   same(await box(title), before.title, "the title's box after Esc");
 
   // Enter saves through the core: the heading shows it, and it is no undo step
@@ -55,7 +57,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await page.keyboard.press("Enter");
   await expect(field).toHaveCount(0);
   await expect(h1).toHaveText("Beaver Bend");
-  await expect.poll(async () => (await info()).name).toBe("Beaver Bend");
+  await expect.poll(stored).toBe("Beaver Bend");
   expect((await info()).history.length).toBe(steps);
   expect((await info()).edits).toBe(was.edits);
   await expect(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeDisabled();
@@ -76,7 +78,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await expect(facts).toHaveAttribute("role", "alert");
   await expect(field).toBeVisible();
   await expect(field).toBeFocused();
-  expect((await info()).name).toBe("Beaver Bend");
+  expect(await stored()).toBe("Beaver Bend");
   // Esc leaves it: the name stands as it was, and the second line reads the seed and size again
   await page.keyboard.press("Escape");
   await expect(field).toHaveCount(0);

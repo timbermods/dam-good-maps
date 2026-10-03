@@ -5,7 +5,7 @@
 // back); with Ctrl, Flatten picks the level under the pointer, on water the bed.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { centreOn, openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -192,6 +192,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.getByRole("button", { name: "Flatten brush (3)" }).click();
   const mid = path[Math.floor(path.length / 2)];
   const m = [Math.round(mid[0]), Math.round(mid[1])] as [number, number];
+  await centreOn(page, m[0], m[1]);
   const mp = await client(page, ...m);
   await page.mouse.move(mp.x + 4, mp.y);
   await page.keyboard.down("Control");

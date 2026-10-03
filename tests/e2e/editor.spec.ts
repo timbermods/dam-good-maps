@@ -4,7 +4,7 @@
 // and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { generateButton, openEditor, openFileMenu, openSection, waitForEditor } from "./open";
+import { centreOn, generateButton, openEditor, openFileMenu, openSection, waitForEditor } from "./open";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -39,6 +39,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   const x = start0[0] < W / 2 ? Math.round(W * 0.78) : Math.round(W * 0.22);
   const lowered: [number, number] = [x, 12];
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
+  await centreOn(page, lowered[0], lowered[1]);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   // (from the tile itself: its target is a level below where the stroke starts, D322)
   await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
@@ -69,6 +70,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   );
   expect(spring).not.toBeNull();
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await centreOn(page, spring![0], spring![1]);
   const sp = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spring!);
   await page.mouse.click(sp.x, sp.y);
   await page.evaluate(() => window.dgmEditor!.idle());
@@ -152,6 +154,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   // a click on the start picks nothing (it is dragged, or picked on the shelf), and nothing is
   // listed: the generator's features are its plan, not objects (D184)
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
+  await centreOn(page, start.position[0], start.position[1]);
   const p = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), start.position);
   await page.mouse.click(p.x, p.y);
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);
@@ -159,6 +162,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   // bed's top block, never an object (D323 item 1: under water, the ground's top block)
   const river = (await info(page)).features.find((f) => f.kind === "river")!.params as { path: [number, number][] };
   const w = river.path[Math.floor(river.path.length / 2)];
+  await centreOn(page, Math.round(w[0]), Math.round(w[1]));
   const wp = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [Math.round(w[0]), Math.round(w[1])] as [number, number]);
   await page.mouse.click(wp.x, wp.y);
   await expect(page.getByRole("group", { name: /selected/ })).toHaveCount(0);

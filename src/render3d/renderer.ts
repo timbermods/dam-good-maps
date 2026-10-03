@@ -1498,7 +1498,8 @@ export class MapRenderer {
     cam.position.copy(aim).addScaledVector(dir, far);
     cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
-    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()) };
+    // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
+    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
     this.gl.setRenderTarget(rt);
     this.gl.setClearColor(0x000000, 0);
@@ -1535,6 +1536,7 @@ export class MapRenderer {
     }
     this.gl.setRenderTarget(was.target);
     this.gl.setClearColor(was.color, was.alpha);
+    Object.assign(this.gl.info.render, was.counts);
     this.uniforms.slice.value = was.slice;
     rt.dispose();
     undo?.();

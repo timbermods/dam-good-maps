@@ -175,10 +175,14 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
         </button>
       </h1>
     );
+  // the name's own box stays (its text hidden, following what is typed), and the field lies exactly over it
   return (
-    <h1>
-      <span class="title-edit" data-text={text || " "}>
-        <input
+    <h1 class="title-editing">
+      <span class="title-wrap">
+      <span class="title-button" aria-hidden="true">
+        {text || " "}
+      </span>
+      <input
           ref={input}
           value={text}
           maxLength={80}
@@ -186,6 +190,7 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
           autoComplete="off"
           aria-label="Map name"
           title="Rename"
+          size={1}
           onInput={(e) => setText((e.target as HTMLInputElement).value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
