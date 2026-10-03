@@ -110,8 +110,8 @@ function noteCurrent(id: string, link: string): void {
   }
 }
 
-/** Your maps' size field (the milestone session is adding it to the entries): read when it is there. */
-const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: (e as YourMapEntry & { size?: { w: number; h: number } }).size });
+/** A row of Your maps: the name and the map's dimensions. */
+const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size });
 
 /** Where an opened map comes from: a row of Your maps keeps its id and name; anything else is a new row. */
 type Origin = { entry: YourMapEntry } | { kind: YourMapEntry["kind"] };
@@ -251,7 +251,7 @@ export function App() {
   function enterEditor(data: SessionOpen, origin: Origin, place?: string) {
     const now = new Date().toISOString();
     const isNew = !("entry" in origin);
-    const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, starred: false, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0 } : origin.entry;
+    const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, starred: false, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : origin.entry;
     entry.current = e;
     nameRef.current = e.name;
     infoRef.current = data.info;

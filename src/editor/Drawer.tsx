@@ -10,7 +10,7 @@ import type { SessionInfo } from "../worker/session";
 import { tip } from "../ui/Tooltip";
 import { HINT, Num, SECTION_TIPS, SectionFields, SECTIONS, type Section, type SettingsProps } from "./drawer/settings";
 
-/** A row of Your maps: its name and, once Your maps records it, its size. */
+/** A row of Your maps: its name and its dimensions (absent only for a map whose project can't be read). */
 export interface YourMapRow {
   id: string;
   name: string;
