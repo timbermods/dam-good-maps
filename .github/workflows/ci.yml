@@ -206,7 +206,9 @@ jobs:
   # The Rust ports (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
   # The maths guard over the Rust source, its optimized IR, its assembly and its Wasm (no libm, no FMA, no
   # transcendental intrinsics), then rust/portable bit for bit against src/core/math/portable.ts: natively, in
-  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts).
+  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water (not switched
+  # on until M9b is on dev): the committed Wasm equals a fresh build, and its canonical settle gives the same
+  # bytes natively, in Node's WebAssembly and in each engine.
   rust:
     needs: changes
     if: needs.changes.outputs.heavy == 'true'
@@ -235,5 +237,7 @@ jobs:
       - run: npm ci
       - name: Install Chromium, Firefox and WebKit for Playwright
         run: npx playwright install --with-deps chromium firefox webkit
-      - name: The Rust maths guard, strict builds, and the same bits as portable.ts in every engine
+      - name: The committed Rust water matches a fresh build; the native batch binary
+        run: npx tsx tools/rust/build.ts --check --native
+      - name: The Rust maths guard, strict builds, the same bits as portable.ts and the same water in every engine
         run: npx tsx tools/rust/check.ts --engines

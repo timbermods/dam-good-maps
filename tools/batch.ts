@@ -6,7 +6,7 @@
 // the checks on open and rebuild the same .timber byte for byte, or the batch fails.
 //
 //   npx tsx tools/batch.ts [--seeds 1-100] [--size 128] [--difficulty normal] [--theme riverValley]
-//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6]
+//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6] [--native]
 //
 // --set takes settings in the share link's short keys (src/core/spec/codec.ts).
 //
@@ -23,6 +23,7 @@ import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
 import { atan2, hypot } from "../src/core/math/portable";
 import { badwaterBudget } from "../src/core/resources/badwater";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
+import { useNativeWater } from "./rust/native-water";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -47,6 +48,9 @@ const extra = arg("set", "");
 const minFinal = Number(arg("min-final", "0.98"));
 const minFirst = Number(arg("min-first", "0.6"));
 const report = arg("report", "");
+// --native: the canonical settles run in the native Rust water (PLAN §20 D381; build it with
+// `npx tsx tools/rust/build.ts --native`). Not the default until the Rust water is switched on (after M9b).
+if (process.argv.includes("--native")) useNativeWater();
 
 let first = 0;
 let final = 0;
