@@ -69,10 +69,12 @@ test("the drought reserve guard disables what a small map cannot hold", async ({
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
   await openDrawer(page);
   await page.locator("#size").selectOption("custom");
-  await page.locator("#size-x").fill("48");
-  await page.locator("#size-x").press("Tab");
-  await page.locator("#size-y").fill("48");
-  await page.locator("#size-y").press("Tab");
+  for (const id of ["#size-x", "#size-y"]) {
+    const f = page.locator(id);
+    await f.fill("48");
+    await f.press("Tab");
+    await expect(f).toHaveValue("48");
+  }
   await openSection(page, "Water");
   const plenty = page.locator("#reserve option[value=plenty]");
   await expect(plenty).toHaveJSProperty("disabled", true);

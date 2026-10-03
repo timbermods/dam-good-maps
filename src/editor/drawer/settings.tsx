@@ -5,6 +5,7 @@
 // until the core drops difficulty after M9b's release.
 
 import type { ComponentChildren } from "preact";
+import { useState } from "preact/hooks";
 import { clone } from "../../core/spec/mergepatch";
 import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
 import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, LAKE_CHOICES, limitsText, OFF_SOME, reserveGuard, RESERVES, STYLES, type Choice } from "../../ui/settingsModel";
@@ -132,6 +133,14 @@ function Pick<T extends string>(props: { id: string; label: string; value: T; ch
 }
 
 export function Num(props: { id: string; label: string; value: number; min: number; max: number; band?: string; onChange(v: number): void }) {
+  // what is typed stays until it is committed (Enter, Tab or leaving): the page redraws often (the water's
+  // frames), and a redraw must not put the old number back mid-typing
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (text: string) => {
+    setDraft(null);
+    const v = Math.round(Number(text));
+    if (text.trim() !== "" && Number.isFinite(v)) props.onChange(Math.min(props.max, Math.max(props.min, v)));
+  };
   return (
     <label class="field" for={props.id} title={tipOf(props.id, props.band)}>
       <span class="field-head">{props.label}</span>
@@ -140,11 +149,10 @@ export function Num(props: { id: string; label: string; value: number; min: numb
         type="number"
         min={props.min}
         max={props.max}
-        value={props.value}
-        onChange={(e) => {
-          const v = Math.round(Number((e.target as HTMLInputElement).value));
-          if (Number.isFinite(v)) props.onChange(Math.min(props.max, Math.max(props.min, v)));
-        }}
+        value={draft ?? props.value}
+        onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
+        onChange={(e) => commit((e.target as HTMLInputElement).value)}
+        onBlur={(e) => draft !== null && commit((e.target as HTMLInputElement).value)}
       />
     </label>
   );
