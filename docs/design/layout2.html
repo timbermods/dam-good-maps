@@ -7,7 +7,8 @@
 <title>Layout 2 mockups</title>
 <style>
   :root { --bg: #f4f6f3; --ink: #1a211a; --muted: #5a665c; --rule: #d3dad2; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1a211a; --ink: #e8efe6; --muted: #9fac9f; --rule: #34433a; } }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1a211a; --ink: #e8efe6; --muted: #9fac9f; --rule: #34433a; } }
+  :root[data-theme="dark"] { --bg: #1a211a; --ink: #e8efe6; --muted: #9fac9f; --rule: #34433a; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
   main { max-width: 1800px; margin: 0 auto; padding: 24px 16px 48px; }
   h1 { font-size: 1.4rem; margin: 0 0 4px; }
