@@ -72,11 +72,11 @@ export function mechanicsOf(objects: readonly MapObject[], floors: Uint8Array, s
   }
   const clean = cleanRunning + cleanDelayed + aquifers + seeps;
   const reasons: string[] = [];
-  if (caveShare >= CAVE_SHARE) reasons.push(`caves or overhangs cover ${pct(caveShare)} of the map, and water under them is not simulated`);
+  if (caveShare >= CAVE_SHARE) reasons.push(`caves or overhangs cover ${pct(caveShare)} of the map`);
   if (clean > 0 && cleanDelayed >= DELAYED_SHARE * clean) reasons.push(`sources that turn on later carry ${pct(cleanDelayed / clean)} of the clean water`);
-  if (clean > 0 && aquifers >= DELAYED_SHARE * clean) reasons.push(`aquifers, which need a powered drill, carry ${pct(aquifers / clean)} of the clean water`);
-  if (clean > 0 && seeps >= SEEP_SHARE * (cleanRunning + seeps)) reasons.push(`seeps, which stop at 0.8 deep, carry ${pct(seeps / (cleanRunning + seeps))} of the running water`);
-  if (startUnderRoof) reasons.push("the start stands under a roof");
+  if (clean > 0 && aquifers >= DELAYED_SHARE * clean) reasons.push(`aquifers carry ${pct(aquifers / clean)} of the clean water`);
+  if (clean > 0 && seeps >= SEEP_SHARE * (cleanRunning + seeps)) reasons.push(`seeps carry ${pct(seeps / (cleanRunning + seeps))} of the running water`);
+  if (startUnderRoof) reasons.push("the start is under a roof");
   return { cleanRunning, cleanDelayed, aquifers, seeps, caveShare, startUnderRoof, reasons };
 }
 
@@ -99,7 +99,7 @@ export function approximateReason(m: Mechanics, settled: ArrayLike<number>, stor
     if (stored[i]) ringStored++;
   }
   const evidence: string[] = [];
-  if (ringSettled > ringStored) evidence.push("the settled water floods the start, which the map's own water keeps dry");
+  if (ringSettled > ringStored) evidence.push("settled water floods the start, which the map's own water keeps dry");
   if (differ >= DISAGREE_SHARE * stored.length) evidence.push(`the settled water differs from the map's own water on ${pct(differ / stored.length)} of the map`);
   return evidence.length ? [...m.reasons, ...evidence].join("; ") : null;
 }

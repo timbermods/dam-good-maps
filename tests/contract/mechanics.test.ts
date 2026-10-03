@@ -59,7 +59,7 @@ describe("the approximate-water rule (D98)", () => {
     expect(approximateReason(m, wide, stored, ring)).toMatch(/differs from the map's own water on 10%/);
     expect(approximateReason({ ...m, reasons: [] }, wide, stored, ring)).toBeNull();
     // a start under a roof is approximate on its own
-    expect(approximateReason({ ...m, startUnderRoof: true, reasons: ["the start stands under a roof"] }, dry, stored, ring)).toBe("the start stands under a roof");
+    expect(approximateReason({ ...m, startUnderRoof: true, reasons: ["the start is under a roof"] }, dry, stored, ring)).toBe("the start is under a roof");
   });
 
   it("marks only the water checks and the start's playability checks", () => {
@@ -82,7 +82,7 @@ describe("the official maps (local only)", () => {
       for (const c of approx) {
         expect(approximateId(c.id), `${n} ${c.id}`).toBe(true);
         expect(c.ok).toBe(true);
-        expect(c.message).toMatch(/^approximate \(/);
+        expect(c.message).toMatch(/^Approximate \(/);
         expect(c.approximate!.length).toBeGreaterThan(20);
       }
       // every water check that applies is approximate
