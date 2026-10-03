@@ -42,6 +42,9 @@ export interface DocMeta {
   appVersion?: string;
   /** A seed typed as a word: the saved file is named with it (D345, B10); the spec holds its number. */
   seedWord?: string;
+  /** The name the generator gave the map (M9b, D278 (1b)): until the player renames it (D443), the map
+   *  is saved under its theme and seed (D345, B10). */
+  generatedName?: string;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
   /** Set by the app when it saves (ISO 8601); never part of a build. */
@@ -140,7 +143,7 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
 export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string }): MapDocument {
   const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null, r.seedWord);
   // (M9b, D278 (1b): a generated map keeps its own name and how it plays)
-  if (r.name) doc.meta.name = r.name;
+  if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
   if (r.description) doc.meta.premise = r.description;
   return doc;
 }
@@ -267,7 +270,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   const doc = raw as MapDocument;
   // a project saved without a stored name opens with the name it has always had (D382)
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
-  if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = doc.spec ? mapName(doc.spec) : "Imported map";
+  if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
   checkDocument(doc);
   if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;
@@ -318,8 +321,8 @@ export function cleanMapName(name: string): NameResult {
 
 /** Whether a map's name is no longer the one it was given: a generated map's own name (its theme's)
  *  keeps its seed-based file name; a renamed one is named like any named map (D443). */
-export function isRenamed(spec: MapSpec | null, name: string): boolean {
-  return !spec || name !== mapName(spec);
+export function isRenamed(spec: MapSpec | null, name: string, generatedName?: string): boolean {
+  return !spec || (name !== mapName(spec) && name !== generatedName);
 }
 
 /** The project file's name: the map's saved name (D345, B10) with its own extension. */
@@ -329,5 +332,5 @@ export function projectFileName(spec: MapSpec, seedWord?: string): string {
 
 /** The project file's name for any document. */
 export function documentFileName(doc: MapDocument): string {
-  return doc.spec && !isRenamed(doc.spec, doc.meta.name) ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
+  return doc.spec && !isRenamed(doc.spec, doc.meta.name, doc.meta.generatedName) ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
 }

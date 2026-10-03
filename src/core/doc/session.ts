@@ -285,7 +285,7 @@ export class MapSession {
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
     const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
     // (M9b, D278 (1b): the map's own name and how it plays)
-    if (r.name) doc.meta.name = r.name;
+    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
     if (r.description) doc.meta.premise = r.description;
     return new MapSession(doc, r.built);
   }
@@ -951,7 +951,7 @@ export class MapSession {
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
-    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
+    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
