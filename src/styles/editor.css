@@ -352,33 +352,6 @@ button[aria-pressed="true"] {
   font-weight: 600;
 }
 
-/* the notices (D213's No badwater line, an import's changes): a quiet strip under the map, never
-   over it, so they cover no control in any layout; long lists scroll within it */
-.editor-notices {
-  flex: 0 0 auto;
-  max-height: 30%;
-  overflow-y: auto;
-  padding: 6px 14px;
-  border-top: 1px solid var(--rule);
-  background: var(--panel);
-  font-size: 0.9rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-}
-
-.editor-notices p {
-  flex: 1 0 100%;
-  margin: 0;
-}
-
-.editor-notices ul {
-  flex: 1 1 300px;
-  margin: 0;
-  padding-left: 18px;
-}
-
 .history {
   width: 290px;
   padding: 12px;

@@ -1,4 +1,4 @@
-// Export and save: the project file, the map for Timberborn, and the quiet notices.
+// Export and save: the project file and the map for Timberborn; an opened file's import flags for the quiet dot.
 
 import { proxy } from "comlink";
 import { saveFile, saveToTimberborn } from "../../platform";
@@ -7,15 +7,11 @@ import { plain } from "../panels";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
-/** What the editor says once the map's last badwater spring is gone (D213). */
-const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
-
 export interface SaveSlice {
   exportProject: () => Promise<void>;
   saveMap: (kind: "timberborn" | "download") => Promise<void>;
-  notices: string[];
+  /** An opened file's import flags, each with its fix: the quiet dot lists them (Kyler, 2026-10-03). */
   flags: ImportFlag[];
-  importChanges: number;
 }
 
 export function useSave(ed: Ed): SaveSlice {
@@ -60,10 +56,7 @@ export function useSave(ed: Ed): SaveSlice {
     }
   }
 
-  // D213: removing the map's last badwater spring makes it a No badwater map, said in a quiet line
-  const notices = [...(info.badwaterRemoved ? [NO_BADWATER_LINE] : []), ...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
   const flags = info.importReport?.flags ?? [];
-  const importChanges = info.importReport?.changes.length ?? 0;
 
-  return { exportProject, saveMap, notices, flags, importChanges };
+  return { exportProject, saveMap, flags };
 }

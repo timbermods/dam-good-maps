@@ -1,5 +1,5 @@
 // The editor's markup. The parts that are long are plain functions of the bag (header.tsx,
-// topBar.tsx, viewControls.tsx, notices.tsx), called inline here, so the vnode tree is one.
+// topBar.tsx, viewControls.tsx), called inline here, so the vnode tree is one.
 
 import { View3D } from "../../ui/View3D";
 import { HistoryPanel, LayerLegend, StartIndicators } from "../panels";
@@ -13,7 +13,6 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
 import { header } from "./header";
-import { noticesStrip } from "./notices";
 import { topBar } from "./topBar";
 import { cornerButtons, hoverHandler, levelLinesButton, viewButtons } from "./viewControls";
 
@@ -95,9 +94,6 @@ export function editorView(ed: Ed, props: EditorProps) {
               </div>
             ) : null}
           </div>
-          {/* the notices: a strip under the map, never over it, so they cover no control in any
-              layout (a force's rows, the view buttons, the water bar), and what is above stays put */}
-          {noticesStrip(ed)}
         </section>
         {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
       </div>

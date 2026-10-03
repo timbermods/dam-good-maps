@@ -178,8 +178,9 @@ window, and Maps opens the generator's settings in a drawer in the palette's col
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
   highlighted on the map. Never a pop-up.
-- **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
-  over it, so they cover no control in any layout; Hide closes it.
+- **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
+  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
+  file's import flags with their fixes (counted).
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
 (D184, D212, D219.)
@@ -495,7 +496,7 @@ Make a valley, drop a source, and there's a river.
   of them (never filled, so its water isn't dammed) and what stood on them goes, in the same undo step. Every
   placement refusal is one plain reason ("the district center stands there", "off the map"); uneven ground is
   never one (D328). Removing the map's last badwater source is never refused: the map becomes a **No badwater**
-  map, a quiet line in the notices says so, the file's description and checks follow, and undo brings the source
+  map, the quiet dot's list says "No badwater", the file's description and checks follow, and undo brings the source
   and the setting back (D213). A planned edit that would reshape the ground under another feature's source keeps
   off it and says why (decisions-pending #89).
 - **Unleash, on a source:** see §4.

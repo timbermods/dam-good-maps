@@ -274,6 +274,10 @@ than the room above the water bar. Where this section says otherwise, the verdic
   terrain), then ∞, on every map; the first step down from ∞ goes straight to the map's highest level (its highest
   ground); up runs through every level to 22, then ∞; a click on the value shows the whole world. There is no
   separate ∞ button. Alt+scroll and Alt+middle-click on the map keep the game's own stepping.
+- **No notices strip (amends D213's quiet line):** the strip under the map is gone, since it changed the page's size
+  and the player knows what they did. When the map's last badwater spring goes, the quiet dot's list says "No
+  badwater" under Good to know, not counted; an opened file's import flags are in the list with their fixes, counted
+  with its other items. The session's notices, the import change count and the import warnings are shown nowhere.
 - **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
   cause before #163 merges.
 

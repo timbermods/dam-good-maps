@@ -7,6 +7,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
+import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -20,12 +21,17 @@ export interface ChecksState {
   busy: boolean;
   progress: CheckProgress | null;
   flowing: number | null;
+  /** An opened file's import flags, each with its fix: counted with the problems (Kyler, 2026-10-03). */
+  flags?: readonly ImportFlag[];
+  /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
+  badwaterRemoved?: boolean;
 }
 
 /** The dot's tone and words: checking, ready to play, or things to look at. */
 export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: string; count: number } {
-  const count = c.instant.length + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
-  if (c.instant.length) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
+  const flags = c.flags?.length ?? 0;
+  const count = c.instant.length + flags + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
+  if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
   if (!c.check || c.busy) return { tone: "wait", words: c.flowing !== null ? "Checking, as the water flows" : c.progress?.stage === "water" ? "Settling the water" : "Checking the map", count };
   if (!count) return { tone: "ok", words: "Ready to play", count };
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
@@ -72,18 +78,35 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
               <Items items={c.blocking} actions={p.actions} />
             </section>
           ) : null}
-          {c?.warnings.length ? (
+          {c?.warnings.length || p.flags?.length ? (
             <section class="warn">
               <h3>Worth a look</h3>
-              <p class="note">Saving notes them in the map's description.</p>
-              <Items items={c.warnings} actions={p.actions} />
+              {c?.warnings.length ? <p class="note">Saving notes them in the map's description.</p> : null}
+              {p.flags?.length ? (
+                <ul>
+                  {p.flags.map((f) => (
+                    <li key={f.id}>
+                      {f.message}{" "}
+                      <button type="button" class="linkish" {...tip(f.fix.label, "Ctrl+Z undoes it")} onClick={() => p.actions.onFix([f.fix])}>
+                        {f.fix.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {c?.warnings.length ? <Items items={c.warnings} actions={p.actions} /> : null}
             </section>
           ) : null}
-          {c && !c.blocking.length && !c.warnings.length && !p.instant.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
-          {c?.advisory.length ? (
+          {c && !c.blocking.length && !c.warnings.length && !p.instant.length && !p.flags?.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
+          {c?.advisory.length || p.badwaterRemoved ? (
             <section>
               <h3>Good to know</h3>
-              <Items items={c.advisory} actions={p.actions} />
+              {p.badwaterRemoved ? (
+                <ul>
+                  <li>No badwater</li>
+                </ul>
+              ) : null}
+              {c?.advisory.length ? <Items items={c.advisory} actions={p.actions} /> : null}
             </section>
           ) : null}
           {c?.existing.length ? (

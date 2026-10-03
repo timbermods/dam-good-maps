@@ -20,7 +20,7 @@ export function header(ed: Ed, props: EditorProps) {
       canRedo={info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
-      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
+      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}
