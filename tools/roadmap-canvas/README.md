@@ -42,7 +42,16 @@ is open → **in flight**, merged → **built, not released**; otherwise **plann
   anything.
 - The manifest is the only hand-kept file. Keep it high level: one card per step or group, not one per bullet.
 
+## Using it in another project
+
+The canvas reads any repository whose planning documents follow [SPEC.md](SPEC.md) (the planning interface: a plan with
+numbered decisions, a roadmap with the order of work and one section per step, a status page, a tag per release).
+[CONVERT.md](CONVERT.md) is the prompt to give Claude in that repository: it turns an existing plan into that shape and
+writes the manifest from [templates/](templates/). `manifest.json`'s `config` names the project, the owner, the file
+paths, the decisions section, the decision prefix and the tag suffix, so nothing in the code is Dam Good Maps-specific.
+
 ## Files
 
-`manifest.json` (the cards), `extract.mjs` (the reader), `index.html` (the page, no dependencies), `serve.mjs` (a static
-server), `data.js` and `data.json` (generated).
+`manifest.json` (the cards and the config), `extract.mjs` (the reader), `index.html` (the page, no dependencies),
+`serve.mjs` (a static server), `data.js` and `data.json` (generated), `SPEC.md` (the planning interface), `CONVERT.md`
+(the conversion prompt), `templates/` (the documents and manifest to fill).

@@ -16,23 +16,37 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = findRoot(here);
 const args = new Set(process.argv.slice(2));
 const offline = args.has('--offline');
 const manifest = JSON.parse(fs.readFileSync(path.join(here, 'manifest.json'), 'utf8'));
 const health = [];
 
+// The project's conventions (tools/roadmap-canvas/SPEC.md): every path and name the extractor assumes, overridable in
+// manifest.json's "config". The defaults are Dam Good Maps'.
+const cfg = {
+  project: { name: 'Dam Good Maps', owner: 'Kyler', ...(manifest.config?.project || {}) },
+  sources: {
+    roadmap: 'ROADMAP.md', archive: 'docs/archive/roadmap.md', status: 'docs/STATUS.md', decisions: 'PLAN.md',
+    decisionsSection: '^## 20\\. ', decisionsLabel: '', pending: 'docs/decisions-pending.md', yardstick: 'docs/PERFECT.md',
+    progressIssue: 57, ...(manifest.config?.sources || {}),
+  },
+  decisionPrefix: manifest.config?.decisionPrefix || 'D',
+  tagSuffix: manifest.config?.tagSuffix || '-done',
+};
+const root = findRoot(here, cfg.sources.roadmap);
+const DP = escRe(cfg.decisionPrefix);
+
 // ---------------------------------------------------------------- files
 
 const docs = {
-  roadmap: readDoc('ROADMAP.md'),
-  archive: readDoc('docs/archive/roadmap.md'),
-  status: readDoc('docs/STATUS.md'),
-  plan: readDoc('PLAN.md'),
-  pending: readDoc('docs/decisions-pending.md'),
-  perfect: readDoc('docs/PERFECT.md'),
+  roadmap: readDoc(cfg.sources.roadmap, true),
+  archive: readDoc(cfg.sources.archive),
+  status: readDoc(cfg.sources.status, true),
+  plan: readDoc(cfg.sources.decisions, true),
+  pending: readDoc(cfg.sources.pending),
+  perfect: readDoc(cfg.sources.yardstick),
 };
-const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const pkg = fs.existsSync(path.join(root, 'package.json')) ? JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) : {};
 
 // ---------------------------------------------------------------- git
 
@@ -42,7 +56,7 @@ const repo = {
   commit: git(['rev-parse', '--short', 'HEAD']),
   commitDate: git(['log', '-1', '--format=%cs']),
   devCommit: tryGit(['rev-parse', '--short', 'origin/dev']) || tryGit(['rev-parse', '--short', 'dev']),
-  version: pkg.version,
+  version: pkg.version || '',
   remote: remoteSlug(tryGit(['remote', 'get-url', 'origin']) || ''),
 };
 
@@ -52,7 +66,7 @@ const tags = git(['for-each-ref', '--sort=creatordate', '--format=%(refname:shor
     const subject = rest.join('|');
     return { name, date, subject: subject === name ? '' : subject };
   });
-const doneTags = tags.filter((t) => t.name.endsWith('-done'));
+const doneTags = tags.filter((t) => t.name.endsWith(cfg.tagSuffix));
 const tagByName = new Map(tags.map((t) => [t.name, t]));
 
 // ---------------------------------------------------------------- GitHub (optional)
@@ -69,8 +83,8 @@ if (!offline) {
     github.note = `GitHub unavailable: ${firstLine(e.message)}`;
     health.push({ kind: 'github', text: github.note });
   }
-  try {
-    const issue = JSON.parse(gh(['issue', 'view', '57', '--json', 'comments,title,url']));
+  if (cfg.sources.progressIssue) try {
+    const issue = JSON.parse(gh(['issue', 'view', String(cfg.sources.progressIssue), '--json', 'comments,title,url']));
     progressLog = issue.comments.slice(-12).reverse().map((c) => ({ createdAt: c.createdAt, body: trim(stripMd(c.body), 600) }));
     github.progressLogUrl = issue.url;
     github.progressLogCount = issue.comments.length;
@@ -283,6 +297,9 @@ const stats = {
 
 const data = {
   generatedAt: new Date().toISOString(),
+  project: cfg.project,
+  sources: { ...cfg.sources, decisionsLabel: cfg.sources.decisionsLabel || `${cfg.sources.decisions} › ${decisions.heading || 'decisions'}` },
+  decisionPrefix: cfg.decisionPrefix, tagSuffix: cfg.tagSuffix,
   repo, github, stats,
   lanes: manifest.lanes,
   statusGroups: manifest.statusGroups,
@@ -308,17 +325,18 @@ console.log(`wrote ${path.relative(root, path.join(here, 'data.js'))} and data.j
 
 // ================================================================ helpers
 
-function findRoot(dir) {
+function findRoot(dir, roadmap) {
   let d = dir;
-  for (let i = 0; i < 6; i++) {
-    if (fs.existsSync(path.join(d, 'ROADMAP.md')) && fs.existsSync(path.join(d, 'package.json'))) return d;
+  for (let i = 0; i < 8; i++) {
+    if (fs.existsSync(path.join(d, roadmap)) && (fs.existsSync(path.join(d, '.git')) || fs.existsSync(path.join(d, 'package.json')))) return d;
     d = path.dirname(d);
   }
-  throw new Error('ROADMAP.md not found above ' + dir);
+  throw new Error(roadmap + ' not found in a repository above ' + dir);
 }
-function readDoc(rel) {
+function readDoc(rel, required) {
+  if (!rel) return '';
   const p = path.join(root, rel);
-  if (!fs.existsSync(p)) { health.push({ kind: 'missing', text: `${rel} is missing` }); return ''; }
+  if (!fs.existsSync(p)) { health.push({ kind: required ? 'missing' : 'info', text: `${rel} is missing${required ? '' : ' (optional)'}` }); return ''; }
   return fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 }
 function git(a) { return execFileSync('git', a, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
@@ -339,6 +357,7 @@ function trim(s, n) {
   return cut.slice(0, Math.max(cut.lastIndexOf(' '), n - 30)).trim() + '…';
 }
 function unique(a) { return [...new Set(a)]; }
+function escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function dnum(d) { return parseInt(String(d).replace(/\D/g, ''), 10) || 0; }
 function manifestTags(card) { return manifest.milestones.find((m) => m.id === card.id).tags; }
 
@@ -357,10 +376,12 @@ function numbersIn(s) {
   // Pull-request numbers: "#123" or ".../pull/123", never a pending-decision number ("[#2](docs/decisions-pending.md)",
   // "decisions-pending #83") and never the Progress log issue (#57).
   const cleaned = String(s || '').replace(/\[#\d+\]\([^)]*decisions-pending[^)]*\)/g, '').replace(/pending[^.;\n]*?#\d+(?:[–-]#?\d+)?/gi, '');
-  return unique([...cleaned.matchAll(/(?:#|pull\/)(\d{1,4})\b/g)].map((m) => parseInt(m[1], 10))).filter((n) => n !== 57);
+  return unique([...cleaned.matchAll(/(?:#|pull\/)(\d{1,4})\b/g)].map((m) => parseInt(m[1], 10))).filter((n) => n !== cfg.sources.progressIssue);
 }
-function decisionsIn(s) { return unique([...String(s || '').matchAll(/(?<![A-Za-z0-9])D(\d{1,3})(?![0-9])/g)].map((m) => 'D' + m[1])); }
-function tagsIn(s) { return unique([...String(s || '').matchAll(/`([a-z0-9-]+-done)`/g)].map((m) => m[1])); }
+function decRe() { return new RegExp(`(?<![A-Za-z0-9])${escRe(cfg.decisionPrefix)}(\\d{1,4})(?![0-9])`, 'g'); }
+function tagRe() { return new RegExp(`\`([a-z0-9-]+${escRe(cfg.tagSuffix)})\``, 'g'); }
+function decisionsIn(s) { return unique([...String(s || '').matchAll(decRe())].map((m) => cfg.decisionPrefix + m[1])); }
+function tagsIn(s) { return unique([...String(s || '').matchAll(tagRe())].map((m) => m[1])); }
 
 // Split a Markdown document into heading-led sections (level 0 is the text before the first heading).
 function splitSections(md) {
@@ -441,7 +462,7 @@ function describeSection(sec, source) {
 }
 function publicSection(s) {
   const { key, ...rest } = s;
-  return { ...rest, anchor: anchorFor(s.heading), file: s.source === 'live' ? 'ROADMAP.md' : 'docs/archive/roadmap.md' };
+  return { ...rest, anchor: anchorFor(s.heading), file: s.source === 'live' ? cfg.sources.roadmap : cfg.sources.archive };
 }
 function anchorFor(heading) {
   return stripMd(heading).toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
@@ -550,7 +571,7 @@ function parseStatus(md) {
   const find = (re) => sections.find((s) => re.test(s.heading));
   const released = find(/^Released/i);
   const sessions = find(/sessions/i);
-  const waiting = find(/^Waiting for Kyler/i);
+  const waiting = find(/^Waiting for\b/i);
   const gate = find(/release gate/i);
   const queued = find(/^Queued/i);
   return {
@@ -580,26 +601,30 @@ function parseTables(lines) {
   return tables;
 }
 
-// PLAN.md §20: decisions in force by topic, their text, and the next free number.
+// The decisions section (PLAN.md §20 here): decisions in force by topic, their text, and the next free number.
 function parseDecisions(md) {
-  const start = md.search(/^## 20\. /m);
+  const headRe = new RegExp(cfg.sources.decisionsSection, 'm');
+  const start = md.search(headRe);
+  if (start < 0) health.push({ kind: 'missing', text: `${cfg.sources.decisions}: no heading matches ${cfg.sources.decisionsSection}` });
   const body = start >= 0 ? md.slice(start) : '';
-  const end = body.search(/^## (?!20\.)/m);
-  const sec = end > 0 ? body.slice(0, end) : body;
+  const headingLine = (body.match(/^#+\s+(.*)$/m) || [])[1] || '';
+  const level = (body.match(/^(#+)\s/m) || [, '##'])[1];
+  const end = body.slice(1).search(new RegExp(`^#{1,${level.length}} `, 'm'));
+  const sec = end > 0 ? body.slice(0, end + 1) : body;
   const topics = [];
   const byNumber = {};
   let topic = null;
   for (const line of sec.split('\n')) {
     const h = line.match(/^### (.+)$/);
     if (h) { topic = { name: stripMd(h[1]), numbers: [] }; topics.push(topic); continue; }
-    const d = line.match(/^- \*\*(D\d+)\*\*\s*(.*)$/);
+    const d = line.match(new RegExp(`^- \\*\\*(${DP}\\d+)\\*\\*\\s*(.*)$`));
     if (d && topic) {
       topic.numbers.push(d[1]);
       byNumber[d[1]] = { topic: topic.name, text: trim(stripMd(d[2]).replace(/^[:(]\s*/, ''), 420) };
     }
   }
-  const next = (sec.match(/next free number \(D(\d+)/) || sec.match(/next is \*\*D(\d+)/) || [])[1];
-  return { inForce: Object.keys(byNumber).length, nextFree: next ? 'D' + next : '', topics: topics.map((t) => ({ name: t.name, count: t.numbers.length, numbers: t.numbers })), byNumber };
+  const next = (sec.match(new RegExp(`next free number \\(${DP}(\\d+)`)) || sec.match(new RegExp(`next is \\*\\*${DP}(\\d+)`)) || sec.match(new RegExp(`next (?:free )?(?:number|decision)[^\\n]{0,40}?${DP}(\\d+)`)) || [])[1];
+  return { heading: stripMd(headingLine), anchor: anchorFor(headingLine), inForce: Object.keys(byNumber).length, nextFree: next ? cfg.decisionPrefix + next : '', topics: topics.map((t) => ({ name: t.name, count: t.numbers.length, numbers: t.numbers })), byNumber };
 }
 
 // docs/decisions-pending.md: how many defaults still wait for Kyler, and the next number.

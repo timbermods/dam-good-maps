@@ -1,5 +1,24 @@
 {
   "$comment": "The high-level map of Dam Good Maps' roadmap for the roadmap canvas. Only structure lives here (which steps exist, their lane, tag, branch, PRs and what they follow); everything that changes comes from ROADMAP.md, docs/STATUS.md, PLAN.md, git tags and GitHub when extract.mjs runs. Add a card when ROADMAP gains a step; the Health view lists sections, tags and STATUS rows no card covers.",
+  "config": {
+    "project": {
+      "name": "Dam Good Maps",
+      "owner": "Kyler"
+    },
+    "sources": {
+      "roadmap": "ROADMAP.md",
+      "archive": "docs/archive/roadmap.md",
+      "status": "docs/STATUS.md",
+      "decisions": "PLAN.md",
+      "decisionsSection": "^## 20\\. ",
+      "decisionsLabel": "PLAN.md §20",
+      "pending": "docs/decisions-pending.md",
+      "yardstick": "docs/PERFECT.md",
+      "progressIssue": 57
+    },
+    "decisionPrefix": "D",
+    "tagSuffix": "-done"
+  },
   "lanes": [
     { "id": "generator", "name": "Generator and themes", "color": "#2f8f5b" },
     { "id": "water", "name": "Water", "color": "#2b7bb9" },
@@ -73,11 +92,11 @@
   "process": {
     "summary": "How a change travels from Kyler's decision to the live site, and how the documents record it.",
     "nodes": [
-      { "id": "kyler", "title": "Kyler decides", "text": "Every decision is recorded once in PLAN.md §20 with the next free D-number; superseded ones move to docs/archive/decisions.md. Defaults a session chose while Kyler was away sit in docs/decisions-pending.md until he overrules or accepts them.", "stat": "decisions" },
+      { "id": "decide", "title": "Kyler decides", "text": "Every decision is recorded once in PLAN.md §20 with the next free D-number; superseded ones move to docs/archive/decisions.md. Defaults a session chose while Kyler was away sit in docs/decisions-pending.md until he overrules or accepts them.", "stat": "decisions" },
       { "id": "roadmap", "title": "ROADMAP orders the work", "text": "ROADMAP.md holds the open steps in one order (the release gate, then the post-release list, then the rest) with what each delivers and what blocks it. Finished steps move verbatim to docs/archive/roadmap.md.", "stat": "order" },
       { "id": "sessions", "title": "Sessions build on branches", "text": "The milestone session (Opus 5.5) builds the core, water and generator; the page session (Fable 5.1) builds the page; the renderer session builds moving water and renderer R1. Each works in its own worktree and branch; Codex builds investigations on investigation/<name>.", "stat": "sessions" },
       { "id": "pr", "title": "A PR into dev, green", "text": "Nothing merges into dev red (D341). CI runs the quick suite, byte checks on generated maps, the retired-terms check and the determinism smoke. A docs-only change skips the heavy jobs.", "stat": "prs" },
-      { "id": "kyler-eye", "title": "Kyler's eye", "text": "Acceptance covers only what a player would notice or what would break (D115). Visual work is judged from captures against docs/PERFECT.md; probe batches play maps in the real game.", "stat": "waiting" },
+      { "id": "review", "title": "Kyler's eye", "text": "Acceptance covers only what a player would notice or what would break (D115). Visual work is judged from captures against docs/PERFECT.md; probe batches play maps in the real game.", "stat": "waiting" },
       { "id": "tag", "title": "Tag <step>-done", "text": "A step Kyler approves is tagged on its green dev commit. Released steps' tags: git tag -l '*-done'.", "stat": "tags" },
       { "id": "release", "title": "Merge into main, deploy, live check", "text": "tools/release.sh opens a PR from the tag into main, merges it as a merge commit, watches the GitHub Pages deploy and the live check. If the live check fails, the release merge is reverted.", "stat": "release" },
       { "id": "record", "title": "STATUS and the Progress log", "text": "docs/STATUS.md is rewritten at every step and stop (no history); every finish, release, batch or park gets a comment on issue #57; living docs are updated in the same PR (D188).", "stat": "log" }
@@ -89,7 +108,7 @@
         "label": "Codex: investigation/<name> → merged as an investigation at a boundary → Kyler's verdict → adopted into src/ (or not)"
       },
       {
-        "from": "kyler-eye",
+        "from": "review",
         "to": "roadmap",
         "label": "Anything Kyler finds in the water or the editor's core blocks the release until fixed (D385)"
       }
