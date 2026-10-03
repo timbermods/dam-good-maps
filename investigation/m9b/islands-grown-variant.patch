@@ -233,7 +233,7 @@ index 8abb8f81..9066bc4d 100644
        return;
      }
 diff --git a/src/core/land/genome.ts b/src/core/land/genome.ts
-index 8a8fe00c..51c85129 100644
+index 8a8fe00c..0a4e88a1 100644
 --- a/src/core/land/genome.ts
 +++ b/src/core/land/genome.ts
 @@ -47,6 +47,8 @@ export interface Part {
@@ -245,7 +245,71 @@ index 8a8fe00c..51c85129 100644
  }
  
  /** The six themes the generator knows, without "Any". */
-@@ -821,6 +823,35 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+@@ -649,6 +651,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+   g.seaLayout = layout;
+   g.seaRing = layout === "edge" || rng.float() < 0.25;
++  // (D427: where the ring breaks the sea is smaller than its ring's, so it lies off the middle in
++  // open water with broad land round part of it, not a centred sea inside a ring of land)
++  const seaK = g.seaRing ? 1 : 0.88 + 0.08 * rng.float();
+   g.tiltKind = "radial";
+   g.regional.warped = true;
+   const side = Math.min(W, H);
+@@ -684,7 +689,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+     case "central": {
+       // one large island with smaller ones round it
+       g.focus = [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()];
+-      const R = side * (0.42 + 0.08 * rng.float());
++      const R = side * seaK * (0.42 + 0.08 * rng.float());
+       const depth = 9 + 2.5 * rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
+       // (D417: fewer, larger islands: the big one 19–24, two to four others of 5–9)
+@@ -702,7 +707,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+       // the sea lies along the south edge, behind a strip of coast its outlet crosses, with islands
+       // off the mainland that rises behind it (the map's orientation turns it to any edge)
+       g.focus = [0.35 + 0.3 * rng.float(), 0.3 + 0.06 * rng.float()];
+-      const R = side * (0.4 + 0.08 * rng.float());
++      const R = side * seaK * (0.4 + 0.08 * rng.float());
+       const depth = 8 + 2 * rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
+       const count = n(3 + 2 * rng.float());
+@@ -719,7 +724,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+     case "archipelago": {
+       // a scatter of mid-sized islands through a broad sea, one of them big enough for a colony
+       g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+-      const R = side * (0.46 + 0.06 * rng.float());
++      const R = side * seaK * (0.46 + 0.06 * rng.float());
+       const depth = 8.5 + 2 * rng.float();
+       const turn = rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, turn, 1 + 0.4 * rng.float());
+@@ -741,7 +746,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+     }
+     case "chain": {
+       g.focus = [0.38 + 0.24 * rng.float(), 0.38 + 0.24 * rng.float()];
+-      const R = side * (0.42 + 0.08 * rng.float());
++      const R = side * seaK * (0.42 + 0.08 * rng.float());
+       const depth = 8.5 + 2 * rng.float();
+       const turn = rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, turn, 1.5 + 0.6 * rng.float());
+@@ -766,7 +771,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+     case "atolls": {
+       // a ring of land round a lagoon, lobed, never a circle, with one to three passes to the sea
+       g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+-      const R = side * (0.44 + 0.06 * rng.float());
++      const R = side * seaK * (0.44 + 0.06 * rng.float());
+       const depth = 8 + 2 * rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.05 + 0.3 * rng.float());
+       const cx = g.focus[0] * W;
+@@ -797,7 +802,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+       g.focus = [0.44 + 0.12 * rng.float(), 0.44 + 0.12 * rng.float()];
+       const turn = rng.float();
+       const [ax, ay] = unit(turn);
+-      const R = side * (0.46 + 0.06 * rng.float());
++      const R = side * seaK * (0.46 + 0.06 * rng.float());
+       const depth = 8.5 + 2 * rng.float();
+       sea([g.focus[0], g.focus[1]], R, depth, turn, 1.1 + 0.4 * rng.float());
+       const apart = side * (0.17 + 0.05 * rng.float());
+@@ -821,6 +826,37 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
      const sh = 0.08 + 0.06 * rng.float();
      for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
    }
@@ -257,9 +321,11 @@ index 8a8fe00c..51c85129 100644
 +  if (layout !== "edge") {
 +    const bear = rng.float();
 +    const [vx, vy] = unit(bear);
-+    const d = (0.12 + 0.06 * rng.float()) * side;
-+    const r = (20 + 2 * rng.float()) * isleK;
-+    const asp = 1.8 + 0.4 * rng.float();
++    // (D427: off the sea's own middle by 40–55% of its radius, never in its middle third)
++    const seaP = g.parts.find((q) => q.shape === "sea");
++    const d = (0.4 + 0.15 * rng.float()) * (seaP ? seaP.size : 0.45 * side);
++    const r = (22 + 2 * rng.float()) * isleK;
++    const asp = 2 + 0.4 * rng.float();
 +    const turn = bear + 0.25;
 +    const [ax, ay] = unit(turn);
 +    // (its box at least a tenth of the map from every edge)
@@ -270,7 +336,7 @@ index 8a8fe00c..51c85129 100644
 +    const mx = Math.min(0.5, (ex + 0.1 * side) / W);
 +    const my = Math.min(0.5, (ey + 0.1 * side) / H);
 +    // (off the sea's own middle, where the water is deep, so it stands clear of the shore)
-+    const seaAt = g.parts.find((q) => q.shape === "sea")?.at ?? [0.5, 0.5];
++    const seaAt = seaP?.at ?? [0.5, 0.5];
 +    const at: [number, number] = [clamp(seaAt[0] + (vx * d) / W, mx, 1 - mx), clamp(seaAt[1] + (vy * d) / H, my, 1 - my)];
 +    const rise = 4 + 1.5 * rng.float();
 +    g.parts.push({ kind: "isle", at, size: r, height: seaDepth * 1.15 + rise * 0.85 * tallK, turn, extra: asp, soft: 0.3, isle: true, home: true });

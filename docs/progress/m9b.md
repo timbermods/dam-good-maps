@@ -198,6 +198,50 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands: the sea's layout for the grown island (D427–D428, 2026-10-02, night): the stop
+
+Kyler on be9b645c: not accepted. The grown island sat in a moat on seeds 13 and 17 (nearly 3), the
+ring of land stood on most maps, six read as land with lakes, and 17 starts were on the mainland,
+the promise down to 14. This round was to fix the sea's layout: break the ring on most maps so the
+grown island lies off the middle in open water. The island start keeps 1,200 walkable tiles at
+128² (D428).
+
+- **Tried** (each 30 seeds at 128²; all passed every absolute):
+  - A smaller sea where the ring breaks, 78–88% of the size: the promise on 10, many maps land
+    with rivers.
+  - The same with a narrow shore of 1–4% of the side: seas drained by low points on the edge, the
+    promise on 8.
+  - A sea 88–96% of the size, the island 40–55% of the sea's radius off its middle: the promise on
+    11. This is the sheet.
+  - The same with full-size seas and a strait cut round the grown island: the promise on 8.
+- **The sheet:** `docs/sheets/m9b-islands-grown-1.png` (seeds 1–15) and
+  `docs/sheets/m9b-islands-grown-2.png` (16–30), each map 208 px with the start marked. It is
+  `investigation/m9b/islands-grown-variant.patch`, applied on be9b645c.
+  - All 30 pass, the promise on 11, all three outcomes on 10.
+  - The start stands in the grown island's ellipse on 17 maps. On 6 it falls back to the shore; 7
+    are the edge layout.
+  - By eye, though, most of those starts stand on land the island shares with the shore through a
+    neck, not on an island. The promise's reading agrees: the land apart from the largest mass is
+    under 2% of the land on seeds 6, 8, 9, 22, 28 and 30.
+- **By eye, by seed:**
+  - Starts on an island: 3, 12, 13, 16, 29, and 20 nearly.
+  - An island central in a moat: none.
+  - A ring of land round an inland sea: 2, 4, 5, 16, 19, 23, 25 and 29, the edge layout's 2 and
+    19 among them.
+  - Land with lakes and rivers, not islands: 8, 9, 10, 15, 17, 22, 24, 27, 28 and 30.
+- **The stop:** this round can't put most starts on an island while keeping the promise near the
+  safe version's 20.
+  - An island a colony's start fits on at 128² needs, on its own land, 1,200 walkable tiles, two
+    mine sites 30 tiles or more away, moist farmland, level land and wood. That takes about 1,500
+    tiles and 60 tiles end to end, a large share of a sea that must stay a quarter of the map.
+  - Placed off the middle, it meets the shore. A strait round it cut rivers and lowered the promise
+    further.
+  - The maps Kyler named as breaking the ring (3fbb21f7's 23–25, 28–30) mostly fail the promise
+    reading themselves (23, 24, 25 and 28): their seas are under a quarter of the map, or their
+    islands meet the land.
+  - Kyler chooses between this sheet and releasing the safe version with island starts parked
+    until after the release.
+
 ### Islands: one island grown for the start (D417, Kyler's third look, 2026-10-02 evening)
 
 Kyler: neither sheet yet. The safe sheet has the variety, but the start is always on the shore. The
