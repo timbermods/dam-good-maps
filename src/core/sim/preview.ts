@@ -21,9 +21,12 @@
 // the canonical start too (dry), so it drains away in the edit's own journey instead of standing
 // until the background check's settle; a lake a force or a Fill stored (`RetainedWater`) is its own
 // cause and keeps its water while its hollow holds it, starting from it the moment it is stored. The
-// unfed water Remove unfed water drained (the model's `drained`) goes at once (sim/fed.ts).
+// unfed water Remove unfed water drained (the model's `drained`) goes at once (sim/fed.ts). Nor does
+// water appear from nowhere (D385): the pre-fill's water on the tiles that take the canonical start
+// stays only where a running source, a kept stored lake or the water kept from before reaches it
+// (sim/fed.ts), so a pit dug on dry ground stays dry while one dug beside a river fills at once.
 
-import { drainUnfed } from "./fed";
+import { drainUnfed, fedTiles, keptSeeds } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
@@ -151,11 +154,23 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   const N = next.W * next.H;
   const out = new Float64Array(4 * N);
   const po = from.water.out ?? null;
+  // (the water kept from before, and the stored lakes, feed the pre-fill's water as the sources do)
+  const seeds = keptSeeds(next) ?? new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (changed[i] || unfed?.[i] || lakes?.[i]) continue;
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
+    seeds[i] = 1;
+  }
+  // (water a removal drained feeds nothing)
+  for (const i of next.drained ?? []) seeds[i] = 0;
+  // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
+  const fed = fedTiles(next, init.depth, seeds);
+  for (let i = 0; i < N; i++) {
+    if (!(changed[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    init.depth[i] = 0;
+    init.contamination[i] = 0;
   }
   // (and the unfed water a removal drained is gone, as the canonical settle takes it)
   drainUnfed(next, init.depth, init.contamination, po ? out : null);

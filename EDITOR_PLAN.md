@@ -342,7 +342,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Lower, §5). Inside an open selection the mode applies within it.
 - **Sources: Ride · Keep · Clear** (D322, item 31; D249): in every brush's row. **Ride** (default): the sources the
   stroke passes over ride the ground like trees and bushes (a 3 × 3 source as one level piece). **Keep**: every
-  source under the stroke and the ground it stands on stay exactly where they were. **Clear**: the sources the
+  source under the stroke and the ground it stands on stay exactly where they were, at the level the map showed
+  (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
@@ -786,6 +787,12 @@ opened, are listed but never blamed on the player's edits and do not block its e
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
     settle's, except under roofs.
+  - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
+    stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
+    settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
+    pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
+    (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
+    §10; `tests/contract/waterFromNowhere.test.ts`).
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

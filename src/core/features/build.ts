@@ -574,8 +574,15 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   };
   checkSlopes();
   const caves = base && base.columns.size ? (i: number) => base.columns.has(i) : undefined;
+  //    (a Keep stroke keeps its sources' ground as step 7 shows it, reading the tiles as it will)
+  const shownLock = input.locked?.mask;
+  const shown = {
+    candidate: base ? (i: number) => heights[i] !== base.heights[i] : field ? (i: number) => heights[i] !== field.heights[i] && !shownLock?.[i] : shownLock ? (i: number) => !shownLock[i] : () => true,
+    cap: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
+    outside: prev ? prev.terrain.pre7 : null,
+  };
   for (const s of input.sculpts ?? []) {
-    applySculpt(s, t, caves);
+    applySculpt(s, t, caves, shown);
     if (watch.length) checkSlopes();
   }
   //    an imported map's caves and overhangs are left exactly as they are

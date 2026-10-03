@@ -10,7 +10,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { planFill } from "../../src/core/doc/waterEdits";
 import { generate } from "../../src/core/gen/generate";
-import { canonicalSettle, prefill } from "../../src/core/sim/prefill";
+import { withoutUnfed } from "../../src/core/sim/fed";
+import { canonicalSettle, DRAIN_DAYS, prefill } from "../../src/core/sim/prefill";
 import { settle, TICKS_PER_DAY, waterSteady, WaterSim, type WaterModel } from "../../src/core/sim/water";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
@@ -102,8 +103,12 @@ describe.each([128, 256])("a 144-tile Fill at %i² (D413)", (N) => {
   it.runIf(N === 128)("with a running source in it the basin is real flow: it settles exactly as the plain settle does", () => {
     const fed: WaterModel = { ...m, emitters: [...m.emitters, { cells: [at[1] * m.W + at[0]], strength: 0.5, contamination: 0 }] };
     const c = canonicalSettle(fed);
-    const sim = new WaterSim(fed, prefill(fed));
-    const plain = settle(sim);
+    let sim = new WaterSim(fed, prefill(fed));
+    let plain = settle(sim);
+    // (then, as every canonical settle, without the water its pre-fill left where nothing reaches,
+    // D385)
+    const next = withoutUnfed(fed, sim);
+    if (next) plain = settle((sim = next), { maxDays: DRAIN_DAYS });
     expect(c.steadyTicks).toBeUndefined();
     expect({ settled: c.settled, ticks: c.ticks }).toEqual(plain);
     expect(Array.from(c.depth)).toEqual(Array.from(sim.D));

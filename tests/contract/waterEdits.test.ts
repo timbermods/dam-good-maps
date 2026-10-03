@@ -75,9 +75,11 @@ describe("Remove unfed water (D387 (2))", () => {
   let fileBefore: Uint8Array;
 
   beforeAll(() => {
-    // Lake Basin 1: rows of grouped sources (D314), two badwater sources, and pools the canonical
-    // settle's pre-fill leaves in hollows no source's water reaches
+    // Lake Basin 1: rows of grouped sources (D314), two badwater sources, and two Fills, pools no
+    // source's water reaches (the canonical settle's pre-fill left such pools in hollows until
+    // D385, which takes that water from nowhere away; a stored lake is the unfed water a map keeps)
     s = session("lakeBasin", 1);
+    for (const p of digPits(s, 2)) expect(s.apply(planFill(s, p.at[0], p.at[1], p.level).op!).errors).toEqual([]);
     before = s.built.water.slice();
     fedBefore = fedTiles(s.built.waterModel, before);
     fileBefore = bytesOf(s);
