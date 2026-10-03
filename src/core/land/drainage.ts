@@ -1,9 +1,9 @@
 // Drainage on a height field (floats or levels): Barnes' priority flood from the map edge gives
 // every tile its spill level and a receiver (the tile the flood reached it from), so water on any
 // tile has a path to an edge. The erosion (field.ts), the rivers (hydro.ts), the spill levels the
-// land and the outlet wear read (`edgeSpill`) and Carve's downhill guide all run on it (the water
-// keeps its own, sim/prefill.ts). Exact arithmetic only; the heap breaks ties by tile index, so every
-// run agrees (PLAN §2.1).
+// land and the outlet wear read (`edgeSpill`), Carve's downhill guide and Naturalize's water levels
+// (features/raster/weather.ts) all run on it (the water keeps its own, sim/prefill.ts). Exact
+// arithmetic only; the heap breaks ties by tile index, so every run agrees (PLAN §2.1).
 //
 // Ported from the M9 design prototype (investigation/generative/proto/erode.ts).
 

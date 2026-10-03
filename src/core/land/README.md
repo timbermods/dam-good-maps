@@ -10,7 +10,7 @@ The generator's land processes (`docs/archive/m9-design.md`): a genome drawn fro
 
 **Start from**
 - `genome.ts` (the parameter space; `LEANINGS`, `DEFAULT_VARIETY`); `field.ts` `uplift`, `caprock`, `erodeHard`, `weather`; `levels.ts` `snapLevels`.
-- `hydro.ts` `planHydro` (rivers, lakes, falls); `hazards.ts` `planBadwater`; `drainage.ts` `drainage`, the one priority flood (the land's, and Carve's downhill guide), and `edgeSpill` (spill levels on whole levels, side to side, as the game's water moves).
+- `hydro.ts` `planHydro` (rivers, lakes, falls); `hazards.ts` `planBadwater`; `drainage.ts` `drainage`, the one priority flood (the land's, Carve's downhill guide and Naturalize's water levels), and `edgeSpill` (spill levels on whole levels, side to side, as the game's water moves).
 - `minePads.ts` `minePads` (the mine sites' level ground, made as the land is shaped, D363) and `roomMap` (where a start's walk has it on the settled water).
 - `intentions.ts` (the set, the nudges, the checks); `narrows.ts` `planNarrows` (an internal operation, no editor tool).
 

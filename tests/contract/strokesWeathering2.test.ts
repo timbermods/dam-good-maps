@@ -2,8 +2,10 @@
 // replay exactly (D158) after the rule that weathers dab by dab (`weathering: 3`). The strokes (held and
 // dragged, every size, square, a pen's pressure, a working area, kept runs) were recorded by the code of
 // `weathering: 2` (tests/fixtures/strokes-weathering-2.*, written at 647e45e1): each stroke on its own
-// terrain, and a project holding them all, with the water each recorded (`rim`, `shore`, `pools`). They
-// build byte for byte as they did. DGM_RECORD_W2=1 writes the fixtures again (only ever from that code).
+// terrain, and a project holding them all, with the water each recorded (`rim`, `shore`, `pools`). The
+// project builds byte for byte as it did. The strokes on their own were re-pinned once when Naturalize's
+// flood moved onto `land/drainage` (D462 answer 6, D308: its drainage tree differs on flats); they build
+// as pinned. DGM_RECORD_W2=1 writes the fixtures again (only ever from that code).
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -101,7 +103,7 @@ describe("Naturalize strokes saved with `weathering: 2` replay exactly (D158)", 
       writeFileSync(DIGESTS, JSON.stringify(d, null, 1) + "\n");
     });
 
-  it("each stroke on its own gives the terrain it gave", () => {
+  it("each stroke on its own gives its pinned terrain", () => {
     const d = JSON.parse(readFileSync(DIGESTS, "utf8")) as Digests;
     const t0 = terrain();
     const got = strokes(24, 24).map((p) => {
