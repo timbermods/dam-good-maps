@@ -13,6 +13,7 @@
 // and calls them in order.
 
 import type { Remote } from "comlink";
+import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { Ed } from "./ed";
@@ -39,6 +40,14 @@ import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
 import { editorView } from "./render/editorView";
 
+/** The map's land and water as the editor shows them, for Your maps' picture. */
+export interface MapPicture {
+  heights: Uint8Array;
+  W: number;
+  H: number;
+  water: ArrayLike<number> | null;
+}
+
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
@@ -48,8 +57,12 @@ export interface EditorProps {
   onOpenFile(file: File): void;
   /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
-  /** The map's name as the page keeps it (the drawer renames it; Save to Timberborn uses it). */
+  /** The map's name as the page keeps it (renamed in the header's title through the core, D443). */
   name: string;
+  /** Rename the map: null when the core stored it, else the core's reason (a blank name). */
+  onRename(name: string): Promise<string | null>;
+  /** The page asks the editor for the map's land and water as shown (Your maps' picture). */
+  onPicture?(get: () => MapPicture | null): void;
   /** The New map drawer: what it shows, whether it is open, and its switch (the page keeps it open across maps). */
   drawer: DrawerModel;
   drawerOpen: boolean;
@@ -78,6 +91,13 @@ export default function Editor(props: EditorProps) {
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  // Your maps' picture: the land and water as the view shows them
+  useEffect(() => {
+    props.onPicture?.(() => {
+      const m = ed.renderer.current?.mapState();
+      return m ? { heights: m.heights, W: m.W, H: m.H, water: m.surface.depth } : null;
+    });
+  }, []);
 
   return editorView(ed, props);
 }

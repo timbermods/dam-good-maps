@@ -1,12 +1,13 @@
-// The New map drawer's settings (PLAN §5, §14.1): Terrain, Water, Hazards, Resources, Advanced: start rules and
-// Limits for this size, each a section of the drawer that opens as a sheet over its lower part. Every field is
-// the generator's settings page's as it was on dev (its name, its band from the official maps, its guard, PLAN
-// §5.3): only where it sits changed.
+// The Maps drawer's settings (PLAN §5, §14.1): Terrain, Water, Hazards, Resources, Difficulty and Limits for this
+// size, each a section that opens in place under its own row. Every field is the generator's settings page's as
+// it was on dev (its name, its guard, PLAN §5.3), with no line under it (Kyler, 2026-10-03): the official maps'
+// range a line gave is in the setting's tooltip. Difficulty holds the start rules; every map is made for Normal
+// until the core drops difficulty after M9b's release.
 
 import type { ComponentChildren } from "preact";
 import { clone } from "../../core/spec/mergepatch";
-import { DIFFICULTY_RULES, type Difficulty, type MapSpec, type Settings, type ThemeId } from "../../core/spec/mapspec";
-import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, fallsRoom, FLOWS, GROVES, LAKE_CHOICES, limitsText, OFF_SOME, reserveGuard, RESERVES, STYLES, type Choice } from "../../ui/settingsModel";
+import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
+import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, LAKE_CHOICES, limitsText, OFF_SOME, reserveGuard, RESERVES, STYLES, type Choice } from "../../ui/settingsModel";
 
 export interface SettingsProps {
   spec: MapSpec;
@@ -17,13 +18,12 @@ export interface SettingsProps {
   onUnpinSeed(): void;
   onSize(size: { x: number; y: number }): void;
   onTheme(theme: ThemeId): void;
-  onDifficulty(d: Difficulty): void;
   onSettings(s: Settings): void;
   onReset(): void;
 }
 
 /** The sections, in the drawer's order. */
-export const SECTIONS = ["Terrain", "Water", "Hazards", "Resources", "Advanced: start rules", "Limits for this size"] as const;
+export const SECTIONS = ["Terrain", "Water", "Hazards", "Resources", "Difficulty", "Limits for this size"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 /** What each section holds, for its line's tooltip (D351). */
@@ -32,7 +32,7 @@ export const SECTION_TIPS: Record<Section, string> = {
   Water: "Rivers, lakes, falls and the drought reserve",
   Hazards: "Badwater, thorns and unstable cores",
   Resources: "Forests, berries, ruins and mine sites",
-  "Advanced: start rules": "What the start must have in reach",
+  Difficulty: "What the start must have in reach",
   "Limits for this size": "What a map this size can hold",
 };
 
@@ -42,7 +42,6 @@ export const HINT: Record<string, string> = {
   size: "The map's size: the game's, or your own",
   "size-x": "The map's width in tiles (48 to 256)",
   "size-y": "The map's height in tiles (48 to 256)",
-  "designed-for": "The difficulty the map is balanced for",
   relief: "How much the land rises and falls, from flat to rugged",
   verticality: "How steep and tall the cliffs and slopes are",
   highest: "The highest level the land may reach",
@@ -71,24 +70,28 @@ export const HINT: Record<string, string> = {
   geothermal: "Whether geothermal fields are placed, and how many",
   mines: "How many mine sites the map has",
   "start-area": "How roomy the land round the start is",
-  "rule-water": "The farthest the start may be from water",
-  "rule-wood": "The fewest logs the start must reach",
-  "rule-bushes": "The fewest bushes the start must reach",
+  "rule-water": "The farthest walk from the start to water, in tiles",
+  "rule-wood": "The fewest logs the start must reach on foot",
+  "rule-bushes": "The fewest berry bushes the start must reach on foot",
   "rule-ruins": "How far from the start ruins must stay, in tiles",
 };
 
-export function Band({ id, text }: { id: string; text: string }) {
-  return text ? (
-    <span class="band" id={id}>
-      {text}
-    </span>
-  ) : null;
+/** The official maps' range a setting's reference line gave, as a short phrase for its tooltip ("Official maps:
+ *  9–15"; Kyler, 2026-10-03: no line under any setting, and nothing else of it moves into the tooltip). */
+export function officialPhrase(band: string | undefined): string {
+  const m = /Official (?:maps|groves)[^.]*/.exec(band ?? "");
+  return m ? m[0].trim() : "";
+}
+
+/** A setting's tooltip: what it does, then the official maps' range where it has one (D351). */
+function tipOf(id: string, band?: string): string {
+  const o = officialPhrase(band);
+  return [HINT[id], o].filter(Boolean).join(" · ");
 }
 
 function Slider(props: { id: string; label: string; value: number; min: number; max: number; step?: number; unit?: string; band?: string; onChange(v: number): void }) {
-  const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id} title={HINT[props.id]}>
+    <label class="field" for={props.id} title={tipOf(props.id, props.band)}>
       <span class="field-head">
         {props.label}
         <output for={props.id}>
@@ -96,27 +99,16 @@ function Slider(props: { id: string; label: string; value: number; min: number; 
           {props.unit ?? ""}
         </output>
       </span>
-      <input
-        id={props.id}
-        type="range"
-        min={props.min}
-        max={props.max}
-        step={props.step ?? 1}
-        value={props.value}
-        aria-describedby={props.band ? bandId : undefined}
-        onInput={(e) => props.onChange(Number((e.target as HTMLInputElement).value))}
-      />
-      <Band id={bandId} text={props.band ?? ""} />
+      <input id={props.id} type="range" min={props.min} max={props.max} step={props.step ?? 1} value={props.value} onInput={(e) => props.onChange(Number((e.target as HTMLInputElement).value))} />
     </label>
   );
 }
 
-function Pick<T extends string>(props: { id: string; label: string; value: T; choices: Choice<T>[]; band?: string; note?: string; onChange(v: T): void }) {
-  const bandId = `${props.id}-band`;
+function Pick<T extends string>(props: { id: string; label: string; value: T; choices: Choice<T>[]; band?: string; onChange(v: T): void }) {
   return (
-    <label class="field" for={props.id} title={HINT[props.id]}>
+    <label class="field" for={props.id} title={tipOf(props.id, props.band)}>
       <span class="field-head">{props.label}</span>
-      <select id={props.id} value={props.value} aria-describedby={props.band || props.note ? bandId : undefined} onChange={(e) => props.onChange((e.target as HTMLSelectElement).value as T)}>
+      <select id={props.id} value={props.value} onChange={(e) => props.onChange((e.target as HTMLSelectElement).value as T)}>
         {props.choices.map((c) => (
           <option value={c.value} key={c.value} disabled={!!c.disabled}>
             {c.label}
@@ -124,15 +116,13 @@ function Pick<T extends string>(props: { id: string; label: string; value: T; ch
           </option>
         ))}
       </select>
-      <Band id={bandId} text={[props.band, props.note].filter(Boolean).join(" ")} />
     </label>
   );
 }
 
 export function Num(props: { id: string; label: string; value: number; min: number; max: number; band?: string; onChange(v: number): void }) {
-  const bandId = `${props.id}-band`;
   return (
-    <label class="field" for={props.id} title={HINT[props.id]}>
+    <label class="field" for={props.id} title={tipOf(props.id, props.band)}>
       <span class="field-head">{props.label}</span>
       <input
         id={props.id}
@@ -140,13 +130,11 @@ export function Num(props: { id: string; label: string; value: number; min: numb
         min={props.min}
         max={props.max}
         value={props.value}
-        aria-describedby={props.band ? bandId : undefined}
         onChange={(e) => {
           const v = Math.round(Number((e.target as HTMLInputElement).value));
           if (Number.isFinite(v)) props.onChange(Math.min(props.max, Math.max(props.min, v)));
         }}
       />
-      <Band id={bandId} text={props.band ?? ""} />
     </label>
   );
 }
@@ -166,10 +154,6 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
     const g = reserveGuard(spec.designedFor, c.value, W, H);
     return g.fits ? c : { ...c, disabled: "too big for this map size" };
   });
-  const reserveNote = reserveGuard(spec.designedFor, s.water.droughtReserve, W, H);
-  const room = fallsRoom(s.terrain.highestTerrain);
-  const fallsNote = s.water.waterfalls === "many" && room < 6 ? `Up to ${room} falls fit under highest terrain ${s.terrain.highestTerrain}.` : "";
-  const d = DIFFICULTY_RULES[spec.designedFor];
   switch (p.section) {
     case "Terrain":
       return (
@@ -193,11 +177,10 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
             value={s.water.droughtReserve}
             choices={reserves}
             band={band("droughtReserve", spec)}
-            note={reserveNote.fits ? reserveNote.note : `This reserve ${reserveNote.note}.`}
             onChange={(v) => set((c) => (c.water.droughtReserve = v))}
           />
           <Pick id="lakes" label="Lakes and basins" value={s.water.lakes} choices={LAKE_CHOICES} band={band("lakes", spec)} onChange={(v) => set((c) => (c.water.lakes = v))} />
-          <Pick id="falls" label="Waterfalls" value={s.water.waterfalls} choices={FALLS} band={band("waterfalls", spec)} note={fallsNote} onChange={(v) => set((c) => (c.water.waterfalls = v))} />
+          <Pick id="falls" label="Waterfalls" value={s.water.waterfalls} choices={FALLS} band={band("waterfalls", spec)} onChange={(v) => set((c) => (c.water.waterfalls = v))} />
         </>
       );
     case "Hazards":
@@ -233,7 +216,6 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
             {(["pine", "birch", "oak", "succulent"] as const).map((k) => (
               <Num key={k} id={`mix-${k}`} label={k[0].toUpperCase() + k.slice(1)} value={s.resources.speciesMix[k]} min={0} max={100} onChange={(v) => set((c) => (c.resources.speciesMix[k] = v))} />
             ))}
-            <span class="band">Weights. Succulents grow only on dry soil.</span>
           </fieldset>
           <Slider id="berries-start" label="Berries near start" value={s.resources.berriesNearStart} min={20} max={100} band={band("berriesNearStart", spec)} onChange={(v) => set((c) => (c.resources.berriesNearStart = v))} />
           <Slider id="berries" label="Berry bushes elsewhere" value={s.resources.berryBushes} min={50} max={300} step={5} unit="%" band={band("berryBushes", spec)} onChange={(v) => set((c) => (c.resources.berryBushes = v))} />
@@ -243,14 +225,14 @@ export function SectionFields(p: SettingsProps & { section: Section }): Componen
           <Slider id="mines" label="Mine sites" value={s.resources.mineSites} min={1} max={4} band={band("mineSites", spec)} onChange={(v) => set((c) => (c.resources.mineSites = v))} />
         </>
       );
-    case "Advanced: start rules":
+    case "Difficulty":
       return (
         <>
-          <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} band="A preference: the land leans toward a tighter or roomier bench round the district center. The map card shows the bench you got." onChange={(v) => set((c) => (c.start.area = v))} />
-          <Num id="rule-water" label="Water without stairs (tiles)" value={s.start.rules.waterWithin} min={4} max={40} band={`${band("waterWithin", spec)} Default ${d.waterWithin}.`} onChange={(v) => set((c) => (c.start.rules.waterWithin = v))} />
-          <Num id="rule-wood" label="Minimum starting wood (logs)" value={s.start.rules.woodWithin20} min={0} max={800} band={`${band("woodWithin20", spec)} Default ${d.woodWithin20}.`} onChange={(v) => set((c) => (c.start.rules.woodWithin20 = v))} />
-          <Num id="rule-bushes" label="Minimum starting bushes" value={s.start.rules.bushesWithin20} min={0} max={200} band={`${band("bushesWithin20", spec)} Default ${d.bushesWithin20}.`} onChange={(v) => set((c) => (c.start.rules.bushesWithin20 = v))} />
-          <Num id="rule-ruins" label="No ruins within (tiles)" value={s.start.rules.ruinsWithin} min={0} max={60} band={`${band("ruinsWithin", spec)} Default ${d.ruinsWithin}.`} onChange={(v) => set((c) => (c.start.rules.ruinsWithin = v))} />
+          <Num id="rule-wood" label="Starting wood" value={s.start.rules.woodWithin20} min={0} max={800} band={band("woodWithin20", spec)} onChange={(v) => set((c) => (c.start.rules.woodWithin20 = v))} />
+          <Num id="rule-water" label="Max walk to water" value={s.start.rules.waterWithin} min={4} max={40} band={band("waterWithin", spec)} onChange={(v) => set((c) => (c.start.rules.waterWithin = v))} />
+          <Num id="rule-bushes" label="Starting berries" value={s.start.rules.bushesWithin20} min={0} max={200} band={band("bushesWithin20", spec)} onChange={(v) => set((c) => (c.start.rules.bushesWithin20 = v))} />
+          <Pick id="start-area" label="Start area" value={s.start.area} choices={AREAS} onChange={(v) => set((c) => (c.start.area = v))} />
+          <Num id="rule-ruins" label="No ruins within" value={s.start.rules.ruinsWithin} min={0} max={60} band={band("ruinsWithin", spec)} onChange={(v) => set((c) => (c.start.rules.ruinsWithin = v))} />
         </>
       );
     case "Limits for this size":

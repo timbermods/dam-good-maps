@@ -100,10 +100,95 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   );
 }
 
+/** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
+ *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
+ *  blank name is refused in the core's own words. */
+function TitleName(p: { name: string; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+  const [text, setText] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const timer = useRef(0);
+  useEffect(() => {
+    closing.current = false;
+    if (text !== null) {
+      input.current?.focus();
+      input.current?.select();
+    }
+  }, [text !== null]);
+  const say = (problem: string | null, forAWhile = false) => {
+    clearTimeout(timer.current);
+    p.onProblem(problem);
+    if (problem && forAWhile) timer.current = window.setTimeout(() => p.onProblem(null), 3000);
+  };
+  /** (a save under way, or the field closed: the blur of the closing field saves nothing again) */
+  const closing = useRef(false);
+  const save = async (leaving: boolean) => {
+    if (text === null || closing.current) return;
+    closing.current = true;
+    try {
+      await saveText(text, leaving);
+    } finally {
+      closing.current = false;
+    }
+  };
+  const saveText = async (text: string, leaving: boolean) => {
+    if (text.trim() === p.name) {
+      setText(null);
+      return say(null);
+    }
+    const problem = await p.onRename(text);
+    if (!problem) {
+      setText(null);
+      return say(null);
+    }
+    // refused: Enter keeps the field open with the core's words; leaving puts the name back and says why
+    if (leaving) setText(null);
+    say(problem, leaving);
+  };
+  if (text === null)
+    return (
+      <h1>
+        <button type="button" class="title-button" title="Rename" onClick={() => setText(p.name)}>
+          {p.name}
+        </button>
+      </h1>
+    );
+  return (
+    <h1>
+      <span class="title-edit" data-text={text || " "}>
+        <input
+          ref={input}
+          value={text}
+          maxLength={80}
+          spellcheck={false}
+          autoComplete="off"
+          aria-label="Map name"
+          title="Rename"
+          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void save(false);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              closing.current = true;
+              setText(null);
+              say(null);
+            }
+          }}
+          onBlur={() => void save(true)}
+        />
+      </span>
+    </h1>
+  );
+}
+
 export interface HeaderProps {
   info: SessionInfo;
-  /** The map's name as the page keeps it (renamed in the drawer). */
+  /** The map's name as the page keeps it. */
   name: string;
+  /** Rename through the core (D443): null when stored, else the core's reason. */
+  onRename(name: string): Promise<string | null>;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
@@ -133,6 +218,8 @@ export interface HeaderProps {
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const [about, setAbout] = useState(false);
+  /** The core's refusal of a name, said in the title's second line. */
+  const [problem, setProblem] = useState<string | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
@@ -186,12 +273,14 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the New map drawer" : "Make a new map: its settings open on the left"} onClick={p.onDrawer}>
-        New map
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close Maps" : "New maps and your maps"} onClick={p.onDrawer}>
+        Maps
       </button>
       <div class="editor-title">
-        <h1 title={p.name}>{p.name}</h1>
-        <span class="muted">{p.saveState || `${p.info.kind === "generated" && p.info.spec ? `seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}</span>
+        <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
+        <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
+          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
+        </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>

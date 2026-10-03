@@ -17,21 +17,20 @@ import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
   defaultSettings,
-  DIFFICULTY_RULES,
   encodeSpecFragment,
   GENERATOR_VERSION,
   makeSpec,
   mineSitesForSize,
   seedFromText,
   shareLink,
-  type Difficulty,
   type MapSpec,
   type Settings,
   type ThemeId,
 } from "../core/spec/mapspec";
 import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
-import type { EditorProps } from "../editor/Editor";
+import type { EditorProps, MapPicture } from "../editor/Editor";
+import { thumbnailPixels } from "../core/render/thumb";
 import type { DrawerModel, YourMapRow } from "../editor/Drawer";
 import type { Section } from "../editor/drawer/settings";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
@@ -79,7 +78,8 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
   const d = decodeSpecFragment(location.hash);
   if (d) {
     const note = d.version !== GENERATOR_VERSION ? `This link was made with generator ${d.version}; this is ${GENERATOR_VERSION}, so the map may differ.` : undefined;
-    return { spec: d.spec, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
+    // every map is made for Normal until the core drops difficulty after M9b's release (Kyler, 2026-10-03)
+    return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
   // Any (Surprise me) is the default (D209)
   return { spec: makeSpec({ seed: randomSeed(), theme: "any" }), fromLink: false };
@@ -111,7 +111,21 @@ function noteCurrent(id: string, link: string): void {
 }
 
 /** A row of Your maps: the name and the map's dimensions. */
-const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size });
+const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail });
+
+/** Your maps' picture of a map (D234): the core's 64px top-down thumbnail (`thumbnailPixels`), as a PNG. */
+function thumbnailUrl(m: MapPicture): string | null {
+  try {
+    const t = thumbnailPixels(m.heights, m.W, m.H, m.water);
+    const c = document.createElement("canvas");
+    c.width = t.w;
+    c.height = t.h;
+    c.getContext("2d")!.putImageData(new ImageData(t.rgba, t.w, t.h), 0, 0);
+    return c.toDataURL("image/png");
+  } catch {
+    return null;
+  }
+}
 
 /** Where an opened map comes from: a row of Your maps keeps its id and name; anything else is a new row. */
 type Origin = { entry: YourMapEntry } | { kind: YourMapEntry["kind"] };
@@ -129,7 +143,8 @@ export function App() {
    *  unlocks it or clears the box (D323, item 20). Otherwise every Generate rolls a fresh seed. */
   const [seedPinned, setSeedPinned] = useState(init.fromLink);
   const [size, setSize] = useState<{ x: number; y: number }>(init.spec.size);
-  const [difficulty, setDifficulty] = useState<Difficulty>(init.spec.designedFor);
+  /** Every map is made for Normal (Kyler, 2026-10-03: Difficulty's start rules replace "Designed for"). */
+  const difficulty = "normal" as const;
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
   const [busy, setBusy] = useState(false);
@@ -144,7 +159,7 @@ export function App() {
   const [opening, setOpening] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   /** The drawer's open settings sheet, kept when a new map replaces the open one. */
-  const [section, setSection] = useState<Section | null>(null);
+  const [openSections, setOpenSections] = useState<readonly Section[]>([]);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
@@ -154,10 +169,14 @@ export function App() {
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
 
   const entry = useRef<YourMapEntry | null>(null);
+  /** The open map's land and water as the editor shows it, for Your maps' picture. */
+  const picture = useRef<(() => MapPicture | null) | null>(null);
   const nameRef = useRef("");
   const infoRef = useRef<SessionInfo | null>(null);
   /** The map's version and views when it opened or was last saved: a save only when they change. */
   const lastKey = useRef("");
+  /** The open map is new and not yet in Your maps. */
+  const unsaved = useRef(false);
   /** Set while the open map is being replaced: the editor's last changes then belong to the map leaving. */
   const switching = useRef(false);
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
@@ -198,26 +217,14 @@ export function App() {
   function showSpec(s: MapSpec) {
     setSeedText(String(s.seed));
     setSize(s.size);
-    setDifficulty(s.designedFor);
     setTheme(s.theme);
     setSettings(s.settings);
   }
 
-  // a theme pre-fills every setting (PLAN §6); a difficulty sets the start rules and its badwater
-  // distance and berry target (PLAN §5.6); a size sets the default number of mine sites
+  // a theme pre-fills every setting (PLAN §6), at Normal's start rules; a size sets the default number of mine sites
   function chooseTheme(t: ThemeId) {
     setTheme(t);
     setSettings(defaultSettings(t, difficulty, size));
-  }
-  function chooseDifficulty(d: Difficulty) {
-    setDifficulty(d);
-    const r = DIFFICULTY_RULES[d];
-    setSettings((s) => ({
-      ...s,
-      hazards: { ...s.hazards, badwaterDistance: r.badwaterWithin },
-      resources: { ...s.resources, berriesNearStart: r.berriesTarget },
-      start: { ...s.start, rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, bushesWithin20: r.bushesWithin20, badwaterWithin: r.badwaterWithin, ruinsWithin: r.ruinsWithin } },
-    }));
   }
   function chooseSize(z: { x: number; y: number }) {
     setSize(z);
@@ -230,8 +237,10 @@ export function App() {
 
   /** The open map, as Your maps keeps it: its project file now. */
   async function snapshot() {
+    unsaved.current = false;
     const p = await generator.project(6);
-    const e = { ...entry.current!, name: nameRef.current || entry.current!.name, revision: infoRef.current?.version ?? entry.current!.revision, bytes: p.bytes.length, editedAt: new Date().toISOString() };
+    const pic = picture.current?.();
+    const e = { ...entry.current!, name: nameRef.current || entry.current!.name, revision: infoRef.current?.version ?? entry.current!.revision, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail: (pic && thumbnailUrl(pic)) ?? entry.current!.thumbnail };
     entry.current = e;
     return { entry: e, project: p.bytes };
   }
@@ -239,6 +248,7 @@ export function App() {
   /** Replace the open map: what is waiting to be saved of it is saved first, from the map itself. */
   async function replacing<T>(load: () => Promise<T>): Promise<T> {
     switching.current = true;
+    if (unsaved.current && entry.current) saver.changed(entry.current.id, snapshot);
     try {
       await saver.flush();
       return await load();
@@ -263,9 +273,14 @@ export function App() {
     if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
     history.replaceState(null, "", link || location.pathname + location.search);
     noteCurrent(e.id, link);
+    // a new map joins Your maps once the editor has settled on it (writing its project at once would hold up the
+    // worker while the editor opens), or at once when something replaces it first
+    unsaved.current = isNew;
     if (isNew) {
-      saver.changed(e.id, snapshot);
-      void saver.flush(e.id);
+      const id = e.id;
+      window.setTimeout(() => {
+        if (unsaved.current && entry.current?.id === id) saver.changed(id, snapshot);
+      }, 4000);
     } else refresh();
   }
 
@@ -280,18 +295,17 @@ export function App() {
     saver.changed(entry.current.id, snapshot);
   }
 
-  /** Rename the map (D443): the core stores the name (never an operation, never an undo step) or refuses a
-   *  blank one with its own words, which the field shows; Your maps takes it with the next save. */
-  const [nameProblem, setNameProblem] = useState<string | null>(null);
-  async function rename(n: string) {
+  /** Rename the map from the header's title (D443): the core stores the name (never an operation, never an undo
+   *  step) or refuses a blank one with its own words, which the title says; Your maps takes it with the next save. */
+  async function rename(n: string): Promise<string | null> {
     const { result, info } = await generator.setName(n);
-    if (!result.ok) return setNameProblem(result.reason);
-    setNameProblem(null);
+    if (!result.ok) return result.reason;
     nameRef.current = result.name;
     infoRef.current = info;
     setName(result.name);
     setSession(info);
     if (entry.current) saver.changed(entry.current.id, snapshot);
+    return null;
   }
 
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
@@ -470,13 +484,8 @@ export function App() {
     onUnpinSeed: () => setSeedPinned(false),
     onSize: chooseSize,
     onTheme: chooseTheme,
-    onDifficulty: chooseDifficulty,
     onSettings: setSettings,
     onReset: () => setSettings(defaultSettings(theme, difficulty, size)),
-    name,
-    onRename: (n) => void rename(n),
-    nameProblem,
-    onNameLeft: () => setNameProblem(null),
     busy,
     busyWords: progress ? progressText(progress) : "Opening…",
     changed,
@@ -485,8 +494,8 @@ export function App() {
     maps: maps.map(rowOf),
     current: entry.current?.id ?? null,
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
-    section,
-    onSection: setSection,
+    open: openSections,
+    onToggle: (s) => setOpenSections((o) => (o.includes(s) ? o.filter((x) => x !== s) : [...o, s])),
   };
 
   const confirmDialog = confirm ? (
@@ -556,6 +565,8 @@ export function App() {
         onOpenFile={openFile}
         saveState={saveState}
         name={name}
+        onRename={rename}
+        onPicture={(get) => (picture.current = get)}
         drawer={drawer}
         drawerOpen={drawerOpen}
         onDrawer={setDrawerOpen}

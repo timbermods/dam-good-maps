@@ -87,40 +87,85 @@
   --overlay: var(--panel);
 }
 
-/* ---- the drawer: in the palette's place, over the map's left edge; the palette stays put beneath it,
-   so the map's area and the map itself never move */
-.editor.drawer-open .editor-main > .shelf {
-  visibility: hidden;
-}
-
+/* ---- one left column at one width (Kyler, 2026-10-03): the palette and the Maps drawer share it, wide enough for
+   the drawer; opening or closing the drawer swaps what the column shows, and nothing else moves or changes size */
 .editor-main {
   position: relative;
+  grid-template-columns: var(--left-w, 352px) minmax(0, 1fr) auto;
 }
 
+.editor-main > .shelf,
 .drawer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 8;
-  width: var(--drawer-w, 352px);
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.editor.drawer-open .editor-main > .shelf {
+  display: none;
+}
+
+/* the palette fills the wider column: more tools to a row, each with its picture and its name */
+.editor-main > .shelf .shelf-grid {
+  grid-template-columns: repeat(4, 76px);
+  justify-content: center;
+}
+
+/* the drawer: Generate and Surprise me pinned at its top; everything under them scrolls as one panel */
+.drawer {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  padding: 10px 12px;
+  min-height: 0;
   background: var(--panel);
   border-right: 1px solid var(--rule);
-  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
 }
 
-/* the drawer's head: the current map's name, editable, in the heading's size */
-.drawer-head {
-  margin-bottom: 8px;
+.drawer-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
 }
 
-.drawer-head .map-name {
-  font-size: 1.05rem;
-  font-weight: 600;
+.drawer-go {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.drawer-go .primary {
+  flex: 1;
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+}
+
+/* what is on the map: picture, number, name */
+.drawer-legend {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.drawer-legend li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.drawer-legend img {
+  width: 24px;
+  height: 24px;
 }
 
 .drawer-fields {
@@ -168,26 +213,19 @@
   padding: 0 6px;
 }
 
-.drawer-fields .segmented {
-  display: flex;
-}
-
-.drawer-fields .segmented button {
-  flex: 1;
-}
-
+/* the sections: each opens in place under its own row, pushing only the rows below it; several at once */
 .drawer-sections {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   border-top: 1px solid var(--rule);
 }
 
-.drawer-sections li {
+.drawer-sections > li {
   border-bottom: 1px solid var(--rule);
 }
 
-.drawer-sections button {
+.drawer-sections .section-row {
   display: flex;
   justify-content: space-between;
   width: 100%;
@@ -196,66 +234,17 @@
   text-align: left;
 }
 
-.drawer-go {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
+.drawer-sections .section-row[aria-expanded="true"] .chev {
+  transform: rotate(90deg);
 }
 
-.drawer-go .primary {
-  flex: 1;
+.drawer-sections .section-fields {
+  padding: 4px 4px 8px;
 }
 
-/* the drawer's lower part: the map card, then Your maps filling the room left and scrolling inside it; a
-   settings section opens as a sheet over it, so nothing above moves */
-.drawer-lower {
-  position: relative;
-  flex: 1 0 auto;
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-}
-
-.drawer-card {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--rule);
-}
-
-.drawer-card .premise {
-  margin: 0 0 8px;
-  font-size: 0.9rem;
-}
-
-.drawer-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 8px;
-  font-size: 0.85rem;
-}
-
-.drawer-legend li {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.drawer-legend img {
-  width: 24px;
-  height: 24px;
-}
-
+/* Your maps: square tiles, two to a row, each the map's picture with its name and size under it */
 .your-maps {
-  flex: 1 1 0;
-  min-height: 96px;
-  display: flex;
-  flex-direction: column;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--rule);
+  margin-top: 14px;
 }
 
 .your-maps h3 {
@@ -266,39 +255,57 @@
 }
 
 .your-maps ul {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .your-maps button {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   width: 100%;
-  padding: 5px 6px;
-  border: 0;
-  border-left: 3px solid transparent;
-  border-radius: 0;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .your-maps button:hover {
   background: var(--bg);
 }
 
-/* the map open now: the mint's bar at its left, its name in the heading's weight */
+.ym-pic {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: var(--code);
+  object-fit: cover;
+  image-rendering: auto;
+}
+
+/* the map open now: the mint's edge and its name in the heading's weight */
 .your-maps button[aria-current="true"] {
-  border-left-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
   cursor: default;
 }
 
 .your-maps button[aria-current="true"] .ym-name {
   font-weight: 600;
+}
+
+.ym-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 .ym-name {
@@ -312,36 +319,8 @@
 .ym-size {
   flex: none;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
-}
-
-.drawer-sheet {
-  position: absolute;
-  inset: 12px 0 0;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  border-top: 1px solid var(--rule);
-}
-
-.sheet-back {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  margin: 6px 0;
-  padding: 4px 6px;
-  border: 0;
-  font-weight: 600;
-}
-
-.drawer-sheet .sheet-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 /* the page before its first map: the first look, in the window's middle */
@@ -361,15 +340,6 @@
   gap: 10px;
 }
 
-/* what sits over the map keeps its place to the drawer's right edge: it moves right with the drawer as one block */
-.editor.drawer-open .brush-bar-wrap,
-.editor.drawer-open .view3d-controls,
-.editor.drawer-open .editor-view .minimap,
-.editor.drawer-open .readout,
-.editor.drawer-open .start-indicators {
-  margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
-}
-
 /* ---- the right column (Kyler, 2026-10-02): one exact right edge for the level row, Slow forces and Sound, the
    Legend button, the legend panel and the water bar; the column's left edge is Slow forces'. Row 1's level control
    is Slow forces' width and the compass Sound's; the Legend button spans the column; the panel under it runs down
@@ -384,6 +354,11 @@
    takes the width (8px of padding each side becomes 14.5px), and Slow forces, which fills the column, follows */
 .view3d-corner .corner-level .layer-widget output {
   padding: 0 14.5px;
+  /* one width for every value, ∞ to 22, so the control never changes width (Kyler, 2026-10-03) */
+  width: 3ch;
+  min-width: 3ch;
+  box-sizing: content-box;
+  cursor: pointer;
 }
 
 .corner-legend {
@@ -440,11 +415,54 @@
   bottom: calc(48px + 168px + 8px);
 }
 
-.editor.drawer-open .layer-legend {
-  margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
+/* the map's name, renamed in place: the button and the field take exactly the title's place, size and font */
+.editor-title .title-button {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
 }
 
-/* the core's refusal of a name (a blank one), under the field */
-.drawer .name-problem {
+.editor-title .title-edit {
+  display: inline-grid;
+  max-width: 100%;
+}
+
+.editor-title .title-edit::after,
+.editor-title .title-edit input {
+  grid-area: 1 / 1;
+  font: inherit;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  white-space: pre;
+}
+
+/* (the hidden copy of the text sets the field's width, so the title keeps its size while it is typed) */
+.editor-title .title-edit::after {
+  content: attr(data-text);
+  visibility: hidden;
+  overflow: hidden;
+}
+
+.editor-title .title-edit input {
+  width: 100%;
+  min-width: 1ch;
+  background: none;
+  color: inherit;
+  text-align: center;
+  outline-offset: 2px;
+}
+
+.editor-title .title-problem {
   color: var(--warn);
+  opacity: 1;
 }

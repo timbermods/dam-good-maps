@@ -30,6 +30,7 @@ export function header(ed: Ed, props: EditorProps) {
       historyOpen={showHistory}
       onHistory={() => setShowHistory(!showHistory)}
       name={props.name}
+      onRename={props.onRename}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
