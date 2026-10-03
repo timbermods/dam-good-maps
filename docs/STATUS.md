@@ -87,7 +87,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
    (D425), so its export differs (`properties.test.ts`, all four presets; dev at 478fefad fails too).
 2. **An M9b bug:** after a force edit, a spring river's source row gets a new id (`groupIds`, #172), when the land shifts
    the row a tile (`editSequences`, every theme on M9b's maps); a fix may move source ids in every file (D382 allows it).
-3. **M9b's Delta:** the water outcome misses on 5 of 20 at every size (planned river courses partly dry): trace the cause.
+3. **M9b's Delta** (D447, blocks M9b's release): the water outcome misses on 5 of 20 at every size (planned river courses
+   partly dry): trace from e3130755, fix with a failing test first, re-measure only what the fix reaches.
 4. **`pickStart`'s latent NaN** (src/core/gen/settler.ts) where a tile has no walkable-land label.
 5. **The gallery shows every Real place again** (D445).
 6. **The third waterView.spec flake** (line ~144, the selected source group not visible after a click; D341).
