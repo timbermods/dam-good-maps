@@ -539,10 +539,11 @@ describe("a carve in the document (breakage rule)", () => {
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
     // only the lake still changes, by evaporating: the water has settled (D222), the settle stops
-    // there, well before its cap (D413), and the quiet dot says so
+    // there, before its cap (D413), and the quiet dot says so (on M9b's Highlands 8 the rest of the
+    // water steadies after four days, 3,072 ticks; the cap is SETTLE_DAYS, D358)
     expect(s.built.settle.settled).toBe(false);
     expect(s.built.settle.steadyTicks).toBe(s.built.settle.ticks);
-    expect(s.built.settle.ticks).toBeLessThanOrEqual(TICKS_PER_DAY);
+    expect(s.built.settle.ticks).toBeLessThan(SETTLE_DAYS * TICKS_PER_DAY);
     // the lake is stored with the water its carve kept (D413): it stopped draining before saving,
     // and the game evaporates it from there
     const floor = s.built.waterModel.floor;
