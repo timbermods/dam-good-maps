@@ -21,13 +21,14 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
   session folds them into PLAN when its work merges. A control the core's items need is agreed through Kyler.
 - **The renderer session** (Opus 5.5, high; Kyler's PC; `feature/moving-water`) builds moving water and the Flow view, then
   renderer R1. #165 is merged (247dd78a, D446) after its 6-cell check passed 6 of 6. It never edits PLAN, STATUS or HANDOFF.
+  Next on its own PR: post-release items 1 and 2 (the quick-click bug; tests for an eruption in High and the highlight
+  on High's basin sources, D378), merged when CI is green and its 6-cell check passes if it ran one.
 
 ## In flight
 
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
-**The milestone session's work now:** Post-release items 1 and 2 (the quick-click bug; tests for an eruption in High and the highlight on
-  High's basin sources, D378) are its next PR, merged when CI is green and its 6-cell check passes if it ran one.
+**The milestone session's work now:**
 - **M9b's quiet window** (D414): runs at 02:00 on Saturday 2026-10-03; heavy work pauses for it.
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source
