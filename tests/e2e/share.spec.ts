@@ -7,14 +7,15 @@ import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { openEditor, openSection, waitForEditor } from "./open";
 import { generate } from "../../src/core/gen/generate";
-import { encodeSpecFragment } from "../../src/core/spec/mapspec";
+import { defaultSettings, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 import { shareCases } from "../shareCases";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 test("a share link opens the same map, byte for byte, in every theme; the address holds the link", async ({ page, browser }) => {
   test.setTimeout(360_000);
-  for (const spec of shareCases()) {
+  // (every map is made for Normal, Kyler 2026-10-03: a link made for another difficulty is the next test's)
+  for (const spec of shareCases().filter((c) => c.designedFor === "normal")) {
     const fragment = encodeSpecFragment(spec);
     const node = sha(generate(spec).bytes);
     // (a fresh load: a link that only changes the fragment does not reload the page)
@@ -36,6 +37,20 @@ test("a share link opens the same map, byte for byte, in every theme; the addres
   }
 });
 
+test("a link made for Easy or Hard opens a Normal map with Normal's default settings (every map is made for Normal, 2026-10-03)", async ({ page }) => {
+  test.setTimeout(240_000);
+  for (const d of ["e", "h"]) {
+    await openEditor(page, `s=4242&z=128&d=${d}&t=canyon`);
+    const normal = makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "canyon", designedFor: "normal" });
+    const shown = await page.evaluate(() => window.dgm!.current!());
+    const spec = await page.evaluate(() => window.dgmEditor!.info().spec);
+    expect(spec?.designedFor, d).toBe("normal");
+    expect(spec?.settings, d).toEqual(defaultSettings("canyon", "normal", { x: 128, y: 128 }));
+    expect(shown?.link.split("#")[1], d).toBe(encodeSpecFragment(normal));
+    expect(shown?.sha256, d).toBe(sha(generate(normal).bytes));
+  }
+});
+
 test("changing a setting and generating puts it in the link", async ({ page }) => {
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
   await (await openSection(page, "Water")).getByLabel("Waterfalls").selectOption("many");
@@ -49,7 +64,8 @@ test("changing a setting and generating puts it in the link", async ({ page }) =
 });
 
 test("the drought reserve guard disables what a small map cannot hold", async ({ page }) => {
-  await openEditor(page, "s=5&t=riverValley&z=56&d=h");
+  // (a Normal map's Plenty reserve needs about 380 tiles of reservoir: more than 15% of a 48² map)
+  await openEditor(page, "s=5&t=riverValley&z=48&d=n");
   await openSection(page, "Water");
   const plenty = page.locator("#reserve option[value=plenty]");
   await expect(plenty).toHaveJSProperty("disabled", true);

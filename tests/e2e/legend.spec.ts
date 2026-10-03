@@ -100,7 +100,7 @@ test("the header names the open map: a generated map, then an opened file, the r
   const g = generate(makeSpec({ seed: 7, size: { x: 48, y: 48 } }));
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
-  await expect(page.locator(".editor-title .muted")).toHaveText("seed 4242 · 96×96");
+  await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
   expect(new URL(page.url()).hash).toMatch(/^#(v=[^&]+&)?s=4242&/);
 
   // the file replaces it without asking: the header names the file's map, its size alone, and the address is empty
@@ -110,10 +110,11 @@ test("the header names the open map: a generated map, then an opened file, the r
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe("");
 
-  // Your maps lists both, the open one marked; the other one's row brings it back
+  // Your maps lists both, the open one marked; the other one's row brings it back (the opened file joins Your maps a few
+  // seconds after it opens, so its tile is waited for)
   await openDrawer(page);
   const yours = page.getByRole("region", { name: "Your maps" });
-  await expect(yours.getByRole("button")).toHaveCount(2);
+  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText("My island");
   await yours.getByRole("button", { name: /^River Valley/ }).click();
   await expect(page.locator(".editor-title h1")).toHaveText("River Valley", { timeout: 60_000 });

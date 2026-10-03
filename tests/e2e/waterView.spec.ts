@@ -93,15 +93,17 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.keyboard.up("Alt");
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
   await expect(widget.locator("output")).toHaveText("∞");
-  // the widget: a step down, one up, and back to the whole world; Esc never resets it
+  // the widget (Kyler, 2026-10-03: ▾ value ▴ only): the first step down from the whole world goes to the map's highest
+  // ground, then one lower, one up, and a click on the value is back to the whole world; Esc never resets it
+  await widget.getByRole("button", { name: "Lower the visible layer" }).click();
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
-  await widget.getByRole("button", { name: "Lower the visible layer" }).click();
   await widget.getByRole("button", { name: "Raise the visible layer" }).click();
-  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
   await page.keyboard.press("Escape");
-  expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
-  await widget.getByRole("button", { name: "Show every layer" }).click();
+  expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top);
+  await widget.locator("output").click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 
   // a source picked on the shelf: every source shows its marker with its strength

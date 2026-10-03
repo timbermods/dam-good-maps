@@ -23,16 +23,23 @@ test("the start requirements follow the settings, and the editor's start follows
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=77&z=96&d=n&t=riverValley");
 
-  // each requirement, met, with the validator's number and Normal's defaults (D227: Minimum starting wood 200,
+  // each requirement, met, with the validator's number and Normal's defaults (D227: Starting wood 200,
   // 80 before), and the starting-logs floor (178 within 40 tiles' walk)
   let c = await checks(page);
   expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 30, 178]);
   for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) expect(c[id].ok, id).toBe(true);
 
-  // the settings are the thresholds: Minimum starting wood 75 moves the check's limit (set in the New map drawer)
-  const sheet = await openSection(page, "Advanced: start rules");
-  await sheet.getByLabel("Minimum starting wood (logs)").fill("75");
-  await sheet.getByLabel("Minimum starting wood (logs)").dispatchEvent("change");
+  // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the Maps drawer's Difficulty section)
+  const sheet = await openSection(page, "Difficulty");
+  // Difficulty holds the start rules in this order, at Normal's values; "Designed for" and its Easy and Hard are gone
+  await expect(sheet.locator("label.field .field-head")).toHaveText(["Starting wood", "Max walk to water", "Starting berries", "Start area", "No ruins within"]);
+  await expect(sheet.locator("#rule-wood")).toHaveValue("200");
+  await expect(sheet.locator("#rule-water")).toHaveValue("20");
+  await expect(sheet.locator("#rule-bushes")).toHaveValue("30");
+  await expect(page.locator("aside[aria-label=\"Maps\"]")).not.toContainText("Designed for");
+  await expect(page.locator("aside[aria-label=\"Maps\"]").getByRole("button", { name: /^(Easy|Hard)$/ })).toHaveCount(0);
+  await sheet.getByLabel("Starting wood").fill("75");
+  await sheet.getByLabel("Starting wood").dispatchEvent("change");
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
   await expect(page).toHaveURL(/&sl=75/, { timeout: 60_000 });
   await page.waitForFunction(() => window.dgm!.current!()?.checks.find((k) => k.id === "start.wood")?.limit === 75 && window.dgmEditor?.info().spec?.settings.start.rules.woodWithin20 === 75, null, { timeout: 60_000 });
@@ -40,7 +47,7 @@ test("the start requirements follow the settings, and the editor's start follows
   expect(c["start.wood"].limit).toBe(75);
 
   // the editor: the indicators name the three requirements with the map's numbers (the drawer closed again)
-  await page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true }).click();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true }).click();
   await page.getByRole("button", { name: "Top-down" }).click();
   // the start dragged on the map, a tile over and back: the indicators read the start's own place,
   // which the validator passed

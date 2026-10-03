@@ -23,10 +23,10 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   page.on("pageerror", (e) => errors.push(String(e)));
   await open(page);
 
-  // the header: the open map's name and its line (seed and size), New map on the left, shut
+  // the header: the open map's name and its line (seed and size), the Maps button on the left, shut
   await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
-  await expect(page.locator(".editor-title .muted")).toHaveText("seed 4242 · 96×96");
-  await expect(page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
+  await expect(page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true })).toHaveAttribute("aria-pressed", "false");
 
   // the header's right group: two icons, one primary button, and the File menu with the rest
   const edit = page.getByRole("toolbar", { name: "Edit" });
@@ -185,7 +185,7 @@ test("D368 (5), D330: the top right is one tidy cluster: the compass in the corn
   for (const state of ["at rest", "a layer cut"]) {
     if (state === "a layer cut") {
       await page.getByRole("button", { name: "Lower the visible layer" }).click();
-      await expect(page.getByRole("button", { name: "Show every layer" })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Visible layers" }).locator("output")).not.toHaveText("∞");
     }
     const { view, compass, level, slow, sound, legend } = await measure();
     const right = (b: { x: number; width: number }) => b.x + b.width;
@@ -218,7 +218,8 @@ test("D368 (5), D330: the top right is one tidy cluster: the compass in the corn
     near(legend.height, HEIGHT, `${state}: Legend's height`);
   }
   // (a picture for Kyler's eye: the cluster, at rest)
-  await page.getByRole("button", { name: "Show every layer" }).click();
+  await page.getByRole("group", { name: "Visible layers" }).locator("output").click();
+  await expect(page.getByRole("group", { name: "Visible layers" }).locator("output")).toHaveText("∞");
   const { view } = await measure();
   await page.mouse.move(view.x + 200, view.y + 400);
   await page.screenshot({ path: testInfo.outputPath("top-right.png"), clip: { x: view.x + view.width - 420, y: view.y, width: 420, height: 160 } });

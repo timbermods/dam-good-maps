@@ -1,5 +1,6 @@
-// The one-page editor's layout (DESIGN.md, "The one-page editor"): at every supported size, with the New map
-// drawer closed and open, the legend closed and open, and with each view layer on (no scale-up at any size,
+// The one-page editor's layout (DESIGN.md, "The one-page editor"): at every supported size, with the Maps
+// drawer closed and open (it takes the left column in the palette's place, at the column's one width, and nothing
+// else moves: every other piece of chrome keeps its exact box), the legend closed and open, and with each view layer on (no scale-up at any size,
 // Kyler 2026-10-02 19:32), no two pieces of chrome overlap; the map's info sits at the window's centre clear of
 // its neighbours; the right column shares its edges to the pixel; toggling a view layer moves nothing; every
 // control stands on a solid background, and its words meet WCAG AA.
@@ -21,7 +22,12 @@ interface Box {
   b: number;
 }
 
-async function boxes(page: Page): Promise<Box[]> {
+/** What must keep its exact box when the drawer opens: everything but the two that share the left column. */
+const STILL = [...PIECES.filter((s) => s !== ".drawer" && s !== ".editor-main > .shelf"), ".editor-map", ".editor-map-area", ".editor-view .view3d"];
+/** The left column's one width (Kyler, 2026-10-03). */
+const COLUMN = 352;
+
+async function boxes(page: Page, pieces: string[] = PIECES): Promise<Box[]> {
   return page.evaluate((pieces) => {
     const out: { name: string; l: number; t: number; r: number; b: number }[] = [];
     for (const s of pieces)
@@ -30,7 +36,7 @@ async function boxes(page: Page): Promise<Box[]> {
         if (r.width && r.height && getComputedStyle(e).visibility !== "hidden") out.push({ name: `${s}${k ? `#${k}` : ""}`, l: r.left, t: r.top, r: r.right, b: r.bottom });
       });
     return out;
-  }, PIECES);
+  }, pieces);
 }
 
 /** Two boxes overlap when they share area, and neither holds the other (a bar and its own buttons). */
@@ -159,14 +165,44 @@ for (const [w, h] of SIZES) {
     test.setTimeout(600_000);
     await page.setViewportSize({ width: w, height: h });
     await openEditor(page);
+    const header = page.locator("header.editor-bar");
+    // (the drawer closed: each piece's box with the legend closed and open, and the palette's, to hold the drawer's against)
+    const stillClosed: Record<string, Box[]> = {};
+    let column: { l: number; t: number; b: number; w: number } | null = null;
     {
       for (const drawer of [false, true]) {
-        if (drawer) await page.getByRole("button", { name: "New map" }).click();
+        if (drawer) await header.getByRole("button", { name: "Maps", exact: true }).click();
         for (const legend of [false, true]) {
           const state = `drawer ${drawer ? "open" : "closed"}, legend ${legend ? "open" : "closed"}`;
           if (legend) await page.getByRole("button", { name: "Legend", exact: true }).click();
           await settle(page, w, h);
           const before = await check(page, w, state);
+          // the drawer takes the palette's place in the left column, at its one width, and the palette is hidden while it is open
+          const still = await boxes(page, STILL);
+          if (!drawer) stillClosed[String(legend)] = still;
+          else {
+            const at = (name: string) => before.find((b) => b.name === name);
+            expect(at(".drawer"), `the drawer is showing (${state})`).toBeTruthy();
+            expect(at(".editor-main > .shelf"), `the palette is hidden while the drawer is open (${state})`).toBeUndefined();
+            await expect(page.locator(".editor-main > .shelf")).toHaveCSS("display", "none");
+            const d = at(".drawer")!;
+            const map = still.find((b) => b.name === ".editor-map")!;
+            expect(Math.abs(d.l - column!.l), `the drawer stands where the palette stood (${state})`).toBeLessThanOrEqual(0.15);
+            expect(Math.abs(d.t - column!.t), `the drawer's top is the palette's (${state})`).toBeLessThanOrEqual(0.15);
+            expect(Math.abs(d.b - column!.b), `the drawer's foot is the palette's (${state})`).toBeLessThanOrEqual(0.15);
+            expect(Math.abs(d.r - d.l - COLUMN), `the drawer is the column's one width (${state})`).toBeLessThanOrEqual(0.5);
+            expect(Math.abs(column!.w - COLUMN), `the palette was the column's one width (${state})`).toBeLessThanOrEqual(0.5);
+            expect(d.r, `the drawer is not over the map (${state})`).toBeLessThanOrEqual(map.l + 0.15);
+            // nothing else moved: every other piece of chrome and the map itself keep their exact boxes
+            for (const b of stillClosed[String(legend)]) {
+              const a = still.find((x) => x.name === b.name);
+              expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} keeps its exact box when the drawer opens (${state})`).toBe(true);
+            }
+          }
+          if (!drawer && !legend) {
+            const shelf = before.find((b) => b.name === ".editor-main > .shelf")!;
+            column = { l: shelf.l, t: shelf.t, b: shelf.b, w: shelf.r - shelf.l };
+          }
           expect(before.some((b) => b.name === ".legend-panel"), `the legend panel (${state})`).toBe(legend);
           // each view layer on: nothing moves (the layer's own caption may appear), and nothing overlaps
           for (const layer of LAYERS) {
@@ -185,7 +221,7 @@ for (const [w, h] of SIZES) {
           }
           if (legend) await page.getByRole("button", { name: "Legend", exact: true }).click();
         }
-        if (drawer) await page.getByRole("button", { name: "New map" }).click();
+        if (drawer) await header.getByRole("button", { name: "Maps", exact: true }).click();
       }
     }
   });

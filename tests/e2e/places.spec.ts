@@ -158,8 +158,9 @@ test("a real place replaces the open map without asking, and the replaced map st
 
   // the map it replaced is in Your maps, its edit with it, and its row opens it again
   await openDrawer(page);
+  // (the place joins Your maps a few seconds after it opens: its tile is waited for)
   const yours = page.getByRole("region", { name: "Your maps" });
-  await expect(yours.getByRole("button")).toHaveCount(2);
+  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
   await yours.getByRole("button", { name: /^River Valley/ }).click();
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name), { timeout: 60_000 }).toBe("River Valley");

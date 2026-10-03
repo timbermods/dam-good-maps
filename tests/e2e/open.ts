@@ -32,11 +32,12 @@ export async function openFileMenu(page: Page): Promise<Locator> {
   return page.getByRole("menu", { name: "File" });
 }
 
-/** Open the New map drawer from the header (a drawer already open is left open) and return it. */
+/** Open the Maps drawer from the header (the Maps button; a drawer already open is left open) and return it. It takes
+ *  the left column in the palette's place. */
 export async function openDrawer(page: Page): Promise<Locator> {
-  const button = page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true });
+  const button = page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
-  const drawer = page.locator('aside[aria-label="New map"]');
+  const drawer = page.locator('aside[aria-label="Maps"]');
   await expect(drawer).toBeVisible();
   return drawer;
 }
@@ -44,14 +45,16 @@ export async function openDrawer(page: Page): Promise<Locator> {
 /** The drawer's submit button: "Generate", "Generate (settings changed)", or the progress words while a map is made. */
 export const generateButton = (page: Page): Locator => page.getByRole("form", { name: "Settings" }).locator('button[type="submit"]');
 
-/** Open the drawer and one of its settings sections (Terrain, Water, Hazards, Resources, "Advanced: start rules",
- *  "Limits for this size"), and return its sheet: the dialog named "<Section> settings". */
+/** Open the drawer and one of its settings sections (Terrain, Water, Hazards, Resources, Difficulty, "Limits for this
+ *  size") and return its fields: the group "<Section> settings", opened in place directly under the section's row.
+ *  A section already open is left open (clicking its row again would close it). */
 export async function openSection(page: Page, section: string): Promise<Locator> {
   const drawer = await openDrawer(page);
-  await drawer.locator(`[data-section="${section}"]`).click();
-  const sheet = page.getByRole("dialog", { name: `${section} settings` });
-  await expect(sheet).toBeVisible();
-  return sheet;
+  const row = drawer.locator(`[data-section="${section}"]`);
+  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click();
+  const group = drawer.getByRole("group", { name: `${section} settings` });
+  await expect(group).toBeVisible();
+  return group;
 }
 
 /** Open the legend over the map (the Legend button in the top-right column; an open one is left open) and return its panel.

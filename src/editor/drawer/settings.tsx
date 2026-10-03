@@ -42,45 +42,56 @@ export const HINT: Record<string, string> = {
   size: "The map's size: the game's, or your own",
   "size-x": "The map's width in tiles (48 to 256)",
   "size-y": "The map's height in tiles (48 to 256)",
-  relief: "How much the land rises and falls, from flat to rugged",
+  relief: "How much the land rises and falls",
   verticality: "How steep and tall the cliffs and slopes are",
   highest: "The highest level the land may reach",
-  terracing: "How much of the land is cut into flat terraces",
-  buildable: "How much of the land is flat enough to build on",
+  terracing: "How much land is cut into terraces",
+  buildable: "Flat land to build on",
   rivers: "How many rivers cross the map",
   "river-style": "How the rivers run: straight, meandering or braided",
-  "river-flow": "How much water the rivers carry, from a trickle to lush",
+  "river-flow": "Water the rivers carry",
   reserve: "Water kept to last through a drought",
   lakes: "How many lakes and basins the map has",
   falls: "How many waterfalls the rivers make",
-  badwater: "How much badwater the map has",
-  "badwater-distance": "How far the badwater is kept from the start, in tiles",
-  thorns: "Belts of thorns that block some ways",
+  badwater: "Badwater on the map",
+  "badwater-distance": "Badwater's distance from the start",
+  thorns: "Thorns that block some ways",
   cores: "How many unstable cores the map has: an advanced hazard",
-  forest: "How thickly trees grow, as a share of the usual amount",
-  groves: "How big each grove of trees is",
+  forest: "How thickly trees grow",
+  groves: "How big each grove is",
   "mix-pine": "How many of the trees are pines",
   "mix-birch": "How many of the trees are birches",
   "mix-oak": "How many of the trees are oaks",
   "mix-succulent": "How many of the trees are succulents",
-  "berries-start": "How many berry bushes grow near the start",
-  berries: "How many berry bushes grow elsewhere",
-  ruins: "How much ruin and scrap metal the map has",
+  "berries-start": "Berry bushes near the start",
+  berries: "Berry bushes elsewhere",
+  ruins: "Ruins and scrap metal",
   relics: "How many relics are placed",
   geothermal: "Whether geothermal fields are placed, and how many",
   mines: "How many mine sites the map has",
   "start-area": "How roomy the land round the start is",
-  "rule-water": "The farthest walk from the start to water, in tiles",
-  "rule-wood": "The fewest logs the start must reach on foot",
-  "rule-bushes": "The fewest berry bushes the start must reach on foot",
-  "rule-ruins": "How far from the start ruins must stay, in tiles",
+  "rule-water": "Longest walk to water",
+  "rule-wood": "Logs the start reaches on foot",
+  "rule-bushes": "Berry bushes in walking reach",
+  "rule-ruins": "How far ruins stay from the start",
 };
 
 /** The official maps' range a setting's reference line gave, as a short phrase for its tooltip ("Official maps:
  *  9–15"; Kyler, 2026-10-03: no line under any setting, and nothing else of it moves into the tooltip). */
 export function officialPhrase(band: string | undefined): string {
-  const m = /Official (?:maps|groves)[^.]*/.exec(band ?? "");
-  return m ? m[0].trim() : "";
+  // (to the sentence's end, a decimal point aside; the range only, in its shortest words)
+  const m = /Official (?:maps|groves)(?:[^.]|\.(?=\d))*/.exec(band ?? "");
+  if (!m) return "";
+  return m[0]
+    .split(", ")[0]
+    .replace(/^Official maps this size:/, "Official maps:")
+    .replace(/^Official groves: most about (\d+) trees/, "Official maps: about $1 trees")
+    .replace(/^Official maps all top out at (\d+)/, "Official maps: $1")
+    .replace(/ within 20 tiles' walk$/, "")
+    .replace(/(most \d+) tiles$/, "$1")
+    .replace(/ have some$/, "")
+    .replace(/10,000 tiles$/, "10k tiles")
+    .trim();
 }
 
 /** A setting's tooltip: what it does, then the official maps' range where it has one (D351). */

@@ -2,7 +2,7 @@
 // start): every press rolls a fresh seed; typing a seed pins it (a small lock beside the box) and Generate
 // then makes that map again until it is unlocked or cleared; opening a share link pins its seed; the Dice
 // button is gone. The seed in the drawer's box, the header's line under the name, the address, the link and the
-// map open in the editor are always the map shown. Generate runs from the New map drawer.
+// map open in the editor are always the map shown. Generate runs from the Maps drawer.
 
 import { expect, test, type Page } from "@playwright/test";
 import { generateButton, openDrawer, openEditor } from "./open";
@@ -39,7 +39,7 @@ async function press(page: Page) {
 }
 /** The seed of the map on show: the header's line under the name, the address, the link and the editor's map, which must agree. */
 async function shownSeed(page: Page): Promise<string> {
-  const card = (await page.locator(".editor-title .muted").textContent())!.match(/seed (\d+)/)![1];
+  const card = (await page.locator(".editor-title .muted").textContent())!.match(/Seed (\d+)/)![1];
   const link = (await page.evaluate(() => window.dgm!.current!()))!.link;
   expect(seedOf(link)).toBe(card);
   expect(seedOf(new URL(page.url()).hash)).toBe(card);
