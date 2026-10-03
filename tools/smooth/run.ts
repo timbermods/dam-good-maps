@@ -91,6 +91,22 @@ const hm = (sec: number): string => `${Math.floor(sec / 3600)} h ${String(Math.r
 
 class StopSeries extends Error {}
 
+/** A run longer than this is stuck (a page that never answers): its browser is closed and the run
+ *  retried, as any other error. The longest qualified runs take under 2 minutes; a quiet-machine wait
+ *  inside a run can take up to 15. */
+const RUN_LIMIT_MS = 20 * 60_000;
+
+function withLimit<T>(p: Promise<T>, ms: number, onLimit: () => void): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      onLimit();
+      reject(new Error(`the run took over ${ms / 60_000} minutes (stuck); its browser was closed`));
+    }, ms);
+  });
+  return Promise.race([p, limit]).finally(() => clearTimeout(timer));
+}
+
 // ---------------------------------------------------------------------------------------------------- main
 
 async function main(): Promise<number> {
@@ -187,6 +203,8 @@ async function main(): Promise<number> {
     if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU at most 25% within 15 minutes");
     const attempts = new Map<string, number>();
     let n = 0;
+    /** The browser of the run in progress (closed if the run outlasts RUN_LIMIT_MS). */
+    let open: { close(): Promise<void> } | null = null;
     /** Measure these runs (a load-discarded run is requeued; an error retried up to three times); false when one
      *  could not be measured. */
     const measure = async (specs: RunSpec[]): Promise<boolean> => {
@@ -202,7 +220,7 @@ async function main(): Promise<number> {
         }
         attempts.set(spec.key, tries + 1);
         const t0 = Date.now();
-        const outcome = await executeRun(spec, servers[spec.build].url, before.id, after.id, monitor, integrated, join(dir, "raw")).catch((e: unknown) => {
+        const outcome = await withLimit(executeRun(spec, servers[spec.build].url, before.id, after.id, monitor, integrated, join(dir, "raw"), (b) => (open = b)), RUN_LIMIT_MS, () => open?.close().catch(() => undefined)).catch((e: unknown) => {
           if (e instanceof StopSeries) throw e;
           return { error: e instanceof Error ? e.message.split("\n")[0] : String(e) };
         });
@@ -260,11 +278,12 @@ async function main(): Promise<number> {
 
 // ---------------------------------------------------------------------------------------------------- one run
 
-async function executeRun(spec: RunSpec, url: string, beforeId: string, afterId: string, monitor: LoadMonitor, integrated: Gpu | null, rawDir: string): Promise<RunResult | Discard> {
+async function executeRun(spec: RunSpec, url: string, beforeId: string, afterId: string, monitor: LoadMonitor, integrated: Gpu | null, rawDir: string, opened: (b: { close(): Promise<void> }) => void = () => undefined): Promise<RunResult | Discard> {
   const def = CONFIGS[spec.cell.config];
   const driver = DRIVERS[spec.cell.scenario];
   const t0 = Date.now();
   const browser = await launch(def, integrated);
+  opened(browser);
   try {
     const { context, page } = await newPage(browser, spec.cell.look, PROBE);
     let pageErrors = 0;
