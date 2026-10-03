@@ -707,7 +707,12 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     }
     if (at === null || !(strength > 0)) continue;
     const req = { kind: "water" as const, x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) };
-    const g = placeSourceGroup(req, { W, H, heights, occupied: reserved });
+    // (a generated feature's row is placed on the ground as generated, so it keeps its sources
+    // through edits: an edit that left one a level off its anchor took it away, and the next edit
+    // that levelled the ground brought it back, an object the edit added, D425. Each stands on the
+    // ground as it is now)
+    const rowGround = input.field?.contains.has(f.id) ? input.field.heights : heights;
+    const g = placeSourceGroup(req, { W, H, heights: rowGround, occupied: reserved });
     if (!g.sources.length) continue;
     springs.set(f.id, { sources: g.sources, ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
     for (const i of groupTiles(g)) reserved[i] = 1;
