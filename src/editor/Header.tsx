@@ -137,7 +137,10 @@ export function Header(p: HeaderProps) {
   const file = useRef<HTMLInputElement>(null);
   // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
   // the header learns how far each side group reaches (--side-l, --side-r) and the info's width is capped
+  // where the room is short (Kyler, 2026-10-02: below about 1,219px) the info drops its second line first, then
+  // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
+  const fit = useRef<() => void>(() => undefined);
   useEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -145,15 +148,22 @@ export function Header(p: HeaderProps) {
       const h = el.getBoundingClientRect();
       const l = el.querySelector(".new-map")?.getBoundingClientRect();
       const r = el.querySelector(".editor-actions")?.getBoundingClientRect();
-      el.style.setProperty("--side-l", `${l ? Math.ceil(l.right - h.left) : 0}px`);
-      el.style.setProperty("--side-r", `${r ? Math.ceil(h.right - r.left) : 0}px`);
+      const sl = l ? Math.ceil(l.right - h.left) : 0;
+      const sr = r ? Math.ceil(h.right - r.left) : 0;
+      el.style.setProperty("--side-l", `${sl}px`);
+      el.style.setProperty("--side-r", `${sr}px`);
+      const title = el.querySelector(".editor-title");
+      const facts = title?.querySelector(".muted");
+      if (title && facts) title.classList.toggle("no-facts", h.width - 2 * Math.max(sl, sr) - 24 < facts.scrollWidth);
     };
+    fit.current = note;
     note();
     const watch = new ResizeObserver(note);
     watch.observe(el);
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
+  useEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {

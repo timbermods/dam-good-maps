@@ -41,6 +41,24 @@
   text-overflow: ellipsis;
 }
 
+/* the room is short: the second line goes first (kept measurable, out of the flow), then the name ellipsizes
+   down to about 80px (Kyler, 2026-10-02) */
+.editor-title {
+  min-width: min(80px, 100%);
+}
+
+.editor-title.no-facts .muted {
+  position: absolute;
+  visibility: hidden;
+}
+
+/* below about 1,000px wide the checks' words give way to the dot alone */
+@media (max-width: 999px) {
+  .checks-dot .dot-words {
+    display: none;
+  }
+}
+
 .editor-actions {
   flex: none;
   flex-wrap: nowrap;
