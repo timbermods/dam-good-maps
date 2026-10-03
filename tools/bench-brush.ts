@@ -135,9 +135,19 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
       w.__b.pending = [];
       const t = performance.now();
       const out = u(...a);
-      w.__b.mesh.push(performance.now() - t);
+      if (!r.flushTerrain) w.__b.mesh.push(performance.now() - t);
       return out;
     };
+    // (a renderer that draws a brush's land once a frame, flushTerrain: its re-mesh is that, not the call)
+    if (r.flushTerrain) {
+      const fl = r.flushTerrain.bind(r);
+      r.flushTerrain = () => {
+        const t = performance.now();
+        const did = fl();
+        if (did) w.__b.mesh.push(performance.now() - t);
+        return did;
+      };
+    }
 
     const rn = r.renderNow.bind(r);
     r.renderNow = () => { rn(); w.__b.rend.push(performance.now()); };
