@@ -88,18 +88,17 @@ verdicts are in ROADMAP, "The Codex adoptions"):
    `docs/progress/m9b.md`).
 6. **Later:** the service worker for startup part 2 (D397), with multi-core water's adoption.
 
-## Queued after tonight's quiet window (02:00, then the Naturalize bench, D434)
+## The milestone session's queue
 
-1. **A dev bug from the nightly suite:** a reopened project file loses the dead blueberry bushes that edits leave standing
-   (D425), so its export differs (`properties.test.ts`, all four presets; dev at 478fefad fails too).
-2. **An M9b bug:** after a force edit, a spring river's source row gets a new id (`groupIds`, #172), when the land shifts
-   the row a tile (`editSequences`, every theme on M9b's maps); a fix may move source ids in every file (D382 allows it).
-3. **M9b's Delta** (D447, blocks M9b's release): the water outcome misses on 5 of 20 at every size (planned river courses
-   partly dry): trace from e3130755, fix with a failing test first, re-measure only what the fix reaches.
-4. **`pickStart`'s latent NaN** (src/core/gen/settler.ts) where a tile has no walkable-land label.
-5. ~~The gallery shows every Real place again~~ (D445): done, awaiting merge (PR from `fix/gallery-all-places`).
-6. **The third waterView.spec flake** (line ~144, the selected source group not visible after a click; D341).
-7. **Resume:** the Rust adoptions (D442), M9b's release steps, #182, #184, #186 and #183 (merging as CI turns green).
+1. **Done today:** the reopened project's dead bushes and `pickStart`'s NaN (#194); the gallery (D445, #193); the flakes
+   (#182, #184, #195 merging); the Rust toolchain (#187) and the Rust water's wiring (#189).
+2. **M9b's Delta** (D447, blocks M9b's release): the main cause fixed (adb8037a: the fan's arms drained the main river);
+   the remaining misses are tributaries skirting lower water in shared code; fixing that, re-measuring every theme it
+   reaches, then the D148 re-pins.
+3. **An M9b bug:** after a force edit, a spring river's source gets a new id (`groupIds`, #172) when the land shifts its row;
+   fixed after Delta (D382 allows re-pinning source ids).
+4. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
+   spike's answer), the timings (Kyler's choice below).
 
 ## Waiting for Kyler
 
