@@ -226,8 +226,10 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   };
   for (const [a, b] of [["8", "8"], ["8", "0"], ["0", "0"]] as const) {
     await force(a, "30", far);
-    // (kept: its tail still plays, the dust or the lava cooling)
-    expect(Object.values((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!).some((v) => v !== null)).toBe(true);
+    // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
+    // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
+    // holds that case on exact time)
+    if (a === "0") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
     await force(b, "35", next);
     const m = await firstMoment();
     const verb = b === "8" ? "craterize" : "erupt";
