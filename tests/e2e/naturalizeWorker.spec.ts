@@ -50,6 +50,8 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
     during = await heights(page);
   });
   expect(during.some((h, i) => h !== before[i]), "land shown while painting").toBe(true);
+  // (the worker's stroke becomes an operation once its last land is in)
+  await page.waitForFunction(() => /^Naturalize/.test(window.dgmEditor!.info().history.at(-1)?.label ?? ""), null, { timeout: 60_000 });
   await settled(page);
   const i = await info(page);
   expect(i.history.at(-1)!.label).toMatch(/^Naturalize, \d+ tiles?$/);

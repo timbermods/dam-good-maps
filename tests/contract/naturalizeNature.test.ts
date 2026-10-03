@@ -157,6 +157,31 @@ describe("Naturalize keeps the downhill order (D399)", () => {
     });
 });
 
+/** The middle of the most terraced dry ground (no water, no moisture: farmland keeps its height) a
+ *  stroke of Size 12 can reach, away from the map's edge. */
+function terraced(s: MapSession): [number, number] {
+  const b = s.built;
+  let best: [number, number] = [W / 2, W / 2];
+  let most = -1;
+  for (let y = 16; y < W - 16; y += 2)
+    for (let x = 16; x < W - 16; x += 2) {
+      let edges = 0;
+      let wet = false;
+      for (let yy = y - 8; yy <= y + 8 && !wet; yy++)
+        for (let xx = x - 8; xx <= x + 8; xx++) {
+          const i = yy * W + xx;
+          if (b.water[i] > 0 || b.moisture[i] > 0) {
+            wet = true;
+            break;
+          }
+          if (b.heights[i] !== b.heights[i + 1]) edges++;
+          if (b.heights[i] !== b.heights[i + W]) edges++;
+        }
+      if (!wet && edges > most) (most = edges), (best = [x, y]);
+    }
+  return best;
+}
+
 describe("painting the same spot again settles (D399)", () => {
   for (const [size, strength] of [
     [5, 5],
@@ -165,7 +190,8 @@ describe("painting the same spot again settles (D399)", () => {
     it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => {
       const s = session("riverValley", 3, 100);
       const rand = mulberry(size * 31 + strength);
-      const p = stroke(rand, W / 2 - 6, W / 2 + 4, size, strength);
+      const [cx, cy] = terraced(s);
+      const p = stroke(rand, cx, cy, size, strength);
       const counts: number[] = [];
       for (let k = 0; k < 10; k++) {
         const before = s.built.heights.slice();
