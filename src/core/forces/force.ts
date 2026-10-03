@@ -18,7 +18,6 @@ import { JsonFloat } from "../format/json";
 import { objectTile } from "../sim/model";
 import type { WaterState } from "../sim/water";
 import type { Fallen } from "./objects";
-import { geology } from "./random";
 
 /** Steps of a force in one second of it (the player's pace changes only how fast they are shown). */
 export const STEPS_PER_SECOND = 10;
@@ -71,12 +70,6 @@ export function snapshotMap<T extends ForceMap>(m: T): T {
     ...(m.lava ? { lava: m.lava.slice() } : {}),
     water: { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() },
   };
-}
-
-/** A copy with its rock beds (derived from its ground when it has none), fresh rock and fallen trees. */
-export function fullMap(m: ForceMap): FullForceMap {
-  const r = snapshotMap(m);
-  return { ...r, rockLayers: r.rockLayers ?? geology(r.heights), fallen: r.fallen ?? [], lava: r.lava ?? new Uint32Array(r.W * r.H) };
 }
 
 /** One stream of a force's head (a carve splits into two round a hard rock core). */

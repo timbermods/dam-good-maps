@@ -37,10 +37,6 @@ export interface MapFacts {
   badwaterSources: number;
   /** Share of the map under water (deeper than 0.05). */
   wetShare: number;
-  /** The best dam site within 40 tiles of the start. */
-  bestDam: { x: number; y: number; dir: [number, number]; length: number; height: number; volume: number; area: number } | null;
-  /** Water natural pools keep through the worst drought, within 40 tiles of the start. */
-  naturalStorage: number;
   /** Stored water the colony needs through the worst drought. */
   reservoirNeed: number;
   /** Tiles' walk from the start to a shore a pump works from (null: none). */
@@ -82,8 +78,6 @@ export interface GenerateResponse {
   premise: string;
   sha256: string;
   ms: number;
-  /** The player's edits on this map (0 for a freshly generated map). */
-  edits: number;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
   /** Items 24's and 47's numbers (information, D325; the map card of "The page is the editor", #92,
@@ -145,7 +139,6 @@ export interface ResponseInput {
   ms: number;
   timber: Uint8Array;
   project: Uint8Array;
-  edits: number;
   /** A generated map's own name and how it plays (D278 (1b)); else the theme's name and the map's
    *  description. */
   name?: string;
@@ -169,8 +162,6 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     badwaterFlow: sum(bad),
     badwaterSources: bad.length,
     wetShare: wet / N,
-    bestDam: a?.bestDam ?? null,
-    naturalStorage: a ? Math.round(a.naturalStorage) : 0,
     reservoirNeed: Math.round(rulesFor(r.spec).reservoirNeed),
     waterDistance: a && Number.isFinite(a.waterDistance) ? Math.round(a.waterDistance * 10) / 10 : null,
     woodBySpecies: a ? { ...a.woodBySpecies } : null,
@@ -205,7 +196,6 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     premise: r.premise ?? description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",
     ms: r.ms,
-    edits: r.edits,
     intentions: r.intentions ?? [],
     walkReach: a?.walkReach ? { ...a.walkReach } : null,
     levers: a?.levers ? { ...a.levers } : null,
@@ -213,19 +203,12 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
 }
 
 /** D329's background search (gen/versions.ts): siblings of the map until one meets all three
- *  outcomes. Run in a worker of its own, so the editor never waits on it; `stop` is checked between
- *  siblings. Null when none was found. */
-let searchId = 0;
-export function stopVersionSearch(): void {
-  searchId++;
-}
-
+ *  outcomes. Run in a worker of its own, so the editor never waits on it (the page ends it by
+ *  terminating the worker). Null when none was found. */
 export async function runFindVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
-  const id = ++searchId;
   const t0 = performance.now();
-  const found = findVersion(from, { stop: () => id !== searchId });
-  const r = found.result;
-  if (!r || id !== searchId) return null;
+  const r = findVersion(from).result;
+  if (!r) return null;
   return responseOf({
     spec: r.spec,
     features: r.features,
@@ -237,7 +220,6 @@ export async function runFindVersion(from: { spec: MapSpec; intentions: string[]
     ms: Math.round(performance.now() - t0),
     timber: r.bytes,
     project: encodeProject(generatedDocument(r)),
-    edits: 0,
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],
@@ -286,7 +268,6 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     ms,
     timber: r.bytes,
     project,
-    edits: 0,
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],

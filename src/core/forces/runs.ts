@@ -16,7 +16,7 @@ import { toMapObject } from "../features/build";
 import type { WarmState } from "../sim/preview";
 import { waterModel } from "../sim/model";
 import { WaterSim, type WaterModel } from "../sim/water";
-import { ImpactPlan, naturalSize as craterSize, type CraterIntent, type CraterSettings } from "./craterize";
+import { ImpactPlan, type CraterIntent, type CraterSettings } from "./craterize";
 import { EruptPlan, lobeField, stageMap, type EruptIntent, type EruptSettings, type Point } from "./erupt";
 import { snapshotMap, type FullForceMap } from "./force";
 import type { Verb } from "./op";
@@ -625,6 +625,3 @@ export class QuakeRun extends Staged implements StagedRun {
     };
   }
 }
-
-/** The natural size of an impact at `power` (for the cursor's footprint on the page). */
-export const craterNaturalSize = craterSize;

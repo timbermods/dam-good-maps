@@ -23,7 +23,6 @@ const open = () => MapSession.open(decodeProject(ed.project().bytes));
 /** The tiles whose level changed that the force's own result doesn't list, as "x,y: before -> after". */
 async function beyondTheForce(theme: ThemeId, seed: number, req: (st: { x: number; y: number }) => ed.ForceRequest) {
   await runGenerate(makeSpec({ seed, theme, size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   const before = open();
   const from = startMiddle(before);

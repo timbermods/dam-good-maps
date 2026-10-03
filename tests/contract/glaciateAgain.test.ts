@@ -17,7 +17,6 @@ describe("Glaciate used again in the same valley is kept every time (D257)", () 
   it("Highlands 64², seed 3: Glaciate (Power 60) clicked at (32, 33) three times, the editor's way: each is kept", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const kept: string[] = [];
     for (let k = 0; k < 3; k++) {

@@ -10,7 +10,6 @@ import type { Hydro } from "../land/hydro";
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import type { Rng } from "../math/rng";
-import { waterModel } from "../sim/model";
 
 export interface IntentionResult {
   id: IntentionId;
@@ -27,7 +26,7 @@ export interface IntentionResult {
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** The land and water the settler scores places on, for the intentions' preferences. */
-export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, kept9?: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
+export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
   const N = W * H;
   const joinT = new Uint8Array(N);
   for (const r of hy.rivers) {
@@ -40,38 +39,6 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
   const fallT = new Uint8Array(N);
   for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
   const sorted = Array.from(h).sort((a, b) => a - b);
-  // clean bodies of 60+ tiles, their surface and what a 9-day drought leaves
-  const kept = kept9 ?? droughtStorage(waterModel(W, H, h, []), D, 9);
-  const lab = new Int32Array(N).fill(-1);
-  const lakes: SettlerView["lakes"] = [];
-  for (let s0 = 0; s0 < N; s0++) {
-    if (lab[s0] >= 0 || !(D[s0] >= 0.1) || !(C[s0] < 0.05)) continue;
-    const q = [s0];
-    lab[s0] = lakes.length;
-    for (let k = 0; k < q.length; k++) {
-      const i = q[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (lab[j] >= 0 || !(D[j] >= 0.1) || !(C[j] < 0.05)) continue;
-        lab[j] = lakes.length;
-        q.push(j);
-      }
-    }
-    let surf = 0;
-    let v = 0;
-    let kv = 0;
-    for (const i of q) {
-      surf = Math.max(surf, h[i] + D[i]);
-      v += D[i];
-      kv += kept[i];
-    }
-    lakes.push({ tiles: q.length >= 60 ? q : [], surface: surf, keep9: v > 0 ? kv / v : 0 });
-  }
   // farmland patches and gorges
   const farm = new Uint8Array(N);
   for (let i = 0; i < N; i++) farm[i] = M[i] > 0 && !(D[i] > 0.05) && C[i] < 0.05 ? 1 : 0;
@@ -148,7 +115,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
       if (h[i] <= surf + 1.5) blocks.lowBad[k]++;
     }
   }
-  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), lakes, farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks };
+  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks };
   return { ...view, prefer: (id, x, y, L, walk) => startPreference(id, view, x, y, L, walk) };
 }
 
