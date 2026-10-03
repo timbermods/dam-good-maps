@@ -3,6 +3,7 @@
 
 import { View3D } from "../../ui/View3D";
 import { HistoryPanel, LayerLegend, StartIndicators } from "../panels";
+import { Drawer } from "../Drawer";
 import { Shelf } from "../Shelf";
 import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
@@ -20,15 +21,17 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, minimap, mirror, waterTick, viewTick,
-    shapeNote, startDrag, needs, startReach, waterLayers, message, setMessage, showHistory, setShowHistory, run, api
+    shapeNote, startDrag, needs, startReach, waterLayers, message, setMessage, showHistory, setShowHistory, run, api,
+    drawerOpen
   } = ed;
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class="editor" aria-busy={busy > 0}>
+    <div class={`editor${drawerOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
       {header(ed, props)}
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+        {drawerOpen ? <Drawer info={info} icon={(t) => icons[t] ?? null} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D

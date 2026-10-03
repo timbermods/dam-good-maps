@@ -74,6 +74,9 @@ export interface SessionSlice {
   setHover: Dispatch<StateUpdater<string | null>>;
   hover: string | null;
   showHistory: boolean;
+  /** The New map drawer is open, in the palette's place. */
+  drawerOpen: boolean;
+  setDrawerOpen: Dispatch<StateUpdater<boolean>>;
   setShowHistory: Dispatch<StateUpdater<boolean>>;
   setCheck: Dispatch<StateUpdater<ExportCheck | null>>;
   check: ExportCheck | null;
@@ -211,6 +214,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [check, setCheck] = useState<ExportCheck | null>(null);
   // the background check's progress (the canonical settle, then the checks), and the water layer
   const [progress, setProgress] = useState<CheckProgress | null>(null);
@@ -528,6 +532,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
+    drawerOpen, setDrawerOpen,
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick,
     flowing, markersOn, setMarkersOn, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,

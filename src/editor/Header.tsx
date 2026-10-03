@@ -53,6 +53,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
       <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
         {d.count ? <span class="dot-count">{d.count}</span> : null}
+        <span class="dot-words">{d.words}</span>
       </button>
       {p.open ? (
         <div class="checks-list" role="region" aria-label="Checks">
@@ -118,7 +119,9 @@ export interface HeaderProps {
   onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
-  onBack(): void;
+  /** The New map drawer: open, and its switch. */
+  drawerOpen: boolean;
+  onDrawer(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
 }
@@ -149,14 +152,21 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar">
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the New map drawer" : "Make a new map: its settings open on the left"} onClick={p.onDrawer}>
+        New map
+      </button>
       <div class="editor-title">
         <h1>{p.info.name}</h1>
         <span class="muted">
-          {p.info.W}×{p.info.H}
-          {p.info.kind === "import" ? " · imported" : ""}
-          {p.info.edits ? ` · ${p.info.edits} edit${p.info.edits > 1 ? "s" : ""}` : ""}
-          {p.saveState ? ` · ${p.saveState}` : ""}
+          {p.saveState && /fail|off/.test(p.saveState) ? p.saveState : `${p.info.kind === "generated" && p.info.spec ? `seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
+      </div>
+      <div class="brand" aria-label="Dam Good Maps">
+        <svg class="mark" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+          <path d="M2 4.5h10M2 8h10" />
+          <path d="M1.5 11.5c1.8 0 1.8-1.6 3.6-1.6s1.8 1.6 3.6 1.6 1.8-1.6 3.8-1.6" />
+        </svg>
+        <span>Dam Good Maps</span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
@@ -175,11 +185,11 @@ export function Header(p: HeaderProps) {
         </button>
         {p.look}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
-            ⋯
+          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="File: open, save, download, history, about" onClick={() => setMenu(!menu)}>
+            File
           </button>
           {menu ? (
-            <ul class="menu" role="menu" aria-label="More">
+            <ul class="menu" role="menu" aria-label="File">
               <li role="none">
                 <button type="button" role="menuitem" title="Open a map or project file" onClick={pick(() => file.current?.click())}>
                   Open…
@@ -208,8 +218,8 @@ export function Header(p: HeaderProps) {
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
-                  {p.info.kind === "generated" ? "Back to settings" : "New map"}
+                <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => undefined)}>
+                  About
                 </button>
               </li>
             </ul>

@@ -9,7 +9,7 @@ import type { EditorProps } from "../Editor";
 export function header(ed: Ed, props: EditorProps) {
   const {
     api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
-    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory
+    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory, drawerOpen, setDrawerOpen
   } = ed;
 
   return (
@@ -29,7 +29,8 @@ export function header(ed: Ed, props: EditorProps) {
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       onHistory={() => setShowHistory(!showHistory)}
-      onBack={() => props.onBack(info)}
+      drawerOpen={drawerOpen}
+      onDrawer={() => setDrawerOpen(!drawerOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
     />
   );

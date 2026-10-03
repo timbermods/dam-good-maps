@@ -121,6 +121,13 @@ export function View3D(props: View3DProps) {
   const [mode, setMode] = useState<ViewMode>("orbit");
   const [ground, setGround] = useState<GroundMode>(savedGround);
   const [markers, setMarkers] = useState<boolean>(() => savedMarkers() || !!props.markersWanted);
+  const [flow, setFlow] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("dgm.flow") === "on";
+    } catch {
+      return false;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState<boolean>(() => savedLegend(props.legendOpen ?? true));
   /** The legend's line pointed to on the map, and the map's changes (the legend reads them). */
@@ -291,6 +298,25 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
+      {props.togglesInButtons ? (
+        <button
+          type="button"
+          aria-pressed={flow}
+          title="Show the water's currents"
+          onClick={() => {
+            const next = !flow;
+            setFlow(next);
+            try {
+              localStorage.setItem("dgm.flow", next ? "on" : "off");
+            } catch {
+              // the choice lasts for this view only
+            }
+            (renderer.current as unknown as { setFlow?(on: boolean): void } | null)?.setFlow?.(next);
+          }}
+        >
+          Flow
+        </button>
+      ) : null}
     </>
   );
 

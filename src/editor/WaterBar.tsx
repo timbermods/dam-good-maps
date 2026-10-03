@@ -24,8 +24,8 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
       <span class="bar-status" role="status">
         {status}
       </span>
-      <button type="button" class="icon-button" aria-pressed={p.paused} title={p.paused ? "Play the water" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
-        <span class="icon-word">{p.paused ? "Play" : "Pause"}</span>
+      <button type="button" class="icon-button" aria-pressed={p.paused} disabled={progress === null && !p.paused} title={p.paused ? "Play the water" : progress === null ? "The water is settled" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
+        <span class="icon-word">{p.paused ? "Play water" : "Pause water"}</span>
       </button>
       <label class="bar-group" title="How fast the water flows">
         Speed

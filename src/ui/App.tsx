@@ -249,6 +249,8 @@ export function App() {
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
       if (!r.passed) setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
+      // the page is the editor (D330): the map opens in the editor as soon as it is made
+      else if (screenRef.current === "settings") enterEditor(await generator.refine());
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
