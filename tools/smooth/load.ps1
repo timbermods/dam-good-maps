@@ -41,10 +41,12 @@ while ($true) {
   $gpuTop = @()
   try {
     $byPid = @{}
+    # (the compositor, dwm, draws the measured browser's own window: its GPU use follows the run, not outside load)
+    $dwm = @($procs | Where-Object { $_.ProcessName -eq 'dwm' } | ForEach-Object { $_.Id })
     foreach ($c in (Get-Counter -Counter '\GPU Engine(*engtype_3D)\Utilization Percentage' -ErrorAction Stop).CounterSamples) {
       if ($c.InstanceName -match '^pid_(\d+)_') {
         $id = [int]$Matches[1]
-        if ($owned -notcontains $id) { $byPid[$id] = ($byPid[$id] + $c.CookedValue) }
+        if ($owned -notcontains $id -and $dwm -notcontains $id) { $byPid[$id] = ($byPid[$id] + $c.CookedValue) }
       }
     }
     $gpu = ($byPid.Values | Measure-Object -Sum).Sum

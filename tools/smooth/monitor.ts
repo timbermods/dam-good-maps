@@ -64,7 +64,7 @@ export class LoadMonitor {
         this.lease = true;
         return true;
       }
-      if (!said) console.log("  waiting for the machine to be quiet (outside CPU at most 25% for 60 s) ...");
+      if (!said) console.log("  waiting for the machine to be quiet (outside CPU and GPU at most 10% for 60 s) ...");
       said = true;
       await sleep(1000);
     }

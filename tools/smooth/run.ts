@@ -247,7 +247,7 @@ async function main(): Promise<number> {
 
   let stopped = false;
   try {
-    if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU at most 25% within 15 minutes");
+    if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU and GPU at most 10% within 15 minutes");
     const attempts = new Map<string, number>();
     let n = 0;
     /** The browser of the run in progress (closed if the run outlasts RUN_LIMIT_MS). */
@@ -348,7 +348,7 @@ async function executeRun(spec: RunSpec, url: string, beforeId: string, afterId:
     await throttle(context, page, def.throttle);
     const spots = driver.topDown ? await findSpots(page) : null;
     await driver.prepare(page, spots);
-    if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU at most 25% within 15 minutes");
+    if (!(await monitor.qualify())) throw new StopSeries("no 60 s with outside CPU and GPU at most 10% within 15 minutes");
     await page.bringToFront();
     await page.evaluate(() => {
       const w = window as unknown as { __smoothLost: number };
