@@ -236,6 +236,14 @@ the islands meet the shore (where the ring breaks they may), so their land is th
 17 and 19 the largest island lies more than 8 tiles of water out. Nothing is changed for them:
 Kyler decides.
 
+**The badwater test's Any map** (`tests/contract/badwater.test.ts`): Any 96² seed 22 started 6 tiles
+from badwater or its soil, against the 15 it asks for (`start.badwater`, a target the settler aims
+for). The cause is Any's new land: Any takes the six themes' means, so Delta's new ranges moved it
+(D416, D429). The rule is unchanged. On that land the settler found no start 15 tiles or more from
+badwater or contaminated soil, with or without room for the mine sites, so it took the next start
+its rules allow. Re-pinned to Any 23 (D148), which keeps the distance. The other themes stay on
+seed 22.
+
 ### Islands: the sea's layout for the grown island (D427–D428, 2026-10-02, night): the stop
 
 Kyler on be9b645c: not accepted. The grown island sat in a moat on seeds 13 and 17 (nearly 3), the
