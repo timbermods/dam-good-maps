@@ -16,6 +16,7 @@ import type { Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { Ed } from "./ed";
+import type { DrawerModel } from "./Drawer";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
@@ -41,13 +42,18 @@ import { editorView } from "./render/editorView";
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
-  /** "Back to settings" (generated maps) or "New map" (imported ones). */
-  onBack(info: SessionInfo): void;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
+  /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
+  /** The map's name as the page keeps it (the drawer renames it; Save to Timberborn uses it). */
+  name: string;
+  /** The New map drawer: what it shows, whether it is open, and its switch (the page keeps it open across maps). */
+  drawer: DrawerModel;
+  drawerOpen: boolean;
+  onDrawer(open: boolean): void;
 }
 
 export default function Editor(props: EditorProps) {
@@ -71,7 +77,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useStart(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
-  Object.assign(ed, useSave(ed));
+  Object.assign(ed, useSave(ed, props.name));
 
   return editorView(ed, props);
 }

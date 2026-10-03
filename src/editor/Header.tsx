@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
+import { GENERATOR_VERSION } from "../core/spec/mapspec";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -101,6 +102,9 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 
 export interface HeaderProps {
   info: SessionInfo;
+  /** The map's name as the page keeps it (renamed in the drawer). */
+  name: string;
+  /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
   canRedo: boolean;
@@ -128,6 +132,7 @@ export interface HeaderProps {
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
+  const [about, setAbout] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
@@ -175,10 +180,8 @@ export function Header(p: HeaderProps) {
         New map
       </button>
       <div class="editor-title">
-        <h1 title={p.info.name}>{p.info.name}</h1>
-        <span class="muted">
-          {p.saveState && /fail|off/.test(p.saveState) ? p.saveState : `${p.info.kind === "generated" && p.info.spec ? `seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
-        </span>
+        <h1 title={p.name}>{p.name}</h1>
+        <span class="muted">{p.saveState || `${p.info.kind === "generated" && p.info.spec ? `seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}</span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
@@ -230,7 +233,7 @@ export function Header(p: HeaderProps) {
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => undefined)}>
+                <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
                   About
                 </button>
               </li>
@@ -252,6 +255,35 @@ export function Header(p: HeaderProps) {
           />
         </div>
       </div>
+      {about ? <About onClose={() => setAbout(false)} /> : null}
     </header>
+  );
+}
+
+/** About (File → About): the version, the credits and the licences, in the page's dialog. */
+function About(p: { onClose(): void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <div class="dialog about" role="dialog" aria-modal="true" aria-labelledby="about-head">
+        <h2 id="about-head">Dam Good Maps</h2>
+        <p>Generator {GENERATOR_VERSION}.</p>
+        <p>Free software under the GNU Affero General Public License v3. The maps you make are yours.</p>
+        <p>Sounds: recorded CC0 foley. Real places: public elevation data, credited in the gallery.</p>
+        <p>Timberborn is a game by Mechanistry; this project is not affiliated with Mechanistry.</p>
+        <footer>
+          <button type="button" class="ghost" title="The source code, on GitHub" onClick={() => window.open("https://github.com/timbermods/dam-good-maps", "_blank", "noopener")}>
+            Source
+          </button>
+          <button type="button" class="primary" title="Close About" onClick={p.onClose} autoFocus>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }

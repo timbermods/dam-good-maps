@@ -94,16 +94,14 @@
   box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
 }
 
+/* the drawer's head: the current map's name, editable, in the heading's size */
 .drawer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 8px;
 }
 
-.drawer-head h2 {
-  margin: 0;
+.drawer-head .map-name {
   font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .drawer-fields {
@@ -138,6 +136,17 @@
   border-radius: 6px;
   background: var(--bg);
   color: var(--ink);
+}
+
+/* the seed and its lock on one line */
+.drawer-seed {
+  display: flex;
+  gap: 4px;
+}
+
+.drawer-seed .icon-button {
+  flex: none;
+  padding: 0 6px;
 }
 
 .drawer-fields .segmented {
@@ -178,6 +187,16 @@
   flex: 1;
 }
 
+/* the drawer's lower part: the map card, then Your maps filling the room left and scrolling inside it; a
+   settings section opens as a sheet over it, so nothing above moves */
+.drawer-lower {
+  position: relative;
+  flex: 1 0 auto;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
 .drawer-card {
   margin-top: 12px;
   padding-top: 10px;
@@ -208,6 +227,114 @@
 .drawer-legend img {
   width: 24px;
   height: 24px;
+}
+
+.your-maps {
+  flex: 1 1 0;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.your-maps h3 {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.your-maps ul {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.your-maps button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.your-maps button:hover {
+  background: var(--bg);
+}
+
+/* the map open now: the mint's bar at its left, its name in the heading's weight */
+.your-maps button[aria-current="true"] {
+  border-left-color: var(--accent);
+  cursor: default;
+}
+
+.your-maps button[aria-current="true"] .ym-name {
+  font-weight: 600;
+}
+
+.ym-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ym-size {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-sheet {
+  position: absolute;
+  inset: 12px 0 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-top: 1px solid var(--rule);
+}
+
+.sheet-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin: 6px 0;
+  padding: 4px 6px;
+  border: 0;
+  font-weight: 600;
+}
+
+.drawer-sheet .sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* the page before its first map: the first look, in the window's middle */
+.page-wait {
+  height: 100vh;
+}
+
+.error.floating {
+  z-index: 11;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
 /* what sits over the map keeps its place to the drawer's right edge: it moves right with the drawer as one block */

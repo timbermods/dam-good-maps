@@ -4,6 +4,7 @@ import { proxy } from "comlink";
 import { saveFile, saveToTimberborn } from "../../platform";
 import type { CheckProgress } from "../../worker/session";
 import { plain } from "../panels";
+import { namedFile } from "../../core/gen/pack";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
@@ -18,14 +19,20 @@ export interface SaveSlice {
   importChanges: number;
 }
 
-export function useSave(ed: Ed): SaveSlice {
+/** The file's name: the worker's own (dgm-<theme>-<seed>, D345 B10) until the map is renamed, then the name
+ *  Kyler gave it (`namedFile`). */
+function named(fileName: string, info: { name: string }, name: string, ext: string): string {
+  return name && name !== info.name ? namedFile(name).replace(/\.timber$/, ext) : fileName;
+}
+
+export function useSave(ed: Ed, name: string): SaveSlice {
   const { api, info, setMessage, setDotOpen, saving, setSaving, enqueue } = ed;
 
   // ------------------------------------------------------------------------------ export
 
   async function exportProject() {
     const p = await api.project();
-    saveFile(p.bytes, p.fileName, "application/gzip");
+    saveFile(p.bytes, named(p.fileName, info, name, ".damgoodmaps.json"), "application/gzip");
   }
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
@@ -44,13 +51,14 @@ export function useSave(ed: Ed): SaveSlice {
         setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
         return;
       }
+      const fileName = named(r.fileName, info, name, ".timber");
       if (kind === "download") {
-        saveFile(r.bytes, r.fileName);
-        setMessage({ kind: "info", text: `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+        saveFile(r.bytes, fileName);
+        setMessage({ kind: "info", text: `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
         return;
       }
-      const v = await saveToTimberborn(r.bytes, r.fileName);
-      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? r.fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+      const v = await saveToTimberborn(r.bytes, fileName);
+      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
     } finally {

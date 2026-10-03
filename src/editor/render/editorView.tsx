@@ -21,9 +21,9 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, minimap, mirror, waterTick, viewTick,
-    shapeNote, startDrag, needs, startReach, waterLayers, message, setMessage, showHistory, setShowHistory, run, api,
-    drawerOpen
+    shapeNote, startDrag, needs, startReach, waterLayers, message, setMessage, showHistory, setShowHistory, run, api
   } = ed;
+  const drawerOpen = props.drawerOpen;
 
   return (
     <ForceFloor.Provider value={floorContext}>
@@ -31,7 +31,7 @@ export function editorView(ed: Ed, props: EditorProps) {
       {header(ed, props)}
       <div class="editor-main">
         <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
-        {drawerOpen ? <Drawer info={info} icon={(t) => icons[t] ?? null} /> : null}
+        {drawerOpen ? <Drawer model={props.drawer} info={info} icon={(t) => icons[t] ?? null} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
