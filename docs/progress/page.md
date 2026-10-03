@@ -495,3 +495,23 @@ sections in place and Your maps as picture tiles, Difficulty for "Designed for",
 slice. Also: a new map joins Your maps a moment after it opens, not while the editor opens (the suspected cause of
 the 256² preview's timeout under load; to be measured). Open: the two flakes at their cause (D341); the D380 timings
 in a slot Kyler names.
+
+### The two flakes (D341), 2026-10-03
+
+- **look-high, "the Standard look is the same after High":** not the page. Two still frames of the Standard look,
+  the clock and the view held (`setClock`, `resetView`, `renderNow`), differ on wet tiles only, by 1–3 colour levels:
+  10–95 channel values a pair on dev's own build (`b302c938`) and 1–58 on the page's, on this machine's GPU. The test
+  takes one pair's noise as its floor (`Math.max(again.share, 1e-5)`), so it fails whenever the later pair happens
+  to be noisier. The cause is in `src/render3d/`'s water drawing (something in it changes between frames with the
+  clock held); asked of the renderer or milestone session through Kyler. Not changed here.
+- **The 256² Islands preview spec timing out under load:** the page wrote a new map's project into Your maps at
+  once, holding up the worker while the editor opened; a new map now joins Your maps a few seconds after it opens.
+  It has not timed out since (three full runs); D380's timings will show whether the page opens as fast as dev.
+
+### Asked of Kyler: selecting without waiting on the worker (2026-10-03)
+
+Stopped, as asked: the page's copy of the objects (`EntityView` in `src/render3d/model.ts`, sent by the worker) has
+each object's template, place, orientation, flags and strength, but **not its id**. Every edit a picked source's
+row makes (its strength, clean or bad, Delete) and a picked object's Delete name the object by id, so a selection
+taken from the page's copy can't act. What it needs: the entity id in the view (one string per object, or an index
+the worker resolves), which is `src/worker/`'s and `src/core/`'s.
