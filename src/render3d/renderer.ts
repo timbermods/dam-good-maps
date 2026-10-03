@@ -2606,5 +2606,6 @@ function oneObject(template: string, orientation: number): EntityView {
     owner: Uint16Array.of(0),
     variant: Uint8Array.of(NO_VARIANT),
     strength: Float32Array.of(0),
+    ids: [""],
   };
 }
