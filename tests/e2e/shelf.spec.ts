@@ -1,4 +1,4 @@
-// The shelf (on the right since D330) and Delete (PLAN §20 D184, D288), through the page. The shelf: a picked object's
+// The shelf and Delete (PLAN §20 D184, D288), through the page. The shelf: a picked object's
 // ghost follows the pointer, its footprint green where the game keeps it and red where the game
 // would delete it, the reason beside the pointer; a click there is refused, and placed where it
 // fits; R turns it; Esc puts it back; trees and bushes paint many with a drag; the start moves where

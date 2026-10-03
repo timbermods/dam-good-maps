@@ -1,5 +1,5 @@
 // Save to Timberborn (PLAN §20 D162, ROADMAP "Save to Timberborn"): a "Save to Timberborn" button
-// stands next to every .timber download - the editor's Save plate (the page's only one since D330) and
+// stands next to every .timber download - the editor's header (the page's only one since D330) and
 // the Real places gallery - and falls back to the normal download, with one line of install help, when
 // the browser has no folder access or the player declines it. The folder-picking success path
 // itself needs a real OS dialog Playwright cannot drive, so it is a fake at the unit level instead
@@ -29,7 +29,7 @@ async function declinesThePicker(page: Page) {
   });
 }
 
-test.describe("the Save plate", () => {
+test.describe("the editor's header", () => {
   test("Save to Timberborn is the primary button and falls back to a normal download", async ({ page }) => {
     await declinesThePicker(page);
     await openEditor(page, "s=1&z=96&d=n&t=riverValley");

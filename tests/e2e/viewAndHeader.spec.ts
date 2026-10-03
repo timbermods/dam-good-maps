@@ -1,5 +1,5 @@
 // The view and the header (PLAN §20 D184, D205, D207, D330), through the page: the map's name and its line,
-// the plate's two icons, its one primary button and the File menu; the quiet dot and its list; the first run's three hints,
+// the header's two icons, its one primary button and the File menu; the quiet dot and its list; the first run's three hints,
 // each gone once done and never back; the minimap, its toggle and a click that moves the camera;
 // camera bookmarks, kept with the project; the start's reach while the pointer is on it; the
 // brushes working only the visible land under a cut.
@@ -28,7 +28,7 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(page.locator(".editor-title .muted")).toHaveText("seed 4242 · 96×96");
   await expect(page.locator("header.editor-bar").getByRole("button", { name: "New map", exact: true })).toHaveAttribute("aria-pressed", "false");
 
-  // the Save plate: two icons, one primary button, and the File menu with the rest
+  // the header's right group: two icons, one primary button, and the File menu with the rest
   const edit = page.getByRole("toolbar", { name: "Edit" });
   await expect(edit.getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeDisabled();
   await expect(edit.getByRole("button", { name: "Redo (Ctrl+Y)" })).toBeDisabled();

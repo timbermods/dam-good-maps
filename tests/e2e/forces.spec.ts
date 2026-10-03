@@ -60,7 +60,7 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
       const m = window.dgm3d!.renderer.mapState()!;
       // (below the rows over the map, which grow with the force picked: a force's options and its More take
       // more than the two rows and the first-run hints)
-      const below = (document.querySelector(".rows-plate")?.getBoundingClientRect().bottom ?? 200) + 110;
+      const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
         return p.y > below && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";

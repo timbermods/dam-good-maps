@@ -56,7 +56,10 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   await expect(yours.locator("button[aria-current=true]")).toHaveCount(1);
   await yours.locator("button:not([aria-current])").click();
   await page.waitForFunction(() => window.dgmEditor?.info().W === 96 && window.dgm3d?.renderer.mapState()?.W === 96, null, { timeout: 120_000 });
-  expect((await page.evaluate(() => window.dgmEditor!.info())).edits).toBe(1);
+  const back = await page.evaluate(() => window.dgmEditor!.info());
+  expect(back.edits).toBe(1);
+  expect(back.spec).toEqual(edited.spec);
+  expect(back.history.map((h) => h.label)).toEqual(edited.history.map((h) => h.label));
   expect(await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), at)).toBeLessThan(ground);
   expect(errors).toEqual([]);
 });

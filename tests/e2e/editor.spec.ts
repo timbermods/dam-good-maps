@@ -124,7 +124,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // the edited map as it was, its edits all there
   i = await info(page);
   expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
-  expect(i.history.length).toBe(3);
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);
   expect((i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(moved.position);
