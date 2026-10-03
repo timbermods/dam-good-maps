@@ -437,6 +437,10 @@ amended). What an edit leaves out of reach is reported by the checks, never repa
      as a spring at a valley's head or below a ridge, never inside a river or lake another source already fills and
      never downstream; more flow comes from more sources side by side at the head, or from their strength; each
      tributary has its own source at its own head (`water.source_in_flow`, §11.3).
+   - **A river's water runs its planned course** (D447): no lower water on a channel's bank takes it before its
+     course ends. A course with another river's channel or a lake on its bank, lower than its bed, runs down to that
+     water's level there; an arm of a fan or a split cut across a tributary takes the tributary down to its level
+     from there; an oxbow lake keeps a bank to every water but at its join.
    - **Maps need not hold their water** (D152): rivers leave the map at their own level, lakes may drain, and nothing
      is built along the map's edges to keep water in (no edge walls, D151, `terrain.edge_wall`, §11.2). The sealed
      mouths above are how a river enters, not a wall. The badwater basin's rim holds badwater, not the map's water,

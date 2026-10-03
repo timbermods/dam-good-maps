@@ -845,6 +845,11 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   const rivers: RiverFeature[] = [];
   const falls: Hydro["falls"] = [];
   const arms: Arm[] = [];
+  // (the arms' channels, D447: the tributaries they cross run down to them)
+  const armTiles = new Uint8Array(N);
+  const markArm = (st: Stamp, L: number, half: (s: number, L: number) => number) => {
+    for (const i of st.tiles) if (st.d[i] < half(st.s[i], L)) armTiles[i] = 1;
+  };
   const fs = hash32(seed, "floor", attempt);
 
   const flood = (from: number, below: number): number[] => {
@@ -922,10 +927,22 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       // level under it there, a channel to the river, never on the floor's own level, where its water
       // would spread as a thin sheet the game keeps only until the first drought)
       let floorRing = Infinity;
+      // (D447: another river's channel or lake on its bank, lower than its bed: its water would fall
+      // into it there and its course on stand dry; it runs down to that water's level instead, its
+      // channel holding water beside it)
+      let beside = Infinity;
       const R = r + 1.6;
       for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
         for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
           const i = y * W + x;
+          if (natural && withLakes && (water[i] === 1 || water[i] === 2) && st.d[i] >= r) {
+            const dx = x - px;
+            const dy = y - py;
+            if (dx * dx + dy * dy <= R * R) {
+              if (water[i] === 1) beside = Math.min(beside, h[i]);
+              else if (lakeOf[i] >= 0 && lakeOf[i] !== inLake && lakes[lakeOf[i]].river !== rid) beside = Math.min(beside, lakes[lakeOf[i]].outletBed);
+            }
+          }
           if (floorOthers && water[i] === 3 && st.d[i] >= r) {
             const dx = x - px;
             const dy = y - py;
@@ -970,7 +987,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         run = lakes[inLake].outletBed;
         inLake = -1;
       }
-      run = Math.min(run, ring - cut, floorRing - 1);
+      run = Math.min(run, ring - cut, floorRing - 1, beside);
       if (run < endBed) run = endBed;
       // (never below the beds' floor, item 47: a river there runs shallower)
       if (run < BED_FLOOR) run = BED_FLOOR;
@@ -1285,6 +1302,11 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
               if (water[i] === 1 || water[i] === 2 || protect?.[i]) ok = false;
               continue;
             }
+            // (D447: a bank stays between the hollow and any water but at its join: where it touched
+            // the channel above the bend, the river ran through the hollow and the bend stood dry)
+            let bank = false;
+            for (let dy = -1; dy <= 1 && !bank; dy++) for (let dx = -1; dx <= 1; dx++) if (water[i + dy * W + dx] === 1 || water[i + dy * W + dx] === 2) bank = true;
+            if (bank) continue;
             mark[i] = 1;
             crescent.push(i);
           }
@@ -1379,6 +1401,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);
       const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, m.prof[j0], m.prof[j1]);
       carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
+      markArm(pa.st, pa.L, ahalf);
       arms.push({ kind: "split", river: main.id, path: armCourse });
       break;
     }
@@ -1449,6 +1472,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const j0 = Math.round((s0 / m.L) * m.n);
       const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, m.prof[j0]);
       carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
+      markArm(pa.st, pa.L, ahalf);
       armBeds.push({ prof: pa.prof, L: pa.L, n: pa.n });
       arms.push({ kind: "mouth", river: main.id, path: armCourse });
     }
@@ -1476,6 +1500,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         }
       }
       carve(pb.st, bed, pb.L, pb.n, bhalf, 0);
+      markArm(pb.st, pb.L, bhalf);
       for (let j = j0; j <= m.n; j++) {
         const q = Math.min(pb.n, Math.max(0, Math.round((((j * m.L) / m.n - s0) / pb.L) * pb.n)));
         if (bed[q] < m.prof[j]) m.prof[j] = bed[q];
@@ -1490,6 +1515,49 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       main.params.bedProfile = { start: env[0], steps };
     }
   }
+  // (D447: an arm, cut after the rivers, crossing a tributary's course or running on its bank lower
+  // than its bed takes its water there, and the tributary's course on stood dry to its join: from
+  // there it runs at the arm's level, its channel holding water to the river it joins. Its
+  // feature's bed follows)
+  if (natural && arms.length)
+    for (const r of rivers) {
+      if (!("river" in r.params.exit)) continue;
+      const m = exits.get(r.id);
+      if (!m) continue;
+      const st = stamp(m.path, W, H, Math.ceil(m.width / 2 + 3));
+      const bed = m.prof.slice();
+      let run = Infinity;
+      let lowered = false;
+      for (let j = 0; j <= m.n; j++) {
+        const {
+          p: [px, py],
+        } = pointAt(m.path, (j * m.L) / m.n);
+        const rr = m.half((j * m.L) / m.n, m.L);
+        const R = rr + 1.6;
+        for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
+          for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
+            const i = y * W + x;
+            if (st.d[i] < rr || (x - px) * (x - px) + (y - py) * (y - py) > R * R) continue;
+            if (armTiles[i]) run = Math.min(run, h[i]);
+          }
+        if (run < BED_FLOOR) run = BED_FLOOR;
+        if (run < bed[j]) {
+          bed[j] = run;
+          lowered = true;
+        }
+      }
+      if (!lowered) continue;
+      carve(st, bed, m.L, m.n, m.half, 0);
+      m.prof.set(bed);
+      const env = bed.slice();
+      for (let j = m.n - 1; j >= 0; j--) if (env[j] < env[j + 1]) env[j] = env[j + 1];
+      const steps: BedStep[] = [];
+      for (let j = 1; j <= m.n; j++) {
+        const stepDown = env[j - 1] - env[j];
+        if (stepDown >= 1) steps.push({ at: Math.round(((j * m.L) / m.n) * 100) / 100, drop: stepDown });
+      }
+      r.params.bedProfile = { start: env[0], steps };
+    }
   return { rivers, water, lakes, falls, arms, flowTotal };
 }
 
