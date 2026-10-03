@@ -738,7 +738,10 @@ adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recover
 a new imported map.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. Undo never crosses from one map to another: each
+history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
+operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
+project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
 document keeps its own land (D336); when UI-BRIEF §6's undo brings back a replaced map, the page opens that map
 afresh, with a view built for its size.
 
