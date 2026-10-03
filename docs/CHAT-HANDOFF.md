@@ -98,7 +98,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D400.**
+- **The next free decision number is D435.**
 
 ## How the planning chat checks in
 
@@ -107,6 +107,7 @@ view captures with `git show`. Prefer git over the GitHub REST API, which rate-l
 
 ## Ideas parked for later
 
-- **Hosting on Cloudflare Workers with Static Assets:** when multi-core water is adopted (GitHub Pages can't set the
-  isolation headers; today's plan is a service worker).
+- **Hosting on Cloudflare Workers with Static Assets:** two reasons now. Multi-core water needs the isolation headers
+  GitHub Pages can't set (today's plan is a service worker), and collaborative editing needs a small function for the room
+  code and the relay's credentials (D431).
 - **Co-op starts:** an idea only, nothing decided.

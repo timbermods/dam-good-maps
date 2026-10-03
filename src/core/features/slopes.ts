@@ -58,25 +58,39 @@ export const START_CLEAR_RADIUS = 3;
 
 /** The generation's slopes that still stand on the ground as it is now: the high side one level up
  *  and the tile behind the low side at the slope's own level (the shape `placeSlopes` places), on a
- *  tile no other slope has taken. An edit that took the step away takes the slope with it; nothing
- *  is ever added (PLAN §20 D368 (10)). */
-export function keptSlopes(kept: readonly { x: number; y: number; orientation: Orientation }[], h: Uint8Array, W: number, H: number, taken: ReadonlySet<number>): PlacedSlope[] {
+ *  tile no other slope has taken. An edit that took the step away takes the slope with it, for good:
+ *  `gone` marks the ones an earlier edit broke (the build checks after every edit), which a later
+ *  edit giving the step back never brings back; nothing is ever added (PLAN §20 D368 (10)). */
+export function keptSlopes(kept: readonly { x: number; y: number; orientation: Orientation }[], h: Uint8Array, W: number, H: number, taken: ReadonlySet<number>, gone: Uint8Array | null = null): PlacedSlope[] {
   const out: PlacedSlope[] = [];
   const used = new Set(taken);
-  for (const s of kept) {
-    if (s.x < 0 || s.y < 0 || s.x >= W || s.y >= H) continue;
-    const [dx, dy] = slopeHighSide(s.orientation);
-    const i = s.y * W + s.x;
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    const bx = s.x - dx;
-    const by = s.y - dy;
-    if (used.has(i) || hx < 0 || hy < 0 || hx >= W || hy >= H || bx < 0 || by < 0 || bx >= W || by >= H) continue;
-    if (h[hy * W + hx] !== h[i] + 1 || h[by * W + bx] !== h[i]) continue;
-    used.add(i);
-    out.push({ x: s.x, y: s.y, z: h[i], orientation: s.orientation });
-  }
+  kept.forEach((s, k) => {
+    if (gone?.[k]) return;
+    const tiles = slopeTiles(s, W, H);
+    if (!tiles || used.has(tiles[0]) || !slopeStands(tiles, h)) return;
+    used.add(tiles[0]);
+    out.push({ x: s.x, y: s.y, z: h[tiles[0]], orientation: s.orientation });
+  });
   return out;
+}
+
+/** A slope's tile, the tile on its high side and the tile behind its low side; null where one is
+ *  off the map. */
+export function slopeTiles(s: { x: number; y: number; orientation: Orientation }, W: number, H: number): [number, number, number] | null {
+  const [dx, dy] = slopeHighSide(s.orientation);
+  const hx = s.x + dx;
+  const hy = s.y + dy;
+  const bx = s.x - dx;
+  const by = s.y - dy;
+  if (s.x < 0 || s.y < 0 || s.x >= W || s.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H || bx < 0 || by < 0 || bx >= W || by >= H) return null;
+  return [s.y * W + s.x, hy * W + hx, by * W + bx];
+}
+
+/** Whether the ground holds a slope's shape: its high side one level up, the tile behind its low
+ *  side at its own level. */
+export function slopeStands(tiles: readonly [number, number, number], h: ArrayLike<number>): boolean {
+  const [i, high, back] = tiles;
+  return h[high] === h[i] + 1 && h[back] === h[i];
 }
 
 /** §7.5 for generated maps (the generator's build; an edited map keeps what the generation placed). */

@@ -9,7 +9,7 @@ import { wrap, type Remote } from "comlink";
 import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES } from "../core/places/attribution";
 import type { PlaceIndex, PlaceIndexEntry } from "../core/places/place";
 import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
-import { fetchIndex, fetchPlace, PLACES_URL } from "./data";
+import { fetchGalleryIndex, fetchPlace, PLACES_URL } from "./data";
 import type { PlaceWorkerApi } from "./place.worker";
 
 const HOME = import.meta.env.BASE_URL;
@@ -76,7 +76,7 @@ export function Gallery() {
   const [saving, setSaving] = usePerCard<Saving>();
 
   useEffect(() => {
-    fetchIndex().then(setIndex, (e) => setLoadError(String(e instanceof Error ? e.message : e)));
+    fetchGalleryIndex().then(setIndex, (e) => setLoadError(String(e instanceof Error ? e.message : e)));
   }, []);
 
   useEffect(() => {

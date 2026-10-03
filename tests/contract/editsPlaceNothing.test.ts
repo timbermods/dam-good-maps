@@ -16,6 +16,9 @@ import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { buildMap } from "../../src/core/features/build";
+import { writeTimber } from "../../src/core/format/timber";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
@@ -122,6 +125,66 @@ describe("an edit never places an object (D368 (10))", () => {
       expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`)).toEqual([]);
     }, 120000);
   }
+
+  it("a Quake Lift after a wide Flatten adds nothing back: what the Flatten's ground and water took stays gone (D404)", async () => {
+    // (the finding, Highlands seed 3 at 128²: the Flatten flooded groves, bushes and ruin fields and
+    // broke slopes' steps; a Lift that drained the ground or gave a step back brought them back, 122
+    // objects on one side of the fault and 266 on the other. The build re-marks a kept tree dead or
+    // alive and keeps every bush and ruin column where the generation put them; a slope an edit
+    // broke stays gone)
+    await open(3);
+    const dabs: number[] = [];
+    for (let y = 30; y <= 100; y += 4) for (let x = 14; x <= 124; x += 4) dabs.push(x * 4, y * 4);
+    expect(ed.apply({ op: "brush", params: { tool: "flatten", size: 14, strength: 10, level: 8, dabs } }, "user", "flatten").errors).toEqual([]);
+    const before = entities();
+    for (const side of [1, -1] as const) {
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 80 }, path: [{ x: 4, y: 64.5 }, { x: W * 0.5, y: 64.5 }, { x: W - 5, y: 64.5 }], side, cut: null, natural: true });
+      const now = entities();
+      expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`), `the Lift on side ${side}`).toEqual([]);
+      // the project replays to the map a build from scratch gives, and undo gives the Flatten's map back
+      const replay = MapSession.open(decodeProject(ed.project().bytes));
+      const shown = (es: ReturnType<typeof entities>) => es.map((e) => `${e.template} ${e.id}@${e.x},${e.y},${e.z}`);
+      expect(shown(replay.built.entities)).toEqual(shown(replay.fullBuild().entities));
+      ed.undo();
+      expect(shown(entities())).toEqual(shown(before));
+    }
+  }, 300000);
+});
+
+describe("a spring the build derives again after an edit keeps its id (PLAN §19.4, D314)", () => {
+  // M9b's finding (Highlands seed 3 at 128²): a Quake Lift across a river's head left part of its
+  // springs' row on the lifted side; the build placed the row again a tile over, and the moved spring
+  // came back with a new id, counted as added. A row's ids follow its places along the row
+  // (water/sourceGroups.ts `groupIds`), never its tiles. A flat imported map (no generator, the same
+  // on every branch) and a river drawn on it, its bed 9 tiles across: room for its head's row to move.
+  const S = 64;
+  const flat = buildMap({ W: S, H: S, seed: 1, features: [], base: { heights: new Uint8Array(S * S).fill(8), columns: new Map(), entities: [] } });
+  const bytes = writeTimber(toTimberFile(makeSpec({ seed: 1, theme: "highlands", size: { x: S, y: S } }), flat));
+  const shown = (es: ReturnType<typeof entities>) => es.map((e) => `${e.template} ${e.id}@${e.x},${e.y},${e.z}`);
+
+  it("a Quake Lift across a river's head adds no spring; undo and the project give the same map", async () => {
+    for (const flow of [1, 2]) {
+      ed.openTimber(bytes, "flat.timber");
+      ed.setEditorWaterMode("defer");
+      const id = `11111111-2222-4333-8444-00000000000${flow}`;
+      expect(ed.applyTool({ tool: "river", points: [[16, 32], [40, 32], [S - 1, 32]], flow, width: 9 }, id).errors).toEqual([]);
+      const before = entities();
+      const springs = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === id);
+      expect(springs(before).length, "the river's head has a spring").toBeGreaterThan(0);
+      // (the fault between the head's rows: above it, below it)
+      for (const fy of [31.5, 32.5]) {
+        run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: 2, y: fy }, { x: S / 2, y: fy }, { x: S - 3, y: fy }], side: 1, cut: null });
+        const now = entities();
+        expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`), `flow ${flow}, the fault at y ${fy}`).toEqual([]);
+        expect(springs(now).length, "the head keeps a spring").toBeGreaterThan(0);
+        // the project replays to the map a build from scratch gives
+        const replay = MapSession.open(decodeProject(ed.project().bytes));
+        expect(shown(replay.built.entities)).toEqual(shown(replay.fullBuild().entities));
+        ed.undo();
+        expect(shown(entities())).toEqual(shown(before));
+      }
+    }
+  }, 240000);
 });
 
 describe("an edit that leaves the mine site out of reach shows in the checks, and places nothing (D368 (10))", () => {

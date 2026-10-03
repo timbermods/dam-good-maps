@@ -80,6 +80,10 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
        built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
        picker and parallel loading).
    13. **Later: a Codex round on Canyon and Highlands at 96².**
+   14. **An Islands round** (D432), measured by `investigation/m9b/islands-reach.ts`: every map has an island of 150+ tiles
+       to expand to, reachable from the start across water as the game allows; islands kept apart from the shore, and layouts
+       that read as lakes or rivers redrawn (today 12 of 30 seeds at 128² fall short); it reports, at 96² and 128², the
+       3-island promise (96² holds on 2 of 20 today) and that measure (D433).
 4. **The Codex adoptions** (section below): the Rust water, the analysis (after M9b's release, D391) and the forces,
    multi-core water, scaling round 4, generation speed.
 
@@ -160,10 +164,16 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   rows stay on TypeScript. First the quiet measuring window re-times the improved port in Chromium, WebKit and native (only
   Firefox was re-timed) and compares the full M9b batch (about 18.5 minutes on 16 threads on a loaded machine) against the
   TypeScript batch.
-- **The Rust forces** (#158): round 1 is not adoptable (about 5× slower: a generic serialization layer copied the map across
-  the boundary on every call; Carve and Glaciate unported). Round 2 is with Codex: the boundary fixed first (the map shared
-  in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The
-  lesson applies to every port.
+- **The Rust forces** (#158, D400): round 2's speed is accepted, provisional until a quiet window. Adoption waits for round
+  3's identity corpus (2,000 per force and size for native and Node-Wasm, 500 per browser engine) and the open gates;
+  nothing to do until then. Round 1's lesson applies to every port: share the map in typed memory, one call per
+  operation, never serialized.
+- **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
+  every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
+  Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
+  maths never reaches a replay). Adopted only after a quiet-window timing shows no slowdown (D380).
+- **Rust threads** (#168, D402): merged as an investigation and parked. Threaded Rust stays experimental until wasm
+  atomics are stable in Rust; the TypeScript parallel water (#130) remains the multi-core path.
 - **Multi-core water** (#130): approved. Threads only where they help: 256² and up in Chromium and Firefox (Firefox always
   measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
   WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`). Costs: one
@@ -173,9 +183,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces round 2 (#158), portable maths everywhere (`investigation/portable-math`) and Rust
-water with threads (`investigation/rust-threads`). The dam sketch engine (#159) is merged as an investigation, not adopted
-(D392; see its section below).
+**Still with Codex:** the Rust forces round 3's identity corpus (#158). The dam sketch engine is merged as an
+investigation, rounds 1 (#159) and 2 (#166), not adopted, no round 3 before the release (D392, D403; see its section
+below).
 
 ## The Rust order (D381)
 
@@ -301,6 +311,11 @@ Tag `m9b-done` (M9c folded in, D278). **Read [docs/PERFECT.md](docs/PERFECT.md) 
 around five outcomes, judged by Kyler's eye against PERFECT, not only by the batches and the measures (D273). The branch, its
 tip and the hand-over are in `docs/progress/m9b.md` on `feature/m9b` ("Hand-over") and [docs/STATUS.md](docs/STATUS.md).
 
+**Islands and Delta block the release** (D407): Kyler's verdict on the review set: each is one map with minor differences,
+worse than M9a. Redesigned first (varied island arrangements with relief and fresh water; a delta that fans into channels
+from higher ground, varying by seed), judged on 30-seed contact sheets at 128² beside M9a's before any outcome tuning.
+Small starts' hidden land only at 128² and under (D405); no worn way out on generated maps (D406).
+
 **Adoption order** (D380: M9b must not release slower than `dev` at 256²). First merge `dev` into `feature/m9b` (the forces
 are released there) and re-measure against the committed baseline, folding `resources.mine_reach` into M9b's
 `resources.mine_site`. Then, re-measuring after each: small starts, then generation speed (round 1, then round 2), then Lake
@@ -395,6 +410,11 @@ short in-game descriptions with a link to a credits page; the maps built at depl
 byte check nightly and in the release check; clean titles; 3D thumbnails rendered on a GPU and lazy-loaded; every place
 rebuilt without perimeter walls, water free to drain, at 256² where the data allows with its signature as the focal point; and
 the gallery grown to about 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
+
+**Meanwhile (D421, done):** the gallery leaves out the 33 places whose start reaches no fed water (the page filters by each
+place's recorded `start.water` fault, `src/core/places/place.ts`), so a place shows again once round 2 fixes it; they stay
+in the repository and still build. `tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and
+berry shortfalls wait for round 2.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
@@ -801,6 +821,9 @@ wall) built in the game, comparing level, volume and dry-out day with the engine
 Chromium, Firefox (the corrected optimizing-tier setup) and WebKit, at 128² and 256², while dragging a wall. Its Node numbers
 (first preview 16 / 67 ms, full fill 0.67 / 2.94 s, under shared load) support a progressive fill, not an instant answer.
 
+**Round 2** (#166, D403): merged as an investigation, not adopted; no round 3 before the release. When it resumes,
+its stacked-dams scene (which predicts dry) is fixed first, and its calibration needs a Probe wall-building bridge.
+
 ## Collaborative editing (D349)
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
@@ -808,15 +831,15 @@ Chromium, Firefox (the corrected optimizing-tier setup) and WebKit, at 128² and
 operations; each browser rebuilds the map from it, so both see identical terrain and water (every change is a deterministic
 operation, D158, D342).
 
-- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
-- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply code
-  to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with one-click
-  copy and each step plainly worded.
-- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay; a
-  network that blocks the connection is told plainly. One player hosts and keeps the order of operations.
+- **Always through a relay, joined with a short room code** (D431, amends D362): every session goes through a managed TURN
+  relay (Cloudflare Realtime TURN the candidate), with no direct peer-to-peer path; the relay sees only encrypted traffic.
+  The host's **Invite** gives a short room code; the guest types or pastes it. A small serverless function (a Cloudflare
+  Worker the candidate) hands out short-lived relay credentials and passes the connection setup, never carries map data and
+  keeps nothing once connected. Codes are short-lived and single-use. If the relay or function is down, collaboration is
+  unavailable and the page says so plainly; editing alone is unaffected. One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and intended
   action).
-- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join works, with 324-character codes; the
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join worked (324-character codes; superseded by D431, as are the short-codes findings, #150); the
   maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of
   the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never
   sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across

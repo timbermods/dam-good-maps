@@ -74,8 +74,8 @@ The order of work (the release gate, the editor-core items, the post-release lis
 [STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; this session merges them
 as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started from an
 unreleased one) and adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
-default. Hold any PR Kyler says Codex is still working on. The Rust forces (#158) are still round 1: nothing to do until
-round 2 lands.
+default. Hold any PR Kyler says Codex is still working on. The Rust forces (#158) are at round 3 (the 1% pilot passes; its full
+corpus waits for a window Kyler names): nothing to do until then. Today's merges (#159–#181) are listed in STATUS.
 
 ## 5. How things are run here
 
@@ -116,7 +116,7 @@ round 2 lands.
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into `PLAN.md` §20 (the next is **D400**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into `PLAN.md` §20 (the next is **D435**) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

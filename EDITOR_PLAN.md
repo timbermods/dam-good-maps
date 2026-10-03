@@ -319,8 +319,30 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
   applies and recorded in it, so a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8),
-  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). Pen
-  pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
+  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). It
+  weathers like nature (D387 (4), D399; `raster/weather.ts`): edges, read softly, wander in and out along one
+  smooth noise fixed to the map's tiles, in curves the size of Size (wider with Strength, so a strong stroke
+  bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
+  up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
+  with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
+  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
+  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
+  terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
+  edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
+  stay flat; little knobs and pits wear away; the effect fades out across the ring's
+  outer part, so there is no seam; and painting the same spot again changes less and less. The water stays
+  where it stood: from the settled water the session has when the stroke begins, a wet tile is never raised and
+  a dry tile beside water never comes down below that water's surface (recorded in the stroke, `shore` and
+  `pools`, with where water stood round it, `rim`). It keeps the downhill order: no tile it changes ends above
+  or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
+  tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
+  is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
@@ -342,7 +364,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Lower, §5). Inside an open selection the mode applies within it.
 - **Sources: Ride · Keep · Clear** (D322, item 31; D249): in every brush's row. **Ride** (default): the sources the
   stroke passes over ride the ground like trees and bushes (a 3 × 3 source as one level piece). **Keep**: every
-  source under the stroke and the ground it stands on stay exactly where they were. **Clear**: the sources the
+  source under the stroke and the ground it stands on stay exactly where they were, at the level the map showed
+  (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
@@ -358,9 +381,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   selection open, Delete removes everything standing inside it, or the ground's top level where nothing stands;
   the Selection row's **Delete** opens a menu of what is there with counts (Everything, Water sources, Badwater
   sources, Start, Ruins, Trees, Bushes, Slopes and the rest, then Ground (one level)), hovering a choice showing
-  what it would take. **The counts and Everything include what is under water** (D345, B5): the resource features
-  hold trees and bushes on ground a lake covers, which stand again when the water drains (`objectsIn`,
-  `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
+  what it would take. **The counts and Everything include what is under water** (D345, B5): a generated map's own
+  trees, bushes and ruin columns stand in a lake that covers them (a tree dead, D404) and are counted as standing;
+  a resource feature without the generation's record (an old document's) holds its trees and bushes under the
+  water, which stand again when it drains, and those are counted too (`objectsIn`, `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
   `cleared` tiles, D360 b). With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
@@ -443,6 +467,13 @@ Make a valley, drop a source, and there's a river.
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
   it (D196).
+- **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
+  pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
+  what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
+  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
+  level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
+  with the page session (D388).
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. Clear water still reads as water (a faint blue tint, ripples, a
@@ -729,7 +760,17 @@ opened, are listed but never blamed on the player's edits and do not block its e
   generation (`placeSlopes`, before the land is shown); an opened map's document keeps the generation's slopes in its
   stored map (`BuildInput.generatedSlopes`, `features/slopes.ts` `keptSlopes`), and every rebuild after an edit keeps
   those that still stand (the high side one level up, the tile behind at their own level) and loses those an edit
-  took away; it never derives again. The same holds for an edited import and for the start (moving it places
+  took away, for good: the build checks them after every edit in order, so a later edit that gives the step back
+  never brings one back (`TerrainCache.slopeGone`); it never derives again. The generation's trees, bushes and ruin
+  columns are kept the same way (`BuildInput.generatedResources`, `raster/resources.ts` `KeptTiles`): only those
+  the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
+  or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
+  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. What
+  holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
+  carries leave their ground together and land where it put them, one it put down on the start or on a slope the
+  build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
+  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
   walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the
@@ -751,9 +792,21 @@ opened, are listed but never blamed on the player's edits and do not block its e
     aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
-    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222), so
-    `water.settles` passes and the quiet dot settles once the rest of the water has; the water written is unchanged
-    (`PLAN.md` §10, §11.3).
+    it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
+    the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
+    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
+  - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
+    water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
+    under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
+    `unfedWater(session, area?)` counts the unfed bodies holding water over 0.001 deep and builds the
+    `removeUnfedWater` operation, which stores their tiles as the water model's `drained`: once the canonical settle
+    has passed, the unfed water on them is taken and the settle runs on (at most a day), and the preview and the
+    carried-over water take it at once; fed water is never taken. `planFill(session, x, y, level)` builds the
+    `fillHollow` operation, a `RetainedWater` as a carve stores its oxbow lake, or a plain reason (it would spill
+    off the map, the level is at or below the ground); its `days` come from the game's evaporation
+    (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
+    takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -762,6 +815,12 @@ opened, are listed but never blamed on the player's edits and do not block its e
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
     settle's, except under roofs.
+  - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
+    stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
+    settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
+    pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
+    (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
+    §10; `tests/contract/waterFromNowhere.test.ts`).
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

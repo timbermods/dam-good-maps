@@ -4,7 +4,7 @@
 // the entries (small: the list reads them all) and the project files (read only to open a map).
 // Every call fails quietly and says why (`StoreResult`): no browser storage, or storage full.
 
-import { byEdited, toDrop, type Removed, type StoreResult, type YourMapEntry, type YourMapsStore } from "../core/library/yourMaps";
+import { byEdited, toDrop, withSize, type Removed, type StoreResult, type YourMapEntry, type YourMapsStore } from "../core/library/yourMaps";
 
 export const YOUR_MAPS_DB = "dgm-your-maps";
 const ENTRIES = "entries";
@@ -79,25 +79,47 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
     });
   }
 
+  async function readProject(id: string): Promise<Uint8Array | null> {
+    try {
+      const p = await tx("readonly", (_, projects) => request(projects.get(id) as IDBRequest<Uint8Array | undefined>));
+      return p instanceof Uint8Array ? p : null;
+    } catch {
+      return null;
+    }
+  }
+
   return {
     async list() {
       try {
-        return byEdited(await tx("readonly", (entries) => request(entries.getAll() as IDBRequest<YourMapEntry[]>)));
+        const all = await tx("readonly", (entries) => request(entries.getAll() as IDBRequest<YourMapEntry[]>));
+        // an entry saved before sizes were kept gets its size from its project, once
+        const filled: YourMapEntry[] = [];
+        for (const e of all) {
+          if (e.size) continue;
+          const p = await readProject(e.id);
+          const f = p ? withSize(e, p) : e;
+          if (f !== e) {
+            Object.assign(e, f);
+            filled.push(f);
+          }
+        }
+        if (filled.length) {
+          await write(async (entries) => {
+            for (const f of filled) {
+              const cur = (await request(entries.get(f.id))) as YourMapEntry | undefined;
+              if (cur && !cur.size) await request(entries.put({ ...cur, size: f.size }));
+            }
+          });
+        }
+        return byEdited(all);
       } catch {
         return [];
       }
     },
-    async project(id) {
-      try {
-        const p = await tx("readonly", (_, projects) => request(projects.get(id) as IDBRequest<Uint8Array | undefined>));
-        return p instanceof Uint8Array ? p : null;
-      } catch {
-        return null;
-      }
-    },
+    project: readProject,
     put(entry, project) {
       return write(async (entries, projects) => {
-        await request(entries.put({ ...entry, bytes: project.length }));
+        await request(entries.put({ ...withSize(entry, project), bytes: project.length }));
         await request(projects.put(project, entry.id));
         const all = (await request(entries.getAll())) as YourMapEntry[];
         for (const id of toDrop(all, entry.id)) {

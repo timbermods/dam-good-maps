@@ -6,6 +6,7 @@
 
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
+import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { YourMapsSaver } from "../../src/core/library/saver";
 import { whenText } from "../../src/core/library/when";
@@ -194,5 +195,60 @@ describe("when a map was last edited", () => {
     expect(whenText(at(-60 * 24 * 2), now)).toBe("Edited 2 days ago");
     expect(whenText(at(-60 * 24 * 30), now)).toMatch(/^Edited \d+ Aug$/);
     expect(whenText("not a date", now)).toBe("");
+  });
+});
+
+describe("the map's size on an entry", () => {
+  const project = (w: number, h: number) => gzipSync(strToU8(JSON.stringify({ app: "dam-good-maps", formatVersion: 3, base: { sizeX: w, sizeY: h } })));
+
+  it("a new save records the size, square or not", async () => {
+    const s = openYourMaps(new IDBFactory());
+    await s.put(entry("sq", 1), project(128, 128));
+    await s.put(entry("wide", 2), project(192, 96));
+    const list = await s.list();
+    expect(list.find((e) => e.id === "sq")?.size).toEqual({ w: 128, h: 128 });
+    expect(list.find((e) => e.id === "wide")?.size).toEqual({ w: 192, h: 96 });
+  });
+
+  it("the saver fills it from the project it saves", async () => {
+    const s = openYourMaps(new IDBFactory());
+    const saver = new YourMapsSaver(s);
+    saver.changed("a", () => ({ entry: entry("a", 1), project: project(64, 80) }));
+    await saver.flush();
+    expect((await s.list())[0].size).toEqual({ w: 64, h: 80 });
+  });
+
+  it("an old entry without a size gets it on the next list, and keeps it", async () => {
+    const factory = new IDBFactory();
+    const s = openYourMaps(factory);
+    await s.put(entry("a", 1, { size: undefined }), project(256, 256));
+    // simulate an entry saved before sizes: strip the field in storage
+    const raw = await new Promise<IDBDatabase>((res) => {
+      const r = factory.open("dgm-your-maps", 1);
+      r.onsuccess = () => res(r.result);
+    });
+    await new Promise<void>((res) => {
+      const t = raw.transaction(["entries"], "readwrite");
+      const st = t.objectStore("entries");
+      st.get("a").onsuccess = (ev) => {
+        const e = (ev.target as IDBRequest).result;
+        delete e.size;
+        st.put(e);
+      };
+      t.oncomplete = () => res();
+    });
+    raw.close();
+    expect((await s.list())[0].size).toEqual({ w: 256, h: 256 });
+    expect((await openYourMaps(factory).list())[0].size).toEqual({ w: 256, h: 256 });
+  });
+
+  it("an unreadable project leaves the size absent without breaking the list", async () => {
+    const s = openYourMaps(new IDBFactory());
+    await s.put(entry("bad", 1), new Uint8Array([1, 2, 3]));
+    await s.put(entry("good", 2), project(128, 128));
+    const list = await s.list();
+    expect(list.map((e) => e.id)).toEqual(["good", "bad"]);
+    expect(list[1].size).toBeUndefined();
+    expect(list[0].size).toEqual({ w: 128, h: 128 });
   });
 });

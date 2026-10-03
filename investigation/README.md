@@ -96,7 +96,7 @@ merged through a second one, the second is shown (the first is named in "what it
 | [determinism/](determinism/) | Cross-browser determinism. | 533 mismatches in 28 cases today; portable maths gave zero across 358 cases. | Adopted (D366); in the forces release (D375). | [#123](https://github.com/timbermods/dam-good-maps/pull/123) (closed #122) |
 | [startup/](startup/) | Maps open fast: stored-state hydration, parallel preparation. | Editable in 1.30–1.44 s median, byte-identical on every map. | Approved (D367): part 1 after the release, part 2 with "The page is the editor". | [#127](https://github.com/timbermods/dam-good-maps/pull/127) |
 | **Collaboration** | | | | |
-| [collab-spike/](collab-spike/) | Serverless two-player editing over WebRTC. | A two-code join works (324 characters); maps identical over 523 edits; other networks unverified. | Taken into the brief (D362, `docs/COLLAB-BRIEF.md`); collaboration waits for polish (D349). | [#109](https://github.com/timbermods/dam-good-maps/pull/109) |
+| [collab-spike/](collab-spike/) | Serverless two-player editing over WebRTC. | A two-code join works (324 characters); maps identical over 523 edits; other networks unverified. | Taken into the brief (D362, `docs/COLLAB-BRIEF.md`); the two-code join is superseded by D431; collaboration waits for polish (D349). | [#109](https://github.com/timbermods/dam-good-maps/pull/109) |
 | [collab-architecture/](collab-architecture/) | Patches, claims, footprints and checkpoints, part 2. | The architecture holds; exact force warnings are too slow (190–690 ms at 256²). | Approved; amended the brief's §3 and §5 (D362). | [#120](https://github.com/timbermods/dam-good-maps/pull/120) (closed #119) |
 | [cycles/](cycles/) | A weather-cycle simulator and viewer, with every timing from the game's code. | In a badtide contamination moves by net flows; Canyon loses all water in a 25-day drought. | Held for the Weather view (D133, D285); the product's drought is analytic. | [#15](https://github.com/timbermods/dam-good-maps/pull/15) (replaces #10) |
 | [claude/](claude/) | Groundwork for M12: 120 requests, a place resolver, seven tools, a harness. | No verdict recorded beyond deferral: all M12 work waits (D277). | Held for M12 (D88, D277). | [#5](https://github.com/timbermods/dam-good-maps/pull/5) |
@@ -107,7 +107,7 @@ No folder on `dev` yet. Verdicts are HANDOFF §0's.
 
 | Investigation | What it is | Verdict | PR |
 | --- | --- | --- | --- |
-| `investigation/short-codes` | Shorter serverless join codes. | Approved, to merge; findings go into `docs/COLLAB-BRIEF.md`. | [#150](https://github.com/timbermods/dam-good-maps/pull/150) |
+| `investigation/short-codes` | Shorter serverless join codes. | Superseded by D431 (short room code through a relay). | [#150](https://github.com/timbermods/dam-good-maps/pull/150) |
 | `investigation/perf-audit` | A performance architecture audit: exact core, renderer, storage. | Approved, to merge; its ranked roadmap guides the speed work (D381). | [#152](https://github.com/timbermods/dam-good-maps/pull/152) |
 | `investigation/small-starts` | The 96² start class, with an adoption patch. | Approved, to merge; first in M9b's adoption order. | [#153](https://github.com/timbermods/dam-good-maps/pull/153) |
 | `investigation/gen-speed` | Generation speed: exact reuse and fewer redraws. | Approved; adopt round 1 (byte-identical, about 6% less CPU), then round 2 (about 12% fewer redraws). | [#155](https://github.com/timbermods/dam-good-maps/pull/155) |

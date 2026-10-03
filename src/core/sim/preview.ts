@@ -19,9 +19,14 @@
 // Water changes only through its causes (D260): water no running source can reach any more on the
 // new ground (a pool whose source was removed, a stretch of river cut off, a lake breached) takes
 // the canonical start too (dry), so it drains away in the edit's own journey instead of standing
-// until the background check's settle; a lake a force stored (`RetainedWater`) is its own cause and
-// keeps its water while its hollow holds it.
+// until the background check's settle; a lake a force or a Fill stored (`RetainedWater`) is its own
+// cause and keeps its water while its hollow holds it, starting from it the moment it is stored. The
+// unfed water Remove unfed water drained (the model's `drained`) goes at once (sim/fed.ts). Nor does
+// water appear from nowhere (D385): the pre-fill's water on the tiles that take the canonical start
+// stays only where a running source, a kept stored lake or the water kept from before reaches it
+// (sim/fed.ts), so a pit dug on dry ground stays dry while one dug beside a river fills at once.
 
+import { drainUnfed, fedTiles, keptSeeds } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
@@ -144,16 +149,55 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   if (!changed) return { state: init, out: null };
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
+  // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
+  const lakes = newLakeTiles(from.model, next);
   const N = next.W * next.H;
   const out = new Float64Array(4 * N);
   const po = from.water.out ?? null;
+  // (the water kept from before, and the stored lakes, feed the pre-fill's water as the sources do)
+  const seeds = keptSeeds(next) ?? new Uint8Array(N);
   for (let i = 0; i < N; i++) {
-    if (changed[i] || unfed?.[i]) continue;
+    if (changed[i] || unfed?.[i] || lakes?.[i]) continue;
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
+    seeds[i] = 1;
   }
+  // (water a removal drained feeds nothing)
+  for (const i of next.drained ?? []) seeds[i] = 0;
+  // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
+  const fed = fedTiles(next, init.depth, seeds);
+  for (let i = 0; i < N; i++) {
+    if (!(changed[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    init.depth[i] = 0;
+    init.contamination[i] = 0;
+  }
+  // (and the unfed water a removal drained is gone, as the canonical settle takes it)
+  drainUnfed(next, init.depth, init.contamination, po ? out : null);
   return { state: init, out: po ? out : null };
+}
+
+/** The tiles of the lakes `next` stores that `prev` does not (a Fill, a carve's oxbow lake just
+ *  sealed), as a mask; null when there are none. */
+export function newLakeTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
+  if (!next.retained?.length || prev.W !== next.W || prev.H !== next.H) return null;
+  const before = new Map<string, number>();
+  for (const r of prev.retained ?? []) {
+    const k = JSON.stringify(r);
+    before.set(k, (before.get(k) ?? 0) + 1);
+  }
+  let mask: Uint8Array | null = null;
+  for (const r of next.retained) {
+    const k = JSON.stringify(r);
+    const n = before.get(k) ?? 0;
+    if (n > 0) {
+      before.set(k, n - 1);
+      continue;
+    }
+    mask ??= new Uint8Array(next.W * next.H);
+    for (const i of r.tiles) mask[i] = 1;
+  }
+  return mask;
 }
 
 /** The preview's water for `next`, warm-started from `from` (a previous settle of the same map). */
@@ -176,6 +220,7 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
   const N = next.W * next.H;
   const prev = from.water;
   const depth = prev.depth.slice();
+  const contamination = prev.contamination.slice();
   if (from.model.W === next.W && from.model.H === next.H) {
     const a = from.model.floor;
     const b = next.floor;
@@ -184,12 +229,23 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
       const surface = a[i] + depth[i];
       depth[i] = surface > b[i] ? surface - b[i] : 0;
     }
+    // a lake the edit stored (a Fill) shows at once, and the unfed water a removal drained goes
+    const lakes = newLakeTiles(from.model, next);
+    if (lakes) {
+      const start = prefill(next);
+      for (let i = 0; i < N; i++) {
+        if (!lakes[i]) continue;
+        depth[i] = start.depth[i];
+        contamination[i] = start.contamination[i];
+      }
+    }
+    drainUnfed(next, depth, contamination);
   }
   return {
     settled: false,
     ticks: 0,
     depth,
-    contamination: prev.contamination.slice(),
+    contamination,
     sat: prev.sat.slice(),
     ...(prev.out ? { out: prev.out.slice() } : {}),
     preview: true,
@@ -253,7 +309,7 @@ export class PreviewJob {
 class PreviewRun {
   private readonly run: SettleRun;
   constructor(sim: WaterSim, sealed: readonly number[] | undefined) {
-    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed, untilSteady: true });
+    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed });
   }
   advance(ticks: number) {
     return this.run.advance(ticks);

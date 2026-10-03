@@ -90,7 +90,7 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** The last map generated here, for "Refine this map" and the download without water. */
+/** The last map generated here, for opening it in the editor and the download without water. */
 let last: GenerateResult | null = null;
 /** The seed of the last map as it was typed, when it was a word (its saved file is named with it). */
 let lastSeedWord: string | undefined;
