@@ -268,8 +268,11 @@ than the room above the water bar. Where this section says otherwise, the verdic
   link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
-- **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a press
-  on a source, the start or an object picks it up, a plain click clears the selection. Alt takes tiles away only
+- **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a plain
+  click clears the selection. A source and the start are pressed and dragged as on dev. An object (a tree, a ruin, a
+  mine site) is picked with a click and then moved with a drag; a drag that starts on an object not picked marks an
+  area, so a forest can be selected (on dev a drag on any object moved it at once). The toolbar holds Select's line
+  whenever nothing else is in hand. Alt takes tiles away only
   from a selection; with none, Alt+click picks a tile's layer as everywhere (D207).
 - **The mouse with Select in hand (Kyler, 2026-10-02):** as on dev: a left-drag on the land marks an area, the middle
   button turns the view, the right button pans; the keys turn and move it. This replaces v4-01's "the right button
