@@ -20,6 +20,8 @@ export interface SourcePointerSlice {
   sourceAtTile: (bad: boolean, x: number, y: number) => { tool: "entity" } & EntityRequest;
   placeSource: (bad: boolean, x: number, y: number) => void;
   sourceInfo: (x: number, y: number) => Promise<EntityInfo | null>;
+  /** The objects on a tile (the page's own copy, else the worker's). */
+  entitiesOn: (x: number, y: number) => Promise<EntityInfo[]>;
   sourceGrab: { current: { cancel(): void } | null };
   grabSource: (hit: TileHit | null, ev?: PointerEvent) => PointerTool | null;
   objectUnder: (x: number, y: number) => number | undefined;
@@ -69,9 +71,39 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     );
   }
 
-  /** The source's own record (its id, place and strength), from the worker. */
+  /** The objects on a tile from the page's own copy (each carries its id, #200), found by their footprints as the
+   *  worker's entitiesAt finds them, so selecting never waits on the worker; null where an object has no id (the
+   *  worker answers then). */
+  function entitiesHere(x: number, y: number): EntityInfo[] | null {
+    const e = mirror.current.entities;
+    const out: EntityInfo[] = [];
+    for (const k of ed.coverAt().get(y * infoRef.current.W + x) ?? []) {
+      const id = e.ids?.[k];
+      if (!id) return null;
+      const template = e.templates[e.template[k]];
+      const source = template === "WaterSource" || template === "BadwaterSource";
+      out.push({
+        id,
+        template,
+        x: e.x[k],
+        y: e.y[k],
+        z: e.z[k],
+        orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation,
+        flipped: (e.flags[k] & FLIPPED) !== 0,
+        from: "",
+        components: source ? { WaterSource: { SpecifiedStrength: e.strength[k] } } : {},
+      });
+    }
+    return out;
+  }
+  /** The objects on a tile: the page's own copy, else the worker's. */
+  function entitiesOn(x: number, y: number): Promise<EntityInfo[]> {
+    const here = entitiesHere(x, y);
+    return here ? Promise.resolve(here) : enqueue(() => api.entitiesAt(x, y));
+  }
+  /** The source's own record (its id, place and strength). */
   function sourceInfo(x: number, y: number): Promise<EntityInfo | null> {
-    return enqueue(() => api.entitiesAt(x, y)).then((list) => list.find((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? null);
+    return entitiesOn(x, y).then((list) => list.find((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? null);
   }
 
   /** A source dragged somewhere else (D184): its footprint follows the pointer, and the drop is one
@@ -167,7 +199,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     if (!pick && !(held && held.template === template && held.x === at[0] && held.y === at[1])) return null;
     const orientation = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
     const flipped = (e.flags[k] & FLIPPED) !== 0;
-    const record = enqueue(() => api.entitiesAt(hit.x, hit.y)).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
+    const record = entitiesOn(hit.x, hit.y).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
     const tilesAt = (dx: number, dy: number) =>
       footprintTiles(template, { template, x: at[0] + dx, y: at[1] + dy, z: 0, orientation, flipped })
         .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H)
@@ -308,7 +340,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   }
 
   return {
-    pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles,
+    pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, entitiesOn, sourceGrab, grabSource, objectUnder, objectTiles,
     grabObject, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
   };
 }

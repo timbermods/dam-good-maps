@@ -176,23 +176,49 @@ export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
 export const SELECT_TIP = tip("Mark an area to change", "M");
 
-/** A force's options row: its one choice first where it has one (Quake's Lift or Slide), then Power,
- *  Size and Try another (D289). */
-export function ForceOptions(p: { force: Force; mode?: string; onMode?(mode: string): void; children?: ComponentChildren }) {
-  return (
-    <div class="map-bar options-row force-options" role="group" aria-label={`${p.force.name} options`}>
-      {p.force.modes ? (
-        <div class="segmented" role="group" aria-label="Mode">
-          {p.force.modes.map((m) => (
-            <button type="button" key={m} aria-pressed={p.mode === m} {...tip(MODE_TITLES[m] ?? m, "V flips it")} onClick={() => p.onMode?.(m)}>
-              {m}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {p.children ? <div class="bar-group">{p.children}</div> : null}
-    </div>
-  );
+/** A force's options row on the bar's cells (D289; Layout 2): Power 3, Size 3, its one choice 3 (What it leaves,
+ *  Quake's Lift or Slide, Glaciate's Meltwater), then Try another and More 2; each in its place on every force, an
+ *  empty place left empty. */
+export function ForceOptions(p: {
+  force: Force;
+  mode?: string;
+  onMode?(mode: string): void;
+  power: ComponentChildren;
+  size?: ComponentChildren;
+  /** Its one choice, with its name. */
+  choice?: { label: string; node: ComponentChildren };
+  again?: ComponentChildren;
+  more: ComponentChildren;
+}) {
+  const choice = p.force.modes
+    ? {
+        label: "Mode",
+        node: (
+          <div class="segmented" role="group" aria-label="Mode">
+            {p.force.modes.map((m) => (
+              <button type="button" key={m} aria-pressed={p.mode === m} {...tip(MODE_TITLES[m] ?? m, "V flips it")} onClick={() => p.onMode?.(m)}>
+                {m}
+              </button>
+            ))}
+          </div>
+        ),
+      }
+    : p.choice;
+  const cells: Cell[] = [{ key: "power", at: 1, span: 3, label: "Power", node: p.power }];
+  if (p.size) cells.push({ key: "size", at: 4, span: 3, label: "Size", node: p.size });
+  if (choice) cells.push({ key: "choice", at: 7, span: 3, label: choice.label, node: choice.node });
+  cells.push({
+    key: "more",
+    at: 10,
+    span: 2,
+    node: (
+      <span class="cell-end">
+        {p.again}
+        {p.more}
+      </span>
+    ),
+  });
+  return <CellRow label={`${p.force.name} options`} cells={cells} />;
 }
 
 export interface TopBarProps {
@@ -209,18 +235,76 @@ export interface TopBarProps {
   sizeMax?: number;
   /** The map is still loading: the tools wait until they can work. */
   loading?: boolean;
-  /** A selection's own row (its size, its actions), when there is one. */
+  /** Select's rows (its shapes, the selection's size and actions), when it is in hand. */
   selectRow?: ComponentChildren;
   /** With a brush or a force out while a selection is open: the Select row as a chip (D259). */
   selectChip?: ComponentChildren;
   /** The Select tool is open (its button, D259), and its button's click. */
   selecting?: boolean;
   onSelect?(): void;
-  /** Another row beneath the bar: the shelf's object's options (a source's strength), a selected
-   *  source's. */
-  row?: { label: string; content: ComponentChildren } | null;
+  /** Another row above the bar: the shelf's object's options (a source's strength), a selected
+   *  source's, on the bar's cells. */
+  row?: { label: string; cells: Cell[] } | null;
   /** The first run's hints, under the rows. */
   hints?: ComponentChildren;
+}
+
+// ------------------------------------------------------------------ the settings on the bar's cells
+// Layout 2 (Kyler, 2026-10-03): the held tool's settings sit directly above the bar at its exact width, on a grid
+// whose columns are the bar's cells: each group spans whole cells, its name above its control, on one row; more
+// rows (More, a selection's actions) stack upward inside the panel, so the bar never moves.
+
+/** The bar's cells: six tools, the hairline, five forces. */
+export const BAR_CELLS = 11;
+const TOOLS_CELLS = 6;
+/** A cell's grid column: the hairline takes a column of its own after the tools. */
+const column = (cell: number) => (cell <= TOOLS_CELLS ? cell : cell + 1);
+
+/** A group on the grid: `span` whole cells from `at` (1–11; the next free cell when left out), its name above its
+ *  control (none: the line is kept, so every control lines up). */
+export interface Cell {
+  key: string;
+  span: number;
+  at?: number;
+  label?: string;
+  /** Centred across its cells and down, with no name line (Select's instruction). */
+  centre?: boolean;
+  node: ComponentChildren;
+}
+
+/** The groups in rows of the bar's cells, in order; a group is never split, and one that doesn't fit starts the
+ *  next row. */
+export function cellRows(cells: readonly Cell[]): Cell[][] {
+  const rows: Cell[][] = [[]];
+  let next = 1;
+  for (const c of cells) {
+    let at = c.at ?? next;
+    if (at + c.span - 1 > BAR_CELLS) {
+      rows.push([]);
+      at = 1;
+    }
+    rows[rows.length - 1].push({ ...c, at });
+    next = at + c.span;
+  }
+  return rows.filter((r) => r.length);
+}
+
+/** One row of groups on the bar's cells (or several, the first lowest, when they don't fit on one). */
+export function CellRow(p: { label: string; cells: readonly Cell[]; status?: boolean }) {
+  return (
+    <div class="cell-rows" role="group" aria-label={p.label}>
+      {cellRows(p.cells).map((row, k) => (
+        <div class="cell-row" key={k}>
+          {row.map((c) => (
+            <div key={c.key} class={`cell-group${c.centre ? " centre" : ""}`} style={{ gridColumn: `${column(c.at!)} / ${column(c.at! + c.span - 1) + 1}` }}>
+              {c.centre ? null : <span class="cell-head">{c.label ?? ""}</span>}
+              <div class="cell-body">{c.node}</div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** The hint line while a force plays (D344, A4): Esc skips it to its end, undo takes it back. */
@@ -267,7 +351,6 @@ export function SizeControl(p: {
   return (
     <span class="size-control">
       <label class="slider-field" {...tip(p.title, ...(p.keys ?? []))}>
-        {p.label}
         <input
           type="range"
           min={p.min}
@@ -338,7 +421,6 @@ export function FloorControl() {
   return (
     <span class="size-control">
       <label class="slider-field" title="The lowest level forces cut to">
-        Floor
         <input type="range" min={FLOOR_MIN} max={CEILING} step={1} aria-label="Floor" value={f.value} onInput={(e) => f.set(Number((e.target as HTMLInputElement).value))} />
         <output>{f.value}</output>
       </label>
@@ -351,17 +433,12 @@ export function FloorControl() {
   );
 }
 
-/** A force's details row (D309): shown under its options row while More is open, the same shape;
- *  the forces' shared Floor ends it (D321, item 40). */
-export function MoreRow(p: { force: Force; children: ComponentChildren }) {
-  return (
-    <div class="map-bar options-row force-options more-grid" role="group" aria-label={`${p.force.name} details`}>
-      <div class="bar-group">
-        {p.children}
-        <FloorControl />
-      </div>
-    </div>
-  );
+/** A force's details (D309): shown above its options row while More is open, each three cells with its name above
+ *  it, as many rows as they take; the forces' shared Floor ends them (D321, item 40). */
+export function MoreRow(p: { force: Force; details: { label: string; span?: number; node: ComponentChildren }[] }) {
+  const floor = useContext(ForceFloor);
+  const all = [...p.details, ...(floor ? [{ label: "Floor", node: <FloorControl /> }] : [])];
+  return <CellRow label={`${p.force.name} details`} cells={all.map((d) => ({ key: d.label, span: d.span ?? 3, label: d.label, node: d.node }))} />;
 }
 
 /** The target's words for players coming from the game's editor (D322, item 37). */
@@ -378,89 +455,80 @@ export function TopBar(p: TopBarProps) {
   // a force at work: the other tools wait until it is kept or taken back
   const off = p.loading || p.forceAtWork;
   const why = p.loading ? tip("The map is still loading") : tip("A force is at work", "Esc skips it");
-  return (
-    <div class="brush-bar-wrap">
-      <div class="map-bar" role="toolbar" aria-label="Tools">
-        {BRUSHES.map((b) => (
-          <button
-            type="button"
-            key={b.tool}
-            class="icon-button"
-            aria-pressed={p.active === b.tool}
-            aria-label={`${b.name} brush (${b.key})`}
-            {...(off ? why : brushTip(b))}
-            disabled={off}
-            onClick={() => p.onPick(p.active === b.tool ? null : b.tool)}
-          >
-            <Icon tool={b.tool} />
-            <span class="icon-word">{b.name}</span>
-          </button>
-        ))}
-        {p.onSelect ? (
-          <button
-            type="button"
-            class="icon-button"
-            aria-pressed={!!p.selecting}
-            aria-label="Select (M)"
-            {...(off ? why : SELECT_TIP)}
-            disabled={off}
-            onClick={p.onSelect}
-          >
-            <Icon tool="select" />
-            <span class="icon-word">Select</span>
-          </button>
-        ) : null}
-      </div>
-      {SHOWN_FORCES.length ? (
-        <div class="map-bar" role="group" aria-label="Forces">
-          {FORCE_CLUSTERS.map((cluster) => (
-            <span class="force-cluster" key={cluster[0].id}>
-              {cluster.map((f) => (
-                <button
-                  type="button"
-                  key={f.id}
-                  class="icon-button"
-                  aria-pressed={p.force === f.id}
-                  aria-label={f.key ? `${f.name} (${f.key})` : f.name}
-                  {...(p.loading ? tip("The map is still loading") : forceTip(f))}
-                  disabled={p.loading || (p.forceAtWork && p.force !== f.id)}
-                  onClick={() => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool))}
-                >
-                  <Icon tool={f.id} />
-                  <span class="icon-word">{f.name}</span>
-                </button>
-              ))}
-            </span>
-          ))}
-        </div>
+  const brushRows = t ? (
+    <>
+      {t === "flatten" ? (
+        <CellRow
+          label="Flatten details"
+          cells={[
+            {
+              key: "steps",
+              at: 9,
+              span: 3,
+              label: "Steps",
+              node: (
+                <>
+                  <Toggle label="In steps" title="Terraces every few levels" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
+                  {s.steps !== null ? (
+                    <select aria-label="Steps apart" title="Levels between terraces" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
+                      {[2, 3, 4].map((k) => (
+                        <option key={k} value={String(k)}>
+                          every {k}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </>
+              ),
+            },
+          ]}
+        />
       ) : null}
-      {t ? (
-        <div class="map-bar options-row two-lines" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
-          <div class="bar-group">
-            <SizeControl label="Size" title="The brush's size" keys={SIZE_KEYS} value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />
-            {hasTarget(t) ? (
-              <label {...tip(TARGET_TITLE[t], "Shift+scroll", "Ctrl+click")}>
-                Level
-                <select
-                  aria-label="Target level"
-                  value={s.target === null ? "follow" : String(s.target)}
-                  onChange={(e) => {
-                    const v = (e.target as HTMLSelectElement).value;
-                    set({ target: v === "follow" ? null : v === "free" ? "free" : Number(v) });
-                  }}
-                >
-                  <option value="follow">{t === "flatten" ? "The ground's" : t === "raise" ? "A level above the ground" : "A level below the ground"}</option>
-                  {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
-                    <option key={k} value={String(k)}>
-                      {k}
-                    </option>
-                  ))}
-                  {t !== "flatten" ? <option value="free">Free</option> : null}
-                </select>
-              </label>
-            ) : null}
-            <span class="segmented-field">
-              Mode
+      <CellRow
+        label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}
+        cells={[
+          {
+            key: "size",
+            at: 1,
+            span: hasTarget(t) ? 1 : 4,
+            label: "Size",
+            node: <SizeControl label="Size" title="The brush's size" keys={SIZE_KEYS} value={s.size} min={BRUSH_SIZE_MIN} max={p.sizeMax ?? 24} step={0.5} onChange={(size) => set({ size })} />,
+          },
+          ...(hasTarget(t)
+            ? [
+                {
+                  key: "level",
+                  at: 2,
+                  span: 3,
+                  label: "Level",
+                  node: (
+                    <select
+                      aria-label="Target level"
+                      {...tip(TARGET_TITLE[t], "Shift+scroll", "Ctrl+click")}
+                      value={s.target === null ? "follow" : String(s.target)}
+                      onChange={(e) => {
+                        const v = (e.target as HTMLSelectElement).value;
+                        set({ target: v === "follow" ? null : v === "free" ? "free" : Number(v) });
+                      }}
+                    >
+                      <option value="follow">{t === "flatten" ? "The ground's" : t === "raise" ? "A level above the ground" : "A level below the ground"}</option>
+                      {Array.from({ length: BRUSH_MAX_LEVEL + 1 }, (_, k) => k).map((k) => (
+                        <option key={k} value={String(k)}>
+                          {k}
+                        </option>
+                      ))}
+                      {t !== "flatten" ? <option value="free">Free</option> : null}
+                    </select>
+                  ),
+                },
+              ]
+            : []),
+          {
+            key: "mode",
+            at: 5,
+            span: 2,
+            label: "Mode",
+            node: (
               <Segmented<BrushMode>
                 label="Mode"
                 value={s.modes[t]}
@@ -471,12 +539,14 @@ export function TopBar(p: TopBarProps) {
                 ]}
                 onChange={(m) => set({ modes: { ...s.modes, [t]: m } })}
               />
-            </span>
-          </div>
-          {/* (a second line for the rest: D345, B2) */}
-          <div class="bar-group">
-            <span class="segmented-field">
-              Sources
+            ),
+          },
+          {
+            key: "sources",
+            at: 7,
+            span: 2,
+            label: "Sources",
+            node: (
               <Segmented<SourcesChoice>
                 label="Sources"
                 value={s.sources[t]}
@@ -487,42 +557,63 @@ export function TopBar(p: TopBarProps) {
                 ]}
                 onChange={(v) => set({ sources: { ...s.sources, [t]: v } })}
               />
-            </span>
-            <Toggle label="Square" title="A square brush" on={s.square} onChange={(square) => set({ square })} />
-            <Toggle label="Straight lines" title="Draw straight lines" on={s.straight} onChange={(straight) => set({ straight })} />
-            {t === "flatten" ? (
+            ),
+          },
+          {
+            key: "brush",
+            at: 9,
+            span: 3,
+            label: "Brush",
+            node: (
               <>
-                <Toggle label="In steps" title="Terraces every few levels" on={s.steps !== null} onChange={(on) => set({ steps: on ? 2 : null })} />
-                {s.steps !== null ? (
-                  <label>
-                    every
-                    <select aria-label="Steps apart" title="Levels between terraces" value={String(s.steps)} onChange={(e) => set({ steps: Number((e.target as HTMLSelectElement).value) })}>
-                      {[2, 3, 4].map((k) => (
-                        <option key={k} value={String(k)}>
-                          {k} levels
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
+                <Toggle label="Square" title="A square brush" on={s.square} onChange={(square) => set({ square })} />
+                <Toggle label="Straight lines" title="Draw straight lines" on={s.straight} onChange={(straight) => set({ straight })} />
               </>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      {p.force && p.forceRow ? p.forceRow : null}
-      {p.row ? (
-        <div class="map-bar options-row" role="group" aria-label={p.row.label}>
-          <div class="bar-group">{p.row.content}</div>
-        </div>
-      ) : null}
-      {p.selectRow ? (
-        <div class="map-bar options-row" role="group" aria-label="Selection">
-          {p.selectRow}
-        </div>
-      ) : null}
-      {p.selectChip ? <div class="map-bar select-chip-bar">{p.selectChip}</div> : null}
+            ),
+          },
+        ]}
+      />
+    </>
+  ) : null;
+  const rows = [
+    brushRows,
+    p.force && p.forceRow ? p.forceRow : null,
+    p.row ? <CellRow label={p.row.label} cells={p.row.cells} /> : null,
+    p.selectRow ?? null,
+    p.selectChip ? <CellRow label="Selection" cells={[{ key: "chip", at: 1, span: BAR_CELLS, centre: true, node: p.selectChip }]} /> : null,
+  ].filter(Boolean);
+  const button = (tool: BrushTool | "select" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
+    <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
+      <Icon tool={tool} />
+      <span class="icon-word">{name}</span>
+    </button>
+  );
+  return (
+    <div class="tool-dock">
       {p.hints ?? null}
+      {/* (later rows stack upward: the first sits on the bar) */}
+      {rows.length ? <div class="map-bar options-row tool-settings">{rows}</div> : null}
+      <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
+        {p.onSelect ? button("select", "Select", "Select (M)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
+        {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
+        {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}
+        {SHOWN_FORCES.length ? (
+          // (a group of its own, laid out on the bar's cells as if it weren't there)
+          <span class="tool-group" role="group" aria-label="Forces">
+            {SHOWN_FORCES.map((f) =>
+              button(
+                f.id,
+                f.name,
+                f.key ? `${f.name} (${f.key})` : f.name,
+                p.force === f.id,
+                p.loading ? tip("The map is still loading") : forceTip(f),
+                p.loading || (p.forceAtWork && p.force !== f.id),
+                () => !p.forceAtWork && p.onPick(p.force === f.id ? null : (f.id as TopTool)),
+              ),
+            )}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

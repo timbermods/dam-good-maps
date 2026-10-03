@@ -47,7 +47,7 @@ test("the start requirements follow the settings, and the editor's start follows
   expect(c["start.wood"].limit).toBe(75);
 
   // the editor: the indicators name the three requirements with the map's numbers (the drawer closed again)
-  await page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true }).click();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
   await page.getByRole("button", { name: "Top-down" }).click();
   // the start dragged on the map, a tile over and back: the indicators read the start's own place,
   // which the validator passed

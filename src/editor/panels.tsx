@@ -51,16 +51,16 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
 export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
   const k = p.steps.reduce((best, f, j) => (Math.abs(f - p.value) < Math.abs(p.steps[best] - p.value) ? j : best), 0);
   return (
-    <>
-      <label class="slider-field" title="Blocks of water a second">
-        {p.label ?? "Strength"}
-        <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
-        <output>{p.value} water/s</output>
-      </label>
-      {p.value > OFFICIAL_FLOW ? <p class="note">Stronger than any official map.</p> : null}
-    </>
+    <label class="slider-field" title="Blocks of water a second">
+      <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-label={p.label ?? "Strength"} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
+      <output>{p.value} water/s</output>
+    </label>
   );
 }
+
+/** A strength past the official maps' strongest source. */
+export const STRONGER_WORDS = "Stronger than any official map";
+export const strongerThanOfficial = (v: number) => v > OFFICIAL_FLOW;
 
 /** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
  *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and

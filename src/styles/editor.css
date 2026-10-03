@@ -766,7 +766,8 @@ button[aria-pressed="true"] {
   padding: 6px 8px;
 }
 
-.corner-below .speaker .crossed {
+.corner-below .speaker .crossed,
+.sound-cell .speaker .crossed {
   stroke: var(--bad);
 }
 

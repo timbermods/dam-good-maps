@@ -70,7 +70,7 @@ export function Shelf(p: ShelfProps) {
   }
 
   return (
-    <nav class="shelf" aria-label="Place">
+    <nav class="shelf objects-menu" aria-label="Place">
       <div class="shelf-grid" role="toolbar" aria-label="Objects">
         {SHELF.map((it) => {
           const src = p.icon(it.template);
@@ -93,7 +93,7 @@ export function Shelf(p: ShelfProps) {
                 p.onPick(p.picked === it.id ? null : it);
               }}
             >
-              {src ? <img src={src} alt="" width={48} height={48} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
+              {src ? <img src={src} alt="" width={28} height={28} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
               <span class="shelf-word">{it.name}</span>
             </button>
           );

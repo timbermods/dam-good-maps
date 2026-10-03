@@ -17,7 +17,7 @@ import { bandTiles, FreehandPath } from "../freehand";
 import { downhillPath, pathLength, pathTiles, resamplePath, type PathPoint } from "../../core/forces/path";
 import type { Verb } from "../../core/forces/op";
 import type { ForceCue } from "../../core/forces/runs";
-import { ForceKeys } from "../TopBar";
+import { ForceKeys, type Cell } from "../TopBar";
 import { FLOOR_DEFAULT } from "../../core/forces/floor";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "../forceSize";
 import { hasTarget, nextSize, sizeMax } from "../brushes";
@@ -34,7 +34,7 @@ export interface ForceRunSlice {
   unleash: (e: EntityInfo, end?: [number, number], via?: [number, number][]) => void;
   unleashAgain: (e: EntityInfo) => void;
   unleashDown: (ev: PointerEvent, e: EntityInfo) => void;
-  unleashRow: () => { label: string; content: ComponentChildren } | null;
+  unleashRow: () => { label: string; cells: Cell[] } | null;
   startForce: (req: ForceRequest, painting?: boolean) => void;
   steerTiles: (path: readonly PathPoint[], downhill: boolean) => { origin: [number, number]; end: [number, number]; via: [number, number][]; reversed: boolean } | null;
   pathFrame: { current: number };
@@ -313,25 +313,47 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   }
 
   /** The row while an unleashed source's carve works: Carve's own controls. */
-  function unleashRow(): { label: string; content: ComponentChildren } | null {
+  function unleashRow(): { label: string; cells: Cell[] } | null {
     const st = forcer.current?.status ?? null;
     if (!unleashing || !st) return null;
     return {
       label: "Unleash at work",
-      content: (
-        <>
-          <span class="bar-status" role="status">
-            {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
-          </span>
-          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
-            {st.paused ? "Resume" : "Pause"}
-          </button>
-          <ForceKeys />
-          <button type="button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
-            Revert
-          </button>
-        </>
-      ),
+      cells: [
+        {
+          key: "status",
+          at: 1,
+          span: 5,
+          centre: true,
+          node: (
+            <span class="bar-status" role="status">
+              {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
+            </span>
+          ),
+        },
+        {
+          key: "pause",
+          at: 6,
+          span: 1,
+          centre: true,
+          node: (
+            <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
+              {st.paused ? "Resume" : "Pause"}
+            </button>
+          ),
+        },
+        { key: "keys", at: 7, span: 3, centre: true, node: <ForceKeys /> },
+        {
+          key: "revert",
+          at: 10,
+          span: 2,
+          centre: true,
+          node: (
+            <button type="button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
+              Revert
+            </button>
+          ),
+        },
+      ],
     };
   }
 

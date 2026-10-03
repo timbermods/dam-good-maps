@@ -32,12 +32,12 @@ export async function openFileMenu(page: Page): Promise<Locator> {
   return page.getByRole("menu", { name: "File" });
 }
 
-/** Open the Maps drawer from the header (the Maps button; a drawer already open is left open) and return it. It takes
- *  the left column in the palette's place. */
+/** Open the map generator's panel from the header (Map Generator; a panel already open is left open) and return it.
+ *  It takes 352px at the left of the map. */
 export async function openDrawer(page: Page): Promise<Locator> {
-  const button = page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true });
+  const button = page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
-  const drawer = page.locator('aside[aria-label="Maps"]');
+  const drawer = page.locator('aside[aria-label="Map Generator"]');
   await expect(drawer).toBeVisible();
   return drawer;
 }
@@ -57,11 +57,11 @@ export async function openSection(page: Page, section: string): Promise<Locator>
   return group;
 }
 
-/** Open the legend over the map (the Legend button in the top-right column; an open one is left open) and return its panel.
- *  It starts closed, and the open state is remembered in this browser. */
+/** Open the legend over the map (Legend, last in the Show column; one ticked is left open) and return its panel. It
+ *  starts closed, and the open state is remembered in this browser. */
 export async function openLegend(page: Page): Promise<Locator> {
-  const button = page.getByRole("button", { name: "Legend", exact: true });
-  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  const box = page.getByRole("checkbox", { name: "Legend", exact: true });
+  if ((await box.getAttribute("aria-checked")) !== "true") await box.click();
   const panel = page.locator('aside.legend-panel[aria-label="Legend"]');
   await expect(panel).toBeVisible();
   return panel;

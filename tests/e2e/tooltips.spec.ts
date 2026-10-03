@@ -242,7 +242,7 @@ test("every control in the Maps drawer, in each settings section opened in place
   for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty", "Limits for this size"]) await drawer.locator(`[data-section="${section}"]`).click();
   await expect(drawer.getByRole("group", { name: /settings$/ })).toHaveCount(0);
   // the drawer closed again
-  await page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true }).click();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
   await check("the drawer closed again");
   expect(missing, "controls with no tooltip, by state").toEqual({});
 });

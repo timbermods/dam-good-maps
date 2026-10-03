@@ -2,7 +2,8 @@
 // topBar.tsx, viewControls.tsx), called inline here, so the vnode tree is one.
 
 import { View3D } from "../../ui/View3D";
-import { HistoryPanel, LayerLegend, StartIndicators } from "../panels";
+import { HistoryPanel, StartIndicators } from "../panels";
+import { LEGEND_TEMPLATES } from "../shelfItems";
 import { Drawer } from "../Drawer";
 import { Shelf } from "../Shelf";
 import { LayerWidget } from "../LayerWidget";
@@ -19,8 +20,8 @@ import { cornerButtons, hoverHandler, levelLinesButton, viewButtons } from "./vi
 export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
-    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, minimap, mirror, waterTick, viewTick,
-    shapeNote, startDrag, needs, startReach, waterLayers, message, setMessage, showHistory, setShowHistory, run, api
+    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, viewTick,
+    shapeNote, startDrag, needs, startReach, message, setMessage, showHistory, setShowHistory, run, api
   } = ed;
   const drawerOpen = props.drawerOpen;
 
@@ -29,7 +30,6 @@ export function editorView(ed: Ed, props: EditorProps) {
     <div class={`editor${drawerOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
       {header(ed, props)}
       <div class="editor-main">
-        <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
         {drawerOpen ? <Drawer model={props.drawer} info={info} icon={(t) => icons[t] ?? null} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
@@ -44,6 +44,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               besideHeight={levelLinesButton(ed)}
               legendInCorner
               legendOpen={false}
+              legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}
               cornerBelow={cornerButtons(ed)}
@@ -51,21 +52,20 @@ export function editorView(ed: Ed, props: EditorProps) {
               onHover={hoverHandler(ed)}
               hoverText={hover}
             >
-              {topBar(ed)}
-              {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
               {sourceMarkers()}
               {startHintTag()}
-              {minimap ? (
-                <Minimap
-                  W={info.W}
-                  H={info.H}
-                  renderer={renderer.current}
-                  heights={() => mirror.current.heights}
-                  depth={() => mirror.current.water?.depth ?? null}
-                  stamp={`${info.version}:${waterTick}`}
-                  viewTick={viewTick}
-                />
-              ) : null}
+              {topBar(ed)}
+              {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
+              <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+              <Minimap
+                W={info.W}
+                H={info.H}
+                renderer={renderer.current}
+                heights={() => mirror.current.heights}
+                depth={() => mirror.current.water?.depth ?? null}
+                stamp={`${info.version}:${waterTick}`}
+                viewTick={viewTick}
+              />
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
                   {shapeNote.text}
@@ -84,7 +84,6 @@ export function editorView(ed: Ed, props: EditorProps) {
                 </div>
               ) : null}
             </View3D>
-            {layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null}
             {message ? (
               <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
                 {message.text}

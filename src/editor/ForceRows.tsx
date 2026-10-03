@@ -16,7 +16,7 @@ import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type Er
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { forcePowerWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SIZE_KEYS, SizeControl, STRENGTH_KEYS, Toggle, type Force } from "./TopBar";
+import { AutoDetail, CellRow, ForceKeys, ForceOptions, MoreButton, MoreRow, Segmented, SIZE_KEYS, SizeControl, STRENGTH_KEYS, Toggle, type Force } from "./TopBar";
 import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
@@ -90,23 +90,47 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault; let go to keep it (V flips the side that moves)" : "The ground is moving…";
   return (
-    <div class="map-bar options-row" role="group" aria-label={`${p.force.name} at work`}>
-      <div class="bar-group">
-        <span class="bar-status" role="status">
-          {st.stopping ? "Settling…" : doing}
-        </span>
-        {st.painting && !st.stopping ? (
-          <span class="bar-status force-keys" {...tip("Take the fault back", "Esc")}>
-            Esc to cancel
-          </span>
-        ) : (
-          <ForceKeys />
-        )}
-        <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
-          Revert
-        </button>
-      </div>
-    </div>
+    <CellRow
+      label={`${p.force.name} at work`}
+      cells={[
+        {
+          key: "status",
+          at: 1,
+          span: 6,
+          centre: true,
+          node: (
+            <span class="bar-status" role="status">
+              {st.stopping ? "Settling…" : doing}
+            </span>
+          ),
+        },
+        {
+          key: "keys",
+          at: 7,
+          span: 3,
+          centre: true,
+          node:
+            st.painting && !st.stopping ? (
+              <span class="bar-status force-keys" {...tip("Take the fault back", "Esc")}>
+                Esc to cancel
+              </span>
+            ) : (
+              <ForceKeys />
+            ),
+        },
+        {
+          key: "revert",
+          at: 10,
+          span: 2,
+          centre: true,
+          node: (
+            <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
+              Revert
+            </button>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -114,7 +138,6 @@ function Power(p: { verb: "craterize" | "erupt" | "quake" | "glaciate"; value: n
   const word = forcePowerWord(p.verb, p.value);
   return (
     <label class="slider-field" {...tip(p.title, ...STRENGTH_KEYS)}>
-      Power
       <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${p.value}, ${word}`} value={p.value} onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))} />
       <output title={word}>{p.value}</output>
     </label>
@@ -154,60 +177,81 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
   const rays = u.rays ?? drawn?.rays ?? false;
   return (
     <>
-      <ForceOptions force={p.force}>
-        <Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits" />
-        <SizeControl
-          label="Size"
-          title="The crater's width"
-          keys={SIZE_KEYS}
-          value={Math.round(size / 2) * 2}
-          min={4}
-          max={180}
-          step={2}
-          onChange={(v) => set({ size: v })}
-          auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
-        />
-        <Again show={p.canAgain} onAgain={p.onAgain} what="impact" />
-        <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
-      </ForceOptions>
+      <ForceOptions
+        force={p.force}
+        power={<Power verb="craterize" value={u.power} onChange={(power) => set({ power })} title="How hard it hits" />}
+        size={
+          <SizeControl
+            label="Size"
+            title="The crater's width"
+            keys={SIZE_KEYS}
+            value={Math.round(size / 2) * 2}
+            min={4}
+            max={180}
+            step={2}
+            onChange={(v) => set({ size: v })}
+            auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
+          />
+        }
+        again={<Again show={p.canAgain} onAgain={p.onAgain} what="impact" />}
+        more={<MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />}
+      />
       {p.more ? (
-        <MoreRow force={p.force}>
-          <AutoDetail label="Walls" on={u.walls === null} onAuto={(on) => set({ walls: on ? null : walls })}>
-            <label title="Steep or terraced walls">
-              Walls
-              <select aria-label="Walls" value={walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as Exclude<CraterUi["walls"], null> })}>
-                <option value="steep">Steep</option>
-                <option value="terraced">Terraced</option>
-              </select>
-            </label>
-          </AutoDetail>
-          <AutoDetail label="Centre" on={u.centre === null} onAuto={(on) => set({ centre: on ? null : centreRaw })}>
-            <label title="What stands in the middle">
-              Centre
-              <select aria-label="Centre" value={centreRaw} onChange={(e) => set({ centre: (e.target as HTMLSelectElement).value as Exclude<CraterUi["centre"], null> })}>
-                <option value="auto">Auto</option>
-                <option value="bowl">Bowl</option>
-                <option value="peak">Peak</option>
-                <option value="ring">Ring</option>
-                <option value="flat">Flat</option>
-              </select>
-            </label>
-          </AutoDetail>
-          <AutoDetail label="Debris" on={u.debris === null} onAuto={(on) => set({ debris: on ? null : debris })}>
-            <Segmented
-              label="Debris"
-              value={debris}
-              onChange={(debris) => set({ debris })}
-              options={[
-                ["light", "Light debris", "A thin skirt of debris"],
-                ["heavy", "Heavy debris", "A thick apron of debris"],
-              ]}
-            />
-          </AutoDetail>
-          <AutoDetail label="Rays" on={u.rays === null} onAuto={(on) => set({ rays: on ? null : rays })}>
-            <Toggle label="Rays" title="Streaks of debris" on={rays} onChange={(rays) => set({ rays })} />
-          </AutoDetail>
-        </MoreRow>
+        <MoreRow
+          force={p.force}
+          details={[
+            {
+              label: "Walls",
+              node: (
+                <AutoDetail label="Walls" on={u.walls === null} onAuto={(on) => set({ walls: on ? null : walls })}>
+                  <select aria-label="Walls" title="Steep or terraced walls" value={walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as Exclude<CraterUi["walls"], null> })}>
+                    <option value="steep">Steep</option>
+                    <option value="terraced">Terraced</option>
+                  </select>
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Centre",
+              node: (
+                <AutoDetail label="Centre" on={u.centre === null} onAuto={(on) => set({ centre: on ? null : centreRaw })}>
+                  <select aria-label="Centre" title="What stands in the middle" value={centreRaw} onChange={(e) => set({ centre: (e.target as HTMLSelectElement).value as Exclude<CraterUi["centre"], null> })}>
+                    <option value="auto">Auto</option>
+                    <option value="bowl">Bowl</option>
+                    <option value="peak">Peak</option>
+                    <option value="ring">Ring</option>
+                    <option value="flat">Flat</option>
+                  </select>
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Debris",
+              span: 4,
+              node: (
+                <AutoDetail label="Debris" on={u.debris === null} onAuto={(on) => set({ debris: on ? null : debris })}>
+                  <Segmented
+                    label="Debris"
+                    value={debris}
+                    onChange={(debris) => set({ debris })}
+                    options={[
+                      ["light", "Light debris", "A thin skirt of debris"],
+                      ["heavy", "Heavy debris", "A thick apron of debris"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Rays",
+              node: (
+                <AutoDetail label="Rays" on={u.rays === null} onAuto={(on) => set({ rays: on ? null : rays })}>
+                  <Toggle label="Rays" title="Streaks of debris" on={rays} onChange={(rays) => set({ rays })} />
+                </AutoDetail>
+              ),
+            },
+          ]}
+        />
       ) : null}
     </>
   );
@@ -226,61 +270,85 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   const breadth = u.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth({ ...eruptSettingsOf(u), shape, summit: summitRaw }) / 2) * 2));
   return (
     <>
-      <ForceOptions force={p.force}>
-        <Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws" />
-        <SizeControl
-          label="Size"
-          title="How broad it spreads"
-          keys={SIZE_KEYS}
-          value={breadth}
-          min={ERUPT_SIZE_MIN}
-          max={ERUPT_SIZE_MAX}
-          step={2}
-          onChange={(v) => set({ size: v })}
-          auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : breadth }) }}
-        />
-        <Again show={p.canAgain} onAgain={p.onAgain} what="eruption" />
-        <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
-      </ForceOptions>
+      <ForceOptions
+        force={p.force}
+        power={<Power verb="erupt" value={u.power} onChange={(power) => set({ power })} title="How high it throws" />}
+        size={
+          <SizeControl
+            label="Size"
+            title="How broad it spreads"
+            keys={SIZE_KEYS}
+            value={breadth}
+            min={ERUPT_SIZE_MIN}
+            max={ERUPT_SIZE_MAX}
+            step={2}
+            onChange={(v) => set({ size: v })}
+            auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : breadth }) }}
+          />
+        }
+        again={<Again show={p.canAgain} onAgain={p.onAgain} what="eruption" />}
+        more={<MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />}
+      />
       {p.more ? (
-        <MoreRow force={p.force}>
-          <AutoDetail label="Shape" on={u.shape === null} onAuto={(on) => set({ shape: on ? null : shape })}>
-            <Segmented
-              label="Shape"
-              value={shape}
-              onChange={(shape) => set({ shape })}
-              options={[
-                ["steep", "Steep", "A tall, steep cone"],
-                ["broad", "Broad", "A broad, gentle shield"],
-              ]}
-            />
-          </AutoDetail>
-          <AutoDetail label="Summit" on={u.summit === null} onAuto={(on) => set({ summit: on ? null : summitRaw })}>
-            <label title="What its top is">
-              Summit
-              <select aria-label="Summit" value={summitRaw} onChange={(e) => set({ summit: (e.target as HTMLSelectElement).value as Exclude<EruptUi["summit"], null> })}>
-                <option value="auto">Auto</option>
-                <option value="peak">Peak</option>
-                <option value="crater">Crater</option>
-                <option value="caldera">Caldera</option>
-              </select>
-            </label>
-          </AutoDetail>
-          <AutoDetail label="Flows" on={u.flows === null} onAuto={(on) => set({ flows: on ? null : flows })}>
-            <Segmented
-              label="Flows"
-              value={flows}
-              onChange={(flows) => set({ flows })}
-              options={[
-                ["light", "Light flows", "Short lava flows"],
-                ["heavy", "Heavy flows", "Long lava flows"],
-              ]}
-            />
-          </AutoDetail>
-          <AutoDetail label="Ridges" on={u.ridges === null} onAuto={(on) => set({ ridges: on ? null : ridges })}>
-            <Toggle label="Ridges" title="Ridges down its sides" on={ridges} onChange={(ridges) => set({ ridges })} />
-          </AutoDetail>
-        </MoreRow>
+        <MoreRow
+          force={p.force}
+          details={[
+            {
+              label: "Shape",
+              node: (
+                <AutoDetail label="Shape" on={u.shape === null} onAuto={(on) => set({ shape: on ? null : shape })}>
+                  <Segmented
+                    label="Shape"
+                    value={shape}
+                    onChange={(shape) => set({ shape })}
+                    options={[
+                      ["steep", "Steep", "A tall, steep cone"],
+                      ["broad", "Broad", "A broad, gentle shield"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Summit",
+              node: (
+                <AutoDetail label="Summit" on={u.summit === null} onAuto={(on) => set({ summit: on ? null : summitRaw })}>
+                  <select aria-label="Summit" title="What its top is" value={summitRaw} onChange={(e) => set({ summit: (e.target as HTMLSelectElement).value as Exclude<EruptUi["summit"], null> })}>
+                    <option value="auto">Auto</option>
+                    <option value="peak">Peak</option>
+                    <option value="crater">Crater</option>
+                    <option value="caldera">Caldera</option>
+                  </select>
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Flows",
+              span: 4,
+              node: (
+                <AutoDetail label="Flows" on={u.flows === null} onAuto={(on) => set({ flows: on ? null : flows })}>
+                  <Segmented
+                    label="Flows"
+                    value={flows}
+                    onChange={(flows) => set({ flows })}
+                    options={[
+                      ["light", "Light flows", "Short lava flows"],
+                      ["heavy", "Heavy flows", "Long lava flows"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Ridges",
+              node: (
+                <AutoDetail label="Ridges" on={u.ridges === null} onAuto={(on) => set({ ridges: on ? null : ridges })}>
+                  <Toggle label="Ridges" title="Ridges down its sides" on={ridges} onChange={(ridges) => set({ ridges })} />
+                </AutoDetail>
+              ),
+            },
+          ]}
+        />
       ) : null}
     </>
   );
@@ -292,25 +360,36 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
   const scarp = u.scarp ?? p.drawn?.scarp ?? "sheer";
   return (
     <>
-      <ForceOptions force={p.force} mode={u.mode === "slide" ? "Slide" : "Lift"} onMode={(m) => set({ mode: m === "Slide" ? "slide" : "lift" })}>
-        <Power verb="quake" value={u.power} onChange={(power) => set({ power })} title={u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts"} />
-        <Again show={p.canAgain} onAgain={p.onAgain} what="quake" />
-        <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
-      </ForceOptions>
+      <ForceOptions
+        force={p.force}
+        mode={u.mode === "slide" ? "Slide" : "Lift"}
+        onMode={(m) => set({ mode: m === "Slide" ? "slide" : "lift" })}
+        power={<Power verb="quake" value={u.power} onChange={(power) => set({ power })} title={u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts"} />}
+        again={<Again show={p.canAgain} onAgain={p.onAgain} what="quake" />}
+        more={<MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />}
+      />
       {p.more ? (
-        <MoreRow force={p.force}>
-          <AutoDetail label="Scarp" on={u.scarp === null} onAuto={(on) => set({ scarp: on ? null : scarp })}>
-            <Segmented
-              label="Scarp"
-              value={scarp}
-              onChange={(scarp) => set({ scarp })}
-              options={[
-                ["sheer", "Sheer", "One sheer cliff"],
-                ["stepped", "Stepped", "Benches stepping down"],
-              ]}
-            />
-          </AutoDetail>
-        </MoreRow>
+        <MoreRow
+          force={p.force}
+          details={[
+            {
+              label: "Scarp",
+              node: (
+                <AutoDetail label="Scarp" on={u.scarp === null} onAuto={(on) => set({ scarp: on ? null : scarp })}>
+                  <Segmented
+                    label="Scarp"
+                    value={scarp}
+                    onChange={(scarp) => set({ scarp })}
+                    options={[
+                      ["sheer", "Sheer", "One sheer cliff"],
+                      ["stepped", "Stepped", "Benches stepping down"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+          ]}
+        />
       ) : null}
     </>
   );
@@ -329,56 +408,84 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
   const scree = u.scree ?? drawn?.scree ?? true;
   return (
     <>
-      <ForceOptions force={p.force}>
-        <Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How deep the ice carves" />
-        <SizeControl
-          label="Size"
-          title="How wide the valley is"
-          keys={SIZE_KEYS}
-          value={Math.round(size / 2) * 2}
-          min={GLACIATE_SIZE_MIN}
-          max={GLACIATE_SIZE_MAX}
-          step={2}
-          onChange={(v) => set({ size: v })}
-          auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
-        />
-        <Toggle label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} />
-        <Again show={p.canAgain} onAgain={p.onAgain} what="glacier" />
-        <MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />
-      </ForceOptions>
+      <ForceOptions
+        force={p.force}
+        power={<Power verb="glaciate" value={u.power} onChange={(power) => set({ power })} title="How deep the ice carves" />}
+        size={
+          <SizeControl
+            label="Size"
+            title="How wide the valley is"
+            keys={SIZE_KEYS}
+            value={Math.round(size / 2) * 2}
+            min={GLACIATE_SIZE_MIN}
+            max={GLACIATE_SIZE_MAX}
+            step={2}
+            onChange={(v) => set({ size: v })}
+            auto={{ on: u.size === null, onAuto: (on) => set({ size: on ? null : Math.round(size / 2) * 2 }) }}
+          />
+        }
+        choice={{ label: "Water", node: <Toggle label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(meltwater) => set({ meltwater })} /> }}
+        again={<Again show={p.canAgain} onAgain={p.onAgain} what="glacier" />}
+        more={<MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />}
+      />
       {p.more ? (
-        <MoreRow force={p.force}>
-          <AutoDetail label="Benches" on={u.benches === null} onAuto={(on) => set({ benches: on ? null : benches })}>
-            <Segmented
-              label="Benches"
-              value={benches}
-              onChange={(benches) => set({ benches })}
-              options={[
-                ["none", "Sheer walls", "Sheer walls all along"],
-                ["some", "Some benches", "Benches along some of the walls"],
-                ["many", "Many benches", "Benches along most of the walls"],
-              ]}
-            />
-          </AutoDetail>
-          <AutoDetail label="Steps" on={u.steps === null} onAuto={(on) => set({ steps: on ? null : steps })}>
-            <Segmented
-              label="Steps"
-              value={steps}
-              onChange={(steps) => set({ steps })}
-              options={[
-                ["few", "Few steps", "Long level reaches, few steps"],
-                ["some", "Some steps", "A step every so often"],
-                ["many", "Many steps", "Short reaches, many steps"],
-              ]}
-            />
-          </AutoDetail>
-          <AutoDetail label="Tarn" on={u.tarn === null} onAuto={(on) => set({ tarn: on ? null : tarn })}>
-            <Toggle label="Tarn" title="A small lake at its head" on={tarn} onChange={(tarn) => set({ tarn })} />
-          </AutoDetail>
-          <AutoDetail label="Scree" on={u.scree === null} onAuto={(on) => set({ scree: on ? null : scree })}>
-            <Toggle label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(scree) => set({ scree })} />
-          </AutoDetail>
-        </MoreRow>
+        <MoreRow
+          force={p.force}
+          details={[
+            {
+              label: "Benches",
+              span: 5,
+              node: (
+                <AutoDetail label="Benches" on={u.benches === null} onAuto={(on) => set({ benches: on ? null : benches })}>
+                  <Segmented
+                    label="Benches"
+                    value={benches}
+                    onChange={(benches) => set({ benches })}
+                    options={[
+                      ["none", "Sheer walls", "Sheer walls all along"],
+                      ["some", "Some benches", "Benches along some of the walls"],
+                      ["many", "Many benches", "Benches along most of the walls"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Steps",
+              span: 5,
+              node: (
+                <AutoDetail label="Steps" on={u.steps === null} onAuto={(on) => set({ steps: on ? null : steps })}>
+                  <Segmented
+                    label="Steps"
+                    value={steps}
+                    onChange={(steps) => set({ steps })}
+                    options={[
+                      ["few", "Few steps", "Long level reaches, few steps"],
+                      ["some", "Some steps", "A step every so often"],
+                      ["many", "Many steps", "Short reaches, many steps"],
+                    ]}
+                  />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Tarn",
+              node: (
+                <AutoDetail label="Tarn" on={u.tarn === null} onAuto={(on) => set({ tarn: on ? null : tarn })}>
+                  <Toggle label="Tarn" title="A small lake at its head" on={tarn} onChange={(tarn) => set({ tarn })} />
+                </AutoDetail>
+              ),
+            },
+            {
+              label: "Scree",
+              node: (
+                <AutoDetail label="Scree" on={u.scree === null} onAuto={(on) => set({ scree: on ? null : scree })}>
+                  <Toggle label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(scree) => set({ scree })} />
+                </AutoDetail>
+              ),
+            },
+          ]}
+        />
       ) : null}
     </>
   );

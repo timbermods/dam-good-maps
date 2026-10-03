@@ -26,7 +26,7 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   // the header: the open map's name and its line (seed and size), the Maps button on the left, shut
   await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
   await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
-  await expect(page.locator("header.editor-bar").getByRole("button", { name: "Maps", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true })).toHaveAttribute("aria-pressed", "false");
 
   // the header's right group: two icons, one primary button, and the File menu with the rest
   const edit = page.getByRole("toolbar", { name: "Edit" });

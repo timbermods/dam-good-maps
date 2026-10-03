@@ -595,6 +595,8 @@ export function App() {
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
     open: openSections,
     onToggle: (s) => setOpenSections((o) => (o.includes(s) ? o.filter((x) => x !== s) : [...o, s])),
+    name,
+    onRename: rename,
   };
 
   const confirmDialog = confirm ? (

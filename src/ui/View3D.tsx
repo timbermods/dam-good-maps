@@ -13,6 +13,7 @@ import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode
 import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
 import { presentEntries, type PresentEntry } from "./legendMap";
+import { tip } from "./Tooltip";
 
 declare global {
   interface Window {
@@ -56,6 +57,9 @@ export interface View3DProps {
   legendInCorner?: boolean;
   /** The look's menu among the view's buttons (the editor has it in its header instead). */
   lookMenu?: boolean;
+  /** An object's picture for its legend line (the objects menu's own), by the line's name; null keeps its
+   *  swatch. */
+  legendIcon?(label: string): string | null;
 }
 
 const GROUND_KEY = "dgm.groundColours";
@@ -137,6 +141,9 @@ export function View3D(props: View3DProps) {
   /** The legend's line pointed to on the map, and the map's changes (the legend reads them). */
   const [pointed, setPointed] = useState<string | null>(null);
   const [mapTick, setMapTick] = useState(0);
+  /** The tile under the pointer, in the game's order (Layout 2's coordinates). */
+  const [coords, setCoords] = useState<readonly [number, number, number] | null>(null);
+  const coordsRef = useRef<string>("");
   const onHover = useRef(props.onHover);
   onHover.current = props.onHover;
 
@@ -168,7 +175,15 @@ export function View3D(props: View3DProps) {
     r.setMarkers(markers);
     // the Flow view as the player left it (D353; off by default), where the editor has its switch
     if (props.togglesInButtons && flow) r.setFlow(true);
-    r.onHover = (hit) => onHover.current?.(hit);
+    r.onHover = (hit) => {
+      onHover.current?.(hit);
+      if (!props.legendInCorner) return;
+      const c = hit ? ([hit.x, hit.y, r.heightAt(hit.x, hit.y)] as const) : null;
+      const k = c ? c.join(",") : "";
+      if (k === coordsRef.current) return;
+      coordsRef.current = k;
+      setCoords(c);
+    };
     // the legend reads the map again a moment after it changes, when the page is idle (never
     // while a brush paints or the water flows)
     let t = 0;
@@ -275,27 +290,86 @@ export function View3D(props: View3DProps) {
     setPointed(null);
   }, [props.view]);
 
-  const item = (e: PresentEntry) => (
-    <li key={e.label}>
-      {e.tiles.length ? (
-        <button type="button" class="pick-line" aria-pressed={pointed === e.key} onClick={() => point(e)} title="Show on the map">
-          <span class="swatch" style={{ background: e.swatch }} aria-hidden="true" />
-          {e.label}
-        </button>
-      ) : (
-        <span class="pick-line">
-          <span class="swatch" style={{ background: e.swatch }} aria-hidden="true" />
-          {e.label}
-        </span>
-      )}
-    </li>
-  );
+  const item = (e: PresentEntry) => {
+    // an object's line shows the objects menu's own picture of it (Kyler, 2026-10-03); the ground, the water and the
+    // markers keep their swatches
+    const pic = props.legendIcon?.(e.label) ?? null;
+    const mark = pic ? <img class="swatch pic" src={pic} alt="" aria-hidden="true" /> : <span class="swatch" style={{ background: e.swatch }} aria-hidden="true" />;
+    return (
+      <li key={e.label}>
+        {e.tiles.length ? (
+          <button type="button" class="pick-line" aria-pressed={pointed === e.key} onClick={() => point(e)} title="Show on the map">
+            {mark}
+            {e.label}
+          </button>
+        ) : (
+          <span class="pick-line">
+            {mark}
+            {e.label}
+          </span>
+        )}
+      </li>
+    );
+  };
   const fold = (open: boolean) => {
     setLegendOpen(open);
     saveLegend(open);
   };
   const showLegend = !props.legendInCorner && (props.showLegend ?? true);
-  const toggles = (
+  const column = !!props.legendInCorner;
+  // the map's lowest and highest level, for Heights' own legend
+  const range = useMemo(() => {
+    const m = renderer.current?.mapState();
+    if (!m || !column) return null;
+    let lo = 255;
+    let hi = 0;
+    for (const h of m.heights) {
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+    return [lo, hi] as const;
+  }, [mapTick, props.view, column]);
+  const heightSwatch = legendEntries("height")[0].swatch;
+  const toggleFlow = () => {
+    const next = !flow;
+    setFlow(next);
+    try {
+      localStorage.setItem("dgm.flow", next ? "on" : "off");
+    } catch {
+      // the choice lasts for this view only
+    }
+    renderer.current?.setFlow(next);
+  };
+  const toggles = column ? (
+    <>
+      <ShowRow
+        on={ground === "height"}
+        onToggle={toggleGround}
+        tip={tip("Colour the ground by height")}
+        legend={
+          range ? (
+            <div class="overlay-legend" role="note">
+              <p class="ol-head">Ground height</p>
+              <div class="ol-ramp" style={{ background: heightSwatch }} />
+              <div class="ol-ends">
+                <span>Low {range[0]}</span>
+                <span>High {range[1]}</span>
+              </div>
+            </div>
+          ) : null
+        }
+      >
+        Heights
+      </ShowRow>
+      {props.besideHeight}
+      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and level lines")}>
+        Markers
+      </ShowRow>
+      <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the water's currents")}>
+        Flow
+      </ShowRow>
+    </>
+  ) : (
     <>
       <button type="button" aria-pressed={ground === "height"} onClick={toggleGround} title="Colour the ground by height instead of by soil">
         Height colours
@@ -304,25 +378,6 @@ export function View3D(props: View3DProps) {
       <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
         Markers
       </button>
-      {props.togglesInButtons ? (
-        <button
-          type="button"
-          aria-pressed={flow}
-          title="Show the water's currents"
-          onClick={() => {
-            const next = !flow;
-            setFlow(next);
-            try {
-              localStorage.setItem("dgm.flow", next ? "on" : "off");
-            } catch {
-              // the choice lasts for this view only
-            }
-            renderer.current?.setFlow(next);
-          }}
-        >
-          Flow
-        </button>
-      ) : null}
     </>
   );
 
@@ -350,43 +405,75 @@ export function View3D(props: View3DProps) {
       </div>
     </div>
   );
+  const topDown = (
+    <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
+      Top-down
+    </button>
+  );
+  const reset = (
+    <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
+      Reset view
+    </button>
+  );
+  if (column)
+    // Layout 2 (Kyler, 2026-10-03): the Show toggles as one column of checkbox rows at the map's top left, Legend
+    // last, its legend under them while ticked; the camera group at the top right, the slice, Slow forces and the
+    // sound under it; the coordinates over the readout at the bottom left
+    return (
+      <div class={`view3d-frame legend-none ${props.class ?? ""}`}>
+        <div class="view3d">
+          <canvas ref={canvas} aria-label={props.label} />
+          {error ? <p class="view3d-error">{error}</p> : null}
+          <div class="show-stack">
+            <div ref={controls} class="view3d-controls show-column" role="group" aria-label="Show">
+              {toggles}
+              {props.viewButtons}
+              <ShowRow on={legendOpen} onToggle={() => fold(!legendOpen)} tip={tip("What the map's colours mean")} controls={legendId}>
+                Legend
+              </ShowRow>
+            </div>
+            {legendOpen ? (
+              <aside class="legend-panel in-column" id={legendId} aria-label="Legend">
+                {legendBody}
+              </aside>
+            ) : null}
+          </div>
+          <div class="view3d-corner" role="group" aria-label="Camera and switches">
+            <div class="camera-group" role="group" aria-label="Camera">
+              {topDown}
+              {reset}
+              {compassDial}
+            </div>
+            <div class="corner-level">{props.cornerLevel}</div>
+            {props.cornerBelow}
+          </div>
+          {coords ? (
+            <div class="readout coords" aria-label="Coordinates">
+              X {coords[0]} · Y {coords[1]} · Z {coords[2]}
+            </div>
+          ) : null}
+          {props.hoverText ? (
+            <div class="readout" role="status">
+              {props.hoverText}
+            </div>
+          ) : null}
+          {props.children}
+        </div>
+      </div>
+    );
   return (
     <div class={`view3d-frame ${showLegend && legendOpen ? "legend-open" : showLegend ? "legend-folded" : "legend-none"} ${props.class ?? ""}`}>
       <div class="view3d">
       <canvas ref={canvas} aria-label={props.label} />
       {error ? <p class="view3d-error">{error}</p> : null}
       <div ref={controls} class="view3d-controls" role="group" aria-label="View">
-        <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
-          Top-down
-        </button>
-        <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
-          Reset view
-        </button>
+        {topDown}
+        {reset}
         {props.togglesInButtons ? toggles : null}
         {props.viewButtons}
         {props.lookMenu === false ? null : <LookMenu renderer={made} />}
       </div>
-      {props.cornerLevel || props.cornerBelow ? (
-        // one tidy cluster (D368 (5)): the compass in the corner, the level control beside it on its line, and the
-        // switches beneath, lined up with the cluster's edges; one height and one gap throughout
-        <div class="view3d-corner" role="group" aria-label="Layers and switches">
-          <div class="corner-level">{props.cornerLevel}</div>
-          {compassDial}
-          {props.cornerBelow ? <div class="corner-below">{props.cornerBelow}</div> : null}
-          {props.legendInCorner ? (
-            <button type="button" class="corner-legend" aria-pressed={legendOpen} aria-expanded={legendOpen} aria-controls={legendId} onClick={() => fold(!legendOpen)} title="What the map's colours mean">
-              Legend
-            </button>
-          ) : null}
-          {props.legendInCorner && legendOpen ? (
-            <aside class="legend-panel" id={legendId} aria-label="Legend">
-              {legendBody}
-            </aside>
-          ) : null}
-        </div>
-      ) : (
-        compassDial
-      )}
+      {compassDial}
       {props.hoverText ? (
         <div class="readout" role="status">
           {props.hoverText}
@@ -406,6 +493,27 @@ export function View3D(props: View3DProps) {
           ) : null}
         </aside>
       )}
+    </div>
+  );
+}
+
+/** A row of the Show column (Layout 2): a 14px checkbox at the left of its name, as in Timberborn's settings; the
+ *  row itself is never lit, a click anywhere on it toggles it. An overlay's own legend sits beside it while it is
+ *  on. */
+export function ShowRow(p: { on: boolean; onToggle(): void; tip: { title: string; "data-keys"?: string }; children: ComponentChildren; legend?: ComponentChildren; controls?: string }) {
+  return (
+    <div class="show-item">
+      <button type="button" class="show-row" role="checkbox" aria-checked={p.on} aria-controls={p.controls} {...p.tip} onClick={p.onToggle}>
+        <span class={`cb${p.on ? " on" : ""}`} aria-hidden="true">
+          {p.on ? (
+            <svg viewBox="0 0 12 12">
+              <path d="M2.5 6.2l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          ) : null}
+        </span>
+        <span class="cb-word">{p.children}</span>
+      </button>
+      {p.on && p.legend ? p.legend : null}
     </div>
   );
 }

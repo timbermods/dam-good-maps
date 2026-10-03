@@ -12,6 +12,7 @@ import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
 import { BAD, LOWERS, MOVING, RAISES } from "../tools";
 import { tip } from "../../ui/Tooltip";
+import { CellRow, type Cell } from "../TopBar";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 
@@ -373,50 +374,105 @@ export function useSelect(ed: Ed): SelectSlice {
       onBlur: () => setSelectPreview(null),
     });
     const choices = deleteMenu && z ? deleteChoices() : [];
-    return (
-      <div class="bar-group">
-        <span class="bar-status" role="status">
-          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt takes away)"}
-        </span>
-        <span class="segmented" role="group" aria-label="How to select">
+    // Layout 2 (Kyler, 2026-10-03): How to select on the tools' six cells, one shape per cell, icon above its name;
+    // on the forces' five, with no heading, what a drag does, Shift and Alt as key caps (or the selection's size).
+    // A selection's actions take the row above, one per cell. No close button: Esc or X closes it.
+    const keys = (
+      <span class="sel-keys">
+        <kbd class="cap">Shift</kbd> adds · <kbd class="cap">Alt</kbd> takes away
+      </span>
+    );
+    const shapes: Cell = {
+      key: "shapes",
+      at: 1,
+      span: 6,
+      label: "How to select",
+      node: (
+        <span class="segmented shapes" role="group" aria-label="How to select">
           {SELECT_MODES.map(([v, name, hint]) => (
             <button type="button" class="icon-button" key={v} aria-label={name} aria-pressed={(selecting ?? "rect") === v} title={`${name}: ${hint}`} onClick={() => setSelecting(v)}>
               <ModeIcon mode={v} />
+              <span class="icon-word">{name}</span>
             </button>
           ))}
           <button type="button" class="icon-button" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
             <WholeMapIcon />
+            <span class="icon-word">Whole map</span>
           </button>
         </span>
-        {z ? (
-          <>
+      ),
+    };
+    const status: Cell = {
+      key: "status",
+      at: 7,
+      span: 5,
+      centre: true,
+      node: (
+        <span class="bar-status sel-status" role="status">
+          <span class="sel-line">{z ? sizeWords(z) : "Drag on the map"}</span>
+          {keys}
+        </span>
+      ),
+    };
+    const button = (key: string, at: number, node: ComponentChildren, span = 1): Cell => ({ key, at, span, node });
+    const actions: Cell[] = z
+      ? [
+          button(
+            "up",
+            1,
             <button type="button" {...tip("Raise the selection one level", "Up")} {...way("raise")} onClick={() => selectAction("raise")}>
               Up 1
-            </button>
+            </button>,
+          ),
+          button(
+            "down",
+            2,
             <button type="button" {...tip("Lower the selection one level", "Down")} {...way("lower")} onClick={() => selectAction("lower")}>
               Down 1
-            </button>
-            <label {...tip("The level", "Ctrl+click", "Shift+scroll")}>
-              Level
+            </button>,
+          ),
+          {
+            key: "level",
+            at: 3,
+            span: 1,
+            label: "Level",
+            node: (
               <input
                 type="number"
                 aria-label="Level"
+                {...tip("The level", "Ctrl+click", "Shift+scroll")}
                 min={0}
                 max={BRUSH_MAX_LEVEL}
                 step={1}
                 value={level}
                 onInput={(e) => setFlattenTo(Math.max(0, Math.min(BRUSH_MAX_LEVEL, Math.round(Number((e.target as HTMLInputElement).value) || 0))))}
               />
-            </label>
+            ),
+          },
+          button(
+            "flatten",
+            4,
             <button type="button" title="Set the area to this level" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
               Flatten
-            </button>
+            </button>,
+          ),
+          button(
+            "cut",
+            5,
             <button type="button" title="Cut the ground above this level" {...way("cut")} onClick={() => selectAction("cut", level)}>
               Cut down
-            </button>
+            </button>,
+          ),
+          button(
+            "fill",
+            6,
             <button type="button" title="Fill the ground below this level" {...way("fill")} onClick={() => selectAction("fill", level)}>
               Fill up
-            </button>
+            </button>,
+          ),
+          button(
+            "delete",
+            7,
             <span class="menu-wrap">
               <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
@@ -451,27 +507,36 @@ export function useSelect(ed: Ed): SelectSlice {
                   )}
                 </ul>
               ) : null}
-            </span>
-            {deepest >= 1 ? (
-              <>
-                <label title="The deepest the water may be">
-                  water
-                  <input type="number" aria-label="Max water depth" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />
-                </label>
-                <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
-                  Max water depth
-                </button>
-              </>
-            ) : null}
-          </>
-        ) : null}
-        <button type="button" class="linkish" aria-label="Close the selection" {...tip("Close", "Esc", "X")} onClick={closeSelect}>
-          ×
-        </button>
-      </div>
+            </span>,
+          ),
+          ...(deepest >= 1
+            ? [
+                {
+                  key: "depth",
+                  at: 8,
+                  span: 1,
+                  label: "Water",
+                  node: <input type="number" aria-label="Max water depth" title="The deepest the water may be" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />,
+                },
+                button(
+                  "max-depth",
+                  9,
+                  <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
+                    Max water depth
+                  </button>,
+                  2,
+                ),
+              ]
+            : []),
+        ]
+      : [];
+    return (
+      <>
+        <CellRow label="Selection" cells={[shapes, status]} />
+        {actions.length ? <CellRow label="Selection actions" cells={actions} /> : null}
+      </>
     );
   }
-
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */
   function objectFootprints(): number[][] {
     const e = mirror.current.entities;

@@ -1,11 +1,12 @@
-// The Maps drawer (the page is the editor, D330; Kyler's sitting, 2026-10-03): it takes the left column in the
-// palette's place, at the column's one width. Generate and Surprise me are pinned at its top; under them, scrolling
-// as one panel: what is on the map (picture, number, name), Theme and Seed, Size, the six sections (each opening in
-// place under its own row, several at once), and Your maps as square tiles, two to a row. The page owns all of it
-// (src/ui/App.tsx): the drawer only shows it.
+// The map generator's panel (the page is the editor, D330; Layout 2, Kyler, 2026-10-03): 352px at the left, opened
+// and closed by Map Generator in the header; closed, the map takes the whole window. Generate and Surprise me are
+// pinned at its top; under them, scrolling as one: the map's Name, Theme and Seed, Size, the six sections (each
+// opening in place under its own row, several at once), what is on the map (picture, number, name), and Your maps,
+// two to a row, each the map's whole picture. The page owns all of it (src/ui/App.tsx): the panel only shows it.
 
 import { AVAILABLE_THEMES, SIZE_PRESETS, THEME_NAMES, THEMES, type SizePreset, type ThemeId } from "../core/spec/mapspec";
 import type { SessionInfo } from "../worker/session";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { tip } from "../ui/Tooltip";
 import { HINT, Num, SECTION_TIPS, SectionFields, SECTIONS, type Section, type SettingsProps } from "./drawer/settings";
 
@@ -34,6 +35,57 @@ export interface DrawerModel extends SettingsProps {
   /** The sections open (the page keeps them across maps). */
   open: readonly Section[];
   onToggle(section: Section): void;
+  /** The map's name (the title's), and renaming it through the core: null, or why not. */
+  name: string;
+  onRename(name: string): Promise<string | null>;
+}
+
+/** The map's name, the same as the title: Enter or leaving the field renames it through the core (D443); a name the
+ *  core refuses goes back, its reason under the field's name for a moment. */
+function NameField(p: { name: string; onRename(name: string): Promise<string | null> }) {
+  const [text, setText] = useState(p.name);
+  const [problem, setProblem] = useState<string | null>(null);
+  const timer = useRef(0);
+  useEffect(() => setText(p.name), [p.name]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const save = async () => {
+    if (text.trim() === p.name) return setText(p.name);
+    const why = await p.onRename(text);
+    if (!why) return setProblem(null);
+    setText(p.name);
+    setProblem(why);
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setProblem(null), 3000);
+  };
+  return (
+    <div class="drawer-fields name-field">
+      <label class="field wide" for="map-name" {...tip("The map's name: the title above the map")}>
+        <span class={`field-head${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
+          {problem ?? "Name"}
+        </span>
+        <input
+          id="map-name"
+          value={text}
+          maxLength={80}
+          spellcheck={false}
+          autoComplete="off"
+          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              // (Enter renames here; it never makes a new map)
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              setText(p.name);
+            }
+          }}
+          onBlur={() => void save()}
+        />
+      </label>
+    </div>
+  );
 }
 
 export interface DrawerProps {
@@ -58,7 +110,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
     ["WaterSource", "Rivers", count((f) => f.kind === "river")],
   ];
   return (
-    <aside class="drawer" aria-label="Maps">
+    <aside class="drawer" aria-label="Map Generator">
       <form
         class="drawer-form"
         aria-label="Settings"
@@ -76,17 +128,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
           </button>
         </div>
         <div class="drawer-body">
-          <ul class="drawer-legend" aria-label="On this map">
-            {legend.map(([t, name, n]) => {
-              const src = icon(t);
-              return (
-                <li key={t}>
-                  {src ? <img src={src} alt="" width={24} height={24} /> : <span class="shelf-blank" aria-hidden="true" style={{ width: 24, height: 24 }} />}
-                  <b>{n}</b> {name}
-                </li>
-              );
-            })}
-          </ul>
+          <NameField name={m.name} onRename={m.onRename} />
           <div class="drawer-fields">
             <label class="field" for="theme" {...tip("The kind of land the map leans toward")}>
               <span class="field-head">Theme</span>
@@ -159,6 +201,17 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
               );
             })}
           </ul>
+          <ul class="drawer-legend" aria-label="On this map">
+            {legend.map(([t, name, n]) => {
+              const src = icon(t);
+              return (
+                <li key={t}>
+                  {src ? <img src={src} alt="" width={24} height={24} /> : <span class="shelf-blank" aria-hidden="true" style={{ width: 24, height: 24 }} />}
+                  <b>{n}</b> {name}
+                </li>
+              );
+            })}
+          </ul>
           <section class="your-maps" aria-labelledby="your-maps-head">
             <h3 id="your-maps-head">Your maps</h3>
             <ul>
@@ -167,7 +220,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
                 return (
                   <li key={e.id}>
                     <button type="button" aria-current={here ? "true" : undefined} title={here ? "The map open now" : "Open this map"} onClick={() => !here && m.onOpenMap(e.id)}>
-                      {e.thumbnail ? <img class="ym-pic" src={e.thumbnail} alt="" width={64} height={64} /> : <span class="ym-pic" aria-hidden="true" />}
+                      {e.thumbnail ? <img class="ym-pic" src={e.thumbnail} alt="" width={142} height={142} /> : <span class="ym-pic" aria-hidden="true" />}
                       <span class="ym-line">
                         <span class="ym-name">{e.name}</span>
                         {e.size ? (

@@ -305,8 +305,12 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close Maps" : "New maps and your maps"} onClick={p.onDrawer}>
-        Maps
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the map generator" : "Make a new map, change its settings, open your maps"} onClick={p.onDrawer}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+          <path d="M9 3v15M15 6v15" />
+        </svg>
+        Map Generator
       </button>
       <div class="editor-title">
         <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
