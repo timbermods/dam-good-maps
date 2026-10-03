@@ -242,6 +242,24 @@ outcome on a dry course. Three causes, each fixed with a test that failed first:
   - `objects`' weir: Canyon 3 replaces Canyon 1, whose river no longer takes a weir.
   - `carveSourceGroup`: Highlands 4 replaces 3, whose highest ground away from the start has no
     room for a row.
+- **A spring row's source added by an edit (the nightly sweep, 95672a08).** The ids were stable; the
+  row's length was not.
+  - On River Valley 96² seed 5, a Lower stroke left the second source of `river/spring/2`'s row a
+    level off its anchor, so the row was placed again with one source.
+  - The Erupt after it levelled the ground, and the source came back: an object the edit added.
+  - A generated feature's row is now placed on the ground as generated (`GeneratedField.heights`),
+    and each source stands on the ground as it is now (`tests/contract/springRowEdits.test.ts`).
+  - The nightly sweep passes on every theme (`editSequences.heavy`, 14 of 14).
+- **A session that reopened differently (6083ccce).** CI's engines job failed on placement/128 once
+  D447 moved Any 128² seed 1.
+  - The kept-resources cache compared the feature list by identity, and operations change that list
+    in place.
+  - A forest whose species the player changed stayed the generation's in the session, which kept
+    its flooded trees dead; the reopened project lost them.
+  - The cache now compares the features one by one. The nightly property test's small preset passes
+    (it failed on `dev` too; `dev` has its own fix, #194).
+- **Lake Basin round 2 (D453):** not applied. The permission system refused to bring the ported
+  patch's code onto the branch; Kyler decides.
 
 ### After acceptance: CI on #70 green again, then the 840-map measures (2026-10-02, night)
 
