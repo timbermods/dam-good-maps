@@ -240,7 +240,8 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 
 ## The one-page editor: the current editor's skeleton, refined (Kyler's verdict, 2026-10-02 17:36)
 
-**Status (2026-10-02 19:32): v8 approved for the build, with seven changes that go into the build** (the handoff in
+**Status (2026-10-02 19:32): v8 approved for the build, with seven changes that go into the build; the build is on
+`feature/page`** (its decisions below, "The build") (the handoff in
 docs/progress/page.md lists them in full): no scale-up at any size and the `?ui` parameter removed; the right column
 13px wider so every legend line fits; the Badwater caption one line, "Badwater: dark brown · Contaminated soil:
 light brown"; the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
@@ -248,6 +249,29 @@ light brown"; the "Markers on:" heading one weight; the drawer's head an editabl
 maps at the drawer's foot (name and size, newest first, the current map marked, a click opens it; no stars or
 thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
 than the room above the water bar. Where this section says otherwise, the verdict wins.
+
+**The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
+- **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;
+  below about 1,000px the checks' words give way to the dot alone.
+- **The drawer is 352px wide.** Its head is the map's **Name**, a field like the drawer's others (the small label,
+  the input at the old heading's size and weight). Your maps' rows show the name, ellipsized before the size, and
+  the size ("128×128") once dev's entries carry it; no star. The open map's row has the mint bar at its left and
+  its name in the heading's weight; a click on another row opens it.
+- **A settings section** opens as a sheet over the drawer's lower part (the card and Your maps), its back button
+  naming the section, its fields dev's settings page's (names, bands, guards), "Reset to the theme's settings" at
+  its foot; the name, the basics, the section list and Generate stay where they are.
+- **Generate** reads as dev's: "Generate", "Generate (settings changed)", the stage's words while a map is made.
+  Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
+  without asking; the open map is in Your maps already. The only question left is when this browser can't keep
+  Your maps and the map has edits.
+- **File** holds exactly Open…, Save project, Download .timber, Clear everything, History, About. There is no Copy
+  link: the address is always the open map's share link, so the browser's own address is the link.
+- **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
+  and Close.
+- **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a press
+  on a source, the start or an object picks it up. The camera: the middle button turns it and the right button
+  pans, as on dev, and the keys turn and move it.
+- **Phones** stay view-only (D185).
 
 **The rule.** Wherever Kyler hasn't asked for a change, the current editor on dev wins: layout, spacing, sizes,
 colours and states. Where this document's v4 system conflicts with the current editor's look, the current editor
