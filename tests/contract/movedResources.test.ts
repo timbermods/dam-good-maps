@@ -4,10 +4,10 @@
 // opens to (saving and reopening a map exactly as left), and the one the same operations give in a
 // fresh session (D366).
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import type { MapSession } from "../../../src/core/doc/session";
-import { moveEdit } from "../../../src/core/doc/tools";
-import { reopen, session, sha } from "./helpers";
+import type { EditOp } from "../../src/core/doc/ops";
+import type { MapSession } from "../../src/core/doc/session";
+import { moveEdit } from "../../src/core/doc/tools";
+import { reopen, session, sha } from "./gateHelpers";
 
 const W = 96;
 const owned = (s: MapSession, id: string) => s.built.entities.filter((e) => e.owner === id).length;
