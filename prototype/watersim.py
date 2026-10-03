@@ -396,16 +396,79 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     return depth.reshape(Y, X), cont.reshape(Y, X)
 
 
+DRAIN_DAYS = 4      # as src/core/sim/prefill.ts: the first settle's own limit
+
+
+def fed_tiles(floor: np.ndarray, D: np.ndarray, sources=(), dam=None, seeds=None) -> np.ndarray:
+    """Tiles of D a running source's water, or a seed's (a mask), reaches: from the running
+    emitters' tiles and the wet seed tiles, water reaches a wet neighbour whose floor stands no
+    higher than the reached tile's surface (a NaturalDam overtopped). Same as src/core/sim/fed.ts `fedTiles`."""
+    Y, X = floor.shape
+    F = floor.astype(float).ravel()
+    d = np.asarray(D, dtype=float).ravel()
+    lim = None if dam is None else np.asarray(dam, dtype=float).ravel()
+    fed = np.zeros(Y * X, bool)
+    queue = []
+    for s in sources:
+        if not s["strength"] > 0:
+            continue
+        for (y, x) in s["tiles"]:
+            i = y * X + x
+            if not fed[i]:
+                fed[i] = True
+                queue.append(i)
+    if seeds is not None:
+        for i in np.flatnonzero(np.asarray(seeds).ravel() & (d > 0) & ~fed):
+            fed[i] = True
+            queue.append(int(i))
+    head = 0
+    while head < len(queue):
+        c = queue[head]
+        head += 1
+        if not d[c] > 0:
+            continue
+        hc = F[c] + d[c]
+        y, x = divmod(c, X)
+        for n in (c - X if y > 0 else -1, c - 1 if x > 0 else -1, c + X if y < Y - 1 else -1, c + 1 if x < X - 1 else -1):
+            if n < 0 or fed[n] or not d[n] > 0:
+                continue
+            fn = F[n]
+            if not fn <= hc:            # level counts: a pre-filled lake stands at its rim
+                continue
+            if lim is not None and lim[n] >= 0 and fn < math.ceil(hc) and hc - fn < lim[n]:
+                continue
+            fed[n] = True
+            queue.append(n)
+    return fed.reshape(Y, X)
+
+
 def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
     """The canonical settle: the pre-fill, then the simulation until it settles (at most 4 game
-    days). Returns (sim, settled); `sim.steady_ticks` is set when it stopped because only sealed
-    basins were still changing, by evaporating (D222, D413), and such water has settled too
+    days); then, when water no running source and no stored lake reaches is left (the pre-fill's
+    walk spreads over dry flats further than the water goes, D385), once more without it, at most
+    DRAIN_DAYS. Returns (sim, settled); `sim.steady_ticks` is set when it stopped because only
+    sealed basins were still changing, by evaporating (D222, D413), and such water has settled too
     (`water.settles`). Every sealed basin at the last check is stored as the pre-fill started it
-    (D413; src/core/sim/prefill.ts `keepSealed`)."""
+    (D413; src/core/sim/prefill.ts `keepSealed`). (The player's drained tiles, Remove unfed water,
+    are the editor's alone and not modelled here.)"""
     d0, c0 = prefill(floor, sources, dam, retained)
     sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0)
     sealed = sorted({i for lake in retained or () for i in lake["tiles"]})
     settled = sim.settle(max_days=4, sealed=sealed or None)
+    stored = None
+    if sealed:
+        stored = np.zeros(floor.size, bool)
+        stored[sealed] = True
+    fed = fed_tiles(floor, sim.D, sources, dam, stored)
+    unfed = (sim.D > 0) & ~fed
+    if unfed.any():
+        depth = np.where(unfed, 0.0, sim.D)
+        cont = np.where(unfed, 0.0, sim.C)
+        nxt = WaterSim(floor, sources, dam=dam, depth=depth, contamination=cont)
+        nxt.out = np.where(unfed[None, :, :], 0.0, sim.out)
+        nxt.ticks = sim.ticks
+        sim = nxt
+        settled = sim.settle(max_days=DRAIN_DAYS, sealed=sealed or None)
     if sealed:
         closed, _ = sealed_basins(sim, sim.last_prev, sealed)
         closed = closed.reshape(sim.D.shape)

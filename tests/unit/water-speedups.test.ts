@@ -47,6 +47,7 @@ const FIXTURES: Record<string, string> = {
   confluence: "88f18f70071953e4",
   evaporation: "b47b353b6bfbf696",
   valley_basin: "df68c726b64d9399",
+  plateau_pit: "ac272af8e5a118a0", // D385: the pit on a dry plateau, its pre-filled water taken away
 };
 
 const GRIDS: [number, number, string][] = [

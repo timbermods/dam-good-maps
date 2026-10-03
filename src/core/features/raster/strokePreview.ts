@@ -9,7 +9,7 @@
 import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
-import { integrityAt, padTile } from "./terrain";
+import { integrityAt, keepShownGround, padTile } from "./terrain";
 import { waterLevels } from "./weather";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
@@ -89,8 +89,15 @@ export class StrokePreview {
     // (a target's stroke too, D322: exact, as a precise one was)
     this.precise = brushHard(settings);
     this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
-    // kept sources' ground stays exactly as it is (D322, item 31): the integrity pass leaves it too
-    if (settings.sources === "keep") for (const [y, a, b] of settings.keep ?? []) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) this.protect[y * W + x] = 1;
+    const pre = this.pre;
+    const base = state.base;
+    const locked = state.locked;
+    const field = state.field ?? null;
+    // (as the build's step 7 chooses them)
+    this.candidate = base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
+    // kept sources' ground stays exactly as it is shown (D322, item 31): the integrity pass leaves it
+    // too, as the build's step 6 does
+    if (settings.sources === "keep") keepShownGround(settings.keep ?? [], this.pre, W, H, this.protect, state.channel, this.candidate, state.top);
     let keep: Uint8Array | null = null;
     if (state.columns.length) {
       keep = new Uint8Array(W * H);
@@ -106,12 +113,6 @@ export class StrokePreview {
       water,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),
     });
-    const pre = this.pre;
-    const base = state.base;
-    const locked = state.locked;
-    const field = state.field ?? null;
-    // (as the build's step 7 chooses them)
-    this.candidate = base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
   }
 
   /** Apply more dabs (with a pen's pressures, and precise's levels). Returns the rectangle of
