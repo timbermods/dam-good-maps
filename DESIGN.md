@@ -287,9 +287,9 @@ than the room above the water bar. Where this section says otherwise, the verdic
 - **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
   cause before #163 merges.
 
-**Layout 2 mockups (2026-10-03): the design to build.** Kyler's Layout 2, settled over seven rounds of mockups on
+**Layout 2 mockups (2026-10-03): the design to build.** Kyler's Layout 2, settled over eight rounds of mockups on
 2026-10-03, for 2560×1440 and 1920×1080 only (smaller windows are not designed). Captures of the real page
-rearranged (River Valley 4242 at 128², four states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
+rearranged (River Valley 4242 at 128², two states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
 - **The header:** at the left, **Map Generator** opens and closes the left panel: a tinted button (the mint at 12%
   behind it, a mint outline at 60%), a small folded-map icon in the mint and the name in the heading's weight; lit
   like the toggles (mint fill, dark ink) while the panel is open. At rest Save to Timberborn stays the only filled
@@ -314,11 +314,12 @@ rearranged (River Valley 4242 at 128², four states at both sizes): [docs/design
   (42%); available ones are unchanged.
 - **Top right:** the camera group (Top-down, Reset view, the compass), then the height slice, Slow forces and the
   sound under them, as a three-column grid 310px wide (the sound under the compass).
-- **Bottom right: the objects,** a menu always shown: one object per row, its picture then its name, under the
-  headings Water, Start, Plants, Ruins, Land, on one panel 166px wide and 606px tall. Rows are 30px tall, 2px apart,
-  the pictures 28px, 8px before the name, every picture and name on one line down the list; a heading is 15px with
-  6px above it. The panel's right edge is on the page's 10px margin (the top-right controls' too) and its bottom
-  level with the bar's bottom. Picking an object lights its row in the mint, as the bar lights a tool.
+- **Bottom right: the objects,** a menu always shown, with no headings: one object per row, its picture then its
+  name, in this order: Start, Water source, Badwater source, Natural dam, Pine, Birch, Oak, Berry bush, Ruin, Mine
+  site, Relic, Slope, Thorns, Blockage, Geothermal field; on one panel 166px wide and 492px tall. Rows are 30px tall,
+  2px apart, the pictures 28px, 8px before the name, every picture and name on one line down the list. The panel's
+  right edge is on the page's 10px margin (the top-right controls' too) and its bottom level with the bar's bottom.
+  Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
   Carve, Craterize, Erupt, Quake, Glaciate; eleven 76px cells, icon above name, keys only in tooltips. The held
@@ -336,9 +337,9 @@ rearranged (River Valley 4242 at 128², four states at both sizes): [docs/design
 Where it doesn't fit, and what the mockups do:
 - **The objects menu** clears everything at both sizes, panel open or closed, with Raise's settings too: it starts
   168px right of the bar and its settings at 1920×1080 with the panel open (344px closed; 488px and 664px at
-  2560×1440), 291px below the top-right controls at 1920×1080 (651px at 2560×1440). It lies over the map's lower
+  2560×1440), 405px below the top-right controls at 1920×1080 (765px at 2560×1440). It lies over the map's lower
   right corner, and the default view doesn't make room for it.
-- **The objects menu needs a panel behind it** for its headings and rows; every control floats without one.
+- **The objects menu needs a panel behind it** for its rows; every control floats without one.
 - **Select has no close button:** the selection closes with Esc or X only (its tooltip held those keys).
 - **Your maps at 1920×1080:** with five maps the panel scrolls by 178px, so the third row of pictures starts below
   the fold. At 2560×1440 nothing scrolls. A 128² map's stored picture is 128px, shown slightly enlarged in its box.
