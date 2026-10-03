@@ -1387,18 +1387,73 @@ export class MapRenderer {
     const size = box.getSize(new Vector3());
     const r = Math.max(0.6, 0.5 * Math.hypot(size.x, size.y, size.z));
     const cam = new PerspectiveCamera(30, 1, 0.1, 200);
-    const dir = new Vector3(0.8, 0.75, 1).normalize();
-    cam.position.copy(centre).addScaledVector(dir, r / Math.sin((15 * Math.PI) / 180));
-    cam.lookAt(centre);
+    // (a slope is seen from below its ramp, so the ramp shows)
+    const dir = (template === "Slope" ? new Vector3(-0.8, 0.75, -1) : new Vector3(0.8, 0.75, 1)).normalize();
+    let far = r / Math.sin((15 * Math.PI) / 180);
+    // the object fills its picture: its box's corners are projected, the camera moves to centre them and comes
+    // as close as keeps them all inside, with a thin margin (a bounding sphere leaves most pictures half empty)
+    const corners = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => new Vector3(k & 1 ? box.max.x : box.min.x, k & 2 ? box.max.y : box.min.y, k & 4 ? box.max.z : box.min.z));
+    const aim = centre.clone();
+    for (let pass = 0; pass < 4; pass++) {
+      cam.position.copy(aim).addScaledVector(dir, far);
+      cam.lookAt(aim);
+      cam.updateMatrixWorld(true);
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let y0 = Infinity;
+      let y1 = -Infinity;
+      for (const c of corners) {
+        const p = c.clone().project(cam);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+      const half = far * Math.tan((15 * Math.PI) / 180);
+      const across = new Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+      const up = new Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+      aim.addScaledVector(across, ((x0 + x1) / 2) * half).addScaledVector(up, ((y0 + y1) / 2) * half);
+      const span = Math.max(x1 - x0, y1 - y0) / 2;
+      if (Number.isFinite(span) && span > 0) far = Math.max(r * 1.2, (far * span) / 0.92);
+    }
+    cam.position.copy(aim).addScaledVector(dir, far);
+    cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
     const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()) };
     this.uniforms.slice.value = 99;
     this.gl.setRenderTarget(rt);
     this.gl.setClearColor(0x000000, 0);
-    this.gl.clear();
-    this.gl.render(scene, cam);
     const pixels = new Uint8Array(px * px * 4);
-    this.gl.readRenderTargetPixels(rt, 0, 0, px, px, pixels);
+    // drawn, then drawn again closer where the object itself (what is not see-through) leaves the picture half
+    // empty: a box holds more than what shows (a bush's, a flat field's)
+    for (let pass = 0; pass < 3; pass++) {
+      this.gl.clear();
+      this.gl.render(scene, cam);
+      this.gl.readRenderTargetPixels(rt, 0, 0, px, px, pixels);
+      let x0 = px;
+      let x1 = -1;
+      let y0 = px;
+      let y1 = -1;
+      for (let y = 0; y < px; y++)
+        for (let x = 0; x < px; x++)
+          if (pixels[(y * px + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+      if (x1 < 0) break;
+      const span = Math.max(x1 - x0 + 1, y1 - y0 + 1) / px;
+      const offX = (x0 + x1 + 1) / px - 1;
+      const offY = (y0 + y1 + 1) / px - 1;
+      if (pass === 2 || (span > 0.84 && Math.abs(offX) < 0.06 && Math.abs(offY) < 0.06)) break;
+      cam.updateMatrixWorld(true);
+      const half = far * Math.tan((15 * Math.PI) / 180);
+      aim.addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 0), offX * half).addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 1), offY * half);
+      far = Math.max(r * 0.6, (far * span) / 0.92);
+      cam.position.copy(aim).addScaledVector(dir, far);
+      cam.lookAt(aim);
+    }
     this.gl.setRenderTarget(was.target);
     this.gl.setClearColor(was.color, was.alpha);
     this.uniforms.slice.value = was.slice;
