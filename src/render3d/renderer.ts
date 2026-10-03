@@ -58,7 +58,7 @@ import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, sk
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
-import { columnMap, NO_VARIANT, surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
@@ -263,6 +263,8 @@ export class MapRenderer {
   private bakerOwn: Baker | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
+  private retiredMotion: WaterMotion | null = null;
   /** The Flow view (off by default): the current's streaks over the water. */
   private flowOn = false;
   private lookNow: Look = "standard";
@@ -880,8 +882,46 @@ export class MapRenderer {
 
   // ------------------------------------------------------------------------------ map building
 
-  /** Build everything for a new map and draw the first frame. */
-  setMap(v: MapView, keepView = false): BuildStats {
+  /** Warm the programs and GPU state the first map needs, while it loads (D367 part 1): a small map
+   *  with each kind of thing a map draws (stepped ground, clean and bad water and a fall between them,
+   *  trees, bushes, both sources, a slope, the start), in the look that will be drawn, its programs
+   *  compiled off the page's thread where the browser can, then drawn once and the GPU waited for. The
+   *  map that follows then compiles nothing new, and nothing of this one stays. */
+  async prepareFirstFrame(): Promise<void> {
+    const W = 12;
+    const H = 12;
+    const heights = new Uint8Array(W * H);
+    const depth = new Float32Array(W * H);
+    const bad = new Float32Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        heights[i] = x < 4 ? 6 : x < 8 ? 4 : 2;
+        // a stream over the steps (its falls), badwater in its lower part
+        if (y >= 5 && y <= 6) {
+          depth[i] = 0.8;
+          if (x >= 8) bad[i] = 1;
+        }
+      }
+    const at = (template: string, x: number, y: number, more: Partial<Parameters<typeof entityView>[0][number]> = {}) => ({ template, x, y, z: heights[y * W + x], orientation: "Cw0", owner: "warm", ...more });
+    const entities = entityView([at("Pine", 1, 1), at("Oak", 2, 9), at("Birch", 9, 1), at("BlueberryBush", 10, 9), at("WaterSource", 1, 5, { strength: 1 }), at("BadwaterSource", 8, 8, { strength: 1 }), at("Slope", 4, 2), at("StartingLocation", 5, 9)]);
+    const view: MapView = { W, H, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: waterFromDepth(heights, depth, bad), entities, soil: soilView(new Uint8Array(W * H).fill(4), new Float32Array(W * H).fill(0.5)) };
+    this.setMap(view, false, true);
+    await this.gl.compileAsync(this.scene, this.camera());
+    this.renderNow();
+    const ctx = this.gl.getContext();
+    ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+  }
+
+  /** The canvas moved into the page's own view (a prepared renderer taken, `prepared.ts`): it takes
+   *  that view's size. */
+  adopted(): void {
+    this.fit();
+  }
+
+  /** Build everything for a new map and draw the first frame (`prepare`: the warm-up's map, not drawn
+   *  here, and no verdict of the automatic look taken on it). */
+  setMap(v: MapView, keepView = false, prepare = false): BuildStats {
     const t0 = performance.now();
     this.clearMap();
     this.waterQueue.clear();
@@ -941,13 +981,17 @@ export class MapRenderer {
     const instances = this.setEntitiesInner(v.entities);
     const meshMs = performance.now() - t0;
     if (!keepView) this.resetView();
-    this.renderNow();
-    // wait for the GPU to finish the first frame
-    const ctx = this.gl.getContext();
-    ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+    if (!prepare) {
+      this.renderNow();
+      // wait for the GPU to finish the first frame
+      const ctx = this.gl.getContext();
+      ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+      this.retiredMotion?.dispose();
+      this.retiredMotion = null;
+    }
     const ms = performance.now() - t0;
     this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
-    this.scheduleProbe();
+    if (!prepare) this.scheduleProbe();
     this.highlight = null;
     this.pageOverlay = null;
     this.onMapChange?.();
@@ -1018,7 +1062,10 @@ export class MapRenderer {
     this.map = null;
     this.tileRows.clear();
     this.lightRows.clear();
-    this.waterMotion?.dispose();
+    // (its programs kept until the next map's first frame has compiled its own to them)
+    this.retiredMotion?.dispose();
+    this.waterMotion?.retire();
+    this.retiredMotion = this.waterMotion;
     this.waterMotion = null;
     this.forceFx?.clear();
     this.setHeat(null);
@@ -2579,6 +2626,8 @@ export class MapRenderer {
     for (const [target, type, fn, opts] of this.listeners) target.removeEventListener(type, fn, opts);
     cancelAnimationFrame(this.glideFrame);
     this.clearMap();
+    this.retiredMotion?.dispose();
+    this.retiredMotion = null;
     this.cursor?.dispose();
     this.ring?.dispose();
     this.effects?.dispose();

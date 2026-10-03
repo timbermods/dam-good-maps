@@ -941,6 +941,12 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
+  - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
+    `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws
+    in the look that will be drawn, compiles its programs (`compileAsync`) and waits for the GPU; the 3D view takes
+    that renderer, canvas and context, with `takePreparedRenderer`, so the map's first frame compiles nothing new
+    (`tests/e2e/rendererWarmup.spec.ts`). A map's moving water is retired, not dropped, until the next map's first
+    frame, so a new map reuses its programs too.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
