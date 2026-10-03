@@ -142,7 +142,7 @@ window, and Maps opens the generator's settings in a drawer in the palette's col
   area** (D345, B1).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
-  first step down from ∞ goes to the map's highest level, up runs through every level to 22, then ∞, and a click on
+  first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
   the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
   objects) and the cut surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's
   level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on

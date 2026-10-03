@@ -271,15 +271,50 @@ than the room above the water bar. Where this section says otherwise, the verdic
 - **No explanations under settings:** no grey line under any setting. Where the line gave the official maps' range,
   it is in the setting's tooltip as a short phrase after its purpose ("… · Official maps: 9–15").
 - **The height slice:** one control, ▾ value ▴, at one fixed width. The value runs up to 22 (the game's highest
-  terrain), then ∞, on every map; the first step down from ∞ goes straight to the map's highest level (its highest
-  ground); up runs through every level to 22, then ∞; a click on the value shows the whole world. There is no
+  terrain), then ∞, on every map; the first step down from ∞ goes to the map's highest ground less one, as the
+  game's does (amended after the second checkpoint); up runs through every level to 22, then ∞; a click on the value shows the whole world. There is no
   separate ∞ button. Alt+scroll and Alt+middle-click on the map keep the game's own stepping.
+- **After the second checkpoint (Kyler, 2026-10-03):** the counts above Theme always show all five kinds, zeros
+  too, so nothing below moves when the map changes; the seed's lock is a named toggle, **Keep**, always there, so
+  the seed field keeps its width; Your maps' tiles end on the drawer's right edge; Generate and Surprise me split
+  where Theme and Seed do; Generate always says "Generate" (its progress while busy, at the same size); the title's
+  rename is a clean field of exactly the title's size, with no outline bars; the dot says its count once ("3 things
+  to look at"); its list has no lines under its headings and no checks' ids.
 - **No notices strip (amends D213's quiet line):** the strip under the map is gone, since it changed the page's size
   and the player knows what they did. When the map's last badwater spring goes, the quiet dot's list says "No
   badwater" under Good to know, not counted; an opened file's import flags are in the list with their fixes, counted
   with its other items. The session's notices, the import change count and the import warnings are shown nowhere.
 - **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
   cause before #163 merges.
+
+**Layout 2 mockups (2026-10-03).** Kyler's brief of 2026-10-03 (tabs over the left column with a fixed footer, one
+bar at the bottom middle, the Show toggles top left, the camera group top right) as captures of the real page
+rearranged, River Valley 4242 at 128², five states at 1280×800, 1366×768 and 1920×1080:
+[docs/design/layout2.html](docs/design/layout2.html). Where the brief doesn't fit, and what the mockups do:
+- **The minimap at 1366×768** is 155px, not 168, so the shelf's fifteen objects show whole above the fixed footer;
+  168px at the other sizes.
+- **The water controls** need 555px on one line; the column has 352px. They take two centred lines in the footer
+  (the status, Pause water, Speed; then Skip, Replay, Drought, Badtide). The footer is 296–309px tall.
+- **The Map Generation tab** gets what the footer leaves: 290px at 1366×768 and 311px at 1280×800, enough for what is
+  on the map, Theme, Seed, Size and one or two section rows; the rest scrolls under Generate. At 1920×1080 it still
+  scrolls by 15px.
+- **The bar** is 879px at every size (eleven 76px cells, set by "Naturalize", the hairline and padding): 24px clear
+  of each side of the map at 1280 wide. A twelfth tool or a longer name doesn't fit there without narrower cells.
+- **The settings above the bar are never empty:** Select has settings, so with Select in hand its line (drag on the
+  map, the shapes) sits above the bar. Raise's settings take two lines at the bar's width, Carve's one.
+- **The map behind the bar:** today's camera frames the map in the whole map area, so the bar and its settings
+  (102–140px tall) would cover its south corner. The mockups frame it between the toggles and the bar with a one-line
+  settings row (the build needs insets in `frameMap()`); Raise's two lines still cover about 14px of land at 1280
+  and 1366.
+- **The top right:** with the compass in the camera row, the slice can't stay beside it. The cluster is a
+  three-column grid, 310px wide: Top-down, Reset view and the compass on one plate; under them the slice, Slow
+  forces and the sound (still under the compass).
+- **Under roofs** fits on the toggles' row at 1280: the row would end at 907px and the camera group starts at 956
+  (checked with the toggle added by hand; no map with roofs on the machine).
+- **The heights legend** sits under the toggles' row at the Heights toggle's left edge: "Ground height", the ramp,
+  the map's lowest and highest level. Its swatch is the ramp's unlit colours, so the lit land looks lighter.
+- **The coordinates repeat the readout's height** ("Z 10" over "Height 10, dry soil"). Shown as asked; the readout
+  could drop its height.
 
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
 - **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;
