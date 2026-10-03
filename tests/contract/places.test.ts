@@ -213,8 +213,8 @@ describe("real places stay out of the generator (D108)", () => {
       .map((f) => f.split(sep).join("/"))
       .filter((f) => !f.startsWith("src/places/") && !f.startsWith("src/core/places/"))
       .sort();
-    expect(users).toEqual(["src/page/Panel.tsx", "src/page/Workspace.tsx", "src/worker/generator.worker.ts"]);
+    expect(users).toEqual(["src/ui/App.tsx", "src/worker/generator.worker.ts"]);
     // the page's real-place link loads only the fetch helpers, never the place builder
-    for (const f of ["src/page/Panel.tsx", "src/page/Workspace.tsx"]) expect(readFileSync(f, "utf8"), f).not.toMatch(/core\/places/);
+    expect(readFileSync("src/ui/App.tsx", "utf8")).not.toMatch(/core\/places/);
   });
 });
