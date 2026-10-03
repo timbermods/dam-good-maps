@@ -515,3 +515,17 @@ each object's template, place, orientation, flags and strength, but **not its id
 row makes (its strength, clean or bad, Delete) and a picked object's Delete name the object by id, so a selection
 taken from the page's copy can't act. What it needs: the entity id in the view (one string per object, or an index
 the worker resolves), which is `src/worker/`'s and `src/core/`'s.
+
+## The second build checkpoint (2026-10-03): the sitting's checklist
+
+On /preview/ (from `feature/page`); captures beside dev in `docs/design/editor-build2-*`.
+
+1. **The left column.** Maps swaps the palette (four to a row) for the drawer in one 352px column; nothing else moves.
+2. **The title.** Click the map's name: it edits in place; Enter or leaving saves, Esc cancels; a blank name says "A
+   map needs a name"; Undo stays as it was. The line under it reads "Seed 4242 · 128×128".
+3. **The drawer.** Generate and Surprise me stay at the top while the rest scrolls; the counts; Theme and Seed; Size;
+   the sections open in place, several at once; Your maps as picture tiles, two to a row.
+4. **Difficulty** in place of Designed for; no line under any setting; point at one for the official maps' range.
+5. **The height slice.** ▾ value ▴, one width; down from ∞ goes to the map's highest ground, up runs to 22 then ∞; a
+   click on the value is ∞.
+6. **No notices strip.** Remove the last badwater spring: the quiet dot's list says "No badwater".
