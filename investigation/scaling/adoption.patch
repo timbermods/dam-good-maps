@@ -1,0 +1,1948 @@
+diff --git a/src/editor/waterPlayer.ts b/src/editor/waterPlayer.ts
+index eedb06ae..961f9954 100644
+--- a/src/editor/waterPlayer.ts
++++ b/src/editor/waterPlayer.ts
+@@ -46,17 +46,18 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
+   const at = new Map<number, number>();
+   for (let k = 0; k < a.count; k++) at.set(a.tile[k], k);
+-  const tiles: number[] = [];
+-  const floor: number[] = [];
+-  const depth: number[] = [];
+-  const contamination: number[] = [];
++  // Keep the old order and double arithmetic; allocate the four final buffers once.
+   const seen = new Set<number>();
+-  for (let k = 0; k < b.count; k++) {
+-    const i = b.tile[k];
+-    seen.add(i);
+-    const j = at.get(i);
+-    tiles.push(i);
+-    floor.push(b.floor[k]);
+-    depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
+-    contamination.push((j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t);
++  for (let k = 0; k < b.count; k++) seen.add(b.tile[k]);
++  let count = b.count;
++  for (let k = 0; k < a.count; k++) if (!seen.has(a.tile[k]) && !(a.depth[k] * (1 - t) <= 0.001)) count++;
++  const tile = new Int32Array(count), floor = new Float32Array(count);
++  const depth = new Float32Array(count), contamination = new Float32Array(count);
++  let q = 0;
++  for (let k = 0; k < b.count; k++, q++) {
++    const i = b.tile[k], j = at.get(i);
++    tile[q] = i;
++    floor[q] = b.floor[k];
++    depth[q] = (j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
++    contamination[q] = (j === undefined ? b.contamination[k] : a.contamination[j]) * (1 - t) + b.contamination[k] * t;
+   }
+   for (let k = 0; k < a.count; k++) {
+@@ -65,10 +66,7 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
+     const d = a.depth[k] * (1 - t);
+     if (d <= 0.001) continue;
+-    tiles.push(i);
+-    floor.push(a.floor[k]);
+-    depth.push(d);
+-    contamination.push(a.contamination[k]);
++    tile[q] = i; floor[q] = a.floor[k]; depth[q] = d; contamination[q] = a.contamination[k]; q++;
+   }
+-  return { count: tiles.length, tile: Int32Array.from(tiles), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
++  return { count, tile, floor, depth, contamination };
+ }
+
+@@ -132,5 +130,12 @@ export class WaterPlayer {
+     if (!this.timer && this.at >= this.frames.length - 1) this.restartClock();
+     this.finished = false;
+-    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) this.frames.push({ water: blendWater(last.water, f.water, k / (EASE + 1)), done: last.done + ((1 - last.done) * k) / (EASE + 1) });
++    if (f.final && last && !this.weather) for (let k = 1; k <= EASE; k++) {
++      // Unshown blends allocate nothing; replay computes exactly the same frame on demand.
++      let water: WaterView | undefined;
++      this.frames.push({
++        get water() { return water ??= blendWater(last.water, f.water, k / (EASE + 1)); },
++        done: last.done + ((1 - last.done) * k) / (EASE + 1),
++      });
++    }
+     this.frames.push(f);
+     if (f.final) this.finished = true;
+diff --git a/src/render3d/renderer.ts b/src/render3d/renderer.ts
+index 18f22077..5f66d8ba 100644
+--- a/src/render3d/renderer.ts
++++ b/src/render3d/renderer.ts
+@@ -22,4 +22,5 @@ import {
+   BufferGeometry,
+   BufferAttribute,
++  DynamicDrawUsage,
+   Color,
+   InstancedBufferGeometry,
+@@ -622,17 +623,36 @@ export class MapRenderer {
+   }
+
++  /** A same-shape remesh retains its GPU allocation; changed topology disposes it as a unit. */
++  private meshGeometry(old: Mesh | undefined, attrs: Record<string, BufferAttribute>, index: BufferAttribute): BufferGeometry {
++    const g = old?.geometry;
++    if (g && g.index?.array.length === index.array.length && Object.keys(attrs).every((key) => g.getAttribute(key)?.array.length === attrs[key].array.length)) {
++      for (const [key, attr] of Object.entries(attrs)) {
++        const a = g.getAttribute(key) as BufferAttribute;
++        a.array.set(attr.array); a.needsUpdate = true;
++      }
++      g.index.array.set(index.array); g.index.needsUpdate = true;
++      return g;
++    }
++    g?.dispose();
++    const next = new BufferGeometry();
++    for (const [key, attr] of Object.entries(attrs)) next.setAttribute(key, attr.setUsage(DynamicDrawUsage));
++    next.setIndex(index.setUsage(DynamicDrawUsage));
++    return next;
++  }
++
+   private meshTerrain(cx: number, cy: number): number {
+     const key = `${cx},${cy}`;
+     const old = this.terrain.get(key);
+-    if (old) this.dropMesh(old);
+-    this.terrain.delete(key);
+     const d = meshChunk(this.map!.source, cx, cy);
+-    if (!d.quads) return 0;
+-    const g = new BufferGeometry();
+-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
+-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
+-    g.setIndex(new BufferAttribute(d.indices, 1));
++    if (!d.quads) {
++      if (old) this.dropMesh(old);
++      this.terrain.delete(key); return 0;
++    }
++    const g = this.meshGeometry(old, {
++      position: new BufferAttribute(d.positions, 3), normal: new BufferAttribute(d.normals, 3, true),
++    }, new BufferAttribute(d.indices, 1));
+     g.computeBoundingSphere();
+-    const mesh = new Mesh(g, this.terrainMat);
++    const mesh = old ?? new Mesh(g, this.terrainMat);
++    mesh.geometry = g;
+     mesh.matrixAutoUpdate = false;
+     this.scene.add(mesh);
+@@ -644,18 +664,18 @@ export class MapRenderer {
+     const key = `${cx},${cy}`;
+     const old = this.water.get(key);
+-    if (old) this.dropMesh(old);
+-    this.water.delete(key);
+     const m = this.map!;
+     const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
+     this.meshFalls(key, d.falls, d.fallCount);
+-    if (!d.quads) return 0;
+-    const g = new BufferGeometry();
+-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
+-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
+-    g.setAttribute("wdata", new BufferAttribute(d.data, 2));
+-    g.setAttribute("wflags", new BufferAttribute(d.flags, 1));
+-    g.setIndex(new BufferAttribute(d.indices, 1));
++    if (!d.quads) {
++      if (old) this.dropMesh(old);
++      this.water.delete(key); return 0;
++    }
++    const g = this.meshGeometry(old, {
++      position: new BufferAttribute(d.positions, 3), normal: new BufferAttribute(d.normals, 3, true),
++      wdata: new BufferAttribute(d.data, 2), wflags: new BufferAttribute(d.flags, 1),
++    }, new BufferAttribute(d.indices, 1));
+     g.computeBoundingSphere();
+-    const mesh = new Mesh(g, this.waterMat);
++    const mesh = old ?? new Mesh(g, this.waterMat);
++    mesh.geometry = g;
+     mesh.matrixAutoUpdate = false;
+     mesh.renderOrder = 2;
+diff --git a/src/core/doc/ops.ts b/src/core/doc/ops.ts
+index 04764a02..e33b3377 100644
+--- a/src/core/doc/ops.ts
++++ b/src/core/doc/ops.ts
+@@ -1,2 +1,4 @@
++import {derivedResultKey} from "./resultStore";
++import {forceEntityEdits, expandedEntityEdits} from "./entityForceEdits";
+ // Edit operations (EDITOR_PLAN §3): small, serializable commands in one envelope, `{op, params}`.
+ // The validation report's one-click fixes use the same envelope (report.ts `FixOp`), so a fix is
+@@ -111,5 +113,5 @@ export interface DocState {
+   sculpts: SculptOp[];
+   slopeEdits: SlopeOp[];
+-  entityEdits: EntityOp[];
++  entityEdits: (EntityOp | ForceOp)[];
+ }
+
+@@ -260,5 +262,5 @@ export function applyOp(state: DocState, op: AppliedOp): void {
+       }
+       state.sculpts.push(op);
+-      state.entityEdits.push(...forceEntityEdits(op));
++      state.entityEdits.push(...(derivedResultKey(op.params) ? [op] : forceEntityEdits(op)));
+       return;
+     }
+@@ -281,18 +283,5 @@ export function applyOp(state: DocState, op: AppliedOp): void {
+  *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
+  *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+-function forceEntityEdits(op: ForceOp): EntityOp[] {
+-  const { seq, origin } = op;
+-  const out: EntityOp[] = [];
+-  const p = op.params;
+-  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
+-  if (op.op === "forceResult") {
+-    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
+-    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
+-  }
+-  // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
+-  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
+-    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
+-  return out;
+-}
++
+
+ function removeAllFromList<T extends { seq: number }>(list: T[], seq: number): void {
+@@ -336,5 +325,5 @@ export function invertOp(state: DocState, op: AppliedOp): void {
+       if (r) {
+         state.sculpts.splice(Math.min(r.sculpt, state.sculpts.length), 0, r.op);
+-        const edits = forceEntityEdits(r.op);
++        const edits = derivedResultKey(r.op.params) ? [r.op] : forceEntityEdits(r.op);
+         if (edits.length) state.entityEdits.splice(r.entity >= 0 ? Math.min(r.entity, state.entityEdits.length) : state.entityEdits.length, 0, ...edits);
+       }
+@@ -408,5 +397,5 @@ const CARVE_MAX_LEVEL = CEILING;
+
+ /** Largest number of tiles one operation may touch. */
+-export const MAX_OP_TILES = 256 * 256;
++export const MAX_OP_TILES = 512 * 512;
+
+ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+@@ -557,5 +546,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+-        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
++        if (ctx.entityIds.has(src.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
+       }
+       if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no carve ${p.replaces} to try another path for`];
+@@ -577,5 +566,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
+         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
+-        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
++        if (ctx.entityIds.has(src.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
+       }
+       if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no force ${p.replaces} to try another for`];
+@@ -585,5 +574,5 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
+       const p = op.params;
+       if (!GUID.test(p.id)) return [`${p.id} is not a lowercase GUID`];
+-      if (ctx.entityIds.has(p.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
++      if (ctx.entityIds.has(p.id) || [...expandedEntityEdits(state.entityEdits)].some((e) => e.op === "placeEntity" && e.params.id === p.id)) return [`an entity with the Id ${p.id} already exists`];
+       // (the start too, on a map that has none: its own was deleted, D323 item 44)
+       const noStart = p.template === "StartingLocation" && !state.features.some((f) => f.kind === "start") && (ctx.otherStarts ?? 0) === 0;
+diff --git a/src/core/doc/ops.schema.json b/src/core/doc/ops.schema.json
+index 7e6fa476..5a32e9a6 100644
+--- a/src/core/doc/ops.schema.json
++++ b/src/core/doc/ops.schema.json
+@@ -33,10 +33,10 @@
+     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
+     "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+-    "coordinate": { "type": "integer", "minimum": 0, "maximum": 255 },
++    "coordinate": { "type": "integer", "minimum": 0, "maximum": 511 },
+     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
+     "runs": {
+       "type": "array",
+       "minItems": 1,
+-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
++      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
+     },
+     "brush": {
+@@ -47,11 +47,11 @@
+       "properties": {
+         "tool": { "enum": ["raise", "lower", "flatten", "smooth", "naturalize"] },
+-        "size": { "type": "number", "minimum": 0.5, "maximum": 128 },
++        "size": { "type": "number", "minimum": 0.5, "maximum": 256 },
+         "strength": { "type": "number", "minimum": 1, "maximum": 10 },
+         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
+         "target": { "type": "integer", "minimum": 0, "maximum": 22 },
+         "mode": { "enum": ["ground", "water"] },
+-        "wet": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+-        "bank": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
++        "wet": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "bank": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+         "sources": { "const": "keep" },
+         "seed": { "type": "integer" },
+@@ -66,6 +66,6 @@
+         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
+         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
+-        "keep": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+-        "area": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
++        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
+         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
+@@ -73,5 +73,5 @@
+         "edges": { "enum": ["ramped"] },
+         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
+-        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } }
++        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
+       }
+     },
+@@ -143,7 +143,7 @@
+         "steps": { "type": "integer", "minimum": 0 },
+         "reason": { "type": "string" },
+-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
++        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
+         "source": {
+           "type": "object",
+@@ -168,8 +168,8 @@
+           "required": ["tiles", "floor", "depth", "contamination"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
++            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
++            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+           }
+         },
+@@ -223,5 +223,5 @@
+             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+-            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
++            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 511 } } },
+             "side": { "enum": [1, -1] },
+             "source": { "type": "string" }
+@@ -231,6 +231,6 @@
+         "steps": { "type": "integer", "minimum": 0 },
+         "reason": { "type": "string" },
+-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+         "rock": {
+           "type": "object",
+@@ -238,17 +238,17 @@
+           "required": ["tiles", "bits"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "bits": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+           }
+         },
+-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
++        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
+         "moved": {
+           "type": "array",
+-          "maxItems": 65536,
++          "maxItems": 262144,
+           "items": { "type": "object", "additionalProperties": false, "required": ["id", "x", "y"], "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } } }
+         },
+         "felled": {
+           "type": "array",
+-          "maxItems": 65536,
++          "maxItems": 262144,
+           "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
+         },
+@@ -274,8 +274,8 @@
+           "required": ["tiles", "floor", "depth", "contamination"],
+           "properties": {
+-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
++            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
++            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
++            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
++            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+           }
+         },
+@@ -312,5 +312,5 @@
+       "additionalProperties": false,
+       "required": ["entities"],
+-      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } } }
++      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } } }
+     },
+     "setEntityProps": {
+diff --git a/src/core/features/raster/brush.ts b/src/core/features/raster/brush.ts
+index 4729af8c..f1eb0450 100644
+--- a/src/core/features/raster/brush.ts
++++ b/src/core/features/raster/brush.ts
+@@ -160,7 +160,7 @@ export const BRUSH_TOOLS: readonly BrushTool[] = ["raise", "lower", "flatten", "
+ export const BRUSH_MAX_LEVEL = CEILING;
+ export const BRUSH_SIZE_MIN = 0.5;
+-/** The largest radius: half the widest map's width (256², D322 item 42: the largest brush paints a
++/** The largest radius: half the widest supported side (512, D357: the largest brush paints a
+  *  whole map in one stroke). The page's own limit is half its map's width. */
+-export const BRUSH_SIZE_MAX = 128;
++export const BRUSH_SIZE_MAX = 256;
+ /** Pressure for one level. */
+ export const LEVEL = 1024;
+diff --git a/src/core/features/features.schema.json b/src/core/features/features.schema.json
+index 9ef3f63b..f13ee447 100644
+--- a/src/core/features/features.schema.json
++++ b/src/core/features/features.schema.json
+@@ -8,13 +8,13 @@
+   "$defs": {
+     "point": {
+-      "description": "A point in tile coordinates. It may lie up to one map side (256 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
++      "description": "A point in tile coordinates. It may lie up to one map side (512 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
+       "type": "array",
+       "minItems": 2,
+       "maxItems": 2,
+-      "items": { "type": "number", "minimum": -256, "maximum": 512 }
++      "items": { "type": "number", "minimum": -512, "maximum": 1024 }
+     },
+     "runs": {
+       "type": "array",
+-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
++      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
+     },
+     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
+@@ -98,6 +98,6 @@
+             "to": { "enum": ["edge", "river", "lake", "none"] },
+             "target": { "type": "string" },
+-            "path": { "type": "array", "maxItems": 131072, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+-            "levels": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
++            "path": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
++            "levels": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
+             "width": { "enum": [1, 3, 5] }
+           }
+@@ -241,6 +241,6 @@
+           "additionalProperties": false,
+           "properties": {
+-            "x": { "type": "integer", "minimum": 0, "maximum": 255 },
+-            "y": { "type": "integer", "minimum": 0, "maximum": 255 },
++            "x": { "type": "integer", "minimum": 0, "maximum": 511 },
++            "y": { "type": "integer", "minimum": 0, "maximum": 511 },
+             "orientation": { "$ref": "#/$defs/orientation" },
+             "area": { "$ref": "#/$defs/runs" }
+@@ -263,5 +263,5 @@
+       "required": ["position", "orientation", "benchRadius", "benchLevel", "player"],
+       "properties": {
+-        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
++        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
+         "orientation": { "$ref": "#/$defs/orientation" },
+         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
+diff --git a/tests/contract/projects.test.ts b/tests/contract/projects.test.ts
+index 9fd8e830..0e80428c 100644
+--- a/tests/contract/projects.test.ts
++++ b/tests/contract/projects.test.ts
+@@ -135,9 +135,10 @@ describe("the feature schema's points (PLAN §19.2)", () => {
+   const both = (outline: number[][]) => [validateFeatures(landform(outline)).length === 0, ajvFeatures(landform(outline)) as boolean];
+
+-  it("lie up to one map side (256 tiles) past each edge, in the runtime checker and in Ajv alike", () => {
++  it("lie up to one supported map side (512 tiles, D357) past each edge, in the runtime checker and in Ajv alike", () => {
+     expect(both([[-256, -256], [512, -256], [512, 512], [-256, 512]])).toEqual([true, true]);
++    expect(both([[-512, -512], [1024, -512], [1024, 1024], [-512, 1024]])).toEqual([true, true]);
+     expect(both([[-2.02, 40], [10, 40], [10, 60]])).toEqual([true, true]);
+-    expect(both([[-256.01, 40], [10, 40], [10, 60]])).toEqual([false, false]);
+-    expect(both([[0, 0], [512.01, 0], [0, 10]])).toEqual([false, false]);
++    expect(both([[-512.01, 40], [10, 40], [10, 60]])).toEqual([false, false]);
++    expect(both([[0, 0], [1024.01, 0], [0, 10]])).toEqual([false, false]);
+   });
+ });
+diff --git a/src/core/doc/session.ts b/src/core/doc/session.ts
+index bdce16bc..d2041fde 100644
+--- a/src/core/doc/session.ts
++++ b/src/core/doc/session.ts
+@@ -1,2 +1,7 @@
++import {BoundedFields} from "./boundedFields";
++import {ResultStore} from "./resultStore";
++import {HistorySnapshots} from "./historySnapshots";
++import {writeProject} from "./projectStream";
++import {projectObject} from "./document";
+ // An open map document (EDITOR_PLAN §3): the operations engine, undo and redo, export, and the built map, rebuilt incrementally after every change. The editor (M4)
+ // runs one session in its worker; everything here is headless and runs in Node too.
+@@ -110,4 +115,58 @@ export class MapSession {
+   private gen: Generation;
+   private log: AppliedOp[];
++  /** Already validated legacy input: preserve replay/orphan semantics, page literal payloads. */
++  importAppliedForReplay(input:AppliedOp):AppliedOp {
++    this.setReplaySequence(input.seq);
++    const op=clone(input);
++    if(this.resultStore&&(op.op==="forceResult"||op.op==="carve"||op.op==="deleteEntities"))op.params=this.resultStore.keep(op.seq,op.params);
++    applyOp(this.st,op);this.log.push(op);this.seqNext=op.seq+1;
++    this.pushHistory({kind:"ops",ops:[op]});this.cur=this.rebuilt();this.snapshot();return op;
++  }
++  /** Roll back an execution/storage exception without cloning or materializing derived vectors. */
++  historyTransaction<T>(action:()=>T):T {
++    const saved={log:this.log.slice(),st:{...this.st,features:this.st.features.slice(),sculpts:this.st.sculpts.slice(),slopeEdits:this.st.slopeEdits.slice(),entityEdits:this.st.entityEdits.slice()},
++      cur:this.cur,seqNext:this.seqNext,undoStack:this.undoStack.slice(),redoStack:this.redoStack.slice(),snaps:new Map(this.snaps),waterAt:new Map(this.waterAt)};
++    try{return action();}catch(error){Object.assign(this,{...saved,snaps:new HistorySnapshots(saved.snaps)});throw error;}
++  }
++  private resultStore: ResultStore | null = null;
++  /** Exact current execution state, not a regeneration or a flattened replacement base. */
++  checkpointExecution():object {
++    return {gen:this.gen,log:this.log.slice(),st:{...this.st,features:this.st.features.slice(),sculpts:this.st.sculpts.slice(),slopeEdits:this.st.slopeEdits.slice(),entityEdits:this.st.entityEdits.slice()},
++      seqNext:this.seqNext,cur:{...this.cur,dirty:null,cache:{...this.cur.cache,fields:new Map()}},undoStack:this.undoStack.slice(),redoStack:[],
++      baseCache:this.baseCache,fieldCache:this.fieldCache,keptCache:this.keptCache,storedWaterCache:this.storedWaterCache,waterMode:this.waterMode,notices:this.notices.slice()};
++  }
++  static restoreExecution(doc:MapDocument,execution:any):MapSession {
++    const b=execution?.cur,N=doc.base.sizeX*doc.base.sizeY;
++    if(!b||b.W!==doc.base.sizeX||b.H!==doc.base.sizeY||!Array.isArray(execution.log)||!Array.isArray(execution.undoStack)||!execution.st||!execution.gen||!Number.isSafeInteger(execution.seqNext))throw Error("invalid execution checkpoint");
++    for(const k of ["heights","water","contamination","moisture","soilContamination","occupied","channel"])if(!ArrayBuffer.isView(b[k])||(b[k] as any).length!==N)throw Error("invalid checkpoint field");
++    if(!(b.cache?.keys instanceof Map)||!(b.cache.resources instanceof Map)||!Array.isArray(b.entities))throw Error("invalid checkpoint caches");
++    return new MapSession(doc,undefined,execution);
++  }
++  installExecution(execution:any):void {
++    const meta=this.gen.meta;Object.assign(this,execution);this.gen={...this.gen,meta};this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
++    this.snaps.clear();this.waterAt.clear();
++  }
++  private waterAt = new Map<number,number>();
++  private rememberHistoryWater():void {if(this.resultStore)this.waterAt.set(this.undoStack.length,this.resultStore.keepWater(this.cur.cache.settle));}
++  private restoreHistoryWater(at:number):void {
++    if(!this.resultStore||this.snaps.has(at))return;
++    const key=this.waterAt.get(at);if(key===undefined)throw Error("missing historical water input");
++    this.cur={...this.cur,cache:{...this.cur.cache,settle:this.resultStore.readWater(key),moisture:null,soil:null,occupiedBeforeResources:null,resources:new Map(),resourceOrder:[]}};
++  }
++  private snapshotBudget = Infinity;
++  private snapshotSteps = MAX_SNAPSHOTS;
++  useResultStore(store: ResultStore, snapshotBudget = 128*1024*1024, snapshotSteps = 16, remember=true): void {
++    if (!Number.isSafeInteger(snapshotBudget) || snapshotBudget<0 || !Number.isSafeInteger(snapshotSteps) || snapshotSteps<1) throw Error("invalid history cache policy");
++    this.resultStore = store;this.snapshotBudget=snapshotBudget;this.snapshotSteps=snapshotSteps;if(remember)this.rememberHistoryWater();
++  }
++  get nextOperationSeq(): number {return this.seqNext;}
++  setReplaySequence(seq:number):void {if(!Number.isSafeInteger(seq)||seq<this.seqNext)throw Error("invalid replay sequence");this.seqNext=seq;}
++  get historyCacheStats() {return {snapshots:this.snaps.size, bytes:this.snaps.bytes, budget:this.snapshotBudget};}
++  /** The immutable generation, without copying/materializing the operation log. */
++  get generationDocument(): MapDocument {
++    return {formatVersion:3,app:"dam-good-maps",generatorVersion:this.gen.generatorVersion,spec:this.gen.spec,
++      base:this.gen.base,...(this.gen.field?{field:this.gen.field}:{}),baseFeatures:this.gen.baseFeatures,
++      kept:this.gen.kept,features:clone(this.gen.baseFeatures),edits:[],nextSeq:1,meta:this.gen.meta};
++  }
+   private st: DocState;
+   private seqNext: number;
+@@ -115,5 +174,5 @@ export class MapSession {
+   private undoStack: HistoryEntry[] = [];
+   private redoStack: HistoryEntry[] = [];
+-  private snaps = new Map<number, BuildResult>();
++  private snaps = new HistorySnapshots<BuildResult>();
+   private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
+@@ -129,5 +188,9 @@ export class MapSession {
+   private waterMode: WaterMode = "canonical";
+
+-  private constructor(doc: MapDocument, built?: BuildResult) {
++  private constructor(doc: MapDocument, built?: BuildResult, execution?:any) {
++    if(execution){this.gen=execution.gen;this.log=execution.log;this.st=execution.st;this.seqNext=execution.seqNext;this.cur=execution.cur;
++      Object.assign(this,execution);this.cur={...this.cur,dirty:null,cache:{...this.cur.cache,fields:new BoundedFields()}};
++      this.snaps.set(this.undoStack.length,this.cur);return;}
++
+     this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+     const r = replay(this.gen.baseFeatures, doc.edits);
+@@ -205,4 +268,6 @@ export class MapSession {
+     this.cur = rebuild(this.cur, this.input(), { settleCache: cache });
+     for (const [k, b] of this.snaps) if (b === before) this.snaps.set(k, this.cur);
++    this.rememberHistoryWater();
++    if(this.resultStore)this.snapshot(true);
+     return true;
+   }
+@@ -393,4 +458,10 @@ export class MapSession {
+
+   /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens). */
++  /** Legacy-format streaming save: no clone of literal vectors or whole-document string. */
++  async projectStreaming(sink:(bytes:Uint8Array)=>Promise<void>,level=9):Promise<void> {
++    const doc={...this.generationDocument,features:clone(this.st.features),edits:this.log.slice(),nextSeq:this.seqNext};
++    await writeProject(projectObject(doc),sink,level);
++  }
++
+   project(level?: number): Uint8Array {
+     return encodeProject(this.document, level);
+@@ -508,5 +579,7 @@ export class MapSession {
+   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
+     const text = label ?? (op as { label?: string }).label;
+-    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
++    let params = clone(op.params);
++    if ((op.op === "forceResult" || op.op === "deleteEntities") && this.resultStore) params = this.resultStore.keep(this.seqNext,params);
++    const applied = { op: op.op, params, seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+     applyOp(this.st, applied);
+     if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
+@@ -524,4 +597,5 @@ export class MapSession {
+     }
+     this.redoStack.push(e);
++    this.restoreHistoryWater(this.undoStack.length);
+     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+     return true;
+@@ -536,4 +610,5 @@ export class MapSession {
+     }
+     this.undoStack.push(e);
++    this.restoreHistoryWater(this.undoStack.length);
+     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+     this.snapshot();
+@@ -579,8 +654,9 @@ export class MapSession {
+   private snapshot(force = false): void {
+     const at = this.undoStack.length;
+-    if (!force && at % SNAPSHOT_EVERY !== 0) return;
++    this.rememberHistoryWater();
++    if (!force && !this.resultStore && at % SNAPSHOT_EVERY !== 0) return;
+     this.snaps.set(at, this.cur);
+-    while (this.snaps.size > MAX_SNAPSHOTS) {
+-      const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
++    while (this.snaps.size > 1 && (this.snaps.size > this.snapshotSteps || this.snaps.bytes > this.snapshotBudget)) {
++      const oldest = this.resultStore ? [...this.snaps.keys()].find(k=>k!==at)! : [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
+       this.snaps.delete(oldest);
+     }
+diff --git a/src/core/doc/document.ts b/src/core/doc/document.ts
+index 4d5dec3b..e438aa1e 100644
+--- a/src/core/doc/document.ts
++++ b/src/core/doc/document.ts
+@@ -171,7 +171,11 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
+  *  faster one): the JSON inside is the same either way. */
+ export function encodeProject(doc: MapDocument, level = 9): Uint8Array {
++  return gzipSync(strToU8(JSON.stringify(projectObject(doc))), { level: level as 9, mtime: 0 });
++}
++
++export function projectObject(doc:MapDocument):MapDocument {
+   const out: MapDocument = { ...doc };
+   if (doc.baseFeatures && jsonEqual(doc.baseFeatures, doc.features)) delete out.baseFeatures;
+-  return gzipSync(strToU8(JSON.stringify(out)), { level: level as 9, mtime: 0 });
++  return out;
+ }
+
+@@ -243,4 +247,9 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
+     throw new ProjectError("not a Dam Good Maps project file");
+   }
++  return decodeProjectObject(raw);
++}
++
++/** Shared legacy migrations after incremental JSON decoding. */
++export function decodeProjectObject(raw: {app?:string;formatVersion?:number}): MapDocument {
+   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+   const notes = dropRetired(raw as Record<string, unknown>);
+diff --git a/src/core/features/build.ts b/src/core/features/build.ts
+index fca0e5fd..919d43d5 100644
+--- a/src/core/features/build.ts
++++ b/src/core/features/build.ts
+@@ -1,2 +1,4 @@
++import {derivedResultKey} from "../doc/resultStore";
++import {BoundedFields} from "../doc/boundedFields";
+ // The one build pipeline (PLAN §19.8): features in, terrain and entities out. Generation plans the
+ // features first (gen/riverValley.ts) and then runs this; the editor runs the same code after every
+@@ -121,5 +123,5 @@ export interface BuildInput {
+   sculpts?: readonly SculptEdit[];
+   slopeEdits?: readonly SlopeEdit[];
+-  entityEdits?: readonly EntityEdit[];
++  entityEdits?: readonly (EntityEdit | import("../doc/ops").ForceOp)[];
+   locked?: LockedLayer | null;
+ }
+@@ -368,4 +370,5 @@ function featureKey(f: Feature): string {
+ const paramKeys = new WeakMap<object, string>();
+ function paramsKey(p: object): string {
++  const derived = derivedResultKey(p);if(derived !== undefined)return derived;
+   let k = paramKeys.get(p);
+   if (k === undefined) {
+@@ -545,5 +548,5 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
+   const live = (f: Feature) => !frozen?.has(f.id);
+   const features = input.features;
+-  const fields: FieldCache = prev ? prev.fields : new Map();
++  const fields: FieldCache = prev ? prev.fields : new BoundedFields();
+
+   const { terrain, region } = terrainStage(input, prev, fields);
+diff --git a/src/core/features/edits.ts b/src/core/features/edits.ts
+index a5df2eae..55b0905f 100644
+--- a/src/core/features/edits.ts
++++ b/src/core/features/edits.ts
+@@ -1,2 +1,4 @@
++import {expandedEntityEdits} from "../doc/entityForceEdits";
++import type {ForceOp} from "../doc/ops";
+ // Edit overlays the build pipeline applies on top of the features (PLAN §19.8): sculpt edits
+ // (step 6, raster/terrain.ts), slope overrides (step 8) and entity edits (step 13). They are the
+@@ -213,5 +215,5 @@ export function applySlopeEdits(entities: EntitySpec[], edits: readonly SlopeEdi
+ export function applyEntityEdits(
+   entities: EntitySpec[],
+-  edits: readonly EntityEdit[],
++  edits: readonly (EntityEdit | ForceOp)[],
+   g: EditGround,
+   allowPlace: boolean,
+@@ -233,5 +235,5 @@ export function applyEntityEdits(
+   let occ: Map<number, number> | null = null;
+   const tilesOf = (e: EntitySpec) => entityTiles(e).map(([x, y]) => y * g.W + x);
+-  for (const ed of edits) {
++  for (const ed of expandedEntityEdits(edits)) {
+     switch (ed.op) {
+       case "placeEntity": {
+diff --git a/src/core/doc/boundedFields.ts b/src/core/doc/boundedFields.ts
+new file mode 100644
+index 00000000..05168500
+--- /dev/null
++++ b/src/core/doc/boundedFields.ts
+@@ -0,0 +1,17 @@
++import type {FieldCache} from "../features/target";
++import {retainedBytes} from "./resultStore";
++/** Derived distance/path fields: editing a feature must not retain every old outline forever. */
++export class BoundedFields extends Map<string,FieldCache extends Map<string,infer V>?V:never> {
++  private costs=new Map<string,number>();private bytes=0;
++  revision=0;
++  constructor(readonly budget=32*1024*1024){super();}
++  override get(key:string){const value=super.get(key);if(value!==undefined){super.delete(key);super.set(key,value);}return value;}
++  override set(key:string,value:FieldCache extends Map<string,infer V>?V:never):this {
++    this.delete(key);const cost=retainedBytes(value);
++    while(this.size&&this.bytes+cost>this.budget)this.delete(this.keys().next().value!);
++    if(cost<=this.budget){super.set(key,value);this.costs.set(key,cost);this.bytes+=cost;this.revision++;}return this;
++  }
++  override delete(key:string):boolean {this.bytes-=this.costs.get(key)??0;this.costs.delete(key);const removed=super.delete(key);if(removed)this.revision++;return removed;}
++  override clear():void {super.clear();this.costs.clear();this.bytes=0;this.revision++;}
++  get stats(){return {bytes:this.bytes,budget:this.budget,entries:this.size};}
++}
+diff --git a/src/core/doc/entityForceEdits.ts b/src/core/doc/entityForceEdits.ts
+new file mode 100644
+index 00000000..9d3779c9
+--- /dev/null
++++ b/src/core/doc/entityForceEdits.ts
+@@ -0,0 +1,19 @@
++import type {ForceOp,EntityOp} from "./ops";
++import type {EntityEdit} from "../features/edits";
++export function forceEntityEdits(op: ForceOp): EntityOp[] {
++  const { seq, origin } = op;
++  const out: EntityOp[] = [];
++  const p = op.params;
++  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
++  if (op.op === "forceResult") {
++    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
++    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
++  }
++  // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
++  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
++    out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
++  return out;
++}
++export function* expandedEntityEdits(edits: readonly (EntityEdit | ForceOp)[]): Generator<EntityEdit> {
++ for(const e of edits) {if(e.op==="forceResult"||e.op==="carve")yield* forceEntityEdits(e);else yield e;}
++}
+diff --git a/src/core/doc/forceHelpers.ts b/src/core/doc/forceHelpers.ts
+new file mode 100644
+index 00000000..3963207d
+--- /dev/null
++++ b/src/core/doc/forceHelpers.ts
+@@ -0,0 +1,125 @@
++// Pure worker helpers extracted from pinned source; share these at adoption.
++import type {MapSession} from "./session";
++import {geology} from "../forces/random";
++import {trimRock} from "../forces/rock";
++import {plainEntities,type FullForceMap} from "../forces/force";
++import type {ForceResultParams} from "../forces/op";
++import type {TerrainState} from "../features/raster/strokePreview";
++import {integrityAt} from "../features/raster/terrain";
++import type {Finalize} from "../forces/runs";
++const geologies=new WeakMap<MapSession,number[]>(),rocks=new WeakMap<object,Uint32Array|null>();
++const poses=new WeakMap<object,Map<string,{dx:number;dy:number}>>();
++const lifeOf=(c:any)=>({dead:c?.LivingNaturalResource?.IsDead===true});
++export function geologyOf(s: MapSession): number[] {
++  let g = geologies.get(s);
++  if (!g) geologies.set(s, (g = geology(s.openedHeights)));
++  return g;
++}
++
++export function rockOf(s: MapSession): Uint32Array | null {
++  const b = s.built;
++  if (rocks.has(b)) return rocks.get(b)!;
++  let lava: Uint32Array | null = null;
++  for (const op of s.state.sculpts)
++    if (op.op === "forceResult" && op.params.rock) {
++      lava ??= new Uint32Array(b.W * b.H);
++      const { tiles, bits } = op.params.rock;
++      for (let k = 0; k < tiles.length; k++) lava[tiles[k]] = bits[k];
++    }
++  if (lava) trimRock({ heights: b.heights, lava });
++  rocks.set(b, lava);
++  return lava;
++}
++
++export function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
++  const b = s.built;
++  let out = poses.get(b);
++  if (out) return out;
++  out = new Map();
++  for (const op of s.state.sculpts) if (op.op === "forceResult") for (const f of op.params.felled ?? []) out.set(f.id, { dx: f.dx, dy: f.dy });
++  if (out.size) {
++    const dead = new Set(b.entities.filter((e) => lifeOf(e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components }).dead).map((e) => e.id));
++    for (const id of [...out.keys()]) if (!dead.has(id)) out.delete(id);
++  }
++  poses.set(b, out);
++  return out;
++}
++
++export function stagedForceMap(m: FullForceMap): FullForceMap {
++  return { ...m, entities: plainEntities(m.entities.map((e) => (e.raw ? (({ raw: _raw, ...rest }) => rest)(e) : e))) };
++}
++
++export function buildTouches(state: TerrainState, ground: Uint8Array, owned?: () => Uint8Array | null): Finalize {
++  return (m) => {
++    const { W, H } = m;
++    const pre = state.pre.slice();
++    const protect = state.protect.slice();
++    const own = owned?.() ?? null;
++    let x0 = W;
++    let y0 = H;
++    let x1 = -1;
++    let y1 = -1;
++    for (let i = 0; i < m.heights.length; i++)
++      if (m.heights[i] !== ground[i] || own?.[i]) {
++        pre[i] = m.heights[i];
++        protect[i] = 1;
++        const x = i % W;
++        const y = (i - x) / W;
++        if (x < x0) x0 = x;
++        if (x > x1) x1 = x;
++        if (y < y0) y0 = y;
++        if (y > y1) y1 = y;
++      }
++    if (x1 < 0) return;
++    const base = state.base;
++    const locked = state.locked;
++    const candidate = base ? (i: number) => pre[i] !== base[i] : locked ? (i: number) => !locked[i] : () => true;
++    integrityAt(pre, m.heights, W, H, protect, state.channel, candidate, Math.max(0, x0 - 1), Math.max(0, y0 - 1), Math.min(W - 1, x1 + 1), Math.min(H - 1, y1 + 1));
++    trimRock(m);
++  };
++}
++
++export function withOwned(p: ForceResultParams, heights: Uint8Array, owned: Uint8Array | null): ForceResultParams {
++  if (!owned) return p;
++  const at = new Map(p.tiles.map((i, k) => [i, p.heights[k]]));
++  for (let i = 0; i < owned.length; i++) if (owned[i] && !at.has(i)) at.set(i, heights[i]);
++  const tiles = [...at.keys()].sort((a, b) => a - b);
++  return { ...p, tiles, heights: tiles.map((i) => at.get(i)!) };
++}
++
++export function glacierSprings(before: FullForceMap, after: FullForceMap, lake: { tiles: readonly number[]; floor: readonly number[]; depth: readonly number[]; contamination: readonly number[] }): Pick<ForceResultParams, "sources" | "lake"> {
++  const had = new Set(before.entities.map((e) => e.id));
++  const sources = after.entities
++    .filter((e) => !had.has(e.id) && e.template === "WaterSource")
++    .map((e) => {
++      const ws = ({ ...(e.before ?? {}), ...e.components } as { WaterSource?: { SpecifiedStrength?: unknown } }).WaterSource;
++      const raw = ws?.SpecifiedStrength;
++      const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 0);
++      return { id: e.id, x: e.x, y: e.y, strength };
++    })
++    .filter((q) => q.strength > 0);
++  return { ...(sources.length ? { sources } : {}), ...(lake.tiles.length ? { lake: { tiles: [...lake.tiles], floor: [...lake.floor], depth: [...lake.depth], contamination: [...lake.contamination] } } : {}) };
++}
++
++export function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Array): ForceResultParams | null {
++  const tiles: number[] = [];
++  const heights: number[] = [];
++  const now = new Map<number, number>();
++  p.tiles.forEach((i, k) => {
++    const room = inside[i];
++    const h0 = before[i];
++    const h = Math.max(h0 - room, Math.min(h0 + room, p.heights[k]));
++    now.set(i, h);
++    if (h === h0) return;
++    tiles.push(i);
++    heights.push(h);
++  });
++  if (!tiles.length) return null;
++  const rock = p.rock
++    ? { tiles: p.rock.tiles.slice(), bits: p.rock.bits.map((b, k) => {
++        const h = now.get(p.rock!.tiles[k]);
++        return h === undefined || h >= 31 ? b : b & ((1 << h) - 1);
++      }) }
++    : undefined;
++  return { ...p, tiles, heights, ...(rock ? { rock } : {}) };
++}
+diff --git a/src/core/doc/gestureHistory.ts b/src/core/doc/gestureHistory.ts
+new file mode 100644
+index 00000000..ce8d8ed0
+--- /dev/null
++++ b/src/core/doc/gestureHistory.ts
+@@ -0,0 +1,341 @@
++import {MapSession} from "./session";
++import {decodeProjectObject,baseFeaturesOf,checkDocument,type MapDocument} from "./document";
++import type {EditOp,OpOrigin,AppliedOp} from "./ops";
++import {ResultStore,type ColdResults} from "./resultStore";
++import {readProject,writeProject} from "./projectStream";
++import {packState,unpackState,StateBank} from "./stateGraph";
++import {archiveSource,readArchive,writeArchive,CHECKPOINT_KEY,STATE_ABI,type CheckpointIndex} from "./projectArchive";
++import {inversePatch,applyPatch,packPatch,unpackPatch,PatchIndices,type InversePatch} from "./inversePatch";
++import {HistorySnapshots as RecentStates} from "./historySnapshots";
++import {fullMap,forceCeiling} from "../forces/force";
++import {forceMapOf,carveForceParams} from "../forces/carve/result";
++import {CarveRun,type CarveSettings} from "../forces/carve/run";
++import {CraterRun,EruptRun,QuakeRun} from "../forces/runs";
++import type {CraterSettings} from "../forces/craterize";
++import type {EruptSettings,Point} from "../forces/erupt";
++import type {QuakeSettings} from "../forces/quake";
++import {GlaciateRun} from "../forces/glaciate/run";
++import type {GlaciateSettings} from "../forces/glaciate/model";
++import {forceParamsOf,pathRecord} from "../forces/result";
++import {forceSettingsProblems} from "../forces/op";
++import {areaDepth} from "../features/raster/brush";
++import {moveStartNear,startBrokenBy,startMiddle} from "./tools";
++import {geologyOf,rockOf,fallenOf,stagedForceMap,buildTouches,withOwned,glacierSprings,featherForce} from "./forceHelpers";
++import {planRemoveAt} from "./selectionHelpers";
++import {runsToTiles,type Runs} from "../math/grid";
++import type {RemoveKind} from "../features/objects";
++export {inversePatch,applyPatch,packPatch,unpackPatch} from "./inversePatch";
++export {rockOf,fallenOf} from "./forceHelpers";
++export {BoundedFields} from "./boundedFields";
++export {HistorySnapshots} from "./historySnapshots";
++
++export const REPLAY_VERSION="portable-forces-v1-canonical";
++type Where={origin?:[number,number];end?:[number,number];via?:[number,number][];path?:Point[];side?:1|-1};
++/** Resolved core request: never screen events, literal result tiles, frame counts or wall time. */
++export type ForceGesture = ({verb:"carve";settings:CarveSettings}|{verb:"craterize";settings:CraterSettings}|{verb:"erupt";settings:EruptSettings}|{verb:"quake";settings:QuakeSettings}|{verb:"glaciate";settings:GlaciateSettings}) & {
++  where:Where;cut:number|null;area?:[number,number,number][];sourceId:string;unleashed?:string;bad?:boolean;
++};
++export type GestureEntry={seq:number;origin:OpOrigin;label?:string} & (
++  {kind:"operations";ops:EditOp[]}|{kind:"force";gesture:ForceGesture;inputHash:string;inputHashVersion?:1|2;inputCursor:number;forceSeq:number;replaces?:number}|{kind:"legacy";op:AppliedOp}|{kind:"selection";gesture:SelectionGesture;inputHash:string;inputHashVersion?:1|2}
++);
++export type SelectionGesture={action:"remove";area:Runs;kinds:RemoveKind[]};
++export type GestureProject={app:"dam-good-maps";formatVersion:4;replayVersion:typeof REPLAY_VERSION;documentId:string;epoch:number;base:MapDocument;entries:GestureEntry[];nextSeq:number};
++export type Policy={results?:number;snapshots?:number;steps?:number;checkpointEvery?:number;checkpointBytes?:number;checkpointCount?:number};
++function immutable<T>(value:T):T {if(value&&typeof value==="object"){for(const d of Object.values(Object.getOwnPropertyDescriptors(value)))if("value" in d)immutable(d.value);Object.freeze(value);}return value;}
++function validArea(area:Runs,W:number,H:number):void {
++  if(!Array.isArray(area)||area.some(r=>!Array.isArray(r)||r.length!==3||r.some(n=>!Number.isSafeInteger(n))||r[0]<0||r[0]>=H||r[1]<0||r[2]>=W||r[1]>r[2]))throw Error("working area outside map");
++}
++function validForce(g:ForceGesture,s:MapSession):void {
++  if(!g||!["carve","craterize","erupt","quake","glaciate"].includes(g.verb)||!Number.isSafeInteger(g.settings?.seed)||typeof g.sourceId!=="string"||!g.sourceId||!g.where||g.cut!==null&&(!Number.isSafeInteger(g.cut)||g.cut<0||g.cut>forceCeiling()))throw Error("invalid resolved force gesture");
++  const problems=forceSettingsProblems(g.verb,g.settings as unknown as Record<string,unknown>);
++  if(problems.length)throw Error(problems.join("; "));
++  if(g.area!==undefined)validArea(g.area,s.size.x,s.size.y);
++}
++
++export function canonicalForceMap(s:MapSession) {
++  s.settleCanonical();const b=s.built,m=forceMapOf(b),down=fallenOf(s);
++  return fullMap({...m,rockLayers:geologyOf(s),lava:rockOf(s)??new Uint32Array(m.W*m.H),fallen:m.entities.filter(e=>down.has(e.id)).map(e=>({id:e.id,x:e.x+.5,y:e.y+.5,z:m.heights[e.y*m.W+e.x],...down.get(e.id)!,length:e.template==="Oak"?2.6:2}))});
++}
++export async function forceInputHash(s:MapSession,version:1|2=2):Promise<string> {
++  const m=s.historyTransaction(()=>canonicalForceMap(s)),parts:Uint8Array[]=[m.heights,new Uint8Array(m.water.depth.buffer),new Uint8Array(m.water.contamination.buffer),new Uint8Array(m.lava.buffer),new TextEncoder().encode(JSON.stringify([m.W,m.H,m.maxHeight,m.entities,m.rockLayers,m.fallen]))];
++  if(version!==1&&version!==2)throw Error('unsupported force input hash version');
++  if(version===2){const t=s.terrainState();for(const v of [t.pre,t.protect,t.channel,t.base,t.field,t.locked,t.columns])parts.push(v?new Uint8Array(v.buffer,v.byteOffset,v.byteLength):new Uint8Array());parts.push(new TextEncoder().encode(JSON.stringify([t.top,!!t.base,!!t.field,!!t.locked,s.features])));}
++  // Hash component digests: bounded working storage, including all inputs that a force reads.
++  const digests=await Promise.all(parts.map(b=>crypto.subtle.digest("SHA-256",b as BufferSource)));
++  const joined=new Uint8Array(digests.length*32);digests.forEach((d,i)=>joined.set(new Uint8Array(d),i*32));
++  return [...new Uint8Array(await crypto.subtle.digest("SHA-256",joined))].map(x=>x.toString(16).padStart(2,"0")).join("");
++}
++export function resolveForce(s:MapSession,g:ForceGesture):EditOp {
++  validForce(g,s);
++  const m=canonicalForceMap(s),{W,H}=m,{where:w}=g,keep=new Uint8Array(W*H);
++  const inside=g.area?areaDepth(g.area,W,H):null;
++  if(g.cut!==null)for(let i=0;i<keep.length;i++)if(m.heights[i]>g.cut)keep[i]=1;
++  for(const i of s.columns.keys())keep[i]=1;
++  if(inside)for(let i=0;i<keep.length;i++)if(!inside[i])keep[i]=1;
++  const at=(p:[number,number])=>{if(!Number.isInteger(p[0])||!Number.isInteger(p[1])||p[0]<0||p[1]<0||p[0]>=W||p[1]>=H)throw Error("force outside map");return p[1]*W+p[0];};
++  const origin=w.origin?at(w.origin):0,end=w.end?at(w.end):undefined;
++  let params:any;
++  if(g.verb==="carve") {
++    const run=new CarveRun(m,g.settings,{origin,...(end!==undefined?{end}:{}),...(w.via?.length?{via:w.via.map(at)}:{})},{keep,sourceId:g.sourceId,...(g.unleashed?{unleashed:g.unleashed,bad:g.bad}: {})});
++    for(let n=0;!run.done;n++){if(n>=10000)throw Error("carve exceeded deterministic step bound");run.step();}
++    params=carveForceParams(m,run,{settings:g.settings,origin:w.origin!,...(w.end?{end:w.end}:{}),cut:g.cut});
++    if(params&&w.via?.length)params.where.path=[w.origin!,...w.via,w.end!];
++    if(params&&g.unleashed)params.where.source=g.unleashed;
++  } else {
++    const before=stagedForceMap(m);
++    const run=g.verb==="craterize"?new CraterRun(before,g.settings,{origin,...(end!==undefined?{end}:{})},keep)
++      :g.verb==="erupt"?new EruptRun(before,g.settings,{origin,...(w.path?{path:w.path}:{})},keep)
++      :g.verb==="quake"?new QuakeRun(before,g.settings,{path:w.path!,side:w.side!},keep)
++      :new GlaciateRun(before,g.settings,{origin,...(end!==undefined?{end}:{}),...(w.via?.length?{via:w.via.map(at)}:{})},keep);
++    run.finalize=buildTouches(s.terrainState(),before.heights,run instanceof GlaciateRun?()=>run.footprint():undefined);
++    run.planAll();const after=run.final();if(!after)throw Error("force has no planned result");
++    const where=g.verb==="quake"?{path:pathRecord(w.path!),side:w.side}:{origin:w.origin!,...(w.end?{end:w.end}:{}),...(w.path?{path:pathRecord(w.path)}:{})};
++    params=forceParamsOf(before,after,{verb:g.verb,settings:g.settings,where,cut:g.cut,steps:run.total,reason:"done"});
++    if(params&&run instanceof GlaciateRun&&run.plan)params={...withOwned(params,after.heights,run.footprint()),...glacierSprings(before,after,run.plan.retained)};
++  }
++  if(params&&inside)params=featherForce(params,m.heights,inside);
++  if(!params)throw Error("force changed nothing");
++  return {op:"forceResult",params};
++}
++
++export function applyResolvedForce(session:MapSession,op:EditOp,origin:OpOrigin="user",label?:string):void {
++    const r=session.apply(op,origin,label);if(!r.ok)throw Error(r.errors.join("; "));
++    // The worker's deterministic start repair remains in the same undo step.
++    if(op.op==="forceResult"&&startBrokenBy(session,new Set(op.params.tiles))){const p=startMiddle(session),moves=p?moveStartNear(session,p[0],p[1],true):null;
++      if(moves?.length){session.undo();const grouped=session.applyAll([op,...moves],origin,label);if(!grouped.ok)throw Error(grouped.errors.join("; "));}}
++}
++
++/** Gestures are authoritative; all literal force data is a disposable execution cache. */
++export class GestureHistory {
++  readonly session:MapSession;readonly results:ResultStore;
++  private entries:GestureEntry[]=[];private cursor=0;
++  private revision=0;
++  private tempKey=2**40;
++  private patchMode=true;
++  private undoFloor=0;
++  private nextPatchKey=CHECKPOINT_KEY+1;
++  private patchIndex:CheckpointIndex[]=[];
++  private patches=new RecentStates<InversePatch>();
++  private patchIndices=new PatchIndices();
++  private compressedPatches=new Map<number,Uint8Array>();
++  private execution:any;
++  private checkpoints:CheckpointIndex[]=[];
++  private recent=new RecentStates<object>();
++  private spacing:number;
++  private bank:StateBank;
++  checkpointFailure:string|null=null;
++  lastSeek={replayed:0,checkpoint:0,cache:false};
++  constructor(readonly base:MapDocument,cold:ColdResults,readonly documentId:string,readonly epoch=0,readonly policy:Policy={},execution?:object,executionStore?:ResultStore) {
++    if(base.edits.length)throw Error("gesture history needs an immutable generation; legacy literals stay legacy");
++    if(!documentId||!Number.isSafeInteger(epoch)||epoch<0)throw Error("invalid document identity");
++    this.bank=new StateBank(cold);this.spacing=policy.checkpointEvery??32;if(!Number.isSafeInteger(this.spacing)||this.spacing<0)throw Error('invalid checkpoint spacing');
++    this.base=immutable(structuredClone(base));this.session=execution?MapSession.restoreExecution(this.base,execution):MapSession.open(this.base);this.session.setWaterMode("defer");
++    if(execution)checkDocument(this.base);
++    this.results=executionStore??new ResultStore(cold,policy.results??32*1024*1024);
++    this.session.useResultStore(this.results,0,1,!execution);
++    this.remember();
++  }
++  private remember():void {
++    if(this.patchMode){this.execution=this.session.checkpointExecution();return;}
++    const known=this.recent.get(this.cursor) as any,b=this.session.built;
++    if(known?.cur.heights===b.heights&&known.cur.water===b.water&&known.cur.entities===b.entities&&known.cur.cache.keys===b.cache.keys&&known.gen.meta===this.session.meta){known.seqNext=this.session.nextOperationSeq;return;}
++    this.recent.set(this.cursor,this.session.checkpointExecution());
++    const budget=this.policy.snapshots??128*1024*1024,steps=this.policy.steps??16;
++    while(this.recent.size>1&&(this.recent.size>steps||this.recent.bytes>budget)){const key=[...this.recent.keys()].find(k=>k!==this.cursor)!;this.recent.delete(key);}
++  }
++  private persistCheckpoint():void {
++    const execution=this.session.checkpointExecution() as any;
++    for(const v of [execution.gen,execution.baseCache,execution.st,execution.cur.entities,execution.cur.cache.resources])if(v)this.bank.share(v);
++    const packed=packState(execution,this.bank);this.results.cold.put(CHECKPOINT_KEY+this.cursor,packed.bytes);
++    this.checkpoints=this.checkpoints.filter(x=>x.at!==this.cursor);this.checkpoints.push({at:this.cursor,bytes:packed.bytes.length,results:packed.results,blobs:packed.blobs});this.checkpoints.sort((a,b)=>a.at-b.at);
++    const budget=this.policy.checkpointBytes??128*1024*1024,max=this.policy.checkpointCount??128;
++    while(this.checkpoints.length>2&&(this.checkpoints.length>max||this.checkpointBytes()>budget)){
++      this.spacing*=2;this.checkpoints=this.checkpoints.filter(c=>c.at===0||c.at===this.cursor||c.at%this.spacing===0);
++    }
++  }
++  private putPatch(at:number,before:object,after:object):void {
++    const patch=inversePatch(before,after,this.patchIndices),packed=packPatch(patch);
++    const key=this.nextPatchKey++;this.results.cold.put(key,packed.bytes);
++    this.patchIndex=this.patchIndex.filter(x=>x.at!==at);this.patchIndex.push({at,key,bytes:packed.bytes.length,results:packed.results,blobs:[]});
++    this.compressedPatches.delete(at);this.patches.delete(at);this.patches.set(at,packed.patch);
++    while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);
++  }
++  private patch(at:number):InversePatch {
++    let patch=this.patches.get(at);if(!patch){if(!this.patchIndex.some(x=>x.at===at))throw Error('missing inverse patch');patch=unpackPatch(this.compressedPatches.get(at)??this.results.cold.get(this.patchIndex.find(x=>x.at===at)!.key??CHECKPOINT_KEY+at),this.results);this.patches.set(at,patch);while(this.patches.size>1&&(this.patches.size>100||this.patches.bytes>64*1024*1024))this.patches.delete(this.patches.keys().next().value!);}return patch;
++  }
++  private waterBoundary():void {
++    if(this.patchMode){const current=this.session.checkpointExecution();if(this.cursor>this.undoFloor){const before=applyPatch(this.execution,this.patch(this.cursor).back);this.putPatch(this.cursor,before,current);}this.execution=current;}
++    else this.remember();
++  }
++  private record(entry:GestureEntry):void {
++    if(this.patchMode){const current=this.session.checkpointExecution();this.patchIndex=this.patchIndex.filter(x=>x.at<=this.cursor);for(const at of this.patches.keys())if(at>this.cursor)this.patches.delete(at);this.putPatch(this.cursor+1,this.execution,current);this.execution=current;}
++    this.entries.length=this.cursor;this.entries.push(immutable(entry));this.cursor++;this.revision++;
++    for(const at of this.recent.keys())if(at>this.cursor)this.recent.delete(at);
++    this.checkpoints=this.checkpoints.filter(c=>c.at<this.cursor);
++    for(const at of this.canonicalBoundaries)if(at>=this.cursor)this.canonicalBoundaries.delete(at);
++    if(!this.patchMode)this.remember();if(!this.patchMode&&this.spacing&&this.cursor%this.spacing===0){try{this.persistCheckpoint();this.checkpointFailure=null;}catch(e){this.checkpointFailure=String(e);}}
++  }
++  private importLegacy(op:AppliedOp):void {
++    this.remember();const applied=this.session.historyTransaction(()=>this.session.importAppliedForReplay(op));
++    // Undo metadata is derived, and must stay mutable in the execution log.
++    const {undo:_,orphaned:__,...literal}=applied;
++    this.record({kind:"legacy",seq:op.seq,origin:op.origin,...(op.label?{label:op.label}:{}),op:literal});
++  }
++  apply(ops:EditOp[],origin:OpOrigin="user",label?:string):void {
++    if(!ops.length||ops.some(o=>o.op==="forceResult"||o.op==="carve"))throw Error("new history accepts gestures, never force literals");
++    this.remember();
++    const seq=this.session.nextOperationSeq,r=this.session.historyTransaction(()=>this.session.applyAll(ops,origin,label));if(!r.ok)throw Error(r.errors.join("; "));
++    this.record({kind:"operations",seq,origin,...(label?{label}:{}),ops:structuredClone(ops)});
++  }
++  private canonicalBoundaries=new Set<number>();
++  adoptWater(...args:Parameters<MapSession['adoptWater']>):boolean {
++    if(this.patchMode)this.remember();const before=this.session.built,ok=this.session.adoptWater(...args);
++    if(ok&&before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}return ok;
++  }
++  settleCanonical():void {
++    if(this.patchMode)this.remember();const before=this.session.built;this.session.settleCanonical();
++    if(before!==this.session.built){this.canonicalBoundaries.add(this.cursor);this.revision++;this.waterBoundary();}
++  }
++  async select(gesture:SelectionGesture,origin:OpOrigin="user",label?:string,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<void>{
++    gesture=structuredClone(gesture);if(gesture.action!=="remove")throw Error("unknown Select action");
++    validArea(gesture.area,this.session.size.x,this.session.size.y);
++    if(!Array.isArray(gesture.kinds)||!gesture.kinds.length||gesture.kinds.some(k=>!["trees","bushes","ruins","sources","water","badwater","slopes","objects","start"].includes(k)))throw Error("invalid Select kinds");
++    this.remember();
++    const revision=this.revision,rollback=this.session.checkpointExecution();try {
++    const inputHash=await forceInputHash(this.session,inputHashVersion);if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('Select input differs');
++    const seq=this.session.nextOperationSeq,plan=planRemoveAt(this.session,runsToTiles(gesture.area,this.session.size.x),gesture.kinds,label);
++    const r=this.session.historyTransaction(()=>this.session.applyAll(plan.ops,origin,plan.label));if(!r.ok)throw Error(r.errors.join("; "));
++    this.record({kind:"selection",seq,origin,label:plan.label,gesture,inputHash,inputHashVersion});
++    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
++  }
++  private async inputAt(count:number):Promise<MapSession> {
++    if(this.patchMode&&count>=this.undoFloor){let execution:any=this.session.checkpointExecution();for(let at=this.cursor;at>count;at--)execution=applyPatch(execution,this.patch(at).back);for(let at=this.cursor+1;at<=count;at++)execution=applyPatch(execution,this.patch(at).forward);if(this.entries[count])execution.seqNext=this.entries[count].seq;return MapSession.restoreExecution(this.base,execution);}
++    const offsets=new Map<number,number>(),cold:ColdResults={put:(k,b)=>{let key=offsets.get(k);if(key===undefined){key=this.tempKey++;offsets.set(k,key);}this.results.cold.put(key,b);},get:k=>{const key=offsets.get(k);if(key===undefined)throw Error("missing replay cache");return this.results.cold.get(key);}};
++    const cp=this.checkpoints.filter(c=>c.at<=count).at(-1);
++    const execution=cp?unpackState(this.results.cold.get(CHECKPOINT_KEY+cp.at),this.results,this.bank):undefined;
++    if(execution&&this.entries[cp!.at])execution.seqNext=this.entries[cp!.at].seq;
++    const h=new GestureHistory(this.base,cold,this.documentId,this.epoch,{...this.policy,snapshots:0,steps:1,checkpointEvery:0},execution);
++    h.entries=this.entries.slice(0,cp?.at??0);h.cursor=cp?.at??0;h.checkpoints=this.checkpoints.filter(c=>c.at<=h.cursor);
++    // Nested original-prefix replacements borrow this controller's checkpoint/result store.
++    h.inputAt=(at)=>this.inputAt(at);
++    if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
++    for(const e of this.entries.slice(h.cursor,count)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();}
++    return h.session;
++  }
++  async force(gesture:ForceGesture,origin:OpOrigin="user",label?:string,replaces?:number,expectedInputHash?:string,inputHashVersion:1|2=2):Promise<EditOp> {
++    gesture=structuredClone(gesture);
++    validForce(gesture,this.session);
++    this.remember();const revision=this.revision,rollback=this.session.checkpointExecution();
++    try {
++    const previous=this.entries[this.cursor-1];
++    if(replaces!==undefined&&(!previous||previous.kind!=="force"||previous.forceSeq!==replaces||previous.gesture.verb!==gesture.verb))throw Error("Try another needs the latest force in its series");
++    const inputCursor=replaces!==undefined&&previous.kind==="force"?previous.inputCursor:this.cursor;
++    const input=inputCursor===this.cursor?this.session:await this.inputAt(inputCursor);
++    const inputHash=await forceInputHash(input,inputHashVersion);
++    if(this.revision!==revision)throw Error("gesture superseded by a newer revision");
++    if(expectedInputHash!==undefined&&inputHash!==expectedInputHash)throw Error('force input differs');
++    const seq=this.session.nextOperationSeq,op=this.session.historyTransaction(()=>{
++      const resolved=resolveForce(input,gesture);if(replaces!==undefined&&resolved.op==="forceResult")resolved.params.replaces=replaces;
++      applyResolvedForce(this.session,resolved,origin,label);return resolved;
++    });
++    const forceSeq=this.session.history().filter(e=>e.applied).at(-1)!.seq;
++    if(forceSeq===undefined)throw Error("missing committed force sequence");
++    this.record({kind:"force",seq,origin,...(label?{label}:{}),gesture:structuredClone(gesture),inputHash,inputHashVersion,inputCursor,forceSeq,...(replaces!==undefined?{replaces}: {})});return op;
++    }catch(error){if(this.revision===revision)this.session.installExecution(rollback);throw error;}
++  }
++  undo():boolean {if(this.patchMode){if(this.cursor<=this.undoFloor)return false;this.movePatch(this.cursor-1);return true;}if(!this.cursor)return false;const cached=this.recent.get(this.cursor-1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor--;this.revision++;return true;}
++    if(!this.session.historyTransaction(()=>this.session.undo()))throw Error("cold undo requires await seek(count-1)");this.cursor--;this.revision++;this.remember();return true;}
++  redo():boolean {if(this.patchMode){if(this.cursor===this.entries.length||!this.patchIndex.some(x=>x.at===this.cursor+1))return false;this.movePatch(this.cursor+1);return true;}if(this.cursor===this.entries.length)return false;const cached=this.recent.get(this.cursor+1);if(cached){this.remember();const seq=this.session.nextOperationSeq;this.session.installExecution(cached);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor++;this.revision++;return true;}
++    if(!this.session.historyTransaction(()=>this.session.redo()))throw Error("cold redo requires await seek(count+1)");this.cursor++;this.revision++;this.remember();return true;}
++  private async replayEntry(entry:GestureEntry):Promise<void> {
++    if(!entry||!['user','claude','fix'].includes(entry.origin)||entry.label!==undefined&&typeof entry.label!=='string')throw Error('invalid gesture envelope');
++    this.session.setReplaySequence(entry.seq);
++    if(entry.kind==='operations')this.apply(entry.ops,entry.origin,entry.label);
++    else if(entry.kind==='legacy'){if(entry.op?.seq!==entry.seq||entry.op.origin!==entry.origin)throw Error('invalid legacy envelope');this.importLegacy(entry.op);}
++    else if(entry.kind==='selection')await this.select(entry.gesture,entry.origin,entry.label,entry.inputHash,entry.inputHashVersion??1);
++    else if(entry.kind==='force'){await this.force(entry.gesture,entry.origin,entry.label,entry.replaces,entry.inputHash,entry.inputHashVersion??1);const actual=this.entries.at(-1) as Extract<GestureEntry,{kind:'force'}>;if(actual.forceSeq!==entry.forceSeq||actual.inputCursor!==entry.inputCursor)throw Error('force cursor/sequence differs');}
++    else throw Error('unknown gesture kind');
++  }
++  private movePatch(target:number):void {
++    const seq=this.session.nextOperationSeq;
++    this.execution=this.session.checkpointExecution();
++    const state=target<this.cursor?applyPatch(this.execution,this.patch(this.cursor).back):applyPatch(this.execution,this.patch(this.cursor+1).forward);
++    this.session.installExecution(state);this.session.setReplaySequence(Math.max(seq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.execution=this.session.checkpointExecution();
++  }
++  /** Patch movement commits each step; progress callbacks may publish it. Legacy replay
++   * installs the reconstructed target only after its revision check succeeds. */
++  async seek(target:number,progress?:(at:number,session:MapSession)=>Promise<void>):Promise<void> {
++    if(!Number.isSafeInteger(target)||target<0||target>this.entries.length)throw Error('invalid history cursor');
++    if(target===this.cursor)return;
++    if(this.patchMode){if(target<this.undoFloor)throw Error('older gestures are replay-only after reopening');const started=this.cursor;while(this.cursor!==target){this.movePatch(this.cursor+(target>this.cursor?1:-1));const revision=this.revision;await progress?.(this.cursor,this.session);if(this.revision!==revision)throw Error('history seek superseded');}this.lastSeek={replayed:0,checkpoint:started,cache:true};return;}
++    const nextSeq=this.session.nextOperationSeq,revision=this.revision,cached=this.recent.get(target);
++    let execution:object,replayed=0,at=target;
++    if(cached)execution=cached;
++    else {
++      const cp=this.checkpoints.filter(c=>c.at<=target).at(-1);if(!cp)throw Error('missing history checkpoint');at=cp.at;
++      const state=unpackState(this.results.cold.get(CHECKPOINT_KEY+at),this.results,this.bank);
++      if(this.entries[at])state.seqNext=this.entries[at].seq;
++      const h=new GestureHistory(this.base,this.results.cold,this.documentId,this.epoch,{...this.policy,checkpointEvery:0},state,this.results);
++      h.entries=this.entries.slice(0,at);h.cursor=at;h.checkpoints=this.checkpoints.filter(c=>c.at<=at);h.inputAt=n=>this.inputAt(n);
++      if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();
++      for(const e of this.entries.slice(at,target)){await h.replayEntry(e);if(this.canonicalBoundaries.has(h.cursor))h.settleCanonical();replayed++;await progress?.(h.cursor,h.session);}
++      execution=h.session.checkpointExecution();
++    }
++    if(this.revision!==revision)throw Error('history seek superseded');
++    this.remember();this.session.installExecution(execution);this.session.setReplaySequence(Math.max(nextSeq,this.session.nextOperationSeq));this.cursor=target;this.revision++;this.remember();this.lastSeek={replayed,checkpoint:at,cache:!!cached};
++  }
++  private checkpointBytes():number{return this.checkpoints.reduce((n,c)=>n+c.bytes,0)+this.bank.index(this.checkpoints.flatMap(c=>c.blobs)).reduce((n,c)=>n+c.bytes,0);}
++  get checkpointStats(){if(this.patchMode)return {spacing:0,count:0,bytes:0,recentBytes:this.patches.bytes,recentCount:this.patches.size,failure:null,compressedBytes:[...this.compressedPatches.values()].reduce((n,x)=>n+x.length,0),patchBytes:this.patchIndex.reduce((n,x)=>n+x.bytes,0),undoFloor:this.undoFloor};return {spacing:this.spacing,count:this.checkpoints.length,bytes:this.checkpointBytes(),recentBytes:this.recent.bytes,recentCount:this.recent.size,failure:this.checkpointFailure};}
++  get canUndo():boolean{return this.cursor>this.undoFloor;}
++  get canRedo():boolean{return this.cursor<this.entries.length&&(!this.patchMode||this.patchIndex.some(x=>x.at===this.cursor+1));}
++  get count():number{return this.cursor;}
++  get project():GestureProject {return {app:"dam-good-maps",formatVersion:4,replayVersion:REPLAY_VERSION,documentId:this.documentId,epoch:this.epoch,base:{...this.base,meta:immutable(structuredClone(this.session.meta))},entries:this.entries.slice(0,this.cursor),nextSeq:this.session.nextOperationSeq};}
++  async save(sink:(bytes:Uint8Array)=>Promise<void>):Promise<void> {
++    if(this.patchMode){
++      const floor=Math.max(this.undoFloor,this.cursor-100),ceiling=Math.min(this.entries.length,this.cursor+100),index=this.patchIndex.filter(x=>x.at>floor&&x.at<=ceiling).sort((a,b)=>a.at-b.at),current=this.session.checkpointExecution();
++      const manifest={...this.project,formatVersion:6,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:1,patches:index,undoFloor:floor,canonicalBoundaries:[...this.canonicalBoundaries]};
++      await writeArchive(manifest,current,index,this.results,this.bank,sink);return;
++    }
++    this.remember();this.persistCheckpoint();
++    const index=this.checkpoints.filter(c=>c.at<=this.entries.length),current=this.session.checkpointExecution();
++    const manifest={...this.project,formatVersion:5,abi:STATE_ABI,entries:this.entries.slice(),cursor:this.cursor,spacing:this.spacing,checkpoints:index,canonicalBoundaries:[...this.canonicalBoundaries]};
++    await writeArchive(manifest,current,index,this.results,this.bank,sink);
++  }
++  static async open(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>,cold:ColdResults,policy:Policy={},progress?:(done:number,total:number)=>Promise<void>):Promise<GestureHistory|MapSession> {
++    const input=await archiveSource(source);
++    if(input.archive){const store=new ResultStore(cold,policy.results??32*1024*1024),archive=await readArchive(input.source,store);if(!archive)throw Error('missing archive');const raw=archive.manifest;
++      if(raw.app!=='dam-good-maps'||![5,6].includes(raw.formatVersion)||raw.replayVersion!==REPLAY_VERSION||raw.abi!==STATE_ABI)throw Error('unsupported project version');
++      if(!Array.isArray(raw.entries)||!Number.isSafeInteger(raw.cursor)||raw.cursor<0||raw.cursor>raw.entries.length||!Number.isSafeInteger(raw.spacing)||raw.spacing<1||archive.current.undoStack.length!==raw.cursor||archive.current.seqNext!==raw.nextSeq)throw Error('invalid saved history');
++      let prior=0;for(const e of raw.entries){if(!Number.isSafeInteger(e.seq)||e.seq<=prior||!['operations','selection','force','legacy'].includes(e.kind)||!['user','claude','fix'].includes(e.origin)||e.label!==undefined&&typeof e.label!=='string')throw Error('invalid gesture envelope');
++        if((e.kind==='force'||e.kind==='selection')&&((e.inputHashVersion!==undefined&&e.inputHashVersion!==1&&e.inputHashVersion!==2)||typeof e.inputHash!=='string'||!/^[0-9a-f]{64}$/.test(e.inputHash)))throw Error('unsupported or invalid input hash');prior=e.seq;}
++      const boundaries=raw.canonicalBoundaries??[];if(!Array.isArray(boundaries)||boundaries.some((n:any)=>!Number.isSafeInteger(n)||n<0||n>raw.entries.length)||new Set(boundaries).size!==boundaries.length)throw Error('invalid canonical water boundaries');
++      const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy,archive.current,store);h.patchMode=raw.formatVersion===6;h.bank=archive.bank;h.entries=raw.entries.map((e:GestureEntry)=>immutable(e));h.cursor=raw.cursor;h.spacing=raw.spacing;h.checkpoints=archive.checkpoints;h.canonicalBoundaries=new Set(boundaries);h.recent.clear();
++      if(h.patchMode){if(!Number.isSafeInteger(raw.undoFloor)||raw.undoFloor<0||raw.undoFloor>raw.cursor||raw.cursor-raw.undoFloor>100)throw Error('invalid undo retention');h.undoFloor=raw.undoFloor;h.patchIndex=archive.checkpoints;h.nextPatchKey=Math.max(CHECKPOINT_KEY,...h.patchIndex.map(x=>x.key??CHECKPOINT_KEY+x.at))+1;h.checkpoints=[];h.compressedPatches=archive.patchBytes;for(let at=h.undoFloor+1;at<=h.cursor;at++)if(!h.patchIndex.some(x=>x.at===at))throw Error("missing retained undo patch");}
++      // Decode the immediate inverse before publishing an editable document. Dense
++      // water/entity patches must not make the first Undo pay a cold inflater cost.
++      // Other retained patches remain lazy and share the bounded decoded cache.
++      if(h.patchMode&&h.canUndo)h.patch(h.cursor);
++      else if(h.patchMode&&h.canRedo)h.patch(h.cursor+1);
++      h.remember();return h;
++    }
++    const raw=await readProject(input.source) as GestureProject;
++    if(raw.app!=="dam-good-maps")throw Error("not a DGM project");
++    if(raw.formatVersion!==4){
++      const doc=decodeProjectObject(raw),features=baseFeaturesOf(doc),base={...doc,baseFeatures:features,features,edits:[],nextSeq:1};
++      const h=new GestureHistory(base,cold,"legacy-"+crypto.randomUUID(),0,policy);
++      // A saved legacy result may lack its historical force/water inputs. Preserve it losslessly;
++      // all NEW edits use gestures. Do not guess a seed recipe or discard old undo depth.
++      for(const op of doc.edits)h.importLegacy(op);
++      h.session.setReplaySequence(doc.nextSeq);h.settleCanonical();return h;
++    }
++    if(raw.replayVersion!==REPLAY_VERSION)throw Error("unsupported replay version; original engine required");
++    if(!Array.isArray(raw.entries)||raw.base?.app!=="dam-good-maps"||raw.base.formatVersion!==3)throw Error("invalid gesture journal");
++    const h=new GestureHistory(raw.base,cold,raw.documentId,raw.epoch,policy);
++    for(const entry of raw.entries){
++      await h.replayEntry(entry);
++      await progress?.(h.count,raw.entries.length);
++    }
++    h.session.setReplaySequence(raw.nextSeq);return h;
++  }
++}
+diff --git a/src/core/doc/historySnapshots.ts b/src/core/doc/historySnapshots.ts
+new file mode 100644
+index 00000000..f674e162
+--- /dev/null
++++ b/src/core/doc/historySnapshots.ts
+@@ -0,0 +1,40 @@
++/** Incremental retained-payload accounting. One graph walk per new built state, never one
++ *  walk of the whole snapshot cache or the whole operation journal per edit. */
++function allocationGraph(value:unknown):Map<object|string,number>{
++ const found=new Map<object|string,number>();
++ const visit=(v:unknown):void=>{
++  if(typeof v==='string'){if(!found.has(v))found.set(v,v.length*2);return;}
++  if(!v||typeof v!=='object'||found.has(v))return;
++  found.set(v,32);
++  if(v instanceof ArrayBuffer){found.set(v,32+v.byteLength);return;}
++  if(ArrayBuffer.isView(v)){visit(v.buffer);return;}
++  if(v instanceof Map){for(const [k,x]of v){visit(k);visit(x);}return;}
++  if(v instanceof Set){for(const x of v)visit(x);return;}
++  if(Array.isArray(v)){found.set(v,32+v.length*8);for(const x of v)visit(x);return;}
++  for(const [k,d]of Object.entries(Object.getOwnPropertyDescriptors(v)))if('value'in d){
++   if((k==='sculpts'||k==='sculptEdits')&&Array.isArray(d.value)){found.set(d.value,32+d.value.length*8);continue;}
++   visit(d.value);
++  }
++ };visit(value);return found;
++}
++export class HistorySnapshots<T extends object> extends Map<number,T>{
++ private graphs=new Map<number,Map<object|string,number>>();
++ private refs=new Map<object|string,{refs:number;bytes:number}>();
++ private versions=new Map<number,number|undefined>();
++ bytes=0;
++ constructor(entries?:Iterable<readonly[number,T]>){super();if(entries)for(const [k,v]of entries)this.set(k,v);}
++ override set(key:number,value:T):this {
++  const version=(value as {cache?:{fields?:{revision?:number}}}).cache?.fields?.revision;
++  if(version!==undefined&&super.get(key)===value&&this.versions.get(key)===version)return this;
++  this.release(key);const graph=allocationGraph(value);this.graphs.set(key,graph);
++  this.versions.set(key,version);
++  for(const [object,bytes]of graph){const old=this.refs.get(object);if(old)old.refs++;else{this.refs.set(object,{refs:1,bytes});this.bytes+=bytes;}}
++  super.set(key,value);return this;
++ }
++ private release(key:number):void {
++  const graph=this.graphs.get(key);if(graph){for(const object of graph.keys()){const r=this.refs.get(object)!;if(!--r.refs){this.bytes-=r.bytes;this.refs.delete(object);}}this.graphs.delete(key);}
++  this.versions.delete(key);
++ }
++ override delete(key:number):boolean {this.release(key);return super.delete(key);}
++ override clear():void {super.clear();this.graphs.clear();this.refs.clear();this.versions.clear();this.bytes=0;}
++}
+diff --git a/src/core/doc/inversePatch.ts b/src/core/doc/inversePatch.ts
+new file mode 100644
+index 00000000..8d08aff7
+--- /dev/null
++++ b/src/core/doc/inversePatch.ts
+@@ -0,0 +1,177 @@
++import {packState,unpackState} from './stateGraph';
++import {derivedResultKey,type ResultStore} from './resultStore';
++import {Gzip,Gunzip} from 'fflate';
++import {fromBase64} from '../format/base64';
++import {JsonFloat} from '../format/json';
++import {PatchRecordWriter,PatchRecordReader} from './patchRecords';
++type Path=any[];
++type Graph={root:any;nodes:any[]};
++export type InversePatch={back:Graph;forward:Graph};
++const ownFields=(v:any):[string,any][]=>{const out:[string,any][]=[];for(const k of Object.getOwnPropertyNames(v)){const d=Object.getOwnPropertyDescriptor(v,k)!;if('value'in d)out.push([k,d.value]);}return out;};
++function sameBytes(a:ArrayBuffer,b:ArrayBuffer):boolean {if(a.byteLength!==b.byteLength)return false;const n=a.byteLength>>>2,x=new Uint32Array(a,0,n),y=new Uint32Array(b,0,n);for(let i=0;i<n;i++)if(x[i]!==y[i])return false;const aa=new Uint8Array(a),bb=new Uint8Array(b);for(let i=n*4;i<aa.length;i++)if(aa[i]!==bb[i])return false;return true;}
++function child(v:any,k:any):any {
++ if(typeof k==='object'){if('m'in k)return [...v][k.m]?.[k.k];if('s'in k)return [...v][k.s];}
++ return v[k];
++}
++/** These execution inputs are replaced, never edited in place by MapSession. Their
++ * immutable topology can be indexed once, rather than rescanning imported entity JSON
++ * on every brush. Mutable current caches are deliberately excluded. */
++export class PatchIndices {
++ private cached=new WeakMap<object,Map<string,Map<object,Path>>>();
++ for(root:any):Map<object,Path>[] {
++  const result:Map<object,Path>[]=[];
++  for(const name of ['gen','baseCache','fieldCache','keptCache','storedWaterCache']){
++   const anchor=root[name];if(!anchor||typeof anchor!=='object')continue;
++   let slots=this.cached.get(anchor);if(!slots){slots=new Map();this.cached.set(anchor,slots);}let index=slots.get(name);
++   if(!index){index=new Map();const visit=(v:any,p:Path):void=>{if(!v||typeof v!=='object'||index!.has(v))return;index!.set(v,p);
++    if(v instanceof ArrayBuffer||derivedResultKey(v)!==undefined||v instanceof JsonFloat)return;
++    if(ArrayBuffer.isView(v)){visit(v.buffer,[...p,'buffer']);return;}
++    if(v instanceof Map){let i=0;for(const [k,x]of v){visit(k,[...p,{m:i,k:0}]);visit(x,[...p,{m:i,k:1}]);i++;}return;}
++    if(v instanceof Set){let i=0;for(const x of v)visit(x,[...p,{s:i++}]);return;}
++    for(const [k,x]of ownFields(v))visit(x,[...p,k]);
++   };visit(anchor,[name]);slots.set(name,index);}
++   result.push(index);
++  }return result;
++ }
++}
++function graph(source:any,target:any,indices?:PatchIndices):Graph {
++ // Source and target are stable during this synchronous traversal. Cache descriptors
++ // only for this call; native history/cache wrappers may change between transactions.
++ const fieldCache=new WeakMap<object,[string,any][]>(),fields=(v:object)=>{let result=fieldCache.get(v);if(!result){result=ownFields(v);fieldCache.set(v,result);}return result;};
++ const paths=new Map<object,Path>(),nodes:any[]=[],seen=new Map<object,any>(),shortcuts=new Map<object,Path>(),claimed=new Map<object,object>();
++ const sourceAnchors=indices?.for(source)??[],targetAnchors=indices?.for(target)??[];
++ const anchored=(v:object,maps:Map<object,Path>[])=>maps.some(m=>m.has(v));
++ const sourcePath=(v:object)=>paths.get(v)??sourceAnchors.find(m=>m.has(v))?.get(v);
++ let anchors=targetAnchors;
++ const index=(v:any,p:Path)=>{if(!v||typeof v!=='object'||paths.has(v)||anchored(v,anchors))return;paths.set(v,p);
++  if(v instanceof ArrayBuffer||derivedResultKey(v)!==undefined||v instanceof JsonFloat)return;
++  if(ArrayBuffer.isView(v)){index(v.buffer,[...p,'buffer']);return;}
++  if(v instanceof Map){let i=0;for(const [k,x]of v){index(k,[...p,{m:i,k:0}]);index(x,[...p,{m:i,k:1}]);i++;}return;}
++  if(v instanceof Set){let i=0;for(const x of v)index(x,[...p,{s:i++}]);return;}
++  for(const [k,x]of fields(v))index(x,[...p,k]);
++ };index(target,[]);const targetObjects=new Set(paths.keys());paths.clear();anchors=sourceAnchors;index(source,[]);
++ const equal=(t:any,s:any):boolean=>{
++  const pairs=new Map<object,object>(),reverse=new Map<object,object>();
++  const visit=(a:any,b:any):boolean=>{
++   if(Object.is(a,b))return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||a.constructor!==b.constructor)return false;
++   if(derivedResultKey(a)!==undefined||derivedResultKey(b)!==undefined)return false;
++   if(targetObjects.has(b)||anchored(b,targetAnchors)||sourcePath(a)||claimed.has(b)&&claimed.get(b)!==a)return false;
++   if(pairs.has(a))return pairs.get(a)===b;if(reverse.has(b))return false;pairs.set(a,b);reverse.set(b,a);
++   if(a instanceof ArrayBuffer)return sameBytes(a,b);
++   if(ArrayBuffer.isView(a))return a.byteOffset===b.byteOffset&&(a as any).length===(b as any).length&&visit(a.buffer,b.buffer);
++   if(a instanceof Map){const x=[...a],y=[...b];return x.length===y.length&&x.every(([k,v],i)=>visit(k,y[i][0])&&visit(v,y[i][1]));}
++   if(a instanceof Set){const x=[...a],y=[...b];return x.length===y.length&&x.every((v,i)=>visit(v,y[i]));}
++   const x=fields(a),y=fields(b);return x.length===y.length&&x.every(([k,v],i)=>k===y[i][0]&&visit(v,y[i][1]));
++  };
++  if(!visit(t,s))return false;for(const [a,b]of pairs){const p=sourcePath(b);if(!p)return false;shortcuts.set(a,p);claimed.set(b,a);}return true;
++ };
++ const value=(t:any,s:any,p?:Path):any=>{
++  if(typeof t==='string'&&t.length>8192){const id=nodes.length;nodes.push({t:'literal',v:t});return {r:id};}
++  if(!t||typeof t!=='object')return {v:t};
++  const prior=seen.get(t);if(prior!==undefined)return prior;
++  const known=sourcePath(t)??shortcuts.get(t);if(known){const ref={p:known};seen.set(t,ref);return ref;}
++  if(p&&equal(t,s)){const ref={p};seen.set(t,ref);return ref;}
++  const id=nodes.length;seen.set(t,{r:id});nodes.push(null);
++  if(derivedResultKey(t)!==undefined||t instanceof JsonFloat||t instanceof Set){nodes[id]={t:'literal',v:t};return {r:id};}
++  if(t instanceof ArrayBuffer){const a=new Uint8Array(t),b=s instanceof ArrayBuffer&&s.byteLength===t.byteLength?new Uint8Array(s):null,runs:any[]=[];
++   if(b){for(let i=0;i<a.length;){if(a[i]===b[i]){i++;continue;}const start=i++;let end=i;while(i<a.length){if(a[i]!==b[i])end=i+1;else if(i-end>8)break;i++;}runs.push([start,a.slice(start,end)]);}}
++   nodes[id]=b?{t:'buffer',p,runs}:{t:'literal',v:t};return {r:id};
++  }
++  if(ArrayBuffer.isView(t)){nodes[id]={t:'view',name:t.constructor.name,buffer:value(t.buffer,ArrayBuffer.isView(s)?s.buffer:undefined,p&&[...p,'buffer']),offset:t.byteOffset,length:(t as any).length};return {r:id};}
++  if(t instanceof Map){const before=s instanceof Map?[...s]:[],positions=new Map(before.map(([k],i)=>[k,i]));nodes[id]={t:'map',entries:[...t].map(([k,x])=>{const j=positions.get(k);return [value(k,j===undefined?undefined:before[j][0],j===undefined?undefined:p&&[...p,{m:j,k:0}]),value(x,j===undefined?undefined:before[j][1],j===undefined?undefined:p&&[...p,{m:j,k:1}])];})};return {r:id};}
++  const array=Array.isArray(t),compatible=array?Array.isArray(s):s&&typeof s==='object'&&!ArrayBuffer.isView(s)&&!(s instanceof Map)&&!(s instanceof Set)&&!(s instanceof ArrayBuffer)&&!(s instanceof JsonFloat);
++  const ids=array&&compatible?new Map(s.map((x:any,i:number)=>[x?.id,i]).filter(([id]:any)=>typeof id==='string')):null;
++  const groups=new Map<string,{p:Path;moves:number[]}>();
++  const changes:any[]=[];for(const [k,x]of fields(t)){if(array&&k==='length')continue;if(compatible&&Object.hasOwn(s,k)&&Object.is(x,s[k]))continue;
++   const ref=x&&typeof x==='object'?(sourcePath(x)??shortcuts.get(x)):undefined;
++   if(array&&ref&&/^\d+$/.test(String(ref.at(-1)))&&/^\d+$/.test(k)){const prefix=ref.slice(0,-1),id=JSON.stringify(prefix),group=groups.get(id)??{p:prefix,moves:[] as number[]};group.moves.push(Number(k),Number(ref.at(-1)));groups.set(id,group);continue;}
++   const paired=ids&&x&&typeof x.id==='string'&&ids.has(x.id)?String(ids.get(x.id)):k,encoded=value(x,compatible?s[paired]:undefined,compatible?p&&[...p,paired]:undefined);
++   if(encoded.p&&p&&JSON.stringify(encoded.p)===JSON.stringify([...p,k]))continue;
++   if(encoded.p&&compatible){let existing=source;for(const key of encoded.p)existing=child(existing,key);if(Object.hasOwn(s,k)&&Object.is(s[k],existing))continue;}
++   if(array&&encoded.p&&/^\d+$/.test(String(encoded.p.at(-1)))&&/^\d+$/.test(k)){const prefix=encoded.p.slice(0,-1),id=JSON.stringify(prefix),group=groups.get(id)??{p:prefix,moves:[] as number[]};group.moves.push(Number(k),Number(encoded.p.at(-1)));groups.set(id,group);continue;}
++   if(encoded.p&&p&&JSON.stringify(encoded.p)===JSON.stringify([...p,k]))continue;changes.push([k,encoded]);}
++  const remove=compatible?Object.keys(s).filter(k=>!Object.hasOwn(t,k)):[];
++  const keys=Object.keys(t),predicted=compatible?[...Object.keys(s).filter(k=>!remove.includes(k)),...keys.filter(k=>!Object.hasOwn(s,k))]:keys;
++  const order=!array&&keys.some((k,i)=>k!==predicted[i])?keys:undefined;
++  nodes[id]={t:array?'array':'object',p:compatible?p:undefined,changes,remove,copies:[...groups.values()],order,...(array?{length:t.length}:{})};return {r:id};
++ };return {root:value(target,source,[]),nodes};
++}
++/** Lossless graph changes: only differing raw bytes and metadata. Float bits, aliases,
++ * view offsets, entity order and hidden inputs to the next edit are retained. */
++export function inversePatch(before:object,after:object,indices?:PatchIndices):InversePatch {return {back:graph(after,before,indices),forward:graph(before,after,indices)};}
++export function applyPatch(source:any,g:Graph):any {
++ const made:any[]=[],types:any={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++ const path=(p:Path)=>{if(!Array.isArray(p))throw Error('invalid patch source');let v=source;for(const k of p){if(v===null||v===undefined)throw Error('missing patch source');v=child(v,k);}return v;};
++ const value=(v:any):any=>Object.hasOwn(v,'v')?v.v:Object.hasOwn(v,'p')?path(v.p):get(v.r);
++ const get=(id:number):any=>{if(!Number.isSafeInteger(id)||id<0||id>=g.nodes.length)throw Error('invalid patch reference');if(made[id]!==undefined)return made[id];const n=g.nodes[id];
++  if(n.t==='ref')return made[id]=path(n.p);
++  if(n.t==='literal')return made[id]=n.v;
++  if(n.t==='buffer'){const old=path(n.p);if(!(old instanceof ArrayBuffer))throw Error('invalid patch buffer');const b=old.slice(0),bytes=new Uint8Array(b);for(const [at,v]of n.runs){if(!Number.isSafeInteger(at)||at<0||at+v.length>bytes.length)throw Error('patch outside buffer');bytes.set(v,at);}return made[id]=b;}
++  if(n.t==='view'){const C=types[n.name];if(!C)throw Error('invalid patch view');return made[id]=new C(value(n.buffer),n.offset,n.length);}
++  if(n.t==='map'){const m=made[id]=new Map();for(const [k,v]of n.entries)m.set(value(k),value(v));return m;}
++  if(n.t!=='array'&&n.t!=='object')throw Error('invalid patch node');
++  const base=n.p===undefined?undefined:path(n.p),out=made[id]=n.t==='array'?(base?base.slice():[]):(base?{...base}:{});
++  for(const k of n.remove)delete out[k];for(const group of n.copies??[]){const from=path(group.p);if(group.ranges){for(let i=0;i<group.ranges.length;i+=3)for(let j=0;j<group.ranges[i+2];j++)out[group.ranges[i]+j]=from[group.ranges[i+1]+j];}else for(let i=0;i<group.moves.length;i+=2)out[group.moves[i]]=from[group.moves[i+1]];}for(const [k,v]of n.changes)Object.defineProperty(out,k,{value:value(v),writable:true,enumerable:true,configurable:true});if(n.t==='array')out.length=n.length;
++  if(n.order){const values=n.order.map((k:string)=>out[k]);for(const k of Object.keys(out))delete out[k];for(let i=0;i<n.order.length;i++)Object.defineProperty(out,n.order[i],{value:values[i],writable:true,enumerable:true,configurable:true});}return out;
++ };return value(g.root);
++}
++function compactGraph(g:Graph):Graph {
++ const resolve=(v:any):any=>v&&Object.hasOwn(v,'r')&&g.nodes[v.r]?.t==='ref'?{p:g.nodes[v.r].p}:v;
++ const nodes=g.nodes.map(n=>({...n}));
++ for(const n of nodes){if(n.t==='view')n.buffer=resolve(n.buffer);if(n.t==='map')n.entries=n.entries.map(([k,v]:any)=>[resolve(k),resolve(v)]);
++  if(n.t==='array'||n.t==='object'){const changes:any[]=[],groups=new Map<string,{p:Path;moves:number[]}>();n.copies=(n.copies??[]).map((x:any)=>x.ranges?{p:x.p,ranges:x.ranges}:{p:x.p,moves:x.moves.filter((v:number,i:number)=>JSON.stringify(x.p)!==JSON.stringify(n.p)||x.moves[i-i%2]!==x.moves[i-i%2+1])}).filter((x:any)=>(x.ranges??x.moves).length);
++   for(const [k,original]of n.changes){const v=resolve(original);if(v.p&&n.p&&JSON.stringify(v.p)===JSON.stringify([...n.p,k]))continue;
++    if(n.t==='array'&&v.p&&/^\d+$/.test(String(v.p.at(-1)))&&/^\d+$/.test(k)){const p=v.p.slice(0,-1),id=JSON.stringify(p),group=groups.get(id)??{p,moves:[] as number[]};group.moves.push(Number(k),Number(v.p.at(-1)));groups.set(id,group);}else changes.push([k,v]);}
++   n.changes=changes;n.copies.push(...groups.values());n.copies=n.copies.map((group:any)=>{if(group.ranges)return group;const ranges:number[]=[];for(let i=0;i<group.moves.length;i+=2){const a=group.moves[i],b=group.moves[i+1],last=ranges.length-3;if(last>=0&&a===ranges[last]+ranges[last+2]&&b===ranges[last+1]+ranges[last+2])ranges[last+2]++;else ranges.push(a,b,1);}return {p:group.p,ranges};});
++  }
++ }
++ const used=new Set<number>(),mark=(v:any)=>{v=resolve(v);if(!v||!Object.hasOwn(v,'r')||used.has(v.r))return;used.add(v.r);const n=nodes[v.r];if(!n)throw Error('missing patch node');if(n.t==='view')mark(n.buffer);if(n.t==='map')for(const [k,v]of n.entries){mark(k);mark(v);}if(n.changes)for(const [,v]of n.changes)mark(v);};
++ const root=resolve(g.root);mark(root);const indices=[...used].sort((a,b)=>a-b),ids=new Map(indices.map((old,i)=>[old,i]));
++ const remap=(v:any):any=>Object.hasOwn(v,'r')?{r:ids.get(v.r)}:v;
++ return {root:remap(root),nodes:indices.map(id=>{const n=nodes[id];if(n.t==='view')n.buffer=remap(n.buffer);if(n.t==='map')n.entries=n.entries.map(([k,v]:any)=>[remap(k),remap(v)]);if(n.changes)n.changes=n.changes.map(([k,v]:any)=>[k,remap(v)]);return n;})};
++}
++export const compactPatch=(p:InversePatch):InversePatch=>({back:compactGraph(p.back),forward:compactGraph(p.forward)});
++function deatom(v:any):any {if(v&&typeof v==='object'){if(Object.keys(v).length===1&&Object.hasOwn(v,'@scalar')){const n=v['@scalar'];return n==='undefined'?undefined:n==='-0'?-0:Number(n);}for(const k of Object.keys(v))Object.defineProperty(v,k,{value:deatom(v[k]),enumerable:true,writable:true,configurable:true});}return v;}
++/** Bounded literal records avoid expanding each tiny metadata patch into a second object
++ * graph. Binary changes and the uncommon new opaque value have their own chunk records. */
++export function packPatch(patch:InversePatch):{bytes:Uint8Array;results:number[];blobs:number[];patch:InversePatch} {
++ patch=compactPatch(patch);
++ const out:Uint8Array[]=[],results=new Set<number>(),gzip=new Gzip({level:6,mtime:0},b=>out.push(b)),records=new PatchRecordWriter();
++ const pending=new Uint8Array(32768);let used=0;
++ const push=(b:Uint8Array)=>{for(let at=0;at<b.length;){const n=Math.min(b.length-at,pending.length-used);pending.set(b.subarray(at,at+n),used);used+=n;at+=n;if(used===pending.length){gzip.push(pending,false);used=0;}}};push(new Uint8Array([73,80,66,49]));
++ const emit=(r:any)=>{const b=records.encode(r),len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,b.length,true);push(len);push(b);};
++ const list=(direction:string,id:number,name:string,items:any[]):void=>{for(let at=0;at<items.length;){let count=Math.min(256,items.length-at);for(;;){try{emit(['list',direction,id,name,items.slice(at,at+count)]);break;}catch(error){if(count===1||String(error)!=='Error: patch record bound')throw error;count=Math.ceil(count/2);}}at+=count;}};
++ emit(['roots',patch.back.root,patch.forward.root]);
++ for(const [direction,g]of [['back',patch.back],['forward',patch.forward]] as const)for(let id=0;id<g.nodes.length;id++){
++  const n=g.nodes[id],{changes,entries,runs,copies,order,remove,...small}=n;
++  if(n.t==='literal'){const p=packState({value:n.v});for(const k of p.results)results.add(k);emit(['node',direction,id,{t:'packed'}]);for(let at=0;at<p.bytes.length;at+=16384)emit(['literal',direction,id,p.bytes.subarray(at,at+16384)]);continue;}
++  emit(['node',direction,id,small]);
++  if(copies)for(const group of copies)for(let at=0;at<group.ranges.length;at+=384)emit(['copy-range',direction,id,group.p,group.ranges.slice(at,at+384)]);
++  for(const [name,items]of [['changes',changes],['entries',entries],['remove',remove],['order',order]] as const)if(items){if(name==='order')emit(['list',direction,id,name,[]]);list(direction,id,name,items);}
++  if(runs)for(const [start,bytes]of runs)for(let at=0;at<bytes.length;at+=16384)emit(['run',direction,id,start+at,bytes.subarray(at,at+16384)]);
++ }
++ gzip.push(pending.subarray(0,used),true);const bytes=new Uint8Array(out.reduce((n,b)=>n+b.length,0));let at=0;for(const b of out){bytes.set(b,at);at+=b.length;}return {bytes,results:[...results],blobs:[],patch};
++}
++function patchDecoder(store:ResultStore) {
++ const patch:InversePatch={back:{root:null,nodes:[]},forward:{root:null,nodes:[]}},literals=new Map<any,Uint8Array[]>(),decoder=new TextDecoder('utf-8',{fatal:true}),binary=new PatchRecordReader();let pending='',inflated=0,wire=new Uint8Array(),mode:undefined|'binary'|'json';
++ const record=(r:any)=>{const [kind,direction,id,...args]=r;if(kind==='roots'){patch.back.root=direction;patch.forward.root=id;return;}
++  if(!['back','forward'].includes(direction)||!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('invalid patch record');const nodes=patch[direction as 'back'|'forward'].nodes;
++  if(kind==='node'){if(nodes[id])throw Error('duplicate patch node');nodes[id]={...args[0]};if(nodes[id].t==='buffer')nodes[id].runs=[];if(['array','object'].includes(nodes[id].t)){nodes[id].changes=[];nodes[id].remove??=[];}if(nodes[id].t==='map')nodes[id].entries=[];return;}
++  const node=nodes[id];if(!node)throw Error('patch data before node');
++  if(kind==='copy'){(node.copies??=[]).push({p:args[0],moves:args[1]});}
++  else if(kind==='copy-range'){(node.copies??=[]).push({p:args[0],ranges:args[1]});}
++  else if(kind==='list'){if(!['changes','entries','remove','order'].includes(args[0]))throw Error('invalid patch list');(node[args[0]]??=[]).push(...args[1]);}
++  else if(kind==='run')node.runs.push([args[0],args[1] instanceof Uint8Array?args[1]:fromBase64(args[1])]);
++  else if(kind==='literal'){const list=literals.get(node)??[];list.push(args[0] instanceof Uint8Array?args[0]:fromBase64(args[0]));literals.set(node,list);}
++  else throw Error('unknown patch record');
++ };
++ const json=(b:Uint8Array)=>{pending+=decoder.decode(b,{stream:true});let at;while((at=pending.indexOf('\n'))>=0){if(at>65536)throw Error('patch record bound');record(deatom(JSON.parse(pending.slice(0,at))));pending=pending.slice(at+1);}if(pending.length>65536)throw Error('patch record bound');};
++ const push=(b:Uint8Array)=>{inflated+=b.length;if(inflated>512*1024*1024)throw Error('inverse patch exceeds bound');if(mode==='json'){json(b);return;}const joined=new Uint8Array(wire.length+b.length);joined.set(wire);joined.set(b,wire.length);wire=joined;if(!mode){if(wire.length<4)return;mode=wire.subarray(0,4).every((v,i)=>v===[73,80,66,49][i])?'binary':'json';if(mode==='json'){json(wire);wire=new Uint8Array();return;}wire=wire.subarray(4);}
++  let at=0;while(at+4<=wire.length){const n=new DataView(wire.buffer,wire.byteOffset+at,4).getUint32(0,true);if(!n||n>65536)throw Error('patch record bound');if(at+4+n>wire.length)break;record(binary.decode(wire.subarray(at+4,at+4+n)));at+=4+n;}wire=wire.slice(at);if(wire.length>65540)throw Error('patch record bound');};
++ const finish=(bytes:Uint8Array):InversePatch=>{pending+=decoder.decode();if(pending||wire.length||!mode||bytes.length<18||new DataView(bytes.buffer,bytes.byteOffset+bytes.length-4,4).getUint32(0,true)!==inflated)throw Error('truncated patch');
++ for(const [node,parts]of literals){const b=new Uint8Array(parts.reduce((n,x)=>n+x.length,0));let at=0;for(const x of parts){b.set(x,at);at+=x.length;}node.t='literal';node.v=unpackState(b,store).value;}
++ return patch;};return {push,finish};
++}
++export function unpackPatch(bytes:Uint8Array,store:ResultStore):InversePatch {
++ const parser=patchDecoder(store),gunzip=new Gunzip(parser.push);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);return parser.finish(bytes);
++}
+diff --git a/src/core/doc/patchRecords.ts b/src/core/doc/patchRecords.ts
+new file mode 100644
+index 00000000..1faf2b1d
+--- /dev/null
++++ b/src/core/doc/patchRecords.ts
+@@ -0,0 +1,44 @@
++/** Bounded binary records for inverse changes. String IDs remove repeated paths/property
++ * names, UTF-16 preserves every code unit, and byte runs avoid base64 expansion. */
++export class PatchRecordWriter {
++ private strings=new Map<string,number>();
++ private scratch=new Uint8Array(65536);
++ encode(value:any):Uint8Array {
++  const bytes=this.scratch,view=new DataView(bytes.buffer),added:string[]=[];let at=0;
++  const byte=(v:number)=>{if(at===bytes.length)throw Error('patch record bound');bytes[at++]=v;};
++  const uint=(v:number)=>{if(!Number.isSafeInteger(v)||v<0)throw Error('invalid patch integer');while(v>=128){byte(v%128+128);v=Math.floor(v/128);}byte(v);};
++  const put=(v:any):void=>{
++   if(v===undefined){byte(0);return;}if(v===null){byte(1);return;}if(v===false){byte(2);return;}if(v===true){byte(3);return;}
++   if(typeof v==='number'){if(Number.isSafeInteger(v)&&!Object.is(v,-0)){byte(v>=0?4:5);uint(v>=0?v:-v-1);}else{byte(6);if(at+8>bytes.length)throw Error('patch record bound');view.setFloat64(at,v,true);at+=8;}return;}
++   if(typeof v==='string'){
++    if(/^(0|[1-9][0-9]*)$/.test(v)&&Number(v)<=0xffffffff){byte(12);uint(Number(v));return;}
++    const known=this.strings.get(v);if(known!==undefined){byte(8);uint(known);return;}
++    this.strings.set(v,this.strings.size);added.push(v);let ascii=true;for(let i=0;i<v.length;i++)if(v.charCodeAt(i)>127){ascii=false;break;}byte(ascii?13:7);uint(v.length);for(let i=0;i<v.length;i++){const c=v.charCodeAt(i);byte(c&255);if(!ascii)byte(c>>>8);}return;
++   }
++   if(v instanceof Uint8Array){byte(11);uint(v.length);if(at+v.length>bytes.length)throw Error('patch record bound');bytes.set(v,at);at+=v.length;return;}
++   if(Array.isArray(v)){byte(9);uint(v.length);for(const x of v)put(x);return;}
++   if(typeof v==='object'&&Object.getPrototypeOf(v)===Object.prototype){const keys=Object.keys(v);byte(10);uint(keys.length);for(const k of keys){put(k);put(v[k]);}return;}
++   throw Error('unsupported patch record value');
++  };try{put(value);return bytes.slice(0,at);}catch(error){for(const s of added)this.strings.delete(s);throw error;}
++ }
++}
++export class PatchRecordReader {
++ private strings:string[]=[];
++ decode(bytes:Uint8Array):any {
++  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);let at=0;
++  const byte=()=>{if(at===bytes.length)throw Error('truncated patch record');return bytes[at++];};
++  const uint=()=>{let value=0,scale=1;for(let i=0;i<8;i++){const b=byte();value+=(b&127)*scale;if(!Number.isSafeInteger(value))throw Error('invalid patch integer');if(b<128)return value;scale*=128;}throw Error('invalid patch integer');};
++  const get=(depth=0):any=>{if(depth>128)throw Error('patch record depth');const tag=byte();
++   if(tag===0)return undefined;if(tag===1)return null;if(tag===2)return false;if(tag===3)return true;
++   if(tag===4)return uint();if(tag===5)return -uint()-1;
++   if(tag===6){if(at+8>bytes.length)throw Error('truncated patch float');const v=view.getFloat64(at,true);at+=8;return v;}
++   if(tag===7||tag===13){const n=uint();if(n*(tag===7?2:1)>bytes.length-at)throw Error('truncated patch string');let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(tag===7?byte()|byte()<<8:byte());this.strings.push(s);return s;}
++   if(tag===8){const id=uint();if(id>=this.strings.length)throw Error('invalid patch string reference');return this.strings[id];}
++   if(tag===12)return String(uint());
++   if(tag===11){const n=uint();if(n>bytes.length-at)throw Error('truncated patch bytes');const v=bytes.slice(at,at+n);at+=n;return v;}
++   if(tag===9){const n=uint();if(n>65536)throw Error('patch array bound');const out=[];for(let i=0;i<n;i++)out.push(get(depth+1));return out;}
++   if(tag===10){const n=uint();if(n>65536)throw Error('patch object bound');const out={};for(let i=0;i<n;i++){const k=get(depth+1);if(typeof k!=='string')throw Error('invalid patch property');Object.defineProperty(out,k,{value:get(depth+1),enumerable:true,writable:true,configurable:true});}return out;}
++   throw Error('unknown patch record type');
++  };const result=get();if(at!==bytes.length)throw Error('trailing patch record');return result;
++ }
++}
+diff --git a/src/core/doc/projectArchive.ts b/src/core/doc/projectArchive.ts
+new file mode 100644
+index 00000000..1958dbc7
+--- /dev/null
++++ b/src/core/doc/projectArchive.ts
+@@ -0,0 +1,54 @@
++import type {ColdResults,ResultStore} from "./resultStore";
++import {packState,unpackState,StateBank,BLOB_KEY,type BlobIndex} from "./stateGraph";
++export const STATE_ABI='scaling-execution-1/portable-forces-v1-canonical';
++export const CHECKPOINT_KEY=2**42;
++const MAGIC=new TextEncoder().encode('DGM6\r\n\x1a\n'),LIMIT=128*1024*1024;
++export type CheckpointIndex={at:number;key?:number;bytes:number;results:number[];blobs:number[]};
++export type Archive={manifest:any;current:any;checkpoints:CheckpointIndex[];currentAt:number;bank:StateBank;patchBytes:Map<number,Uint8Array>};
++const hex=(b:ArrayBuffer)=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
++const digest=async(b:Uint8Array)=>hex(await crypto.subtle.digest('SHA-256',b as BufferSource));
++/** Binary length frames carry separately compressed, bounded-record graphs. Old gzip JSON is
++ * decoded by the old migration path. There is never a whole-project JSON string or inflater. */
++export async function writeArchive(manifest:unknown,current:object,index:CheckpointIndex[],store:ResultStore,bank:StateBank,sink:(b:Uint8Array)=>Promise<void>):Promise<void>{
++ const c=packState(current,bank),blobs=new Set(c.blobs);for(const item of index)for(const key of item.blobs)blobs.add(key);
++ const blobIndex=bank.index(blobs),m=packState({...manifest as object,blobs:blobIndex,bankNextInstance:bank.nextInstance}),binding=await digest(m.bytes),results=new Set(c.results);
++ for(const item of index)for(const key of item.results)results.add(key);
++ await sink((manifest as any).formatVersion===5?new TextEncoder().encode('DGM5\r\n\x1a\n'):MAGIC);
++ const frame=async(kind:string,key:number,bytes:Uint8Array)=>{if(bytes.length>LIMIT)throw Error('project frame exceeds capacity');
++  const header=new TextEncoder().encode(JSON.stringify({kind,key,bytes:bytes.length,sha:await digest(bytes),abi:STATE_ABI,binding}));const len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,header.length,true);await sink(len);await sink(header);for(let at=0;at<bytes.length;at+=32768)await sink(bytes.subarray(at,at+32768));};
++ await frame('manifest',0,m.bytes);await frame('current',0,c.bytes);
++ for(const key of results)await frame('result',key,store.cold.get(key));
++ for(const item of blobIndex)await frame('blob',item.key,bank.cold.get(item.key));
++ for(const item of index)await frame((manifest as any).formatVersion===6?'patch':'checkpoint',item.at,store.cold.get(item.key??CHECKPOINT_KEY+item.at));
++ await frame('end',0,new Uint8Array());
++}
++export async function readArchive(source:AsyncIterable<Uint8Array>|Iterable<Uint8Array>,store:ResultStore):Promise<Archive|null>{
++ const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();let pending:Uint8Array=new Uint8Array(),offset=0,done=false;
++ const take=async(n:number,optional=false)=>{const out=new Uint8Array(n);let at=0;while(at<n){if(offset===pending.length){const r=await iterator.next();if(r.done){done=true;if(optional&&at===0)return null;throw Error('truncated project archive');}pending=r.value;offset=0;}
++   const count=Math.min(n-at,pending.length-offset);out.set(pending.subarray(offset,offset+count),at);offset+=count;at+=count;}return out;};
++ const magic=await take(MAGIC.length);if(!magic!.every((v,i)=>i===3?(v===53||v===54):v===MAGIC[i]))throw Error('not a stored-state archive');
++ let manifest:any,currentBytes:Uint8Array|undefined,binding:string|undefined;const patchBytes=new Map<number,Uint8Array>();let retained=0;const checkpoints:CheckpointIndex[]=[],seen=new Set<string>();
++ for(;;){const len=await take(4);const n=new DataView(len!.buffer).getUint32(0,true);if(!n||n>4096)throw Error('invalid project header');const h=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode((await take(n))!));
++  if(h.abi!==STATE_ABI)throw Error('unsupported execution ABI; original engine required');if(!Number.isSafeInteger(h.bytes)||h.bytes<0||h.bytes>LIMIT||!Number.isSafeInteger(h.key))throw Error('invalid project frame');
++  if(binding!==undefined&&h.binding!==binding)throw Error('project binding mismatch');
++  const unique=h.kind+':'+h.key;if(seen.has(unique))throw Error('duplicate project frame');seen.add(unique);
++  const bytes=(await take(h.bytes))!;if(await digest(bytes)!==h.sha)throw Error('project checksum mismatch');
++  if(h.kind==='manifest'){if(binding!==undefined||h.key!==0||h.binding!==h.sha)throw Error('invalid project manifest');binding=h.sha;manifest=unpackState(bytes,store);}
++  else if(binding===undefined)throw Error('missing project manifest');
++  else if(h.kind==='current'){if(h.key!==0)throw Error('invalid current state');currentBytes=bytes;}
++  else if(h.kind==='result'){if(h.key<1||h.key>=CHECKPOINT_KEY)throw Error('invalid result key');store.cold.put(h.key,bytes);}
++  else if(h.kind==='blob'){if(!manifest?.blobs?.some((x:BlobIndex)=>x.key===h.key&&x.bytes===bytes.length)||h.key<BLOB_KEY)throw Error('invalid state blob');store.cold.put(h.key,bytes);}
++  else if(h.kind==='checkpoint'||h.kind==='patch'){if(manifest?.patches&&h.kind!=='patch'||manifest?.formatVersion===5&&h.kind!=='checkpoint')throw Error('history frame kind differs');const item=(manifest?.patches??manifest?.checkpoints)?.find((x:CheckpointIndex)=>x.at===h.key);if(!item||item.bytes!==bytes.length)throw Error('checkpoint index differs');if(item.key!==undefined&&(!Number.isSafeInteger(item.key)||item.key<CHECKPOINT_KEY||item.key>=BLOB_KEY))throw Error("invalid inverse key");store.cold.put(item.key??CHECKPOINT_KEY+h.key,bytes);checkpoints.push(item);if(manifest.formatVersion===6){patchBytes.set(item.at,bytes);retained+=bytes.length;while(patchBytes.size>1&&retained>32*1024*1024){const key=patchBytes.keys().next().value!;retained-=patchBytes.get(key)!.length;patchBytes.delete(key);}}}
++  else if(h.kind==='end'){if(h.bytes||h.key)throw Error('invalid project end');break;}
++  else throw Error('unknown project frame');
++ }
++ if(offset!==pending.length||await take(1,true)!==null||!done)throw Error('trailing project data');
++ if(!manifest||!currentBytes||checkpoints.length!==(manifest.patches??manifest.checkpoints).length)throw Error('incomplete project archive');
++ const bank=new StateBank(store.cold,manifest.blobs,manifest.bankNextInstance??1);return {manifest,current:unpackState(currentBytes,store,bank),checkpoints,currentAt:manifest.cursor,bank,patchBytes};
++}
++export async function archiveSource(source:Iterable<Uint8Array>|AsyncIterable<Uint8Array>):Promise<{archive:boolean;source:AsyncIterable<Uint8Array>}>{
++ const iterator=(source as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]?.()??(source as Iterable<Uint8Array>)[Symbol.iterator]();const prefix:Uint8Array[]=[];let length=0;
++ while(length<MAGIC.length){const r=await iterator.next();if(r.done)break;prefix.push(r.value);length+=r.value.length;}
++ const first=new Uint8Array(Math.min(length,MAGIC.length));let at=0;for(const b of prefix){const n=Math.min(first.length-at,b.length);first.set(b.subarray(0,n),at);at+=n;if(at===first.length)break;}
++ return {archive:first.length===MAGIC.length&&first.every((v,i)=>i===3?(v===53||v===54):v===MAGIC[i]),source:(async function*(){yield*prefix;for(;;){const r=await iterator.next();if(r.done)break;yield r.value;}})()};
++}
+diff --git a/src/core/doc/projectStream.ts b/src/core/doc/projectStream.ts
+new file mode 100644
+index 00000000..fa4bf372
+--- /dev/null
++++ b/src/core/doc/projectStream.ts
+@@ -0,0 +1,97 @@
++import {Gzip,Gunzip} from "fflate";
++
++const CHUNK=32*1024,encoder=new TextEncoder();
++const crcTable=Uint32Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
++/** JSON's order/spelling, emitted in bounded pieces. No stringify of the document or an array. */
++function* tokens(v: unknown): Generator<string> {
++  if(v===null){yield "null";return;}
++  if(typeof v==="string") {
++    yield '"';
++    for(let at=0;at<v.length;){let end=Math.min(v.length,at+CHUNK);const c=v.charCodeAt(end-1);if(end<v.length&&c>=0xd800&&c<=0xdbff)end--;
++      yield JSON.stringify(v.slice(at,end)).slice(1,-1);at=end;}
++    yield '"';return;
++  }
++  if(typeof v==="number"){if(!Number.isFinite(v))throw Error("nonfinite project number");yield JSON.stringify(v);return;}
++  if(typeof v==="boolean"){yield String(v);return;}
++  if(Array.isArray(v)){yield "[";for(let i=0;i<v.length;i++){if(i)yield ",";yield* tokens(v[i]===undefined?null:v[i]);}yield "]";return;}
++  if(v&&typeof v==="object") {
++    yield "{";let first=true;
++    for(const key of Object.keys(v)){const x=(v as Record<string,unknown>)[key];if(x===undefined)continue;if(!first)yield ",";first=false;yield* tokens(key);yield ":";yield* tokens(x);}yield "}";return;
++  }
++  throw Error("unsupported project value");
++}
++export function* projectJsonChunks(doc: unknown): Generator<Uint8Array> {
++  let pending="";
++  for(const t of tokens(doc)){
++    if(pending.length+t.length>CHUNK&&pending){yield encoder.encode(pending);pending="";}
++    if(t.length>CHUNK){yield encoder.encode(t);}else pending+=t;
++  }
++  if(pending)yield encoder.encode(pending);
++}
++/** Sink can write directly to a file/OPFS; awaiting every write provides backpressure. */
++export async function writeProject(doc: unknown, sink: (b: Uint8Array)=>Promise<void>,level=9): Promise<void> {
++  let output:Uint8Array[]=[];
++  const gzip=new Gzip({level:level as 9,mtime:0},b=>output.push(b));
++  for(const b of projectJsonChunks(doc)){gzip.push(b,false);for(const x of output)await sink(x);output=[];}
++  gzip.push(new Uint8Array(),true);for(const x of output)await sink(x);
++}
++
++type Frame={value:any;kind:"object"|"array";phase:"key"|"colon"|"value"|"comma";key?:string;empty:boolean};
++/** Incremental JSON grammar. Only the current scalar and final data model are retained. */
++export class ProjectJsonParser {
++  private stack:Frame[]=[];private root:unknown;private rootSet=false;
++  private mode:"none"|"string"|"escape"|"unicode"|"number"|"literal"="none";
++  private scalar="";private pieces:string[]=[];private unicode="";private isKey=false;
++  private characters:string[]=[];private characterCount=0;
++  maxInputChars=0;maxScalarPieceChars=0;
++  private bad():never {throw Error("invalid project JSON");}
++  private append(s:string):void {this.characters.push(s);this.characterCount+=s.length;this.maxScalarPieceChars=Math.max(this.maxScalarPieceChars,this.characterCount);if(this.characterCount>=CHUNK){this.pieces.push(this.characters.join(""));this.characters=[];this.characterCount=0;}}
++  private value(v:unknown):void {
++    const f=this.stack.at(-1);
++    if(!f){if(this.rootSet)this.bad();this.root=v;this.rootSet=true;return;}
++    if(f.phase!=="value")this.bad();
++    if(f.kind==="array")f.value.push(v);else Object.defineProperty(f.value,f.key!,{value:v,enumerable:true,writable:true,configurable:true});
++    f.phase="comma";f.empty=false;
++  }
++  push(text:string):void {
++    this.maxInputChars=Math.max(this.maxInputChars,text.length);
++    for(let i=0;i<text.length;i++){
++      const c=text[i];
++      if(this.mode==="string") {if(c==='"') {const end=this.characters.join(""),s=this.pieces.length?[...this.pieces,end].join(""):end;this.characters=[];this.characterCount=0;this.pieces=[];this.scalar="";this.mode="none";if(this.isKey){const f=this.stack.at(-1)!;f.key=s;f.phase="colon";}else this.value(s);}else if(c==='\\')this.mode="escape";else {if(c.charCodeAt(0)<32)this.bad();this.append(c);}continue;}
++      if(this.mode==="escape") {if(c==='u'){this.unicode="";this.mode="unicode";}else {const e:Record<string,string>={'"':'"','\\':'\\','/':'/','b':'\b','f':'\f','n':'\n','r':'\r','t':'\t'};if(!(c in e))this.bad();this.append(e[c]);this.mode="string";}continue;}
++      if(this.mode==="unicode"){if(!/[0-9a-f]/i.test(c))this.bad();this.unicode+=c;if(this.unicode.length===4){this.append(String.fromCharCode(parseInt(this.unicode,16)));this.mode="string";}continue;}
++      if(this.mode==="number"||this.mode==="literal") {
++        if(/[0-9eE+.\-]/.test(c)&&this.mode==="number"||/[a-z]/.test(c)&&this.mode==="literal"){this.scalar+=c;if(this.scalar.length>128)this.bad();continue;}
++        this.finishScalar();i--;continue;
++      }
++      if(/\s/.test(c)){if(!/[\t\r\n ]/.test(c))this.bad();continue;}
++      const f=this.stack.at(-1);
++      if(f?.phase==="colon"){if(c!==':')this.bad();f.phase="value";continue;}
++      if(f?.phase==="comma") {if(c===','){f.phase=f.kind==="object"?"key":"value";continue;}if(c===(f.kind==="object"?'}':']')){this.stack.pop();continue;}this.bad();}
++      if(f&&c===(f.kind==="object"?'}':']')){if(!f.empty)this.bad();this.stack.pop();continue;}
++      if(c==='"'){this.isKey=f?.phase==="key";this.mode="string";this.scalar="";continue;}
++      if(f?.phase==="key")this.bad();
++      if(c==='{'||c==='['){const v=c==='{'?{}:[];this.value(v);this.stack.push({value:v,kind:c==='{'?"object":"array",phase:c==='{'?"key":"value",empty:true});if(this.stack.length>512)this.bad();continue;}
++      if(c==='-'||/[0-9]/.test(c)){this.mode="number";this.scalar=c;continue;}
++      if(/[tfn]/.test(c)){this.mode="literal";this.scalar=c;continue;}
++      this.bad();
++    }
++  }
++  private finishScalar():void {let v:unknown;try{v=JSON.parse(this.scalar);}catch{this.bad();}if(typeof v==='number'&&!Number.isFinite(v))this.bad();this.mode="none";this.scalar="";this.value(v);}
++  finish():unknown {if(this.mode==="number"||this.mode==="literal")this.finishScalar();if(this.mode!=="none"||this.stack.length||!this.rootSet)this.bad();return this.root;}
++}
++/** Streaming decompression and fatal UTF-8 decoding; never gunzipSync/JSON.parse on a whole file. */
++export async function readProject(source:AsyncIterable<Uint8Array>|Iterable<Uint8Array>):Promise<unknown> {
++  const parser=new ProjectJsonParser(),utf8=new TextDecoder("utf-8",{fatal:true});
++  let gunzip:Gunzip|undefined,header=new Uint8Array(),tail=new Uint8Array(),crc=0xffffffff,length=0;
++  const parse=(b:Uint8Array)=>{if(gunzip){for(const x of b)crc=crcTable[(crc^x)&255]^(crc>>>8);length=(length+b.length)>>>0;}for(let at=0;at<b.length;at+=CHUNK)parser.push(utf8.decode(b.subarray(at,at+CHUNK),{stream:true}));};
++  for await(const input of source){ // split compressed inputs too, bounding one inflater callback
++    const t=new Uint8Array(Math.min(8,tail.length+input.length));if(input.length>=8)t.set(input.subarray(input.length-8));else {const old=Math.min(t.length-input.length,tail.length);t.set(tail.subarray(tail.length-old));t.set(input,old);}tail=t;
++    for(let at=0;at<input.length;at+=CHUNK){let b=input.subarray(at,at+CHUNK);
++      if(header.length<2&&!gunzip){const joined=new Uint8Array(header.length+b.length);joined.set(header);joined.set(b,header.length);header=joined;if(header.length<2)continue;
++        if(header[0]===0x1f&&header[1]===0x8b)gunzip=new Gunzip(parse);else gunzip=undefined;b=header;header=new Uint8Array(2);}
++      if(gunzip)gunzip.push(b,false);else parse(b);
++    }
++  }
++  if(header.length<2)parse(header);if(gunzip){gunzip.push(new Uint8Array(),true);if(tail.length!==8)throw Error("truncated project gzip");const v=new DataView(tail.buffer,tail.byteOffset,8);if(v.getUint32(0,true)!==(crc^0xffffffff)>>>0||v.getUint32(4,true)!==length)throw Error("project gzip checksum/length mismatch");}parser.push(utf8.decode());return parser.finish();
++}
+diff --git a/src/core/doc/resultStore.ts b/src/core/doc/resultStore.ts
+new file mode 100644
+index 00000000..3318643b
+--- /dev/null
++++ b/src/core/doc/resultStore.ts
+@@ -0,0 +1,122 @@
++import {gzipSync,gunzipSync,strToU8,strFromU8} from "fflate";
++import type {ForceResultParams} from "../forces/op";
++import {toBase64,fromBase64} from "../format/base64";
++
++/** Disposable derived data, never the journal or a project. Implemented by OPFS in a worker. */
++export interface ColdResults { put(key: number, value: Uint8Array): void; get(key: number): Uint8Array; }
++const keys = new WeakMap<object,string>();
++export const derivedResultKey = (params: object): string | undefined => keys.get(params);
++const heavy = ["tiles","heights","removed","rock","moved","felled","sources","lake","entities"] as const;
++/** Estimates ordinary-array payload and metadata; the measured process heap is the external oracle. */
++export function retainedBytes(value: unknown, snapshotsOnly=false): number {
++  const seen = new Set<object>(),strings=new Set<string>(); let bytes = 0;
++  const visit = (v: unknown): void => {
++    if (typeof v === "string") {if(!strings.has(v)){strings.add(v);bytes += v.length*2;}return;}
++    if (!v || typeof v !== "object" || seen.has(v)) return;
++    seen.add(v); bytes += 32;
++    if (ArrayBuffer.isView(v)) {visit(v.buffer);return;}
++    if (v instanceof ArrayBuffer) {bytes += v.byteLength;return;}
++    if (v instanceof Map) {for (const [k,x] of v) {visit(k);visit(x);}return;}
++    if (v instanceof Set) {for (const x of v) visit(x);return;}
++    if (Array.isArray(v)) bytes += v.length*8;
++    for (const [k,d] of Object.entries(Object.getOwnPropertyDescriptors(v))) if ("value" in d) {
++      // Operations are owned by the journal/log, not by these derived snapshots. Count the
++      // snapshot's pointer lists without repeatedly walking every old gesture/result.
++      if(snapshotsOnly&&(k==="sculpts"||k==="sculptEdits")&&Array.isArray(d.value)){bytes+=32+8*d.value.length;continue;}
++      visit(d.value);
++    }
++  }; visit(value);return bytes;
++}
++
++export class ResultStore {
++  private hot = new Map<number,{params: object;bytes: number}>();
++  private bytes = 0;
++  private working: {seq:number;params:object;bytes:number}|null=null;
++  private lastRead:{seq:number;params:object}|null=null;
++  private waterKeys = new WeakMap<object,number>();
++  private waterNext = -1;
++  private waterHot: {key:number;value:any} | null = null;
++  hits = 0; misses = 0; writtenBytes = 0;
++  constructor(readonly cold: ColdResults, readonly budget = 32*1024*1024) {
++    if (!Number.isSafeInteger(budget) || budget<0) throw Error("invalid result-cache budget");
++  }
++  private cache<T extends object>(seq: number, params:T):T {
++    const bytes = retainedBytes(params);
++    while (this.hot.size && this.bytes+bytes>this.budget) {
++      const key = this.hot.keys().next().value!;this.bytes -= this.hot.get(key)!.bytes;this.hot.delete(key);
++    }
++    // An oversized result is a one-operation working value, never permanently pinned.
++    this.working=null;
++    if (bytes<=this.budget) {this.hot.set(seq,{params,bytes});this.bytes+=bytes;}
++    else this.working={seq,params,bytes};
++    this.lastRead={seq,params};
++    return params;
++  }
++  read<T extends object=ForceResultParams>(seq: number):T {
++    if(this.lastRead?.seq===seq){this.hits++;return this.lastRead.params as T;}
++    if(this.working?.seq===seq){this.hits++;return this.working.params as T;}
++    const found = this.hot.get(seq);
++    if (found) {this.hits++;this.hot.delete(seq);this.hot.set(seq,found);this.lastRead={seq,params:found.params};return found.params as T;}
++    this.misses++;
++    return this.cache(seq,JSON.parse(strFromU8(gunzipSync(this.cold.get(seq)))) as T);
++  }
++  keep<T extends object>(seq: number, params:T):T {
++    const bytes = gzipSync(strToU8(JSON.stringify(params)),{level:1,mtime:0});
++    this.cold.put(seq,bytes);this.writtenBytes+=bytes.byteLength;
++    const old = this.hot.get(seq);if(old){this.bytes-=old.bytes;this.hot.delete(seq);}
++    this.cache(seq,params);
++    return this.attach(seq,params,heavy.filter(name=>name in params));
++  }
++  /** Rebind an exact saved execution cache without decoding its heavy vectors. */
++  attach<T extends object>(seq:number,params:T,names:readonly string[]):T {
++    const proxy = {...params};
++    for(const name of names) {
++      delete (proxy as Record<string,unknown>)[name];
++      Object.defineProperty(proxy,name,{enumerable:true,get:()=>this.read<Record<string,unknown>>(seq)[name]});
++    }
++    keys.set(proxy,`derived-force-v1:${seq}`);
++    return proxy;
++  }
++  clearHot(): void {this.hot.clear();this.bytes=0;this.working=null;this.waterHot=null;this.lastRead=null;}
++  keepWater(value:object|null):number {
++    if(!value)return 0;
++    const known=this.waterKeys.get(value);if(known!==undefined)return known;
++    const key=this.waterNext--;
++    const text=JSON.stringify(value,(_k,v)=>ArrayBuffer.isView(v)?{__array:v.constructor.name,bytes:toBase64(new Uint8Array(v.buffer,v.byteOffset,v.byteLength))}:v);
++    const b=gzipSync(strToU8(text),{level:1,mtime:0});this.cold.put(key,b);this.writtenBytes+=b.length;this.waterKeys.set(value,key);return key;
++  }
++  readWater(key:number):any {
++    if(!key)return null;if(this.waterHot?.key===key)return this.waterHot.value;
++    const types:Record<string,any>={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++    const value=JSON.parse(strFromU8(gunzipSync(this.cold.get(key))),(_k,v)=>{
++      if(v?.__array){const Type=types[v.__array];if(!Type)throw Error("invalid transient array type");const b=fromBase64(v.bytes);return new Type(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));}return v;
++    });
++    this.waterKeys.set(value,key);this.waterHot={key,value};return value;
++  }
++  get stats() {return {bytes:this.bytes,entries:this.hot.size,budget:this.budget,workingBytes:this.working?.bytes??0,hits:this.hits,misses:this.misses,writtenBytes:this.writtenBytes};}
++}
++
++/** One append-only cache file per session; safe to delete after close. Open only in a dedicated worker. */
++export class OpfsResults implements ColdResults {
++  private offsets = new Map<number,[number,number]>(); private end = 0;
++  private constructor(private handle: FileSystemSyncAccessHandle,private dir:FileSystemDirectoryHandle,private name:string) {}
++  static async open(name: string): Promise<OpfsResults> {
++    if(!navigator.storage?.getDirectory)throw Error("worker OPFS unavailable; an equivalent verified storage adapter is required");
++    const root = await navigator.storage.getDirectory();
++    const dir = await root.getDirectoryHandle("dgm-derived-force-cache",{create:true});
++    const file = await dir.getFileHandle(name,{create:true});
++    const store = new OpfsResults(await file.createSyncAccessHandle(),dir,name);store.handle.truncate(0);return store;
++  }
++  put(key: number,value: Uint8Array): void {
++    const at = this.end;let n = 0;
++    while(n<value.length) {const wrote=this.handle.write(value.subarray(n),{at:at+n});if(!wrote)throw Error("derived cache write failed");n+=wrote;}
++    this.offsets.set(key,[at,n]);this.end+=n;
++  }
++  get(key: number): Uint8Array {
++    const entry=this.offsets.get(key);if(!entry)throw Error("missing derived result");
++    const [at,len]=entry,b=new Uint8Array(len);let n=0;
++    while(n<len){const got=this.handle.read(b.subarray(n),{at:at+n});if(!got)throw Error("truncated derived cache");n+=got;}return b;
++  }
++  close(): void {this.handle.close();}
++  async dispose():Promise<void> {this.close();await this.dir.removeEntry(this.name);}
++}
+diff --git a/src/core/doc/selectionHelpers.ts b/src/core/doc/selectionHelpers.ts
+new file mode 100644
+index 00000000..8feb8161
+--- /dev/null
++++ b/src/core/doc/selectionHelpers.ts
+@@ -0,0 +1,82 @@
++// Pure Select planner extracted from the pinned worker; share at adoption.
++import type {MapSession} from "./session";
++import type {EditOp} from "./ops";
++import {removeKindOf,removeTakes,type RemoveKind} from "../features/objects";
++import {entityTiles} from "../features/edits";
++import {objectsIn,ruinFieldTilesIn,submergedIn} from "./inArea";
++import {rebuiltSlope} from "../features/ids";
++import {placementOf} from "../format/entities";
++import {runsToTiles,tilesToRuns,type Runs} from "../math/grid";
++export function planRemoveAt(s:MapSession, tiles:readonly number[], kinds:readonly RemoveKind[], label?:string):{ops:EditOp[];label:string;removed:number[]} {
++
++  const { x: W, y: H } = s.size;
++  const want = new Set(tiles);
++  const ids: string[] = [];
++  const slopes: { x: number; y: number }[] = [];
++  const startFeatures = new Set<string>();
++  const removed: number[] = [];
++  const counts = new Map<RemoveKind, number>();
++  // (a ruin field the selection reaches gives up the tiles inside it, the columns the water hides too; the
++  // columns outside keep their heights and places, D360 b)
++  const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
++  for (const e of s.built.entities) {
++    if (e.raw && !placementOf(e.raw)) continue;
++    if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
++    const kind = removeKindOf(e.template);
++    if (!kind || !removeTakes(kinds, e.template)) continue;
++    if (kind === "ruins" && fields.has(e.owner)) {
++      removed.push(e.y * W + e.x);
++      counts.set(kind, (counts.get(kind) ?? 0) + 1);
++      continue;
++    }
++    if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
++    else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
++    else ids.push(e.id);
++    removed.push(e.y * W + e.x);
++    counts.set(kind, (counts.get(kind) ?? 0) + 1);
++  }
++  // what the resource features hold under water there is deleted too (D345, B5), and nothing they would
++  // plant on these tiles later stands again as the water drains or the ground dries: the features'
++  // areas give up the tiles where nothing stands now
++  for (const o of submergedIn(s, want)) {
++    if (!removeTakes(kinds, o.template)) continue;
++    removed.push(o.tile);
++    const kind = removeKindOf(o.template)!;
++    counts.set(kind, (counts.get(kind) ?? 0) + 1);
++  }
++  const trims = new Map<string, Set<number>>();
++  for (const f of s.features) {
++    // (not a ruin field: its columns' heights are assigned over its whole area, so giving tiles up would
++    // change the ones that stand)
++    if (f.kind !== "forest" && f.kind !== "berryPatch") continue;
++    if (!removeTakes(kinds, f.kind === "forest" ? "Pine" : "BlueberryBush")) continue;
++    const standing = new Set<number>();
++    for (const e of s.built.entities) if (e.owner === f.id) for (const [tx, ty] of entityTiles(e)) standing.add(ty * W + tx);
++    const gone = new Set<number>();
++    for (const i of runsToTiles(f.params.area as Runs, W)) if (want.has(i) && !standing.has(i)) gone.add(i);
++    if (gone.size) trims.set(f.id, gone);
++  }
++  if (!removed.length) throw Error("nothing to remove there");
++  const ops: EditOp[] = [];
++  if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
++  for (const [id, gone] of trims) {
++    const f = s.features.find((g) => g.id === id);
++    if (!f || !("area" in f.params)) continue;
++    const keep = runsToTiles(f.params.area as Runs, W).filter((i) => !gone.has(i));
++    // (a feature whose whole area was under water has nothing left: it goes)
++    ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
++  }
++  for (const [id, gone] of fields) {
++    const f = s.features.find((g) => g.id === id);
++    if (!f || f.kind !== "ruinField") continue;
++    const cleared = new Set<number>(f.params.cleared ? runsToTiles(f.params.cleared, W) : []);
++    for (const i of gone) cleared.add(i);
++    const left = runsToTiles(f.params.area, W).some((i) => !cleared.has(i));
++    ops.push(left ? { op: "updateFeature", params: { id, patch: { params: { cleared: tilesToRuns([...cleared].sort((a, b) => a - b), W) } } } } : { op: "deleteFeature", params: { id } });
++  }
++  for (const p of slopes) ops.push({ op: "removeSlope", params: p });
++  for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
++  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
++  const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
++  return {ops,label:label??auto,removed};
++}
+diff --git a/src/core/doc/stateGraph.ts b/src/core/doc/stateGraph.ts
+new file mode 100644
+index 00000000..72810101
+--- /dev/null
++++ b/src/core/doc/stateGraph.ts
+@@ -0,0 +1,105 @@
++// Exact execution checkpoints. Based on startup's stored-build graph, with bounded records,
++// shared ArrayBuffer/view identity, and external (disposable) force-result references.
++import {Gzip,Gunzip,gzipSync} from "fflate";
++import {JsonFloat} from "../format/json";
++import {toBase64,fromBase64} from "../format/base64";
++import {derivedResultKey,ResultStore,type ColdResults} from "./resultStore";
++
++const types={Uint8Array,Int8Array,Uint16Array,Int16Array,Uint32Array,Int32Array,Float32Array,Float64Array};
++const utf8=new TextEncoder(),MAX=16384,TEXT=8192;
++export const BLOB_KEY=2**43;
++const table=Uint32Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
++export type BlobIndex={key:number;bytes:number;rawBytes:number;crc:number;dependencies?:number[];results?:number[]};
++/** Exact deduplication: CRC is only an index; matching bytes are compared before sharing.
++ * Objects are weakly indexed, so this dictionary does not retain historical map buffers. */
++export class StateBank {
++ private objects=new WeakMap<object,number>();private buckets=new Map<string,number[]>();private items=new Map<number,BlobIndex>();private next=BLOB_KEY;
++ readonly external=new WeakMap<object,{key:number;node:number;instance:string}>();
++ nextInstance:number;
++ constructor(readonly cold:ColdResults,index:BlobIndex[]=[],nextInstance=1,nextKey=BLOB_KEY){this.next=Math.max(BLOB_KEY,nextKey);this.nextInstance=nextInstance;for(const item of index){if(!Number.isSafeInteger(item.rawBytes)||item.rawBytes<0||item.rawBytes>128*1024*1024||!Number.isSafeInteger(item.key)||item.key<BLOB_KEY||this.items.has(item.key))throw Error('invalid state blob bounds');this.items.set(item.key,item);const id=item.rawBytes+':'+item.crc;this.buckets.set(id,[...(this.buckets.get(id)??[]),item.key]);this.next=Math.max(this.next,item.key+1);}}
++ keep(bytes:Uint8Array,owner?:object):number {
++  if(bytes.length>128*1024*1024)throw Error('state blob exceeds capacity');
++  const known=owner&&this.objects.get(owner);if(known!==undefined)return known;let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
++  const id=bytes.length+':'+crc;for(const key of this.buckets.get(id)??[]){const old=this.read(key);if(old.length===bytes.length&&old.every((v,i)=>v===bytes[i])){if(owner)this.objects.set(owner,key);return key;}}
++  const key=this.next++,compressed=gzipSync(bytes,{level:6,mtime:0});this.cold.put(key,compressed);this.items.set(key,{key,bytes:compressed.length,rawBytes:bytes.length,crc});this.buckets.set(id,[...(this.buckets.get(id)??[]),key]);if(owner)this.objects.set(owner,key);return key;
++ }
++ read(key:number):Uint8Array {const item=this.items.get(key);if(!item)throw Error('missing state blob');const bytes=new Uint8Array(item.rawBytes);let written=0;
++  const gzip=this.cold.get(key),inflate=new Gunzip(b=>{if(written+b.length>bytes.length)throw Error('state blob length exceeds bound');bytes.set(b,written);written+=b.length;});
++  for(let at=0;at<gzip.length;at+=4096)inflate.push(gzip.subarray(at,at+4096),false);inflate.push(new Uint8Array(),true);if(written!==bytes.length)throw Error('state blob length differs');return bytes;}
++ share(root:object):void {
++  if(this.external.has(root))return;let nodes:Map<object,number>|undefined;
++  const packed=packState(root,this,seen=>nodes=seen),key=this.keep(packed.bytes),item=this.items.get(key)!;
++  item.dependencies=packed.blobs;item.results=packed.results;
++  const instance='g1:'+this.nextInstance++;
++  for(const [object,node]of nodes!)if(!this.external.has(object))this.external.set(object,{key,node,instance});
++ }
++ index(keys:Iterable<number>):BlobIndex[]{const seen=new Set<number>();const visit=(key:number)=>{if(seen.has(key))return;seen.add(key);const item=this.items.get(key);if(!item)throw Error('missing state blob index');for(const dep of item.dependencies??[])visit(dep);};for(const key of keys)visit(key);return [...seen].map(key=>this.items.get(key)!);}
++ results(key:number):number[]{return this.items.get(key)?.results??[];}
++}
++export type PackedState={bytes:Uint8Array;results:number[];blobs:number[]};
++/** Each JSON record is bounded; neither the execution graph nor a large array is stringified. */
++export function packState(root:object,bank?:StateBank,register?:(seen:Map<object,number>)=>void):PackedState {
++ const seen=new Map<object,number>(),queue:object[]=[],strings=new Map<string,number>(),textNodes=new Set<object>(),resultKeys=new Set<number>(),blobKeys=new Set<number>(),out:Uint8Array[]=[];
++ const gzip=new Gzip({level:6,mtime:0},b=>out.push(b));let pending='';
++ const emit=(r:unknown)=>{const text=JSON.stringify(r);if(text.length>65536)throw Error("checkpoint record exceeds bound");if(pending.length+text.length>32768){gzip.push(utf8.encode(pending),false);pending='';}pending+=text+'\n';};
++ const value=(v:any):any=>{
++  if(v===undefined)return {u:1};if(typeof v==='number'&&(!Number.isFinite(v)||Object.is(v,-0)))return {n:Object.is(v,-0)?'-0':String(v)};
++  if(typeof v==='string'&&v.length>TEXT){let id=strings.get(v);if(id===undefined){id=queue.length;strings.set(v,id);const box={text:v};textNodes.add(box);queue.push(box);}return {r:id};}
++  if(!v||typeof v!=='object')return v;
++  let id=seen.get(v);if(id===undefined){id=queue.length;seen.set(v,id);queue.push(v);}return {r:id};
++ };
++ value(root);
++ for(let id=0;id<queue.length;id++){
++  const v:any=queue[id],key=derivedResultKey(v);
++  const external=bank?.external.get(v);if(external){blobKeys.add(external.key);for(const result of bank!.results(external.key))resultKeys.add(result);emit([id,'ExternalObject',external.key,external.node,external.instance]);continue;}
++  if(textNodes.has(v)){if(bank){const units=Uint16Array.from({length:v.text.length},(_,i)=>v.text.charCodeAt(i)),key=bank.keep(new Uint8Array(units.buffer));blobKeys.add(key);emit([id,'ExternalString',key,'u16']);}else{emit([id,'String']);for(let at=0;at<v.text.length;at+=TEXT)emit([id,'Entries',[v.text.slice(at,at+TEXT)]]);}continue;}
++  if(key!==undefined){const seq=Number(key.split(':').at(-1));resultKeys.add(seq);
++   const entries=Object.entries(Object.getOwnPropertyDescriptors(v)).filter(([,d])=>'value'in d).map(([k,d])=>[k,value(d.value)]);
++   const heavy=Object.entries(Object.getOwnPropertyDescriptors(v)).filter(([,d])=>d.get).map(([k])=>k);
++   emit([id,'Derived',seq,entries,heavy]);continue;
++  }
++  if(v instanceof JsonFloat){emit([id,'Float',value(v.value),value(v.raw)]);continue;}
++  if(v instanceof ArrayBuffer){if(bank){const key=bank.keep(new Uint8Array(v),v);blobKeys.add(key);emit([id,'ExternalBuffer',key]);}else{emit([id,'Buffer',v.byteLength]);const raw=new Uint8Array(v);for(let at=0;at<raw.length;at+=MAX)emit([id,'Bytes',at,toBase64(raw.subarray(at,at+MAX))]);}continue;}
++  if(ArrayBuffer.isView(v)){if(!(v.constructor.name in types))throw Error('unsupported checkpoint view');emit([id,'View',v.constructor.name,value(v.buffer),v.byteOffset,(v as any).length]);continue;}
++  const kind=v instanceof Map?'Map':v instanceof Set?'Set':Array.isArray(v)?'Array':'Object';
++  if(kind==='Object'&&Object.getPrototypeOf(v)!==Object.prototype&&Object.getPrototypeOf(v)!==null)throw Error('unsupported checkpoint class: '+v.constructor.name);
++  emit([id,kind]);
++  const entries=kind==='Map'?[...v].map(([k,x])=>[value(k),value(x)]):kind==='Set'?[...v].map(value):kind==='Array'?v.map(value):Object.entries(v).map(([k,x])=>[k,value(x)]);
++  for(let at=0;at<entries.length;at+=64){let batch=entries.slice(at,at+64);
++   // Split records containing long scalar strings as independent string nodes.
++   for(let i=0;i<batch.length;i++)if(JSON.stringify(batch[i]).length>48000)throw Error('oversized checkpoint scalar');
++   while(batch.length&&JSON.stringify([id,'Entries',batch]).length>60000){emit([id,'Entries',[batch.shift()]]);}
++   if(batch.length)emit([id,'Entries',batch]);
++  }
++ }
++ gzip.push(utf8.encode(pending),true);const size=out.reduce((n,b)=>n+b.length,0),bytes=new Uint8Array(size);let at=0;for(const b of out){bytes.set(b,at);at+=b.length;}register?.(seen);return {bytes,results:[...resultKeys],blobs:[...blobKeys]};
++}
++
++export function unpackState(bytes:Uint8Array,store:ResultStore,bank?:StateBank,components=new Map<string,any[]>(),allNodes=false):any {
++ const nodes:any[]=[],values:any[]=[],decoder=new TextDecoder('utf-8',{fatal:true});let pending='',inflated=0;
++ const record=(r:any[])=>{const [id,type,...args]=r;if(!Number.isSafeInteger(id)||id<0||id>1000000)throw Error('bad checkpoint node');
++  if(type==='Entries'){if(!nodes[id])throw Error('checkpoint entries precede node');nodes[id].entries.push(...args[0]);return;}
++  if(type==='Bytes'){const b=fromBase64(args[1]),v=values[id];if(!(v instanceof ArrayBuffer)||args[0]<0||args[0]+b.length>v.byteLength)throw Error('bad checkpoint bytes');new Uint8Array(v).set(b,args[0]);return;}
++  if(nodes[id])throw Error('duplicate checkpoint node');nodes[id]={type,args,entries:[]};
++  if(type==='Buffer'){if(!Number.isSafeInteger(args[0])||args[0]<0||args[0]>128*1024*1024)throw Error('checkpoint buffer bound');values[id]=new ArrayBuffer(args[0]);}
++  else if(type==='Map')values[id]=new Map();else if(type==='Set')values[id]=new Set();else if(type==='Array')values[id]=[];else if(type==='Object')values[id]={};
++  else if(!['View','Float','Derived','String','ExternalBuffer','ExternalString','ExternalObject'].includes(type))throw Error('unknown checkpoint node');
++ };
++ const parse=(b:Uint8Array)=>{inflated+=b.length;if(inflated>512*1024*1024)throw Error('execution graph exceeds bound');for(let offset=0;offset<b.length;offset+=32768){pending+=decoder.decode(b.subarray(offset,offset+32768),{stream:true});let at,consumed=0;while((at=pending.indexOf('\n',consumed))>=0){const line=pending.slice(consumed,at);consumed=at+1;if(line.length>65536)throw Error('checkpoint record bound');record(JSON.parse(line));}pending=pending.slice(consumed);if(pending.length>65536)throw Error('checkpoint record bound');}};
++ const gunzip=new Gunzip(parse);for(let at=0;at<bytes.length;at+=32768)gunzip.push(bytes.subarray(at,at+32768),false);gunzip.push(new Uint8Array(),true);pending+=decoder.decode();if(pending)throw Error('truncated checkpoint record');
++ const val=(v:any):any=>{if(!v||typeof v!=='object')return v;if('r'in v){if(!nodes[v.r])throw Error('bad checkpoint reference');return get(v.r);}if(v.u)return undefined;if(v.s)return v.s.join('');if(v.n)return v.n==='-0'?-0:Number(v.n);throw Error('bad checkpoint value');};
++ const get=(id:number):any=>{if(values[id]!==undefined)return values[id];const {type,args}=nodes[id];
++  if(type==='View'){const C=types[args[0] as keyof typeof types];if(!C)throw Error('bad checkpoint view');return values[id]=new C(val(args[1]),args[2],args[3]);}
++  if(type==='Float')return values[id]=new JsonFloat(val(args[0]),val(args[1]));
++  if(type==='String')return values[id]=nodes[id].entries.join('');
++  if(type==='ExternalObject'){if(!bank)throw Error('missing checkpoint bank');const instance=args[2]??'blob:'+args[0];let graph=components.get(instance);if(!graph){graph=unpackState(bank.read(args[0]),store,bank,components,true);components.set(instance,graph!);for(let node=0;node<graph!.length;node++){const v=graph![node];if(v&&typeof v==='object'&&!bank.external.has(v))bank.external.set(v,{key:args[0],node,instance});}}if(args[1]<0||args[1]>=graph!.length)throw Error('bad component reference');return values[id]=graph![args[1]];}
++  if(type==='ExternalBuffer'||type==='ExternalString'){if(!bank)throw Error('missing checkpoint bank');const b=bank.read(args[0]);if(type==='ExternalBuffer')return values[id]=b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);
++   if(args[1]!=='u16')return values[id]=new TextDecoder('utf-8',{fatal:true}).decode(b);if(b.byteLength%2)throw Error('bad string code units');const units=new Uint16Array(b.buffer,b.byteOffset,b.byteLength/2),pieces:string[]=[];for(let at=0;at<units.length;at+=TEXT)pieces.push(String.fromCharCode(...units.subarray(at,at+TEXT)));return values[id]=pieces.join('');}
++  if(type==='Derived'){const meta:any={};for(const [k,v]of args[1])put(meta,k,val(v));return values[id]=store.attach(args[0],meta,args[2]);}
++  throw Error('bad checkpoint allocation');
++ };
++ const put=(object:any,key:string,v:any)=>{if(key==='__proto__')Object.defineProperty(object,key,{value:v,enumerable:true,writable:true,configurable:true});else object[key]=v;};
++ for(let i=0;i<nodes.length;i++)get(i);
++ for(let i=0;i<nodes.length;i++){const {type,entries}=nodes[i],v=values[i];for(const e of entries){if(type==='Map')v.set(val(e[0]),val(e[1]));else if(type==='Set')v.add(val(e));else if(type==='Array')v.push(val(e));else if(type==='Object')put(v,e[0],val(e[1]));}}
++ return allNodes?values:values[0];
++}
