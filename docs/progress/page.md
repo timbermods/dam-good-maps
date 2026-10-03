@@ -337,6 +337,11 @@ checkpoint.
 
 ## Asked of the milestone session
 
+- **A rename in the core** (the build, change 5): the page keeps a renamed map's name in Your maps and names its
+  saved .timber and project files with it (`namedFile`), but the document's own name (`meta.name`) stays the
+  generator's, so a project file opened elsewhere shows the old name. A session rename (`meta.name`, one plain core
+  call) would close that.
+- **Your maps' size field** (`feature/yourmaps-size`): the drawer's rows show the size once it is on dev.
 - M9b's candidate events (the strip), Sources: Placed · None and the automatic water fix (checkpoint 2).
 - A signal that the water under the pointer changed, for the hover readout (checkpoint 5).
 - The engines for Remove unfed water and Fill (checkpoint 5).
@@ -375,6 +380,15 @@ checkpoint.
     old page and the brush benchmark are measured the same way, in a quiet window, before the PR merges (D380).
   - Still open: the browser tests' move to the new page (a Sonnet agent, its own worktree); EDITOR_PLAN's screen
     section; the old page's unused files.
+
+- **2026-10-02, the build begins** (Kyler's answers to §7's questions 1–6). Step 0: `archive/page-v4` pushed (the
+  v4 head, `a9d4d99b`, kept for good); the build starts from `feature/page-proto` with dev merged in, on a local
+  branch until `feature/page` is reset onto it (the reset and force-push were held back by a permission check and
+  wait for Kyler). Kept from v4: `thumbnail()`, the browser tests' one-window opening (`tests/e2e/open.ts`,
+  `tools/wait-editor.ts`), the retired terms, DESIGN.md, this file, `docs/design/`. Naturalize's worker patch
+  applied. Then the seven changes; the drawer wired (the page owns the map in `src/ui/App.tsx`; the drawer's
+  settings are dev's fields in `src/editor/drawer/settings.tsx`; the old settings page's files are gone); the name;
+  Your maps; File; the address as the share link; the header's narrow widths; Select in hand.
 
 ## Checkpoint 1: the sitting's checklist
 
