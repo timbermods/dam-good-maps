@@ -44,9 +44,10 @@ maps the documents.
 - **Speed checks take minutes (D439):** no multi-hour measurement runs (profiling sessions, long timing series, extra quiet
   windows) unless Kyler says one is critical. Use the 6-cell smoothness check or a short benchmark of the thing changed;
   correctness and byte-identity checks run in CI or as needed.
-- **Tooltips (D351, D361, D368):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an accurate
+- **Tooltips (D351, D361, D368, D450):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an accurate
   tooltip: a short phrase that tells its purpose at a glance, with its shortcut at the end as a small key cap ("Carve a
-  river" then a key cap 7); no second sentence, no technical detail, no key in brackets. Whoever changes a control's
+  river" then a key cap 7); no second sentence, no technical detail, no key in brackets. A setting's tooltip may add the official maps'
+  range as a short phrase ("Official maps: 9–15") before its key cap; settings have no grey explanation lines. Whoever changes a control's
   behaviour updates its tooltip in the same commit; a test checks every interactive control has one.
 - **The editor's architecture (D342):** every change to a map is an operation in `ops.schema.json`, in plain terms,
   validated and rejected with a one-line reason, never silently clamped; all editing logic lives in `src/core/` and runs
