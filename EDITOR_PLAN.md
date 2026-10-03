@@ -319,8 +319,30 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
   applies and recorded in it, so a replay is exact; its wear never leaves a slope joining nothing (D253, D368 (8),
-  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). Pen
-  pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
+  D342; a stroke saved before D368 (8) has no `weathers` flag and replays leaving protected tiles alone). It
+  weathers like nature (D387 (4), D399; `raster/weather.ts`): edges, read softly, wander in and out along one
+  smooth noise fixed to the map's tiles, in curves the size of Size (wider with Strength, so a strong stroke
+  bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
+  up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
+  with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
+  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
+  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
+  terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
+  edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
+  stay flat; little knobs and pits wear away; the effect fades out across the ring's
+  outer part, so there is no seam; and painting the same spot again changes less and less. The water stays
+  where it stood: from the settled water the session has when the stroke begins, a wet tile is never raised and
+  a dry tile beside water never comes down below that water's surface (recorded in the stroke, `shore` and
+  `pools`, with where water stood round it, `rim`). It keeps the downhill order: no tile it changes ends above
+  or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
+  tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
+  is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
