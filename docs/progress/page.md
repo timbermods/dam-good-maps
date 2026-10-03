@@ -3,6 +3,255 @@
 "The page is the editor" with the design pass (D330, D384, D388), on `feature/page`. Design decisions are in
 [DESIGN.md](../../DESIGN.md); this file is the work. The milestone session folds both into PLAN when the page merges.
 
+## Handoff to the page session that builds (written 2026-10-03, the prototype session's last act)
+
+What the next session needs to build. History is in the log below and in DESIGN.md.
+
+### 1. Kyler's verdict on v8 (2026-10-02 19:32 to 19:37): approved for the build
+
+Seven changes, which go into the build, not another prototype round:
+
+1. **Scale:** no scale-up at any size (`?ui=1.0`). Remove the temporary `?ui` parameter and the 1800px scale-up.
+2. **The right-hand column is 13px wider** (Slow forces takes the width; every row keeps the shared left and right
+   edges, the legend panel included), so "Contaminated ground" and "Contamination edge" fit on one line at the panel's
+   present paddings.
+3. **The Badwater caption is one short line:** "Badwater: dark brown · Contaminated soil: light brown".
+4. **The legend's "Markers on:" heading is all one weight.**
+5. **The map's name.** The drawer's "New map" heading becomes an editable name field for the current map. A rename
+   shows at once in the header's centred title and is kept in Your maps (the core's rename); Save to Timberborn and
+   the downloaded .timber file use it. A newly generated map starts with a default name Kyler can change. The New map
+   button in the header keeps its name.
+6. **Your maps at the foot of the drawer:** the maps Kyler has recently edited (the core's Your maps,
+   `src/core/library/yourMaps.ts`), each row with the map's name and its size ("128×128"), newest first, the current
+   map marked; clicking a row opens that map. The list fills the drawer's space below the card and scrolls inside it
+   when longer. The size comes from a field the milestone session is adding to Your maps' entries on dev; until it
+   lands, build the row with the name only and add the size once it's on dev. No stars, thumbnails or other extras
+   unless Kyler asks; the core's star (which keeps a map past the last 30) is among the open questions below.
+7. **The legend panel is as tall as its content,** with the same padding at its foot as at its top: no empty space
+   below the last line. It never runs past one gap above the water bar; only when the content is taller than that
+   does it stop there and scroll inside.
+
+**Every change Kyler asked for across v6, v7 and v8** (all of them are in the build; a later ruling supersedes an
+earlier one where they meet):
+
+- **The rule (v7, 17:36):** wherever Kyler hasn't asked for a change, the current editor on dev wins: layout,
+  spacing, sizes, colours, states. Where the brief or DESIGN.md's v4 system conflicts with the current editor's look,
+  the current editor wins. Anything unasked that differs from dev is a bug to fix before pinging.
+- **The page:** the generated map opens in the editor at once; no settings page, no Refine step (D330).
+- **The header (v7, then v8):** a named **New map** button alone at the left edge, above the palette column; it opens
+  and closes the drawer and shows selected while the drawer is open. At the window's exact horizontal centre the
+  map's info in the editor's title type: the name, and under it "seed 4242 · 128×128" (an opened file shows its
+  size; if saving in the browser fails, that line says so there). Nothing ever overlaps: a name too long for the
+  space truncates with an ellipsis and its tooltip holds the full name. No brand mark and no "Dam Good Maps"
+  anywhere (v8 reversed v7's centred brand). On the right Undo, Redo, the checks dot **with its words beside it**,
+  Save to Timberborn (the only lit control), Look, and **File** in place of ⋯ (Open…, Save project, Download
+  .timber, Clear everything, History, About). No icon-only control anywhere.
+- **The palette:** exactly the current editor's: one continuous two-column grid, the current order, no breaks.
+- **The toolbar:** the current editor's rows, buttons, padding and gaps; the forces keep their icon discs at the
+  current spacing; the options row as current with "More ⌄" at its right end, never wrapping; selected and lit states
+  in the current mint; **Flow** among the view layers (the renderer session's toggle, D353: beside Markers, off by
+  default, stored like Markers, tooltip "Show the water's currents", calls `renderer.setFlow(on)`).
+- **The right column (v8):** one exact right edge for the level row, Slow forces and Sound, Legend, the legend panel
+  and the water bar; the column's left edge is Slow forces'. Row 1: the level control (▾ ∞ ▴) is exactly Slow
+  forces' width and the compass exactly Sound's width (round, centred in it), the same gap between them as between
+  Slow forces and Sound. Row 3: a named **Legend** button spanning the column, the same height, corner radius, solid
+  dark background and type as Slow forces, the same vertical gap, lit in the mint while the legend is open (like
+  Minimap), a tooltip under the rule (D351, D361, D368). The legend panel opens and closes only by that button (the
+  open state remembered); it sits under the button with the same gap, on the button's edges; it lies over the map:
+  nothing resizes, the map doesn't move, no control shifts, it never covers a control; its content keeps today's
+  look (swatches, the Markers heading, a click shows the line on the map); plus the build's changes 2 and 7 above.
+  Gone: the full-height docked legend, its vertical tab, and `showLegend={layer !== "none"}`; no view layer opens,
+  folds or brings in the legend; toggling any layer moves nothing. Badwater keeps its own caption at the bottom
+  left as the layer's explanation, never overlapping anything (change 3 gives its words).
+- **The legend's names (v8):** every line a name on one line, nothing of what it does in the game: Moist ground ·
+  Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
+  bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
+  Blockage · Other objects; the heading "Markers on:" with Slope arrows · Level lines · Contamination edge · Mine
+  site outline. The notes ("From afar…", "Click a line…") are gone; each line's tooltip is "Show on the map". The
+  same names wherever the legend appears, the generator's view included. Every line fits on one line without
+  shrinking the type (change 2 makes the two widest fit).
+- **The drawer (v7):** in the palette's place, at the width its contents need, with v6's contents: Theme, Seed,
+  Size, Designed for, the six sections (Terrain, Water, Hazards, Resources, Advanced: start rules, Limits for this
+  size), Generate, Surprise me, the map card (its premise leading, then the legend of what's on the map with
+  counts); plus the name field (change 5) at its head and Your maps (change 6) at its foot. The toolbar, the minimap
+  and the readout move right with it as one block, never hide; the top-right column and the water bar never change;
+  the map doesn't move.
+- **Solid chrome (v7):** every control has a solid background as on dev, the readout and the water bar included;
+  the contrast test checks their words against it.
+- **Pause water** (v7): "Pause water" / "Play water", shown unavailable while the water is settled, never hidden.
+- **Scale:** none, at any size (change 1; v7's 1.2 and v8's 1.1 are gone).
+- **Tests (v7, v8):** the layout test at the seven sizes (1280×720, 1366×768, 1440×900, 1536×864, 1920×1080,
+  2560×1440, 3440×1440): no overlap with the drawer closed and open, the legend closed and open, and each view layer
+  on; the centred info; the right column's shared edges to the pixel; toggling each layer moves nothing; solid
+  backgrounds and WCAG AA. (Drop its `?ui` loop with change 1.)
+- **Deliverables each round (v7, v8):** captures beside dev's editor (same map, Carve in hand, minimap on) at
+  1440×900 and 1920×1080 in `docs/design/`; compare each with dev yourself and list every remaining difference with
+  its reason before pinging; record decisions in DESIGN.md and here; ping with a toast and a Progress log comment.
+  Don't wait on Kyler's replies for anything his message settles.
+
+### 2. What the build is
+
+The current editor's layout as it is on dev, with the v8 changes and the seven above, and the drawer for New map.
+Nothing of v4's visual system comes back (§3).
+
+**The v8 prototype** is `feature/page-proto`, cut from dev at `57dec313`, commits `6a580451` (v7), `b8ab0238`
+(the layout test's solidity fix), `94392c45` (v8); it is what `/preview/` serves (the deploy workflow with
+`preview_ref=feature/page-proto`). It is dev's code plus these files, and that is the shape the build should take:
+dev's editor, changed only where Kyler asked.
+
+Reusable as it is (prototype code, inert where it says so):
+- `src/editor/Drawer.tsx`: the drawer's markup (fields, sections, Generate, Surprise me, the card with its legend
+  counted from `info.features`). Inert: nothing is wired to the generator or the core. Its head becomes the name
+  field and it gains Your maps (changes 5 and 6).
+- `src/styles/page.css` (loaded last from `main.tsx`): the header (New map, the centred `.editor-title` capped by
+  `--side-l`/`--side-r`, the actions), the checks' words, the view bar's room before the column, `--overlay` solid,
+  the drawer, the block shift (`margin-left: calc(var(--drawer-w) - var(--shelf-w))` on the toolbar, view bar,
+  minimap, readout, caption, start indicators), the right column (`.view3d-corner` with `bottom:` and four rows,
+  `.corner-legend`, `.legend-panel` with `contain: inline-size`), the caption's place. Remove the `@media
+  (min-width: 1800px)` zoom block (change 1); widen the column (change 2: the grid's first column is `auto`, sized
+  by the level control, so give it `minmax(<today's width + 13px>, auto)` or set the level control's width); change
+  `.legend-panel` from `align-self: stretch` to its content's height with a `max-height` to the gap above the water
+  bar (change 7); keep the foot padding equal to the head's.
+- `src/editor/Header.tsx`: the New map button, the centred title with its measuring effect, the File menu, the
+  dot's words (`dotOf`). Remove nothing; add the rename's live title (change 5).
+- `src/editor/session/useSession.ts` (`drawerOpen`), `src/editor/render/header.tsx`, `src/editor/render/editorView.tsx`
+  (`drawer-open`, `<Drawer>`, `legendInCorner`, `legendOpen={false}`), `src/ui/App.tsx` (straight into the editor
+  after a passed generation).
+- `src/ui/View3D.tsx`: `legendInCorner` (the Legend button and panel in the corner grid; the docked aside stays for
+  the generator's view, unused by the page), the Flow toggle, the lines' tooltips, the "Markers on:" heading (make
+  it one weight: change 4). `src/editor/WaterBar.tsx`: "Pause water", the `--water-bar-h` measure the column reads.
+- `src/render3d/palette.ts` and `src/ui/legendMap.ts`: the names and their keys (a table by exact name).
+- `src/editor/panels.tsx` `LayerLegend`: give it change 3's one line.
+- `src/main.tsx`: remove the `?ui` block (change 1).
+- `tests/e2e/layout.spec.ts`: the whole test; drop the `SCALES` loop. The unit and e2e tests re-pinned to the
+  names (`tests/unit/look*.test.ts`, `legend.test.ts`; `tests/e2e/look*.spec.ts`, `legend.spec.ts`).
+- `.scratch` on the proto worktree (`C:\Users\krams\code\DamGoodMaps-split`, gitignored): `look8.ts` (the
+  captures), `measure8.ts` (the header's widths), `zoom7*.ts`, `proto*.py` (the edits as scripts). The dev captures
+  for side-by-sides are in this clone's `.scratch/mock/` (`dev-editor-*.png`, `dev-badwater-legend-*.png`,
+  `capture-dev*.ts`, served from the proto worktree's `.scratch/dist` build of dev); `compose8.py` makes the
+  composites.
+
+**Where to build it.** `feature/page` (PR #163) carries the v4 workspace (`src/page/`, `src/styles/lamplight.css`),
+which Kyler set aside, over a restyled editor. The build should not start from that. Recommended: start the build
+branch from `feature/page-proto` (dev plus the v8 files), port the kept pieces from `feature/page` (§4), and point
+PR #163 at it or open a new PR into dev; the v4 workspace files and `lamplight.css` do not come over. Merge dev first
+(`feature/page-proto` is 11 dev commits behind, no conflicts expected; `feature/page` conflicts with dev in
+`tests/e2e/sources.spec.ts`, `tests/e2e/tooltips.spec.ts` and `tools/bench-brush.ts`).
+
+### 3. Set aside from v4: do not bring these back
+
+Kyler rejected them on sight beside the current editor (DESIGN.md, "Set aside"), or they died with v6–v8:
+- the floating plates (the rows' plate, the Save plate, the map/view plates, the panel column at 316px, the one-width
+  right column at 196px, the compass plate, the water plate) and the v5 token set (plate and cell measurements, the
+  wood colours, `cream`, the 12px grid);
+- the grouped shelf and the shelf on the right (the palette stays docked on the left, exactly dev's);
+- translucent controls (every control is solid, as on dev);
+- the colour roles: "one accent for lit, Save only", *action* for Generate, *selected* dimmer than lit, the quiet
+  cell; the current editor's mint for selected and lit is the rule;
+- the brand mark and "Dam Good Maps" in the header (v7's centred brand too), and Bitter as a wordmark face;
+- the view layers as pills, the forces' own band, the thin-at-rest plates that brighten on hover, the moments
+  (v4 §6), the "always a tool in hand" fourth line as mocked (see §4 on Select);
+- the chrome's scale-up on large screens (1.2, then 1.1: none);
+- the docked legend with its vertical tab, the legend opened by a view layer, and the legend's descriptive labels;
+- the map card's ratings (0b), the generation settings as sheets over the panel (v3), the panel collapsing to a strip;
+- the phone editing layout (v4-10..15): D185 holds (phones view-only) until Kyler says otherwise.
+
+### 4. Kept from v4, and where it lives
+
+- **The no-overlap and contrast tests:** `tests/e2e/layout.spec.ts` on `feature/page-proto` (v8; the complete one).
+- **Select always in hand** (v4-01, Kyler's choice at the v4 verdict: Select held when a map opens, Esc and X return
+  to it, a drag on the land marks an area, the right button and keys turn the view): a ruling and a mockup only; no
+  code exists on either branch. Build it in the paint slice (`src/editor/paint/`) when the editor's rows are wired.
+- **The checks list with Fix and Show:** dev's own (`src/editor/Header.tsx` `ChecksDot`, `src/editor/panels.tsx`
+  `Items` with `onFix`/`onShow`); the page adds the dot's words beside it (v7).
+- **File and its items:** the proto's `Header.tsx` (Open…, Save project, Download .timber, Clear everything, History,
+  About); the mockups also had Copy link, which Kyler never ruled on (open question).
+- **The nine states** (DESIGN.md, "The states", mockups 27–35, drawn in the v4 system): the first visit before a map
+  exists; generating (editing never waits); a map with problems (the dot's words and the list with Fix and Show);
+  a settings sheet (now a drawer section); the File menu; a force in hand with More; a selection with Select's line;
+  placing an object; a tooltip with its key cap. Which carry over: their content and behaviour (what each state
+  shows and allows). Which need redoing in the current look: all nine as pictures; none of the v4 drawings is a
+  reference for how they look. Pause water unavailable while settled carries over as built.
+- **The brush worker patch** (the milestone session's `docs/progress/naturalize/brushes-coalesce.patch`, from
+  `feature/naturalize` 647e45e1): applied on `feature/page` as `e97c8254` (pointer moves queue their points, one dab
+  per frame, the draft after the frame). It is not on `feature/page-proto`; apply it to the build branch (`git
+  apply --check` passed on dev at the time) and rerun `brush.spec`, `brushKit.spec`, `brushModes.spec`,
+  `forceKeys.spec`. `tools/bench-brush.ts` changed on the Naturalize branch and is the milestone session's: after the
+  patch its input-to-frame attribution reads zero samples; Kyler said leave it to them.
+- **The core wiring** on `feature/page` (`src/page/settings.tsx`, `Workspace.tsx`, `App.tsx`): the settings model
+  to a spec, Generate running the generator and replacing the map in the editor, the share link generating straight
+  into the editor, Open… and the file drop. The settings model and the generate-and-replace flow are reusable logic
+  behind the drawer; the workspace's layout is not.
+- **The D380 measurements** (production builds, this machine, not a quiet window; the PR needs a quiet-window run
+  before it merges): the new page at checkpoint 1: Generate 3.0–4.0 s at 128² and 26–43 s at 256²; opening the map
+  in the editor 0.1 s and 0.4–0.6 s; the first frame 0.65 s and 1.7 s. Old page vs new, the same way: no slowdown;
+  the new page is a little faster to editable because the editor's code loads beside the generation. Brush
+  benchmark (256² Raise, same GPU, three runs each, alternating): input-to-frame p50 8.0–8.2 ms old vs 7.1–8.1 ms
+  new; p95 10.1–10.7 vs 9.3–9.8; frame p99 6.0 ms both; commit after release 445–597 ms old vs 345–433 ms new; undo
+  17–23 ms both; 0 stroke mismatches both (the new page's stroke covered 1,493 tiles against 1,375: a bigger canvas).
+  The committed 2026-09-26 baseline (RTX 4080 SUPER, 1,011 tiles) was p50 4.5 / p95 7.2 ms, commit 162 ms, undo
+  8.4 ms; these runs were on a different GPU, so compare old against new, not against the baseline. The measuring
+  script is `docs/progress/compare.ts` on `feature/page`.
+
+### 5. Where the branches stand
+
+- **`feature/page`** (PR #163 into dev, draft, head `2e026884` + this handoff): 44 commits over dev. Built: the v4
+  workspace (set aside), the Editor.tsx split (merged to dev separately as #169), the two renderer edits (§6),
+  Bitter via `@fontsource/bitter` with its OFL licence (set aside with the brand; remove when the build lands),
+  the brush patch (`e97c8254`), the old page's unused files removed (`7c75c6a1`), retired terms "Refine this map"
+  and "Back to settings" (`4fc09a0a`), the tests moved to the one-window page (`tests/e2e/open.ts`,
+  `tools/wait-editor.ts`), EDITOR_PLAN §3's screen section, DESIGN.md and this file, the mockups and captures in
+  `docs/design/` (v3, v4 01–35, v6, v8). CI: the `test` job fails on the retired-terms test, two comments in the
+  milestone session's files (`src/worker/api.ts:93`, `src/worker/session.ts:915` say "Refine this map"); reported
+  to the milestone session, not fixed by this branch. Mergeable: CONFLICTING with dev (the three files above).
+  Uncommitted work: none.
+- **`feature/page-proto`** (`94392c45`, pushed; on `/preview/`): dev at `57dec313` plus the v8 prototype. The drawer
+  is inert (Generate does nothing; no generator, core or state wiring). Tests: `layout.spec.ts` green at the seven
+  sizes in every state (8.5 min); the unit suite 1,213 passed, 15 skipped, one failed: the heavy
+  `tests/contract/properties.test.ts` "the max preset (256²), seed 304, any › random operations…" hit its 640 s
+  timeout while the e2e run and the captures loaded the machine; a timeout, not a logic failure, in the core (the
+  milestone's); rerun it in a quiet window. The e2e specs that open the generator's view (`look*`, `legend`,
+  `viewAndHeader`'s refine helper and the rest of the milestone's e2e suite) are not run on this branch: the page
+  has no generator view, so they need the one-window opening (`tests/e2e/open.ts` on `feature/page`). Uncommitted
+  work: none (`.scratch/` is gitignored).
+- `/preview/` is the page session's slot (D396); the deploy workflow's `preview_ref` republishes it.
+
+### 6. What this work changes outside the editor, and why
+
+- `src/render3d/renderer.ts` (on `feature/page`, `858d1f70`; Kyler's yes for these two functions only):
+  `frameMap()` reads `--frame-left/top/right/bottom` (registered with `@property`) so the default view and Reset
+  view fit the whole map in the space the page's panels leave; `thumbnail()` frames each shelf picture tight to the
+  object with a pixel-alpha second pass, Slope viewed from below its ramp, so the pictures fill their tiles. With the
+  v8 layout the drawer lies over the map and nothing resizes, so `frameMap`'s insets may no longer be needed: keep
+  the function reading them, pass none, and drop the change if the build never sets them. `thumbnail()` stays (the
+  drawer's card and the palette use the pictures).
+- `src/render3d/palette.ts` (on `feature/page-proto`): the legend's labels are the names Kyler gave; nothing else.
+  `src/ui/legendMap.ts`: the keys by exact name. `src/ui/View3D.tsx`: the Legend-in-corner prop, the Flow toggle,
+  the lines' tooltips, the heading; the docked aside stays for `Preview3D`. The renderer session's branch touches
+  none of these; the milestone session owns `src/render3d/` otherwise, so say so in the PR.
+
+### 7. Open questions only Kyler can answer, each with the proposed default
+
+1. **The header below 1,219px** (the centred info meets a side group; 1,395px while the dot says "Checking, as the
+   water flows"; "Dam Good Map" with a ten-digit seed 1,263px and 1,439px). Default: the info drops its second
+   line first, then the name ellipsizes down to about 80px; below about 1,000px the dot's words give way to the dot
+   alone. Nothing built until he says.
+2. **Your maps' star** (the core keeps the last 30 unstarred maps; a star keeps one for good; `YourMapsStore.star`).
+   Default: no star in the row (he said no extras); a map's 31st-oldest drops silently; add the star later as a
+   small named control in the row if he wants it.
+3. **A new map's default name** (change 5). Default: the theme's name as today ("River Valley"), a renamed map
+   keeping its name through Generate only if the seed and settings are unchanged; a new generation gets the theme's
+   name again.
+4. **What Generate does to an edited map** (checkpoint 2's question): default: the current map is already in Your
+   maps (saved on every edit), so Generate replaces it without asking, and the row in Your maps brings it back.
+5. **Copy link in File** (in the v4 states, never ruled): default: include it (the share link is the page's way to
+   send a map), after Download .timber.
+6. **The drawer's width** (352px in the prototype, "the width its contents need"): default: keep 352px; Your maps'
+   rows truncate their names with an ellipsis before the size.
+7. **Phones** (D185): default: view-only stays; the drawer and the editor's rows are not laid out for phones.
+8. **The generator's view** (`Preview3D` with the docked legend) is dead code once the page opens every map in the
+   editor: default: remove it with the old page's files in the build's PR, with the milestone session's agreement.
+
 ## Checkpoints
 
 Each ends on `/preview/` with one checklist for Kyler's sitting. `dev` is merged into `feature/page` at least at every

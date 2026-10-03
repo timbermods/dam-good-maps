@@ -21,8 +21,10 @@ The page session records its design decisions here; the work is logged in
 
 ## The direction: Lamplight
 
-*Kyler accepted this look (v3 of its mockups, with six changes that are written in below) on 2026-10-02. No later
-checkpoint's look is built until he has accepted it.*
+*Kyler accepted this look (v3 of its mockups, with six changes that are written in below) on 2026-10-02, then set
+it aside the same day beside the current editor (17:36; "Set aside", below): the current editor's dark chrome,
+layout and states win, and Lamplight's colours, wood tokens and Bitter are history. What survives is in "The
+one-page editor" and the handoff in docs/progress/page.md.*
 
 **The goal (Kyler).** The layout feels seamless and easy to understand: a new player knows what everything is and
 where to find it at a glance, with nothing jumping, crowding or needing to be decoded.
@@ -157,9 +159,10 @@ checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was 
 - The versions strip, the legend and the trees line (checkpoint 2) and Your maps (checkpoint 3) are not built yet;
   the card shows the name, the map's premise and a quiet line of facts.
 
-## Proposed after checkpoint 1's sitting (v4): waiting for Kyler's verdict
+## Proposed after checkpoint 1's sitting (v4): set aside
 
-*Mockups only. Nothing here is built until Kyler accepts it; where he does, it moves into the sections above.*
+*History. Kyler set the floating-plate layout aside on 2026-10-02 ("Set aside", below); of this round only Select
+in hand (1) is kept, as a ruling to build on the current editor; the phone layout waits on D185.*
 
 Kyler's six notes on the preview (2026-10-02) and what the mockups propose for each. All on River Valley 4242 at
 128², the High look, framed by the page's own fit; the backdrops are the real page's renders.
@@ -237,6 +240,15 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 
 ## The one-page editor: the current editor's skeleton, refined (Kyler's verdict, 2026-10-02 17:36)
 
+**Status (2026-10-02 19:32): v8 approved for the build, with seven changes that go into the build** (the handoff in
+docs/progress/page.md lists them in full): no scale-up at any size and the `?ui` parameter removed; the right column
+13px wider so every legend line fits; the Badwater caption one line, "Badwater: dark brown · Contaminated soil:
+light brown"; the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
+(kept in Your maps, used by Save to Timberborn and the .timber file; a new map starts with a default name); Your
+maps at the drawer's foot (name and size, newest first, the current map marked, a click opens it; no stars or
+thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
+than the room above the water bar. Where this section says otherwise, the verdict wins.
+
 **The rule.** Wherever Kyler hasn't asked for a change, the current editor on dev wins: layout, spacing, sizes,
 colours and states. Where this document's v4 system conflicts with the current editor's look, the current editor
 wins. **Set aside from the v4 system:** its tokens (the plate and cell measurements, the wood colours), its colour
@@ -288,9 +300,8 @@ D380 work.
   the map never move; the toolbar, the minimap and the readout keep their place to the drawer's right edge and move
   with it as one block; the top-right group and the water bar never change.
 - **Solid chrome:** every control on the map (the readout and the water bar too) has the panel's solid background.
-- **Large screens:** from 1,800px wide the chrome scales up, the map does not. The scale is 1.1 (1.2 overshot,
-  Kyler 18:18); while he chooses, `?ui=1.0`, `1.05`, `1.1` or `1.15` on the preview's address sets it (a temporary
-  parameter in main.tsx, removed once he picks one).
+- **Large screens:** no scale-up at any size (Kyler, 19:32: `?ui=1.0`; v7's 1.2 and v8's 1.1 overshot). The
+  prototype's `?ui` parameter and its 1800px rule go in the build.
 - Pause water shows unavailable while the water is settled, never hidden.
 
 **Where the prototype still differs from dev, each with its reason** (the rest is dev by construction):
@@ -301,8 +312,8 @@ D380 work.
 5. The readout and the water bar on a solid background, as asked (dev's were 95% translucent).
 6. The view bar wraps before the top-right cluster instead of running under it at 1280 wide (a bug the no-overlap
    test found; dev reserved room for the compass alone).
-7. The chrome at 1.1× from 1800px wide (1.2 overshot), as asked; at 1920×1080 the map sits 12px further right and
-   0.7% smaller than dev's, since the scaled-up palette and header take that room.
+7. In the prototype only: the chrome at 1.1× from 1800px wide; the build has no scale-up (19:32), so at 1920 the
+   map sits exactly where dev's does.
 8. The right column: the Legend button, the legend panel over the map and no docked legend, as asked; the legend's
    names, as asked; the Badwater caption moved up above the minimap's place so it overlaps nothing (it sat on the
    readout's and the minimap's spot on dev).
@@ -318,8 +329,9 @@ docked on the left (pictures with their names beneath, in groups); the compact t
 the tools, the forces with their own treatment, the options; every control named, keys only in tooltips); the level
 control, Slow forces and Sound top-right; the minimap bottom-left; the readout where it is; its dark chrome, so the
 map leads. Its flaws are fixed: it scales up on large screens, the header's right end isn't crowded, the options row
-isn't cramped. Kept from the plates round: the tokens, colour roles, type scale and icon family, the no-overlap and
-contrast tests, Select in hand, the checks list, "File", the brush worker patch, the core wiring and the D380 work.
+isn't cramped. Kept from the plates round (as amended at 17:36 and 19:32: the tokens and colour roles are set aside too): the
+no-overlap and contrast tests, Select in hand, the checks list, "File", the brush worker patch, the core wiring and
+the D380 work.
 
 **Where the generator goes** is Kyler's choice between two mockups (`docs/design/editor-v6-*`, each beside the
 current editor at 1440×900 and 1920×1080): (1) "New map" in the header opens a full-height drawer on the left in
@@ -328,15 +340,16 @@ one click closing it; (2) two views of one page switched in the header, "New map
 with the settings column, a large preview, the card and the versions strip. In both, a share link still generates
 and opens straight in the editor.
 
-Where the refined editor departs from the current one: the header gains the brand mark and the facts line under the
-name, and "File" replaces the ⋯ menu; the checks' words sit beside the dot; the view layers are pills, lit when on,
-after the two camera buttons; the forces have their own band; the options row may take a second line; Pause water
-shows unavailable rather than hidden; the colour roles hold (lit for Save only, selected for on-states). The
-sections below record the plates round as history.
+Where the refined editor departs from the current one, as first proposed with the v6 mockups: the brand mark and
+the facts line in the header, "File" for ⋯, the checks' words beside the dot, the view layers as pills, the forces'
+own band, a second line for the options row, Pause water unavailable rather than hidden, the colour roles. Of these
+Kyler kept only the facts line, "File", the checks' words and Pause water (17:36); the brand mark went at 18:18; the
+pills, the band, the second line and the colour roles are set aside (the current editor wins). The sections below
+record the plates round as history.
 
 ## The system (v5, proposed with the v4 mockups 22–26): one set of tokens for every plate
 
-*Awaiting Kyler's yes. Once accepted it replaces the Tokens table above.*
+*History: set aside with the plates (2026-10-02). Its states' content (below) carries over; their look does not.*
 
 **Measurements.** One plate radius (10px), one cell radius (6px), one plate padding (4px), one cell height (32px),
 one cell gap (4px), one icon size (16px) with one gap to its label (6px), 12px from the window's edge and between
