@@ -33,6 +33,7 @@ import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps } from "../editor/Editor";
 import type { DrawerModel, YourMapRow } from "../editor/Drawer";
+import type { Section } from "../editor/drawer/settings";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, progressText, type Progress } from "./FirstLook";
 
@@ -134,12 +135,16 @@ export function App() {
   const [busy, setBusy] = useState(false);
   /** While a new map is made: its stage and first look. */
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [error, setError] = useState<string | null>(init.note ?? null);
+  const [error, setError] = useState<string | null>(null);
+  /** What a link said (made by another generator version, or with settings it couldn't keep). */
+  const [note, setNote] = useState<string | null>(init.note ?? null);
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [opened, setOpened] = useState<{ key: number; data: SessionOpen } | null>(null);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  /** The drawer's open settings sheet, kept when a new map replaces the open one. */
+  const [section, setSection] = useState<Section | null>(null);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
@@ -393,10 +398,10 @@ export function App() {
         // the map the page kept before Your maps (its autosave) joins Your maps once
         const saved = await storage.load().catch(() => null);
         if (saved) {
-          void storage.clear();
           try {
             const data = await generator.openProject(saved.bytes);
-            return void enterEditor(data, { kind: data.info.kind === "generated" ? "generated" : "import" });
+            enterEditor(data, { kind: data.info.kind === "generated" ? "generated" : "import" });
+            return void storage.clear();
           } catch {
             // (an autosave that can't be read: a new map instead)
           }
@@ -469,6 +474,8 @@ export function App() {
     maps: maps.map(rowOf),
     current: entry.current?.id ?? null,
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
+    section,
+    onSection: setSection,
   };
 
   const confirmDialog = confirm ? (
@@ -503,6 +510,13 @@ export function App() {
     <p class="error floating" role="alert">
       {error}
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setError(null)}>
+        ×
+      </button>
+    </p>
+  ) : note ? (
+    <p class="error floating quiet" role="status">
+      {note}
+      <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setNote(null)}>
         ×
       </button>
     </p>

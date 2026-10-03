@@ -33,6 +33,9 @@ export interface DrawerModel extends SettingsProps {
   /** The open map's row in Your maps. */
   current: string | null;
   onOpenMap(id: string): void;
+  /** The settings section open as a sheet, or none (the page keeps it across maps). */
+  section: Section | null;
+  onSection(section: Section | null): void;
 }
 
 export interface DrawerProps {
@@ -88,7 +91,8 @@ function NameField(p: { name: string; onRename(name: string): void }) {
 }
 
 export function Drawer({ model: m, info, icon }: DrawerProps) {
-  const [section, setSection] = useState<Section | null>(null);
+  const section = m.section;
+  const setSection = m.onSection;
   const sheet = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const opener = useRef<Section | null>(null);

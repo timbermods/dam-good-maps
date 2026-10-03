@@ -348,6 +348,11 @@
   height: 100vh;
 }
 
+.error.floating.quiet {
+  color: var(--ink);
+  font-weight: 400;
+}
+
 .error.floating {
   z-index: 11;
   display: flex;
