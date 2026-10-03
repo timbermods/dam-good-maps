@@ -900,6 +900,10 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
     force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
+  - A brush's land is drawn once a frame (`renderer.ts` `flushTerrain`): of the rectangles its updates named, only
+    the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
+    and tile data along each changed row's reach, the shadows over their bounds), the same as redoing the
+    rectangles.
   - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
     view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
