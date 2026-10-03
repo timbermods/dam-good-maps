@@ -60,6 +60,8 @@ export const GLACIATE_ADVANCE_SHARE = 0.75;
 /** A glacier's advance, in its steps (core/forces/glaciate/run.ts `ADVANCE_STEPS`; kept here so the
  *  page never loads the glacier's own code, and held equal to it by forceDriver.test). */
 export const GLACIATE_ADVANCE_STEPS = 30;
+/** All of a glacier's steps, its advance and its melt-back (run.ts's, held equal by forceDriver.test). */
+export const GLACIATE_STEPS = 50;
 
 /** How long a force's showing takes (ms), once it is worked out: its `total` steps at its own pace,
  *  compressed to Fast's two seconds from the gesture (`workedMs` already gone working it out, never
@@ -83,6 +85,22 @@ export function shownAt(verb: Verb, total: number, u: number): number {
   const a = Math.min(GLACIATE_ADVANCE_STEPS, total);
   const at = eased(GLACIATE_ADVANCE_SHARE);
   return w <= at ? (a * w) / at : a + ((total - a) * (w - at)) / (1 - at);
+}
+
+/** How far through a force's showing (0 to 1) it is once `steps` are shown: `shownAt`'s inverse (a
+ *  glacier's sounds keep to its eased showing by it, D374). */
+export function showingAt(verb: Verb, total: number, steps: number): number {
+  if (!(steps > 0)) return 0;
+  if (steps >= total) return 1;
+  if (verb !== "glaciate") return steps / total;
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 32; k++) {
+    const mid = (lo + hi) / 2;
+    if (shownAt(verb, total, mid) < steps) lo = mid;
+    else hi = mid;
+  }
+  return hi;
 }
 
 /** When the land is final, from the gesture (ms), as the driver plans it: the worked-out time plus

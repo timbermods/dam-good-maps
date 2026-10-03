@@ -9,7 +9,7 @@
 // Time is a stepped clock (D341): every pace and moment here is exact, never the machine's.
 
 import { describe, expect, it } from "vitest";
-import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, GLACIATE_ADVANCE_SHARE, GLACIATE_ADVANCE_STEPS, GLACIATE_SHOW_MS, MIN_SHOW_MS, paceOf, powerWord, shownAt, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
+import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, GLACIATE_ADVANCE_SHARE, GLACIATE_ADVANCE_STEPS, GLACIATE_SHOW_MS, GLACIATE_STEPS, showingAt, MIN_SHOW_MS, paceOf, powerWord, shownAt, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
 import { ADVANCE_STEPS, RETREAT_STEPS } from "../../src/core/forces/glaciate/run";
 import type { Verb } from "../../src/core/forces/op";
 import type { ForceFrame, ForceStarted } from "../../src/worker/session";
@@ -124,6 +124,9 @@ describe("the force driver", () => {
   it("a glacier's showing is its own 3.5 seconds once worked out, however long that took, eased, its advance three quarters of it (D374)", () => {
     const total = ADVANCE_STEPS + RETREAT_STEPS;
     expect(GLACIATE_ADVANCE_STEPS).toBe(ADVANCE_STEPS);
+    expect(GLACIATE_STEPS).toBe(total);
+    // (and back: how far through its showing a step is shown)
+    for (const steps of [0, 1, 15, 30, 31, 49, 50]) expect(shownAt("glaciate", total, showingAt("glaciate", total, steps))).toBeCloseTo(steps, 6);
     for (const worked of [0, 600, 1900, 4000]) {
       expect(showMs("glaciate", total, "fast", worked)).toBe(GLACIATE_SHOW_MS);
       expect(dueMs("glaciate", total, "fast", worked)).toBe(worked + GLACIATE_SHOW_MS);
