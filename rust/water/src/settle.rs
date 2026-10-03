@@ -394,7 +394,7 @@ impl CanonicalRun {
                 }
             }
             let closed = self.run.closed_basins(&self.sim);
-            let kept = keep_sealed(&mut self.sim, closed.as_deref(), &self.start_depth, &self.start_contamination, &self.stored.drained);
+            let kept = keep_sealed(&mut self.sim, &self.model, &self.stored, closed.as_deref(), &self.start_depth, &self.start_contamination);
             let sat = if kept {
                 Sim::new(self.model.clone(), Some(&self.sim.d), Some(&self.sim.c)).saturation()
             } else {
@@ -406,24 +406,206 @@ impl CanonicalRun {
     }
 }
 
-/// prefill.ts `keepSealed`: a sealed basin only evaporating is stored as it started.
-fn keep_sealed(sim: &mut Sim, closed: Option<&[u8]>, start_depth: &[f64], start_contamination: &[f64], drained: &[u32]) -> bool {
+/// prefill.ts `keepSealed`: a sealed basin only evaporating is stored with its stored lakes' water as the
+/// pre-fill started it, or, when that would not stand where it is, that water levelled into its hollow
+/// (`level_into`); other water in the basin (the pre-fill walk's) goes.
+fn keep_sealed(sim: &mut Sim, model: &Model, stored: &Stored, closed: Option<&[u8]>, start_depth: &[f64], start_contamination: &[f64]) -> bool {
     let Some(closed) = closed else { return false };
-    let mut skip = vec![0u8; sim.n];
-    for &i in drained {
-        skip[i as usize] = 1;
-    }
+    let (w, h, n) = (sim.w, sim.h, sim.n);
+    let lake = stored.kept_seeds(n).unwrap_or_else(|| vec![0u8; n]);
+    let floor = &model.floor;
+    let mut seen = vec![0u8; n];
+    let mut queue: Vec<usize> = Vec::with_capacity(n);
     let mut any = false;
-    for i in 0..sim.n {
-        if closed[i] == 0 || skip[i] != 0 {
+    for s in 0..n {
+        if closed[s] == 0 || seen[s] != 0 {
             continue;
         }
-        sim.d[i] = start_depth[i];
-        sim.c[i] = start_contamination[i];
-        for k in 0..4 {
-            sim.out[4 * i + k] = 0.0;
+        seen[s] = 1;
+        queue.clear();
+        queue.push(s);
+        let mut head = 0;
+        while head < queue.len() {
+            let c = queue[head];
+            head += 1;
+            let x = c % w;
+            let y = c / w;
+            if y > 0 && closed[c - w] != 0 && seen[c - w] == 0 {
+                seen[c - w] = 1;
+                queue.push(c - w);
+            }
+            if x > 0 && closed[c - 1] != 0 && seen[c - 1] == 0 {
+                seen[c - 1] = 1;
+                queue.push(c - 1);
+            }
+            if y < h - 1 && closed[c + w] != 0 && seen[c + w] == 0 {
+                seen[c + w] = 1;
+                queue.push(c + w);
+            }
+            if x < w - 1 && closed[c + 1] != 0 && seen[c + 1] == 0 {
+                seen[c + 1] = 1;
+                queue.push(c + 1);
+            }
+        }
+        let mut tiles = queue.clone();
+        tiles.sort_unstable();
+        let mut volume = 0.0;
+        let mut bad = 0.0;
+        let mut rests = true;
+        let mut top = f64::NEG_INFINITY;
+        let mut bottom = f64::INFINITY;
+        for &i in &tiles {
+            let d = if lake[i] != 0 { start_depth[i] } else { 0.0 };
+            if !(d > 0.0) {
+                continue;
+            }
+            volume += d;
+            bad += d * start_contamination[i];
+            let surface = floor[i] + d;
+            if surface > top {
+                top = surface;
+            }
+            if surface < bottom {
+                bottom = surface;
+            }
+            let x = i % w;
+            let y = i / w;
+            for k in 0..4 {
+                if !rests {
+                    break;
+                }
+                let nb = match k {
+                    0 => (y > 0).then(|| i - w),
+                    1 => (x > 0).then(|| i - 1),
+                    2 => (y < h - 1).then(|| i + w),
+                    _ => (x < w - 1).then(|| i + 1),
+                };
+                let Some(nb) = nb else { continue };
+                if lake[nb] != 0 && start_depth[nb] > 0.0 {
+                    continue;
+                }
+                let moves = if floor[nb] == floor[i] { d > crate::sim::SPILL } else { surface > floor[nb] + REST };
+                if moves {
+                    rests = false;
+                }
+            }
+        }
+        if top - bottom > REST {
+            rests = false;
+        }
+        let level = if rests || !(volume > 0.0) {
+            None
+        } else {
+            let seeds: Vec<usize> = tiles.iter().copied().filter(|&i| lake[i] != 0).collect();
+            Some(level_into(model, &seeds, volume))
+        };
+        for &i in &tiles {
+            let d = if rests && lake[i] != 0 { start_depth[i] } else { 0.0 };
+            sim.d[i] = d;
+            sim.c[i] = if d > 0.0 { start_contamination[i] } else { 0.0 };
+            for k in 0..4 {
+                sim.out[4 * i + k] = 0.0;
+            }
+        }
+        if let Some(level) = level {
+            let share = if volume > 0.0 { bad / volume } else { 0.0 };
+            for (i, d) in level {
+                sim.d[i] = d;
+                sim.c[i] = if lake[i] != 0 && start_depth[i] > 0.0 { start_contamination[i] } else { share };
+                for k in 0..4 {
+                    sim.out[4 * i + k] = 0.0;
+                }
+            }
         }
         any = true;
     }
     any
+}
+
+/// prefill.ts `REST`.
+const REST: f64 = 0.01;
+
+/// A heap entry ordered by key, then tile, smallest first (math/grid.ts `MinHeap`'s order).
+#[derive(PartialEq)]
+struct Entry(f64, usize);
+impl Eq for Entry {}
+impl PartialOrd for Entry {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
+impl Ord for Entry {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        o.0.total_cmp(&self.0).then(o.1.cmp(&self.1))
+    }
+}
+
+/// prefill.ts `levelInto`: `volume` poured into the hollow round `seeds`, levelled flat.
+fn level_into(m: &Model, seeds: &[usize], volume: f64) -> Vec<(usize, f64)> {
+    let (w, h) = (m.w, m.h);
+    let n = w * h;
+    let eff = |i: usize| m.floor[i] + m.dam.as_ref().map_or(0.0, |d| if d[i] >= 0.0 { d[i] } else { 0.0 });
+    let mut queued = vec![0u8; n];
+    let mut heap = std::collections::BinaryHeap::new();
+    for &i in seeds {
+        queued[i] = 1;
+        heap.push(Entry(eff(i), i));
+    }
+    let mut added: Vec<usize> = Vec::new();
+    let mut pass: Vec<f64> = Vec::new();
+    let mut count = 0.0;
+    let mut sum = 0.0;
+    let mut at = f64::NEG_INFINITY;
+    let mut level = f64::INFINITY;
+    let mut edge = f64::INFINITY;
+    while let Some(Entry(p, c)) = heap.pop() {
+        if p > at {
+            if edge < f64::INFINITY {
+                level = edge;
+                break;
+            }
+            if count > 0.0 && count * p - sum >= volume {
+                level = (volume + sum) / count;
+                break;
+            }
+            at = p;
+        }
+        let x = c % w;
+        let y = c / w;
+        if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+            edge = p;
+        }
+        added.push(c);
+        pass.push(p);
+        count += 1.0;
+        sum += eff(c);
+        for k in 0..4 {
+            let nb = match k {
+                0 => (y > 0).then(|| c - w),
+                1 => (x > 0).then(|| c - 1),
+                2 => (y < h - 1).then(|| c + w),
+                _ => (x < w - 1).then(|| c + 1),
+            };
+            let Some(nb) = nb else { continue };
+            if queued[nb] != 0 {
+                continue;
+            }
+            queued[nb] = 1;
+            let e = eff(nb);
+            heap.push(Entry(if e > p { e } else { p }, nb));
+        }
+    }
+    if level == f64::INFINITY {
+        level = if edge < f64::INFINITY { edge } else if count > 0.0 { (volume + sum) / count } else { 0.0 };
+    }
+    let mut out: Vec<(usize, f64)> = Vec::new();
+    for k in 0..added.len() {
+        let i = added[k];
+        let d = level - eff(i);
+        if pass[k] < level && d > 0.0 {
+            out.push((i, d));
+        }
+    }
+    out.sort_unstable_by_key(|e| e.0);
+    out
 }

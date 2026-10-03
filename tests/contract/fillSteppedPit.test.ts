@@ -13,11 +13,11 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MapSession } from "../../../src/core/doc/session";
-import { planFill } from "../../../src/core/doc/waterEdits";
-import { readTimber } from "../../../src/core/format/timber";
-import { storedWater } from "../../../src/core/format/world";
-import { gameRun, rect, tilesOf } from "./synthetic";
+import { MapSession } from "../../src/core/doc/session";
+import { planFill } from "../../src/core/doc/waterEdits";
+import { readTimber } from "../../src/core/format/timber";
+import { storedWater } from "../../src/core/format/world";
+import { gameRun, rect, tilesOf } from "./gateWater";
 
 describe("a Fill below the rim of a stepped pit on a dry plateau (D385, D394, D413)", () => {
   it("M9b's River Valley 96² seed 34: a 5×5 pit one level deep with a 3×3 pit a level deeper in it, filled to the inner pit's rim; only the Fill's 9 tiles hold water, at its level", () => {

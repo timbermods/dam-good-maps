@@ -2,20 +2,20 @@
 // open selection"): "While a selection is open, the brushes, the forces and a brush's Clear work only
 // inside it; everything outside is locked, exactly as it is". A force that breaks the start's ground
 // carries the start to level ground in the same step (D257), clearing the generation's objects under
-// its new place (`startClears`). Today that carry ignores the working area: the start lands on the
-// locked land outside it, and the trees standing there are removed. The same with the layer showing
-// (D207, "the ground above it was left as it was"): the start is carried onto ground above the layer,
-// which the player cannot see, and the trees there are removed.
+// its new place (`startClears`). The release gate's bug hunt (D385) found that carry ignoring the
+// working area: the start landed on the locked land outside it, and the trees standing there were
+// removed. The same with the layer showing (D207, "the ground above it was left as it was"): the
+// start was carried onto ground above the layer, which the player cannot see.
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../../src/core/doc/document";
-import { MapSession } from "../../../src/core/doc/session";
-import { areaDepth } from "../../../src/core/features/raster/brush";
-import { CRATER_DEFAULTS } from "../../../src/core/forces/craterize";
-import { ERUPT_DEFAULTS } from "../../../src/core/forces/erupt";
-import { makeSpec } from "../../../src/core/spec/mapspec";
-import { runGenerate } from "../../../src/worker/api";
-import * as ed from "../../../src/worker/session";
+import { decodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import { areaDepth } from "../../src/core/features/raster/brush";
+import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
+import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 

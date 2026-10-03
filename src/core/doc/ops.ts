@@ -437,6 +437,26 @@ export interface OpContext {
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
   water?: { model: WaterModel; depth: ArrayLike<number> };
+  /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
+   *  clamped (D342 (4)). */
+  heights?: ArrayLike<number>;
+  /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
+  startObjects?: ReadonlyMap<string, string>;
+}
+
+/** Why an object's components would not load or build: a source's strength must be a number, 0 or
+ *  more. Null when they are fine. */
+function componentProblem(components: Record<string, unknown>): string | null {
+  for (const key of ["WaterSource", "BadwaterSource"]) {
+    const c = components[key];
+    if (c === undefined) continue;
+    if (!c || typeof c !== "object") return `${key} must be an object`;
+    for (const field of ["SpecifiedStrength", "CurrentStrength"]) {
+      const v = (c as Record<string, unknown>)[field];
+      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v) && v >= 0)) return `${key}.${field} must be a number, 0 or more`;
+    }
+  }
+  return null;
 }
 
 /** Kinds a player can add in this version. */
@@ -589,6 +609,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
           if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
         }
       }
+      // (raised past the ceiling, a tile would stop short of what the step says)
+      if (ctx.heights && p.mode === "raise" && p.amount! > 0) {
+        for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
+          const h = ctx.heights[y * W + x];
+          if (h + p.amount! > CEILING) return [h >= CEILING ? `(${x}, ${y}) is at the ceiling (level ${CEILING}) already` : `(${x}, ${y}) would go above the ceiling (level ${CEILING})`];
+        }
+      }
       return [];
     }
     case "brush":
@@ -642,6 +669,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         const missing = (REQUIRED[p.template] ?? []).filter((c) => !(c in p.components!));
         if (missing.length) return [`${p.template} needs the components ${missing.join(", ")}`];
         if ("BlockObject" in p.components) return ["BlockObject comes from the operation's position"];
+        const bad = componentProblem(p.components);
+        if (bad) return [bad];
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
@@ -655,12 +684,18 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "deleteEntities": {
       if ("quiet" in op.params) return ["quiet is a carve's own"];
+      // (a start feature's own object goes with its feature, so a start can be placed again)
+      const start = op.params.entities.find((id) => ctx.startObjects?.has(id));
+      if (start) return [`the start is removed with its feature (deleteFeature ${ctx.startObjects!.get(start)})`];
       const missing = op.params.entities.filter((id) => !ctx.entityIds.has(id));
       return missing.length ? [`${missing.length} of the entities do not exist (${missing.slice(0, 3).join(", ")})`] : [];
     }
-    case "setEntityProps":
+    case "setEntityProps": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
-      return "BlockObject" in op.params.components ? ["BlockObject changes through moveEntity"] : [];
+      if ("BlockObject" in op.params.components) return ["BlockObject changes through moveEntity"];
+      const bad = componentProblem(op.params.components);
+      return bad ? [bad] : [];
+    }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":

@@ -7,15 +7,15 @@
 // bench's level is cut or filled to it, land the force never made.
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../../src/core/doc/document";
-import { MapSession } from "../../../src/core/doc/session";
-import { startMiddle } from "../../../src/core/doc/tools";
-import { CRATER_DEFAULTS } from "../../../src/core/forces/craterize";
-import { ERUPT_DEFAULTS } from "../../../src/core/forces/erupt";
-import { QUAKE_DEFAULTS } from "../../../src/core/forces/quake";
-import { makeSpec, type ThemeId } from "../../../src/core/spec/mapspec";
-import { runGenerate } from "../../../src/worker/api";
-import * as ed from "../../../src/worker/session";
+import { decodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import { startMiddle } from "../../src/core/doc/tools";
+import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
+import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
+import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 
 const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
@@ -42,17 +42,17 @@ async function beyondTheForce(theme: ThemeId, seed: number, req: (st: { x: numbe
 }
 
 describe("carrying the start leaves the force's land as the force made it (D257, D368 (9))", () => {
-  it("River valley 64², seed 11: a Quake Lift under the start carries it from (17, 19) to (17, 21); no tile the Lift left alone changes level (today (17, 19) rises from 1 to 6)", async () => {
+  it("River valley 64², seed 11: a Quake Lift under the start carries it from (17, 19); no tile the Lift left alone changes level (it was: (17, 19) rose from 1 to 6, the old bench gone)", async () => {
     const changed = await beyondTheForce("riverValley", 11, (st) => ({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "lift", power: 50 }, path: [{ x: Math.max(0, st.x - 15), y: st.y }, { x: Math.min(W - 1, st.x + 15), y: st.y + 1 }], side: 1, cut: null, natural: true }));
     expect(changed).toEqual([]);
   });
 
-  it("Canyon 64², seed 2: an Erupt (Power 40) beside the start carries it; no tile the eruption left alone changes level (today (22, 13) is cut from 7 to 2)", async () => {
+  it("Canyon 64², seed 2: an Erupt (Power 40) beside the start carries it; no tile the eruption left alone changes level (it was: (22, 13) cut from 7 to 2)", async () => {
     const changed = await beyondTheForce("canyon", 2, (st) => ({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 40 }, origin: [st.x + 2, st.y], cut: null, natural: true }));
     expect(changed).toEqual([]);
   });
 
-  it("Islands 64², seed 6: a Craterize (Power 40) beside the start carries it; no tile the impact left alone changes level (today (55, 49) drops from 2 to 1)", async () => {
+  it("Islands 64², seed 6: a Craterize (Power 40) beside the start carries it; no tile the impact left alone changes level (it was: (55, 49) dropped from 2 to 1)", async () => {
     const changed = await beyondTheForce("islands", 6, (st) => ({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 40 }, origin: [st.x + 2, st.y], cut: null, natural: true }));
     expect(changed).toEqual([]);
   });

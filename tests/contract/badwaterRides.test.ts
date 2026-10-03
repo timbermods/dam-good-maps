@@ -3,14 +3,15 @@
 // default). The core's brush operation (`brush` in ops.schema.json, D342: every change is an operation
 // the core validates and applies) does this only when its caller lists the source as a `rigid` piece;
 // the page works that out itself (src/editor/brushes.ts `rides`), so any other caller of the core
-// (Claude's steps, a script, the Rust port's tests) gets a stroke that leaves the source floating, a
-// load error the export refuses, with the operation accepted as valid.
+// (Claude's steps, a script, the Rust port's tests) got a stroke that left the source floating, a
+// load error the export refuses, accepted as valid (the release gate's bug hunt, D385). The session now
+// gives such a step again with the source riding whole (MapSession `rideTilted`; never refused, D270).
 
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { MapSession } from "../../../src/core/doc/session";
-import { generate } from "../../../src/core/gen/generate";
-import { makeSpec } from "../../../src/core/spec/mapspec";
+import type { EditOp } from "../../src/core/doc/ops";
+import { MapSession } from "../../src/core/doc/session";
+import { generate } from "../../src/core/gen/generate";
+import { makeSpec } from "../../src/core/spec/mapspec";
 
 describe("a brush stroke over a badwater source leaves it level, never floating (D249)", () => {
   it("Highlands 64², seed 3: a BadwaterSource at (27, 5); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {

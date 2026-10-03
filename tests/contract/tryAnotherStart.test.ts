@@ -3,17 +3,17 @@
 // original land" (worker `forceAgain`). A force that breaks the start's ground carries the start in
 // the same undo step (D257), clearing the generation's objects under its new place (`startClears`).
 // So Try another must replace that carry too: its map is the map a fresh run of the same try would
-// make. Today the first try's carry stays: the start stays where the first try put it, and the
-// objects its carry cleared stay gone, though the new try never touched them.
+// make. (The release gate's bug hunt found the first try's carry staying: the start stayed where the
+// first try put it, and the objects its carry cleared stayed gone.)
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../../src/core/doc/document";
-import { MapSession } from "../../../src/core/doc/session";
-import { startMiddle } from "../../../src/core/doc/tools";
-import { QUAKE_DEFAULTS } from "../../../src/core/forces/quake";
-import { makeSpec } from "../../../src/core/spec/mapspec";
-import { runGenerate } from "../../../src/worker/api";
-import * as ed from "../../../src/worker/session";
+import { decodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import { startMiddle } from "../../src/core/doc/tools";
+import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 function play(): boolean {

@@ -198,7 +198,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
-  where it stands well, in the same undo step; the quiet dot then says what the force left short at the start
+  where it stands well, in the same undo step: its bench's ground level already, inside the working area and at or
+  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Try
+  another replaces that carry with the force. The quiet dot then says what the force left short at the start
   (water, wood and berries, the starting-logs floor), each with its one-click fix (move the start, plant berry
   bushes, plant oaks).
 - **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
@@ -410,7 +412,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D264: Ctrl+A); hovering any action tints the land it would change; Esc or X closes. **Max water depth** (1 up to
   the map's deepest water) raises the ground under the selection's water wherever it is deeper than the number,
   then the water re-settles (a lake keeps its surface and becomes that deep; a river ends about that deep, and the
-  report says so if any ended deeper). Select's actions are exact, with hard edges; objects and sources ride changed
+  report says so if any ended deeper). Select's actions are exact, with hard edges (a lone tile too), and a Raise
+  that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
@@ -691,7 +694,8 @@ stroke records the options it used:
 - Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
-  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249; the working
+  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
+  doesn't list one it would leave off level ground gets it riding whole, never a refusal, D270); the working
   area it was painted in, `area`, D254: runs, feathered; `steps`; a pen's pressure per dab). Strokes saved before
   D322, D270 or D247 (precise or ramped strokes with their `slopes`, Smooth's walkable flag, soft Flatten's level)
   replay exactly (`tests/contract/strokesBeforeD322.test.ts`).
@@ -712,7 +716,9 @@ the stored base, D37). The log replays only onto that generation: undo and redo,
 links. **Edits never replay onto new land** (D336): an edit only means something on the land it was made for, so
 nothing replaces a document's generation under its log, at any size or setting, and there is no rebuild with a newer
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
-away; an older map opens exactly as it was saved.
+away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
+its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
 
 **Stable identity** is `PLAN.md` §19.4: generated features are hashed from the seed, their kind and their role in the
 plan, the player's and Claude's placements get a stored UUID, entities are hashed from their owning feature. Edits
@@ -794,7 +800,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
     the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
-    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
+    the lake is written with the water its carve kept, levelled into its hollow if it would not stand as kept
+    (`PLAN.md` §10, §11.3).
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
@@ -806,7 +813,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     off the map, the level is at or below the ground); its `days` come from the game's evaporation
     (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
-    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
+    edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -820,7 +828,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
     pre-fill's water on the changed ground only where a running source, a stored lake or the kept water reaches it
     (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
-    §10; `tests/contract/waterFromNowhere.test.ts`).
+    §10; `tests/contract/waterFromNowhere.test.ts`). The preview does the same once its water stops: the
+    pre-fill's water that only the walk's thin water joined to fed water goes, and the water runs on from there.
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

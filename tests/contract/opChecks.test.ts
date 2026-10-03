@@ -2,8 +2,8 @@
 // is invalid (D342 (1), (4)). An operation the check accepts must apply cleanly; one that would leave
 // the map in a state no tool can get out of is refused.
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { reopen, session } from "./helpers";
+import type { EditOp } from "../../src/core/doc/ops";
+import { reopen, session } from "./gateHelpers";
 
 describe("operations the check accepts", () => {
   it("a source's strength that is not a number is refused, not accepted into the log (where the session then throws and its project never reopens)", () => {
@@ -30,7 +30,7 @@ describe("operations the check accepts", () => {
     const del: EditOp = { op: "deleteEntities", params: { entities: [start.id] } };
     const errors = s.check(del);
     if (errors.length) return;
-    // accepted today: the map then has no start, and every way to put one back is refused
+    // (it was accepted: the map then had no start, and every way to put one back was refused)
     s.apply(del);
     expect(s.built.entities.some((e) => e.template === "StartingLocation")).toBe(false);
     const f = s.features.find((x) => x.kind === "start")!;

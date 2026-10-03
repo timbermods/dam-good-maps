@@ -17,6 +17,7 @@ import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type Base
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
+import { entityTiles } from "../features/edits";
 import { limitRuns, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -123,7 +124,8 @@ export class MapSession {
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
   private snaps = new Map<number, BuildResult>();
-  private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private baseCache: { key: BaseMap; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private frozenCache: { key: BaseLayer; touched: string; layer: BaseLayer } | null = null;
   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
@@ -366,7 +368,7 @@ export class MapSession {
     const base = live ? null : this.baseStuff().terrain;
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
     // a generated map's field: the build's integrity pass compares with it (M9a)
-    const field = live ? (this.input().field ?? null) : null;
+    const field = this.mode !== "import" ? (this.input().field ?? null) : null;
     return {
       field: field ? field.heights.slice() : null,
       top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
@@ -435,6 +437,16 @@ export class MapSession {
     return encodeProject(this.document, level);
   }
 
+  /** Every object id the document has used: the objects standing and every object an operation
+   *  placed, though removed since (a force's springs, a placed object). A new object takes none of
+   *  them (the operations' check refuses them). */
+  usedEntityIds(): ReadonlySet<string> {
+    const ids = new Set<string>();
+    for (const e of this.cur.entities) ids.add(e.id);
+    for (const e of this.st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
+    return ids;
+  }
+
   /** Operations that have no effect now, and why. */
   orphans(): DocOrphan[] {
     const bySeq = new Map(this.log.map((o) => [o.seq, o]));
@@ -443,15 +455,6 @@ export class MapSession {
     for (const o of this.cur.orphans) {
       const op = bySeq.get(o.seq);
       if (op) out.push({ seq: o.seq, op: op.op, label: labelOf(op), reason: o.reason });
-    }
-    if (this.mode === "frozen") {
-      const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-      for (const o of this.log) {
-        const target = o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature" ? o.params.id : null;
-        if (target && frozen.has(target) && !o.orphaned) {
-          out.push({ seq: o.seq, op: o.op, label: labelOf(o), reason: `the map keeps what generator ${this.gen.generatorVersion} made as it was saved` });
-        }
-      }
     }
     return out.sort((a, b) => a.seq - b.seq);
   }
@@ -482,10 +485,14 @@ export class MapSession {
     const slopeTiles = new Set<number>();
     const starts = new Set(this.st.features.filter((f) => f.kind === "start").map((f) => f.id));
     let otherStarts = 0;
+    const startObjects = new Map<string, string>();
     for (const e of this.cur.entities) {
       entityIds.add(e.id);
       if (e.template === "Slope") slopeTiles.add(e.y * W + e.x);
-      else if (e.template === "StartingLocation" && !starts.has(e.owner)) otherStarts++;
+      else if (e.template === "StartingLocation") {
+        if (starts.has(e.owner)) startObjects.set(e.id, e.owner);
+        else otherStarts++;
+      }
     }
     const errors = validateOp(op, {
       state: this.st,
@@ -497,6 +504,8 @@ export class MapSession {
       lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
       otherStarts,
       water: this.waterNow(),
+      heights: this.cur.heights,
+      startObjects,
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -504,27 +513,70 @@ export class MapSession {
         return entityProblem(this, { template, x: p.x, y: p.y, orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
       },
     });
-    if (errors.length || this.mode !== "frozen") return errors;
-    const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-    const target = op.op === "updateFeature" || op.op === "deleteFeature" || op.op === "reorderFeature" ? op.params.id : null;
-    if (target && frozen.has(target)) return [`this map keeps what generator ${this.gen.generatorVersion} made as it was saved`];
-    return [];
+    return errors;
   }
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    const before = this.cur;
+    const mark = this.mark();
+    const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
+    const again = this.rideTilted([op], before, mark, seq);
+    if (again) return this.ridden(() => this.apply(again[0], origin, label));
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
+  }
+
+  /** A step whose brush stroke left a source of several tiles (a BadwaterSource) off level ground,
+   *  its ground changed under it, is taken back and given again with that source riding the stroke
+   *  whole (its rectangle among the stroke's `rigid` pieces, taking its middle tile's level): D249,
+   *  a source rides the ground under a brush, never left floating (the game would not load it), and
+   *  D270, a brush stroke over a source is never refused. The page lists the pieces that ride; this
+   *  covers any other caller of the operation. The operations to give again, or null when the step
+   *  stands (it is never given again twice). */
+  private rideTilted(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark, seq: number): EditOp[] | null {
+    if (this.riding || !ops.some((o) => o.op === "brush")) return null;
+    const { W, H } = this.cur;
+    const now = this.cur.heights;
+    const rects: [number, number, number, number][] = [];
+    for (const e of this.cur.entities) {
+      if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+      const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+      const tiles = cells.map(([x, y]) => y * W + x);
+      if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
+      if (!tiles.some((i) => before.heights[i] !== now[i])) continue;
+      const xs = cells.map(([x]) => x);
+      const ys = cells.map(([, y]) => y);
+      rects.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+    }
+    if (!rects.length) return null;
+    const step = this.stepSince(mark);
+    if (!step || !this.takeBack(step)) return null;
+    this.seqNext = seq;
+    return ops.map((o) => (o.op === "brush" ? { ...o, params: { ...o.params, rigid: [...(o.params.rigid ?? []), ...rects] } } : o));
+  }
+
+  private riding = false;
+  private ridden(give: () => ApplyResult): ApplyResult {
+    this.riding = true;
+    try {
+      return give();
+    } finally {
+      this.riding = false;
+    }
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const before = this.cur;
+    const mark = this.mark();
+    const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
       const errors = this.check(op);
@@ -542,6 +594,8 @@ export class MapSession {
     }
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
+    const again = this.rideTilted(ops, before, mark, seq);
+    if (again) return this.ridden(() => this.applyAll(again, origin, label));
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
@@ -622,6 +676,11 @@ export class MapSession {
     return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
   }
 
+  /** The operations of the latest step on the history (empty when there is none). */
+  lastStepOps(): readonly AppliedOp[] {
+    return this.undoStack.at(-1)?.ops ?? [];
+  }
+
   /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
   stepSince(mark: HistoryMark): HistoryMark | null {
     if (this.undoStack.length !== mark.depth + 1 || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return null;
@@ -659,9 +718,8 @@ export class MapSession {
   // ------------------------------------------------------------------------------ building
 
   private baseStuff(): { layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } {
-    const frozen = this.mode === "frozen";
     const c = this.baseCache;
-    if (c && c.key === this.gen.base && c.frozen === frozen) return c;
+    if (c && c.key === this.gen.base) return c;
     const terrain = baseTerrain(this.gen.base);
     const file = fileFromBase(this.gen.base, terrain);
     const owners = this.gen.base.owners;
@@ -669,11 +727,32 @@ export class MapSession {
       heights: terrain.heights,
       columns: terrain.columns,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
-      frozen: frozen ? new Set(this.gen.baseFeatures.map((f) => f.id)) : undefined,
       water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
     };
-    this.baseCache = { key: this.gen.base, frozen, layer, terrain, file };
+    this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
+  }
+
+  /** A stored generation opened by a newer generator (D336 (2): it opens exactly as it was saved,
+   *  edits included): the stored map is the ground and holds every generated feature, except the
+   *  ones the log changed, deleted or reordered. Those leave the stored map, their objects with
+   *  them, and are built as they now say, as they were when the edit was made; the rest stay as the
+   *  generator that made them built them. */
+  private frozenLayer(): BaseLayer {
+    const layer = this.baseStuff().layer;
+    const ids = new Set(this.gen.baseFeatures.map((f) => f.id));
+    const touched = new Set<string>();
+    for (const o of this.log) {
+      if (o.orphaned || (o.op !== "updateFeature" && o.op !== "deleteFeature" && o.op !== "reorderFeature")) continue;
+      if (ids.has(o.params.id)) touched.add(o.params.id);
+    }
+    const key = [...touched].sort().join(",");
+    const c = this.frozenCache;
+    if (c && c.key === layer && c.touched === key) return c.layer;
+    for (const id of touched) ids.delete(id);
+    const frozen: BaseLayer = { ...layer, frozen: ids, entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
+    this.frozenCache = { key: layer, touched: key, layer: frozen };
+    return frozen;
   }
 
   private keptLayer(): LockedLayer | null {
@@ -691,9 +770,12 @@ export class MapSession {
   }
 
   private input(): BuildInput {
-    const live = this.mode === "live";
-    const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
+    const mode = this.mode;
+    const live = mode === "live";
+    const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
+    // (a frozen generation takes the field too: the features read back from it, so one the player
+    // changed is not carved again unless its shape changed, and a tall map's top)
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable

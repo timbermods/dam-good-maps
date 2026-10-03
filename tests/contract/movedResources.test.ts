@@ -4,10 +4,10 @@
 // opens to (saving and reopening a map exactly as left), and the one the same operations give in a
 // fresh session (D366).
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import type { MapSession } from "../../../src/core/doc/session";
-import { moveEdit } from "../../../src/core/doc/tools";
-import { reopen, session, sha } from "./helpers";
+import type { EditOp } from "../../src/core/doc/ops";
+import type { MapSession } from "../../src/core/doc/session";
+import { moveEdit } from "../../src/core/doc/tools";
+import { reopen, session, sha } from "./gateHelpers";
 
 const W = 96;
 const owned = (s: MapSession, id: string) => s.built.entities.filter((e) => e.owner === id).length;
@@ -22,7 +22,7 @@ describe("a generated resource feature the player changes", () => {
     if (!m.ok) return;
     expect(s.applyAll(m.ops, "user", m.label).ok).toBe(true);
     const again = reopen(s);
-    // today the session shows 18 bushes and the reopened project 23
+    // (before #194 the session showed 18 bushes and the reopened project 23)
     expect(owned(s, PATCH)).toBe(owned(again, PATCH));
     expect(sha(s.exportTimber().bytes)).toBe(sha(again.exportTimber().bytes));
   });
@@ -36,8 +36,8 @@ describe("a generated resource feature the player changes", () => {
     const s = session(11, W);
     expect(s.apply(first).ok).toBe(true);
     expect(s.apply(density).ok).toBe(true);
-    // today the session keeps all 15 generated oaks (the change is ignored) while the session without
-    // the earlier edit and the reopened project build 6
+    // (before #194 the session kept all 15 generated oaks, the change ignored, while the session
+    // without the earlier edit and the reopened project built 6)
     expect(owned(s, FOREST)).toBe(owned(alone, FOREST));
     expect(owned(s, FOREST)).toBe(owned(reopen(s), FOREST));
   });

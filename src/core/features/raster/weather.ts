@@ -236,7 +236,12 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
         const g = (box.y0 + y) * W + box.x0 + x;
         let v = Math.min(inp.top, h[k]);
-        if (inp.room) v = Math.max(h0[k] - inp.room[g], Math.min(h0[k] + inp.room[g], v));
+        // (the feather counts from the land when the stroke began: rule 3's dabs each start from the
+        // land the dabs before them left)
+        if (inp.room) {
+          const base = inp.origin ? inp.origin[g] : h0[k];
+          v = Math.max(base - inp.room[g], Math.min(base + inp.room[g], v));
+        }
         if (inp.low && v < h0[k]) v = Math.max(v, Math.min(h0[k], inp.low[g]));
         v = Math.max(lo[k], Math.min(wet[k], v));
         h[k] = v;
@@ -247,7 +252,22 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
       ref = u8("ref", n);
       for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) ref[y * bw + x] = inp.origin[(box.y0 + y) * W + box.x0 + x];
     }
-    keepOrder(h, h0, I, bw, bh, ring, w0, lo, wet, p, ref);
+    // (its repairs keep the feather too: within the levels the working area leaves each tile)
+    let klo = lo;
+    let khi = wet;
+    if (inp.room) {
+      klo = u8("keep.lo", n);
+      khi = u8("keep.hi", n);
+      for (let y = 0; y < bh; y++)
+        for (let x = 0; x < bw; x++) {
+          const k = y * bw + x;
+          const g = (box.y0 + y) * W + box.x0 + x;
+          const base = inp.origin ? inp.origin[g] : h0[k];
+          klo[k] = Math.max(lo[k], base - inp.room[g]);
+          khi[k] = Math.min(wet[k], base + inp.room[g]);
+        }
+    }
+    keepOrder(h, h0, I, bw, bh, ring, w0, klo, khi, p, ref);
   }
   let changed: Rect | null = null;
   for (let y = 0; y < bh; y++)
