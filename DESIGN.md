@@ -277,6 +277,9 @@ D380 work.
 7. The chrome at 1.2× from 1800px wide, as asked.
 8. The brand's name set in Bitter, the wordmark face accepted with Lamplight v3; the mark and the name are new, so
    dev has no look for them to keep. The rest of the header is the editor's own type.
+9. At 1920×1080 the map sits 23px further right and 1.3% smaller than dev's (measured from the captures): the
+   scaled-up palette is 35px wider and the header 13px taller, so the map's area is that much smaller. A
+   consequence of the 1.2 scale-up, as asked; the framing itself is dev's.
 
 ## Set aside: the floating plates (Kyler, 2026-10-02)
 
