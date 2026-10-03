@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D432), STATUS and HANDOFF.
+  free: D433), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft: its `DESIGN.md` and two directions so far. Its Editor.tsx split
   (#169) is merged into `dev` (dde77fb2). It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -90,7 +90,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 ## The release gate (D385–D387)
 
 The water and the editor's core must be perfect before the next release; the editor-core items and the coherence review that
-follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Islands no longer blocks the release: its safe version is accepted (D430). Real places in the gallery (D421) is done on its PR: the 33 places whose start reaches no fed water are hidden, `tools/real-places.ts` is fixed and the cards re-rendered. The settle fix (D413) is on dev (#175).
+follow are in [ROADMAP.md](../ROADMAP.md) ("Before the next release"). Islands no longer blocks the release: its safe version is accepted (D430, D432), with a known shortfall: 12 of 30 seeds
+at 128² have no island to expand to (5, 8, 9, 11, 12, 14, 17, 19, 20, 22, 24, 27), fixed by an Islands round after the release. Real places in the gallery (D421) is done on its PR: the 33 places whose start reaches no fed water are hidden, `tools/real-places.ts` is fixed and the cards re-rendered. The settle fix (D413) is on dev (#175).
 
 ## Probe batches
 

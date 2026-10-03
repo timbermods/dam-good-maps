@@ -1240,7 +1240,7 @@ the `.timber` in the artifact, whose downloads allowlist has no `.timber`).
 ## 20. Editor decisions
 
 These are the decisions in force, by topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](docs/archive/decisions.md); a number missing here is superseded or completed there.
-New decisions are written here once, under their topic, with the next free number (D432; only the milestone session hands out numbers), and move to the archive when superseded or completed.
+New decisions are written here once, under their topic, with the next free number (D433; only the milestone session hands out numbers), and move to the archive when superseded or completed.
 
 ### How we work (sessions, models, reviews, documents, merging, releases)
 
@@ -1325,6 +1325,7 @@ New decisions are written here once, under their topic, with the next free numbe
 - **D428** (with D411): An island start at 128² needs 1,200 walkable tiles (Buildable land's number), not 1,966 (12% of the map). Kyler, 2026-10-02.
 - **D429** (supersedes D423's "the start belongs on an island", D426's island start, and D428, which lapses with the grown variant): The start on an island is not required. What Kyler wants from Islands is islands to expand to: every map has at least one island large enough to build on, reachable from the start across water as the game allows. Kyler, 2026-10-02.
 - **D430** (with D407, D417): Islands releases in its safe version (all 30 seeds at 128² pass, the promise on 20, all three outcomes on 19); the grown and big-island variants are not adopted, their patches kept in `investigation/m9b/` as history. Islands no longer blocks M9b's release. Kyler, 2026-10-02.
+- **D432** (overrides D407 for this one point, with D429, D430): Islands releases as the safe version as it is. Its 12 seeds at 128² without a reachable island of 150+ tiles to expand to (5, 8, 9, 11, 12, 14, 17, 19, 20, 22, 24, 27; neck-joined land isn't counted; 8, 9, 20, 24 and 27 read as land with lakes and rivers, 19 as one lake in a near-square frame, on most others the islands touch the shore) are a known shortfall, fixed after the release by an Islands round measured by `investigation/m9b/islands-reach.ts`: islands kept apart from the shore, and layouts that read as lakes or rivers redrawn. Nothing changes on M9b's Islands code now. Kyler, 2026-10-02.
 
 ### Water
 

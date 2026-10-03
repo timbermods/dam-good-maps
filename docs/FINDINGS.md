@@ -194,6 +194,11 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   [pickplace-water2 REPORT](../investigation/pickplace-water2/REPORT.md).
 - **Names:** a name must point to a measured feature; choice is by rule priority, never random (this overrides PLAN §13's seeded
   tie-break). [names REPORT](../investigation/names/REPORT.md).
+- **Islands, islands to expand to** (M9b's safe version, seeds 1–30 at 128²; D432): 12 of 30 have no island of 150+ tiles
+  reachable from the start across at most 8 tiles of water at a time (5, 8, 9, 11, 12, 14, 17, 19, 20, 22, 24, 27); on the
+  other 18 the largest is 155–1,041 tiles; every start is on the shore. An island start at 128² needs about 1,500 tiles and 60
+  tiles end to end, which no layout tried kept with the promise near 20. `investigation/m9b/islands-reach.ts`, the table in
+  `docs/progress/m9b.md` on `feature/m9b`.
 - Independent spatial controls did not reliably widen useful variety (mixed by theme); not adopted. [techniques REPORT](../investigation/techniques/REPORT.md).
 
 ## Weather
