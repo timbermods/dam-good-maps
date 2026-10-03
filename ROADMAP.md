@@ -827,15 +827,15 @@ its stacked-dams scene (which predicts dry) is fixed first, and its calibration 
 operations; each browser rebuilds the map from it, so both see identical terrain and water (every change is a deterministic
 operation, D158, D342).
 
-- **Pure serverless, peer to peer** (WebRTC data channels): no server of ours or anyone's in the conversation.
-- **Joining is two copy-paste codes:** the host's **Invite** gives a code to send; the guest pastes it and gets a reply code
-  to send back; the host pastes the reply and they are connected. Codes are compressed as short as possible, with one-click
-  copy and each step plainly worded.
-- Only a public address-lookup (STUN) service is used across the internet, none on the same home network, and no relay; a
-  network that blocks the connection is told plainly. One player hosts and keeps the order of operations.
+- **Always through a relay, joined with a short room code** (D431, amends D362): every session goes through a managed TURN
+  relay (Cloudflare Realtime TURN the candidate), with no direct peer-to-peer path; the relay sees only encrypted traffic.
+  The host's **Invite** gives a short room code; the guest types or pastes it. A small serverless function (a Cloudflare
+  Worker the candidate) hands out short-lived relay credentials and passes the connection setup, never carries map data and
+  keeps nothing once connected. Codes are short-lived and single-use. If the relay or function is down, collaboration is
+  unavailable and the page says so plainly; editing alone is unaffected. One player hosts and keeps the order of operations.
 - **Open questions for when it starts:** undo with two people, and presence (the other player's cursor, tool and intended
   action).
-- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join works, with 324-character codes; the
+- **Findings from Codex's spike** (`investigation/collab-spike`, #109): the two-code join worked (324-character codes; superseded by D431, as are the short-codes findings, #150); the
   maps stayed identical over 523 mixed edits; rejoining sends the host's current map plus the edits since, never a replay of
   the whole history; forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never
   sent as precomputed results (a result worked out on an older map goes stale). Still unverified: connections across
