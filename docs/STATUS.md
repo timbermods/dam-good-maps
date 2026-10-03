@@ -48,7 +48,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 | Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound is not started |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
-| 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | Wiring waits for `dev` (D280) |
+| 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | The reference: its TypeScript stacked engine is never adopted; Codex ports it into the Rust water crate after the Rust water's adoption, then the foundations step wires the Rust engine in (D448) |
 | Real places, round 2 | `feature/real-places-2` | #35 | `-places` | Parked by Kyler (D319); CI red is expected |
 | Source groups, the rule | `feature/source-groups` | #79 draft | `-groups` | Redundant: `sourceGroups.ts` is already on `dev` |
 
