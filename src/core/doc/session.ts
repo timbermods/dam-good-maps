@@ -499,6 +499,7 @@ export class MapSession {
       lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
       otherStarts,
       water: this.waterNow(),
+      heights: this.cur.heights,
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;

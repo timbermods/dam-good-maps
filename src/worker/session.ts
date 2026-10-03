@@ -1569,6 +1569,8 @@ export function clearEverything(): SessionUpdate & { removed: number[] } {
 export function applySelection(ops: EditOp[], label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
+  ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
   const r = s.applyAll(ops, "user", label);
   if (!r.ok) return changed(s, false, r.errors, t0);
   if (startBrokenBy(s, new Set(tiles))) {

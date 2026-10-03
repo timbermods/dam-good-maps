@@ -13,7 +13,7 @@ const OPS: EditOp[] = [{"op": "addFeature", "params": {"feature": {"id": "0e3239
 
 describe("an imported map edited in the editor's water mode", () => {
   it("exports the same file as the same operations replayed canonically (a ruin field, then a Raise stroke)", () => {
-    // any .timber opened in the editor: here our own 64² map (seed 2), exported and opened again
+    // any .timber opened in the editor: here our own 64Â² map (seed 2), exported and opened again
     const bytes = map(2, 64).bytes;
     const editor = MapSession.importMap(bytes, "opened.timber");
     editor.setWaterMode("defer");

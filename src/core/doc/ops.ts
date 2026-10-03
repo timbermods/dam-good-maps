@@ -437,6 +437,9 @@ export interface OpContext {
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
   water?: { model: WaterModel; depth: ArrayLike<number> };
+  /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
+   *  clamped (D342 (4)). */
+  heights?: ArrayLike<number>;
 }
 
 /** Kinds a player can add in this version. */
@@ -587,6 +590,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
           if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
+        }
+      }
+      // (raised past the ceiling, a tile would stop short of what the step says)
+      if (ctx.heights && p.mode === "raise" && p.amount! > 0) {
+        for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
+          const h = ctx.heights[y * W + x];
+          if (h + p.amount! > CEILING) return [h >= CEILING ? `(${x}, ${y}) is at the ceiling (level ${CEILING}) already` : `(${x}, ${y}) would go above the ceiling (level ${CEILING})`];
         }
       }
       return [];

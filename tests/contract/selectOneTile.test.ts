@@ -1,19 +1,19 @@
 // Release gate (D385), Select's actions (D259, D264; EDITOR_PLAN "Select": "Select's actions are exact,
 // with hard edges ... each action is one undo step with a clear label"). They are `sculpt` operations
 // (src/editor/selection/useSelect.tsx builds them: raise and lower by `amount`, Set, Cut down and Fill
-// up as `flatten` to a `level`), without the operation's `exact` flag, so the build's integrity pass
-// (step 7: "remove single-tile pits and spikes") takes back what they did to a lone tile. A selection
-// of one tile, raised, lowered, cut down or filled up, is accepted as an undo step ("Raise 1 tiles by
-// 1") and changes nothing. (Delete's own "one level down" sculpt sets `exact` and keeps its pit.)
+// up as `flatten` to a `level`). Without the operation's `exact` flag, the build's integrity pass
+// (step 7: "remove single-tile pits and spikes") took back what they did to a lone tile (the release
+// gate's bug hunt, D385): a one-tile selection raised, lowered, cut down or filled up was an undo step
+// that changed nothing. The worker's applySelection now makes Select's sculpts exact.
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../../src/core/doc/document";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { MapSession } from "../../../src/core/doc/session";
-import { tilesToRuns } from "../../../src/core/math/grid";
-import { makeSpec } from "../../../src/core/spec/mapspec";
-import { runGenerate } from "../../../src/worker/api";
-import * as ed from "../../../src/worker/session";
+import { decodeProject } from "../../src/core/doc/document";
+import type { EditOp } from "../../src/core/doc/ops";
+import { MapSession } from "../../src/core/doc/session";
+import { tilesToRuns } from "../../src/core/math/grid";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { runGenerate } from "../../src/worker/api";
+import * as ed from "../../src/worker/session";
 
 const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));

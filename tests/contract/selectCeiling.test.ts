@@ -3,9 +3,9 @@
 // silently"). Select's Raise and Lower (the row's buttons, the Up and Down keys) send a `sculpt` of the
 // selection by 1 (useSelect.tsx); the ceiling is 22 (D244, CEILING) and the floor 0.
 import { describe, expect, it } from "vitest";
-import type { EditOp } from "../../../src/core/doc/ops";
-import { CEILING } from "../../../src/core/format/world";
-import { session } from "./helpers";
+import type { EditOp } from "../../src/core/doc/ops";
+import { CEILING } from "../../src/core/format/world";
+import { session } from "./gateHelpers";
 
 const W = 64;
 const box = (x0: number, y0: number, x1: number, y1: number): [number, number, number][] => {
@@ -24,7 +24,7 @@ describe("Select's Raise at the ceiling", () => {
     expect(before.every((v) => v === CEILING)).toBe(true);
     const raise: EditOp = { op: "sculpt", params: { mode: "raise", cells, amount: 1 } };
     const r = s.apply(raise);
-    // today: accepted, an undo step "Raise terrain" whose land is unchanged
+    // (it was accepted: an undo step "Raise terrain" whose land is unchanged)
     expect(r.ok && heightsIn(s.built.heights).join() === before.join()).toBe(false);
     expect(r.ok ? [] : r.errors).toHaveLength(1);
   });
