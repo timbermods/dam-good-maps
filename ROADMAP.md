@@ -52,7 +52,15 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    page session starts.
 2. **M9b and its adoption order** (section below): small starts, generation speed (round 1, then round 2), Lake Basin
    round 2, the settings round 2 last.
-3. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
+3. **The Rust adoptions** (D442, D381; ahead of the post-release list, except what the release gate needs): one `build`
+   sub-agent in its own worktree, in parallel with M9b, keeping CPU use reasonable while the page session runs its checks.
+   No speed re-timing gates (D441): a port is adopted when byte-identical (D366's checks, in CI) and passing the 6-cell
+   check (D435) where it applies. Firefox's speed is never measured (D440).
+   (a) Rust 1.90, the wasm32 target and the Rust build into CI and the setup command, with `portable.rs` (#171, narrowed);
+   (b) the Rust water (#156), native for batch jobs and in the browser, in every engine at every size, its TypeScript
+   tagged and deleted (D381); (c) the forces (#158) as soon as Codex's corpus reads ready; (d) the analysis (#157) and the
+   generator, after M9b's release. Details in "The Codex adoptions" below.
+4. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
    1. **The quick-click bug** (D378): Craterize clicked quickly sometimes skips the new crater's strike animation; the
       previous force should skip to its end while the new one plays in full. Check every force.
    2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378).
@@ -72,10 +80,9 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    8. **After the forces' Rust port:** a **Sources setting for every force** (Ride, the default; Keep; Clear) in More.
    9. **Check whether the README and the website need a line about the High look.**
    10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
-   11. **One quiet measuring window**, once Codex's current tasks land, timing every speed investigation in turn (the
-       faster settle, D359, among them), and also re-timing the improved Rust analysis in Chromium, WebKit and native
-       (D391) and multi-core water's Firefox numbers with the corrected optimizing-tier setup from
-       `investigation/rust-analysis/PROFILE_REPORT.md` (D393; the Firefox thread threshold of 256² and up rests on them).
+   11. **Tonight's quiet window** (2026-10-03, 02:00 Pacific; D414, D434) measures M9b and ends with the Naturalize bench.
+       No further quiet windows or long timing runs unless Kyler says one is critical (D439); the Rust analysis' re-time
+       and multi-core water's Firefox re-time are dropped (D440, D441).
    12. **Startup part 2's service worker** (D397): the one service worker (the caching and multi-core water's isolation),
        built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
        picker and parallel loading).
@@ -84,10 +91,10 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
        to expand to, reachable from the start across water as the game allows; islands kept apart from the shore, and layouts
        that read as lakes or rivers redrawn (today 12 of 30 seeds at 128² fall short); it reports, at 96² and 128², the
        3-island promise (96² holds on 2 of 20 today) and that measure (D433).
-4. **The Codex adoptions** (section below): the Rust water, the analysis (after M9b's release, D391) and the forces,
-   multi-core water, scaling round 4, generation speed.
+5. **The Codex adoptions** (section below): the Rust water, the analysis (after M9b's release, D391) and the forces
+   come first, as item 3 (D442); then multi-core water, scaling round 4, generation speed.
 
-**4. Then, in order**
+**6. Then, in order**
 
 1. **The parity batch** (#95; D337–D339) with **Crop map to selection** (D340).
 2. **The Weather view** (Drought and Badtide day by day, #73), which closes step 1 of D349's order.
@@ -151,32 +158,29 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   round 1, then round 2.
 - **The smoothness investigation** (#107, merged as an investigation, D398): paused, since Kyler sees no large-brush freeze on his own machine (the 3–4 s stall
   is most likely an artefact of measuring under 100% load). Its harness and findings are merged; none of its fixes are adopted. Its
-  harness is the gate that renderer R1 and moving water must pass, measured in a quiet window.
+  harness is the gate that renderer R1 and moving water must pass: the 6-cell check (D435).
 
 **To adopt**
-- **The Rust water** (#156, D381): the native build for batch jobs now (M9b's measures, theme measures, nightly checks),
-  without waiting for M9b's release. In the browser: Rust in Chromium and Firefox once the corrected comparison against
-  TypeScript confirms it (Firefox's earlier slowdown was the test harness: its debugger forced the baseline WebAssembly
-  compiler); Rust in WebKit for larger maps only (TypeScript still wins small maps there). Add Rust 1.90, the wasm32 target
-  and the Rust build to CI and the setup command.
+- **The Rust water** (#156, D381, D441, D442): the native build for batch jobs, and Rust in the browser in every engine
+  (Chromium, Firefox and WebKit) at every size, with no corrected comparison against TypeScript; its TypeScript is tagged
+  and deleted. Firefox's speed is not investigated and the Codex round on it is dropped (D440). Rust 1.90, the wasm32
+  target and the Rust build join CI and the setup command first (item 3a).
 - **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
-  after M9b's release with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's descriptive
-  rows stay on TypeScript. First the quiet measuring window re-times the improved port in Chromium, WebKit and native (only
-  Firefox was re-timed) and compares the full M9b batch (about 18.5 minutes on 16 threads on a loaded machine) against the
-  TypeScript batch.
-- **The Rust forces** (#158, D400, D437): round 2's speed is accepted, provisional until a quiet window. Adoption waits for
+  after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
+  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate.
+- **The Rust forces** (#158, D400, D437, D441): round 2's speed is accepted, with no provisional speed gate. Adoption follows as soon as #158 reads ready (D442 (c)), after
   round 3's identity corpus at 256² only (2,000 native and 2,000 Node-Wasm cases and 500 per browser engine, per force; Codex
-  runs it on Kyler's PC) and the open gates, under D381; nothing to do here until #158 reads ready. New forces (Erode first)
+  runs it on Kyler's PC) and the open gates, under D381; nothing to do here until #158 reads ready, then the 6-cell check applies. New forces (Erode first)
   are then built directly in Rust on the adopted port, never in TypeScript first (D438). Round 1's lesson applies to every port: share the map in typed memory, one call per
   operation, never serialized.
 - **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
   every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
   Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
-  maths never reaches a replay). Adopted only after a quiet-window timing shows no slowdown (D380).
+  maths never reaches a replay). Adopted first (D442 (a)), with no quiet-window timing (D441).
 - **Rust threads** (#168, D402): merged as an investigation and parked. Threaded Rust stays experimental until wasm
   atomics are stable in Rust; the TypeScript parallel water (#130) remains the multi-core path.
-- **Multi-core water** (#130): approved. Threads only where they help: 256² and up in Chromium and Firefox (Firefox always
-  measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
+- **Multi-core water** (#130): approved. Threads only where they help: 256² and up in Chromium and Firefox (Firefox's speed is
+  not re-timed, D440, D441), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
   WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`). Costs: one
   first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets becomes worth
   doing then) and about 35 MiB at 512².
@@ -190,7 +194,7 @@ below).
 
 ## The Rust order (D381)
 
-Performance is a requirement (D380), so the exact core moves to Rust in this order, each port byte-identical and tagged
+Performance is a requirement (D380), so the exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI and the 6-cell check where it applies, no speed re-timing, D441), each port byte-identical and tagged
 before its TypeScript is deleted: (1) the water settle (above); (2) the five released forces (their TypeScript tagged
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
 Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust; (5) the
@@ -820,7 +824,7 @@ replacing D287's guessed dam sites.
 The engine (`investigation/dam-sketch`, #159) is merged as an investigation, not adopted (D392). Adopting it needs two
 gates: (a) a calibration probe batch on the dedicated machine: a few sketched walls (a dam, a levee, a floodgate, a stacked
 wall) built in the game, comparing level, volume and dry-out day with the engine; (b) browser timings in a worker in
-Chromium, Firefox (the corrected optimizing-tier setup) and WebKit, at 128² and 256², while dragging a wall. Its Node numbers
+Chromium, Firefox and WebKit, at 128² and 256², while dragging a wall (a short benchmark, D439). Its Node numbers
 (first preview 16 / 67 ms, full fill 0.67 / 2.94 s, under shared load) support a progressive fill, not an instant answer.
 
 **Round 2** (#166, D403): merged as an investigation, not adopted; no round 3 before the release. When it resumes,
