@@ -100,6 +100,33 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 4. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
    spike's answer).
 
+## Decisions open for Kyler (word for word)
+
+1. **Byte-exact reopening (release gate, editor-core 1).** A project stores the unedited generated map plus the list of
+   edits, never the edited map, so every reopen rebuilds the edits with the code that's running. When the build or the
+   water changes between versions (M9b changes both), a project saved under 0.7.0 with any edit, the player's own strokes
+   included, can export slightly different bytes under 0.8.0. An unedited project stays exact. #196 keeps the edits (a
+   moved start stays moved, a deleted river stays gone) but can't make them byte-exact.
+   - **(a)** Store the built map in the project at each save. A project then opens exactly as saved under any version, and
+     later edits build on it. A project-format change; undo below the save point is either dropped or replays with the new
+     code and doesn't come back exactly. Matches D367 part 1 (opening a stored map loads its stored state). Recommended.
+   - **(b)** Keep what #196 does: the edits are kept and rebuilt by today's code, close but not guaranteed exact. D382
+     allows it (no outside users; Kyler's maps keep opening).
+   - **(c)** Versioned deploys (/v/<version>/, D285, in Later): an old project opens in its own version's code.
+2. **Undo after a reopen (release gate, editor-core 7).** After a reopen (Your maps, the autosave's recovery), one undo
+   takes back a single operation, not a whole step, because the project never stored which operations make one step.
+   - **(a)** Save the step grouping in the project (an optional field per logged operation: where its step begins, and the
+     step's label). Old projects open as today; an older app ignores the field. Recommended.
+   - **(b)** Keep today's behaviour and say so in EDITOR_PLAN.
+   - **(c)** A reopened map starts with no undo history (changes D1).
+3. **Water 4.** An imported map's pond that no source feeds: the live water keeps it, the canonical settle and every export
+   drop it. Which way should they agree: keep it (D260) or drop it (D385, D420)?
+4. **Lake Basin round 2:** the permission system refused the M9b agent's step to bring its ported patch onto feature/m9b
+   (flagged as integrating untrusted code). Allow it, or apply `investigation/m9b/quiet-window/lake-basin-round2.patch`
+   (on `chore/m9b-quiet-window`) yourself.
+5. **Naturalize's sound (D387 (5)):** its sound is chosen in `src/editor/juice/palette.ts` and `calibration.ts`, the page
+   session's files. The page session, or this session as a one-time exception?
+
 ## Waiting for Kyler
 
 1. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
