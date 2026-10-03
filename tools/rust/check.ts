@@ -7,6 +7,11 @@
 //     no libm, no transcendental intrinsics, no FMA, no relaxed arithmetic.
 //  3. Compares every function of rust/portable with src/core/math/portable.ts, bit for bit, natively and in
 //     WebAssembly under Node; with --engines also in Chromium, Firefox and WebKit (Playwright).
+//  4. The Rust water (rust/water; src/core/sim/waterWasm.ts, the committed module): the same canonical settle,
+//     byte for byte, natively (rust/target/release/water-batch, built by tools/rust/build.ts --native, else
+//     here), in Node's WebAssembly and with --engines in each engine, on the golden water fixtures and on
+//     generated maps with and without a stored lake and drained tiles. The scaffolding every later port uses
+//     (D444): native, Node-Wasm, Chromium, Firefox and WebKit give the same bytes.
 //
 //   npx tsx tools/rust/check.ts [--engines] [--jobs N]
 //
@@ -15,7 +20,14 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { gunzipSync, strFromU8 } from "fflate";
+import { generate } from "../../src/core/gen/generate";
 import * as portable from "../../src/core/math/portable";
+import { prefill } from "../../src/core/sim/prefill";
+import { canonicalBytesInWasm, decodeCanonical, encodeCanonicalJob } from "../../src/core/sim/rustWater";
+import type { Emitter, WaterModel } from "../../src/core/sim/water";
+import { WATER_WASM } from "../../src/core/sim/waterWasm";
+import { makeSpec } from "../../src/core/spec/mapspec";
 import { assertClean } from "./guard.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -26,7 +38,10 @@ const JOBS = String(jobsAt >= 0 ? args[jobsAt + 1] : (process.env.DGM_CARGO_JOBS
 const ENGINES = args.includes("--engines");
 
 /** The crates whose compiled output is audited, and the library each builds. Add every port here. */
-const CRATES = [{ pkg: "portable-check", lib: "portable_check" }];
+const CRATES = [
+  { pkg: "portable-check", lib: "portable_check" },
+  { pkg: "water", lib: "water" },
+];
 
 /** The functions in portable_eval's order (rust/portable-check/src/lib.rs). */
 const OPS = ["sin", "cos", "tan", "exp", "log", "log2", "pow", "hypot", "sqrt", "atan", "atan2", "tanh", "asinh", "asin", "acos", "rem"] as const;
@@ -173,6 +188,89 @@ const nodeMismatch = await compareInWasm(payload);
 if (nodeMismatch) throw new Error(`Node Wasm: ${nodeMismatch}`);
 console.log(`Node Wasm: ${vectors.length} vectors, the same bits`);
 
+// 4. the Rust water: the same canonical settle on every target
+/** A 53-bit hash of bytes (cyrb53: Math.imul and integer operations only), the same in Node and every page. */
+function hash53(b: Uint8Array): number {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < b.length; i++) {
+    h1 = Math.imul(h1 ^ b[i], 2654435761);
+    h2 = Math.imul(h2 ^ b[i], 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+const waterModels: [string, WaterModel][] = [];
+const golden = JSON.parse(strFromU8(gunzipSync(readFileSync(join(ROOT, "tests/golden/water.json.gz"))))) as {
+  fixtures: { name: string; W: number; H: number; floor: number[]; dam: number[] | null; emitters: Emitter[] }[];
+};
+for (const f of golden.fixtures) waterModels.push([`golden ${f.name}`, { W: f.W, H: f.H, floor: Float64Array.from(f.floor), dam: f.dam ? Float64Array.from(f.dam) : null, emitters: f.emitters }]);
+for (const theme of ["riverValley", "lakeBasin", "canyon"] as const) waterModels.push([`${theme} 96²`, generate(makeSpec({ seed: 1, size: { x: 96, y: 96 }, theme })).built.waterModel]);
+const waterJobs: { name: string; job: Uint8Array }[] = [];
+for (const [name, m] of waterModels) {
+  const start = prefill(m);
+  const job = encodeCanonicalJob(m, start.depth, start.contamination);
+  waterJobs.push({ name, job });
+  if (name.startsWith("golden")) continue;
+  // again with a stored lake and drained tiles from its settled water: the sealed settle and the removal
+  const settled = decodeCanonical(canonicalBytesInWasm(job), m.W * m.H);
+  const wet: number[] = [];
+  for (let i = 0; i < m.W * m.H; i++) if (settled.depth[i] > 0.001) wet.push(i);
+  const tiles = wet.slice(0, Math.floor(wet.length / 3));
+  const stored: WaterModel = {
+    ...m,
+    retained: [{ tiles, floor: tiles.map((i) => m.floor[i]), depth: tiles.map((i) => settled.depth[i]), contamination: tiles.map((i) => settled.contamination[i]) }],
+    drained: wet.slice(Math.floor((2 * wet.length) / 3)),
+  };
+  const s2 = prefill(stored);
+  waterJobs.push({ name: `${name} with stored water`, job: encodeCanonicalJob(stored, s2.depth, s2.contamination) });
+}
+const nodeWater = waterJobs.map((j) => hash53(canonicalBytesInWasm(j.job)));
+const waterBin = join(RUST, "target/release", process.platform === "win32" ? "water-batch.exe" : "water-batch");
+if (!existsSync(waterBin)) cargo(["build", "--release", "-j", JOBS, "-p", "water", "--bin", "water-batch"]);
+const framed = Buffer.concat(waterJobs.flatMap((j) => [Buffer.from(new Uint32Array([j.job.length]).buffer), Buffer.from(j.job)]));
+const nativeOut = execFileSync(waterBin, [], { input: framed, maxBuffer: 1 << 30, windowsHide: true });
+let at = 0;
+waterJobs.forEach((j, k) => {
+  const len = nativeOut.readUInt32LE(at);
+  const got = hash53(new Uint8Array(nativeOut.buffer, nativeOut.byteOffset + at + 4, len));
+  at += 4 + len;
+  if (got !== nodeWater[k]) throw new Error(`the Rust water differs natively and in Node's Wasm: ${j.name}`);
+});
+console.log(`the Rust water: ${waterJobs.length} canonical settles, the same bytes natively and in Node's Wasm`);
+
+/** Runs in each page, as plain source (no compiler helpers): the hashes of the canonical settles of the jobs
+ *  (base64) in the water's Wasm (base64), the same hash as hash53. */
+const WATER_IN_PAGE = `async ({ wasm, jobs }) => {
+  const decode = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const { instance } = await WebAssembly.instantiate(decode(wasm));
+  const x = instance.exports;
+  const out = [];
+  for (const j of jobs) {
+    const job = decode(j);
+    const ptr = x.water_alloc(job.length);
+    new Uint8Array(x.memory.buffer, ptr, job.length).set(job);
+    const lenPtr = x.water_alloc(4);
+    const res = x.water_canonical(ptr, job.length, lenPtr);
+    const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
+    const b = new Uint8Array(x.memory.buffer, res, len);
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < b.length; i++) {
+      h1 = Math.imul(h1 ^ b[i], 2654435761);
+      h2 = Math.imul(h2 ^ b[i], 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    out.push(4294967296 * (2097151 & h2) + (h1 >>> 0));
+    x.water_dealloc(res, len);
+    x.water_dealloc(lenPtr, 4);
+    x.water_dealloc(ptr, job.length);
+  }
+  return out;
+}`;
+const waterPayload = { wasm: WATER_WASM, jobs: waterJobs.map((j) => Buffer.from(j.job).toString("base64")) };
+
 if (ENGINES) {
   const playwright = await import("@playwright/test");
   for (const name of ["chromium", "firefox", "webkit"] as const) {
@@ -191,6 +289,11 @@ if (ENGINES) {
       const mismatch = await page.evaluate(compareInWasm, payload);
       if (mismatch) throw new Error(`${name} Wasm: ${mismatch}`);
       console.log(`${name} ${browser.version()} Wasm: ${vectors.length} vectors, the same bits`);
+      const hashes = (await page.evaluate(`(${WATER_IN_PAGE})(${JSON.stringify(waterPayload)})`)) as number[];
+      hashes.forEach((h, k) => {
+        if (h !== nodeWater[k]) throw new Error(`the Rust water differs in ${name}: ${waterJobs[k].name}`);
+      });
+      console.log(`${name}: the Rust water's ${waterJobs.length} canonical settles, the same bytes`);
     } finally {
       await browser.close();
     }

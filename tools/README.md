@@ -51,3 +51,8 @@ their IR, assembly and Wasm audited, and `rust/portable` against `src/core/math/
 Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's `rust` job runs it; `rust/README.md`
 has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
 tools (D401), run by `tests/unit/portable.test.ts`.
+
+The Rust water (wired, not switched on until M9b is on dev): `npx tsx tools/rust/build.ts [--native] [--check]`
+rebuilds its committed Wasm (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts`
+runs a process's canonical settles natively (`tools/batch.ts --native`); `npx tsx tools/rust/water-identity.ts`
+compares the Rust water with the app's water, three ways (the adoption's identity run).

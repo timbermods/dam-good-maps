@@ -208,10 +208,21 @@ export interface CanonicalWater extends SettleResult {
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
  *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
 export function canonicalSettle(m: WaterModel): CanonicalWater {
+  if (canonicalBackend) return canonicalBackend(m, prefill(m));
   const run = canonicalRun(m);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
+}
+
+/** Where `canonicalSettle` runs after its pre-fill when a batch job asks (tools/rust/native-water.ts: the
+ *  native Rust water, PLAN §20 D381), else null: here, with the Rust water in WebAssembly. Both give the
+ *  same bytes (tools/rust/water-identity.ts checks it in CI). */
+let canonicalBackend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null = null;
+
+/** Sets (or clears, with null) `canonicalSettle`'s backend; Node batch jobs only. */
+export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null): void {
+  canonicalBackend = backend;
 }
 
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
