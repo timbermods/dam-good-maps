@@ -41,6 +41,9 @@ maps the documents.
 
 - **Performance is a requirement (D380, `docs/PERFECT.md`):** every feature meets its speed budget before it ships; a speed
   regression blocks a merge like a failing test, measured in a quiet window.
+- **Speed checks take minutes (D439):** no multi-hour measurement runs (profiling sessions, long timing series, extra quiet
+  windows) unless Kyler says one is critical. Use the 6-cell smoothness check or a short benchmark of the thing changed;
+  correctness and byte-identity checks run in CI or as needed.
 - **Tooltips (D351, D361, D368):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an accurate
   tooltip: a short phrase that tells its purpose at a glance, with its shortcut at the end as a small key cap ("Carve a
   river" then a key cap 7); no second sentence, no technical detail, no key in brackets. Whoever changes a control's

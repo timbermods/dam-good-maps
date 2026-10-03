@@ -443,3 +443,8 @@
 .editor.drawer-open .layer-legend {
   margin-left: calc(var(--drawer-w, 352px) - var(--shelf-w, 177px));
 }
+
+/* the core's refusal of a name (a blank one), under the field */
+.drawer .name-problem {
+  color: var(--warn);
+}

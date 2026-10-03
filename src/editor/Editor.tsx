@@ -77,7 +77,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useStart(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
-  Object.assign(ed, useSave(ed, props.name));
+  Object.assign(ed, useSave(ed));
 
   return editorView(ed, props);
 }

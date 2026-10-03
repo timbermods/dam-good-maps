@@ -136,6 +136,7 @@ const api = {
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
+  setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
   describeTile: (x: number, y: number) => ed.describeTileAt(x, y),

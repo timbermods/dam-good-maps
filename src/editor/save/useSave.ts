@@ -4,7 +4,6 @@ import { proxy } from "comlink";
 import { saveFile, saveToTimberborn } from "../../platform";
 import type { CheckProgress } from "../../worker/session";
 import { plain } from "../panels";
-import { namedFile } from "../../core/gen/pack";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
@@ -19,20 +18,14 @@ export interface SaveSlice {
   importChanges: number;
 }
 
-/** The file's name: the worker's own (dgm-<theme>-<seed>, D345 B10) until the map is renamed, then the name
- *  Kyler gave it (`namedFile`). */
-function named(fileName: string, info: { name: string }, name: string, ext: string): string {
-  return name && name !== info.name ? namedFile(name).replace(/\.timber$/, ext) : fileName;
-}
-
-export function useSave(ed: Ed, name: string): SaveSlice {
+export function useSave(ed: Ed): SaveSlice {
   const { api, info, setMessage, setDotOpen, saving, setSaving, enqueue } = ed;
 
   // ------------------------------------------------------------------------------ export
 
   async function exportProject() {
     const p = await api.project();
-    saveFile(p.bytes, named(p.fileName, info, name, ".damgoodmaps.json"), "application/gzip");
+    saveFile(p.bytes, p.fileName, "application/gzip");
   }
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
@@ -51,7 +44,8 @@ export function useSave(ed: Ed, name: string): SaveSlice {
         setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
         return;
       }
-      const fileName = named(r.fileName, info, name, ".timber");
+      // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
+      const fileName = r.fileName;
       if (kind === "download") {
         saveFile(r.bytes, fileName);
         setMessage({ kind: "info", text: `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });

@@ -6,7 +6,7 @@
 // The snapshot is taken only when the save runs (`take`), so a burst of edits costs one project
 // file. Saves of one map never overlap: a change during a write is saved after it.
 
-import { withSize, type StoreResult, type YourMapEntry, type YourMapsStore } from "./yourMaps";
+import { withSize, withStoredName, type StoreResult, type YourMapEntry, type YourMapsStore } from "./yourMaps";
 
 export interface Snapshot {
   entry: YourMapEntry;
@@ -73,7 +73,7 @@ export class YourMapsSaver {
         let r: StoreResult;
         try {
           const s = await p.take();
-          r = await this.store.put(withSize(s.entry, s.project), s.project);
+          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project);
         } catch {
           r = { ok: false, reason: "unavailable" };
         }

@@ -14,13 +14,13 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D433), STATUS and HANDOFF.
+  free: D447), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
   session folds them into PLAN when its work merges. A control the core's items need is agreed through Kyler.
 - **The renderer session** (Opus 5.5, high; Kyler's PC; `feature/moving-water`) builds moving water and the Flow view, then
-  renderer R1. PR #165 is a draft with CI green; it merges on Kyler's yes. It never edits PLAN, STATUS or HANDOFF.
+  renderer R1. #165 is merged (247dd78a, D446) after its 6-cell check passed 6 of 6. It never edits PLAN, STATUS or HANDOFF.
 
 ## In flight
 
@@ -40,7 +40,6 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 |---|---|---|---|---|
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430, D432) and Delta (D416) accepted; re-pins done, CI green at 49d87d74 or later; the 840-map measures are running (96² and 128² done, 0 failing absolutes); then the quiet window and the D148 re-pins |
 | The page | `feature/page` | #163 draft | `-page` | Page session; the build is under way (see above) |
-| Moving water, Flow view, renderer R1 | `feature/moving-water` | #165 draft, green | Kyler's PC | Renderer session; waits for Kyler's yes |
 | Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound is not started |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
@@ -82,19 +81,36 @@ verdicts are in ROADMAP, "The Codex adoptions"):
    `docs/progress/m9b.md`).
 6. **Later:** the service worker for startup part 2 (D397), with multi-core water's adoption.
 
+## Queued after tonight's quiet window (02:00, then the Naturalize bench, D434)
+
+1. **A dev bug from the nightly suite:** a reopened project file loses the dead blueberry bushes that edits leave standing
+   (D425), so its export differs (`properties.test.ts`, all four presets; dev at 478fefad fails too).
+2. **An M9b bug:** after a force edit, a spring river's source row gets a new id (`groupIds`, #172), when the land shifts
+   the row a tile (`editSequences`, every theme on M9b's maps); a fix may move source ids in every file (D382 allows it).
+3. **M9b's Delta:** the water outcome misses on 5 of 20 at every size (planned river courses partly dry): trace the cause.
+4. **`pickStart`'s latent NaN** (src/core/gen/settler.ts) where a tile has no walkable-land label.
+5. **The gallery shows every Real place again** (D445).
+6. **The third waterView.spec flake** (line ~144, the selected source group not visible after a click; D341).
+7. **Resume:** the Rust adoptions (D442), M9b's release steps, #182, #184, #186 and #183 (merging as CI turns green).
+
 ## Waiting for Kyler
 
-1. **Your yes on #165**, after your look at moving water and its gate passing (D415).
-2. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything; this session pauses its heavy work for it.
-3. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
-4. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
-5. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+1. **The quiet window** (about 2 hours) runs at 2:00 on Saturday 2026-10-03 (Pacific; D414) and covers everything; this session pauses its heavy work for it.
+2. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+3. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
+4. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+
+5. **The Rust water and the artifact spike (D381, D442):** the spike page (`tests/e2e/spike.spec.ts`, M12-era, D277)
+   runs under the Claude artifact CSP, which refuses WebAssembly. Choose: (1) skip spike.spec with a note pointing at D277
+   and delete the TypeScript water; or (2) keep the TypeScript simulation as a no-Wasm fallback for that page only. Until
+   then the Rust water is adopted everywhere else and the TypeScript water stays for that page.
 
 ## The release gate (D385–D387)
 
 Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
 shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
-gallery (D421). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), not started);
+gallery (D421; amended by D445: show every place again, with a "No reachable water" note, queued after the quiet
+window, before the release). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), not started);
 **the coherence review** (D386), once Kyler is satisfied; and **M9b's own release steps** (the quiet window, the measures,
 the re-pins, the tag).
 

@@ -21,3 +21,5 @@ investigation/*/local/
 # The first-visit maps: built and checked at deploy, never committed (PLAN.md §20, D343)
 public/first-visit/
 .claude/settings.local.json
+# smooth: the renderer smoothness gate keeps builds, raw frames and state here (tools/smooth/README.md)
+tools/smooth/local/

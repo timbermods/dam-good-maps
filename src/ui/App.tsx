@@ -280,9 +280,17 @@ export function App() {
     saver.changed(entry.current.id, snapshot);
   }
 
-  function rename(n: string) {
-    nameRef.current = n;
-    setName(n);
+  /** Rename the map (D443): the core stores the name (never an operation, never an undo step) or refuses a
+   *  blank one with its own words, which the field shows; Your maps takes it with the next save. */
+  const [nameProblem, setNameProblem] = useState<string | null>(null);
+  async function rename(n: string) {
+    const { result, info } = await generator.setName(n);
+    if (!result.ok) return setNameProblem(result.reason);
+    setNameProblem(null);
+    nameRef.current = result.name;
+    infoRef.current = info;
+    setName(result.name);
+    setSession(info);
     if (entry.current) saver.changed(entry.current.id, snapshot);
   }
 
@@ -466,7 +474,9 @@ export function App() {
     onSettings: setSettings,
     onReset: () => setSettings(defaultSettings(theme, difficulty, size)),
     name,
-    onRename: rename,
+    onRename: (n) => void rename(n),
+    nameProblem,
+    onNameLeft: () => setNameProblem(null),
     busy,
     busyWords: progress ? progressText(progress) : "Opening…",
     changed,

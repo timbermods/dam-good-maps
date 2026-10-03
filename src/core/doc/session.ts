@@ -28,7 +28,7 @@ import { entityJson, rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
+import { mixedSimulationSingletons, settledSimulationSingletons, storedOutflows, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
@@ -44,7 +44,7 @@ import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
   applyOp,
   invertOp,
@@ -130,6 +130,7 @@ export class MapSession {
   private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
+  private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
@@ -231,6 +232,15 @@ export class MapSession {
    *  rebuild). */
   get views(): SavedView[] {
     return this.gen.meta.views ?? [];
+  }
+
+  /** Rename the map (D443): not a map operation, so never on the history and never undone. The name
+   *  is stored data: the project file, the .timber file's name and Your maps' entry follow it. An
+   *  empty name is refused with a one-line reason; any other is trimmed. */
+  setName(name: string): NameResult {
+    const r = cleanMapName(name);
+    if (r.ok) this.gen = { ...this.gen, meta: { ...this.gen.meta, name: r.name } };
+    return r;
   }
 
   setViews(views: SavedView[]): void {
@@ -377,6 +387,13 @@ export class MapSession {
     const b = this.baseStuff();
     if (this.storedWaterCache?.key !== this.gen.base) this.storedWaterCache = { key: this.gen.base, water: storedWater(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
     return this.storedWaterCache.water;
+  }
+
+  /** The outflows the base file stores (its surface water's), for the 3D view's moving water. */
+  storedOutflows(): Float64Array | null {
+    const b = this.baseStuff();
+    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    return this.storedOutflowsCache.out;
   }
 
   /** The soil the base file stores on each tile's top (moisture and contamination), for the 3D
@@ -843,7 +860,8 @@ export class MapSession {
    *  profile, PLAN §19.5): they are noted at the end of the map's description. */
   /** The exported file's name. */
   exportTimberName(): string {
-    return this.gen.spec ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
+    // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
+    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {

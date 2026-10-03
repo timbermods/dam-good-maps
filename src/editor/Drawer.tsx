@@ -21,7 +21,12 @@ export interface YourMapRow {
 export interface DrawerModel extends SettingsProps {
   /** The current map's name: the header's title shows it, Your maps keeps it, Save to Timberborn uses it. */
   name: string;
+  /** Every change of the field: the core stores it or refuses it (a blank name), D443. */
   onRename(name: string): void;
+  /** The core's refusal of the field's text, or none. */
+  nameProblem: string | null;
+  /** The field was left: a refused text goes back to the stored name. */
+  onNameLeft(): void;
   /** A map is being made or opened, and what the button says meanwhile. */
   busy: boolean;
   busyWords: string;
@@ -51,14 +56,13 @@ const Chevron = ({ d }: { d: string }) => (
   </svg>
 );
 
-/** The name field: a rename shows at once in the header; an empty field puts the name back when it is left. */
-function NameField(p: { name: string; onRename(name: string): void }) {
-  const kept = useRef(p.name);
+/** The name field: every change goes to the core, which stores it (the header shows it at once) or refuses it
+ *  with its own words, shown under the field; leaving the field puts the stored name back. */
+function NameField(p: { name: string; onRename(name: string): void; problem: string | null; onLeft(): void }) {
   const [text, setText] = useState(p.name);
+  const editing = useRef(false);
   useEffect(() => {
-    if (p.name === kept.current) return;
-    kept.current = p.name;
-    setText(p.name);
+    if (!editing.current) setText(p.name);
   }, [p.name]);
   return (
     <label class="field wide" for="map-name" {...tip("The map's name: Save to Timberborn uses it")}>
@@ -70,15 +74,19 @@ function NameField(p: { name: string; onRename(name: string): void }) {
         maxLength={80}
         spellcheck={false}
         autoComplete="off"
+        aria-invalid={p.problem ? true : undefined}
+        aria-describedby={p.problem ? "map-name-problem" : undefined}
+        onFocus={() => (editing.current = true)}
         onInput={(e) => {
           const v = (e.target as HTMLInputElement).value;
           setText(v);
-          if (v.trim()) {
-            kept.current = v.trim();
-            p.onRename(kept.current);
-          }
+          p.onRename(v);
         }}
-        onBlur={() => setText(kept.current)}
+        onBlur={() => {
+          editing.current = false;
+          setText(p.name);
+          p.onLeft();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === "Escape") {
             e.stopPropagation();
@@ -86,6 +94,11 @@ function NameField(p: { name: string; onRename(name: string): void }) {
           }
         }}
       />
+      {p.problem ? (
+        <span class="band name-problem" id="map-name-problem" role="alert">
+          {p.problem}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -133,7 +146,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
   return (
     <aside class="drawer" aria-label="New map">
       <div class="drawer-fields drawer-head">
-        <NameField name={m.name} onRename={m.onRename} />
+        <NameField name={m.name} onRename={m.onRename} problem={m.nameProblem} onLeft={m.onNameLeft} />
       </div>
       <form
         class="drawer-form"

@@ -7,7 +7,7 @@
 // problems warn and are noted in the map's description when the player exports anyway. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
-import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
+import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import {
@@ -88,6 +88,7 @@ import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate
 import { plainEntities } from "../core/forces/force";
 import { integrityAt } from "../core/features/raster/terrain";
 import { areaDepth } from "../core/features/raster/brush";
+import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
@@ -263,6 +264,14 @@ export function setViews(views: SavedView[]): SessionInfo {
   return sessionInfo(s);
 }
 
+/** Rename the map (D443): stored data set by the core, never an operation or an undo step; a blank name is
+ *  refused with the core's one-line reason. */
+export function setName(name: string): { result: NameResult; info: SessionInfo } {
+  const s = need();
+  const result = s.setName(name);
+  return { result, info: sessionInfo(s) };
+}
+
 // ------------------------------------------------------------------------------------ the view
 
 /** A source's strength, for the page's markers (D196). */
@@ -285,7 +294,19 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
+ *  water's own, else the settle's, else the stored file's. */
+function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+  const view = columnsWaterOf(s, live, ground);
+  // (a build without the outflows, for measuring their own cost: tools/smooth)
+  if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
+  const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
+  const outflow = outflowsOf(view, s.size.x, s.size.y, out);
+  if (outflow) view.outflow = outflow;
+  return view;
+}
+
+function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
   const roofed = s.roofedTiles;
   if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
@@ -674,7 +695,7 @@ async function runDraft(token: number): Promise<void> {
       for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - d.sent![i]) > 0.01) moved = true;
       if (moved) {
         d.sent = D.slice();
-        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
+        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
       }
     }
     await breathe();
@@ -731,7 +752,7 @@ async function runWater(token: number): Promise<void> {
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
-      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C }), done, ticks });
+      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C, out: j.job.sim.out }), done, ticks });
     }
     if (r) {
       finishWater(j, r);
@@ -795,7 +816,7 @@ export function startWeather(hazard: Hazard): void {
         t += gap;
         const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
         if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C }), Math.min(days, t / TICKS_PER_DAY), soil);
+        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
       }
       await breathe();
     }
@@ -810,7 +831,7 @@ export function startWeather(hazard: Hazard): void {
         r = back.advance(4);
         if (!r && back.ticks - last >= frameGap(back.ticks)) {
           last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C }), days);
+          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
         }
       }
       if (r) break;

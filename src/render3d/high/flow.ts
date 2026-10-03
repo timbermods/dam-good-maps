@@ -1,13 +1,9 @@
-// The water's flow and contamination as the High water reads them (#38, investigation/maplook2
-// flow.ts; #67 river.ts), from the water the view shows:
-// - the flow: #38 carried the settle's own outflows into the view. The view here holds only the
-//   water's depths, the same for generated maps, places, imports and every live edit, so the flow is
-//   estimated from the water's surface instead: downhill along the surface, still where it is level
-//   (a lake's surface falls under 2.5 × 10⁻⁴ a tile) and as fast as the settle's own rivers where it
-//   falls as they do (about 1.5 × 10⁻³ a tile, 6–8 tiles a second: measured against the settle's
-//   outflows on generated maps). It
-//   only moves the water's detail and places its rough water; nothing plays by it, and no water is
-//   simulated for it (a default the session chose: docs/decisions-pending.md #111);
+// The water's flow and contamination as the looks read them (#38, investigation/maplook2 flow.ts; #67
+// river.ts), from the water the view shows:
+// - the flow: the settle's own current (current.ts, D353), carried with every water view; bake.ts
+//   draws it at FLOW_DISPLAY times its speed. It moves the water's detail, the moving water's foam and
+//   the Flow view, and places the rough water; nothing plays by it. (Until D353 it was estimated from
+//   the water's surface: decisions-pending #111.)
 // - the contamination, smoothed through neighbouring water on the same surface only (never across
 //   a fall or dry ground), so a front is soft over a few tiles;
 // - rough water (#67 stage 2): below falls, in rapids (fast for their own river) and in fast wakes
@@ -17,46 +13,12 @@
 import type { SurfaceWater } from "../model";
 
 const WET = 0.001;
-/** The surface's fall a tile under which water is still, and over which it runs at full speed
- *  (tiles a second), as the settle's own flow does on generated maps (River Valley 4242, Lake Basin 3,
- *  Highlands 2 and Delta 5 at 128²: lakes 3 × 10⁻⁵ to 2 × 10⁻⁴ and under 0.15 tiles a second; rivers
- *  1.1 to 2.5 × 10⁻³ and 6 to 8 tiles a second). */
-const STILL = 2.5e-4;
-const RUNNING = 1.6e-3;
-const FULL_SPEED = 7.5;
 /** Neighbours on the same surface: a step larger than this is a fall. */
 const SAME = 0.35;
 
 function ramp(a: number, b: number, x: number): number {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
-}
-
-/** The flow at each tile's middle (tiles a second, x east, y toward increasing rows), estimated from
- *  the water's surface. */
-export function surfaceFlow(W: number, H: number, sw: SurfaceWater): Float32Array {
-  const v = new Float32Array(W * H * 2);
-  const { surface, depth } = sw;
-  const same = (i: number, j: number) => depth[j] > WET && Math.abs(surface[j] - surface[i]) < SAME;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (!(depth[i] > WET)) continue;
-      const s = surface[i];
-      const e = x + 1 < W && same(i, i + 1) ? surface[i + 1] : NaN;
-      const w = x > 0 && same(i, i - 1) ? surface[i - 1] : NaN;
-      const n = y + 1 < H && same(i, i + W) ? surface[i + W] : NaN;
-      const so = y > 0 && same(i, i - W) ? surface[i - W] : NaN;
-      const gx = e === e && w === w ? (e - w) / 2 : e === e ? e - s : w === w ? s - w : 0;
-      const gy = n === n && so === so ? (n - so) / 2 : n === n ? n - s : so === so ? s - so : 0;
-      const slope = Math.hypot(gx, gy);
-      if (slope < 1e-5) continue;
-      const speed = FULL_SPEED * ramp(STILL, RUNNING, slope);
-      if (!speed) continue;
-      v[i * 2] = (-gx / slope) * speed;
-      v[i * 2 + 1] = (-gy / slope) * speed;
-    }
-  return v;
 }
 
 /** The contamination, smoothed twice through adjacent water on the same surface, and carried a

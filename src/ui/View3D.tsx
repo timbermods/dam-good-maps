@@ -166,6 +166,8 @@ export function View3D(props: View3DProps) {
     setMade(r);
     r.setGroundMode(ground);
     r.setMarkers(markers);
+    // the Flow view as the player left it (D353; off by default), where the editor has its switch
+    if (props.togglesInButtons && flow) r.setFlow(true);
     r.onHover = (hit) => onHover.current?.(hit);
     // the legend reads the map again a moment after it changes, when the page is idle (never
     // while a brush paints or the water flows)
@@ -315,7 +317,7 @@ export function View3D(props: View3DProps) {
             } catch {
               // the choice lasts for this view only
             }
-            (renderer.current as unknown as { setFlow?(on: boolean): void } | null)?.setFlow?.(next);
+            renderer.current?.setFlow(next);
           }}
         >
           Flow
