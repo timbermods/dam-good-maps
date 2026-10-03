@@ -10,9 +10,9 @@
 // moves at once; the editor's live water showed it flowing in, the canonical water shows it dry.
 
 import { describe, expect, it } from "vitest";
-import { planFill } from "../../../src/core/doc/waterEdits";
-import { PreviewJob } from "../../../src/core/sim/preview";
-import { gameRun, openHeights, rect, tilesOf } from "./synthetic";
+import { planFill } from "../../src/core/doc/waterEdits";
+import { PreviewJob } from "../../src/core/sim/preview";
+import { gameRun, openHeights, rect, tilesOf } from "./gateWater";
 
 const W = 48;
 const H = 48;

@@ -718,8 +718,11 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    (D222, D413): at each check the tiles of a sealed basin that only lost water (the oxbow lake or Fill above, while
    no running source and no map edge is in it) are left out of the test, the rest's volume measured against the
    rest, and the settle stops at the first check that passes (`steadyTicks`, `waterSteady`), the check where the
-   map without the basin would stop. Every sealed basin at that check is stored as the pre-fill started it: a Fill
-   at exactly its level, an oxbow lake with the water its carve kept; the game evaporates them from there. **No
+   map without the basin would stop. Every sealed basin at that check is stored with its lakes' water as the
+   pre-fill started it: a Fill at exactly its level, an oxbow lake with the water its carve kept; the game
+   evaporates them from there. Water would not stand as it started where an edit since widened the hollow below
+   the lake's level (or a carve kept its lake mid-flow): there the lake's water is stored levelled into its hollow,
+   up to its lowest rim. Other water the pre-fill's walk left in the basin is not the lake's and goes (D385). **No
    water from nowhere** (D385): the pre-fill's walk spreads level over flat ground in every direction, further than
    a source's water goes, so a hollow on a dry plateau it crossed would start full and keep that water. Once the
    water has settled, the water no running source and no stored lake reaches (`sim/fed.ts`: from their tiles, any

@@ -449,7 +449,8 @@ def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
     DRAIN_DAYS. Returns (sim, settled); `sim.steady_ticks` is set when it stopped because only
     sealed basins were still changing, by evaporating (D222, D413), and such water has settled too
     (`water.settles`). Every sealed basin at the last check is stored as the pre-fill started it
-    (D413; src/core/sim/prefill.ts `keepSealed`). (The player's drained tiles, Remove unfed water,
+    (D413; src/core/sim/prefill.ts `keepSealed`: its stored lakes' water, levelled into its hollow
+    when it would not stand where it is). (The player's drained tiles, Remove unfed water,
     are the editor's alone and not modelled here.)"""
     d0, c0 = prefill(floor, sources, dam, retained)
     sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0)
@@ -471,11 +472,106 @@ def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
         settled = sim.settle(max_days=DRAIN_DAYS, sealed=sealed or None)
     if sealed:
         closed, _ = sealed_basins(sim, sim.last_prev, sealed)
-        closed = closed.reshape(sim.D.shape)
-        sim.D = np.where(closed, d0, sim.D)
-        sim.C = np.where(closed, c0, sim.C)
-        sim.out = np.where(closed[None, :, :], 0.0, sim.out)
+        keep_sealed(sim, floor, dam, closed.reshape(-1), stored, d0, c0)
     return sim, settled
+
+
+REST = 0.01  # surfaces within this of each other stand level (src/core/sim/prefill.ts `REST`)
+
+
+def keep_sealed(sim, floor, dam, closed, lake, d0, c0):
+    """src/core/sim/prefill.ts `keepSealed`: each sealed basin keeps its stored lakes' water as the
+    pre-fill started it, or, when that would not stand where it is (its hollow since widened below
+    its level), that water levelled into its hollow (`level_into`); the pre-fill walk's other water
+    in the basin goes (D385)."""
+    Y, X = floor.shape
+    N = X * Y
+    F = floor.reshape(-1).astype(float)
+    D, C = sim.D.reshape(-1), sim.C.reshape(-1)
+    out = sim.out.reshape(4, -1)
+    sd, sc = d0.reshape(-1), c0.reshape(-1)
+    seen = np.zeros(N, bool)
+
+    def nbrs(i):
+        y, x = divmod(i, X)
+        return [n for n, ok in ((i - X, y > 0), (i - 1, x > 0), (i + X, y < Y - 1), (i + 1, x < X - 1)) if ok]
+
+    for s in range(N):
+        if not closed[s] or seen[s]:
+            continue
+        seen[s] = True
+        queue = [s]
+        for c in queue:
+            for n in nbrs(c):
+                if closed[n] and not seen[n]:
+                    seen[n] = True
+                    queue.append(n)
+        tiles = sorted(queue)
+        volume = bad = 0.0
+        rests = True
+        top, bottom = -math.inf, math.inf
+        for i in tiles:
+            d = sd[i] if lake[i] else 0.0
+            if not d > 0:
+                continue
+            volume += d
+            bad += d * sc[i]
+            surface = F[i] + d
+            top, bottom = max(top, surface), min(bottom, surface)
+            for n in nbrs(i):
+                if lake[n] and sd[n] > 0:
+                    continue
+                if (d > SPILL) if F[n] == F[i] else (surface > F[n] + REST):
+                    rests = False
+        if top - bottom > REST:
+            rests = False
+        level = None if rests or not volume > 0 else level_into(F, dam, X, Y, [i for i in tiles if lake[i]], volume)
+        for i in tiles:
+            d = sd[i] if rests and lake[i] else 0.0
+            D[i], C[i] = d, (sc[i] if d > 0 else 0.0)
+            out[:, i] = 0.0
+        for i, d in level or ():
+            D[i] = d
+            C[i] = sc[i] if lake[i] and sd[i] > 0 else (bad / volume if volume > 0 else 0.0)
+            out[:, i] = 0.0
+    sim.D, sim.C, sim.out = D.reshape(Y, X), C.reshape(Y, X), out.reshape(4, Y, X)
+
+
+def level_into(F, dam, X, Y, seeds, volume):
+    """src/core/sim/prefill.ts `levelInto`: `volume` poured into the hollow round `seeds` and levelled
+    flat, filling over the lowest rim first; water rising over a map edge tile drains there."""
+    dm = None if dam is None else np.asarray(dam, float).reshape(-1)
+    eff = (lambda i: F[i] + (dm[i] if dm is not None and dm[i] >= 0 else 0.0))
+    queued = set(seeds)
+    heap = [(eff(i), i) for i in seeds]
+    heapq.heapify(heap)
+    added, passes = [], []
+    count, total, at, level, edge = 0, 0.0, -math.inf, math.inf, math.inf
+    while heap:
+        p, c = heapq.heappop(heap)
+        if p > at:
+            if edge < math.inf:
+                level = edge
+                break
+            if count > 0 and count * p - total >= volume:
+                level = (volume + total) / count
+                break
+            at = p
+        y, x = divmod(c, X)
+        if x == 0 or y == 0 or x == X - 1 or y == Y - 1:
+            edge = p
+        added.append(c)
+        passes.append(p)
+        count += 1
+        total += eff(c)
+        for n, ok in ((c - X, y > 0), (c - 1, x > 0), (c + X, y < Y - 1), (c + 1, x < X - 1)):
+            if ok and n not in queued:
+                queued.add(n)
+                e = eff(n)
+                heapq.heappush(heap, (e if e > p else p, n))
+    if level == math.inf:
+        level = edge if edge < math.inf else ((volume + total) / count if count > 0 else 0.0)
+    return sorted((i, level - eff(i)) for i, p in zip(added, passes) if p < level and level - eff(i) > 0)
 
 
 # ---------------------------------------------------------------------------------------------

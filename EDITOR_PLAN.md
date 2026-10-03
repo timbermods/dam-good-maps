@@ -796,7 +796,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
     the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
-    the lake is written with the water its carve kept (`PLAN.md` §10, §11.3).
+    the lake is written with the water its carve kept, levelled into its hollow if it would not stand as kept
+    (`PLAN.md` §10, §11.3).
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
@@ -808,7 +809,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     off the map, the level is at or below the ground); its `days` come from the game's evaporation
     (`sim/fill.ts` `fillDays`). The lakes and removals compose in log order (`sim/water.ts` `composeKept`: a removal
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
-    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it.
+    stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
+    edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
