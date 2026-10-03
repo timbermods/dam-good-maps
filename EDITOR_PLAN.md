@@ -359,9 +359,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   selection open, Delete removes everything standing inside it, or the ground's top level where nothing stands;
   the Selection row's **Delete** opens a menu of what is there with counts (Everything, Water sources, Badwater
   sources, Start, Ruins, Trees, Bushes, Slopes and the rest, then Ground (one level)), hovering a choice showing
-  what it would take. **The counts and Everything include what is under water** (D345, B5): the resource features
-  hold trees and bushes on ground a lake covers, which stand again when the water drains (`objectsIn`,
-  `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
+  what it would take. **The counts and Everything include what is under water** (D345, B5): a generated map's own
+  trees, bushes and ruin columns stand in a lake that covers them (a tree dead, D404) and are counted as standing;
+  a resource feature without the generation's record (an old document's) holds its trees and bushes under the
+  water, which stand again when it drains, and those are counted too (`objectsIn`, `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
   `cleared` tiles, D360 b). With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
@@ -731,7 +732,17 @@ opened, are listed but never blamed on the player's edits and do not block its e
   generation (`placeSlopes`, before the land is shown); an opened map's document keeps the generation's slopes in its
   stored map (`BuildInput.generatedSlopes`, `features/slopes.ts` `keptSlopes`), and every rebuild after an edit keeps
   those that still stand (the high side one level up, the tile behind at their own level) and loses those an edit
-  took away; it never derives again. The same holds for an edited import and for the start (moving it places
+  took away, for good: the build checks them after every edit in order, so a later edit that gives the step back
+  never brings one back (`TerrainCache.slopeGone`); it never derives again. The generation's trees, bushes and ruin
+  columns are kept the same way (`BuildInput.generatedResources`, `raster/resources.ts` `KeptTiles`): only those
+  the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
+  or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
+  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. What
+  holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
+  carries leave their ground together and land where it put them, one it put down on the start or on a slope the
+  build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
+  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
   walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the

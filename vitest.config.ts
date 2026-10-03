@@ -14,6 +14,7 @@ const HEAVY = [
   "tests/contract/reshape.test.ts", // set pieces, lakes and landforms beside every kind of object
   "tests/contract/settings.test.ts", // each setting's batch experiment (M6)
   "tests/contract/forceEverywhere.heavy.test.ts", // every force at many places on every theme (D356)
+  "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
 ];
 
 export default defineConfig({
