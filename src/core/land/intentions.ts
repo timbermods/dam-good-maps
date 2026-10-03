@@ -27,7 +27,7 @@ import type { Rng } from "../math/rng";
 import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
-import { levelRegions } from "../math/grid";
+import { levelRegions, N4 } from "../math/grid";
 
 export const INTENTIONS = [
   "under-cliff",
@@ -513,8 +513,6 @@ export interface FinalCtx {
   arms?: [number, number][][];
 }
 
-const D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
 /** Wet bodies (4-connected water ≥ 0.1 deep): labels and each body's tiles. */
 function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
   const { W, H, D } = c;
@@ -530,7 +528,7 @@ function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -648,7 +646,7 @@ function levelLakes(c: FinalCtx, min: number): LevelLake[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -693,7 +691,7 @@ function openWater(L: LevelLake, W: number, H: number): number[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const j = (y + dy) * W + x + dx;
         if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || lab[j] >= 0 || !core[j]) continue;
         lab[j] = s0;
@@ -852,7 +850,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (h[i] >= z + 2) high++;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -868,7 +866,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (s > z - 0.05 || s < z - 2) continue;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -912,7 +910,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const j = (y + dy) * W + x + dx;
             if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || seen[j] || !top[j]) continue;
             seen[j] = 1;
@@ -958,7 +956,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const y = (i - x) / W;
           cx += x;
           cy += y;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1048,7 +1046,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q0[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1076,7 +1074,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (riches[i]) rich++;
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1311,7 +1309,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (L.inLake[f.i]) continue;
           const x = f.i % W;
           const y = (f.i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1351,7 +1349,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1423,7 +1421,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const x = i % W;
           const y = (i - x) / W;
           if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1475,7 +1473,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       for (let i = 0; i < N; i++) {
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

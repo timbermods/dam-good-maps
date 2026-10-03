@@ -2,9 +2,7 @@
 // from literal tables so the picks are the same in every engine (no Math.pow).
 
 import type { Rng } from "../math/rng";
-
-const N8: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-const N4: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+import { N4, N8 } from "../math/grid";
 
 /** count^c for c in {0.8, 1.5, 2}, count 0..8 (computed once, stored as literals). */
 const WEIGHTS: Record<string, number[]> = {

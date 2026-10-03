@@ -58,12 +58,16 @@
 // water by constructing a simulator (with its warm start) and may set `out` before running, as
 // always; the floor may change between runs (a carve), since no cache holds a floor.
 
+import { clamp } from "../math/clamp";
+
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
 export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
 export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
+/** A game day in seconds: its ticks, two substeps each. */
+export const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
 /** The game days the canonical settle may run before its water counts as not settling (PLAN §10,
  *  §11.3; D358: 6, 4 before 2026-10-01). It stops at the first check that passes, so a map whose
  *  water settles sooner is the same whatever the limit. */
@@ -716,10 +720,6 @@ export class WaterSim {
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
 }
 
 // ------------------------------------------------------------------------------------------ settle
