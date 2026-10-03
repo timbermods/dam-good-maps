@@ -337,8 +337,11 @@ and one pooled probe batch (his yes). Three contract tests were already failing 
 what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained. River Valley is adopted on the
 strict D348 base (D370, D373). Islands and Delta blocked the release (D407): D370's two templates are retired (D408) and both
 are redesigned from the field's own processes (D409–D412). Delta's shape is accepted with its fan tuned (D416); Islands
-is released as the safe version, the start on an island not required (D417, D429–D430). The 840-map measures, the
-re-pins and the quiet-window timings follow.
+is released as the safe version, the start on an island not required (D417, D429–D430). Delta's dry courses are fixed
+at their causes (D447: the fan's main river below its apex, tributaries beside lower water), Lake Basin round 2 is
+adopted (D453, D458), the quiet-window timings are cut (D453), and the 840-map measures and the re-pins are done. M9b
+then merges into `dev`; the coherence review runs on Kyler's PC, and the release (tag and `main`) waits for its report
+(D461).
 
 **The agent guide** (Kyler, 2026-09-25; D142): how a Claude Code session generates, edits, validates and exports maps, and
 runs the contact sheet and the DGM Probe (under the probe rule, D117). Waits with M12 (D277, D283 (4)).

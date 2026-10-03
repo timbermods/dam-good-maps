@@ -198,6 +198,50 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Ready for `dev` (D461, 2026-10-03)
+
+`feature/m9b` has `dev` merged twice today (#194, #196, #197, #198) and every D148 re-pin made.
+Generator 0.8.0.
+
+**What M9b adds since the last hand-over**
+- Islands: the safe version (D430, D432).
+- Delta's fan (D416), with its dry courses fixed (D447, below).
+- Lake Basin round 2 (D453, D458).
+- The sea fixes: shelves leave the kept water; a rising sea at 256² is fed gently.
+- A generated spring's row keeps its sources through edits.
+- A generated map keeps its theme-and-seed file name until it is renamed (D443 with M9b's names).
+
+**The merges**
+- `dev`'s kept-resources cache fix (#194) replaces M9b's own.
+- M9b's water rules stay beside `dev`'s sealed-basin storing.
+- `dev`'s release-gate and resource tests are re-pinned to M9b's maps. Their reasons are in the tests.
+
+**For STATUS and the living docs** (PLAN and ROADMAP are updated on the branch)
+- PLAN §7.6: a river's water runs its planned course (D447).
+- PLAN §7.9: a sea still rising at 256² is fed gently.
+- PLAN §8: Delta's main river below the apex is one of the fan's channels; Lake Basin's default map
+  draws one valley basin (D453).
+- PLAN §10: the performance paragraph keeps D359 without the cut budget.
+- EDITOR_PLAN: a generated spring's row keeps its sources through edits.
+- ROADMAP M9b: the adoption order as it now stands.
+
+**Measures** (840 maps at 3a8f4274; Lake Basin's at da1a5992; no timing, D453)
+- Failing an absolute: 0 / 0 / 0.
+- All three outcomes: 181 / 219 / 222 at 3a8f4274. Lake Basin since then: 37 / 33 / 33 of 40.
+
+**Known, for Kyler or the coherence review**
+- Islands at 96² keeps its promise rarely (D433).
+- 12 Islands seeds have no island to expand to (D432).
+- Delta still misses water on 3 / 1 / 5 of its 40 maps.
+- With Lake Basin round 2, most Lake Basin 96² lakes fill past the editor's four-day preview cap from
+  dry: 5 of seeds 2–10. Seeds 1 and 8 are the expected failure in `draftWaterQuiet`.
+- At 64² (no preset size) some maps pass no start: Highlands 4, 6 and 14, Canyon 2.
+- Naturalize at Terracing 100 leaves more level edges on River Valley 3 and Lake Basin 3 (expected
+  failures in `naturalizeNature`).
+- A Craterize with the layer cut at 5 near Highlands 64² seed 7's start changes one tile above the
+  layer, (28, 47), from 14 to 10. It is a lake tile the generation left four levels above its
+  neighbours. Not traced further.
+
 ### Delta's dry courses (D447, 2026-10-03)
 
 Kyler: Delta's water-outcome miss blocks the release (a visible water fault, D385). e3130755 was not the
