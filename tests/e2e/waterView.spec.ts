@@ -170,15 +170,28 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 10 });
-  await expect.poll(async () => (await depthAt(page, channel)).some((d, k) => d > before[k] + 0.02), { timeout: 10_000 }).toBe(true);
+  // (the water reaches the channel in a fraction of a second on a free machine; with software-rendered
+  // frames on a busy one the page draws slowly: of about 200 such runs most took under half a second, and
+  // three took 9 s, 10.1 s and 13.6 s, D341; the limit is long, the check is the same)
+  await expect.poll(async () => (await depthAt(page, channel)).some((d, k) => d > before[k] + 0.02), { timeout: 45_000 }).toBe(true);
   await page.mouse.up();
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   // Shift+scroll sets a soft brush's strength (Smooth's), and says it beside the pointer (a height
   // brush's target, D322: brushKit.spec)
   await page.keyboard.press("4");
+  // (the strength is said for 1.2 s, then the brush's own words come back: what the note said is kept as
+  // it changes, so a slow page or a slow poll can't miss it, D341)
+  await page.evaluate(() => {
+    const said: string[] = [];
+    (window as unknown as { __said: string[] }).__said = said;
+    new MutationObserver(() => {
+      const t = document.querySelector(".shape-note")?.textContent;
+      if (t && said.at(-1) !== t) said.push(t);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+  });
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -100);
   await page.keyboard.up("Shift");
-  await expect(page.locator(".shape-note")).toHaveText(/^strength \d+$/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __said: string[] }).__said.some((t) => /^strength \d+$/.test(t))), { message: "the note says the strength" }).toBe(true);
   expect(errors).toEqual([]);
 });
