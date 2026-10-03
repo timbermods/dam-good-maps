@@ -44,6 +44,8 @@ export interface EntityView {
   variant: Uint8Array;
   /** A water or badwater source's strength (blocks a second); 0 for anything else. */
   strength: Float32Array;
+  /** Each object's stable id (the core entity's `id`); `ids[k]` is object k's, "" when none was given. Strings are copied with the view, not transferred. */
+  ids: string[];
 }
 
 /** Water columns (sparse): one entry per wet column. Under caves a tile may hold several; the
@@ -169,6 +171,8 @@ export function columnMap(c: MapView["columns"]): Map<number, Uint8Array> {
 }
 
 export interface EntityInput {
+  /** The entity's stable id. */
+  id?: string;
   template: string;
   x: number;
   y: number;
@@ -204,6 +208,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     owner: new Uint16Array(n),
     variant: new Uint8Array(n),
     strength: new Float32Array(n),
+    ids: new Array<string>(n),
   };
   list.forEach((e, k) => {
     let t = tIndex.get(e.template);
@@ -228,6 +233,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0);
     v.variant[k] = variantIndex(e.variant);
     v.strength[k] = e.strength ?? 0;
+    v.ids[k] = e.id ?? "";
   });
   return v;
 }

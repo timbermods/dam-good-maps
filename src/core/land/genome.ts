@@ -2,7 +2,7 @@
 // prior. A theme is not a layout: it is a prior over one parameter space (how likely each landform
 // part is, how strong the processes run, how much water enters and where). Every part can appear in
 // every theme; the prior only weights them. Variety (0–100) widens every range and flattens the part
-// weights toward uniform. A recipe (a named premise) is at most a forced part.
+// weights toward uniform. The recipes are folded into intentions (D275 (1)).
 //
 // "Any" (the default, D208, D209) draws from broad ranges across all six themes: each range spans
 // the lowest to the highest of theirs, each chance is their mean, and the island sea is one of the
@@ -20,11 +20,12 @@
 import * as portable from "../math/portable";
 import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
-import { THEME_PRESETS, VT_DEFAULT, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
-import { drawIntentions, nudgeFor, type IntentionId } from "./intentions";
-import { clamp } from "./num";
+import { EDITOR_LEVEL, highestTerrainDefault, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
+import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
+import { clamp, unit } from "./num";
+import { TWO_PI } from "../math/detmath";
 
-export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral";
+export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
 
 /** One landform part added to the uplift (field.ts). */
 export interface Part {
@@ -44,6 +45,8 @@ export interface Part {
   /** Basins only: a round bowl (a pond, a crater lake), a valley-shaped lake (the default for large
    *  basins), or an island sea. */
   shape?: "round" | "valley" | "sea";
+  /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
+  isle?: boolean;
 }
 
 /** The six themes the generator knows, without "Any". */
@@ -53,7 +56,6 @@ export const LEANINGS: readonly Leaning[] = ["riverValley", "canyon", "highlands
 export interface Genome {
   theme: ThemeId;
   variety: number;
-  recipe: string | null;
   /** Lowest ground level before rivers cut, and the spread of levels (`top` − `base`). */
   base: number;
   relief: number;
@@ -74,6 +76,12 @@ export interface Genome {
     inflows: number;
     /** The Rivers setting's count, which the hydrology finds exactly when it can (set by `leanGenome`). */
     exactInflows?: boolean;
+    /** The player set Rivers to 0: no river enters by the map's edge, a spring feeds the main river
+     *  (set by `leanGenome`; a theme's own default inflow never overrides it). */
+    noInflows?: boolean;
+    /** Springs added toward land far from the water (D333 (3)); false where the player asked for
+     *  Generous buildable land (set by `leanGenome`). */
+    reachSprings?: boolean;
     /** River style Straight: how far (0–1) each course is drawn toward the line between its ends
      *  (set by `leanGenome`). */
     straighten?: number;
@@ -91,7 +99,20 @@ export interface Genome {
      *  clears beside its channel. */
     incise: number;
     floor: number;
+    /** M9b intentions' steering (D274): a crescent lake left beside a bend (the oxbow), a chain of
+     *  valley lakes stepping down the main river (how many), and a wider, longer island in a split. */
+    oxbow?: boolean;
+    chainLakes?: number;
+    bigSplit?: boolean;
+    /** Twin falls: the split goes round the main river's biggest drop. */
+    splitAtFall?: boolean;
   };
+  /** M9b intentions' steering (D274): a relic on ground the start cannot walk to; a plug across a
+   *  big lake's outlet. */
+  relicHigh?: boolean;
+  plugLake?: boolean;
+  /** Item 47's second district close to the start, behind debris on its ramps. */
+  districtBehind?: boolean;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -106,8 +127,8 @@ export interface Genome {
   top: number;
   /** Hypsometry: `eq` blends the field toward equal area per level; `lean` < 1 raises the land. */
   hyps: { eq: number; lean: number };
-  /** The slow regional field (playbook #1): levels and cell. */
-  regional: { amp: number; cell: number };
+  /** The slow regional field (playbook #1): levels and cell; warped on a sea's map (D417). */
+  regional: { amp: number; cell: number; warped?: boolean };
   /** Caprock: hard rock high in the land that weathering leaves standing. */
   cap: { share: number; cell: number; level: number };
   /** How far soft high ground weathers down toward the ground round it (0–1). */
@@ -135,23 +156,36 @@ export interface Genome {
   /** An island sea in the map's middle, with islands scattered through it (Islands; one of the
    *  water features "Any" combines freely). */
   sea: boolean;
+  /** How the island sea lies (M9b, D209, D294, D410): one large island with smaller ones round it,
+   *  a sea off one edge, a scatter of islands, an island chain, an atoll, or two large islands parted
+   *  by a strait; null without a sea. */
+  seaLayout?: SeaLayout | null;
+  /** An inland sea in a ring of land (D417: at most one sea map in four, and the edge layout's own);
+   *  on the others broad headlands reach into the sea and break the land round it. */
+  seaRing?: boolean;
   /** Falls on the rivers (the Waterfalls setting): 0 spreads every drop along the course (no
    *  falls), 1 lets the land decide, 2 gathers more of them. */
   falls: 0 | 1 | 2;
   intentions: IntentionId[];
   /** A variation index (D143): 0 for the map itself. */
   variation: number;
+  /** The orientation the map's land was turned into (M9b, D275 (2); land/orient.ts). */
+  orientation?: number;
   /** The woods (D164): the grove species weights the resources planner draws. */
   woods: { kind: "oak" | "mixed" | "birch"; pine: number; birch: number; oak: number; succulent: number };
 }
 
 export { VT_DEFAULT };
 /** "High Verticality" (D123, D132): heights above 16 from here. */
-export const VT_HIGH = 70;
+export const VT_HIGH = VT_TALL;
 /** The game's highest terrain (FORMAT.md: 23 layers, layer 22 kept empty). */
-export const GAME_TOP = 22;
+export const GAME_TOP = TALL_TOP;
 /** The in-game map editor's highest level, and the top of every map below high Verticality. */
-export const EDITOR_TOP = 16;
+export const EDITOR_TOP = EDITOR_LEVEL;
+/** The land isn't built at the bottom (the forces-preview feedback's item 47, PLAN §20 D325): the
+ *  deepest bed of any water stands at least this many levels above the map's floor, so a player has
+ *  room to dig and terraform early. The land's lowest level is a level above it. */
+export const BED_FLOOR = 3;
 /** Variety's default (M9b adds the setting). */
 export const DEFAULT_VARIETY = 70;
 
@@ -193,7 +227,6 @@ interface Prior {
   cap: Range;
   badwater: [number, number, number];
   thorns: number;
-  recipes: Partial<Record<string, number>>;
   /** Valley lakes (the mean count, hydro.ts). */
   troughs: number;
   /** The chance of an island sea. */
@@ -216,8 +249,8 @@ const P: Record<Leaning, Prior> = {
     erosion: { iterations: { lo: 8, hi: 22 }, k: { lo: 0.01, hi: 0.035 }, diffusion: { lo: 0.02, hi: 0.1 } },
     terrace: { step: [1, 2, 2, 3, 3], share: { lo: 0.15, hi: 0.65 } },
     inflows: [0, 1, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 0.9, hi: 2.4 }, lakeBudget: { lo: 0.04, hi: 0.25 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
-    split: 0.5, delta: 0.12, incise: { lo: 0, hi: 1.5 }, floor: { lo: 0, hi: 5 }, cap: { lo: 0, hi: 0.25 },
-    badwater: [0.2, 0.55, 0.25], thorns: 0.5, recipes: { "island-in-a-river": 0.08, "great-scarp": 0.06 },
+    split: 0.5, delta: 0.12, incise: { lo: 0, hi: 1.5 }, floor: { lo: 7, hi: 13 }, cap: { lo: 0, hi: 0.25 },
+    badwater: [0.2, 0.55, 0.25], thorns: 0.5,
     troughs: 0.8, sea: 0, woods: [0.3, 0.25],
   },
   canyon: {
@@ -228,22 +261,22 @@ const P: Record<Leaning, Prior> = {
     partCount: { lo: 2, hi: 6 }, knollsPer128: { lo: 0, hi: 6 },
     erosion: { iterations: { lo: 14, hi: 30 }, k: { lo: 0.025, hi: 0.06 }, diffusion: { lo: 0, hi: 0.04 } },
     terrace: { step: [2, 2, 3, 3, 4], share: { lo: 0.35, hi: 0.9 } },
-    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 0, hi: 3 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
-    split: 0.45, delta: 0.03, incise: { lo: 2, hi: 5 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0.1, hi: 0.5 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.2, recipes: { "mesa-field": 0.1, "great-scarp": 0.08 },
+    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 2, hi: 5 }, flowMul: { lo: 0.9, hi: 2 }, lakeBudget: { lo: 0.02, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.45,
+    split: 0.45, delta: 0.03, incise: { lo: 3, hi: 6 }, floor: { lo: 0, hi: 2.5 }, cap: { lo: 0.1, hi: 0.5 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.2,
     troughs: 0.5, sea: 0, woods: [0.35, 0.2],
   },
   highlands: {
-    base: { lo: 0.3, hi: 1.3 }, top: { lo: 13.8, hi: 18.6 }, eq: { lo: 0.45, hi: 0.9 }, lean: { lo: 0.7, hi: 1.25 },
+    base: { lo: 0.3, hi: 1.3 }, top: { lo: 13.8, hi: 18.6 }, eq: { lo: 0.45, hi: 0.9 }, lean: { lo: 0.55, hi: 0.9 },
     tilt: { lo: 0.3, hi: 2.4 }, linear: 0.3, radial: 0.15, regional: { lo: 3, hi: 7.5 },
     amp: { lo: 3.5, hi: 7 }, cell: { lo: 20, hi: 44 }, warp: { lo: 6, hi: 18 }, ridged: { lo: 0.1, hi: 0.6 },
-    parts: { plateau: 3, mesa: 2, ridge: 2, escarpment: 1.2, cone: 0.8, caldera: 0.6, knolls: 1.5, basin: 0.7, spiral: 0.1 },
-    partCount: { lo: 2, hi: 7 }, knollsPer128: { lo: 6, hi: 18 },
+    parts: { plateau: 4, mesa: 2.5, ridge: 2, escarpment: 1.2, cone: 0.8, caldera: 0.6, knolls: 1.2, basin: 0.7, spiral: 0.1 },
+    partCount: { lo: 4, hi: 8 }, knollsPer128: { lo: 6, hi: 18 },
     erosion: { iterations: { lo: 8, hi: 20 }, k: { lo: 0.012, hi: 0.035 }, diffusion: { lo: 0.01, hi: 0.08 } },
-    terrace: { step: [1, 2, 2, 3, 3], share: { lo: 0.25, hi: 0.75 } },
+    terrace: { step: [2, 2, 3, 3], share: { lo: 0.4, hi: 0.8 } },
     inflows: [0, 0, 1, 1, 2, 3], springs: { lo: 1, hi: 6 }, flowMul: { lo: 0.9, hi: 2.2 }, lakeBudget: { lo: 0.03, hi: 0.2 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.55,
-    split: 0.3, delta: 0.02, incise: { lo: 0, hi: 2.5 }, floor: { lo: 0, hi: 4 }, cap: { lo: 0.05, hi: 0.4 },
-    badwater: [0.35, 0.45, 0.2], thorns: 0.5, recipes: { "badwater-volcano": 0.08, "hanging-lake": 0.08 },
+    split: 0.3, delta: 0.02, incise: { lo: 1.5, hi: 3.5 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0.05, hi: 0.4 },
+    badwater: [0.35, 0.45, 0.2], thorns: 0.5,
     troughs: 1, sea: 0, woods: [0.4, 0.2],
   },
   lakeBasin: {
@@ -254,22 +287,26 @@ const P: Record<Leaning, Prior> = {
     partCount: { lo: 2, hi: 5 }, knollsPer128: { lo: 3, hi: 12 },
     erosion: { iterations: { lo: 6, hi: 16 }, k: { lo: 0.008, hi: 0.025 }, diffusion: { lo: 0.03, hi: 0.12 } },
     terrace: { step: [1, 1, 2, 2, 3], share: { lo: 0.05, hi: 0.55 } },
-    inflows: [0, 1, 1, 2, 2, 3], springs: { lo: 0, hi: 4 }, flowMul: { lo: 1.1, hi: 2.6 }, lakeBudget: { lo: 0.1, hi: 0.4 }, lakes: { lo: 1, hi: 4 }, lakeSprings: 1,
-    split: 0.25, delta: 0.02, incise: { lo: 0, hi: 1 }, floor: { lo: 0, hi: 4 }, cap: { lo: 0, hi: 0.2 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.2, recipes: { caldera: 0.12, "chain-of-lakes": 0.1 },
-    troughs: 1.3, sea: 0, woods: [0.25, 0.35],
+    inflows: [0, 1, 1, 1, 2, 2], springs: { lo: 1, hi: 4 }, flowMul: { lo: 0.8, hi: 1.7 }, lakeBudget: { lo: 0.2, hi: 0.45 }, lakes: { lo: 2, hi: 5 }, lakeSprings: 1,
+    split: 0.25, delta: 0.02, incise: { lo: 0, hi: 1 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0, hi: 0.2 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.2,
+    troughs: 2.2, sea: 0, woods: [0.25, 0.35],
   },
   delta: {
     base: { lo: 0.3, hi: 1.3 }, top: { lo: 12.3, hi: 17.8 }, eq: { lo: 0.35, hi: 0.8 }, lean: { lo: 0.8, hi: 1.45 },
-    tilt: { lo: 0.4, hi: 2.8 }, linear: 0.45, radial: 0.08, regional: { lo: 3, hi: 6.5 },
-    amp: { lo: 2, hi: 4.5 }, cell: { lo: 28, hi: 64 }, warp: { lo: 6, hi: 20 }, ridged: { lo: 0, hi: 0.3 },
+    tilt: { lo: 1.6, hi: 4 }, linear: 0.55, radial: 0.08, regional: { lo: 3, hi: 6.5 },
+    amp: { lo: 3, hi: 6 }, cell: { lo: 24, hi: 56 }, warp: { lo: 6, hi: 20 }, ridged: { lo: 0, hi: 0.35 },
     parts: { plateau: 1.2, trough: 1, knolls: 2, basin: 1.2, ridge: 0.7, escarpment: 0.7, mesa: 0.5, cone: 0.3, caldera: 0.3 },
     partCount: { lo: 1, hi: 4 }, knollsPer128: { lo: 4, hi: 12 },
     erosion: { iterations: { lo: 6, hi: 14 }, k: { lo: 0.008, hi: 0.02 }, diffusion: { lo: 0.05, hi: 0.15 } },
     terrace: { step: [1, 1, 2, 2], share: { lo: 0.05, hi: 0.4 } },
-    inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.05, hi: 0.3 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
-    split: 0.65, delta: 0.8, incise: { lo: 0, hi: 0.8 }, floor: { lo: 2, hi: 8 }, cap: { lo: 0, hi: 0.15 },
-    badwater: [0.25, 0.5, 0.25], thorns: 0.1, recipes: { "island-in-a-river": 0.12 },
+    // (D416: lakes up to 15% of the map, not 30%: a lake the fan's river fills that broad stood a few
+    // hundredths over the flats at its sill, Delta 128² seed 4)
+    inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.4, hi: 2.9 }, lakeBudget: { lo: 0.03, hi: 0.15 }, lakes: { lo: 0, hi: 3 }, lakeSprings: 0.5,
+    // (D416: narrower floors along the rivers: a broad floor at the banks' level took the water of
+    // the rivers that join on it as a thin sheet, Delta 128² seed 23)
+    split: 0.65, delta: 1, incise: { lo: 0, hi: 0.8 }, floor: { lo: 1, hi: 4 }, cap: { lo: 0, hi: 0.15 },
+    badwater: [0.25, 0.5, 0.25], thorns: 0.1,
     troughs: 0.3, sea: 0, woods: [0.2, 0.4],
   },
   islands: {
@@ -282,7 +319,7 @@ const P: Record<Leaning, Prior> = {
     terrace: { step: [1, 2, 2, 3], share: { lo: 0.05, hi: 0.45 } },
     inflows: [1, 1, 2, 2, 3], springs: { lo: 0, hi: 3 }, flowMul: { lo: 1.6, hi: 3.2 }, lakeBudget: { lo: 0.2, hi: 0.5 }, lakes: { lo: 0, hi: 2 }, lakeSprings: 0.6,
     split: 0.15, delta: 0.02, incise: { lo: 0, hi: 0.5 }, floor: { lo: 0, hi: 3 }, cap: { lo: 0, hi: 0.2 },
-    badwater: [0.4, 0.45, 0.15], thorns: 0.1, recipes: { "volcano-island": 0.12 },
+    badwater: [0.4, 0.45, 0.15], thorns: 0.1,
     troughs: 0.3, sea: 1, woods: [0.3, 0.3],
   },
 };
@@ -315,8 +352,6 @@ function anyPrior(): Prior {
     const w = mean(ps.map((p) => p.parts[k] ?? 0));
     if (w > 0) parts[k] = w;
   }
-  const recipes: Partial<Record<string, number>> = {};
-  for (const p of ps) for (const name of Object.keys(p.recipes)) recipes[name] = mean(ps.map((q) => q.recipes[name] ?? 0));
   return {
     base: r((p) => p.base),
     top: r((p) => p.top),
@@ -348,7 +383,6 @@ function anyPrior(): Prior {
     cap: r((p) => p.cap),
     badwater: [m((p) => p.badwater[0]), m((p) => p.badwater[1]), m((p) => p.badwater[2])],
     thorns: m((p) => p.thorns),
-    recipes,
     troughs: m((p) => p.troughs),
     sea: m((p) => p.sea),
     woods: [m((p) => p.woods[0]), m((p) => p.woods[1])],
@@ -411,41 +445,8 @@ export function randomPart(rng: Rng, kind: PartKind, W: number, H: number, vy: n
       return { kind, at, size: w(18, 40), height: w(1, 2.5), turn, extra: Math.round(w(4, 10)), soft: 0 };
     case "spiral":
       return { kind, at: [0.3 + 0.4 * rng.float(), 0.3 + 0.4 * rng.float()], size: w(14, 22), height: w(5, 8), turn, extra: w(1.25, 2.25), soft: 0 };
-  }
-}
-
-export const RECIPES = ["island-in-a-river", "great-scarp", "mesa-field", "badwater-volcano", "hanging-lake", "caldera", "chain-of-lakes", "volcano-island"] as const;
-
-function applyRecipe(g: Genome, recipe: string, rng: Rng, W: number, H: number, tall: number): void {
-  const vy = g.variety;
-  const add = (kind: PartKind, over: Partial<Part> = {}) => g.parts.push({ ...randomPart(rng, kind, W, H, vy, tall), ...over });
-  switch (recipe) {
-    case "island-in-a-river":
-      g.hydro.split = 1;
-      break;
-    case "great-scarp":
-      add("escarpment", { size: 3 * Math.max(W, H), height: (4 + 2 * rng.float()) * tall, soft: 1 / tall });
-      break;
-    case "mesa-field":
-      add("mesaField", { extra: 8 + Math.floor(6 * rng.float()) });
-      break;
-    case "badwater-volcano":
-      add("cone", { height: (6 + 2 * rng.float()) * tall, extra: 3 });
-      g.hazards.badwater = "pit";
-      break;
-    case "hanging-lake":
-      add("mesa", { size: 16 + 6 * rng.float(), height: (5 + 2 * rng.float()) * tall, soft: 0.8 / tall });
-      g.hydro.springs = Math.max(1, g.hydro.springs);
-      break;
-    case "caldera":
-      add("caldera", { extra: 4 + 2 * rng.float() });
-      break;
-    case "chain-of-lakes":
-      for (let k = 0; k < 3; k++) add("basin", { size: 10 + 8 * rng.float(), height: -(2.5 + 2 * rng.float()) });
-      break;
-    case "volcano-island":
-      add("cone", { at: [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()], height: 7 * tall, extra: 2.5 });
-      break;
+    case "isle":
+      return { kind, at, size: w(8, 18), height: w(4, 8) * tall, turn, extra: w(1, 1.9), soft: 0 };
   }
 }
 
@@ -494,7 +495,8 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // nudges the continuous values; its land comes from its own noise seeds (field.ts)
   const rng = stream(seed, "genome2", theme, attempt);
   const nudge = variation ? stream(seed, "variation", theme, attempt, variation) : null;
-  const p = PRIORS[theme];
+  // Broaden River Valley's floors without changing Any's combined prior or its seed draws.
+  const p = theme === "riverValley" ? { ...PRIORS[theme], floor: { lo: 12, hi: 16 } } : PRIORS[theme];
   const vy = clamp(o.variety ?? DEFAULT_VARIETY, 0, 100);
   const areaK = (W * H) / (128 * 128);
   const vtSetting = clamp(o.vt ?? VT_DEFAULT[theme], 0, 100);
@@ -518,7 +520,6 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   const g: Genome = {
     theme,
     variety: vy,
-    recipe: null,
     base: clamp(d(p.base), 0.2, 3),
     relief: 0,
     flowDir: rng.int(0, 8),
@@ -546,14 +547,19 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
       jitter: 0.12 + 0.18 * rng.float(),
     },
     hydro: {
-      inflows: p.inflows[rng.int(0, p.inflows.length)],
-      springs: Math.round(Math.max(0, d(p.springs))),
+      // (D333 (3): River Valley's promise is a main river through its valley: one enters at an edge)
+      inflows: Math.max(theme === "riverValley" ? 1 : 0, p.inflows[rng.int(0, p.inflows.length)]),
+      // (M9b: more springs on a larger map, as the square root of its area: a 256² map had a 128²'s,
+      // and most of its land lay far from water)
+      springs: Math.round(Math.max(0, d(p.springs)) * Math.max(1, portable.sqrt(areaK))),
       flowMul: Math.max(0.8, d(p.flowMul)),
       lakeBudget: clamp(d(p.lakeBudget), 0.01, 0.45),
       split: p.split,
       delta: p.delta,
       incise: Math.max(0, d(p.incise)) + 3 * v * v,
-      floor: Math.max(0, d(p.floor)),
+      // (M9b: a valley floor grows with the map, as the square root of its side: at 256² River
+      // Valley's floor was a 128²'s, a narrow strip across a large map, and never kept its promise)
+      floor: Math.max(0, d(p.floor)) * portable.sqrt(Math.min(W, H) / 128),
     },
     hazards: { badwater: (["none", "pit", "stream"] as const)[rng.weighted(p.badwater)], ratio: 0.3 + 0.7 * rng.float(), thorns: rng.float() < p.thorns },
     resources: {
@@ -600,46 +606,243 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // a radial slope falls toward the first bowl when there is one
   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
   if (g.tiltKind === "radial" && bowl) g.focus = [bowl.at[0], bowl.at[1]];
-  if (sea) addSea(g, rng, W, H, attempt, areaK, tallK);
+  if (sea) addSea(g, stream(seed, "sea-layout", theme, attempt), W, H, attempt, areaK, tallK);
   const knolls = Math.round(d(p.knollsPer128) * areaK);
   if (knolls > 0) g.parts.push({ kind: "knolls", at: [0.5, 0.5], size: 0, height: 1.5 + rng.float(), turn: 0, extra: knolls, soft: 0 });
-  // a recipe, sometimes (at most a forced part)
-  const rec = Object.entries(p.recipes) as [string, number][];
-  const pool = vy >= 85 ? RECIPES.map((r) => [r, 0.03] as [string, number]).concat(rec) : rec;
-  for (const [name, chance] of pool) {
-    if (!g.recipe && rng.float() < chance * (vy / 70)) {
-      g.recipe = name;
-      applyRecipe(g, name, rng, W, H, tallK);
-    }
-  }
+  // (M9b, D275 (1): the recipes are folded into intentions, one concept checked by outcome: the
+  // island in a river is "the river splits around a big island", the great scarp "a long cliff
+  // splits the map", the chain of lakes "lakes step down the valley", the hanging lake "a lake high on
+  // the heights", the caldera Kyler's crater, the mesa field a landmark; the badwater volcano and
+  // the volcano island are dropped, the Islands layouts standing for the second)
   g.woods = drawWoods(theme, seed, attempt, vy);
   // intentions: outcomes the processes are steered toward, never built (D138)
-  g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng) : o.intentions.slice();
+  g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng, { W, H }, !!g.seaLayout) : o.intentions.filter((id) => !tooSmallFor(id, W, H));
   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
   return g;
 }
 
-/** Islands in a sea (Kyler, 2026-09-25): a broad body of water with the land scattered through it,
- *  in the map's middle, so the land rises from it toward every edge (water that reaches the edge
- *  leaves the map, and edges are never walled). */
+/** The ways an island sea lies (M9b; D209: "archipelagos across the whole map, a sea off one edge,
+ *  island chains, atolls"; D294: Islands had no sea). */
+export const SEA_LAYOUTS = ["central", "edge", "archipelago", "chain", "atolls", "twoSeas"] as const;
+export type SeaLayout = (typeof SEA_LAYOUTS)[number];
+const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
+
+/** How much deeper the basins the Lakes setting adds are (D333 (6)). */
+const LAKES_DEEPER = 1.6;
+
+/** And the sea (a quarter of the map or more, the promise's line). */
+const SEA_GROW = 1.12;
+
+/**
+ * Islands in a sea (Kyler, 2026-09-25; M9b: in many layouts, D209, D294; D408, D410: from the
+ * field's own processes, no template): a broad body of water held in a bowl so the land rises from it
+ * toward the edges (water that reaches an edge leaves the map, and edges are never walled), with
+ * islands that have relief of their own, so the erosion, the terraces and the springs make their
+ * valleys, benches and streams. The layout says where the sea lies and how its islands stand: one
+ * large island with smaller ones round it; a sea off one edge, behind a strip of coast, with islands
+ * off the mainland (the map's orientation turns it to any edge, D275); a scatter of mid-sized islands,
+ * one big enough for a colony; a chain of islands along an arc; an atoll, a lobed ring of islets round
+ * a lagoon with passes to the sea; or two large islands parted by a strait. Its own random stream, so
+ * the rest of the genome keeps its draws.
+ */
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
+  const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+  g.seaLayout = layout;
+  g.seaRing = layout === "edge" || rng.float() < 0.25;
   g.tiltKind = "radial";
-  g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+  g.regional.warped = true;
+  const side = Math.min(W, H);
   // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
-  const R = Math.min(W, H) * (0.36 + 0.08 * rng.float()) * Math.max(0.75, 1 - 0.05 * attempt);
-  const depth = 9 + 2.5 * rng.float();
-  g.parts.push({ kind: "basin", at: [g.focus[0], g.focus[1]], size: R, height: -depth, turn: rng.float(), extra: 0, soft: 0, shape: "sea" });
-  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
-  // islands scattered through the sea, standing clear of it
-  const isles = Math.round((12 + 10 * rng.float()) * Math.max(1, areaK));
-  for (let k = 0; k < isles; k++) {
-    const [ux, uy] = [rng.float() * 2 - 1, rng.float() * 2 - 1];
-    const r = (0.1 + 0.8 * rng.float()) / Math.max(1, portable.sqrt(ux * ux + uy * uy));
-    g.parts.push({ kind: rng.float() < 0.35 ? "cone" : "mesa", at: [g.focus[0] + (ux * r * R) / W, g.focus[1] + (uy * r * R) / H], size: 3 + 6 * rng.float(), height: depth + (1.5 + 4 * rng.float()) * tallK, turn: rng.float(), extra: 0, soft: (1 + rng.float()) / tallK });
+  const shrink = Math.max(0.75, 1 - 0.05 * attempt);
+  // (D350: on a larger map fewer, larger islands, the same share of the land: count × area^0.3, size
+  // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
+  const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
+  const isleK = portable.pow(Math.max(1, areaK), 0.35);
+  let seaDepth = 9;
+  const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
+    seaDepth = depth;
+    g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
+  };
+  // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
+  // floor, a spine along it and a peak or two off its middle, so the erosion cuts valleys down its
+  // flanks and the terraces step it, never a flat table with a bump
+  const island = (at: [number, number], R: number, rise: number, depth: number) => {
+    const turn = rng.float();
+    const [ax, ay] = unit(turn);
+    const r = R * isleK;
+    g.parts.push({ kind: "isle", at, size: r, height: depth * 1.1 + rise * 0.75 * tallK, turn, extra: 1 + 0.9 * rng.float(), soft: 0, isle: true });
+    // a spine along it, and a peak off its middle, sometimes two
+    g.parts.push({ kind: "ridge", at, size: r * (1 + 0.5 * rng.float()), height: rise * (0.2 + 0.15 * rng.float()) * tallK, turn: turn + 0.25 * (rng.float() < 0.5 ? 1 : 0), extra: r * (0.25 + 0.12 * rng.float()), soft: 0 });
+    const peaks = 1 + Math.floor(2 * rng.float());
+    for (let k = 0; k < peaks; k++) {
+      const off = r * (0.15 + 0.35 * rng.float()) * (k ? -1 : 1);
+      g.parts.push({ kind: "isle", at: [at[0] + (ax * off) / W, at[1] + (ay * off) / H], size: r * (0.3 + 0.2 * rng.float()), height: rise * (0.15 + 0.2 * rng.float()) * tallK, turn: rng.float(), extra: 1 + rng.float(), soft: 0 });
+    }
+  };
+  let tilt = 3 + rng.float();
+  switch (layout) {
+    case "central": {
+      // one large island with smaller ones round it
+      g.focus = [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()];
+      const R = side * (0.42 + 0.08 * rng.float());
+      const depth = 9 + 2.5 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
+      // (D417: fewer, larger islands: the big one 19–24, two to four others of 5–9)
+      const big = 19 + 5 * rng.float();
+      island([g.focus[0], g.focus[1]], big, 6 + 3 * rng.float(), depth);
+      const sats = 2 + Math.floor(3 * rng.float());
+      for (let k = 0; k < sats; k++) {
+        const [vx, vy] = unit((k + 0.6 * rng.float()) / sats);
+        const d = big * isleK * (1.4 + 0.5 * rng.float());
+        island([g.focus[0] + (vx * d) / W, g.focus[1] + (vy * d) / H], 5 + 4 * rng.float(), 3 + 3 * rng.float(), depth);
+      }
+      break;
+    }
+    case "edge": {
+      // the sea lies along the south edge, behind a strip of coast its outlet crosses, with islands
+      // off the mainland that rises behind it (the map's orientation turns it to any edge)
+      g.focus = [0.35 + 0.3 * rng.float(), 0.3 + 0.06 * rng.float()];
+      const R = side * (0.4 + 0.08 * rng.float());
+      const depth = 8 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
+      const count = n(3 + 2 * rng.float());
+      for (let k = 0; k < count; k++) {
+        const [vx, vy] = unit(rng.float());
+        const r = 0.7 * portable.sqrt(rng.float()) * R;
+        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + (vy * r * 0.6) / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
+      }
+      tilt = 6 + 1.5 * rng.float();
+      // (its water leaves by the coast: the south edge is the way out, D275 turns it)
+      g.flowDir = 6;
+      break;
+    }
+    case "archipelago": {
+      // a scatter of mid-sized islands through a broad sea, one of them big enough for a colony
+      g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+      const R = side * (0.46 + 0.06 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      const turn = rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, turn, 1 + 0.4 * rng.float());
+      const count = n(4 + 3 * rng.float());
+      const placed: [number, number, number][] = [];
+      for (let k = 0, draw = 0; k < count && draw < 200; draw++) {
+        const [vx, vy] = unit(rng.float());
+        const d = 0.75 * portable.sqrt(rng.float()) * R;
+        const size = k === 0 ? 14 + 4 * rng.float() : 7 + 5 * rng.float();
+        const x = g.focus[0] * W + vx * d;
+        const y = g.focus[1] * H + vy * d;
+        if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.25 + 4)) continue;
+        placed.push([x, y, size]);
+        island([x / W, y / H], size, 3.5 + 4.5 * rng.float() + (k === 0 ? 2 : 0), depth);
+        k++;
+      }
+      tilt = 3 + rng.float();
+      break;
+    }
+    case "chain": {
+      g.focus = [0.38 + 0.24 * rng.float(), 0.38 + 0.24 * rng.float()];
+      const R = side * (0.42 + 0.08 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      const turn = rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, turn, 1.5 + 0.6 * rng.float());
+      // an arc through the sea's middle, bending round a centre off to one side of its long axis
+      const [ax, ay] = unit(turn);
+      const bend = (rng.float() < 0.5 ? 1 : -1) * R * (1.3 + 1.2 * rng.float());
+      const ccx = g.focus[0] * W - ay * bend;
+      const ccy = g.focus[1] * H + ax * bend;
+      // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
+      const base = turn + (bend > 0 ? -0.25 : 0.25);
+      const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
+      const count = 4 + Math.floor(3 * rng.float());
+      for (let k = 0; k < count; k++) {
+        const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
+        const [ux, uy] = unit(base + t * span);
+        const mid = 1 - Math.abs(t) * 1.3;
+        const size = 6 + 11 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
+        island([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 3 + 5 * Math.max(0.2, mid) + 2 * rng.float(), depth);
+      }
+      break;
+    }
+    case "atolls": {
+      // a ring of land round a lagoon, lobed, never a circle, with one to three passes to the sea
+      g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
+      const R = side * (0.44 + 0.06 * rng.float());
+      const depth = 8 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.05 + 0.3 * rng.float());
+      const cx = g.focus[0] * W;
+      const cy = g.focus[1] * H;
+      const ra = (side / 128) * (26 + 8 * rng.float());
+      const k1 = 2 + (rng.float() < 0.5 ? 1 : 0);
+      const p1 = rng.float();
+      const k2 = 4 + (rng.float() < 0.5 ? 1 : 0);
+      const p2 = rng.float();
+      const gaps = 1 + Math.floor(3 * rng.float());
+      const gapAt = Array.from({ length: gaps }, () => rng.float());
+      // (D417: ten to fourteen broader pieces with relief of their own, crescents rather than a
+      // necklace of islets; a high islet in the lagoon, sometimes)
+      const pieces = 10 + Math.floor(5 * rng.float());
+      for (let k = 0; k < pieces; k++) {
+        const t = (k + 0.3 * (rng.float() - 0.5)) / pieces;
+        if (gapAt.some((q) => Math.abs(((t - q + 1.5) % 1) - 0.5) < 0.05)) continue;
+        const [ux, uy] = unit(t);
+        const r = ra * (1 + 0.16 * unit(k1 * t + p1)[1] + 0.08 * unit(k2 * t + p2)[1]);
+        island([(cx + ux * r) / W, (cy + uy * r) / H], 7 + 3 * rng.float(), 2.5 + 3.5 * rng.float(), depth);
+      }
+      if (rng.float() < 0.5) island([g.focus[0], g.focus[1]], 4 + 3 * rng.float(), 5 + 3 * rng.float(), depth);
+      tilt = 3 + rng.float();
+      break;
+    }
+    case "twoSeas": {
+      // two large islands parted by a strait (D209's two seas became Kyler's strait, 2026-10-02)
+      g.focus = [0.44 + 0.12 * rng.float(), 0.44 + 0.12 * rng.float()];
+      const turn = rng.float();
+      const [ax, ay] = unit(turn);
+      const R = side * (0.46 + 0.06 * rng.float());
+      const depth = 8.5 + 2 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, turn, 1.1 + 0.4 * rng.float());
+      const apart = side * (0.17 + 0.05 * rng.float());
+      for (const sgn of [-1, 1]) {
+        const at: [number, number] = [g.focus[0] + (sgn * -ay * apart) / W + (ax * side * 0.08 * (rng.float() - 0.5)) / W, g.focus[1] + (sgn * ax * apart) / H + (ay * side * 0.08 * (rng.float() - 0.5)) / H];
+        island(at, 15 + 5 * rng.float(), 5 + 4 * rng.float(), depth);
+      }
+      const small = 1 + Math.floor(2 * rng.float());
+      for (let k = 0; k < small; k++) {
+        const [vx, vy] = unit(rng.float());
+        island([g.focus[0] + (vx * R * 0.7) / W, g.focus[1] + (vy * R * 0.7) / H], 4 + 2 * rng.float(), 3 + 2 * rng.float(), depth);
+      }
+      tilt = 3 + rng.float();
+      break;
+    }
   }
-  // the land rises from the sea toward every edge: a steep bowl, quiet noise, levels spread by
-  // height rather than equal area, so the sea keeps a broad floor below its shores
-  g.tilt = Math.max(g.tilt, 8.5 + rng.float());
+  // (D417: where the ring breaks, the sea lies off the middle, so the land round it is broad on one
+  // side, where islands drawn there join it as peninsulas, and narrow on the other)
+  if (!g.seaRing) {
+    const [ox, oy] = unit(rng.float());
+    const sh = 0.08 + 0.06 * rng.float();
+    for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
+  }
+  // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
+  // it, their high ground an island's, so the shore is land and channels, never a frame)
+  if (!g.seaRing) {
+    const heads = 3 + Math.floor(2 * rng.float());
+    const a0 = rng.float();
+    for (let k = 0; k < heads; k++) {
+      const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
+      // (from the map's middle out to near its edge, along this bearing)
+      const reach = 0.5 - (0.1 + 0.06 * rng.float());
+      const scale = Math.max(Math.abs(vx), Math.abs(vy));
+      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
+    }
+  }
+  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
+  // the sea is fed from the heights round it: springs, whose rivers pour down into it (a river from
+  // an edge enters low on the bowl's rim, and no sea stands above where its water comes in)
+  g.hydro.inflows = 0;
+  g.hydro.springs = Math.max(g.hydro.springs, 2 + (rng.float() < 0.5 ? 1 : 0));
+  // the land rises from the sea toward the edges: a bowl, quiet noise, levels spread by height
+  // rather than equal area, so the sea keeps a broad floor below its shores
+  // (D410: a low bowl, its rim a shore, not a frame of high land; the islands keep the noise's relief)
+  g.tilt = tilt;
   g.regional.amp *= 0.4;
   g.noise.amp *= 0.5;
   g.hyps.eq = 0.1 + 0.1 * rng.float();
@@ -706,17 +909,35 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.terrace.share = clamp(g.terrace.share + 0.15, 0, 1);
     g.noise.amp *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
-  // the highest terrain, below high Verticality (a tall map's top is Verticality's)
-  if (!g.tall) g.top = Math.min(g.top, s.terrain.highestTerrain);
+  // the highest terrain (item 36): a cap on every map; at its default (22 from Verticality 70, 16
+  // below) a tall map's top is Verticality's, and one drawn tall by Variety keeps it too
+  const cap = s.terrain.highestTerrain;
+  if (!g.tall) g.top = Math.min(g.top, cap, EDITOR_TOP);
+  else if (cap < highestTerrainDefault(s.terrain.verticality)) {
+    g.top = Math.min(g.top, cap);
+    if (g.top <= EDITOR_TOP) g.tall = false;
+  }
+  // the land stands on a floor (item 47): every level moves up by `BED_FLOOR`, so the deepest bed
+  // is that far above the map's floor, and the relief is kept within the ceiling (the land squeezed
+  // only where it would rise past it)
+  const ceiling = g.tall ? g.top : Math.min(EDITOR_TOP, cap);
+  g.base += BED_FLOOR;
+  g.top = Math.min(g.top + BED_FLOOR, ceiling);
   g.relief = g.top - g.base;
   // terracing: the benched share
   const dt = (s.terrain.terracing - p.terracing) / 100;
   g.terrace.share = clamp(g.terrace.share + 0.9 * dt, 0, 1);
   if (dt >= 0.25 && g.terrace.step < 2) g.terrace.step = 2;
+  // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
+  // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
+  // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
+  // and away from the water a Plenty one stores)
+  g.hydro.reachSprings = s.terrain.buildableLand !== "generous" && s.water.droughtReserve === p.droughtReserve;
   // rivers entering on the edges (0: springs feed the water)
   // (a count the player set is the count that enters, PLAN §5.3; the preset's leaves the genome's)
   if (s.water.rivers === 0) {
     g.hydro.inflows = 0;
+    g.hydro.noInflows = true;
     g.hydro.springs = Math.max(1, g.hydro.springs);
   } else if (s.water.rivers !== p.rivers) {
     g.hydro.inflows = s.water.rivers;
@@ -757,14 +978,22 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   else if (rr < 1) g.troughs *= rr;
   // lakes and basins
   const dl = LAKE_STEP[s.water.lakes] - LAKE_STEP[p.lakes];
-  if (s.water.lakes === "none") {
+  // (M9b, D294: only a setting moved from the theme's own; at Islands' preset, None, the sea is its
+  // water and kept its budget: the lake budget cut every Islands sea down to nothing)
+  if (s.water.lakes === "none" && p.lakes !== "none") {
     // (a river crossing a hollow leaves no lake: the lake budget cuts its outlet down to nothing)
     g.parts = g.parts.filter((q) => q.kind !== "basin" || q.shape === "sea");
     g.troughs = 0;
     g.lakeSprings = 0;
     g.hydro.lakeBudget = 0.0005;
   } else if (dl > 0) {
-    for (let k = 0; k < 6 * dl; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
+    // (D333 (6): half again as deep: on the beds' floor, item 47, a basin in the low land was cut
+    // off at the land's lowest level and held no lake)
+    for (let k = 0; k < 6 * dl; k++) {
+      const b = randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100);
+      b.height *= LAKES_DEEPER;
+      g.parts.push(b);
+    }
     g.troughs += 2 * dl;
     g.lakeSprings = Math.min(1, g.lakeSprings + 0.5 * dl);
     // more of the land's hollows hold water, smaller ones too (dry ones are filled)

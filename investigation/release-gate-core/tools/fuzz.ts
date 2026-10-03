@@ -4,7 +4,7 @@ import { stream } from "../../../src/core/math/rng";
 import { randomOp } from "../../../tests/contract/randomOps";
 import type { EditOp } from "../../../src/core/doc/ops";
 import type { BuildResult } from "../../../src/core/features/build";
-import { map, reopen, sha } from "../editor-core/helpers";
+import { map, reopen, sha } from "../../../tests/contract/gateHelpers";
 import { diffSessions } from "./diff";
 const seed = Number(process.argv[2] ?? 1);
 const mode = (process.argv[3] ?? "defer") as "defer" | "canonical" | "preview";

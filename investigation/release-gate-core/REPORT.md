@@ -1,8 +1,8 @@
 # The release gate's core: a bug hunt (D385)
 
-> **Fixed (2026-10-03, PR #196):** water 1–3 and editor-core 1–6 and 8–11. Their tests moved into
-> `tests/contract/` (the names below are the originals). Still here: water 4 (Kyler's call) and editor-core 7
-> (a project-format decision).
+> **Fixed (2026-10-03, PR #196):** water 1–3 and editor-core 1–6 and 8–11; then editor-core 7 (D456) and water 4 (D457:
+> an imported map keeps its own water). Their tests moved into `tests/contract/` (the names below are the originals);
+> the shared helpers are `tests/contract/gateHelpers.ts` and `gateWater.ts`.
 
 The water and the editor's core, hunted for reproducible wrong results on 2026-10-03.
 

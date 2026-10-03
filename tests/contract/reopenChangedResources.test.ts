@@ -21,7 +21,8 @@ const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const W = 96;
 
 describe("a reopened project keeps what the session showed after a changed berry patch or forest (D404, D425)", () => {
-  const r = generate(makeSpec({ seed: 2, size: { x: W, y: W }, theme: "riverValley" }));
+  // (seed 4 on M9b's maps, D148: its seed 2 has no forest standing all dead, and seed 3's raise dries no bush)
+  const r = generate(makeSpec({ seed: 4, size: { x: W, y: W }, theme: "riverValley" }));
   const s = MapSession.fromGenerated(r);
   const of = (id: string) => s.built.entities.filter((e) => e.owner === id);
   const dead = (id: string) => of(id).filter((e) => (entityJson(e).Components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true);

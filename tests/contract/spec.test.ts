@@ -29,7 +29,8 @@ describe("MapSpec schema", () => {
     ["size above 256", (s) => (s.size.x = 300)],
     ["size below 48", (s) => (s.size.y = 40)],
     ["relief above 100", (s) => (s.settings.terrain.relief = 101)],
-    ["terrain above 16", (s) => (s.settings.terrain.highestTerrain = 17)],
+    // (item 36: Highest terrain reaches 22 where Verticality allows tall land)
+    ["terrain above 22", (s) => (s.settings.terrain.highestTerrain = 23)],
     ["unknown theme", (s) => ((s as { theme: string }).theme = "volcano")],
     ["unknown property", (s) => ((s as unknown as Record<string, unknown>).extra = 1)],
     ["two colonies without the mod", (s) => (s.colonies = { count: 2, mod: "none" })],
@@ -84,7 +85,7 @@ describe("URL codec (PLAN §14.5)", () => {
     for (let k = 0; k < 200; k++) {
       const spec = makeSpec({ seed: int(0, 4294967295), theme: pick(THEMES), designedFor: pick(["easy", "normal", "hard"] as const), size: { x: int(48, 256), y: int(48, 256) } });
       const st = spec.settings;
-      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100) };
+      st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100), variety: int(0, 100) };
       st.water = {
         rivers: int(0, 3),
         riverStyle: pick(["straight", "meandering", "braided"] as const),
@@ -92,6 +93,7 @@ describe("URL codec (PLAN §14.5)", () => {
         droughtReserve: pick(["scarce", "normal", "plenty"] as const),
         lakes: pick(["none", "few", "some", "many"] as const),
         waterfalls: pick(["off", "few", "many"] as const),
+        sources: pick(["placed", "none"] as const), // (D330: Sources: Placed · None)
       };
       st.hazards = { badwater: pick(["off", "low", "normal", "high"] as const), badwaterDistance: int(12, 60), thornBelts: pick(["off", "some"] as const), unstableCores: pick(["off", "on"] as const) };
       st.resources = {
@@ -103,7 +105,7 @@ describe("URL codec (PLAN §14.5)", () => {
         ruins: int(25, 300),
         relics: pick(["off", "some"] as const),
         geothermal: pick(["off", "some"] as const),
-        mineSites: int(1, 4), // every map has at least one (Kyler, 2026-09-25; D148)
+        mineSites: int(2, 4), // every map has at least two (item 47; one before, Kyler, 2026-09-25; D148)
       };
       st.start = {
         area: pick(["small", "normal", "large"] as const),

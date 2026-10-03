@@ -114,11 +114,11 @@ function good(): Scene {
 }
 
 describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
-  it("Normal's defaults are 20 tiles' walk, 200 logs and 30 bushes; Easy 12, 250, 40; Hard 28, none, 20 (D227)", () => {
+  it("Normal's defaults are 20 tiles' walk, 200 logs and 30 bushes; Easy 12, 250, 40; Hard 28, none, 30 (D227; item 47's berries for an Iron Teeth start)", () => {
     const r = (d: "easy" | "normal" | "hard") => DIFFICULTY_RULES[d];
     expect([r("easy").waterWithin, r("easy").woodWithin20, r("easy").bushesWithin20]).toEqual([12, 250, 40]);
     expect([r("normal").waterWithin, r("normal").woodWithin20, r("normal").bushesWithin20]).toEqual([20, 200, 30]);
-    expect([r("hard").waterWithin, r("hard").woodWithin20, r("hard").bushesWithin20]).toEqual([28, 0, 20]);
+    expect([r("hard").waterWithin, r("hard").woodWithin20, r("hard").bushesWithin20]).toEqual([28, 0, 30]);
     // D164: an old link's or project's tree count is 2 logs of grown wood a tree
     expect([woodForTrees(60), woodForTrees(40), woodForTrees(20)]).toEqual([120, 80, 40]);
     // an imported map uses its difficulty's defaults; a generated one its settings

@@ -23,16 +23,18 @@ function play(): boolean {
 const objects = (s: MapSession) => s.built.entities.map((e) => `${e.template} ${e.id} @${e.x},${e.y}`).sort();
 
 describe("Try another after a force that carried the start (D257, D220)", () => {
-  it("Highlands 64², seed 4: a Quake Slide clicked at (42, 1) carries the start; Try another leaves the start's ground alone, so the start stays at (42, 8) and the 9 objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
+  // (seed 3 on M9b's maps, D148: its Highlands 64² seed 4 has no start; the Slide is clicked seven tiles
+  // north of the start, as it was on dev's map)
+  it("Highlands 64², seed 3: a Quake Slide clicked at (20, 16) carries the start; Try another leaves the start's ground alone, so the start stays at (20, 23) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const orig = startMiddle(open())!;
-    expect(orig).toEqual([42, 8]);
+    expect(orig).toEqual([20, 23]);
 
-    // the first try: a Slide clicked at (42, 1), Power 40, the editor's way; it breaks the start's ground
-    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 42, y: 1 }, { x: 42, y: 1 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    // the first try: a Slide clicked at (20, 16), Power 40, the editor's way; it breaks the start's ground
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 20, y: 16 }, { x: 20, y: 16 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
     expect(play()).toBe(true);
     expect(startMiddle(open())).not.toEqual(orig);
 

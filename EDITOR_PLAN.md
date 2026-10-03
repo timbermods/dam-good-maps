@@ -138,7 +138,9 @@ The editor's parts as they are now; their placement and styling are the design p
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
 - **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in browsers that
   can't save to a folder); a small menu for the rest (Open, Save project, Download .timber, History, New map,
-  Clear everything).
+  Clear everything). On a generated map the menu also has **Another like this** (M9b, D278 (1c)): it closes the map
+  (asking first when it has edits) and opens a sibling, the same theme, settings and intentions on different land,
+  with its own share link.
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the map. Never a
   pop-up.
 - **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
@@ -740,7 +742,10 @@ adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recover
 a new imported map.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. Undo never crosses from one map to another: each
+history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
+operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
+project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
 document keeps its own land (D336); when UI-BRIEF §6's undo brings back a replaced map, the page opens that map
 afresh, with a view built for its size.
 
@@ -773,15 +778,17 @@ opened, are listed but never blamed on the player's edits and do not block its e
   columns are kept the same way (`BuildInput.generatedResources`, `raster/resources.ts` `KeptTiles`): only those
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
-  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. What
+  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
+  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
   objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
-  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
-  walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the
+  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
+  the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
   asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
@@ -832,6 +839,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
     §10; `tests/contract/waterFromNowhere.test.ts`). The preview does the same once its water stops: the
     pre-fill's water that only the walk's thin water joined to fed water goes, and the water runs on from there.
+  - **An imported map keeps its own water** (D457): standing water its file holds that no source feeds (a pond
+    whose source its maker removed) is the map's own, a stored lake like a Fill (`features/build.ts`
+    `importedWater`), so the live water and the export keep it alike and the game evaporates it in its own time;
+    Remove unfed water can still take it. D420 is unchanged for generated maps and Real places.
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
@@ -904,7 +915,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     a placed object's pop and wiggle scales its own instance; a force's moment (`forces.ts`) plays on its own clock
     from fixed pools, at the showing's pace, never the water's speed, and none play with reduced motion or in
     software rendering. Every tree stands upright on its tile (`settleKnocked` in `core/forces/objects.ts`). The
-    sounds (`src/editor/juice/`): recorded CC0 foley (24 files in `public/sounds/juice-2/`, with a manifest and
+    sounds (`src/editor/juice/`): recorded CC0 foley (26 files in `public/sounds/juice-2/`, with a manifest and
     provenance, `SOUNDS.md`), fetched and decoded on the first click or key and played by the browser's own audio
     thread (no synthesis, no worklet); one engine for the editor's lifetime, never waited on: a sound asked for
     while the bank loads, while paused or off, or past the limits (72 recordings, 20 sounds, four held beds, ten

@@ -8,6 +8,7 @@ The game's water and soil rules on a height field: the water model, the exact wa
 - Water never appears from nowhere: what the pre-fill puts where no source's water goes is taken away once the water has settled (`prefill.ts` `canonicalRun`), and the warm start keeps the pre-fill's water only where something reaches it (D385).
 - Every emitter and blocker is handled through its footprint (`model.ts`, PLAN §11.5).
 - Changing a rule moves maps: re-pin the golden fixtures (D308).
+- A speed-up never moves a byte (D130, D359): `water-speedups` pins every byte of the state, and the bookkeeping `water.ts` keeps up to date (the active list, wet-neighbour counts, evaporation modifiers) is checked against a rebuild every tick. That bookkeeping follows the water only through `run`: start water through the constructor, never by writing `D` or `C` afterwards.
 
 **Start from**: `model.ts` `waterModel`; `prefill.ts` `canonicalSettle`; `water.ts` (the simulation); `moisture.ts`, `contamination.ts`; `drought.ts` `droughtStorage`; `preview.ts` (editor previews); `weather.ts` (Drought and Badtide days); `fed.ts` (which water a source, a stored lake or kept water reaches: the drained tiles of Remove unfed water, and no water from nowhere, D385); `fill.ts` (a Fill's hollow and how long it lasts).
 

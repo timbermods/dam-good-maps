@@ -8,7 +8,7 @@
 
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { createGenerator, readFile, saveFile, saveToTimberborn, storage, type Autosave, type SaveToTimberbornResult } from "../platform";
+import { createBackground, createGenerator, readFile, saveFile, saveToTimberborn, storage, type Autosave, type SaveToTimberbornResult } from "../platform";
 import {
   decodeSpecFragment,
   defaultSettings,
@@ -31,6 +31,7 @@ import type { ExportDialogProps } from "../editor/panels";
 import { fetchIndex, fetchPlace, placeFromHash, PLACES_URL } from "../places/data";
 import { Preview2D, type Layers } from "./Preview2D";
 import { FirstLook, type Progress } from "./FirstLook";
+import { sameLand } from "../core/analysis/story";
 import { proxy } from "comlink";
 import type { GenProgress } from "../worker/api";
 import { MapCard } from "./MapCard";
@@ -128,6 +129,8 @@ export function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>(init.spec.designedFor);
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
+  /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
+  const [sibling, setSibling] = useState<{ variation: number; intentions: string[] } | null>(init.spec.variation ? { variation: init.spec.variation, intentions: init.spec.intentions ?? [] } : null);
   const [copied, setCopied] = useState("");
   const [result, setResult] = useState<GenerateResponse | null>(null);
   /** The settings page shows the open document's map (its edits included). */
@@ -151,6 +154,14 @@ export function App() {
   const [exporting, setExporting] = useState(false);
   /** A real place being opened in the editor: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
+  /** D329: a version of the map that meets every outcome, found in the background, for the player to
+   *  take or ignore (until "The page is the editor" draws the candidates strip). */
+  const [version, setVersion] = useState<{ response: GenerateResponse; note: string } | null>(null);
+  /** A version found for its water alone, kept quietly (D333 (5)): Another like this shows it. */
+  const quiet = useRef<GenerateResponse | null>(null);
+  const background = useRef<ReturnType<typeof createBackground> | null>(null);
+  /** The map shown came from the background: its project opens in the editor. */
+  const shownVersion = useRef<Uint8Array | null>(null);
   const saveTimer = useRef(0);
   const screenRef = useRef(screen);
   screenRef.current = screen;
@@ -160,8 +171,12 @@ export function App() {
   const Dialog = useLazy(() => import("../editor/panels").then((m) => m.ExportDialog as ComponentType<ExportDialogProps>), exporting);
 
   const spec = useMemo(
-    () => ({ ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }), settings }),
-    [seedText, size, difficulty, theme, settings],
+    (): MapSpec => ({
+      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }),
+      settings,
+      ...(sibling ? { variation: sibling.variation, ...(sibling.intentions.length ? { intentions: sibling.intentions } : {}) } : {}),
+    }),
+    [seedText, size, difficulty, theme, settings, sibling],
   );
   const stale = !!result && encodeSpecFragment(result.spec) !== encodeSpecFragment(spec);
   // the shown map has edits: Generate makes a new map beside it, and it stays open and saved (D336)
@@ -175,15 +190,18 @@ export function App() {
     setDifficulty(s.designedFor);
     setTheme(s.theme);
     setSettings(s.settings);
+    setSibling(s.variation ? { variation: s.variation, intentions: s.intentions ?? [] } : null);
   }
 
   // a theme pre-fills every setting (PLAN §6); a difficulty sets the start rules and its badwater
   // distance and berry target (PLAN §5.6); a size sets the default number of mine sites
   function chooseTheme(t: ThemeId) {
+    setSibling(null);
     setTheme(t);
     setSettings(defaultSettings(t, difficulty, size));
   }
   function chooseDifficulty(d: Difficulty) {
+    setSibling(null);
     setDifficulty(d);
     const r = DIFFICULTY_RULES[d];
     setSettings((s) => ({
@@ -194,6 +212,7 @@ export function App() {
     }));
   }
   function chooseSize(z: { x: number; y: number }) {
+    setSibling(null);
     setSize(z);
     setSettings((s) => ({ ...s, resources: { ...s.resources, mineSites: mineSitesForSize(z.x, z.y) } }));
   }
@@ -220,10 +239,55 @@ export function App() {
 
   // ------------------------------------------------------------------------------ generating
 
+  /** D329: stop any background search (a new map was asked for). */
+  function stopBackground() {
+    background.current?.stop();
+    background.current = null;
+    quiet.current = null;
+    setVersion(null);
+  }
+
+  /** D329: the map missed an outcome that matters (its theme's promise, or readable water): look for
+   *  a version that meets all three in a worker of its own, while the player keeps going. Only a
+   *  missed promise gets a note (D333 (5)); a version found for its water is kept quietly. */
+  function searchVersion(r: GenerateResponse) {
+    stopBackground();
+    quiet.current = null;
+    if (!r.passed || !r.version) return;
+    const note = r.version.note;
+    const bg = createBackground();
+    background.current = bg;
+    void bg.api.findVersion({ spec: r.spec, intentions: r.intentions, heights: r.heights }).then(
+      (found) => {
+        if (background.current !== bg) return;
+        bg.stop();
+        background.current = null;
+        if (!found?.passed) return;
+        if (note) setVersion({ response: found, note });
+        else quiet.current = found;
+      },
+      () => undefined,
+    );
+  }
+
+  /** Take the version: it becomes the map shown, with its own share link. */
+  function takeVersion() {
+    if (!version) return;
+    const r = version.response;
+    setVersion(null);
+    shownVersion.current = r.project;
+    setResult(r);
+    setSibling(r.spec.variation ? { variation: r.spec.variation, intentions: r.spec.intentions ?? r.intentions } : null);
+    history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
+  }
+
   /** The latest run: a result from an older one is never shown over it. */
   const runId = useRef(0);
-  async function run(s: MapSpec) {
+  async function run(s: MapSpec): Promise<GenerateResponse | null> {
     const id = ++runId.current;
+    let made: GenerateResponse | null = null;
+    stopBackground();
+    shownVersion.current = null;
     setBusy(true);
     setError(null);
     setDownloaded(false);
@@ -241,20 +305,75 @@ export function App() {
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       const r = await generator.generate(
         s,
-        proxy((p: GenProgress) => setProgress((q) => (p.kind === "stage" ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null } : { attempt: p.attempt, stage: q?.stage ?? "land", land: p }))),
+        proxy((p: GenProgress) =>
+          setProgress((q) =>
+            p.kind === "stage"
+              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null }
+              : p.kind === "candidate"
+                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p }
+                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null },
+          ),
+        ),
         seedWord,
       );
-      if (id !== runId.current) return;
+      if (id !== runId.current) return null;
       setResult(r);
+      made = r;
       setFromSession(false);
       history.replaceState(null, "", "#" + encodeSpecFragment(r.spec));
       if (!r.passed) setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
+      else searchVersion(r);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
       setBusy(false);
       setProgress(null);
     }
+    return made;
+  }
+
+  /** Another like this (D278 (1c)): a sibling of the map shown, the same theme, settings and
+   *  intentions on different land, with its own share link; never a clone of the map it came from
+   *  (a sibling whose land matches it is passed over for the next). */
+  async function anotherLikeThis(): Promise<GenerateResponse | null> {
+    if (!result) return null;
+    const from = result;
+    // (a version the background search kept quietly, D333 (5): shown at once)
+    const kept = quiet.current;
+    if (kept && !edited) {
+      stopBackground();
+      shownVersion.current = kept.project;
+      setResult(kept);
+      setSibling(kept.spec.variation ? { variation: kept.spec.variation, intentions: kept.spec.intentions ?? kept.intentions } : null);
+      history.replaceState(null, "", "#" + encodeSpecFragment(kept.spec));
+      return kept;
+    }
+    let variation = (from.spec.variation ?? 0) + 1;
+    for (let tries = 0; tries < 3; tries++) {
+      const next = { variation, intentions: from.spec.intentions ?? from.intentions };
+      setSibling(next);
+      const s: MapSpec = { ...from.spec, variation: next.variation, ...(next.intentions.length ? { intentions: next.intentions } : {}) };
+      delete s.accepted;
+      const r = await run(s);
+      if (!r || !sameLand(from.heights, r.heights)) return r;
+      variation++;
+    }
+    return null;
+  }
+
+  /** From the editor: close the map (asking first when it has edits), make its sibling, open it. */
+  function anotherFromEditor() {
+    guard(
+      () =>
+        void (async () => {
+          await generator.closeSession();
+          setSession(null);
+          setScreen("settings");
+          const r = await anotherLikeThis();
+          if (r?.passed) enterEditor(await generator.refine());
+        })(),
+      "Another like this",
+    );
   }
 
   /** Generate (D323, item 20): a kept seed makes its map again; otherwise a fresh seed each press, shown
@@ -262,6 +381,7 @@ export function App() {
   function generateClick() {
     if (seedPinned) return void run(spec);
     const seed = randomSeed();
+    setSibling(null);
     setSeedText(String(seed));
     void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme }), settings });
   }
@@ -340,7 +460,11 @@ export function App() {
     setError(null);
     try {
       if (fromSession && session?.kind === "generated") enterEditor(await generator.sessionView());
-      else guard(() => void generator.refine().then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
+      else if (shownVersion.current) {
+        // (a version found in the background: its project file opens, the same map)
+        const bytes = shownVersion.current;
+        guard(() => void generator.openProject(bytes).then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
+      } else guard(() => void generator.refine().then(enterEditor, (e) => setError(String(e instanceof Error ? e.message : e))), "Refining this map");
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
@@ -468,7 +592,7 @@ export function App() {
     return (
       <>
         {EditorMod ? (
-          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} saveState={saveState} />
+          <EditorMod key={opened.key} api={generator} opened={opened.data} onBack={(i) => void backToSettings(i)} onChange={onEditorChange} onOpenFile={openFile} onAnother={() => anotherFromEditor()} saveState={saveState} />
         ) : (
           <div class="placeholder">Opening the editor…</div>
         )}
@@ -548,6 +672,7 @@ export function App() {
             spec={spec}
             seedText={seedText}
             onSeed={(t) => {
+              setSibling(null);
               setSeedText(t);
               setSeedPinned(t.trim() !== "");
             }}
@@ -556,8 +681,14 @@ export function App() {
             onSize={chooseSize}
             onTheme={chooseTheme}
             onDifficulty={chooseDifficulty}
-            onSettings={setSettings}
-            onReset={() => setSettings(defaultSettings(theme, difficulty, size))}
+            onSettings={(x) => {
+              setSibling(null);
+              setSettings(x);
+            }}
+            onReset={() => {
+              setSibling(null);
+              setSettings(defaultSettings(theme, difficulty, size));
+            }}
           />
           <div class="generate-bar">
             <button type="button" class="primary" disabled={busy || !!opening} {...tip("Make a new map", "Enter")} onClick={generateClick}>
@@ -566,6 +697,17 @@ export function App() {
             {edited ? <p class="note">Generate makes a new map. Yours stays saved, with its edits.</p> : null}
           </div>
           {note && <p class="note">{note}</p>}
+          {version ? (
+            <p class="note version-ready" role="status">
+              {version.note}.{" "}
+              <button type="button" class="linkish" onClick={takeVersion} title="Show the version found in the background">
+                Show it
+              </button>{" "}
+              <button type="button" class="linkish" onClick={() => setVersion(null)} title="Keep the map shown and hide this note">
+                Keep this map
+              </button>
+            </p>
+          ) : null}
           {openInput}
           <details class="more">
             <summary title="What this version of the generator makes and checks">What's in this version</summary>
@@ -645,6 +787,11 @@ export function App() {
                 <button type="button" class="primary" disabled={busy || (!result.passed && !fromSession)} title="Open this map in the editor to shape it" onClick={() => void refine()}>
                   Refine this map
                 </button>
+                {!fromSession ? (
+                  <button type="button" class="ghost" disabled={busy || !result.passed} onClick={() => void anotherLikeThis()} title="A new map like this one, on different land">
+                    Another like this
+                  </button>
+                ) : null}
                 {fromSession ? (
                   <>
                     <button type="button" class="ghost" title="Check the map and save it for Timberborn" onClick={() => setExporting(true)}>

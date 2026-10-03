@@ -47,6 +47,8 @@ export interface EditorProps {
   onChange(info: SessionInfo): void;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
+  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
+  onAnother?(info: SessionInfo): void;
   saveState: string;
 }
 

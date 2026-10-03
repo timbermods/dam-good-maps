@@ -75,7 +75,14 @@ clips = [
     ("bubbles", "boiling.ogg", "tinyworlds", 0, 4),
     ("waterfall", "waterfall.mp3", "kaszuba", 12, 6),
     ("boom", "explosion.mp3", "samster", 0, 5),
+    # D459: Naturalize's new sound (qubodup's "20 Rustles of dry leaves", CC0, opengameart.org): one
+    # dry-leaf rustle for the stroke's touch, and a stretch of a longer rustle as its held bed
+    ("leaves", "rustle17.flac", "qubodup", 0, 1.2),
+    ("leaves-bed", "rustle04.flac", "qubodup", 0.3, 2.5),
 ]
+# `python tools/reencode-sounds.py leaves leaves-bed` renders only the named clips and merges them into
+# the existing bank.json (for adding to the bank without the other sources at hand)
+ONLY = set(sys.argv[1:])
 manifest = []
 
 
@@ -106,20 +113,29 @@ def save(id, data, provenance, source_files, edits):
 
 
 for id, filename, group, start, duration in clips:
+    if ONLY and id not in ONLY:
+        continue
     path = find(filename)
     data = decode(path)[int(start * SR):int((start + duration) * SR)]
-    if id not in ("waterfall", "bubbles"):
+    if id not in ("waterfall", "bubbles", "leaves-bed"):
         active = np.flatnonzero(abs(data) > max(abs(data)) * 0.018)
         if len(active):
             data = data[max(0, active[0] - 96):min(len(data), active[-1] + 2400)]
-    save(id, data, group, [path],
-         f"Crop from {start}s, at most {duration}s; trim impact silence; mono 48 kHz; linear "
-         f"level balance; 1/15 ms edge fades; MP3 256 kbps (re-encoded from 192 kbps, D313: "
-         f"192 kbps measurably added more error than its CC0 original supports for a modest size "
-         f"increase; see docs/progress/forces.md).")
+    if group == "qubodup":
+        edits = (f"Crop from {start}s, at most {duration}s (24-bit 96 kHz stereo FLAC original, "
+                 f"downmixed to mono, resampled to 48 kHz); "
+                 + ("no silence trim (a held bed); " if id == "leaves-bed" else "trim leading and trailing silence; ")
+                 + "one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; "
+                 "1/15 ms edge fades; MP3 256 kbps (D459).")
+    else:
+        edits = (f"Crop from {start}s, at most {duration}s; trim impact silence; mono 48 kHz; linear "
+                 f"level balance; 1/15 ms edge fades; MP3 256 kbps (re-encoded from 192 kbps, D313: "
+                 f"192 kbps measurably added more error than its CC0 original supports for a modest size "
+                 f"increase; see docs/progress/forces.md).")
+    save(id, data, group, [path], edits)
 
 rng = np.random.default_rng(4218)
-for id, pattern in [("earth-bed", "footstep_concrete_00*.ogg"),
+for id, pattern in [] if ONLY else [("earth-bed", "footstep_concrete_00*.ogg"),
                      ("leaf-bed", "footstep_grass_00*.ogg"),
                      ("stone-bed", "impactMining_00*.ogg")]:
     paths = sorted(SOURCES.rglob(pattern))
@@ -143,5 +159,10 @@ for id, pattern in [("earth-bed", "footstep_concrete_00*.ogg"),
          "Three-second friction bed assembled from overlapping recorded tails (seed 4218), "
          "cosine grain fades; MP3 256 kbps (re-encoded from 192 kbps, D313).")
 
+if ONLY:
+    existing = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    by_id = {m["id"]: m for m in manifest}
+    existing = [by_id.pop(m["id"], m) for m in existing]
+    manifest = existing + list(by_id.values())
 MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 print(f"{len(manifest)} recordings / {sum(x['bytes'] for x in manifest):,} bytes")

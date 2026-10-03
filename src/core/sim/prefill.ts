@@ -31,7 +31,7 @@
 
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
-import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
+import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -210,9 +210,10 @@ export interface CanonicalWater extends SettleResult {
  *  evaporation is not the water changing: the settle stops at the first check where only that
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
  *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
-export function canonicalSettle(m: WaterModel): CanonicalWater {
-  if (canonicalBackend) return canonicalBackend(m, prefill(m));
-  const run = canonicalRun(m);
+export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
+  // (the native backend runs the default rules only)
+  if (canonicalBackend && !opts.rules) return canonicalBackend(m, prefill(m));
+  const run = canonicalRun(m, opts);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
@@ -231,9 +232,9 @@ export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState)
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. */
-export function canonicalRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
   const start = prefill(m);
-  let sim = new WaterSim(m, start);
+  let sim = new WaterSim(m, start, opts);
   const sealed = sealedTiles(m);
   let run = new SettleRun(sim, { sealed });
   let maxTicks = run.maxTicks;
@@ -252,7 +253,7 @@ export function canonicalRun(m: WaterModel): { advance(ticks: number): Canonical
         if (!r) return null;
         if (drainNext) {
           drainNext = false;
-          const next = withoutUnfed(m, sim);
+          const next = withoutUnfed(m, sim, opts);
           if (next) {
             sim = next;
             run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
@@ -262,7 +263,7 @@ export function canonicalRun(m: WaterModel): { advance(ticks: number): Canonical
           }
         }
         const kept = keepSealed(sim, m, run.closedBasins(), start);
-        done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }).saturation() : sim.saturation(), out: sim.out.slice() };
+        done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts).saturation() : sim.saturation(), out: sim.out.slice() };
         return done;
       }
     },

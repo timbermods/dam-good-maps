@@ -119,6 +119,8 @@ export interface HeaderProps {
   historyOpen: boolean;
   onHistory(): void;
   onBack(): void;
+  /** Another like this (D278 (1c)): a sibling of a generated map. */
+  onAnother?(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
 }
@@ -207,6 +209,13 @@ export function Header(p: HeaderProps) {
                   History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
+              {p.info.kind === "generated" && p.onAnother ? (
+                <li role="none">
+                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
+                    Another like this
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
                   {p.info.kind === "generated" ? "Back to settings" : "New map"}

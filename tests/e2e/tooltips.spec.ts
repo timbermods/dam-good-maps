@@ -150,23 +150,27 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("Select, Delete's menu");
   await page.keyboard.press("x");
 
-  // a source picked (its row), an object picked
-  const spot = await page.evaluate(() => {
+  // a source picked (its row), an object picked: each on open, level, dry ground of its own, the mine
+  // site well away from the source, whose water spreads over level ground while the test goes on (on
+  // a slow machine it reached a mine site placed 10 tiles off, which the editor then refused: D148)
+  const spots = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-    for (let y = 12; y < m.H - 12; y++)
-      for (let x = 12; x < m.W - 12; x++) {
+    const out: [number, number][] = [];
+    for (let y = 12; y < m.H - 12 && out.length < 2; y++)
+      for (let x = 12; x < m.W - 12 && out.length < 2; x++) {
         if (Math.hypot(x - st[0], y - st[1]) < 16) continue;
+        if (out.length && Math.hypot(x - out[0][0], y - out[0][1]) < 24) continue;
         const h0 = m.heights[y * m.W + x];
         let ok = true;
         for (let dy = -4; dy <= 4 && ok; dy++) for (let dx = -4; dx <= 4 && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
         for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= 6 && Math.abs(m.entities.y[k] - y) <= 6) ok = false;
-        if (ok) return [x, y] as [number, number];
+        if (ok) out.push([x, y]);
       }
-    return null;
+    return out;
   });
-  expect(spot).not.toBeNull();
-  const [sx, sy] = spot!;
+  expect(spots.length, "two open, level, dry spots").toBe(2);
+  const [[sx, sy], [mx, my]] = spots;
   await shelf.getByRole("button", { name: "Water source (6)" }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
@@ -178,7 +182,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("a source picked");
   await page.keyboard.press("x");
   await shelf.getByRole("button", { name: "Mine site" }).click();
-  const q = await client(page, sx + 10, sy);
+  const q = await client(page, mx, my);
   await page.mouse.move(q.x + 3, q.y);
   await page.mouse.click(q.x, q.y);
   await idle(page);

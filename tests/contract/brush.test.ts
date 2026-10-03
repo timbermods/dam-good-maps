@@ -274,7 +274,8 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     applyBrush({ tool: "smooth", size: 4, strength: 10, walkable: true, dabs }, walk, W, H);
     for (let y = 12; y <= 18; y++) for (let x = 16; x < 24; x++) expect(Math.abs(walk[y * W + x] - walk[y * W + x + 1]), `(${x}, ${y})`).toBeLessThanOrEqual(1);
     // on a map: a walkable stroke over a cliff near the start gets slopes on its steps
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 4 since 0.8.0, D148: seed 3 has no cliff near the start where this stroke goes)
+    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const st = s.built.start!;
@@ -300,8 +301,10 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const st = s.built.start!;
-    const x = st.x + 14;
-    const y = st.y - 14;
+    // (the spot is 14 tiles from the start, on whichever side stays on the map: M9b's small starts moved the start
+    // so +14 left the 96² map; D148)
+    const x = st.x + 14 < 90 ? st.x + 14 : st.x - 14;
+    const y = st.y - 14 >= 6 ? st.y - 14 : st.y + 14;
     const p: BrushParams = { tool: "lower", size: 1, strength: 5, precise: true, levels: [1, 2, 2], dabs: [4 * x + 2, 4 * y + 2, 4 * x + 2, 4 * y + 2, 4 * x + 2, 4 * y + 2] };
     const h0 = s.built.heights[y * 96 + x];
     const shown = s.built.heights.slice();
@@ -370,7 +373,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
   // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
   it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");
@@ -378,22 +382,25 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     };
     const s = make();
     const st = s.built.start!;
-    // dry ground beyond the start's own slopes (40 tiles round it), where a cliff's rim gets none
+    // dry ground beyond the start's own slopes (40 tiles round it), where a cliff's rim gets none,
+    // with plants on it (item 26, D148: dry ground holds no dead groves any more, so the spot is
+    // looked for among the living ones)
     const b = s.built;
+    const growing = b.entities.filter((e) => /^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
     let cx = -1;
     let cy = -1;
     for (let y = 10; y < 86 && cx < 0; y++)
       for (let x = 10; x < 86 && cx < 0; x++) {
         if (Math.max(Math.abs(x - st.x), Math.abs(y - st.y)) < 50) continue;
         let dry = true;
-        for (let yy = y - 9; yy <= y + 9 && dry; yy++) for (let xx = x - 9; xx <= x + 9 && dry; xx++) if (b.water[yy * 96 + xx] > 0 || b.channel[yy * 96 + xx]) dry = false;
-        if (dry) [cx, cy] = [x, y];
+        for (let yy = y - 8; yy <= y + 8 && dry; yy++) for (let xx = x - 8; xx <= x + 8 && dry; xx++) if (b.water[yy * 96 + xx] > 0 || b.channel[yy * 96 + xx]) dry = false;
+        if (dry && growing.filter((e) => Math.hypot(e.x - x, e.y - y) <= 5 && e.template !== "Succulent").length >= 3) [cx, cy] = [x, y];
       }
     expect(cx).toBeGreaterThanOrEqual(0);
     const level = Math.min(16, s.built.heights[cy * 96 + cx] + 3);
     const dabs = Array.from({ length: 40 }, () => [4 * cx + 2, 4 * cy + 2]).flat();
     const p: BrushParams = { tool: "flatten", size: 6, strength: 10, level, dabs };
-    const plants = (m: MapSession) => m.built.entities.filter((e) => /^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template));
+    const plants = (m: MapSession) => m.built.entities.filter((e) => /^(Pine|Birch|Oak|Succulent|BlueberryBush)$/.test(e.template));
     const near = (e: { x: number; y: number }) => Math.hypot(e.x - cx, e.y - cy) <= 7;
     expect(s.apply({ op: "brush", params: p }, "user", "Flatten").errors).toEqual([]);
     const slopesCliff = s.built.entities.filter((e) => e.template === "Slope" && near(e)).length;
@@ -463,7 +470,7 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
     ["riverValley", 1],
     ["riverValley", 2],
     ["canyon", 1],
-    ["canyon", 3],
+    ["canyon", 2], // (canyon 3 until D333, whose map has no slopes or set piece, D148)
     ["highlands", 2],
     ["lakeBasin", 4],
     ["delta", 1],

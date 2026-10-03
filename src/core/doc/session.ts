@@ -36,7 +36,7 @@ import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
-import { runsToTiles } from "../math/grid";
+import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
 import { GENERATOR_VERSION, type MapSpec } from "../spec/mapspec";
 import { clone } from "../spec/mergepatch";
@@ -74,6 +74,18 @@ interface Generation {
 
 /** One undo step: one operation, or a group applied together (a fix, a proposal). */
 type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
+
+/** A log as its history: the operations of a step of several (`step`, D456) one entry, every other
+ *  operation one of its own (a project saved before D456 undoes operation by operation). */
+function stepsOf(log: readonly AppliedOp[]): HistoryEntry[] {
+  const out: HistoryEntry[] = [];
+  for (const op of log) {
+    const last = out.at(-1);
+    if (op.step !== undefined && op.step !== op.seq && last && last.ops[0].seq === op.step) last.ops.push(op);
+    else out.push({ kind: "ops", ops: [op] });
+  }
+  return out;
+}
 
 /** A place in the history (`MapSession.mark`), and the one step taken since it (`stepSince`): what
  *  `takeBack` needs to take that step back exactly. Opaque outside the session. */
@@ -168,8 +180,8 @@ export class MapSession {
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
     }
-    // the log is the history of an opened document: its operations undo one by one
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    // the log is the history of an opened document: its operations undo step by step (D456)
+    this.undoStack = stepsOf(this.log);
     this.snaps.set(this.undoStack.length, this.cur);
   }
 
@@ -269,7 +281,7 @@ export class MapSession {
     this.log = r.log;
     this.st = r.state;
     this.seqNext = nextSeq;
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    this.undoStack = stepsOf(this.log);
     this.redoStack = [];
     this.snaps.clear();
     this.cur = this.rebuilt();
@@ -283,7 +295,11 @@ export class MapSession {
 
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field, seedWord), r.built);
+    const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
+    // (M9b, D278 (1b): the map's own name and how it plays)
+    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
+    if (r.description) doc.meta.premise = r.description;
+    return new MapSession(doc, r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
@@ -592,6 +608,8 @@ export class MapSession {
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
+    // (a step of several is marked in the log, so it stays one step when the project is reopened)
+    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
@@ -892,7 +910,8 @@ export class MapSession {
   badwaterRemoved(built: BuildResult = this.cur): boolean {
     if (built.entities.some((e) => e.template === "BadwaterSource")) return false;
     const spec = this.gen.spec;
-    if (spec) return spec.settings.hazards.badwater !== "off";
+    // (a map made with Sources: None has no badwater of its own to remove, D330)
+    if (spec) return spec.settings.hazards.badwater !== "off" && spec.settings.water.sources !== "none";
     return this.baseStuff().file.world.entities.some((e) => e.Template === "BadwaterSource");
   }
 
@@ -946,7 +965,7 @@ export class MapSession {
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
-    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
+    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
@@ -1010,7 +1029,7 @@ export class MapSession {
     const b = this.baseStuff();
     if (this.cutCache?.key === this.gen.base) return this.cutCache.cut;
     const w = b.file.world;
-    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), w.sizeX, w.sizeY);
+    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), storedWetMask(storedWater(w.singletons, w.sizeX, w.sizeY), w.sizeX * w.sizeY), w.sizeX, w.sizeY);
     this.cutCache = { key: this.gen.base, cut };
     return cut;
   }
@@ -1104,7 +1123,12 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
   const ramps: [number, number][] = [];
   const r = f.ramps ?? [];
   for (let k = 0; k + 1 < r.length; k += 2) ramps.push([r[k], r[k + 1]]);
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}) };
+  const mask = (runs: Runs) => {
+    const m = new Uint8Array(W * H);
+    for (const i of runsToTiles(runs, W)) m[i] = 1;
+    return m;
+  };
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {

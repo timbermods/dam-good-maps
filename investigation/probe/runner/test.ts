@@ -88,6 +88,10 @@ async function main(): Promise<void> {
   code = consent.requestConsent(plan);
   check('consent: right plan accepted once', consent.consumeConsent(plan, code) && !consent.consumeConsent(plan, code));
   check('consent: the description says it launches Timberborn', /LAUNCHES TIMBERBORN/.test(consent.describe(plan)));
+  // the water check on a map with no water (Sources: None, D330): dry in the file and the game holds
+  const dry = { wetEither: 0, within01: 1, maxAbs: 0, meanAbs: 0, volumeFile: 0, volumeGame: 0, worst: '-' };
+  check('water: dry in the file and in the game holds', compare.waterHolds(dry));
+  check('water: water on one side only fails', !compare.waterHolds({ ...dry, volumeGame: 3, wetEither: 10, within01: 0 }) && !compare.waterHolds({ ...dry, volumeFile: 3, wetEither: 10, within01: 0 }));
 
   // 2b. a group made outside the repository has its maps written by its own writer before the plan (writers.ts;
   // Kyler, 2026-09-30): written, then found current by their hash, a stale one rewritten, a failure refused
@@ -365,8 +369,26 @@ async function main(): Promise<void> {
     agree.push(`${p.game.id} ${same ? 'same' : `DIFFERS (probe ${sw.pump[0]?.walk.toFixed(1)} at (${sw.pump[0]?.x}, ${sw.pump[0]?.y}), product ${String(v.value)} at (${tile?.join(', ')}))`}`);
   }
   check("start water: the probe's nearest is start.water's own on every M9a map", m9a.length >= 13 && differ === 0, agree.join('; '));
-  const cw = catalogM.startWaterOf(canyon.info, canyon.game.mode);
-  check("start water: Canyon 128² seed 1's is its river and pools, not only the sealed one-tile hole at (63, 77)", cw.bodies.length > 1 && cw.bodies.flat().length > 100 && cw.pump.some((q) => q.x === 63 && q.y === 77), `${cw.bodies.length} bodies, ${cw.bodies.flat().length} tiles; the nearest (${cw.pump[0]?.x}, ${cw.pump[0]?.y}) ${cw.pump[0]?.walk.toFixed(1)} tiles' walk`);
+  // Re-pinned under D148 (M9b, D333): the generator no longer leaves Canyon 128² seed 1 a sealed hole
+  // by its start, so the hole is made here: a one-tile pool sunk beside the start, nearer than the
+  // river. Both must count, the pool and the river, not only the nearest.
+  const cw0 = catalogM.startWaterOf(canyon.info, canyon.game.mode);
+  let pooled: { at: string; sw: ReturnType<typeof catalogM.startWaterOf> } | null = null;
+  {
+    const ci = canyon.info, CW = ci.W, st = ci.start!;
+    for (let r = 2; r <= 5 && !pooled; r++) for (let dy = -r; dy <= r && !pooled; dy++) for (let dx = -r; dx <= r && !pooled; dx++) {
+      const x = st.x + dx, y = st.y + dy, t = y * CW + x;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || x < 1 || y < 1 || x >= CW - 1 || y >= ci.H - 1 || ci.depth[t] > 0) continue;
+      const heights = Uint8Array.from(ci.heights), depth = Float32Array.from(ci.depth), contamination = Float32Array.from(ci.contamination);
+      heights[t] = ci.heights[t] - 1;
+      depth[t] = 1;
+      contamination[t] = 0;
+      const sw = catalogM.startWaterOf({ ...ci, heights, depth, contamination } as typeof ci, canyon.game.mode);
+      if (sw.pump[0] && sw.pump[0].x === x && sw.pump[0].y === y) pooled = { at: `(${x}, ${y})`, sw };
+    }
+  }
+  const riverKept = !!pooled && cw0.bodies.every((b) => pooled!.sw.bodies.some((c) => c.length === b.length && c[0] === b[0]));
+  check("start water: a sealed one-tile pool nearest the start counts with the river and pools, not instead of them", !!pooled && pooled.sw.bodies.length === cw0.bodies.length + 1 && riverKept, pooled ? `pool at ${pooled.at}: ${pooled.sw.bodies.length} bodies (${cw0.bodies.length} without it), ${pooled.sw.bodies.flat().length} tiles` : 'no tile beside the start took a pool');
 
   // 5a. the hand-kept settings backup: a .reg file of the whole key and the mods' values in text
   execFileSync('reg.exe', ['add', TEST_KEY, '/v', mods.prefsValueName('ModPriority.Local.SomeMod.someone.somemod'), '/t', 'REG_DWORD', '/d', '4294967295', '/f'], { stdio: 'ignore' });

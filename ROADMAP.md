@@ -204,7 +204,7 @@ before its TypeScript is deleted: (1) the water settle (above), and later the st
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
 Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
-its own contract tests (D444); (5) the
+its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 
@@ -334,8 +334,14 @@ Basin round 2 (adopted on its merits, D453), then the settings round 2 last (sti
 held: theme-outcome regressions, small lake gains, speed misses). Then the 96² start class (Any 31, Islands 4, Highlands 14),
 the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), the review set for Kyler
 and one pooled probe batch (his yes). Three contract tests were already failing on the base (#155 disclosed them): confirm
-what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained. Islands, Delta and River Valley
-are adopted on the strict D348 base (D370, D373).
+what they are (likely the pending re-pins) and fix or re-pin them; none may stay unexplained. River Valley is adopted on the
+strict D348 base (D370, D373). Islands and Delta blocked the release (D407): D370's two templates are retired (D408) and both
+are redesigned from the field's own processes (D409–D412). Delta's shape is accepted with its fan tuned (D416); Islands
+is released as the safe version, the start on an island not required (D417, D429–D430). Delta's dry courses are fixed
+at their causes (D447: the fan's main river below its apex, tributaries beside lower water), Lake Basin round 2 is
+adopted (D453, D458), the quiet-window timings are cut (D453), and the 840-map measures and the re-pins are done. M9b
+then merges into `dev`; the coherence review runs on Kyler's PC, and the release (tag and `main`) waits for its report
+(D461).
 
 **The agent guide** (Kyler, 2026-09-25; D142): how a Claude Code session generates, edits, validates and exports maps, and
 runs the contact sheet and the DGM Probe (under the probe rule, D117). Waits with M12 (D277, D283 (4)).

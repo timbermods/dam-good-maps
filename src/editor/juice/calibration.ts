@@ -3,13 +3,16 @@
 // actions sit at −23 dBFS, forces at −16.5, undo at −25, the optional ambience at −29 (an RMS proxy,
 // not LUFS). The trims keep each recording's attack as it is. `smooth` was re-measured the same way
 // against its new recipe (D313: a softer, higher, shorter relative of Flatten's own scrape) so it
-// still lands on the same −23 dBFS as every other everyday action.
+// still lands on the same −23 dBFS as every other everyday action. `naturalize` was re-measured the same
+// way for its new recipe (D459: a clean dry-leaf rustle, CC0): the trim that brought it to the level the
+// harness gave Raise, Flatten, Smooth and Remove with their own trims (−22.8 dBFS, seeds 3, 41 and 900
+// within 0.2 dB of each other), peak 0.42 before the output graph's ceiling.
 export const TRIM: Readonly<Record<string, number>> = Object.freeze({
   raise: 0.7621,
   lower: 1.122,
   flatten: 0.9419,
   smooth: 3.8415,
-  naturalize: 0.7006,
+  naturalize: 0.8953,
   remove: 1.6032,
   tree: 1.6237,
   berry: 2.5177,
