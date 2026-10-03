@@ -150,8 +150,8 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
       add(earth, 0.32, 0.012, { rate: r * 1.4, duration: 0.18, attack: 0.04, lowpass: 3400 });
       break;
     case "naturalize":
-      add(leaf, 1.3);
-      add("leaf-bed", 0.8, 0.03, { offset: 0.4, duration: 0.48, attack: 0.03 });
+      // a clean dry-leaf rustle (qubodup's CC0 recording, D459), its crackle eased a little
+      add("leaves", 1.3, 0, { lowpass: 9000, release: 0.12 });
       break;
     case "remove":
       add(earth, 1.1, 0, { rate: r * 1.25, duration: 0.24 });
@@ -274,7 +274,7 @@ export function texture(name: string): Layer[] {
       // Flatten's own held bed (stone-bed), softer, higher and filtered gentler (D313)
       return [bed("stone-bed", 0.85, 1.5, 4200)];
     case "naturalize":
-      return [bed("leaf-bed", 1.2, 1.15), bed("earth-bed", 0.2)];
+      return [bed("leaves-bed", 3.2, 1, 9000), bed("earth-bed", 0.2)];
     case "remove":
       return [bed("leaf-bed", 0.65, 0.85), bed("earth-bed", 0.8, 1.2)];
     case "carve":
