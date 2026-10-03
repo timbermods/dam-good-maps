@@ -204,7 +204,7 @@ before its TypeScript is deleted: (1) the water settle (above), and later the st
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
 Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
-its own contract tests (D444); (5) the
+its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 
