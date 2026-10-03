@@ -1,0 +1,592 @@
+{
+  "basis": "Sequential sealed pilot shard completion mtimes, including cold verification and startup; no new workload run",
+  "pilotMatrixSha256": "5bdad3de9e9e809fd88358baecbb5a57ba8c06d79313fa65b2f871c6714c1b75",
+  "pilotMachineSha256": "08f22ee9fb3024aabe6428930e94fa2bd832d88d051527439e9f23ee9fc4c18d",
+  "fingerprint": "89372b4f15a535f79d2c5ad352772c2484619ac16d79c0e6d56c434da4e89a53",
+  "portableSha256": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
+  "pilotSeconds": 2255.099,
+  "pilotCpu": {
+    "mean": 20.57344823278843,
+    "max": 57.847777784833944,
+    "samples": 2238,
+    "source": "Windows PDH Processor(_Total) % Processor Time"
+  },
+  "rows": [
+    {
+      "target": "native",
+      "verb": "footprint",
+      "size": 512,
+      "cases": 20,
+      "seconds": 34.19799609375,
+      "secondsPerCase": 1.7098998046875
+    },
+    {
+      "target": "chromium",
+      "verb": "footprint",
+      "size": 512,
+      "cases": 5,
+      "seconds": 7.714771240234375,
+      "secondsPerCase": 1.542954248046875
+    },
+    {
+      "target": "firefox",
+      "verb": "footprint",
+      "size": 512,
+      "cases": 5,
+      "seconds": 4.202629638671875,
+      "secondsPerCase": 0.8405259277343751
+    },
+    {
+      "target": "webkit",
+      "verb": "footprint",
+      "size": 512,
+      "cases": 5,
+      "seconds": 19.228934814453126,
+      "secondsPerCase": 3.8457869628906254
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 512,
+      "cases": 20,
+      "seconds": 89.14020751953124,
+      "secondsPerCase": 4.457010375976562
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 512,
+      "cases": 5,
+      "seconds": 25.583214599609374,
+      "secondsPerCase": 5.116642919921874
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 512,
+      "cases": 5,
+      "seconds": 14.705745361328125,
+      "secondsPerCase": 2.941149072265625
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 512,
+      "cases": 5,
+      "seconds": 38.85982568359375,
+      "secondsPerCase": 7.77196513671875
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 512,
+      "cases": 20,
+      "seconds": 200.39222680664062,
+      "secondsPerCase": 10.01961134033203
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 512,
+      "cases": 5,
+      "seconds": 48.9584453125,
+      "secondsPerCase": 9.7916890625
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 512,
+      "cases": 5,
+      "seconds": 34.42231372070312,
+      "secondsPerCase": 6.884462744140625
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 512,
+      "cases": 5,
+      "seconds": 69.33455004882812,
+      "secondsPerCase": 13.866910009765624
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 512,
+      "cases": 20,
+      "seconds": 104.58601342773437,
+      "secondsPerCase": 5.229300671386719
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 512,
+      "cases": 5,
+      "seconds": 29.623285400390625,
+      "secondsPerCase": 5.924657080078125
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 512,
+      "cases": 5,
+      "seconds": 19.532547119140624,
+      "secondsPerCase": 3.906509423828125
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 512,
+      "cases": 5,
+      "seconds": 48.7870703125,
+      "secondsPerCase": 9.7574140625
+    },
+    {
+      "target": "native",
+      "verb": "carve",
+      "size": 512,
+      "cases": 20,
+      "seconds": 100.10754248046875,
+      "secondsPerCase": 5.005377124023438
+    },
+    {
+      "target": "chromium",
+      "verb": "carve",
+      "size": 512,
+      "cases": 5,
+      "seconds": 30.38158203125,
+      "secondsPerCase": 6.07631640625
+    },
+    {
+      "target": "firefox",
+      "verb": "carve",
+      "size": 512,
+      "cases": 5,
+      "seconds": 16.930317626953126,
+      "secondsPerCase": 3.3860635253906253
+    },
+    {
+      "target": "webkit",
+      "verb": "carve",
+      "size": 512,
+      "cases": 5,
+      "seconds": 42.48103662109375,
+      "secondsPerCase": 8.49620732421875
+    },
+    {
+      "target": "native",
+      "verb": "glaciate",
+      "size": 512,
+      "cases": 20,
+      "seconds": 433.787869140625,
+      "secondsPerCase": 21.68939345703125
+    },
+    {
+      "target": "chromium",
+      "verb": "glaciate",
+      "size": 512,
+      "cases": 5,
+      "seconds": 97.34861303710937,
+      "secondsPerCase": 19.469722607421875
+    },
+    {
+      "target": "firefox",
+      "verb": "glaciate",
+      "size": 512,
+      "cases": 5,
+      "seconds": 93.09061865234375,
+      "secondsPerCase": 18.61812373046875
+    },
+    {
+      "target": "webkit",
+      "verb": "glaciate",
+      "size": 512,
+      "cases": 5,
+      "seconds": 111.45319848632812,
+      "secondsPerCase": 22.290639697265625
+    },
+    {
+      "target": "native",
+      "verb": "footprint",
+      "size": 256,
+      "cases": 20,
+      "seconds": 6.47587451171875,
+      "secondsPerCase": 0.3237937255859375
+    },
+    {
+      "target": "chromium",
+      "verb": "footprint",
+      "size": 256,
+      "cases": 5,
+      "seconds": 2.48852099609375,
+      "secondsPerCase": 0.49770419921875
+    },
+    {
+      "target": "firefox",
+      "verb": "footprint",
+      "size": 256,
+      "cases": 5,
+      "seconds": 2.712114990234375,
+      "secondsPerCase": 0.542422998046875
+    },
+    {
+      "target": "webkit",
+      "verb": "footprint",
+      "size": 256,
+      "cases": 5,
+      "seconds": 2.690776611328125,
+      "secondsPerCase": 0.538155322265625
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 256,
+      "cases": 20,
+      "seconds": 19.74582763671875,
+      "secondsPerCase": 0.9872913818359376
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 256,
+      "cases": 5,
+      "seconds": 6.374462646484375,
+      "secondsPerCase": 1.274892529296875
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 256,
+      "cases": 5,
+      "seconds": 5.40198974609375,
+      "secondsPerCase": 1.0803979492187499
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 256,
+      "cases": 5,
+      "seconds": 5.790216064453125,
+      "secondsPerCase": 1.1580432128906248
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 256,
+      "cases": 20,
+      "seconds": 34.191562744140626,
+      "secondsPerCase": 1.7095781372070313
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 256,
+      "cases": 5,
+      "seconds": 8.355473388671875,
+      "secondsPerCase": 1.671094677734375
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 256,
+      "cases": 5,
+      "seconds": 6.962693359375,
+      "secondsPerCase": 1.392538671875
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 256,
+      "cases": 5,
+      "seconds": 8.4467587890625,
+      "secondsPerCase": 1.6893517578125
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 256,
+      "cases": 20,
+      "seconds": 22.385038330078125,
+      "secondsPerCase": 1.1192519165039063
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 256,
+      "cases": 5,
+      "seconds": 7.296723876953125,
+      "secondsPerCase": 1.459344775390625
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 256,
+      "cases": 5,
+      "seconds": 6.11019970703125,
+      "secondsPerCase": 1.22203994140625
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 256,
+      "cases": 5,
+      "seconds": 7.228285888671875,
+      "secondsPerCase": 1.445657177734375
+    },
+    {
+      "target": "native",
+      "verb": "carve",
+      "size": 256,
+      "cases": 20,
+      "seconds": 22.944177734375,
+      "secondsPerCase": 1.14720888671875
+    },
+    {
+      "target": "chromium",
+      "verb": "carve",
+      "size": 256,
+      "cases": 5,
+      "seconds": 7.77766357421875,
+      "secondsPerCase": 1.55553271484375
+    },
+    {
+      "target": "firefox",
+      "verb": "carve",
+      "size": 256,
+      "cases": 5,
+      "seconds": 5.750528564453125,
+      "secondsPerCase": 1.1501057128906251
+    },
+    {
+      "target": "webkit",
+      "verb": "carve",
+      "size": 256,
+      "cases": 5,
+      "seconds": 7.192441162109375,
+      "secondsPerCase": 1.438488232421875
+    },
+    {
+      "target": "native",
+      "verb": "glaciate",
+      "size": 256,
+      "cases": 20,
+      "seconds": 114.9237255859375,
+      "secondsPerCase": 5.746186279296875
+    },
+    {
+      "target": "chromium",
+      "verb": "glaciate",
+      "size": 256,
+      "cases": 5,
+      "seconds": 34.2004140625,
+      "secondsPerCase": 6.8400828125
+    },
+    {
+      "target": "firefox",
+      "verb": "glaciate",
+      "size": 256,
+      "cases": 5,
+      "seconds": 38.91204150390625,
+      "secondsPerCase": 7.782408300781251
+    },
+    {
+      "target": "webkit",
+      "verb": "glaciate",
+      "size": 256,
+      "cases": 5,
+      "seconds": 42.46717260742187,
+      "secondsPerCase": 8.493434521484374
+    },
+    {
+      "target": "native",
+      "verb": "footprint",
+      "size": 128,
+      "cases": 20,
+      "seconds": 1.514468505859375,
+      "secondsPerCase": 0.07572342529296874
+    },
+    {
+      "target": "chromium",
+      "verb": "footprint",
+      "size": 128,
+      "cases": 5,
+      "seconds": 1.31067041015625,
+      "secondsPerCase": 0.26213408203125
+    },
+    {
+      "target": "firefox",
+      "verb": "footprint",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.2914912109375,
+      "secondsPerCase": 0.45829824218750004
+    },
+    {
+      "target": "webkit",
+      "verb": "footprint",
+      "size": 128,
+      "cases": 5,
+      "seconds": 1.3705205078125,
+      "secondsPerCase": 0.2741041015625
+    },
+    {
+      "target": "native",
+      "verb": "craterize",
+      "size": 128,
+      "cases": 20,
+      "seconds": 4.177829833984375,
+      "secondsPerCase": 0.20889149169921875
+    },
+    {
+      "target": "chromium",
+      "verb": "craterize",
+      "size": 128,
+      "cases": 5,
+      "seconds": 1.946391357421875,
+      "secondsPerCase": 0.389278271484375
+    },
+    {
+      "target": "firefox",
+      "verb": "craterize",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.766235107421875,
+      "secondsPerCase": 0.553247021484375
+    },
+    {
+      "target": "webkit",
+      "verb": "craterize",
+      "size": 128,
+      "cases": 5,
+      "seconds": 1.8972763671875,
+      "secondsPerCase": 0.37945527343749996
+    },
+    {
+      "target": "native",
+      "verb": "erupt",
+      "size": 128,
+      "cases": 20,
+      "seconds": 6.64322021484375,
+      "secondsPerCase": 0.3321610107421875
+    },
+    {
+      "target": "chromium",
+      "verb": "erupt",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.484280029296875,
+      "secondsPerCase": 0.49685600585937506
+    },
+    {
+      "target": "firefox",
+      "verb": "erupt",
+      "size": 128,
+      "cases": 5,
+      "seconds": 3.35089111328125,
+      "secondsPerCase": 0.67017822265625
+    },
+    {
+      "target": "webkit",
+      "verb": "erupt",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.426031494140625,
+      "secondsPerCase": 0.485206298828125
+    },
+    {
+      "target": "native",
+      "verb": "quake",
+      "size": 128,
+      "cases": 20,
+      "seconds": 5.02241845703125,
+      "secondsPerCase": 0.2511209228515625
+    },
+    {
+      "target": "chromium",
+      "verb": "quake",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.27851806640625,
+      "secondsPerCase": 0.45570361328125
+    },
+    {
+      "target": "firefox",
+      "verb": "quake",
+      "size": 128,
+      "cases": 5,
+      "seconds": 3.06880615234375,
+      "secondsPerCase": 0.61376123046875
+    },
+    {
+      "target": "webkit",
+      "verb": "quake",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.1365654296875,
+      "secondsPerCase": 0.42731308593749995
+    },
+    {
+      "target": "native",
+      "verb": "carve",
+      "size": 128,
+      "cases": 20,
+      "seconds": 5.38543896484375,
+      "secondsPerCase": 0.26927194824218753
+    },
+    {
+      "target": "chromium",
+      "verb": "carve",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.2565205078125,
+      "secondsPerCase": 0.4513041015625
+    },
+    {
+      "target": "firefox",
+      "verb": "carve",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.99542822265625,
+      "secondsPerCase": 0.59908564453125
+    },
+    {
+      "target": "webkit",
+      "verb": "carve",
+      "size": 128,
+      "cases": 5,
+      "seconds": 2.14715576171875,
+      "secondsPerCase": 0.42943115234375
+    },
+    {
+      "target": "native",
+      "verb": "glaciate",
+      "size": 128,
+      "cases": 20,
+      "seconds": 28.757378173828126,
+      "secondsPerCase": 1.4378689086914063
+    },
+    {
+      "target": "chromium",
+      "verb": "glaciate",
+      "size": 128,
+      "cases": 5,
+      "seconds": 7.973564453125,
+      "secondsPerCase": 1.594712890625
+    },
+    {
+      "target": "firefox",
+      "verb": "glaciate",
+      "size": 128,
+      "cases": 5,
+      "seconds": 9.160518798828125,
+      "secondsPerCase": 1.8321037597656251
+    },
+    {
+      "target": "webkit",
+      "verb": "glaciate",
+      "size": 128,
+      "cases": 5,
+      "seconds": 10.05614013671875,
+      "secondsPerCase": 2.01122802734375
+    }
+  ]
+}

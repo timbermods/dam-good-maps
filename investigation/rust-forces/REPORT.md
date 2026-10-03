@@ -2,6 +2,8 @@
 
 **Identity only; not adoptable.** Round-2 speed is accepted provisionally; no timing work this round. Product files unchanged.
 
+Overnight plan: 8 independent workers, 25 cases/shard, 2,520 shards; estimated 9.8 hours (9.0–10.2); projected peak CPU budget 100%, unmeasured. Longest remaining shards first; at most 6 simultaneous 512² shards, 2 browsers/engine; stop admission below 10 GiB free RAM. Uses the existing pilot only, with 20% contention allowance. Full counts unchanged.
+
 Shared portable.rs applied; strict native/Wasm source, IR, assembly and unstripped Wasm guard PASS.
 
 allWaterAndPlaybackRecords closed: Missing a separate completeness proof: the gate was coupled to finishing the random corpus; full typed raw/final water, every playback tape and total/step timing are now checked against the complete TS record.
