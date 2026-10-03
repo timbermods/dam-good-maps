@@ -198,6 +198,43 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands: one island grown for the start (D417, Kyler's third look, 2026-10-02 evening)
+
+Kyler: neither sheet yet. The safe sheet has the variety, but the start is always on the shore. The
+big-island sheet's start is on an island, but two thirds of it is one central island in a moat
+inside a ring of land, and the promise falls to 16. Next: the safe layouts with one island in each
+grown large enough for the start, off the centre and in a different place each seed, never a
+central island in a moat. Where a layout can't hold one, the start falls back to the shore.
+
+- **The grown island:** `investigation/m9b/islands-grown-variant.patch`, applied on f1ee8450.
+  - Every layout but the edge one adds an island of radius 20–22, 1.8–2.2 times as long as wide.
+    Its middle lies 12–18% of the side off the sea's own middle, at a bearing drawn each seed, and
+    it lies long along that side of the sea.
+  - Its top is gentler and its coast calmer. The coasts of islands of 1,200 tiles or more step up
+    from the sea a level every five tiles (`gentleCoasts`, before the water is planned). A spring
+    rises on its high ground first.
+  - It may meet the shore. The start goes on it alone (its ellipse a quarter past its coast), with
+    the walkable ground Buildable land asks for: 1,200 tiles at 128², without the eighth of the map
+    larger maps add. The plan's own start is taken there when it is still dry and clear.
+  - Where none fits, the start goes on the shore.
+- **The three side by side:** `docs/sheets/m9b-islands-grown.png` shows safe | big | grown for
+  seeds 1–30 at 128². The safe sheet `docs/sheets/m9b-islands.png` is re-rendered after the dev
+  merge: all 30 pass, the promise on 20, all three on 19.
+- **Grown, seeds 1–30:**
+  - All 30 pass, the promise on 14, all three outcomes on 11.
+  - The start stands on the grown island on 13 maps. On 9 it falls back to the shore. The other 8
+    are the edge layout, whose mainland is its own place to build.
+- **What stops the rest:** a start on an island needs, on that land, two mine sites 30 tiles or more
+  from it on level squares clear of the water's margin (#136, item 47), 100 tiles of moist farmland
+  and the Start area's level land within its walk, and its wood. The island's low coast is all
+  water's margin. Most redrawn lands miss the promise once the island takes sea area, and the land
+  shown after the screen's budget may hold a smaller island.
+- **Tried and dropped on the way:**
+  - A strait cut round the grown island through higher ground: across a river's course it left
+    the water spilling and never settling, so the map failed (Islands 6).
+  - A low, level plain over the whole island: its tiles fell within the water's margin and lost the
+    mine sites' room.
+
 ### Delta's tuning, round 2 (D416: seed 29 still a lake, seed 23's thin water)
 
 - The arms are 0.4 of the main river's width, not 0.6, so each carries its share deeper.
