@@ -620,6 +620,11 @@ export class MapSession {
     return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
   }
 
+  /** The operations of the latest step on the history (empty when there is none). */
+  lastStepOps(): readonly AppliedOp[] {
+    return this.undoStack.at(-1)?.ops ?? [];
+  }
+
   /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
   stepSince(mark: HistoryMark): HistoryMark | null {
     if (this.undoStack.length !== mark.depth + 1 || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return null;

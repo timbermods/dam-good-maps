@@ -1040,6 +1040,26 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
   return null;
 }
 
+/** Try another replaces the force before it (D220), and so the start carry in its step too (D257):
+ *  the operations that put the start back where it stood before that force, when the latest step is
+ *  that force (`forceSeq`) and it carried the start. The objects the carry cleared go with the force
+ *  it replaces (the carry lists them with the force's own, worker `carryStart`). `original` is the
+ *  map the force started from (a start that is only an object goes back to its place there). */
+export function startCarriedBack(s: MapSession, forceSeq: number, original: readonly { id: string; template: string; x: number; y: number }[]): EditOp[] {
+  const step = s.lastStepOps();
+  if (step[0]?.seq !== forceSeq) return [];
+  const out: EditOp[] = [];
+  for (const o of step.slice(1)) {
+    if (o.op === "updateFeature" && o.undo?.before?.kind === "start" && !o.orphaned) {
+      out.push({ op: "updateFeature", params: { id: o.params.id, patch: { params: clone(o.undo.before.params) as unknown as Record<string, unknown> } } });
+    } else if (o.op === "moveEntity") {
+      const was = original.find((e) => e.id === o.params.id && e.template === "StartingLocation");
+      if (was) out.push({ op: "moveEntity", params: { id: was.id, x: was.x, y: was.y } });
+    }
+  }
+  return out;
+}
+
 /** The generation's trees, bushes and ruin columns under a start moved to (x, y) (its footprint and
  *  its entrance), removed in the step that puts the start there: without the removal the build
  *  would only keep them aside while the start stands on them, and moving it on would bring them
