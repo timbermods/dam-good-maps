@@ -31,6 +31,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
 import { waitForEditor } from "./wait-editor";
+import { sin } from "../src/core/math/portable";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -134,9 +135,19 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
       w.__b.pending = [];
       const t = performance.now();
       const out = u(...a);
-      w.__b.mesh.push(performance.now() - t);
+      if (!r.flushTerrain) w.__b.mesh.push(performance.now() - t);
       return out;
     };
+    // (a renderer that draws a brush's land once a frame, flushTerrain: its re-mesh is that, not the call)
+    if (r.flushTerrain) {
+      const fl = r.flushTerrain.bind(r);
+      r.flushTerrain = () => {
+        const t = performance.now();
+        const did = fl();
+        if (did) w.__b.mesh.push(performance.now() - t);
+        return did;
+      };
+    }
 
     const rn = r.renderNow.bind(r);
     r.renderNow = () => { rn(); w.__b.rend.push(performance.now()); };
@@ -161,7 +172,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.mouse.down();
   for (let k = 0; k < 480; k++) {
     const t = k / 480;
-    await page.mouse.move(at.x + 260 * t, at.y + 70 * Math.sin(t * 7));
+    await page.mouse.move(at.x + 260 * t, at.y + 70 * sin(t * 7));
     await page.waitForTimeout(6);
   }
   await page.waitForTimeout(700);

@@ -16,6 +16,8 @@ import {
   objectsOnNewGround,
   moveEdit,
   moveStartNear,
+  startCarriedBack,
+  startCarry,
   startClears,
   startBrokenBy,
   startMiddle,
@@ -1575,6 +1577,8 @@ export function clearEverything(): SessionUpdate & { removed: number[] } {
 export function applySelection(ops: EditOp[], label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
+  ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
   const r = s.applyAll(ops, "user", label);
   if (!r.ok) return changed(s, false, r.errors, t0);
   if (startBrokenBy(s, new Set(tiles))) {
@@ -2003,7 +2007,7 @@ function sessionForceMap(s: MapSession): FullForceMap {
   const fallen = m.entities
     .filter((e) => down.has(e.id))
     .map((e) => ({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[e.y * W + e.x], dx: down.get(e.id)!.dx, dy: down.get(e.id)!.dy, length: e.template === "Oak" ? 2.6 : 2 }));
-  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen };
+  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen, usedIds: s.usedEntityIds() };
 }
 
 /** The same map for Craterize, Erupt and Quake: they work on plain copies of the objects (an
@@ -2508,12 +2512,14 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   handoff = water;
   // (where the history stood: its Esc, arriving after this keep, takes it back exactly, D341)
   const mark = s.mark();
-  const res = s.apply({ op: "forceResult", params }, "user");
+  // (Try another replaces the force's start carry too: the start goes back where it stood, D220)
+  const back = f.replaces !== undefined ? startCarriedBack(s, f.replaces, f.before.entities) : [];
+  const res = s.applyAll([{ op: "forceResult", params }, ...back], "user");
   if (!res.ok) {
     handoff = null;
     return refused(res.errors);
   }
-  carryStart(s, params);
+  carryStart(s, params, back, { inside: f.request.area ? areaDepth(f.request.area, f.before.W, f.before.H) : null, cut: f.request.cut });
   const seq = lastSeq(s)!;
   const seriesBefore = series;
   if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
@@ -2584,16 +2590,14 @@ function featherForce(p: ForceResultParams, before: Uint8Array, inside: Uint8Arr
  *  an object) carries the start to the nearest level ground where it stands well, in the same undo
  *  step (D257: a force is bound only by nature; the editor keeps the map playable). With no such
  *  ground within reach it stays, and the checks say what is wrong. */
-function carryStart(s: MapSession, params: ForceResultParams): boolean {
-  if (!startBrokenBy(s, new Set(params.tiles))) return false;
-  const at = startMiddle(s);
-  const ops = at ? moveStartNear(s, at[0], at[1], true) : null;
-  if (!ops) return false;
+function carryStart(s: MapSession, params: ForceResultParams, back: EditOp[], limits: { inside: Uint8Array | null; cut: number | null }): boolean {
+  const carry = startCarry(s, params, limits);
+  if (!carry) return false;
   const label = s.history().filter((h) => h.applied).at(-1)?.label;
   s.undo();
-  const r = s.applyAll([{ op: "forceResult", params }, ...ops], "user", label);
+  const r = s.applyAll([{ op: "forceResult", params: carry.params }, ...back, ...carry.ops], "user", label);
   if (r.ok) return true;
-  s.apply({ op: "forceResult", params }, "user");
+  s.applyAll([{ op: "forceResult", params }, ...back], "user", label);
   return false;
 }
 

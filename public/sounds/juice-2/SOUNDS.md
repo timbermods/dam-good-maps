@@ -20,6 +20,14 @@ root) reproduces this pass from the same CC0 sources; `investigation/juice-2/` (
 `investigation/` is history (docs/README.md). This file now describes the shipped copy as it is;
 what follows below the sources table is the round's own text, amended only where noted.
 
+**D459 (2026-10-03):** Naturalize has a new sound. `leaves` is rustle17 from qubodup's CC0 "20 Rustles of
+dry leaves" (a lossless 96 kHz original, the cleanest source in this bank): downmixed to mono, resampled to
+48 kHz, leading and trailing silence trimmed, one linear gain to -19 dBFS in the strongest 100 ms (peak capped
+at -2 dBFS), 1/15 ms edge fades, MP3 256 kbps. `leaves-bed` is 2.2 s of rustle04 from the same pack (no
+silence trim) for the held stroke. `tools/reencode-sounds.py leaves leaves-bed` reproduces both from the
+downloaded archive. They replace the grass-footstep recordings in Naturalize's recipe; `leaf-a`, `leaf-b`
+and `leaf-bed` stay, since Remove, Tree and Berry still use them.
+
 ## Sound provenance
 
 Every recording shipped here is **CC0 1.0**. No attribution-only, non-commercial,
@@ -36,6 +44,7 @@ for traceability, not because attribution is a condition. Licence checked on
 | E | ezwa (pdsounds.org) | [6 Short water splashes, CC0](https://opengameart.org/content/6-short-water-splashes), uploaded by qubodup, author credited as ezwa | [7z archive](https://opengameart.org/sites/default/files/ezwa-water_splash.7z) |
 | T | TinyWorlds | [Boiling water loops, CC0](https://opengameart.org/content/boiling-water-loops); author recorded a cooking pot | [OGG](https://opengameart.org/sites/default/files/cooking_with_cover_01.ogg) |
 | W | Tom_Kaszuba | [Waterfall sound, CC0](https://freesound.org/people/Tom_Kaszuba/sounds/660255/); Sony PCM-D100 field recording | [Public HQ MP3 preview](https://cdn.freesound.org/previews/660/660255_11673893-hq.mp3) |
+| Q | qubodup | [20 Rustles of dry leaves, CC0](https://opengameart.org/content/20-rustles-dry-leaves) (OpenGameArt's licence field reads CC0; 24-bit 96 kHz stereo FLAC, recorded in a kitchen, uploaded 19 May 2010; checked 3 October 2026) | [7z archive](https://opengameart.org/sites/default/files/qubodup-rustle.7z) |
 | B | SamsterBirdies | [Large explosion, CC0](https://freesound.org/people/SamsterBirdies/sounds/592000/); recorded garage firecracker, layered and pitched by its author | [Public HQ MP3 preview](https://cdn.freesound.org/previews/592/592000_5487341-hq.mp3) |
 
 The two Freesound inputs are public compressed previews, **not** the original
@@ -47,7 +56,7 @@ generation. No claim of lossless mastering is made. No sign-in was needed.
 All outputs below are `audio/<id>.mp3`, mono, 48 kHz, **256 kbps** (D313; 192 kbps as PR #64 first
 shipped it). Every row inherits the named author's **CC0** grant from the source table above. Exact
 input/output SHA-256 hashes, byte counts, lengths, crops and gain adjustments are in
-[bank.json](bank.json). Total: **1,090,848 bytes (1.04 MiB)**.
+[bank.json](bank.json). Total: **1,186,936 bytes (1.13 MiB)**.
 
 | Output ID | Source / author ID | Original recording(s) |
 | --- | --- | --- |
@@ -72,6 +81,8 @@ input/output SHA-256 hashes, byte counts, lengths, crops and gain adjustments ar
 | bubbles | T | cooking_with_cover_01.ogg (local input name boiling.ogg) |
 | waterfall | W | 660255_11673893-hq.mp3 (local input name waterfall.mp3) |
 | boom | B | 592000_5487341-hq.mp3 (local input name explosion.mp3) |
+| leaves | Q | rustle17.flac |
+| leaves-bed | Q | rustle04.flac |
 | earth-bed | K | footstep_concrete_000–004.ogg |
 | leaf-bed | K | footstep_grass_000–004.ogg |
 | stone-bed | K | impactMining_000–004.ogg |

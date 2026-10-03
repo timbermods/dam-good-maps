@@ -76,7 +76,7 @@ export interface PlaceIndexEntry {
   bytes: number;
   sha256: string;
   /** The playability checks this place's own map fails, recorded when the tool builds it
-   *  (`PLACE_FAULT_CHECKS`): what the gallery reads to leave a place out until it is fixed. */
+   *  (`PLACE_FAULT_CHECKS`): what the gallery reads for a place's card note (D445). */
   faults: string[];
 }
 
@@ -88,26 +88,21 @@ export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "start.wood", "start.
 /** What every place as converted has, and what Real places 2 removes: not a reason to leave one out. */
 export const CONVERSION_FAULT_CHECKS = ["terrain.edge_wall", "resources.mine_site", "resources.badwater_source"] as const;
 
-/** The fault that keeps a place out of the gallery (D421): its start reaches no water a source
- *  feeds, so the map cannot be played from the start. Real places 2 fixes the place, the next run of
- *  the tool no longer records it, and the place shows again. */
-export const GALLERY_HIDING_FAULT = "start.water";
+/** The fault whose card note reads `NO_WATER_NOTE` (D445): the place's start reaches no water a source
+ *  feeds. The place still shows in the gallery; Real places 2 fixes it, and the next run of the tool
+ *  no longer records it. */
+export const NO_WATER_FAULT = "start.water";
 
-/** A place the gallery lists: one without `GALLERY_HIDING_FAULT` on its map. */
-export const inGallery = (e: Pick<PlaceIndexEntry, "faults">): boolean => !e.faults.includes(GALLERY_HIDING_FAULT);
+/** The card note for a place with `NO_WATER_FAULT` (D445). No other fault gets a note. */
+export const NO_WATER_NOTE = "No reachable water";
 
-/** The index as the gallery page shows it: the places left out (D421) gone, and the count, the
- *  families and the sizes of what is left. The places left out stay in the index and their data
- *  and cards stay published, so they still build, test and open by their link. */
+/** The card note a place carries, from its recorded faults, or null. */
+export const placeNote = (e: Pick<PlaceIndexEntry, "faults">): string | null => (e.faults.includes(NO_WATER_FAULT) ? NO_WATER_NOTE : null);
+
+/** The index as the gallery page shows it (D445): every place, including those whose start reaches no
+ *  fed water, which carry a note (`placeNote`). */
 export function galleryIndex(index: PlaceIndex): PlaceIndex {
-  const places = index.places.filter(inGallery);
-  return {
-    ...index,
-    count: places.length,
-    families: index.families.filter((f) => places.some((p) => p.family === f.id)),
-    sizes: index.sizes.filter((s) => places.some((p) => p.size === s)),
-    places,
-  };
+  return index;
 }
 
 export interface PlaceIndex {

@@ -1,0 +1,6 @@
+# The Rust every port builds with (PLAN §20 D381, D401, D442). Changing it means re-running the maths guard
+# (tools/rust/check.mjs) and every port's identity checks.
+[toolchain]
+channel = "1.90.0"
+profile = "minimal"
+targets = ["wasm32-unknown-unknown"]

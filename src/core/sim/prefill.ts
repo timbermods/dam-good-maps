@@ -23,12 +23,15 @@
 // water settles on from there (`DRAIN_DAYS`); a map with none keeps its bytes.
 //
 // A sealed basin only evaporating is settled water (D222, D413): the settle stops once nothing else
-// changes, and the basin is stored with the water it started with, so a Fill is stored at exactly
-// its level and an oxbow lake with the water its carve kept; the game evaporates them from there.
+// changes, and the basin is stored with its lakes' water as it started, so a Fill is stored at
+// exactly its level and an oxbow lake with the water its carve kept; the game evaporates them from
+// there. Where that water would not stand as it started (an edit since widened the hollow below its
+// level), it is stored levelled into its hollow; other water the walk left in the basin goes
+// (`keepSealed`).
 
 import { MinHeap } from "../math/grid";
-import { withoutUnfed } from "./fed";
-import { sealedTiles, SettleRun, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
+import { keptSeeds, withoutUnfed } from "./fed";
+import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -208,10 +211,21 @@ export interface CanonicalWater extends SettleResult {
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
  *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
 export function canonicalSettle(m: WaterModel): CanonicalWater {
+  if (canonicalBackend) return canonicalBackend(m, prefill(m));
   const run = canonicalRun(m);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
+}
+
+/** Where `canonicalSettle` runs after its pre-fill when a batch job asks (tools/rust/native-water.ts: the
+ *  native Rust water, PLAN §20 D381), else null: here, with the Rust water in WebAssembly. Both give the
+ *  same bytes (tools/rust/water-identity.ts checks it in CI). */
+let canonicalBackend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null = null;
+
+/** Sets (or clears, with null) `canonicalSettle`'s backend; Node batch jobs only. */
+export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null): void {
+  canonicalBackend = backend;
 }
 
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
@@ -247,7 +261,7 @@ export function canonicalRun(m: WaterModel): { advance(ticks: number): Canonical
             return null;
           }
         }
-        const kept = keepSealed(sim, run.closedBasins(), start, m.drained);
+        const kept = keepSealed(sim, m, run.closedBasins(), start);
         done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }).saturation() : sim.saturation(), out: sim.out.slice() };
         return done;
       }
@@ -261,23 +275,147 @@ export function canonicalRun(m: WaterModel): { advance(ticks: number): Canonical
   };
 }
 
-/** A sealed basin only evaporating is stored as it started (D413): every tile of the sealed basins
- *  at the settle's last check (`closed`, water.ts `sealedBasins`) but a drained one gets back its
- *  pre-fill depth and badwater share (`start`: the water its lake kept, a Fill's level), its
- *  outflows still. What the settle's days evaporated is the game's to evaporate, from the file.
- *  Whether any tile was given back. */
-function keepSealed(sim: WaterSim, closed: Uint8Array | null, start: WaterState, drained: readonly number[] | undefined): boolean {
+/** A sealed basin only evaporating is stored as it started (D413): its stored lakes' water (a Fill
+ *  at its level, the water a carve's oxbow lake kept) as the pre-fill started it, its outflows
+ *  still. What the settle's days evaporated is the game's to evaporate, from the file.
+ *  - Only the stored lakes' own water is the basin's: other water the pre-fill's walk left in it
+ *    (the higher step of a stepped hollow round a Fill, which counts as fed only by touching the
+ *    Fill) is water from nowhere, D385, and goes.
+ *  - A lake whose start would not stand where it is (an edit since widened its hollow below its
+ *    level: the water runs into the new ground) is stored settled instead: its volume poured into
+ *    the hollow from its tiles, levelled flat (`levelInto`), so the file holds water at rest.
+ *  `closed` marks the tiles of the sealed basins at the settle's last check (water.ts
+ *  `sealedBasins`); a drained tile (Remove unfed water) holds no stored lake. Whether any tile was
+ *  given back. */
+function keepSealed(sim: WaterSim, m: WaterModel, closed: Uint8Array | null, start: WaterState): boolean {
   if (!closed) return false;
-  const skip = new Set(drained ?? []);
+  const { W, H, N } = sim;
+  const lake = keptSeeds(m) ?? new Uint8Array(N);
+  const seen = new Uint8Array(N);
+  const queue = new Int32Array(N);
   let any = false;
-  for (let i = 0; i < sim.N; i++) {
-    if (!closed[i] || skip.has(i)) continue;
-    sim.D[i] = start.depth[i];
-    sim.C[i] = start.contamination[i];
-    for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
+  for (let s = 0; s < N; s++) {
+    if (!closed[s] || seen[s]) continue;
+    // one sealed basin: its tiles, ascending
+    seen[s] = 1;
+    queue[0] = s;
+    let tail = 1;
+    for (let h = 0; h < tail; h++) {
+      const c = queue[h];
+      const x = c % W;
+      const y = (c - x) / W;
+      if (y > 0 && closed[c - W] && !seen[c - W]) (seen[c - W] = 1), (queue[tail++] = c - W);
+      if (x > 0 && closed[c - 1] && !seen[c - 1]) (seen[c - 1] = 1), (queue[tail++] = c - 1);
+      if (y < H - 1 && closed[c + W] && !seen[c + W]) (seen[c + W] = 1), (queue[tail++] = c + W);
+      if (x < W - 1 && closed[c + 1] && !seen[c + 1]) (seen[c + 1] = 1), (queue[tail++] = c + 1);
+    }
+    const tiles = Array.from(queue.subarray(0, tail)).sort((a, b) => a - b);
+    // its stored lakes' water as the pre-fill started it, and whether that stands where it is
+    let volume = 0;
+    let bad = 0;
+    let rests = true;
+    let top = -Infinity;
+    let bottom = Infinity;
+    for (const i of tiles) {
+      const d = lake[i] ? start.depth[i] : 0;
+      if (!(d > 0)) continue;
+      volume += d;
+      bad += d * start.contamination[i];
+      const surface = m.floor[i] + d;
+      if (surface > top) top = surface;
+      if (surface < bottom) bottom = surface;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let k = 0; k < 4 && rests; k++) {
+        const n = k === 0 ? (y > 0 ? i - W : -1) : k === 1 ? (x > 0 ? i - 1 : -1) : k === 2 ? (y < H - 1 ? i + W : -1) : x < W - 1 ? i + 1 : -1;
+        if (n < 0 || (lake[n] && start.depth[n] > 0)) continue;
+        // (water runs onto lower ground, and onto dry ground of the same floor past the spill
+        // threshold, water.ts)
+        if (m.floor[n] === m.floor[i] ? d > SPILL : surface > m.floor[n] + REST) rests = false;
+      }
+    }
+    if (top - bottom > REST) rests = false;
+    const level = rests || !(volume > 0) ? null : levelInto(m, tiles.filter((i) => lake[i]), volume);
+    for (const i of tiles) {
+      const d = rests && lake[i] ? start.depth[i] : 0;
+      sim.D[i] = d;
+      sim.C[i] = d > 0 ? start.contamination[i] : 0;
+      for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
+    }
+    if (level) {
+      const share = volume > 0 ? bad / volume : 0;
+      for (const [i, d] of level) {
+        sim.D[i] = d;
+        sim.C[i] = lake[i] && start.depth[i] > 0 ? start.contamination[i] : share;
+        for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
+      }
+    }
     any = true;
   }
   return any;
+}
+
+/** Surfaces within this of each other stand level (the settle's own tolerance is 0.005). */
+const REST = 0.01;
+
+/** `volume` of water poured into the hollow round `seeds` and levelled flat: each tile the water
+ *  covers and its depth. The hollow fills from its lowest ground up, over the lowest rim first (a
+ *  priority flood from the seeds); water that would rise over a map edge tile drains off there. */
+function levelInto(m: WaterModel, seeds: readonly number[], volume: number): [number, number][] {
+  const { W, H, floor, dam } = m;
+  const N = W * H;
+  const eff = (i: number) => floor[i] + (dam && dam[i] >= 0 ? dam[i] : 0);
+  const queued = new Uint8Array(N);
+  const heap = new MinHeap();
+  for (const i of seeds) {
+    queued[i] = 1;
+    heap.push(eff(i), i);
+  }
+  const added: number[] = [];
+  const pass: number[] = [];
+  let count = 0;
+  let sum = 0;
+  let at = -Infinity;
+  let level = Infinity;
+  let edge = Infinity;
+  while (heap.size > 0) {
+    const c = heap.pop();
+    const p = heap.lastKey;
+    if (p > at) {
+      // a new rim: does the water stop below it?
+      if (edge < Infinity) {
+        level = edge;
+        break;
+      }
+      if (count > 0 && count * p - sum >= volume) {
+        level = (volume + sum) / count;
+        break;
+      }
+      at = p;
+    }
+    const x = c % W;
+    const y = (c - x) / W;
+    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = p;
+    added.push(c);
+    pass.push(p);
+    count++;
+    sum += eff(c);
+    for (let k = 0; k < 4; k++) {
+      const n = k === 0 ? (y > 0 ? c - W : -1) : k === 1 ? (x > 0 ? c - 1 : -1) : k === 2 ? (y < H - 1 ? c + W : -1) : x < W - 1 ? c + 1 : -1;
+      if (n < 0 || queued[n]) continue;
+      queued[n] = 1;
+      const e = eff(n);
+      heap.push(e > p ? e : p, n);
+    }
+  }
+  if (level === Infinity) level = edge < Infinity ? edge : count > 0 ? (volume + sum) / count : 0;
+  const out: [number, number][] = [];
+  for (let k = 0; k < added.length; k++) {
+    const i = added[k];
+    const d = level - eff(i);
+    if (pass[k] < level && d > 0) out.push([i, d]);
+  }
+  return out.sort((a, b) => a[0] - b[0]);
 }
 
 /** The most game days the canonical settle runs on after taking away its unfed water

@@ -1,5 +1,8 @@
 # Handoff: the milestone session
 
+> **Kyler's standing rule on checks, above all (D454):** no excessive tests, timings or validation, only when genuinely
+> necessary or when Kyler asks; before adding any check, ask whether something is likely to break and Kyler would not see it.
+>
 > **Kyler's standing rule, before any task (PLAN §20, D316–D318):** compute is a resource, effort matches the stakes, and
 > quality is never compromised. Invest in what compounds; spend little on ceremony; keep reports short. The cheapest model
 > and effort that does the job (the models table below), and a real check before any code change is reported done. The full
@@ -34,18 +37,18 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **The page session** (Fable 5.1, high; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
-- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release item 3: moving
-  water and the Flow view, then renderer R1. This session doesn't build them; it merges #165 once the renderer has merged dev into it, CI is green and
-  its 6-cell smoothness check passes on the merged branch (D436), never during a quiet window that measures what it touches.
-  The gate is `tools/smooth/` (built from `investigation/performance`, #107): a 6-cell check, Chrome on the discrete GPU at
-  256², Standard and High, orbit, brush and force, 3 runs each against dev; a cell fails on a branch median p99 more than 20%
-  worse than dev's or more hitches than dev's highest run (D435). Every later force uses it. It runs on Kyler's PC (Opus 5.5, high) and never edits
+- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release items 1 and 2 on
+  its own PR (merged when CI is green, D453) and item 3: moving
+  water and the Flow view, then renderer R1. This session doesn't build them; it merges #165 once the renderer has merged dev into it and CI is green (D453).
+  `tools/smooth/` (from `investigation/performance`, #107) stays as a tool, run only when something feels slow. It runs on Kyler's PC (Opus 5.5, high) and never edits
   PLAN.md, STATUS.md or HANDOFF.md: when its PR merges, this session folds its decisions into PLAN §20, EDITOR_PLAN's view
   section and STATUS. Its plan (Kyler's yes, 2026-10-02) changes `src/worker/session.ts` (WaterView gains an optional
   per-wet-tile current; the Flow view's lanes are built in the worker after a settle) and `src/editor/waterPlayer.ts` /
   `waterJourney.ts`: keep this session's changes there small, and tell Kyler before large ones. The water's bytes, when
   it settles and the pinned digests don't change; High's surface-gradient flow estimate (pending #111) is replaced by the
   simulation's current; the Rust water must keep exposing `out`.
+- **Codex on Kyler's PC** works in its own clone there, never in the renderer session's (a Codex task switched the
+  renderer's checkout at 00:33 on 2026-10-03).
 - **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler
   ([his message](archive/feedback/2026-10-02-two-sessions.md)).
 
@@ -78,8 +81,8 @@ as investigations at a boundary (a merge commit once green; only Codex's own com
 unreleased one) and adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
 default. Hold any PR Kyler says Codex is still working on. The Rust adoptions (D442) run ahead of the post-release list as one `build` sub-agent in its own worktree, in parallel with
 M9b: (a) Rust 1.90, wasm32 and the Rust build in CI with `portable.rs`; (b) the Rust water, in every engine at every size;
-(c) the forces (#158, round 3's corpus with Codex) as soon as it reads ready; (d) the analysis (#157) and the generator after
-M9b's release. No speed re-timing gates (D441); Firefox's speed is never measured (D440). Today's merges (#159–#181) are listed in STATUS.
+(c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the generator after
+M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (D440). Today's merges (#159–#181) are listed in STATUS.
 
 ## 5. How things are run here
 
@@ -103,9 +106,8 @@ M9b's release. No speed re-timing gates (D441); Firefox's speed is never measure
   prints the steps). Then republish the preview and record the release in STATUS and the Progress log. If the live check
   fails, revert the release merge on `main`.
 - **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch.
-- **Measuring (D439).** No multi-hour measurement runs (profiling sessions, long timing series, extra quiet windows) unless
-  Kyler says one is critical; speed checks take minutes (the 6-cell smoothness check, or a short benchmark of the thing
-  changed); correctness and byte-identity checks run in CI or as needed. Tonight's 02:00 window (D414, D434) runs as planned.
+- **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
+  byte-identity checks run in CI; a real check before anything is reported done stays.
 - **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after
   Kyler's yes in chat for that batch (CLAUDE.md, D117). **On this machine D218 lifts the ask:** run a batch whenever the plan
   calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed, the machine quiet).
@@ -123,7 +125,7 @@ M9b's release. No speed re-timing gates (D441); Firefox's speed is never measure
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into `PLAN.md` §20 (the next is **D447**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into `PLAN.md` §20 (the next is **D461**) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

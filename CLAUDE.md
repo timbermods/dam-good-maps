@@ -1,6 +1,12 @@
 # CLAUDE.md
 
-> **Kyler's standing rule, read before any task (PLAN §20, D316): compute is a resource, effort matches the stakes,
+> **Kyler's standing rule on checks, above every other (PLAN §20, D454):** no excessive tests, timings or validation, only
+> when genuinely necessary or when Kyler asks. Speed is judged by Kyler using the product. What stays: CI and the nightly
+> suite, checks that catch real bugs, and a real check that the change works before reporting it done. Before adding any
+> check, measurement or validation step, ask whether something is actually likely to break and whether Kyler would not see
+> it anyway; if not, don't add it.
+>
+> **Kyler's standing rule, read before any task (PLAN §20, D316, tightened by D454): compute is a resource, effort matches the stakes,
 > and quality is never compromised.** It applies to every session, agent and investigation, and to prompts from the
 > planning chat and Codex.
 >
@@ -39,14 +45,12 @@ maps the documents.
 
 ## Standing rules
 
-- **Performance is a requirement (D380, `docs/PERFECT.md`):** every feature meets its speed budget before it ships; a speed
-  regression blocks a merge like a failing test, measured in a quiet window.
-- **Speed checks take minutes (D439):** no multi-hour measurement runs (profiling sessions, long timing series, extra quiet
-  windows) unless Kyler says one is critical. Use the 6-cell smoothness check or a short benchmark of the thing changed;
-  correctness and byte-identity checks run in CI or as needed.
-- **Tooltips (D351, D361, D368):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an accurate
+- **Speed (D453, `docs/PERFECT.md`):** Kyler judges speed by using the tool; something that feels slow is a bug. No quiet
+  windows or timing gates; a real check before reporting done stays.
+- **Tooltips (D351, D361, D368, D450):** every tool, force, option, view toggle, shelf item and panel or ⋯ button has an accurate
   tooltip: a short phrase that tells its purpose at a glance, with its shortcut at the end as a small key cap ("Carve a
-  river" then a key cap 7); no second sentence, no technical detail, no key in brackets. Whoever changes a control's
+  river" then a key cap 7); no second sentence, no technical detail, no key in brackets. A setting's tooltip may add the official maps'
+  range as a short phrase ("Official maps: 9–15") before its key cap; settings have no grey explanation lines. Whoever changes a control's
   behaviour updates its tooltip in the same commit; a test checks every interactive control has one.
 - **The editor's architecture (D342):** every change to a map is an operation in `ops.schema.json`, in plain terms,
   validated and rejected with a one-line reason, never silently clamped; all editing logic lives in `src/core/` and runs

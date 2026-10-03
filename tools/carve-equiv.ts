@@ -19,6 +19,7 @@ import { oxbowLake } from "../src/core/forces/carve/water";
 import type { ForceMap } from "../src/core/forces/force";
 import { generate } from "../src/core/gen/generate";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../src/core/places/place";
+import { hypot } from "../src/core/math/portable";
 import { canonicalSettle } from "../src/core/sim/prefill";
 import { makeSpec } from "../src/core/spec/mapspec";
 
@@ -50,7 +51,7 @@ function highOrigin(m: CarveMap): number {
     for (let x = 16; x < m.W - 16; x++) {
       const i = y * m.W + x;
       if (m.water.depth[i] > 0.05) continue;
-      const score = m.heights[i] - 0.01 * Math.hypot(x - m.W / 2, y - m.H * 0.62);
+      const score = m.heights[i] - 0.01 * hypot(x - m.W / 2, y - m.H * 0.62);
       if (score > best) {
         best = score;
         origin = i;

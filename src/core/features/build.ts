@@ -21,6 +21,7 @@ import type { MapSpec } from "../spec/mapspec";
 import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
+import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
@@ -282,6 +283,9 @@ export interface BuildCache {
   soil: Float64Array | null;
   /** Occupancy when the resources were placed, and each resource feature's output. */
   occupiedBeforeResources: Uint8Array | null;
+  /** The water the resources were placed against: the settle's, or the last settled water carried
+   *  over to new ground (the "defer" mode), which `settle` does not hold. */
+  resourceWater: Float64Array | null;
   /** The tiles taken before the entity edits: what the generation's kept resources yield to. */
   occupiedBeforeEdits: Uint8Array | null;
   resources: Map<string, ResourceEntry>;
@@ -914,6 +918,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moisture: null,
     soil: null,
     occupiedBeforeResources: null,
+    resourceWater: null,
     occupiedBeforeEdits: null,
     resources: new Map(),
     resourceOrder: [],
@@ -942,6 +947,11 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater), and so do the
   // Fills; Remove unfed water drains its tiles: all in the order of their operations
   const kept: (KeptWater & { seq: number })[] = [];
+  // an imported map's own standing water that no source feeds is its own, as a stored lake is (D457):
+  // the game evaporates it in its own time, so the live water and the export keep it alike (a removal
+  // after it can still take it)
+  const own = base && !base.frozen ? importedWater(base, W, H) : null;
+  if (own) kept.push({ seq: 0, lake: own });
   (input.sculpts ?? []).forEach((s, k) => {
     if (isForce(s.params) && s.params.lake) kept.push({ seq: (s as { seq?: number }).seq ?? k, lake: s.params.lake });
   });
@@ -1037,7 +1047,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     prev.resourceOrder.filter((id) => orderSet.has(id)).join() === order.filter((id) => prev.resources.has(id)).join();
   if (reusable) {
     changedTiles = new Uint8Array(N);
-    const pw = prev!.settle?.water.depth ?? none;
+    // (the water they were placed against: carried-over water is not the cache's settle, and objects
+    // placed against it are placed again once the settle is adopted, D366)
+    const pw = prev!.resourceWater ?? prev!.settle?.water.depth ?? none;
     const pm = prev!.moisture ?? none;
     const ps = prev!.soil ?? none;
     const ph = prev!.terrain.heights;
@@ -1098,7 +1110,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     ...withWater,
     entities: finalEntities,
     dirty: null,
-    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, occupiedBeforeEdits, resources, resourceOrder: order }),
+    cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, resourceWater: water, occupiedBeforeEdits, resources, resourceOrder: order }),
   };
   if (prevResult) result.dirty = dirtyInfo(prevResult, result, region);
   return result;
@@ -1206,14 +1218,39 @@ function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: nu
 
 const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string }>();
 
-function sameModelAsBase(base: BaseLayer, model: WaterModel, W: number, H: number): boolean {
+function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel; emitters: string } {
   let bm = baseModels.get(base);
   if (!bm) {
     const m = waterModel(W, H, base.heights, base.entities.map(toMapObject));
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }
-  return sameModel(bm.model, bm.emitters, model);
+  return bm;
+}
+
+function sameModelAsBase(base: BaseLayer, model: WaterModel, W: number, H: number): boolean {
+  const bm = baseModelOf(base, W, H);
+  // (with the file's own standing water as its stored lake, as every build of the map keeps it)
+  const own = base.frozen ? null : importedWater(base, W, H);
+  return sameModel(own ? { ...bm.model, retained: [own] } : bm.model, bm.emitters, model);
+}
+
+/** An imported map's own standing water that no running source of its file feeds (sim/fed.ts), as a
+ *  stored lake on the file's ground (D457), or null when it has none. */
+const importedWaters = new WeakMap<BaseLayer, RetainedWater | null>();
+function importedWater(base: BaseLayer, W: number, H: number): RetainedWater | null {
+  if (importedWaters.has(base)) return importedWaters.get(base)!;
+  let out: RetainedWater | null = null;
+  const w = base.water;
+  if (w) {
+    const m = baseModelOf(base, W, H).model;
+    const fed = fedTiles(m, w.depth);
+    const tiles: number[] = [];
+    for (let i = 0; i < W * H; i++) if (w.depth[i] > 0 && !fed[i]) tiles.push(i);
+    if (tiles.length) out = { tiles, floor: tiles.map((i) => m.floor[i]), depth: tiles.map((i) => w.depth[i]), contamination: tiles.map((i) => w.contamination[i]) };
+  }
+  importedWaters.set(base, out);
+  return out;
 }
 
 function dirtyInfo(prev: BuildResult, next: BuildResult, region: TileRegion | null): DirtyInfo {

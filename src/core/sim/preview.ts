@@ -24,7 +24,9 @@
 // unfed water Remove unfed water drained (the model's `drained`) goes at once (sim/fed.ts). Nor does
 // water appear from nowhere (D385): the pre-fill's water on the tiles that take the canonical start
 // stays only where a running source, a kept stored lake or the water kept from before reaches it
-// (sim/fed.ts), so a pit dug on dry ground stays dry while one dug beside a river fills at once.
+// (sim/fed.ts), so a pit dug on dry ground stays dry while one dug beside a river fills at once; and
+// once the preview's water stops, the pre-fill's water that only the walk's thin water had joined to
+// fed water is taken away and the water runs on, as the canonical settle does (`drainUnfedAfter`).
 
 import { drainUnfed, fedTiles, keptSeeds } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
@@ -142,11 +144,13 @@ function reachOf(m: WaterModel): Float64Array {
   return r;
 }
 
-/** The warm start of `next` from a settled state (see the file comment). */
-export function warmStart(from: WarmState, next: WaterModel): { state: WaterState; out: Float64Array | null } {
+/** The warm start of `next` from a settled state (see the file comment), and what feeds its water
+ *  beside the running sources (`seeds`, a mask): the water kept from before and the kept stored
+ *  lakes; null when nothing is kept. */
+export function warmStart(from: WarmState, next: WaterModel): { state: WaterState; out: Float64Array | null; seeds: Uint8Array | null } {
   const init = prefill(next);
   const changed = changedTiles(from.model, next);
-  if (!changed) return { state: init, out: null };
+  if (!changed) return { state: init, out: null, seeds: null };
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
   // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
@@ -174,7 +178,27 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   }
   // (and the unfed water a removal drained is gone, as the canonical settle takes it)
   drainUnfed(next, init.depth, init.contamination, po ? out : null);
-  return { state: init, out: po ? out : null };
+  return { state: init, out: po ? out : null, seeds };
+}
+
+/** Once the preview's water has stopped, the water that took the pre-fill's start and that nothing
+ *  feeds is taken away (D385, D260), as the canonical settle takes its unfed water once it has
+ *  settled (prefill.ts `canonicalRun`): fed is what a running source, a kept stored lake or the
+ *  water kept from before (`seeds`) reaches. The warm start keeps the pre-fill's water wherever the
+ *  walk's thin water joins it to fed water, and that thin water drains as the water settles: a pit
+ *  whose only source was deleted, on flat ground another river's walk crosses, would otherwise keep
+ *  its pool. In place; whether any water was taken. */
+function drainUnfedAfter(sim: WaterSim, m: WaterModel, seeds: Uint8Array | null): boolean {
+  const fed = fedTiles(m, sim.D, seeds ?? keptSeeds(m));
+  let any = false;
+  for (let i = 0; i < sim.N; i++) {
+    if (!(sim.D[i] > 0) || fed[i]) continue;
+    sim.D[i] = 0;
+    sim.C[i] = 0;
+    for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
+    any = true;
+  }
+  return any;
 }
 
 /** The tiles of the lakes `next` stores that `prev` does not (a Fill, a carve's oxbow lake just
@@ -202,12 +226,18 @@ export function newLakeTiles(prev: WaterModel, next: WaterModel): Uint8Array | n
 
 /** The preview's water for `next`, warm-started from `from` (a previous settle of the same map). */
 export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater {
-  const { state, out } = warmStart(from, next);
+  const { state, out, seeds } = warmStart(from, next);
   const sim = new WaterSim(next, state);
   if (out) sim.out.set(out);
-  const run = new PreviewRun(sim, sealedTiles(next));
+  const sealed = sealedTiles(next);
+  let run = new PreviewRun(sim, sealed);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
+  if (drainUnfedAfter(sim, next, seeds)) {
+    run = new PreviewRun(sim, sealed);
+    r = run.advance(Infinity);
+    while (!r) r = run.advance(Infinity);
+  }
   return { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice(), preview: true };
 }
 
@@ -264,14 +294,19 @@ export class PreviewJob {
   private readonly startTicks: number;
   /** The ticks when the current `advance` began (its budget spans a new day's run too). */
   private before = 0;
+  /** What feeds the water beside the sources (`warmStart`), and whether the unfed water has been
+   *  taken once the water stopped (`drainUnfedAfter`). */
+  private readonly seeds: Uint8Array | null;
+  private drained = false;
 
   constructor(
     from: WarmState,
     readonly model: WaterModel,
   ) {
-    const { state, out } = warmStart(from, model);
+    const { state, out, seeds } = warmStart(from, model);
     this.sim = new WaterSim(model, state);
     if (out) this.sim.out.set(out);
+    this.seeds = seeds;
     this.sealed = sealedTiles(model);
     this.run = new PreviewRun(this.sim, this.sealed);
     this.startTicks = this.sim.ticks;
@@ -281,13 +316,22 @@ export class PreviewJob {
   advance(ticks: number): CanonicalWater | null {
     if (this.result) return this.result;
     this.before = this.sim.ticks;
+    const left = () => Math.max(0, ticks - (this.sim.ticks - this.before));
     let r = this.run.advance(ticks);
-    // (the day's cap reached while the water still moves: another day, from the water as it stands)
-    while (r && !r.settled && r.steadyTicks === undefined && this.sim.ticks - this.startTicks < PREVIEW_JOB_DAYS * TICKS_PER_DAY) {
+    for (;;) {
+      // (the day's cap reached while the water still moves: another day, from the water as it stands)
+      while (r && !r.settled && r.steadyTicks === undefined && this.sim.ticks - this.startTicks < PREVIEW_JOB_DAYS * TICKS_PER_DAY) {
+        this.run = new PreviewRun(this.sim, this.sealed);
+        r = this.run.advance(left());
+      }
+      if (!r) return null;
+      // (stopped: the unfed water goes, once, and the water runs on from there)
+      if (this.drained) break;
+      this.drained = true;
+      if (!drainUnfedAfter(this.sim, this.model, this.seeds)) break;
       this.run = new PreviewRun(this.sim, this.sealed);
-      r = this.run.advance(Math.max(0, ticks - (this.sim.ticks - this.before)));
+      r = this.run.advance(left());
     }
-    if (!r) return null;
     const sim = this.sim;
     this.result = { ...r, depth: sim.D.slice(), contamination: sim.C.slice(), sat: sim.saturation(), out: sim.out.slice(), preview: true };
     return this.result;

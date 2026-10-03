@@ -232,7 +232,8 @@ export function applyEntityEdits(
   const missing = (ed: EntityEdit) => {
     if (!(ed.op === "moveEntity" || ed.op === "setEntityProps") || !ed.params.quiet || allowPlace) rest.push(ed);
   };
-  // the tiles taken, for the objects a force carried (built at the first such move)
+  // the tiles taken, for the objects a force carried (built at the first such move, then kept up to
+  // date by every placement, move and removal)
   let occ: Map<number, number> | null = null;
   const lifted = new Set<number>();
   const tilesOf = (e: EntitySpec) => entityTiles(e).map(([x, y]) => y * g.W + x);
@@ -282,6 +283,10 @@ export function applyEntityEdits(
             break;
           }
           for (const i of to) occ.set(i, k);
+        } else if (occ) {
+          // (a move by hand after a force's: the ground it left is free, the ground it took is held)
+          for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
+          for (const i of tilesOf(moved)) occ.set(i, k);
         }
         list[k] = moved;
         break;
@@ -300,7 +305,11 @@ export function applyEntityEdits(
         for (const id of ed.params.entities) {
           const k = find(id);
           if (k < 0) missing.push(id);
-          else removed.add(k);
+          else {
+            removed.add(k);
+            // (the ground it held is free for what a later force carries there)
+            if (occ) for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
+          }
         }
         // a carve's (quiet) edit finds what is still there: the resources its ground placed again
         // may be gone, and that is fine

@@ -430,5 +430,37 @@
     "gainDb": 9.61,
     "bytes": 97580,
     "sha256": "78ef76f320f424a92ef116ce6691cae55083cfddfe8f121b5a1c08452b7517cd"
+  },
+  {
+    "id": "leaves",
+    "file": "audio/leaves.mp3",
+    "provenance": "qubodup",
+    "sources": [
+      {
+        "file": "rustle17.flac",
+        "sha256": "ccb7094917e95098c12965c9a73384ccd3bbf7add2cb949237c8adff80367ad1"
+      }
+    ],
+    "edits": "Crop from 0s, at most 1.2s (24-bit 96 kHz stereo FLAC original, downmixed to mono, resampled to 48 kHz); trim leading and trailing silence; one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; 1/15 ms edge fades; MP3 256 kbps (D459).",
+    "duration": 0.6408,
+    "gainDb": -2.25,
+    "bytes": 22316,
+    "sha256": "c5e9b8161d99beedbbe0d1cd35bee44abba45231479c4204ac8cb2cc5b3f5ac6"
+  },
+  {
+    "id": "leaves-bed",
+    "file": "audio/leaves-bed.mp3",
+    "provenance": "qubodup",
+    "sources": [
+      {
+        "file": "rustle04.flac",
+        "sha256": "ef00c41e4c72f0ae5a96e1c90f9b3b3f53b5612adf60fdf9be367194d6780afa"
+      }
+    ],
+    "edits": "Crop from 0.3s, at most 2.5s (24-bit 96 kHz stereo FLAC original, downmixed to mono, resampled to 48 kHz); no silence trim (a held bed); one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; 1/15 ms edge fades; MP3 256 kbps (D459).",
+    "duration": 2.2404,
+    "gainDb": 3.5,
+    "bytes": 73772,
+    "sha256": "456d3f29fe8a9821da507d550d1e305087b583c26769ad8d65f7f3e5acfb1e4c"
   }
 ]
