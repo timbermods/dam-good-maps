@@ -541,6 +541,9 @@ D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
 narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
+Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
+basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
+curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
 
 ---
 
