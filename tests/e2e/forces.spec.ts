@@ -189,6 +189,61 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "false");
 });
 
+test("clicked quickly (D378): the next force plays in full from its first moment, the last one's tail skipped to its end", async ({ page }) => {
+  // (the effects play where the browser draws in software too, as on a GPU: CI's has none)
+  await page.addInitScript(() => {
+    (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
+  });
+  await refine(page);
+  const { far } = await places(page);
+  const onMap = (x: number, y: number) =>
+    page.evaluate(([a, b]) => {
+      const p = window.dgmEditor!.tileToClient(a, b);
+      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+    }, [x, y] as [number, number]);
+  const next: [number, number] = (await onMap(far[0] + 12, far[1])) ? [far[0] + 12, far[1]] : [far[0] - 12, far[1]];
+  // what plays as each moment comes, the moment after it is shown
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const w = window as unknown as { moments: unknown[] };
+    w.moments = [];
+    const set = r.setForceMoment.bind(r);
+    r.setForceMoment = (m) => {
+      set(m);
+      w.moments.push({ verb: m.verb, x: m.x, y: m.y, phase: m.phase, showing: r.forceShowing });
+    };
+  });
+  const firstMoment = () =>
+    page.evaluate(() => (window as unknown as { moments: { verb: string; x: number; y: number; phase: string; showing: Record<string, Record<string, number | null> | null> }[] }).moments[0]);
+  const force = async (key: string, power: string, at: [number, number]) => {
+    const row = page.getByRole("group", { name: `${key === "8" ? "Craterize" : "Erupt"} options` });
+    // (its key again would put it away)
+    if (!(await row.isVisible())) await page.keyboard.press(key);
+    await row.getByRole("slider", { name: "Power" }).fill(power);
+    await page.evaluate(() => ((window as unknown as { moments: unknown[] }).moments = []));
+    await clickTile(page, at[0], at[1]);
+    await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+  };
+  for (const [a, b] of [["8", "8"], ["8", "0"], ["0", "0"]] as const) {
+    await force(a, "30", far);
+    // (kept: its tail still plays, the dust or the lava cooling)
+    expect(Object.values((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!).some((v) => v !== null)).toBe(true);
+    await force(b, "35", next);
+    const m = await firstMoment();
+    const verb = b === "8" ? "craterize" : "erupt";
+    expect(m.verb, `${a} then ${b}`).toBe(verb);
+    // its own effect, where it is, from its start
+    expect(m.showing[verb], `${a} then ${b}`).toMatchObject({ x: m.x, y: m.y });
+    if (verb === "craterize" && m.phase === "incoming") expect(m.showing.craterize!.struck).toBeNull();
+    if (verb === "erupt") expect(m.showing.erupt!.cooling).toBe(0);
+    // the last one's gone
+    for (const v of ["craterize", "erupt", "quake", "glaciate"]) if (v !== verb) expect(m.showing[v], `${a} then ${b}: ${v}`).toBeNull();
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Control+z");
+    await settled(page);
+  }
+});
+
 test("Craterize's More (D309): closed by default, its details on Auto (select, segmented and toggle controls); a pin survives Try another", async ({ page }) => {
   await refine(page);
   await page.keyboard.press("8");

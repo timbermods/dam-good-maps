@@ -171,7 +171,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
-  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking.
+  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
+  new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·

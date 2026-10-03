@@ -100,6 +100,11 @@ class Impact {
     return !!this.a && (this.struck === null || performance.now() - this.struck < 1850);
   }
 
+  /** Where it is and how far it has gone (seconds since it struck; null while it falls), or null. */
+  showing(now: number): { x: number; y: number; struck: number | null } | null {
+    return this.active ? { ...this.at, struck: this.struck === null ? null : (now - this.struck) / 1000 } : null;
+  }
+
   update(now: number): void {
     const a = this.a;
     this.group.visible = !!a && this.active;
@@ -209,6 +214,11 @@ class Rupture {
 
   get active(): boolean {
     return !!this.head && (this.ended === null || performance.now() - this.ended < 1500);
+  }
+
+  /** Its head and its seconds since it began, or null. */
+  showing(now: number): { x: number; y: number; age: number } | null {
+    return this.active && this.head ? { x: this.head.x, y: this.head.y, age: (now - this.t0) / 1000 } : null;
   }
 
   update(now: number): void {
@@ -342,6 +352,11 @@ class Plume {
 
   get active(): boolean {
     return !!this.emitters.length && (this.ended === null || performance.now() - this.ended < 6500);
+  }
+
+  /** Its first vent and its ages, or null. */
+  showing(now: number): { x: number; y: number; age: number; cooling: number } | null {
+    return this.active ? { x: this.emitters[0].x, y: this.emitters[0].y, ...this.ages(now) } : null;
   }
 
   update(now: number, ground: Ground): void {
@@ -530,6 +545,11 @@ class Glacier {
     return this.seconds(now) < 5;
   }
 
+  /** Where it gathered and its own seconds (null while it gathers), or null. */
+  showing(now: number): { x: number; y: number; seconds: number | null } | null {
+    return this.active ? { x: this.at.x, y: this.at.y, seconds: this.began === null ? null : this.seconds(now) } : null;
+  }
+
   update(now: number): void {
     this.group.visible = this.active;
     if (!this.group.visible) return;
@@ -600,6 +620,8 @@ export class ForceEffects {
   private glacier = new Glacier();
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
+  /** The last force is over (kept or dropped): the next moment is a new force's (D378). */
+  private over = true;
 
   constructor(
     private readonly scene: Scene,
@@ -609,9 +631,16 @@ export class ForceEffects {
     scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group);
   }
 
-  /** A force's latest moment (from its frame). */
+  /** A force's latest moment (from its frame). The first moment after the last force was kept or
+   *  dropped is a new force's (D378): whatever of the last one still plays skips to its end, and the
+   *  new one plays in full, however quickly it came. A carve's moments count too, its surge its own. */
   set(m: ForceMoment): void {
     const now = performance.now();
+    if (this.over) {
+      this.over = false;
+      this.skip();
+    }
+    if (m.verb === "carve") return;
     if (m.verb === "craterize") {
       if (this.verb !== "craterize" || !this.impact.active) this.impact.begin(m, now);
       if (m.phase === "impact" || m.phase === "done") this.impact.strike(now);
@@ -637,17 +666,29 @@ export class ForceEffects {
     this.plume.finish(now);
     this.glacier.finish(now);
     this.impact.strike(now);
+    this.over = true;
     this.kick();
   }
 
   /** Esc, undo, a new map: every moment goes at once. */
   clear(): void {
+    this.skip();
+    this.over = true;
+    this.render();
+  }
+
+  /** Every moment at its end: gone. */
+  private skip(): void {
     this.impact.clear();
     this.rupture.clear();
     this.plume.clear();
     this.glacier.clear();
     this.verb = null;
-    this.render();
+  }
+
+  /** What plays now (tests): each moment's place and age, or null. */
+  showing(now = performance.now()) {
+    return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now) };
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null. */
