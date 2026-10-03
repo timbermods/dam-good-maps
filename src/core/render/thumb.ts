@@ -6,7 +6,7 @@
 import { shadeTiles } from "./shade";
 
 /** Pixels on the thumbnail's longer side. */
-export const THUMB_SIZE = 256;
+export const THUMB_SIZE = 64;
 
 export interface ThumbPixels {
   w: number;
@@ -18,14 +18,14 @@ export interface ThumbPixels {
 /** The thumbnail's pixels: each pixel the average of the tiles it covers. */
 export function thumbnailPixels(heights: Uint8Array, W: number, H: number, water: ArrayLike<number> | null, size = THUMB_SIZE): ThumbPixels {
   const tiles = shadeTiles(heights, W, H, water);
-  const scale = size / Math.max(W, H);
+  const scale = Math.min(1, size / Math.max(W, H));
   const w = Math.max(1, Math.round(W * scale));
   const h = Math.max(1, Math.round(H * scale));
   const rgba = new Uint8ClampedArray(w * h * 4);
   for (let py = 0; py < h; py++) {
     // north (high y) at the top
     const y1 = H - Math.floor((py * H) / h);
-    const y0 = Math.min(Math.max(H - Math.floor(((py + 1) * H) / h), 0), H - 1);
+    const y0 = Math.max(H - Math.floor(((py + 1) * H) / h), 0);
     for (let px = 0; px < w; px++) {
       const x0 = Math.floor((px * W) / w);
       const x1 = Math.max(x0 + 1, Math.floor(((px + 1) * W) / w));

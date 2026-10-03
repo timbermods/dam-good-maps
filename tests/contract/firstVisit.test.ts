@@ -65,14 +65,14 @@ describe("the deploy's checks on a first-visit map", () => {
 });
 
 describe("the thumbnail", () => {
-  it("is the map's longer side 256 pixels, north up", () => {
+  it("is the map's longer side at most 64 pixels, north up", () => {
     const W = 128;
     const H = 64;
     const heights = new Uint8Array(W * H);
     // the northern half high
     for (let y = H / 2; y < H; y++) for (let x = 0; x < W; x++) heights[y * W + x] = 12;
     const p = thumbnailPixels(heights, W, H, null);
-    expect([p.w, p.h]).toEqual([256, 128]);
+    expect([p.w, p.h]).toEqual([64, 32]);
     const lum = (row: number) => p.rgba[row * p.w * 4] + p.rgba[row * p.w * 4 + 1] + p.rgba[row * p.w * 4 + 2];
     // the top row is the north: the high ground, drawn lighter
     expect(lum(0)).toBeGreaterThan(lum(p.h - 1));
