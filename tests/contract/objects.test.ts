@@ -401,8 +401,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("a generated weir holds its river about 0.65 above the bed, inside the channel", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
-    // re-seeded for M9b's maps, for batch 5's, for D333's and for M9b's small starts and speed rounds, which left canyon 10 and highlands 2 without a weir, D148)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 1], ["canyon", 16], ["highlands", 1]] as [ThemeId, number][]) {
+    // re-seeded for M9b's maps, for batch 5's, for D333's and for M9b's small starts and speed rounds, which left canyon 10 and highlands 2 without a weir, D148;
+    // canyon 3 for canyon 1, whose river after D447's bank rule takes no weir)
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 3], ["canyon", 16], ["highlands", 1]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

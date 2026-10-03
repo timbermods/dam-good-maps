@@ -19,7 +19,9 @@ const lastForce = (s: MapSession) => s.state.sculpts.filter((o) => o.op === "for
 
 describe("Carve's source group (D314)", () => {
   it("a wide river's source is a row sharing its strength, kept in its operation; the project replays it; undo takes it all", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    // (seed 4 for 3, D148: after D447's bank rule seed 3's highest ground away from the start stands
+    // where a row has no room, and the carve's source stays single)
+    await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));

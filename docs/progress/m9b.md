@@ -198,6 +198,51 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Delta's dry courses (D447, 2026-10-03)
+
+Kyler: Delta's water-outcome miss blocks the release (a visible water fault, D385). e3130755 was not the
+cause: it only runs on sea maps, and Delta never has a sea. Delta's lands differ from 3569e67c because
+that baseline predates the redesign (D409–D416). Of Delta's 120 maps at e3130755, 30 missed the water
+outcome on a dry course. Three causes, each fixed with a test that failed first:
+
+- **The fan's main river (24 of the 30, adb8037a).** Below the apex the main river's bed stood above
+  the arms'. Either the apex lay in a lake whose floor the arms were cut from, or the arms fell to the
+  plain sooner. The arms took all its water, and its course stood dry from the apex to the edge. Now
+  a channel as narrow as an arm is cut in its bed, falling as soon as the arms do
+  (`tests/contract/deltaFan.test.ts`: Delta 128² seed 4, 96² seed 2).
+  - Cutting it at the river's full width took most of the water, and the arms' mouths fell from four
+    to one or two on nine maps (the promise). An arm's width keeps the share even.
+  - Keeping the apex lakes at their planned level instead (arms that keep a lake's outlet level)
+    cost the promise on 11 of 40 maps at 128² and 12 at 256². Not kept.
+- **Tributaries beside lower water (3a8f4274).** Shared code, so every theme was measured
+  (`tests/contract/courseBanks.test.ts`: Delta 96² seeds 20 and 10).
+  - An oxbow's upstream end touched the channel above the bend, so the river ran through the oxbow.
+    It now keeps a bank to every water but at its join.
+  - Where a course read its banks, it skipped other rivers' channels and lakes. Now a course runs
+    down to the level of any such water on its bank that is lower than its bed.
+  - An arm of the fan, or a split, cut after the rivers across a tributary took its water. The
+    tributary now runs at the arm's level from there.
+  - Lowering tributaries to every channel, not only the arms, left Delta 96² seed 28 with no start
+    that passes (an absolute). The arms alone keep it passing, as before.
+- **The 840 maps** (`m12-banks`, against e3130755; rows committed as `baseline/3a8f4274-*`):
+
+  | | 96² | 128² | 256² |
+  |---|---|---|---|
+  | Failing an absolute | 0 (0) | 0 (0) | 0 (0) |
+  | All three outcomes, of 280 | 181 (178) | 219 (210) | 222 (211) |
+  | Delta, of 40 | 33 (29) | 33 (27) | 34 (25) |
+  | Delta's water misses | 3 (8) | 1 (11) | 5 (13) |
+
+  Lands changed in every theme. The other themes moved a map or two either way; Lake Basin's
+  promise is one map lower at each size, and Islands 96² has one fewer meeting all three (D433).
+  Delta on seeds 1–20 is 17 / 18 / 17 of 20.
+- **Left:** Delta's water misses now come from the main river near a few apexes (96² 25, 128² 27),
+  scattered tributaries at 256² (3, 17, 26, 27), and two maps with too many separate systems.
+- **Re-pins (D148):**
+  - `objects`' weir: Canyon 3 replaces Canyon 1, whose river no longer takes a weir.
+  - `carveSourceGroup`: Highlands 4 replaces 3, whose highest ground away from the start has no
+    room for a row.
+
 ### After acceptance: CI on #70 green again, then the 840-map measures (2026-10-02, night)
 
 CI on #70 was red on two jobs after the Islands and Delta acceptance, both from the sea's code, not
