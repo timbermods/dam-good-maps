@@ -3,12 +3,12 @@
 The game's water and soil rules on a height field: the water model, the exact water simulation, the canonical settle, soil moisture and contamination, drought, and hazard weather.
 
 **Rules**
-- **Water must match the game.** `water.ts` is an exact port of `prototype/watersim.py`, which reproduced the game's own save to 0.001 depth. Keep every operation in the same order; the two agree bit for bit on the golden fixtures.
+- **Water must match the game.** The simulation (`rust/water`, run through `water.ts` and `rustWater.ts`) is an exact port of `prototype/watersim.py`, which reproduced the game's own save to 0.001 depth. Keep every operation in the same order; the two agree bit for bit on the golden fixtures. A change to the simulation is a change to `rust/water/src/sim.rs`, then `npx tsx tools/rust/build.ts` (the dev server rebuilds it on save).
 - The water written into a file always comes from the canonical settle (`prefill.ts`), never from the editor's warm-started preview (`preview.ts`, PLAN §19.7).
 - Water never appears from nowhere: what the pre-fill puts where no source's water goes is taken away once the water has settled (`prefill.ts` `canonicalRun`), and the warm start keeps the pre-fill's water only where something reaches it (D385).
 - Every emitter and blocker is handled through its footprint (`model.ts`, PLAN §11.5).
 - Changing a rule moves maps: re-pin the golden fixtures (D308).
-- A speed-up never moves a byte (D130, D359): `water-speedups` pins every byte of the state, and the bookkeeping `water.ts` keeps up to date (the active list, wet-neighbour counts, evaporation modifiers) is checked against a rebuild every tick. That bookkeeping follows the water only through `run`: start water through the constructor, never by writing `D` or `C` afterwards.
+- A speed-up never moves a byte (D130, D359): `water-speedups` pins every byte of the state, and the bookkeeping the simulation keeps up to date (the active list, wet-neighbour counts, evaporation modifiers) is checked against a rebuild every tick. That bookkeeping follows the water only through `run`: start water through the constructor, never by writing `D` or `C` afterwards.
 
 **Start from**: `model.ts` `waterModel`; `prefill.ts` `canonicalSettle`; `water.ts` (the simulation); `moisture.ts`, `contamination.ts`; `drought.ts` `droughtStorage`; `preview.ts` (editor previews); `weather.ts` (Drought and Badtide days); `fed.ts` (which water a source, a stored lake or kept water reaches: the drained tiles of Remove unfed water, and no water from nowhere, D385); `fill.ts` (a Fill's hollow and how long it lasts).
 

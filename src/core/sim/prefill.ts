@@ -203,29 +203,28 @@ export interface CanonicalWater extends SettleResult {
   stale?: boolean;
 }
 
-/** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks), then, when unfed water is left (the pre-fill's water nothing
+/** The canonical settle: the pre-fill, then the exact simulation until it settles (at most
+ *  `SETTLE_DAYS` game days, checked every 128 ticks), then, when unfed water is left (the pre-fill's water nothing
  *  reaches, or water a removal drained; see the file comment), once more after taking it (at most
  *  `DRAIN_DAYS`). The same input always gives the same bytes. A sealed basin's
  *  evaporation is not the water changing: the settle stops at the first check where only that
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
  *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
 export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
-  // (the native backend runs the default rules only)
-  if (canonicalBackend && !opts.rules) return canonicalBackend(m, prefill(m));
+  if (canonicalBackend) return canonicalBackend(m, prefill(m), opts);
   const run = canonicalRun(m, opts);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
 }
 
-/** Where `canonicalSettle` runs after its pre-fill when a batch job asks (tools/rust/native-water.ts: the
- *  native Rust water, PLAN §20 D381), else null: here, with the Rust water in WebAssembly. Both give the
- *  same bytes (tools/rust/water-identity.ts checks it in CI). */
-let canonicalBackend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null = null;
+/** Where `canonicalSettle` runs after its pre-fill in a batch job (tools/rust/native-water.ts: the whole
+ *  settle in the native Rust water, PLAN §20 D381), else null: here, the settle below round the Rust water
+ *  in WebAssembly. Both give the same bytes (tools/rust/water-identity.ts checks it in CI). */
+let canonicalBackend: ((m: WaterModel, start: WaterState, opts: WaterSimOptions) => CanonicalWater) | null = null;
 
 /** Sets (or clears, with null) `canonicalSettle`'s backend; Node batch jobs only. */
-export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null): void {
+export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState, opts: WaterSimOptions) => CanonicalWater) | null): void {
   canonicalBackend = backend;
 }
 

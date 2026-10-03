@@ -1,7 +1,8 @@
-//! The water simulation: an exact port of `WaterSim` as it stood in src/core/sim/water.ts on dev before M9b
-//! (284f5d7e; PLAN §10, §20 D381; re-ported to M9b's water.ts before the switch). Every expression, every
-//! per-tile sum's order, the source order and the two substeps per tick are the TypeScript's, so the bytes
-//! are the same. Only + − × ÷, comparisons,
+//! The water simulation: an exact port of `WaterSim` as it stood in src/core/sim/water.ts when the Rust water
+//! replaced it (tag `ts-water-final`; PLAN §10, §20 D293, D311, D359, D381): the game's rules or the port's,
+//! the edge spill, and the faster settle's bookkeeping (the active list, wet counts and evaporation modifiers
+//! kept up to date as tiles turn wet or dry). Every expression, every per-tile sum's order, the source order
+//! and the two substeps per tick are the TypeScript's, so the bytes are the same. Only + − × ÷, comparisons,
 //! `ceil` and JavaScript's `Math.max` (`portable::max`, which keeps its signed zeros) are used.
 
 use portable::max;
@@ -12,6 +13,8 @@ pub const SPILL: f64 = 0.1;
 pub const KEEP: f64 = 0.999;
 pub const BAL: f64 = 0.8;
 pub const TICKS_PER_DAY: u32 = 768;
+/// The game days the canonical settle may run (water.ts `SETTLE_DAYS`, D358).
+pub const SETTLE_DAYS: f64 = 6.0;
 
 /// A water emitter (water.ts `Emitter`). Its cells never change after construction; its strength,
 /// contamination and depth limit may change between runs.
@@ -35,6 +38,23 @@ pub struct Model {
     pub emitters: Vec<Emitter>,
 }
 
+/// Which rules a simulation runs (water.ts `WaterSimOptions`, resolved): the game's or the port's, and the
+/// spill threshold at the map's edge.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rules {
+    pub game: bool,
+    pub edge_spill: bool,
+}
+
+impl Default for Rules {
+    /// The game's rules with the edge spill (water.ts `DEFAULT_WATER_RULES`).
+    fn default() -> Self {
+        Rules { game: true, edge_spill: true }
+    }
+}
+
+const NONE: u32 = u32::MAX;
+
 pub struct Sim {
     pub w: usize,
     pub h: usize,
@@ -48,24 +68,30 @@ pub struct Sim {
     /// Stored outflow momentum, 4 per tile (index 4·i + k).
     pub out: Vec<f64>,
     pub ticks: u64,
+    pub rules: Rules,
     /// Every emitter's [strength, contamination, off, on], for the Wasm caller to write before a run
     /// (`read_params`): its cells and whether it is a seep never change.
     pub params: Vec<f64>,
     wall: Vec<u8>,
+    nb: [Vec<u32>; 4],
     f: Vec<f64>,
     cnew: Vec<f64>,
     modv: Vec<f64>,
+    evap: [f64; 9],
+    dirty: Vec<u32>,
+    dirty_count: usize,
+    dirty_mask: Vec<u8>,
     wn: Vec<i32>,
-    mark: Vec<u32>,
-    stamp: u32,
+    wet_mask: Vec<u8>,
     wet: Vec<u32>,
     wet_count: usize,
     prev_wet: Vec<u32>,
     prev_wet_count: usize,
     active: Vec<u32>,
     active_count: usize,
-    mod_set: Vec<u32>,
-    mod_set_count: usize,
+    active_refs: Vec<u8>,
+    active_pos: Vec<u32>,
+    turned: Vec<u32>,
     source_cells: Vec<u32>,
     seep_on: Vec<u8>,
 }
@@ -91,9 +117,9 @@ fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
 }
 
 impl Sim {
-    /// `new WaterSim(model, initial)`: the starting depth and contamination (zero when absent) decide the
-    /// first wet list.
-    pub fn new(model: Model, depth: Option<&[f64]>, contamination: Option<&[f64]>) -> Sim {
+    /// `new WaterSim(model, initial, opts)`: the starting depth and contamination (zero when absent) decide
+    /// the first wet list.
+    pub fn new(model: Model, depth: Option<&[f64]>, contamination: Option<&[f64]>, rules: Rules) -> Sim {
         let (w, h) = (model.w, model.h);
         let n = w * h;
         let mut d = vec![0.0; n];
@@ -103,6 +129,28 @@ impl Sim {
         }
         if let Some(src) = contamination {
             c.copy_from_slice(&src[..n]);
+        }
+        let mut nb = [vec![NONE; n], vec![NONE; n], vec![NONE; n], vec![NONE; n]];
+        for i in 0..n {
+            let x = i % w;
+            let y = (i - x) / w;
+            if y > 0 {
+                nb[0][i] = (i - w) as u32;
+            }
+            if x > 0 {
+                nb[1][i] = (i - 1) as u32;
+            }
+            if y < h - 1 {
+                nb[2][i] = (i + w) as u32;
+            }
+            if x < w - 1 {
+                nb[3][i] = (i + 1) as u32;
+            }
+        }
+        let mut evap = [0.0; 9];
+        for (sat, e) in evap.iter_mut().enumerate().skip(1) {
+            let t = (10 - sat as i32) as f64;
+            *e = 0.0595 * (t * t) + 0.101 * t + 0.72;
         }
         let mut wall = vec![0u8; n];
         let mut seen = vec![0u8; n];
@@ -130,21 +178,13 @@ impl Sim {
                 }
             }
         }
-        let mut wet = vec![0u32; n];
-        let mut wet_count = 0;
-        for i in 0..n {
-            if d[i] > 0.0 {
-                wet[wet_count] = i as u32;
-                wet_count += 1;
-            }
-        }
-        let seep_on = vec![1u8; model.emitters.len()];
         let mut params = Vec::with_capacity(4 * model.emitters.len());
         for e in &model.emitters {
             let (off, on) = e.limit.map_or((0.0, 0.0), |(_, off, on)| (off, on));
             params.extend_from_slice(&[e.strength, e.contamination, off, on]);
         }
-        Sim {
+        let seep_on = vec![1u8; model.emitters.len()];
+        let mut sim = Sim {
             w,
             h,
             n,
@@ -156,25 +196,51 @@ impl Sim {
             c,
             out: vec![0.0; 4 * n],
             ticks: 0,
+            rules,
             params,
             wall,
+            nb,
             f: vec![0.0; 4 * n],
             cnew: vec![0.0; n],
             modv: vec![1.0; n],
-            wn: vec![0; n],
-            mark: vec![0; n],
-            stamp: 0,
-            wet,
-            wet_count,
+            evap,
+            dirty: vec![0; n],
+            dirty_count: 0,
+            dirty_mask: vec![0; n],
+            wn: vec![1; n],
+            wet_mask: vec![0; n],
+            wet: vec![0; n],
+            wet_count: 0,
             prev_wet: vec![0; n],
             prev_wet_count: 0,
             active: vec![0; n],
             active_count: 0,
-            mod_set: vec![0; n],
-            mod_set_count: 0,
+            active_refs: vec![0; n],
+            active_pos: vec![NONE; n],
+            turned: vec![0; n],
             source_cells: cells,
             seep_on,
+        };
+        // the starting water: its wet tiles, their neighbour counts, the active list and the modifiers to
+        // compute at the first tick
+        for i in 0..n {
+            if !(sim.d[i] > 0.0) {
+                continue;
+            }
+            sim.wet[sim.wet_count] = i as u32;
+            sim.wet_count += 1;
+            sim.wet_mask[i] = 1;
+            sim.count_wet(i, 1);
+            sim.mark_active(i, 1);
+            sim.dirty_mask[i] = 1;
+            sim.dirty[sim.dirty_count] = i as u32;
+            sim.dirty_count += 1;
         }
+        for k in 0..sim.source_cells.len() {
+            let i = sim.source_cells[k] as usize;
+            sim.ref_active(i, 1);
+        }
+        sim
     }
 
     /// Takes the emitters' strength, contamination and seep limits from `params`.
@@ -189,10 +255,9 @@ impl Sim {
         }
     }
 
-    /// Cluster saturation per wet tile (0 elsewhere).
-    pub fn saturation(&mut self) -> Vec<u8> {
+    /// Cluster saturation per wet tile (0 elsewhere), stored as a byte (TypeScript's Uint8Array wraps).
+    pub fn saturation(&self) -> Vec<u8> {
         let mut sat = vec![0u8; self.n];
-        self.compute_wn();
         for k in 0..self.wet_count {
             let i = self.wet[k] as usize;
             sat[i] = self.sat_at(i) as u8;
@@ -200,41 +265,73 @@ impl Sim {
         sat
     }
 
-    fn compute_wn(&mut self) {
-        let (w, h) = (self.w, self.h);
-        for k in 0..self.wet_count {
-            let i = self.wet[k] as usize;
-            let x = i % w;
-            let y = (i - x) / w;
-            let d = &self.d;
-            let mut c = 1;
-            if x > 0 && x < w - 1 && y > 0 && y < h - 1 {
-                c += (d[i - w - 1] > 0.0) as i32
-                    + (d[i - w] > 0.0) as i32
-                    + (d[i - w + 1] > 0.0) as i32
-                    + (d[i - 1] > 0.0) as i32
-                    + (d[i + 1] > 0.0) as i32
-                    + (d[i + w - 1] > 0.0) as i32
-                    + (d[i + w] > 0.0) as i32
-                    + (d[i + w + 1] > 0.0) as i32;
-            } else {
-                for dy in -1i64..=1 {
-                    let yy = y as i64 + dy;
-                    if yy < 0 || yy >= h as i64 {
-                        continue;
-                    }
-                    for dx in -1i64..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-                        let xx = x as i64 + dx;
-                        if xx >= 0 && xx < w as i64 && d[yy as usize * w + xx as usize] > 0.0 {
-                            c += 1;
-                        }
-                    }
+    fn count_wet(&mut self, i: usize, delta: i32) {
+        let (w, h) = (self.w as i64, self.h as i64);
+        let x = (i % self.w) as i64;
+        let y = (i / self.w) as i64;
+        for dy in -1..=1 {
+            let yy = y + dy;
+            if yy < 0 || yy >= h {
+                continue;
+            }
+            for dx in -1..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let xx = x + dx;
+                if xx >= 0 && xx < w {
+                    self.wn[(yy * w + xx) as usize] += delta;
                 }
             }
-            self.wn[i] = c;
+        }
+    }
+
+    fn mark_dirty(&mut self, i: usize) {
+        let (w, h) = (self.w, self.h);
+        let x = i % w;
+        let y = (i - x) / w;
+        let y1 = (h - 1).min(y + 2);
+        let x1 = (w - 1).min(x + 2);
+        for yy in y.saturating_sub(2)..=y1 {
+            for xx in x.saturating_sub(2)..=x1 {
+                let c = yy * w + xx;
+                if self.dirty_mask[c] == 0 {
+                    self.dirty_mask[c] = 1;
+                    self.dirty[self.dirty_count] = c as u32;
+                    self.dirty_count += 1;
+                }
+            }
+        }
+    }
+
+    /// One more (`delta` 1) or one fewer (−1) reason for tile `i` to be active; the count is a byte, as
+    /// TypeScript's Uint8Array holds it.
+    fn ref_active(&mut self, i: usize, delta: i32) {
+        let before = self.active_refs[i] as i32;
+        let after = before + delta;
+        self.active_refs[i] = after as u8;
+        if before == 0 && after != 0 {
+            self.active_pos[i] = self.active_count as u32;
+            self.active[self.active_count] = i as u32;
+            self.active_count += 1;
+        } else if before != 0 && after == 0 {
+            // the last tile in the list takes its place
+            let pos = self.active_pos[i] as usize;
+            self.active_count -= 1;
+            let last = self.active[self.active_count];
+            self.active[pos] = last;
+            self.active_pos[last as usize] = pos as u32;
+            self.active_pos[i] = NONE;
+        }
+    }
+
+    fn mark_active(&mut self, i: usize, delta: i32) {
+        self.ref_active(i, delta);
+        for k in 0..4 {
+            let nb = self.nb[k][i];
+            if nb != NONE {
+                self.ref_active(nb as usize, delta);
+            }
         }
     }
 
@@ -263,61 +360,26 @@ impl Sim {
     }
 
     fn update_evap_mod(&mut self) {
-        for k in 0..self.mod_set_count {
-            let i = self.mod_set[k] as usize;
-            self.modv[i] = 1.0;
+        for k in 0..self.dirty_count {
+            let i = self.dirty[k] as usize;
+            self.modv[i] = if self.d[i] > 0.0 { self.evap_at(self.sat_at(i)) } else { 1.0 };
+            self.dirty_mask[i] = 0;
         }
-        self.mod_set_count = 0;
-        self.compute_wn();
-        for k in 0..self.wet_count {
-            let i = self.wet[k] as usize;
-            let t = (10 - self.sat_at(i)) as f64;
-            self.modv[i] = 0.0595 * (t * t) + 0.101 * t + 0.72;
-            self.mod_set[self.mod_set_count] = i as u32;
-            self.mod_set_count += 1;
+        self.dirty_count = 0;
+    }
+
+    /// The modifier table's entry (TypeScript reads `undefined`, NaN, outside it; a wet tile's count is at
+    /// least 1, so that never happens).
+    fn evap_at(&self, sat: i32) -> f64 {
+        if (0..9).contains(&sat) {
+            self.evap[sat as usize]
+        } else {
+            f64::NAN
         }
     }
 
-    fn build_active(&mut self) {
-        let (w, h) = (self.w, self.h);
-        self.stamp = self.stamp.wrapping_add(1);
-        let s = self.stamp;
-        let mut n = 0usize;
-        let mark = &mut self.mark;
-        let act = &mut self.active;
-        let mut add = |i: usize| {
-            if mark[i] != s {
-                mark[i] = s;
-                act[n] = i as u32;
-                n += 1;
-            }
-        };
-        for k in 0..self.wet_count {
-            let i = self.wet[k] as usize;
-            add(i);
-            let x = i % w;
-            let y = (i - x) / w;
-            if y > 0 {
-                add(i - w);
-            }
-            if x > 0 {
-                add(i - 1);
-            }
-            if y < h - 1 {
-                add(i + w);
-            }
-            if x < w - 1 {
-                add(i + 1);
-            }
-        }
-        for k in 0..self.source_cells.len() {
-            add(self.source_cells[k] as usize);
-        }
-        self.active_count = n;
-    }
-
-    /// The outflow of wet tile `c` into a neighbour holding a partial obstacle of height `lim` on floor `fn_`.
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     fn dam_flow(&self, c: usize, fc: f64, hc: f64, fn_: f64, lim: f64, e: f64, prev: f64) -> f64 {
         let hd = hc - fn_;
         if hd < lim {
@@ -333,30 +395,25 @@ impl Sim {
 
     /// One direction's outflow of wet tile `c` (water.ts writes the four out; each is these steps).
     #[inline]
-    fn outflow(&self, c: usize, n: Option<usize>, blocked: bool, fc: f64, hc: f64, out_k: f64) -> f64 {
-        let inside = n.is_some();
-        let fn_ = match n {
-            Some(n) => self.floor[n],
-            None => 0.0,
-        };
-        let dn = match n {
-            Some(n) => self.d[n],
-            None => 0.0,
-        };
+    fn outflow(&self, c: usize, n: u32, blocked: bool, fc: f64, hc: f64, out_k: f64) -> f64 {
+        let inside = n != NONE;
+        let nu = n as usize;
+        let fn_ = if inside { self.floor[nu] } else { 0.0 };
+        let dn = if inside { self.d[nu] } else { 0.0 };
         let hn = if inside { fn_ + dn } else { 0.0 };
         if blocked || fn_ >= hc {
             return 0.0;
         }
         let mut e = hc - hn;
         let prev = KEEP * out_k;
-        let lim = match (n, &self.dam) {
-            (Some(n), Some(dam)) => dam[n],
+        let lim = match (inside, &self.dam) {
+            (true, Some(dam)) => dam[nu],
             _ => -1.0,
         };
-        let fk = if lim >= 0.0 && fn_ < hc.ceil() {
+        let fk = if lim >= 0.0 && fn_ < hc.ceil() && (!self.rules.game || fc <= fn_) {
             self.dam_flow(c, fc, hc, fn_, lim, e, prev)
         } else {
-            if inside && dn == 0.0 && fn_ == fc {
+            if (inside || self.rules.edge_spill) && dn == 0.0 && fn_ == fc {
                 e = e - SPILL;
             }
             prev + K * e
@@ -369,37 +426,48 @@ impl Sim {
     }
 
     fn substep(&mut self, scale: f64) {
-        let (w, h) = (self.w, self.h);
+        let game = self.rules.game;
+        // flows of the tiles that had water last substep and are dry now are stale: clear them
         for k in 0..self.prev_wet_count {
-            let b = 4 * self.prev_wet[k] as usize;
+            let c = self.prev_wet[k] as usize;
+            if self.d[c] > 0.0 {
+                continue;
+            }
+            let b = 4 * c;
             self.f[b] = 0.0;
             self.f[b + 1] = 0.0;
             self.f[b + 2] = 0.0;
             self.f[b + 3] = 0.0;
         }
-        self.build_active();
 
         // 1. outflows of every wet tile, from the start-of-substep state
         for wi in 0..self.wet_count {
             let c = self.wet[wi] as usize;
-            let x = c % w;
-            let y = (c - x) / w;
             let fc = self.floor[c];
             let dc = self.d[c];
             let hc = fc + dc;
             let b = 4 * c;
             let wc = self.wall[c];
-            let f0 = self.outflow(c, if y > 0 { Some(c - w) } else { None }, wc & 1 != 0, fc, hc, self.out[b]);
+            let f0 = self.outflow(c, self.nb[0][c], wc & 1 != 0, fc, hc, self.out[b]);
             self.f[b] = f0;
-            let f1 = self.outflow(c, if x > 0 { Some(c - 1) } else { None }, wc & 2 != 0, fc, hc, self.out[b + 1]);
+            let f1 = self.outflow(c, self.nb[1][c], wc & 2 != 0, fc, hc, self.out[b + 1]);
             self.f[b + 1] = f1;
-            let f2 = self.outflow(c, if y < h - 1 { Some(c + w) } else { None }, wc & 4 != 0, fc, hc, self.out[b + 2]);
+            let f2 = self.outflow(c, self.nb[2][c], wc & 4 != 0, fc, hc, self.out[b + 2]);
             self.f[b + 2] = f2;
-            let f3 = self.outflow(c, if x < w - 1 { Some(c + 1) } else { None }, wc & 8 != 0, fc, hc, self.out[b + 3]);
+            let f3 = self.outflow(c, self.nb[3][c], wc & 8 != 0, fc, hc, self.out[b + 3]);
             self.f[b + 3] = f3;
             // a tile never gives more than it has
             let s = self.f[b] + self.f[b + 1] + self.f[b + 2] + self.f[b + 3];
-            if s * DT > dc {
+            if game {
+                let sd = s * DT;
+                if s > 0.0 && dc < sd {
+                    let r = dc / sd;
+                    self.f[b] *= r;
+                    self.f[b + 1] *= r;
+                    self.f[b + 2] *= r;
+                    self.f[b + 3] *= r;
+                }
+            } else if s * DT > dc {
                 let r = dc / max(s * DT, 1e-12);
                 self.f[b] *= r;
                 self.f[b + 1] *= r;
@@ -411,21 +479,33 @@ impl Sim {
         // 2. depth, contamination and stored momentum of every active tile
         for a in 0..self.active_count {
             let c = self.active[a] as usize;
-            let x = c % w;
-            let y = (c - x) / w;
             let b = 4 * c;
-            let f = &self.f;
-            let cc = &self.c;
-            let (in0, c0) = if y > 0 { (f[4 * (c - w) + 2], cc[c - w]) } else { (0.0, 0.0) };
-            let (in1, c1) = if x > 0 { (f[4 * (c - 1) + 3], cc[c - 1]) } else { (0.0, 0.0) };
-            let (in2, c2) = if y < h - 1 { (f[4 * (c + w)], cc[c + w]) } else { (0.0, 0.0) };
-            let (in3, c3) = if x < w - 1 { (f[4 * (c + 1) + 1], cc[c + 1]) } else { (0.0, 0.0) };
-            let f0 = f[b];
-            let f1 = f[b + 1];
-            let f2 = f[b + 2];
-            let f3 = f[b + 3];
+            let (n0, n1, n2, n3) = (self.nb[0][c], self.nb[1][c], self.nb[2][c], self.nb[3][c]);
+            let in0 = if n0 != NONE { self.f[4 * n0 as usize + 2] } else { 0.0 };
+            let in1 = if n1 != NONE { self.f[4 * n1 as usize + 3] } else { 0.0 };
+            let in2 = if n2 != NONE { self.f[4 * n2 as usize] } else { 0.0 };
+            let in3 = if n3 != NONE { self.f[4 * n3 as usize + 1] } else { 0.0 };
+            // a dry tile that receives nothing stays dry
+            if self.d[c] == 0.0 && in0 == 0.0 && in1 == 0.0 && in2 == 0.0 && in3 == 0.0 {
+                self.dold[c] = self.d[c]; // keeps the zero's sign
+                self.out[b] = 0.0;
+                self.out[b + 1] = 0.0;
+                self.out[b + 2] = 0.0;
+                self.out[b + 3] = 0.0;
+                self.cnew[c] = 0.0;
+                self.d[c] = 0.0;
+                continue;
+            }
+            let f0 = self.f[b];
+            let f1 = self.f[b + 1];
+            let f2 = self.f[b + 2];
+            let f3 = self.f[b + 3];
             let outsum = f0 + f1 + f2 + f3;
             let insum = in0 + in1 + in2 + in3;
+            let c0 = if n0 != NONE { self.c[n0 as usize] } else { 0.0 };
+            let c1 = if n1 != NONE { self.c[n1 as usize] } else { 0.0 };
+            let c2 = if n2 != NONE { self.c[n2 as usize] } else { 0.0 };
+            let c3 = if n3 != NONE { self.c[n3 as usize] } else { 0.0 };
             let cin = 0.0 + in0 * c0 + in1 * c1 + in2 * c2 + in3 * c3;
             let dc = self.d[c];
             let rem0 = dc - outsum * DT;
@@ -436,7 +516,7 @@ impl Sim {
             self.out[b + 3] = max(0.0, f3 - BAL * in3);
             self.dold[c] = dc;
             let mut net = insum - outsum;
-            if dc > 0.0 {
+            if game || dc > 0.0 {
                 net = net - (if dc < 0.02 { 1e-3 } else { 1e-4 }) * self.modv[c];
             }
             let d1 = dc + net * DT;
@@ -463,23 +543,41 @@ impl Sim {
             for &i in &src.cells {
                 let i = i as usize;
                 let d0 = self.d[i];
+                if game {
+                    self.dold[i] = d0;
+                }
                 self.c[i] = (self.c[i] * d0 + src.contamination * add) / (d0 + add);
                 self.d[i] = d0 + add;
             }
         }
 
-        // the wet list for the next substep: every wet tile is in the active list
+        // the wet list for the next substep; tiles that turned wet or dry update the counts, the modifiers
+        // round them and, after this scan, the active list
         core::mem::swap(&mut self.prev_wet, &mut self.wet);
         self.prev_wet_count = self.wet_count;
         let mut n = 0;
+        let mut n_turned = 0;
         for a in 0..self.active_count {
-            let c = self.active[a];
-            if self.d[c as usize] > 0.0 {
-                self.wet[n] = c;
+            let c = self.active[a] as usize;
+            let wet = if self.d[c] > 0.0 { 1 } else { 0 };
+            if wet != self.wet_mask[c] {
+                self.wet_mask[c] = wet;
+                self.count_wet(c, if wet == 1 { 1 } else { -1 });
+                self.mark_dirty(c);
+                self.turned[n_turned] = c as u32;
+                n_turned += 1;
+            }
+            if wet == 1 {
+                self.wet[n] = c as u32;
                 n += 1;
             }
         }
         self.wet_count = n;
+        for k in 0..n_turned {
+            let c = self.turned[k] as usize;
+            let delta = if self.wet_mask[c] == 1 { 1 } else { -1 };
+            self.mark_active(c, delta);
+        }
     }
 
     fn update_seeps(&mut self) {
@@ -498,12 +596,101 @@ impl Sim {
     /// Run `ticks` ticks (2 substeps each); `scale` scales every source (0 = drought).
     pub fn run(&mut self, ticks: u64, scale: f64) {
         for _ in 0..ticks {
+            // sorting the active list now and then keeps its memory access in order (D359); the order
+            // changes no result
+            if self.ticks % 64 == 0 {
+                self.active[..self.active_count].sort_unstable();
+                for a in 0..self.active_count {
+                    self.active_pos[self.active[a] as usize] = a as u32;
+                }
+            }
             self.update_seeps();
             self.update_evap_mod();
             self.substep(scale);
             self.substep(scale);
             self.ticks += 1;
         }
+    }
+
+    /// The bookkeeping kept up to date against the same rebuilt from the water as it stands (the active list,
+    /// the wet list, every tile's wet-neighbour count and evaporation modifier; tests/unit/water-speedups.test.ts):
+    /// 0 when they agree, else what differs × 2³² + the tile (1 the active list, 2 the wet list, 3 a count, 4 a
+    /// modifier). It brings the modifiers up to date for the next tick first, as the run would.
+    pub fn books_check(&mut self) -> u64 {
+        let (w, h, n) = (self.w, self.h, self.n);
+        let wrong = |what: u64, i: usize| (what << 32) | i as u64;
+        let mut want = vec![0u8; n];
+        for i in 0..n {
+            if !(self.d[i] > 0.0) {
+                continue;
+            }
+            want[i] = 1;
+            for k in 0..4 {
+                if self.nb[k][i] != NONE {
+                    want[self.nb[k][i] as usize] = 1;
+                }
+            }
+        }
+        for &i in &self.source_cells {
+            want[i as usize] = 1;
+        }
+        let mut got = vec![0u8; n];
+        for a in 0..self.active_count {
+            let i = self.active[a] as usize;
+            if got[i] != 0 || self.active_pos[i] != a as u32 {
+                return wrong(1, i);
+            }
+            got[i] = 1;
+        }
+        let mut wet_got = vec![0u8; n];
+        for k in 0..self.wet_count {
+            wet_got[self.wet[k] as usize] = 1;
+        }
+        self.update_evap_mod();
+        let count = |i: usize, d: &[f64]| {
+            let (x, y) = ((i % w) as i64, (i / w) as i64);
+            let mut c = 1;
+            for dy in -1..=1i64 {
+                for dx in -1..=1i64 {
+                    let (xx, yy) = (x + dx, y + dy);
+                    if (dx != 0 || dy != 0) && xx >= 0 && xx < w as i64 && yy >= 0 && yy < h as i64 && d[(yy * w as i64 + xx) as usize] > 0.0 {
+                        c += 1;
+                    }
+                }
+            }
+            c
+        };
+        for i in 0..n {
+            if got[i] != want[i] {
+                return wrong(1, i);
+            }
+            if wet_got[i] != (self.d[i] > 0.0) as u8 {
+                return wrong(2, i);
+            }
+            let wn = count(i, &self.d);
+            if self.wn[i] != wn {
+                return wrong(3, i);
+            }
+            let mut m = 1.0;
+            if self.d[i] > 0.0 {
+                let (x, y) = (i % w, i / w);
+                let mut sat = wn;
+                for (nb, ok) in [(i.wrapping_sub(w), y > 0), (i.wrapping_sub(1), x > 0), (i + w, y < h - 1), (i + 1, x < w - 1)] {
+                    if ok && self.d[nb] > 0.0 {
+                        let c = count(nb, &self.d);
+                        if c - 1 > sat {
+                            sat = c - 1;
+                        }
+                    }
+                }
+                let t = (10 - sat.min(8)) as f64;
+                m = 0.0595 * (t * t) + 0.101 * t + 0.72;
+            }
+            if self.modv[i].to_bits() != f64::to_bits(m) {
+                return wrong(4, i);
+            }
+        }
+        0
     }
 
     /// Total water, summed in index order.

@@ -32,9 +32,9 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 - **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits.
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source
-  guard); (b) the Rust water is wired, not switched on (`feature/rust-water`: `rust/water`, its Wasm committed,
-  `RustWaterSim`, the native batch binary); the switch waits for M9b on dev (the Rust is re-ported to M9b's
-  water.ts then); whether the artifact page keeps a TypeScript water without WebAssembly is Kyler's call. Rust is installed on this machine for the user only (rustup, host
+  guard); (b) the Rust water is switched on (`feature/rust-water-switch`: re-ported to M9b's water.ts, `WaterSim`
+  in Rust everywhere, native batch jobs by default, the identity run in CI, the TypeScript tagged `ts-water-final`
+  and deleted, spike.spec skipped under D452). Rust is installed on this machine for the user only (rustup, host
   `x86_64-pc-windows-gnu`, as there are no Visual Studio C++ tools).
 - **Flakes and a timeout:** `sources.spec` and `waterView.spec` (D341; `fix/sources-flake`); the `properties.test` 256² timeout
   (`fix/properties-timeout`).
@@ -100,8 +100,8 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 4. **Recorded 2026-10-03 (D455–D460):** D456's step grouping saved in the project and D457 (an imported map's own water
    kept), both fixing on `dev`; D458 (Lake Basin round 2 onto `feature/m9b`, M9b); D459 (Naturalize's sound, in
    `palette.ts` and `calibration.ts`; tell Kyler when it is on `dev`); D460 (the Dependabot majors, after M9b's release).
-5. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
-   spike's answer).
+5. **Waiting:** the Rust forces (#158 READY). The Rust water's switch and the TypeScript deletion are in review
+   (`feature/rust-water-switch`).
 
 ## Decisions open for Kyler (word for word)
 

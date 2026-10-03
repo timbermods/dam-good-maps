@@ -58,9 +58,9 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    Firefox's speed is never measured (D440).
    (a) Rust 1.90, the wasm32 target and the Rust build into CI and the setup command, with `portable.rs` (#171, narrowed;
    built on `feature/rust-toolchain`: `rust/`, `tools/rust/check.ts`, CI's `rust` job, the whole-source guard);
-   (b) is wired on `feature/rust-water` (`rust/water`, the committed Wasm, `RustWaterSim`, the native batch binary,
-   `tools/batch.ts --native`) but not switched on: Kyler, 2026-10-03, the switch, the identity run and the
-   TypeScript's tag and deletion wait until M9b is on dev, and the Rust is re-ported to M9b's water.ts then;
+   (b) is built on `feature/rust-water-switch`: re-ported to M9b's water.ts, the identity run in CI, `WaterSim` in
+   Rust in every engine at every size, native by default for batch jobs, the TypeScript tagged `ts-water-final` and
+   deleted, spike.spec skipped (D452);
    (b) the Rust water (#156), native for batch jobs and in the browser, in every engine at every size, its TypeScript
    tagged and deleted (D381); (c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the
    generator, after M9b's release. Details in "The Codex adoptions" below.

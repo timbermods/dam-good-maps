@@ -5,10 +5,10 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
 
 - `portable/`: the portable maths every port shares, the same bits as `src/core/math/portable.ts` (D401).
 - `portable-check/`: one entry point over `portable/`, used only by the check below.
-- `water/`: the water simulation, its settle, fed water and the canonical settle after the pre-fill (#156, ported
-  from `src/core/sim/water.ts`). Its Wasm is committed in `src/core/sim/waterWasm.ts` and bound by
-  `src/core/sim/rustWater.ts` and `waterRust.ts`; `water-batch` is the native binary for batch jobs. Not switched
-  on yet: the app runs the TypeScript water until M9b is on dev, and the Rust is then re-ported to M9b's water.
+- `water/`: the water simulation (the game's rules and the port's, the faster settle's bookkeeping), its settle,
+  fed water and the canonical settle after the pre-fill (#156, ported from `src/core/sim/water.ts` at
+  `ts-water-final`). Its Wasm is committed in `src/core/sim/waterWasm.ts` and bound by `src/core/sim/rustWater.ts`;
+  `WaterSim` runs it in every engine and in Node. `water-batch` is the native binary batch jobs run.
 
 **Setup.** Rust 1.90.0 and the `wasm32-unknown-unknown` target, pinned by `rust-toolchain.toml`: install rustup for your
 user from https://rustup.rs (on Windows without Visual Studio's C++ tools, pick the host `x86_64-pc-windows-gnu`), then
