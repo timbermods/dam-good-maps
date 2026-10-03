@@ -712,7 +712,9 @@ the stored base, D37). The log replays only onto that generation: undo and redo,
 links. **Edits never replay onto new land** (D336): an edit only means something on the land it was made for, so
 nothing replaces a document's generation under its log, at any size or setting, and there is no rebuild with a newer
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
-away; an older map opens exactly as it was saved.
+away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
+its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
 
 **Stable identity** is `PLAN.md` §19.4: generated features are hashed from the seed, their kind and their role in the
 plan, the player's and Claude's placements get a stored UUID, entities are hashed from their owning feature. Edits

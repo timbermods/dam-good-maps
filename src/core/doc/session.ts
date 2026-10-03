@@ -123,7 +123,8 @@ export class MapSession {
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
   private snaps = new Map<number, BuildResult>();
-  private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private baseCache: { key: BaseMap; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private frozenCache: { key: BaseLayer; touched: string; layer: BaseLayer } | null = null;
   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
@@ -366,7 +367,7 @@ export class MapSession {
     const base = live ? null : this.baseStuff().terrain;
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
     // a generated map's field: the build's integrity pass compares with it (M9a)
-    const field = live ? (this.input().field ?? null) : null;
+    const field = this.mode !== "import" ? (this.input().field ?? null) : null;
     return {
       field: field ? field.heights.slice() : null,
       top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
@@ -444,15 +445,6 @@ export class MapSession {
       const op = bySeq.get(o.seq);
       if (op) out.push({ seq: o.seq, op: op.op, label: labelOf(op), reason: o.reason });
     }
-    if (this.mode === "frozen") {
-      const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-      for (const o of this.log) {
-        const target = o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature" ? o.params.id : null;
-        if (target && frozen.has(target) && !o.orphaned) {
-          out.push({ seq: o.seq, op: o.op, label: labelOf(o), reason: `the map keeps what generator ${this.gen.generatorVersion} made as it was saved` });
-        }
-      }
-    }
     return out.sort((a, b) => a.seq - b.seq);
   }
 
@@ -504,11 +496,7 @@ export class MapSession {
         return entityProblem(this, { template, x: p.x, y: p.y, orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
       },
     });
-    if (errors.length || this.mode !== "frozen") return errors;
-    const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-    const target = op.op === "updateFeature" || op.op === "deleteFeature" || op.op === "reorderFeature" ? op.params.id : null;
-    if (target && frozen.has(target)) return [`this map keeps what generator ${this.gen.generatorVersion} made as it was saved`];
-    return [];
+    return errors;
   }
 
   /** Apply one operation. */
@@ -659,9 +647,8 @@ export class MapSession {
   // ------------------------------------------------------------------------------ building
 
   private baseStuff(): { layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } {
-    const frozen = this.mode === "frozen";
     const c = this.baseCache;
-    if (c && c.key === this.gen.base && c.frozen === frozen) return c;
+    if (c && c.key === this.gen.base) return c;
     const terrain = baseTerrain(this.gen.base);
     const file = fileFromBase(this.gen.base, terrain);
     const owners = this.gen.base.owners;
@@ -669,11 +656,32 @@ export class MapSession {
       heights: terrain.heights,
       columns: terrain.columns,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
-      frozen: frozen ? new Set(this.gen.baseFeatures.map((f) => f.id)) : undefined,
       water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
     };
-    this.baseCache = { key: this.gen.base, frozen, layer, terrain, file };
+    this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
+  }
+
+  /** A stored generation opened by a newer generator (D336 (2): it opens exactly as it was saved,
+   *  edits included): the stored map is the ground and holds every generated feature, except the
+   *  ones the log changed, deleted or reordered. Those leave the stored map, their objects with
+   *  them, and are built as they now say, as they were when the edit was made; the rest stay as the
+   *  generator that made them built them. */
+  private frozenLayer(): BaseLayer {
+    const layer = this.baseStuff().layer;
+    const ids = new Set(this.gen.baseFeatures.map((f) => f.id));
+    const touched = new Set<string>();
+    for (const o of this.log) {
+      if (o.orphaned || (o.op !== "updateFeature" && o.op !== "deleteFeature" && o.op !== "reorderFeature")) continue;
+      if (ids.has(o.params.id)) touched.add(o.params.id);
+    }
+    const key = [...touched].sort().join(",");
+    const c = this.frozenCache;
+    if (c && c.key === layer && c.touched === key) return c.layer;
+    for (const id of touched) ids.delete(id);
+    const frozen: BaseLayer = { ...layer, frozen: ids, entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
+    this.frozenCache = { key: layer, touched: key, layer: frozen };
+    return frozen;
   }
 
   private keptLayer(): LockedLayer | null {
@@ -691,9 +699,12 @@ export class MapSession {
   }
 
   private input(): BuildInput {
-    const live = this.mode === "live";
-    const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
+    const mode = this.mode;
+    const live = mode === "live";
+    const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
+    // (a frozen generation takes the field too: the features read back from it, so one the player
+    // changed is not carved again unless its shape changed, and a tall map's top)
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable

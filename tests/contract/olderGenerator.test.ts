@@ -1,12 +1,12 @@
 // A project saved with one generator version opens with a newer one "exactly as it was saved" (D336 (2);
 // PLAN §19.7): the stored base, with the player's edits. M9b moves GENERATOR_VERSION from 0.7.0 to 0.8.0,
-// so every project saved today (Your maps, the autosave) opens this way after the next release. Here the
+// so every project saved before it (Your maps, the autosave) opens this way after the next release. Here the
 // version change is made the only way the session sees it: the project's generatorVersion.
 import { describe, expect, it } from "vitest";
-import { decodeProject, encodeProject } from "../../../src/core/doc/document";
-import { MapSession } from "../../../src/core/doc/session";
-import { deleteEdit, moveEdit } from "../../../src/core/doc/tools";
-import { session } from "./helpers";
+import { decodeProject, encodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import { deleteEdit, moveEdit } from "../../src/core/doc/tools";
+import { session } from "./gateHelpers";
 
 /** The project as a newer generator opens it. */
 function underNewerGenerator(s: MapSession): MapSession {
@@ -31,8 +31,8 @@ describe("a project opened by a newer generator", () => {
     expect(s.applyAll(m.ops, "user", m.label).ok).toBe(true);
     const at = (t: MapSession) => t.built.entities.filter((e) => e.template === "StartingLocation").map((e) => `${e.x},${e.y}`);
     const opened = underNewerGenerator(s);
-    // today the start is back where the generator put it (the move is orphaned: "the map keeps what
-    // generator 0.6.9 made as it was saved"), while the objects cleared for it stay gone
+    // (the release gate's bug hunt, D385: the start went back where the generator put it, the move
+    // orphaned, while the objects cleared for it stayed gone)
     expect(at(opened)).toEqual(at(s));
     expect(opened.orphans()).toEqual([]);
     expect(content(opened)).toEqual(content(s));
@@ -45,7 +45,7 @@ describe("a project opened by a newer generator", () => {
     if (!d.ok) throw new Error("no river to delete");
     expect(s.applyAll(d.ops, "user", d.label).ok).toBe(true);
     const opened = underNewerGenerator(s);
-    // today its source comes back
+    // (its source came back)
     expect(content(opened)).toEqual(content(s));
   });
 });

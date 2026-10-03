@@ -1205,7 +1205,8 @@ file comes from the canonical settle, which starts from a state computed only fr
 documented priority-flood pre-fill, with any sealed oxbow lake's stored water, D216), runs a fixed tick schedule and
 stops on a deterministic test; interactive previews may warm-start, but an export never uses their state.
 **Versions:** a document records its `generatorVersion` and its built base; a newer generator opens it from the
-stored base, exactly, and no rebuild keeps its edits (D336). Versioned deploys (`/v/<version>/`) keep old share links
+stored base, exactly, its edits included (a generated feature the log changed leaves the stored base and is
+built as it now says), and no rebuild keeps its edits (D336). Versioned deploys (`/v/<version>/`) keep old share links
 exact.
 
 ### 19.8 Build order
