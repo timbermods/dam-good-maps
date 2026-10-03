@@ -108,7 +108,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         return;
       }
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "m") {
-        if (selectingRef.current && !brushToolRef.current && !toolRef.current) closeSelect();
+        if (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current) closeSelect();
         else openSelect();
         return;
       }
@@ -175,7 +175,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         pickShelf(null);
         return;
       }
-      if (ev.key === "Escape" && (selectingRef.current || selection.current.count)) {
+      if (ev.key === "Escape" && selection.current.count) {
         closeSelect();
         return;
       }
@@ -200,8 +200,8 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         void redo();
         return;
       }
-      // X puts down whatever is held (D345, B7): a brush, a force, the shelf's object, Select (and its
-      // selection), a picked source or object: a plain pointer is left
+      // X puts down whatever is held (D345, B7): a brush, a force, the shelf's object, the selection, a picked
+      // source or object: Select is left in hand (Kyler's choice at the v4 verdict)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && (brushToolRef.current || toolRef.current || shelfRef.current || selectingRef.current || selection.current.count || pickedRef.current || pickedObjectRef.current)) {
         ev.preventDefault();
         putDown();

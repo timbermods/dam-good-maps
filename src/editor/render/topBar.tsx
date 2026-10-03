@@ -8,7 +8,7 @@ import type { Ed } from "../ed";
 export function topBar(ed: Ed) {
   const {
     brushTool, tool, forcer, forceRow, unleashRow, shelfRow, pickedRow, firstRun, setFirstRun, brush, info, pickTop,
-    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect
+    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef
   } = ed;
 
   return (
@@ -35,8 +35,8 @@ export function topBar(ed: Ed) {
       loading={!ready}
       selectRow={selectRow()}
       selectChip={selectChip()}
-      selecting={!!selecting && !brushTool && !tool}
-      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current ? closeSelect() : openSelect())}
+      selecting={!!selecting && !brushTool && !tool && !shelf}
+      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current ? closeSelect() : openSelect())}
     />
   );
 }

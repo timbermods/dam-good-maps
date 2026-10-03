@@ -34,7 +34,7 @@ export function useSelect(ed: Ed): SelectSlice {
     api, info, mirror, renderer, ready, tool, setMessage, selecting, setSelecting, selectingRef, selection,
     setSelectionTick, selectionTick, setSelectDraw, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, feel, setShapeNote, infoRef, run, brushTool, brushRef, brushToolRef, pickTop, pickShelf, pointerAt,
-    notePointer, flashNote, coverAt, deleteOn, deleteGround
+    notePointer, flashNote, coverAt, deleteOn, deleteGround, shelf
   } = ed;
 
   // ------------------------------------------------------------------------------ the Select tool
@@ -110,29 +110,31 @@ export function useSelect(ed: Ed): SelectSlice {
       live = false;
     };
   }, [deleteMenu, selectionTick, info.version]);
-  // the Select tool takes the map's left button while it is open and no brush or force is out
+  // the Select tool takes the map's left button whenever nothing else is in hand (a press on a source, the start
+  // or an object still picks it up: the view asks those first)
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !selecting || brushTool || tool) return;
+    if (!r || !selecting || brushTool || tool || shelf) return;
     const t = selectTool(selection.current, selectHost());
     r.tool = t;
     return () => {
       if (r.tool === t) r.tool = null;
       if (!brushToolRef.current) r.setBrushCursor(null);
     };
-  }, [selecting, brushTool, tool, ready]);
+  }, [selecting, brushTool, tool, shelf, ready]);
   /** Open the Select tool (its button, M): the brush or force out goes back, the selection stays. */
   function openSelect() {
     pickTop(null);
     pickShelf(null);
     setSelecting((m) => m ?? "rect");
   }
+  /** Esc, X: the selection goes; Select stays in hand. */
   function closeSelect() {
     setDeleteMenu(false);
     setSelectPreview(null);
     setFlattenTo(null);
     selection.current.clear();
-    setSelecting(null);
+    setSelecting((m) => m ?? "rect");
     setSelectDraw(null);
     setSelectionTick((n) => n + 1);
   }
@@ -331,8 +333,8 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   function selectRow() {
     if (!selecting && !selection.current.count) return null;
-    // (with a brush or a force out, only the chip)
-    if (brushTool || tool) return null;
+    // (with a brush, a force or an object out, only the chip)
+    if (brushTool || tool || shelf) return null;
     void selectionTick;
     const z = selection.current.size();
     const level = Math.max(0, Math.min(BRUSH_MAX_LEVEL, flattenTo ?? selectLowest()));

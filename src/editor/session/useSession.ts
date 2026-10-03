@@ -229,7 +229,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** The layer the world is cut at (Alt+scroll, Alt+click), or null. */
   const [sliceLevel, setSliceLevel] = useState<number | null>(null);
   /** The Select tool (D184): open with M or a Ctrl+drag; its way of picking tiles. */
-  const [selecting, setSelecting] = useState<SelectMode | null>(null);
+  // Select is always in hand (Kyler's choice at the v4 verdict): held when a map opens, and whatever is put down
+  // returns to it
+  const [selecting, setSelecting] = useState<SelectMode | null>("rect");
   const selectingRef = useRef(selecting);
   selectingRef.current = selecting;
   const selection = useRef(new Selection(info.W, info.H));

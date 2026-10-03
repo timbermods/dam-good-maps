@@ -85,7 +85,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
     // shelf's source, a press on a placed one (a new one can go right beside it)
-    const free = !shelfRef.current && !ed.toolRef.current && !selectingRef.current;
+    const free = !shelfRef.current && !ed.toolRef.current;
     const spot = free ? targetAt(hit.x, hit.y) : null;
     const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceOnScreen(hit, ev?.clientX ?? -1e6, ev?.clientY ?? -1e6);
     if (!src) return null;
@@ -153,7 +153,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       .map(([x, y]) => y * W + x);
   }
   function grabObject(hit: TileHit | null): PointerTool | null {
-    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || selectingRef.current || selection.current.count) return null;
+    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     const e = mirror.current.entities;

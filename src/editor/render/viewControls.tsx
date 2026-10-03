@@ -69,7 +69,7 @@ export function cornerButtons(ed: Ed) {
 export function hoverHandler(ed: Ed) {
   const {
     renderer, setHover, pageTileFacts, hoverSources, targetAt, targetSpot, setTargeted, brushToolRef, shelfRef, toolRef,
-    selectingRef, startHere, selection, objectUnder, objectTiles, setHoverObject, hoverStart
+    startHere, selection, objectUnder, objectTiles, setHoverObject, hoverStart
   } = ed;
 
   return (hit: TileHit | null) => {
@@ -81,7 +81,7 @@ export function hoverHandler(ed: Ed) {
     setTargeted(t ? t.k : null);
     // a source, and the start, can be picked up and moved
     const canvas = renderer.current?.canvas;
-    const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !selectingRef.current;
+    const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current;
     const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
     // the object it would pick, shown before the click (D360 a)
     const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
