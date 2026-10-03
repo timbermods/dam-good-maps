@@ -288,37 +288,50 @@ than the room above the water bar. Where this section says otherwise, the verdic
   cause before #163 merges.
 
 **Layout 2 mockups (2026-10-03).** The targets are 2560×1440 and 1920×1080 only (1280 and 1366 dropped from the
-brief, Kyler 2026-10-03). Round 4 of Kyler's brief, as captures of the real page rearranged (River Valley 4242 at
-128², seven states at both sizes): [docs/design/layout2.html](docs/design/layout2.html). Round 4 drops the tabs: the
-header's **Map Generator** button opens and closes the 352px map generation panel (feature/page's drawer, its
-content as now, Your maps as picture tiles); the minimap goes back to the map's bottom left with the coordinates and
-the readout under it; the objects move to the top right, left of the right-hand column (A: the grid always open;
-B: an **Objects** button that opens it); the water controls go to the bottom right; the Show toggles stay alone at
-the top left; the bar is as in round 3.
-**The Map Generator button:** a tinted button, not a filled one: the mint at 12% behind it, a mint outline at 60%,
-a small folded-map icon in the mint and the name in the heading's weight. While the panel is open it is lit like
-the toggles (mint fill, dark ink). At rest Save to Timberborn stays the only filled control.
-**The objects:** dev's tiles (76px wide, 48px pictures, the name under the picture) in the five groups as rows of up
-to four, each under its heading, on one panel 340×523px whose top edge is the right-hand column's top edge, 8px left
-of it. In B the button is Slow forces' size (125×44px) in that place, lit while open, with the grid 8px under it.
+brief, Kyler 2026-10-03). Round 5 of Kyler's brief, as captures of the real page rearranged (River Valley 4242 at
+128², seven states at both sizes): [docs/design/layout2.html](docs/design/layout2.html). Round 5, from round 4: the
+Show toggles stand in one column at the top left, one width, left edges aligned (the heights legend beside Heights);
+the water controls are one row at the top middle, centred in the map area; the panel has a **Name** field under
+Generate and Surprise me, the counts under Limits for this size, and Your maps as names and sizes, one per row; the
+settings above the bar sit on the bar's cells; Select's shapes show their names.
+**The header's Map Generator button** (round 4): the mint at 12% behind it, a mint outline at 60%, a small
+folded-map icon in the mint and the name in the heading's weight; lit like the toggles while the panel is open. At
+rest Save to Timberborn stays the only filled control.
+**The objects** (round 4): dev's tiles (76px wide, 48px pictures, the name under the picture) in the five groups as
+rows of up to four on one panel, 340×523px, its top edge on the right-hand column's, 8px left of it; in B the
+button is 125×44px in that place, lit while open, with the grid 8px under it.
+**The settings grid:** the panel is the bar's width with its columns at the bar's cells (76px, the bar's 2px gaps,
+the hairline's gap between Naturalize and Carve); each group spans whole cells, its label above its control, all on
+one row (11 cells):
+- **Select:** How to select 6 (cells 1–6, one shape per cell: Rectangle, Circle, Freehand, Brush, Wand, Whole map,
+  each icon above its name) · Select 4 (7–10, "Drag on the map (Shift adds, Alt takes away)") · Close 1 (11, ×).
+- **Raise** (and the other brushes): Size 1 (1) · Level 3 (2–4) · Mode 2 (5–6) · Sources 2 (7–8) · Brush 3 (9–11:
+  Square, Straight lines).
+- **Carve** (and the other forces): Power 3 (1–3) · Size 3 (4–6, with Auto) · What it leaves 3 (7–9) · More 2
+  (10–11).
+- **More** opens upward inside the panel: its settings take more rows of the same grid above the first, each group
+  on whole cells; the bar never moves.
 Where the brief doesn't fit, and what the mockups do:
-- **Seven states at two sizes make 14 captures,** not the 16 the request counted.
-- **The water controls at 1920×1080** need 567px on one row; beside the bar there are 323px with the panel open and
-  499px with it closed. They take two right-aligned rows (Water settled, Pause water, Speed; then Skip, Replay,
-  Drought, Badtide), with their gaps 4px and padding 8px (not 6 and 10) so the first row keeps 12px from the bar's
-  settings with the panel open. At 2560×1440 they take one row.
+- **The water row and the open objects grid at 1920×1080 with the panel open:** centred in the 1568px map area the
+  row runs to 1419px from the window's left, and the grid (A, or B open) starts at 1252px: they would overlap by
+  167px (not captured). With the panel closed the row ends 9px short of the grid; B closed leaves 48px; at 2560×1440
+  every case clears by 150px or more.
+- **Seven states at two sizes make 14 captures.**
+- **"Brush"** names the group of Raise's Square and Straight lines, which had no heading; each keeps its own label
+  beside its box. Select's group is headed "Select" and Carve's More has no heading.
 - **Variant A's grid lies over the map** (340×523px at the top right) and covers part of the land; the default view
   doesn't make room for it. B, closed, covers nothing.
 - **The objects need a panel behind them** for their headings and tiles; the no-plates rule is kept for the controls.
   Start's row holds one tile.
-- **Closing the panel widens the map area** to the whole window and the bar re-centres in it. The mockups frame the
-  map afresh in each state; in the build the camera stays put when the panel opens or closes (D265).
+- **Closing the panel widens the map area** to the whole window and the bar and the water row re-centre in it. The
+  mockups frame the map afresh in each state; in the build the camera stays put when the panel opens or closes
+  (D265).
 - **"Water settled"** is plain text over the map's sky, with a dark text shadow so it reads.
 - **The minimap** sits 38px higher than on dev (86px from the bottom, not 48) to make room for the coordinates'
   line between it and the readout; the coordinates take the readout's plate.
 - **The map behind the bar:** today's camera frames the map in the whole map area, so the bar and its settings
-  (102–140px tall) would cover its south corner. The mockups frame it between the Show row and the bar with a
-  one-line settings row (the build needs insets in `frameMap()`); Raise's two lines come close to that corner.
+  (60–74px tall now) would cover its south corner. The mockups frame it between the water row and the bar (the build
+  needs insets in `frameMap()`).
 - **The top right:** with the compass in the camera row, the slice can't stay beside it. The cluster is a
   three-column grid, 310px wide: Top-down, Reset view and the compass, then the slice, Slow forces and the sound
   (still under the compass).
