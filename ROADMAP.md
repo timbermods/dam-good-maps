@@ -54,24 +54,23 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    round 2, the settings round 2 last.
 3. **The Rust adoptions** (D442, D381; ahead of the post-release list, except what the release gate needs): one `build`
    sub-agent in its own worktree, in parallel with M9b, keeping CPU use reasonable while the page session runs its checks.
-   No speed re-timing gates (D441): a port is adopted when byte-identical (D366's checks, in CI) and passing the 6-cell
-   check (D435) where it applies. Firefox's speed is never measured (D440).
+   No timing gates (D441, D453): a port is adopted when CI's byte-identity checks (D366) and the existing suites pass.
+   Firefox's speed is never measured (D440).
    (a) Rust 1.90, the wasm32 target and the Rust build into CI and the setup command, with `portable.rs` (#171, narrowed;
    built on `feature/rust-toolchain`: `rust/`, `tools/rust/check.ts`, CI's `rust` job, the whole-source guard);
    (b) is wired on `feature/rust-water` (`rust/water`, the committed Wasm, `RustWaterSim`, the native batch binary,
    `tools/batch.ts --native`) but not switched on: Kyler, 2026-10-03, the switch, the identity run and the
    TypeScript's tag and deletion wait until M9b is on dev, and the Rust is re-ported to M9b's water.ts then;
    (b) the Rust water (#156), native for batch jobs and in the browser, in every engine at every size, its TypeScript
-   tagged and deleted (D381); (c) the forces (#158) as soon as Codex's corpus reads ready; (d) the analysis (#157) and the
+   tagged and deleted (D381); (c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the
    generator, after M9b's release. Details in "The Codex adoptions" below.
 4. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
-   1. **The quick-click bug** (D378; built by the renderer session on its own PR, merged when CI is green and its 6-cell
-      check passes if it ran one): Craterize clicked quickly sometimes skips the new crater's strike animation; the
+   1. **The quick-click bug** (D378; built by the renderer session on its own PR, merged when CI is green): Craterize clicked quickly sometimes skips the new crater's strike animation; the
       previous force should skip to its end while the new one plays in full. Check every force.
    2. **Tests for an eruption in High and for the highlight on High's basin sources** (D378; the renderer session, with item 1).
    3. **Moving water and the Flow view** (Codex's flow investigation; built by the renderer session on
       `feature/moving-water`, D398; this session merges its PR when green and Kyler says yes): always-on moving water in both looks; the Flow
-      view's lanes off by default; paths built in the water worker; it must pass the smoothness check (D435). Then **renderer
+      view's lanes off by default; paths built in the water worker; merged when CI is green (D453). Then **renderer
       R1** from the performance audit (#152), using the smoothness investigation's traced stall causes: water blending,
       brush updates, the High look's lighting.
    4. **Carve's river born as it cuts** (D371), **Glaciate's Fast timing** (D374), **startup part 1** (D367), each its
@@ -85,10 +84,7 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    8. **After the forces' Rust port:** a **Sources setting for every force** (Ride, the default; Keep; Clear) in More.
    9. **Check whether the README and the website need a line about the High look.**
    10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
-   11. **Tonight's quiet window** (2026-10-03, 02:00 Pacific; D414, D434) measures M9b and ends with the Naturalize bench.
-       No further quiet windows or long timing runs unless Kyler says one is critical (D439); the Rust analysis' re-time
-       and multi-core water's Firefox re-time are dropped (D440, D441).
-   12. **Startup part 2's service worker** (D397): the one service worker (the caching and multi-core water's isolation),
+   11. **Startup part 2's service worker** (D397): the one service worker (the caching and multi-core water's isolation),
        built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
        picker and parallel loading).
    13. **Later: a Codex round on Canyon and Highlands at 96².**
@@ -132,8 +128,8 @@ The Rust order (D381) runs through all of it. Every step that changes generated 
   breakage; otherwise keep building, log the rest in [docs/STATUS.md](docs/STATUS.md), and show the result rather than
   measure it. Each step lists its acceptance as **Blocking** and **Information**; the no-built-dam-wall check (D111) and
   the support rule (0 dropped voxels) always block. CI's timing tests (the 256² settle median, D33; the editor's 2 s
-  re-preview) are reported numbers, never a failed build. Performance is a requirement (D380): every feature meets its
-  speed budget before it ships, and a speed regression blocks a merge like a failing test.
+  re-preview) are reported numbers, never a failed build. Speed is judged by Kyler using the tool (D453); something that
+  feels slow is a bug like any other.
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
   checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
   and relies on the automated validation and tests. The one exception is a **DGM Probe batch** (D116, D117): an
@@ -167,7 +163,7 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   round 1, then round 2.
 - **The smoothness investigation** (#107, merged as an investigation, D398): paused, since Kyler sees no large-brush freeze on his own machine (the 3–4 s stall
   is most likely an artefact of measuring under 100% load). Its harness and findings are merged; none of its fixes are adopted. Its
-  harness is the gate that renderer R1 and moving water must pass: the 6-cell check (D435).
+  harness (`tools/smooth/`) stays as a tool, run only when something feels slow (D453).
 
 **To adopt**
 - **The Rust water** (#156, D381, D441, D442): the native build for batch jobs, and Rust in the browser in every engine
@@ -176,10 +172,10 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   target and the Rust build join CI and the setup command first (item 3a).
 - **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
   after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
-  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate.
-- **The Rust forces** (#158, D400, D437, D441): round 2's speed is accepted, with no provisional speed gate. Adoption follows as soon as #158 reads ready (D442 (c)), after
-  round 3's identity corpus at 256² only (2,000 native and 2,000 Node-Wasm cases and 500 per browser engine, per force; Codex
-  runs it on Kyler's PC) and the open gates, under D381; nothing to do here until #158 reads ready, then the 6-cell check applies. New forces (Erode first)
+  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
+- **The Rust forces** (#158, D400, D453): round 2's speed is accepted. Adoption follows (D442 (c)) when CI's byte-identity
+  checks (D366, three engines) and the existing suites pass against the Rust, under D381; Codex's step after M9b is only the
+  re-pin, the rebuild and those checks. There is no identity corpus. New forces (Erode first)
   are then built directly in Rust on the adopted port, never in TypeScript first (D438). Round 1's lesson applies to every port: share the map in typed memory, one call per
   operation, never serialized.
 - **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
@@ -197,13 +193,13 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces round 3's identity corpus (#158). The dam sketch engine is merged as an
+**Still with Codex:** the Rust forces' re-pin after M9b (#158). The dam sketch engine is merged as an
 investigation, rounds 1 (#159) and 2 (#166), not adopted, no round 3 before the release (D392, D403; see its section
 below).
 
 ## The Rust order (D381)
 
-Performance is a requirement (D380), so the exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI and the 6-cell check where it applies, no speed re-timing, D441), each port byte-identical and tagged
+The exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI, no timing gates, D441, D453), each port byte-identical and tagged
 before its TypeScript is deleted: (1) the water settle (above), and later the stacked-column engine for terrain above terrain in the same crate (D448); (2) the five released forces (their TypeScript tagged
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
 Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
@@ -332,10 +328,10 @@ worse than M9a. Redesigned first (varied island arrangements with relief and fre
 from higher ground, varying by seed), judged on 30-seed contact sheets at 128² beside M9a's before any outcome tuning.
 Small starts' hidden land only at 128² and under (D405); no worn way out on generated maps (D406).
 
-**Adoption order** (D380: M9b must not release slower than `dev` at 256²). First merge `dev` into `feature/m9b` (the forces
-are released there) and re-measure against the committed baseline, folding `resources.mine_reach` into M9b's
+**Adoption order** (D453: no speed gate). First merge `dev` into `feature/m9b` (the forces
+are released there) and re-measure only what a fix reaches (D447), folding `resources.mine_reach` into M9b's
 `resources.mine_site`. Then, re-measuring after each: small starts, then generation speed (round 1, then round 2), then Lake
-Basin round 2 (only after a quiet-machine timing shows it is no slower than today), then the settings round 2 last (still
+Basin round 2 (adopted on its merits, D453), then the settings round 2 last (still
 held: theme-outcome regressions, small lake gains, speed misses). Then the 96² start class (Any 31, Islands 4, Highlands 14),
 the canyon measure's separate effect, speed at 256², the D148 re-pins (CI is red on maps that moved), the review set for Kyler
 and one pooled probe batch (his yes). Three contract tests were already failing on the base (#155 disclosed them): confirm
@@ -526,7 +522,7 @@ After the High look is adopted (Map look 2, released), so there is only one mesh
 **Acceptance**
 - Blocking: unedited imports export byte for byte; the editor stays responsive (tool feedback
   within a frame, slower work in the background).
-- Information: `bench:3d` with 3D maps, in its budget configuration (a build < 1.5 s at 256²,
+- Information (runs stopped, D453): `bench:3d` with 3D maps, in its budget configuration (a build < 1.5 s at 256²,
   ≥ 60 fps with and without the cutaway).
 
 **In-game check:** none. **Effort:** high (`build`).

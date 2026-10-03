@@ -28,8 +28,8 @@ them for detail on any decision.
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
 - **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) works on its own branches off `dev`. Moving
   water, the Flow view and renderer R1 are merged (#165, D446). Its current work: the quick-click PR (post-release items 1
-  and 2), then D371 and D374, playback only. Its gate is the 6-cell check in `tools/smooth/` (D435); the milestone session
-  merges each PR when CI is green and that check passes, if it ran one (D436).
+  and 2), then D371 and D374, playback only. The milestone session
+  merges each PR when CI is green (D453).
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
   On Kyler's PC, Codex works only in its own clone, never in the renderer session's checkout.
@@ -66,8 +66,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **Edits never replay onto new land (D336).** One key habit for every tool: F (or `{ }`) is Size, `[ ]` or F+scroll is
   strength (D368 (1), (11)).
 - **Before a release, fix only what's wrong;** polish comes after, in its own step.
-- **Performance is a requirement (D380).** Every feature meets its speed budget before it ships; a speed regression blocks a
-  merge like a failing test, measured in a quiet window.
+- **Speed (D453).** Kyler judges speed by using the tool; something that feels slow is a bug. No quiet windows or timing gates.
 - **The Rust order (D381).** The exact core moves to Rust, each port byte-identical and tagged before its TypeScript is
   deleted: water, the five forces, their planning and the checks, new forces directly, the generator, perhaps the editor's
   operations. The interface and rendering stay in TypeScript.
@@ -99,7 +98,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D453.**
+- **The next free decision number is D454.**
 
 ## How the planning chat checks in
 

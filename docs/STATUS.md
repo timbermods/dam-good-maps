@@ -14,22 +14,22 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D453), STATUS and HANDOFF.
+  free: D454), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
   session folds them into PLAN when its work merges. A control the core's items need is agreed through Kyler.
 - **The renderer session** (Opus 5.5, high; Kyler's PC; `feature/moving-water`) builds moving water and the Flow view, then
-  renderer R1. #165 is merged (247dd78a, D446) after its 6-cell check passed 6 of 6. It never edits PLAN, STATUS or HANDOFF.
+  renderer R1. #165 is merged (247dd78a, D446). It never edits PLAN, STATUS or HANDOFF.
   Next on its own PR: post-release items 1 and 2 (the quick-click bug; tests for an eruption in High and the highlight
-  on High's basin sources, D378), merged when CI is green and its 6-cell check passes if it ran one.
+  on High's basin sources, D378), merged when CI is green (D453).
 
 ## In flight
 
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 **The milestone session's work now:**
-- **M9b's quiet window** (D414): runs at 02:00 on Saturday 2026-10-03; heavy work pauses for it.
+- **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits.
 - **The Rust adoptions** (D442; a `build` sub-agent in `C:\Users\krams\code\DamGoodMaps-rust`): (a) the toolchain is built
   (`feature/rust-toolchain`: Rust 1.90.0 pinned, `rust/portable`, `tools/rust/check.ts`, CI's `rust` job, the whole-source
   guard); (b) the Rust water is wired, not switched on (`feature/rust-water`: `rust/water`, its Wasm committed,
@@ -38,14 +38,14 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
   `x86_64-pc-windows-gnu`, as there are no Visual Studio C++ tools).
 - **Flakes and a timeout:** `sources.spec` and `waterView.spec` (D341; `fix/sources-flake`); the `properties.test` 256² timeout
   (`fix/properties-timeout`).
-- **A latent NaN in `pickStart`** (`src/core/gen/settler.ts`): fixed after the quiet window.
+- **A latent NaN in `pickStart`** (`src/core/gen/settler.ts`): fixed after M9b's measures.
 - **Naturalize's sound** (D387 (5)): not started.
 - **M9b follow-ups:** brushKit back on seed 34; the dodged spring test restored; look-waterfalls' High lip case back as an
   expected failure; the Header.tsx title change Kyler allowed as a one-time exception.
 
 | Work | Branch | PR | Worktree | State |
 |---|---|---|---|---|
-| M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430, D432) and Delta (D416) accepted; re-pins done, CI green at 49d87d74 or later; the 840-map measures are running (96² and 128² done, 0 failing absolutes); then the quiet window and the D148 re-pins |
+| M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430, D432) and Delta (D416) accepted; re-pins done, CI green at 49d87d74 or later; the 840-map measures are running (96² and 128² done, 0 failing absolutes); then the D148 re-pins |
 | The page | `feature/page` | #163 draft | `-page` | Page session; the build is under way (see above) |
 | Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound is not started |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
@@ -66,7 +66,7 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 
 | PR | Investigation | State |
 |---|---|---|
-| #158 | rust-forces | Draft; round 3 is there (portable maths, the 1% pilot passes all cells); its 99,000-check corpus waits for a window Kyler names, so adoption waits (D400) |
+| #158 | rust-forces | Draft; round 3 is there (portable maths, the 1% pilot passes all cells); no identity corpus (D453); adopted when CI's byte-identity checks and the suites pass |
 | #156 | rust-water | Draft; approved; in the browser per HANDOFF's policy; unchanged |
 | #155 | gen-speed | Approved; rounds 1 and 2 adopted on M9b |
 | #153 | small-starts | Approved; adopted on M9b |
@@ -98,23 +98,20 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 3. **An M9b bug:** after a force edit, a spring river's source gets a new id (`groupIds`, #172) when the land shifts its row;
    fixed after Delta (D382 allows re-pinning source ids).
 4. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
-   spike's answer), the timings (Kyler's choice below).
+   spike's answer).
 
 ## Waiting for Kyler
 
-1. **Timings** (D451): only M9b's tip against dev at 256², Lake Basin round 2 and the Naturalize bench, under a runner that
-   accepts the app's steady load (start at a mean of 20% or less); run at the next point the queue allows.
-2. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
-3. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
-4. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+1. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
+2. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
+3. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
 
 ## The release gate (D385–D387)
 
 Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
 shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
-gallery (D421; amended by D445: show every place again, with a "No reachable water" note, queued after the quiet
-window, before the release). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), not started);
-**the coherence review** (D386), once Kyler is satisfied; and **M9b's own release steps** (the quiet window, the measures,
+gallery (D421; amended by D445: show every place again, with a "No reachable water" note, queued before the release). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), not started);
+**the coherence review** (D386), once Kyler is satisfied; and **M9b's own release steps** (the measures,
 the re-pins, the tag).
 
 ## Probe batches
