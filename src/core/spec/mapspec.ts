@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel, the
 // URL codec, the editor's SpecPatch and Claude all produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.7.0";
+export const GENERATOR_VERSION = "0.8.0";
 export const SPEC_VERSION = 1;
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
@@ -33,11 +33,16 @@ export const MAX_SIDE = 256;
 export interface Settings {
   terrain: {
     relief: number; // 0–100
-    highestTerrain: number; // 10–16
+    /** The highest the land may rise: 10–16, or up to 22 at Verticality 70+ (item 36): its
+     *  default follows Verticality (`highestTerrainDefault`), so the two never contradict. */
+    highestTerrain: number; // 10–22
     terracing: number; // 0–100
     buildableLand: "tight" | "normal" | "generous";
     /** Verticality (`vt`, D132): how vertical the land is, 0–100. Heights above 16 from 70 (D172). */
     verticality: number; // 0–100
+    /** Variety (`vy`, M9b, D276): how far the land strays from its theme's ranges, 0–100 (70 the
+     *  default; at 100 anything goes). */
+    variety: number; // 0–100
   };
   water: {
     rivers: number; // 0–3
@@ -46,6 +51,10 @@ export interface Settings {
     droughtReserve: "scarce" | "normal" | "plenty";
     lakes: "none" | "few" | "some" | "many";
     waterfalls: "off" | "few" | "many";
+    /** Sources (D330, the UI brief §8): Placed, the map as generated; None, the map generated as
+     *  usual, then every water and badwater source and its water removed, the dry valleys, basins
+     *  and pits kept, the trees as generated. A spec without it reads as Placed. */
+    sources?: "placed" | "none";
   };
   hazards: {
     badwater: "off" | "low" | "normal" | "high";
@@ -62,7 +71,7 @@ export interface Settings {
     ruins: number; // 25–300 (%)
     relics: "off" | "some";
     geothermal: "off" | "some";
-    mineSites: number; // 1–4: every map has at least one (Kyler, 2026-09-25)
+    mineSites: number; // 2–4: every map has at least two the colony reaches (item 47; one before)
   };
   start: {
     area: "small" | "normal" | "large";
@@ -96,6 +105,11 @@ export interface MapSpec {
   theme: ThemeId;
   archetype: ArchetypeId;
   premise?: string;
+  /** Another like this (M9b, D278 (1c)): a sibling's index (1, 2, …; absent for the map itself):
+   *  the same theme, settings and intentions, different land. */
+  variation?: number;
+  /** The intentions a sibling keeps (D278 (1c)); absent when the map draws its own. */
+  intentions?: string[];
   designedFor: Difficulty;
   settings: Settings;
   /** Room for Timber Together multi-colony maps (PLAN §20, D5). The generator builds only
@@ -134,6 +148,30 @@ export const THEME_PRESETS: Record<ThemeId, ThemePreset> = {
   islands: { relief: 35, terracing: 30, buildableLand: "normal", rivers: 1, riverStyle: "meandering", riverFlow: "lush", droughtReserve: "plenty", lakes: "none", waterfalls: "off", badwater: "low", thornBelts: "off", forestDensity: 100, ruins: 100 },
 };
 
+/** Verticality from which land may rise above 16 (D123, D132, D172). */
+export const VT_TALL = 70;
+/** The game's highest terrain level (FORMAT.md: 23 layers, layer 22 kept empty). */
+export const TALL_TOP = 22;
+/** The in-game map editor's highest level, and the top of every map below Verticality 70. */
+export const EDITOR_LEVEL = 16;
+
+/** Highest terrain's default (item 36, the forces-preview feedback): 16 below Verticality 70, and 22
+ *  from it, where the land may rise above 16; share links carry it only when it differs, so the two
+ *  controls never contradict. */
+export function highestTerrainDefault(verticality: number): number {
+  return verticality >= VT_TALL ? TALL_TOP : EDITOR_LEVEL;
+}
+
+/** A spec stored before generator 0.8.0 (M9b) at Verticality 70+ with Highest terrain at 16: the tall map
+ *  ignored it then, so it means no cap (22). Changes the spec in place. */
+export function upgradeHighestTerrain(spec: unknown): void {
+  const s = spec as { generatorVersion?: unknown; settings?: { terrain?: Record<string, unknown> } } | null;
+  const t = s?.settings?.terrain;
+  if (!t || typeof t !== "object" || typeof t.verticality !== "number" || t.verticality < VT_TALL || t.highestTerrain !== EDITOR_LEVEL) return;
+  const v = typeof s!.generatorVersion === "string" ? s!.generatorVersion.split(".").map(Number) : [0];
+  if ((v[0] ?? 0) === 0 && (v[1] ?? 0) < 8) t.highestTerrain = TALL_TOP;
+}
+
 /** Verticality's defaults by theme (investigation/terrain3d; decisions-pending #60, D209): ordinary
  *  maps within 16; "any" at about the six themes' mean. */
 export const VT_DEFAULT: Record<ThemeId, number> = { any: 25, riverValley: 20, canyon: 40, highlands: 45, lakeBasin: 10, delta: 10, islands: 20 };
@@ -150,12 +188,17 @@ export const LOGS_PER_TREE = 2;
  *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 250 / 200 / none of grown trees within 20
  *  tiles' walk ("how comfortable is it"; D227, replacing D164's 120 / 80 / 40: Hard keeps no minimum
  *  nearby beyond the starting-logs floor, which every map meets within 40 tiles' walk,
- *  `start.wood_floor`), Minimum starting bushes 40 / 30 / 20, badwater distance 30 / 15 / 8 (a
- *  target). Berries near start never aims below Minimum starting bushes (Easy's 20 became 40). */
+ *  `start.wood_floor`), Minimum starting bushes 40 / 30 / 30, badwater distance 30 / 15 / 8 (a
+ *  target). Berries near start never aims below Minimum starting bushes (Easy's 20 became 40).
+ *  Hard's 30 (20 before; item 47: enough berries for an Iron Teeth start): its 13 beavers eat 2.67
+ *  food a day each (the game's NeedModificationService) and start with 90 food; Iron Teeth's first
+ *  harvest, Kohlrabi 3 days after a FarmHouse of 20 logs is planted, comes about day 6, so the
+ *  berries ripe near the start (3 a bush) bridge 13 × 2.67 × 5 − 90 ≈ 84 food: 28 bushes, plus the
+ *  breeding pod's berry a kit. Normal (130 food: 44, 15 bushes) and Easy (300 food) have room. */
 export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & { berriesTarget: number }> = {
   easy: { waterWithin: 12, woodWithin20: 250, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
   normal: { waterWithin: 20, woodWithin20: 200, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
-  hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 20, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
+  hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 30, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
 };
 
 /** The wood a tree count of before D164 stands for: `LOGS_PER_TREE` logs a tree, within the
@@ -185,23 +228,41 @@ export function upgradeVerticality(spec: unknown): void {
   t.verticality = VT_DEFAULT[theme];
 }
 
-/** A spec stored before every map had a mine site (Kyler, 2026-09-25) may ask for none: it asks for
- *  one. Changes the spec in place; anything else is left for the schema to judge. */
+/** Variety's default (M9b, D276; design version 2's 70). */
+export const VARIETY_DEFAULT = 70;
+
+/** A spec stored before M9b has no Variety: it takes the default. Changes the spec in place;
+ *  anything else is left for the schema to judge. */
+export function upgradeVariety(spec: unknown): void {
+  const t = (spec as { settings?: { terrain?: Record<string, unknown> } } | null)?.settings?.terrain;
+  if (!t || typeof t !== "object" || "variety" in t) return;
+  t.variety = VARIETY_DEFAULT;
+}
+
+/** A spec stored before every map had two mine sites (item 47; one from Kyler's 2026-09-25, none
+ *  before) may ask for none or one: it asks for two. Changes the spec in place; anything else is
+ *  left for the schema to judge. */
 export function upgradeMineSites(spec: unknown): void {
   const r = (spec as { settings?: { resources?: Record<string, unknown> } } | null)?.settings?.resources;
-  if (r && typeof r === "object" && r.mineSites === 0) r.mineSites = 1;
+  if (r && typeof r === "object" && (r.mineSites === 0 || r.mineSites === 1)) r.mineSites = 2;
 }
+
+/** Maps smaller than this (in tiles) scale item 47 to their size (PLAN §20 D333 (7): Kyler named 48²;
+ *  the session's default draws the line at 80², decisions-pending): one mine site the colony reaches
+ *  (validate/playability.ts `minesWanted`) and no district behind an obstacle (land/intentions.ts);
+ *  the starting-logs floor and the other absolutes stay. */
+export const SMALL_MAP = 80 * 80;
 
 export function mineSitesForSize(x: number, y: number): number {
   const area = x * y;
-  return area <= 96 * 96 ? 1 : area <= 128 * 128 ? 2 : 3;
+  return area <= 128 * 128 ? 2 : 3;
 }
 
 export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: { x: number; y: number }): Settings {
   const p = THEME_PRESETS[theme];
   const d = DIFFICULTY_RULES[designedFor];
   return {
-    terrain: { relief: p.relief, highestTerrain: 16, terracing: p.terracing, buildableLand: p.buildableLand, verticality: VT_DEFAULT[theme] },
+    terrain: { relief: p.relief, highestTerrain: highestTerrainDefault(VT_DEFAULT[theme]), terracing: p.terracing, buildableLand: p.buildableLand, verticality: VT_DEFAULT[theme], variety: VARIETY_DEFAULT },
     water: {
       rivers: p.rivers,
       riverStyle: p.riverStyle,
@@ -209,6 +270,7 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
       droughtReserve: p.droughtReserve,
       lakes: p.lakes,
       waterfalls: p.waterfalls,
+      sources: "placed",
     },
     hazards: { badwater: p.badwater, badwaterDistance: d.badwaterWithin, thornBelts: p.thornBelts, unstableCores: "off" },
     resources: {

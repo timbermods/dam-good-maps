@@ -14,7 +14,7 @@ const owned = (s: MapSession, id: string) => s.built.entities.filter((e) => e.ow
 
 describe("a generated resource feature the player changes", () => {
   it("a berry patch moved with the Move planner: the session's map is the one its project reopens to", () => {
-    const PATCH = "f-tds2rdjuwsxya"; // a generated berry patch on seed 11, 96²
+    const PATCH = "f-2jepnolkipauw"; // a generated berry patch on seed 11, 96² (M9b's map, D148: dev's patch is not on it)
     const s = session(11, W);
     // the page's Move (worker moveFeature): plan on the session, then apply the plan as one step
     const m = moveEdit(s, PATCH, 2, 1);
@@ -28,7 +28,7 @@ describe("a generated resource feature the player changes", () => {
   });
 
   it("a forest's density changed after another edit shows at once, as with no earlier edit and in the reopened project", () => {
-    const FOREST = "f-ko33ylve2wxlg"; // a generated oak grove on seed 11, 96², 15 oaks
+    const FOREST = "f-olxbafz5vpgny"; // a generated oak grove on seed 11, 96², 15 oaks (M9b's map, D148)
     const first: EditOp = { op: "sculpt", params: { mode: "raise", cells: [[1, 86, 89], [2, 86, 89]], amount: 1 } };
     const density: EditOp = { op: "updateFeature", params: { id: FOREST, patch: { params: { density: 0.36 } } } };
     const alone = session(11, W);

@@ -1,5 +1,6 @@
-// Reads docs/ingame-log.md: every check row of every milestone table, with its status and files.
-import { readFileSync } from 'node:fs';
+// Reads the in-game log (docs/archive/ingame-log.md since the document prune, D390; docs/ingame-log.md
+// before): every check row of every milestone table, with its status and files.
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO } from './paths';
 
@@ -13,7 +14,9 @@ export interface LogRow {
   pending: boolean;
 }
 
-export function readIngameLog(path = join(REPO, 'docs', 'ingame-log.md')): LogRow[] {
+export const INGAME_LOG = [join(REPO, 'docs', 'archive', 'ingame-log.md'), join(REPO, 'docs', 'ingame-log.md')].find((p) => existsSync(p)) ?? join(REPO, 'docs', 'archive', 'ingame-log.md');
+
+export function readIngameLog(path = INGAME_LOG): LogRow[] {
   const rows: LogRow[] = [];
   let section = '';
   for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {

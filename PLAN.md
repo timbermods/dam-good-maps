@@ -219,9 +219,10 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Range | Default | Maps to |
 |---|---|---|---|
 | Relief | Gentle 0 – 100 Dramatic | 55 | Height range p5–p95 = 7 + 0.08·relief levels (official 9–15, median 13); cliff-tile share 0.06 + 0.0018·relief (official 0.07–0.24, median 0.16). |
-| Highest terrain | 10 – 16 | 16 | Terrain never exceeds this; 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (D172). |
+| Highest terrain | 10 – 22 | 16; 22 at Verticality 70+ | Terrain never exceeds this; 16 is the in-game map editor's limit and every official map's top. Heights 17–22 come only with high Verticality (§5.9) and tall Real places (D172). The default follows Verticality (16 below 70, 22 from 70; M9b, decisions-pending #139); a link from before 0.8.0 at Verticality 70+ with 16 reads as 22. |
 | Terracing | Smooth 0 – 100 Distinct | 50 | The share of height steps that are one level: 0.86 − 0.0059·terracing (official median 0.62). |
 | Buildable land | Tight, Normal, Generous | Normal | Land walkable from the start through slopes of at least 750 / 1,300 / 2,500 tiles (official median 1,296), flat share 0.40 / 0.52 / 0.60; it shapes the valley floor's width, the terrace edges and where the cliffs go. |
+| Variety | 0 – 100 | 70 | How far the land strays from its theme's ranges (`vy`, M9b, D276); at 100 anything goes. A spec stored before it opens with 70. |
 
 ### 5.3 Water
 
@@ -232,6 +233,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | River flow | Trickle, Normal, Strong, Lush | Normal | Total clean source strength: 0.6× / 1× / 2× / 4× the size-aware official median (medium 2.2, large 1.2, max 1.1 per 10k tiles; Lush is about the workshop median), in sources mostly 0.5 each, in rows of 3–8 across a channel. It sets river size and how fast reservoirs refill, **not** drought survival. |
 | Drought reserve | Scarce, Normal, Plenty | Normal | Minimum stored water near the start, as a multiple of the colony's drought need (§11.4): 1× / 1.5× / 3×. This is what makes droughts forgiving. It is information the generator prefers, never a guard (#67): a larger reserve than the theme's adds valley lakes and has the generator try up to four more attempts for natural water or a dam site holding the need; a smaller one takes valley lakes away. Not every combination fits a small map: reservoirs are 2 deep on Easy and Normal and 3 on Hard (Hard with Normal needs about 590 tiles, with Plenty 1,170), so the panel disables combinations whose reservoir would exceed 15% of the map area and says why (smallest sides: Normal with Plenty 51, Hard with Scarce 52, Hard with Normal 63, Hard with Plenty 89); every size preset fits every combination. |
 | Lakes and basins | None, Few, Some, Many | Some | Natural basins of 20+ tiles that hold water without a dam: 0 / 0.5× / 1× / 2× the official median for the size (small 1.5, medium 4, large 15.5, max 15), as riverside ponds the river keeps full and that keep their water through a drought. |
+| Sources | Placed, None | Placed | **None** (D330, D331; the UI brief §8): the map as generated, then every water and badwater source and its water removed, keeping the dry valleys, basins and pits they carved, the trees and bushes as generated. Item 47's water must-haves don't apply: the water checks say "No water source" as information until a source runs. Share link `so=n`; Real places take it too. |
 | Waterfalls | Off, Few, Many | Few | Bed drops of 2+ levels: 0 / 1–2 / 3–6, on rivers, carrying their flow, 1–9 tiles wide like official falls (§9.2). |
 
 ### 5.4 Hazards
@@ -255,7 +257,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). |
 | Relics | Off, Some | Some | 1–3 small (13–70 tiles out), 1–2 medium (40–140) from 128² (0–1 below), one large (140+) from 192². |
 | Geothermal fields | Off, Some | Some | 30–120 tiles out, flat, dry, outside flood reach: 1 / 2 / 3 by size (under 128², from 128², from 192²). |
-| Mine sites | 1 – 4 | 1 / 2 / 3 / 3 by size | Every map has at least one (old links with 0 open with 1). Flat 5×5 with a level ring, dry, 60+ tiles out (official 24–173, median 89): 80+ where there is room, and on ground the colony walks to when there is any at that distance. |
+| Mine sites | 2 – 4 | 2 / 2 / 3 / 3 by size | Every map has at least two the colony reaches from its start without crossing water or climbing a cliff, at least 24 tiles out (item 47, D325, D363; old links with 0 or 1 open with 2); maps under 80² need only one reached (D333 (7)). Flat 5×5 with a level ring, dry, 60+ tiles out where there is room (official 24–173, median 89), their ground levelled while the land is shaped (D363, `land/minePads.ts`). |
 
 The resource amount checks are information: a warning under half the official median at the map's settings, never a
 reason to reject a map (`src/core/resources/` places them for generated maps and Real places alike). On maps under
@@ -387,8 +389,10 @@ Maps are grown, not drawn (D108, D208, D209). `generate` (`src/core/gen/generate
    features rasterize to: `build` is the shared pipeline of §19.8, the same code the editor runs after every edit.
    Set pieces (§9) are shared builders (§19.3).
 
-Planned (M9b, D275): each finished map is rotated or mirrored into one of its 8 orientations, so all 8 appear and none
-over a quarter; the flow axis is not drawn during layout. §7.1–§7.4 (concept, macro layout, set pieces, terrain) were
+Each map is turned into one of its 8 orientations, so all 8 appear and none over a quarter (D275, `land/orient.ts`): the
+land is turned right after the field is made, from a random stream of its own, and the rivers, the start and the objects
+are found on the turned land; a map that is not square takes the 4 orientations that keep its sides. The flow axis is not
+drawn during layout. §7.1–§7.4 (concept, macro layout, set pieces, terrain) were
 the layout-band planners the processes replaced; they are in the archive.
 
 ### 7.0 Normalise
@@ -440,6 +444,10 @@ amended). What an edit leaves out of reach is reported by the checks, never repa
      as a spring at a valley's head or below a ridge, never inside a river or lake another source already fills and
      never downstream; more flow comes from more sources side by side at the head, or from their strength; each
      tributary has its own source at its own head (`water.source_in_flow`, §11.3).
+   - **A river's water runs its planned course** (D447): no lower water on a channel's bank takes it before its
+     course ends. A course with another river's channel or a lake on its bank, lower than its bed, runs down to that
+     water's level there; an arm of a fan or a split cut across a tributary takes the tributary down to its level
+     from there; an oxbow lake keeps a bank to every water but at its join.
    - **Maps need not hold their water** (D152): rivers leave the map at their own level, lakes may drain, and nothing
      is built along the map's edges to keep water in (no edge walls, D151, `terrain.edge_wall`, §11.2). The sealed
      mouths above are how a river enters, not a wall. The badwater basin's rim holds badwater, not the map's water,
@@ -487,11 +495,31 @@ map from the same seed. After `MAX_ATTEMPTS` (12) attempts, show the best failin
 
 ### 7.9 Candidates
 
-Each attempt builds one candidate. Planned (M9b; D273, D278, replacing the 12-component score and K = 3): the
-generator makes candidates until one meets the five outcomes (the theme's signature, at least one standout
-intention, readable water), within a capped number of attempts, showing the first candidate at once and progress
-after it, never a frozen wait. Only true near-duplicates of other maps are rejected; resemblance is otherwise
-information (D223). Another like this makes one sibling per click (D278).
+Each attempt builds one candidate (D278, D325, D329, D348; replacing the 12-component score and K = 3). The first
+candidate that passes the absolutes (plays exactly right, the starting-logs floor, item 47's must-haves) is the map,
+shown at once and never swapped. Its outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
+`analysis/signature.ts`, `gen/outcomes.ts`; a standout intention); when it misses the promise or readable water, a worker
+of its own looks for a sibling that meets all three (`gen/versions.ts`, up to 6), and only a missed promise gets a note
+naming what the version has (D333 (5)). Only true near-duplicates are rejected; resemblance is otherwise information
+(D223). Another like this makes one sibling per click (D278).
+
+**The first land shown is the map** (D348, D370): a land is shown once it passes every check the land alone can judge,
+and is never replaced. Those checks: its courses; no inflow's head under water held downstream; the Rivers count; no
+source in a flow; no wall along an edge; a start on the planned water its land holds, a second place for one, and room
+for the mine sites (D363); no slow sea over a shelf (D358); no ground above 16 unless tall; no ruler-straight channel or
+dam wall on its planned water, its lakes' banks read alone, and no dam wall on the pre-fill alone (its water under 0.2
+deep left out). At 128² and under (`SHOW_PROVED_MOST`, small starts, #153) it is shown only once its actual settled
+start reaches its mine pair, so a land whose settled start fails can still be drawn again; above 128² it is shown at
+once, for D278's time to editable land (a default for Kyler). A land whose planned water misses the promise or a
+readable story is drawn again first (up to 6 lands at 128², 4 to 192², 3 above). The planned water is read as its land holds it (`plannedWater` with `held`). The badwater
+hollows are dug and the mine sites' and start's pads levelled (`land/minePads.ts`) while the land is shaped. What needs
+settled water is fixed on that land: the start moves to another on the same settled water (three in all), gets a spring
+by it (D330), or is planned again; the mine sites the colony reaches are read by one function (`validate/playability.ts`
+`colonyReach`, `minesReached`, D342) for the check and the generator alike. Water that does not settle (D350): outlets
+are widened while the land is shaped (`levels.ts` `widenOutlets`, `carveOutlets`); a rising basin at 256² in River
+Valley or Lake Basin, or a sea still rising at 256², is fed more gently (0.7, 0.49, 0.343 of its feeders, recorded in the features), and a prepared land
+keeps its heights: the worn way out (`water/outletWear.ts`) no longer runs on generated maps (generation speed round 2,
+#155; a default for Kyler against D350 (b)). The settle runs up to 6 game days (D358).
 
 ### 7.10 Output
 
@@ -512,7 +540,17 @@ genome's ranges, and Variety and intentions vary the land within. No theme's map
 The presets are §6's; there is no per-theme layout planner and no table of named premises or landmark variants (D275,
 D278); the named premises that became intentions are in design version 2 §6 (`docs/archive/m9-design.md`) and D274.
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
-waterfall-lake intentions (D209).
+waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
+draws one of D209's sea layouts, islands with relief of their own and springs on them, inside a rim whose line wanders,
+rounded at the corners; on three sea maps in four the sea lies off the middle and broad headlands break the land round
+it, an inland sea in a ring of land on the fourth; its start may stand on an island that holds what it needs (D410,
+D411), not required (D429). Delta's river
+comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
+direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
+narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
+Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
+basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
+curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
 
 ---
 
@@ -753,8 +791,9 @@ each tile's saturation modifier, shared over the flat pool (0.0535 a day on wide
 corners); colony drinking is 0.424 per beaver per day. A test compares this with running the sim with sources off for
 9 days on fixtures with basins: they agree within 5% of the stored volume.
 
-**Performance.** The active set must be exact: wet cells plus their 4-neighbours, recomputed every substep and kept as
-an index list rather than a full-grid scan (a once-per-tick set changed the settled volume by 5%). The settle starts
+**Performance.** The active set must be exact: wet cells plus their 4-neighbours, exact every substep and kept as
+an index list rather than a full-grid scan (a once-per-tick set changed the settled volume by 5%); it is kept up to
+date as tiles turn wet or dry rather than rebuilt (D359). The settle starts
 from the priority-flood fill, which roughly halves its ticks. The canonical settle is computed from the document alone (§19.7). Measured (M2): 0.07 s at 128² and 0.39 s at 256² for
 River Valley at Normal; Lake Basin is the slow theme, 1.15 s at 128² and 3.0 s at 256² (D68). CI reports the 256²
 settle median on every push as a number that never fails a build (D145). The editor's interactive preview re-settles
@@ -911,8 +950,11 @@ A generated map's name in the game's list is its theme's, or "Dam Good Map" for 
 description (`map_metadata.json`) says what it is, its size and difficulty, its badwater (the No badwater choice is
 recorded, D200) and, on a map whose land rises above 16, that the game's map editor edits only up to level 16 (D172).
 The saved file is `dgm-<theme>-<seed>.timber` (a seed typed as a word made file-safe; a real place or an opened file by
-its name; D345, B10). Planned (M9b; D274, D278): a name and a one-line "how it plays" description from the map's
-standout intention and its read-back features, checked on 30 hand-checked maps (10 at Variety 100).
+its name; D345, B10). The map card's name and one-line "how it plays" description (D274, D278, `gen/names.ts`) come from the standout
+intention (a few titles each, some with the land's noun), chosen by the seed and never a title the names study forbids
+(`core/data/forbiddenNames.json`); a map without a standout takes a plain name from its land. The line is the
+standout's sentence and one thing read from the map (the start's water in the first drought, a dam site near the start,
+where the badwater lies, the woods). The in-game file's name and description are unchanged.
 
 ---
 
@@ -946,6 +988,9 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 ### 14.3 Map card
 
 - **Map card:** the name and description; key facts (size and theme, sources and strength, badwater, trees with their
+- **Another like this** (D278 (1c)): a sibling of the map shown, one per click, on the page and in the editor's menu:
+  the same theme, settings and intentions on different land (D143), with its own share link (`vr=`, `in=`); a sibling
+  whose land matches the map it came from (85% of tiles within a level) is passed over for the next.
   living share, bushes, scrap and ruin fields, the start's distance to water, the start rules of §5.6 with the starting
   wood and the logs still growing); the validation report, all green with a count or the failures expanded.
 
@@ -1077,6 +1122,9 @@ reproduces its map without running the retry loop again).
   water, wood, food and reachable land within a tolerance, and a minimum separation). Until then the schema accepts
   only `{count: 1, mod: "none"}`, and nothing may assume a map has one start in a way that would block this.
 - Imported maps have no spec (`spec: null` in the document); their difficulty comes from `meta.designedFor`.
+- M9b's fields: `settings.terrain.variety` (Variety, `vy`, 0–100, default 70; a spec stored before it opens with the
+  default); `variation?` (Another like this: the sibling's index, `vr`) and `intentions?` (the intentions a sibling
+  keeps, at most 2, `in`).
 
 ### 19.2 Parametric features
 

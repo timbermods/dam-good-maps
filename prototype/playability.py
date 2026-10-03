@@ -18,8 +18,9 @@ import numpy as np
 import calibrated as cal
 from analysis import (components, dam_sites, distance_from, is_dead, placement, point_clusters, start_water_shore,
                       reach_at, walk_distance, walk_regions)
-from watersim import (TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
+from watersim import (SETTLE_DAYS, TICKS_PER_DAY, canonical_settle, cluster_saturation, contamination, drought_storage,
                       moisture, seq_sum, spill_levels)
+from soil import DEFAULT_SOIL_RULES, contamination_game, moisture_game
 from storage import SECONDS_PER_DAY, dam_walls, levee_storage, running_flow
 
 WET = 0.05                   # water deeper than this is a water tile
@@ -35,7 +36,7 @@ START_AREA = {"small": 0.6, "normal": 1.0, "large": 1.8}      # PLAN §5.6 start
 DROUGHT_DAYS = {"easy": 4, "normal": 9, "hard": 30}
 COLONY = {"easy": 40, "normal": 50, "hard": 50}
 START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "start.food",
-                "start.wood", "start.wood_floor", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
+                "start.wood", "start.wood_floor", "start.farmland", "start.level_land", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
                 "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access",
                 "extras.placement")
 # advisory from M8 (D85): generation targets with a warning, never a reason to reject a map; the
@@ -45,6 +46,58 @@ ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.s
                   "resources.scrap", "resources.trees", "resources.bushes")
 
 TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's blueprints, src/core/data/log-floor.json)
+# item 47 (the forces-preview feedback, D325): two mine sites the colony reaches; the start's level
+# building land by Start area and its moist farmland within 20 tiles' walk; the tree amounts count
+# living trees against the official maps' living share (item 26)
+MINES_WANTED = 2
+SMALL_MAP = 80 * 80                # D333 (7): below it, one mine site the colony reaches (minesWanted)
+LEVEL_LAND = {"small": 79, "normal": 113, "large": 180}
+FARMLAND_NEAR = 100
+LIVING_SHARE = (0.267, 0.434)
+
+
+def land_regions(h, wet):
+    """Dry tiles 4-connected by steps of at most one level (analysis/regions.ts landRegions): the
+    land a colony reaches without crossing water or climbing a cliff."""
+    Y, X = h.shape
+    labels = np.full((Y, X), -1, dtype=np.int64)
+    lab = 0
+    for sy in range(Y):
+        for sx in range(X):
+            if labels[sy, sx] >= 0 or wet[sy, sx]:
+                continue
+            labels[sy, sx] = lab
+            q = [(sy, sx)]
+            k = 0
+            while k < len(q):
+                y, x = q[k]
+                k += 1
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    yy, xx = y + dy, x + dx
+                    if 0 <= yy < Y and 0 <= xx < X and labels[yy, xx] < 0 and not wet[yy, xx] and abs(int(h[yy, xx]) - int(h[y, x])) <= 1:
+                        labels[yy, xx] = lab
+                        q.append((yy, xx))
+            lab += 1
+    return labels
+
+
+def check_mines(m, rep, fps, reach, X, Y):
+    """resources.mine_site: at least two mine sites, and with a start, two whose entrance ring stands
+    on the land the colony reaches (validate/playability.ts checkMines)."""
+    mines = walked = 0
+    for e in m.entities:
+        if e["Template"] != "UndergroundRuins" or "BlockObject" not in e.get("Components", {}):
+            continue
+        mines += 1
+        if reach is None:
+            continue
+        own = set(footprint_tiles(fps, placement(e)))
+        hit = any(0 <= x + dx < X and 0 <= y + dy < Y and (x + dx, y + dy) not in own and reach[y + dy, x + dx]
+                  for (x, y) in own for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+        walked += bool(hit)
+    n = walked if reach is not None else mines
+    want = 1 if X * Y < SMALL_MAP else MINES_WANTED
+    rep.add("resources.mine_site", n >= want, f"{n} of {mines} mine sites the colony reaches (at least {want})", n, want)
 
 
 def _number(v):
@@ -213,18 +266,23 @@ def rules_for(spec, difficulty, description=""):
         "drought_days": DROUGHT_DAYS[d],
         "reservoir_need": cal.reservoir_needed(d) * RESERVE[s["water"]["droughtReserve"] if s else "normal"],
         "reservoir_depth": 3 if d == "hard" else 0,
-        "max_share": 0.55 if spec and spec["theme"] in ("lakeBasin", "islands", "any") else cal.WATER["max_water_share"],
+        # (the total water cap per theme, D369: Islands' sea may be most of the map)
+        "max_share": 0.70 if spec and spec["theme"] == "islands" else 0.55 if spec and spec["theme"] in ("lakeBasin", "any") else cal.WATER["max_water_share"],
         "mult": ({"scrap": s["resources"]["ruins"] / 100, "trees": s["resources"]["forestDensity"] / 100,
                   "bushes": s["resources"]["berryBushes"] / 100} if s else {"scrap": 1, "trees": 1, "bushes": 1}),
         "badwater_source": asks_for_badwater(s["hazards"]["badwater"] if s else None, description),
+        "level_land": LEVEL_LAND[s["start"]["area"] if s else "normal"],
+        "farmland": FARMLAND_NEAR,
     }
 
 
-def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
-    """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts)."""
+def check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None, soil_rules=None):
+    """The playability class, then the approximate-water rule (src/core/analysis/mechanics.ts).
+    `water_rules`, `soil_rules`: the rules the map's water is settled with and its soil built with
+    ("game" or "port"; the defaults when not given; a map made under the port's keeps them, D308)."""
     got = {} if water is None else water
     first = len(rep.checks)
-    _check_playability(m, rep, fps, difficulty, spec, features, got, profile)
+    _check_playability(m, rep, fps, difficulty, spec, features, got, profile, water_rules, soil_rules)
     why = approximate_reason(m, fps, got["D"])
     if why:
         for c in rep.checks[first:]:
@@ -348,7 +406,8 @@ def approximate_reason(m, fps, D):
     return "; ".join(reasons + evidence) if evidence else None
 
 
-def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None):
+def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=None, water=None, profile=None, water_rules=None, soil_rules=None):
+    game_soil = (soil_rules or DEFAULT_SOIL_RULES) == "game"
     h = m.surface()
     X, Y = m.size_x, m.size_y
     N = X * Y
@@ -372,17 +431,17 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
 
     # ---- water: the canonical settle of the map's own sources
     floor, sources, dam = water_model(m, fps, h)
-    sim, settled = canonical_settle(floor, sources, dam)
+    sim, settled = canonical_settle(floor, sources, dam, rules=water_rules)
     D, C = sim.D, sim.C
     wet = D > WET
     clean = wet & (C < BAD)
     # only real flow is the water still changing: a sealed lake only evaporating has settled (D222)
     steady_at = sim.ticks if settled else sim.steady_ticks
     if steady_at is None:
-        rep.add("water.settles", False, "still changing after 4 game days", sim.ticks, 4 * TICKS_PER_DAY)
+        rep.add("water.settles", False, f"still changing after {SETTLE_DAYS} game days", sim.ticks, SETTLE_DAYS * TICKS_PER_DAY)
     else:
         rep.add("water.settles", True, f"steady after {steady_at} ticks ({steady_at / TICKS_PER_DAY:.1f} days)"
-                + ("" if settled else "; a sealed lake keeps slowly evaporating"), steady_at, 4 * TICKS_PER_DAY)
+                + ("" if settled else "; a sealed lake keeps slowly evaporating"), steady_at, SETTLE_DAYS * TICKS_PER_DAY)
     share = float(np.count_nonzero(wet)) / N
     rep.add("water.no_flood", share <= rules["max_share"], f"{share:.0%} of the map under water (official p90 40%)",
             round(share, 3), rules["max_share"])
@@ -399,13 +458,15 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # a principle (D111): no built dam wall across a valley (src/core/analysis/ridge.ts)
     walls = dam_walls(h, D)
     rep.add("terrain.dam_wall", not walls, f"{len(walls)} dam walls" if walls else "no dam wall", len(walls), 0)
-    M = moisture(h, D, C, sim.sat(), barrier)
-    SC = contamination(h, D, C, barrier)
+    # the soil rules (D298: the game's own), as the TypeScript validator and the build have them
+    if game_soil:
+        M = moisture_game(h, floor, D, C, sim.sat(), barrier)
+        SC = contamination_game(h, floor, D, C, barrier)
+    else:
+        M = moisture(h, D, C, sim.sat(), barrier)
+        SC = contamination(h, D, C, barrier)
     water.update({"D": D, "C": C, "M": M, "SC": SC, "ticks": sim.ticks, "settled": settled})
 
-    # ---- a mine site on every map (Kyler, 2026-09-25)
-    mines = sum(1 for e in m.entities if e["Template"] == "UndergroundRuins" and "BlockObject" in e.get("Components", {}))
-    rep.add("resources.mine_site", mines >= 1, f"{mines} mine sites (at least one)", mines, 1)
 
     # ---- a badwater source on every map (Kyler, 2026-09-26, D200); a badwater seep counts; a map set
     #      to No badwater needs none
@@ -420,6 +481,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
         for cid in START_CHECKS:
             rep.add(cid, True, f"needs exactly one start (the map has {len(starts)})", na=True,
                     advisory=cid in ADVISORY_START)
+        check_mines(m, rep, fps, None, X, Y)
         return
     p = placement(starts[0])
     cells = [object_tile(fps, p, lx, ly) for lx in range(3) for ly in range(3)]
@@ -500,6 +562,35 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     rep.add("start.wood_floor", floor_wood >= cal.LOG_FLOOR,
             f"{floor_wood} logs within {cal.LOG_FLOOR_WALK} tiles' walk (the floor is {cal.LOG_FLOOR})",
             floor_wood, cal.LOG_FLOOR)
+    # item 47: two mine sites the colony reaches (its walk, or land joined to it by one-level steps)
+    land = land_regions(h, wet)
+    land_root = land[sy, sx]
+    check_mines(m, rep, fps, reach | ((land == land_root) if land_root >= 0 else False), X, Y)
+    # item 47: the start's farmland and level building land within 20 tiles' walk
+    flat = np.zeros((Y, X), bool)
+    for y in range(Y - 1):
+        for x in range(X - 1):
+            v = h[y, x]
+            if h[y, x + 1] != v or h[y + 1, x] != v or h[y + 1, x + 1] != v:
+                continue
+            if wet[y, x] or wet[y, x + 1] or wet[y + 1, x] or wet[y + 1, x + 1]:
+                continue
+            if blocked[y, x] or blocked[y, x + 1] or blocked[y + 1, x] or blocked[y + 1, x + 1]:
+                continue
+            flat[y, x] = flat[y, x + 1] = flat[y + 1, x] = flat[y + 1, x + 1] = True
+    farmland = level = 0
+    for y in range(Y):
+        for x in range(X):
+            if wet[y, x] or reach_at(walk, y, x) > NEAR:
+                continue
+            if M[y, x] > 0 and not SC[y, x] > 0 and not blocked[y, x]:
+                farmland += 1
+            if flat[y, x]:
+                level += 1
+    rep.add("start.farmland", farmland >= rules["farmland"], f"{farmland} tiles of moist farmland within {NEAR} tiles' walk",
+            farmland, rules["farmland"])
+    rep.add("start.level_land", level >= rules["level_land"], f"{level} tiles of level building land within {NEAR} tiles' walk",
+            level, rules["level_land"])
     ruins = [e for e in m.entities if e["Template"].startswith("RuinColumnH") and "BlockObject" in e.get("Components", {})]
     near_ruins = sum(1 for e in ruins if 0 <= placement(e).x < X and 0 <= placement(e).y < Y
                      and sd[placement(e).y, placement(e).x] < rules["ruins_within"])
@@ -526,7 +617,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     else:
         kept = drought_storage(floor, D, rules["drought_days"], sources, dam)
         Cd = np.where(kept > 0, C, 0.0)
-        Md = moisture(h, kept, Cd, cluster_saturation(kept > 0), barrier)
+        Md = (moisture_game(h, floor, kept, Cd, cluster_saturation(kept > 0), barrier) if game_soil
+              else moisture(h, kept, Cd, cluster_saturation(kept > 0), barrier))
         thirsty = 0
         for e in m.entities:
             if e["Template"] != "BlueberryBush" or "BlockObject" not in e.get("Components", {}) or is_dead(e):
@@ -562,11 +654,12 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # ---- resource totals: at least half the official median for this map size (about the official p10)
     area = N
     scrap = sum(15 * int(e["Template"][11:]) for e in ruins)
-    n_trees = sum(1 for e in m.entities if e["Template"] in TREES + ("Succulent",) and "BlockObject" in e.get("Components", {}))
+    # (living trees only, item 26: against the official maps' living share of their trees)
+    n_trees = sum(1 for e in m.entities if e["Template"] in TREES + ("Succulent",) and "BlockObject" in e.get("Components", {}) and not is_dead(e))
     n_bushes = sum(1 for e in m.entities if e["Template"] == "BlueberryBush" and "BlockObject" in e.get("Components", {}))
     for key, have, dkey, per in (("scrap", scrap, "scrap_per_1k_tiles", 1e3), ("trees", n_trees, "trees_per_10k", 1e4),
                                  ("bushes", n_bushes, "bushes_per_10k", 1e4)):
-        need_k = 0.5 * cal.density(dkey, area) * area / per * rules["mult"][key]
+        need_k = 0.5 * cal.density(dkey, area) * area / per * rules["mult"][key] * ((LIVING_SHARE[0] + LIVING_SHARE[1]) / 2 if key == "trees" else 1)
         rep.add(f"resources.{key}", have >= need_k, f"{have} {key} (at least {need_k:.0f})", have, round(need_k),
                 advisory=True)
 
@@ -594,9 +687,11 @@ OBJECT_TEMPLATE = {"mineSite": "UndergroundRuins", "relicSmall": "SmallRelic", "
                    "weir": "NaturalDam", "plug": "Blockage", "bridge": "NaturalOverhang3x1",
                    "unstableCore": "UnstableCore"}
 INF = float("inf")
+# (mine sites: from 30 where the colony reaches them, item 47, D325; the generator places them 60+
+# out where it can)
 EXTRA_BANDS = {  # (lo, hi, scaled): tiles from the start on maps of 128² and up
     "relicSmall": (13, 70, True), "relicMedium": (40, 140, True), "relicLarge": (140, INF, True),
-    "geothermal": (30, 120, True), "mineSite": (60, INF, True), "thornBelt": (20, INF, False),
+    "geothermal": (30, 120, True), "mineSite": (30, INF, True), "thornBelt": (20, INF, False),
     "unstableCore": (40, INF, False),
 }
 FLAT_EXTRAS = ("mineSite", "relicSmall", "relicMedium", "relicLarge", "geothermal")

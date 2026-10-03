@@ -51,7 +51,7 @@ export function resourceBudget(W: number, H: number, s: ResourceSettings, seed: 
     living,
     bushes: Math.round(between(b.low, b.high, u.bushes) * (s.berryBushes / 100)),
     scrap: Math.round(between(r.low, r.high, u.scrap) * (s.ruins / 100)),
-    mineSites: Math.max(1, Math.min(4, Math.round(s.mineSites))),
+    mineSites: Math.max(2, Math.min(4, Math.round(s.mineSites))),
     place: u,
     official: { trees: [t.low, t.high], bushes: [b.low, b.high], scrap: [r.low, r.high] },
   };

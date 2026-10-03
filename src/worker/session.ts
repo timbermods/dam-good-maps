@@ -7,6 +7,8 @@
 // problems warn and are noted in the map's description when the player exports anyway. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
+
+import { waterFix, type WaterFix } from "../core/doc/waterFix";
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -973,6 +975,13 @@ export function hasSession(): boolean {
 
 export function check(op: EditOp): string[] {
   return need().check(op);
+}
+
+/** D330's automatic water fix (doc/waterFix.ts, the UI brief §5): the operations that fix the open
+ *  map's start water checks once its water settled (a spring by the start), or null; the page
+ *  applies them as one step. */
+export function waterFixOps(): WaterFix | null {
+  return waterFix(need());
 }
 
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {

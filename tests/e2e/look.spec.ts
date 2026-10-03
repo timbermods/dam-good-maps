@@ -51,7 +51,9 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  // (seed 4247: a map with dead trees, a dam site and badwater for every line of the legend; 4242's
+  // has no dead tree on D333's maps, D148)
+  await page.goto("./#s=4247&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "3D", exact: true }).click();
   await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });

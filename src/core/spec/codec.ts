@@ -18,6 +18,7 @@ import { validateSpec } from "./schema";
 import {
   defaultSettings,
   GENERATOR_VERSION,
+  highestTerrainDefault,
   makeSpec,
   MAX_SIDE,
   MIN_SIDE,
@@ -69,12 +70,14 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "tr", path: ["terrain", "terracing"], kind: "int" },
   { key: "bl", path: ["terrain", "buildableLand"], kind: "enum", codes: { tight: "t", normal: "n", generous: "g" } },
   { key: "vt", path: ["terrain", "verticality"], kind: "int" },
+  { key: "vy", path: ["terrain", "variety"], kind: "int" },
   { key: "rv", path: ["water", "rivers"], kind: "int" },
   { key: "rs", path: ["water", "riverStyle"], kind: "enum", codes: { straight: "s", meandering: "m", braided: "b" } },
   { key: "fl", path: ["water", "riverFlow"], kind: "enum", codes: { trickle: "t", normal: "n", strong: "s", lush: "l" } },
   { key: "dr", path: ["water", "droughtReserve"], kind: "enum", codes: { scarce: "s", normal: "n", plenty: "p" } },
   { key: "lk", path: ["water", "lakes"], kind: "enum", codes: { none: "0", few: "f", some: "s", many: "m" } },
   { key: "wf", path: ["water", "waterfalls"], kind: "enum", codes: { off: "0", few: "f", many: "m" } },
+  { key: "so", path: ["water", "sources"], kind: "enum", codes: { placed: "p", none: "n" } },
   { key: "bw", path: ["hazards", "badwater"], kind: "enum", codes: { off: "0", low: "l", normal: "n", high: "h" } },
   { key: "bd", path: ["hazards", "badwaterDistance"], kind: "int" },
   { key: "tb", path: ["hazards", "thornBelts"], kind: "enum", codes: { off: "0", some: "s" } },
@@ -100,7 +103,7 @@ const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
 /** Keys that are not settings, and `st`: Minimum starting trees before D164 (read as wood). */
-const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st"]);
+const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
   let o: unknown = s;
@@ -174,10 +177,13 @@ export function encodeSpecFragment(spec: MapSpec): string {
   put("z", sizeText(spec.size));
   put("d", DIFF_CODES[spec.designedFor]);
   const base = defaultSettings(spec.theme, spec.designedFor, spec.size);
+  // (Highest terrain's default follows Verticality, item 36)
+  base.terrain.highestTerrain = highestTerrainDefault(spec.settings.terrain.verticality);
   for (const sk of SETTING_KEYS) {
     const v = getAt(spec.settings, sk.path);
     const b = getAt(base, sk.path);
-    if (jsonEqual(v, b)) continue;
+    // (a setting a spec from before it carries none of reads as its default: Sources, D330)
+    if (v === undefined || jsonEqual(v, b)) continue;
     if (sk.kind === "int") put(sk.key, String(v));
     else if (sk.kind === "enum") put(sk.key, sk.codes[v as string] ?? String(v));
     else {
@@ -187,6 +193,9 @@ export function encodeSpecFragment(spec: MapSpec): string {
   }
   if (spec.archetype !== spec.theme) put("a", spec.archetype);
   if (spec.premise !== undefined) put("p", spec.premise);
+  // Another like this (D278 (1c)): the sibling's index and the intentions it keeps
+  if (spec.variation) put("vr", String(spec.variation));
+  if (spec.intentions?.length) put("in", spec.intentions.join("."));
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
   if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
   const k = spec.constraints;
@@ -261,8 +270,8 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       const bytes = fromBase64Url(raw);
       v = bytes && bytes.length === 4 ? Object.fromEntries(SPECIES.map((n, k) => [n, bytes[k]])) : undefined;
     }
-    // every map has at least one mine site (Kyler, 2026-09-25): an old link's 0 asks for one
-    if (sk.key === "ms" && v === 0) v = 1;
+    // every map has at least two mine sites (item 47): an old link's 0 or 1 asks for two
+    if (sk.key === "ms" && (v === 0 || v === 1)) v = 2;
     const before = getAt(spec.settings, sk.path);
     setAt(spec.settings, sk.path, v);
     if (v === undefined || (typeof v === "number" && Number.isNaN(v)) || validateSpec(spec).length) {
@@ -270,6 +279,8 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       problems.push(`setting ${sk.key}=${raw} is not valid here, so the preset's value is kept`);
     }
   }
+  // Highest terrain's default follows Verticality (item 36): a link that does not give it takes it
+  if (!params.has("ht")) spec.settings.terrain.highestTerrain = highestTerrainDefault(spec.settings.terrain.verticality);
   // a link from before D164 counts starting trees (`st`): its wood is `woodForTrees` of them,
   // unless the link also gives the wood (`sl`)
   const st = params.get("st");
@@ -288,6 +299,20 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
   }
   const p = params.get("p");
   if (p !== undefined) spec.premise = p;
+  const vr = params.get("vr");
+  if (vr !== undefined) {
+    if (/^\d{1,3}$/.test(vr) && Number(vr) > 0) spec.variation = Number(vr);
+    else problems.push(`variation "${vr}" is not valid`);
+  }
+  const ins = params.get("in");
+  if (ins !== undefined) {
+    const ids = ins.split(".").filter(Boolean);
+    spec.intentions = ids;
+    if (!ids.length || validateSpec(spec).length) {
+      delete spec.intentions;
+      problems.push(`intentions "${ins}" are not valid`);
+    }
+  }
   const c = params.get("c");
   if (c !== undefined) {
     const cm = /^([1-4])([nt])$/.exec(c);

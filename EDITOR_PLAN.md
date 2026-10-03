@@ -138,7 +138,9 @@ The editor's parts as they are now; their placement and styling are the design p
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
 - **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in browsers that
   can't save to a folder); a small menu for the rest (Open, Save project, Download .timber, History, New map,
-  Clear everything).
+  Clear everything). On a generated map the menu also has **Another like this** (M9b, D278 (1c)): it closes the map
+  (asking first when it has edits) and opens a sibling, the same theme, settings and intentions on different land,
+  with its own share link.
 - **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the map. Never a
   pop-up.
 - **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
@@ -776,15 +778,17 @@ opened, are listed but never blamed on the player's edits and do not block its e
   columns are kept the same way (`BuildInput.generatedResources`, `raster/resources.ts` `KeptTiles`): only those
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
-  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. What
+  game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
+  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
   objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
-  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony can no longer
-  walk to by `resources.mine_reach` (advisory, on the quiet dot, only once the map has been edited), each for the
+  repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
+  the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
   asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`

@@ -39,18 +39,11 @@ function openSpot(r: number): [number, number] {
   throw new Error("no open ground");
 }
 
-const pines = (x: number, y: number, r: number) => {
-  const e = ed.sessionView().view.entities;
-  let n = 0;
-  for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "Pine" && Math.abs(e.x[k] - x) <= r && Math.abs(e.y[k] - y) <= r) n++;
-  return n;
-};
-
 describe("the shelf and Remove in the worker (D184)", () => {
   it("a painted grove plants where trees grow, one step; Remove takes it by its filters; the ground and the start stay", async () => {
     // (a map with open level ground for a grove, clear of other pines: at 0.7.0 seed 4242's 96² has
-    // none 9 wide, M9a)
-    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
+    // none 9 wide, M9a; seed 18 since 0.8.0, whose seed 4 has none either, D148)
+    await runGenerate(makeSpec({ seed: 18, theme: "riverValley", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const [x, y] = openSpot(4);
@@ -59,29 +52,40 @@ describe("the shelf and Remove in the worker (D184)", () => {
     expect(paintTiles(x - 2, y, 2, 0.8, 7, W, W)).toEqual(paintTiles(x - 2, y, 2, 0.8, 7, W, W));
     expect(tiles.length).toBeGreaterThan(8);
     const heights = ed.sessionView().view.heights.slice();
+    // (the grove is counted on its own tiles, and Remove works in the grove's own bounds: the open
+    // ground round it is the map's, and a pine of the map's own may stand a few tiles off, D148)
+    const onGrove = () => {
+      const e = ed.sessionView().view.entities;
+      const at = new Set(tiles);
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "Pine" && at.has(e.y[k] * W + e.x[k])) n++;
+      return n;
+    };
     const u = ed.plantAt("Pine", tiles);
     expect(u.ok).toBe(true);
     expect(u.planted.length).toBe(tiles.length);
-    expect(pines(x, y, 5)).toBe(tiles.length);
+    expect(onGrove()).toBe(tiles.length);
     const info = ed.sessionView().info;
     expect(info.history.at(-1)!.label).toBe(`Plant ${tiles.length} pines`);
     // nothing grows where something stands already, or under water
     expect(ed.plantAt("Pine", tiles).ok).toBe(false);
     // one step: undo takes the grove, redo brings it back
     ed.undo();
-    expect(pines(x, y, 5)).toBe(0);
+    expect(onGrove()).toBe(0);
     ed.redo();
-    expect(pines(x, y, 5)).toBe(tiles.length);
+    expect(onGrove()).toBe(tiles.length);
 
     // Remove: bushes only takes no tree; trees takes them all, as one step; the ground stays
     const box: number[] = [];
-    for (let yy = y - 5; yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) box.push(yy * W + xx);
+    const xs = tiles.map((i) => i % W);
+    const ys = tiles.map((i) => Math.floor(i / W));
+    for (let yy = Math.min(...ys); yy <= Math.max(...ys); yy++) for (let xx = Math.min(...xs); xx <= Math.max(...xs); xx++) box.push(yy * W + xx);
     expect(ed.removeAt(box, ["bushes"]).ok).toBe(false);
     const r = ed.removeAt(box, ["trees"]);
     expect(r.ok).toBe(true);
     expect(r.removed.length).toBe(tiles.length);
     expect(ed.sessionView().info.history.at(-1)!.label).toBe(`Remove ${tiles.length} trees`);
-    expect(pines(x, y, 5)).toBe(0);
+    expect(onGrove()).toBe(0);
     expect(Array.from(ed.sessionView().view.heights)).toEqual(Array.from(heights));
 
     // the start goes only when its own kind is named (D323 item 44, amending D288), like any object

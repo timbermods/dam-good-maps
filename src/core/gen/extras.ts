@@ -19,13 +19,14 @@ import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
 import type { Feature, MapObjectFeature, MapObjectKind } from "../features/schema";
 import { polygonMask } from "../features/geometry";
-import { ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
-import { walkRegions } from "../analysis/regions";
+import { FOOTPRINTS, ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
+import { landRegions, walkRegions } from "../analysis/regions";
 import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
+import { mineFootDistance } from "../resources/mineGround";
 import { pickMineSite } from "../resources/baseline";
 import { entityTiles } from "../features/edits";
 
@@ -41,6 +42,8 @@ export interface ExtrasInput {
   avoid?: Uint8Array | null;
   candidate: number;
   attempt: number;
+  /** M9b: the first medium or large relic tries ground the start cannot walk to (D274). */
+  relicHigh?: boolean;
 }
 
 /** How many of each object the settings ask for on this map (PLAN §5.4–5.5). */
@@ -48,8 +51,8 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   const s = spec.settings;
   const area = spec.size.x * spec.size.y;
   const out: Partial<Record<MapObjectKind, number>> = {};
-  // at least one on every map (Kyler); old share links with 0 decode to 1
-  out.mineSite = Math.max(1, Math.min(4, s.resources.mineSites));
+  // at least two on every map (item 47); old share links with 0 or 1 decode to 2
+  out.mineSite = Math.max(2, Math.min(4, s.resources.mineSites));
   if (s.resources.geothermal === "some") out.geothermal = 1 + (area >= 128 * 128 ? 1 : 0) + (area >= 192 * 192 ? 1 : 0);
   if (s.resources.relics === "some") {
     out.relicSmall = 1 + rng.int(0, 3);
@@ -61,8 +64,47 @@ export function extraCounts(spec: MapSpec, rng: Rng): Partial<Record<MapObjectKi
   return out;
 }
 
+/** The lakes' beds: the tiles inside a lake's outline under its sill, which no object takes. Land
+ *  inside the outline at the sill or above, an island or its shore, is land like any other (D369 (2):
+ *  it may hold a mine site or another object, every placement rule holding there; its water's margin
+ *  is kept off as every water's is). */
+export function lakeBeds(features: readonly Feature[], heights: ArrayLike<number>, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  for (const f of features) {
+    if (f.kind !== "lake") continue;
+    const m = polygonMask(f.params.outline, W, H);
+    const level = f.params.outlet.sill;
+    for (let i = 0; i < N; i++) if (m[i] && heights[i] < level) out[i] = 1;
+  }
+  return out;
+}
+
 /** Placing order: the biggest footprints first, so they find room. */
 const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMedium", "relicSmall", "unstableCore"];
+
+/** One keep-off mask for mine room and object placement, before adding a start's margin. */
+export function objectKeepOff(b: BuildResult, features: readonly Feature[], protect?: Uint8Array | null, avoid?: Uint8Array | null): Uint8Array {
+  const { W, H } = b;
+  const N = W * H;
+  const blocked = new Uint8Array(N);
+  const margin = FLOOD_MARGIN + 1;
+  for (let i = 0; i < N; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || protect?.[i] || avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
+    if (b.water[i] > WET)
+      for (let dy = -margin; dy <= margin; dy++)
+        for (let dx = -margin; dx <= margin; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
+        }
+  }
+  const beds = lakeBeds(features, b.heights, W, H);
+  for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
+  return blocked;
+}
 
 export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   const { spec, base: b } = inp;
@@ -83,25 +125,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
   // player's tiles and the map's border
-  const blocked = new Uint8Array(N);
-  const margin = FLOOD_MARGIN + 1;
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || inp.protect?.[i] || inp.avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
-    if (b.water[i] > WET)
-      for (let dy = -margin; dy <= margin; dy++)
-        for (let dx = -margin; dx <= margin; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-        }
-  }
-  for (const f of inp.features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) blocked[i] = 1;
-  }
+  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 
@@ -154,8 +178,13 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const hy = e.y + dy;
     if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
   }
-  const regions = walkRegions(h, W, H, walkBlocked, links);
-  const root = regions[sy * W + sx];
+  let regions = walkRegions(h, W, H, walkBlocked, links);
+  let root = regions[sy * W + sx];
+  // (and the land it reaches with a flight of stairs, never across water or up a cliff, item 47)
+  const wetNow = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wetNow[i] = b.water[i] > WET ? 1 : 0;
+  const land = landRegions(h, W, H, wetNow);
+  const landRoot = land[sy * W + sx];
 
   for (const kind of ORDER) {
     const want = counts[kind] ?? 0;
@@ -164,15 +193,72 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
     const lo = (band.scaled ? band.lo * scale : band.lo) + 1;
     const hi = (band.scaled ? band.hi * scale : band.hi) - 1;
     if (kind === "mineSite") {
+      // (the sites the colony must reach are a pair, item 47: a site is placed only where it leaves
+      // the start's land room for the ones still to come, so the first never takes the ground the
+      // second needs, D370's mine pair)
+      const reachWant = Math.min(want, minesWanted(W, H));
+      const side = FOOTPRINTS.UndergroundRuins.size[0] + 2;
+      // (level squares of the site's side, free of `b2`, on the start's land, far enough out, apart
+      // from each other: whether there are `still` of them)
+      const roomFor = (b2: Uint8Array, still: number): boolean => {
+        const sq = new Int32Array(N);
+        for (let y = H - 1; y >= 0; y--)
+          for (let x = W - 1; x >= 0; x--) {
+            const i = y * W + x;
+            if (b2[i]) continue;
+            if (x === W - 1 || y === H - 1) {
+              sq[i] = 1;
+              continue;
+            }
+            const a = i + 1;
+            const c = i + W;
+            const d = i + W + 1;
+            sq[i] = h[a] !== h[i] || h[c] !== h[i] || h[d] !== h[i] ? 1 : 1 + Math.min(sq[a], sq[c], sq[d]);
+          }
+        let found = 0;
+        const spots: number[] = [];
+        for (let i = 0; i < N && found < still; i++) {
+          const x = i % W;
+          const y = Math.floor(i / W);
+          if (sq[i] < side || land[i] !== landRoot || mineFootDistance(sd, W, x + 1, y + 1) < lo) continue;
+          if (spots.some((t) => Math.max(Math.abs((t % W) - (i % W)), Math.abs(Math.floor(t / W) - Math.floor(i / W))) < side + 3)) continue;
+          spots.push(i);
+          found++;
+        }
+        return found >= still;
+      };
+      let roomNow: { k: number; ok: boolean } | null = null;
+      const leavesRoom = (tiles: [number, number][], k: number): boolean => {
+        const still = reachWant - 1 - k;
+        if (still <= 0 || !land || landRoot < 0) return true;
+        // (only where the start's land has room for this site and the ones to come now: where it has
+        // not, no choice here keeps it)
+        if (!roomNow || roomNow.k !== k) roomNow = { k, ok: roomFor(blocked, still + 1) };
+        if (!roomNow.ok) return true;
+        const b2 = blocked.slice();
+        for (const [x, y] of tiles)
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= 0 && yy >= 0 && xx < W && yy < H) b2[yy * W + xx] = 1;
+            }
+        return roomFor(b2, still);
+      };
       for (let k = 0; k < want; k++) {
-        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length;
-        // (a third of the band's start beyond it, where the band has room)
-        const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root }, rng, { lo, hi, far: lo + (band.scaled ? band.lo * scale : band.lo) / 3 }, fits);
+        const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, k);
+        // (60+ tiles out, a third of that beyond where there is room; one the colony reaches from 30)
+        const mineLo = MINE_LO * scale + 1;
+        const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot }, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits);
         if (!spot) break;
         const { id: fid, role } = id(kind, k);
         out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x: spot.x, y: spot.y, orientation: spot.orientation } } });
         placed.push({ kind, tiles: spot.tiles });
         take(spot.tiles, 3);
+        // (a site blocks walking: the colony's walk to the next one goes round it)
+        for (const [x, y] of spot.tiles) if (x >= 0 && y >= 0 && x < W && y < H) walkBlocked[y * W + x] = 1;
+        regions = walkRegions(h, W, H, walkBlocked, links);
+        root = regions[sy * W + sx];
       }
       continue;
     }
@@ -192,6 +278,24 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
           cands.push(y * W + x);
         }
       let done = false;
+      // M9b ("a relic waits on a pinnacle", D274): on a map steered toward it, the first medium or
+      // large relic tries ground the start cannot walk to, two levels or more above it, first
+      const high = inp.relicHigh && k === 0 && (kind === "relicMedium" || kind === "relicLarge") ? cands.filter((i) => regions[i] !== root && h[i] >= h[sy * W + sx] + 2) : [];
+      for (let tries = 0; tries < 40 && high.length && !done; tries++) {
+        const pick = high[rng.int(0, high.length)];
+        const x = pick % W;
+        const y = (pick - x) / W;
+        const tiles = footprintAt(kind, x, y, orientation);
+        let d = Infinity;
+        for (const [tx, ty] of tiles) d = Math.min(d, sd[ty * W + tx]);
+        if (d < lo || d > hi) continue;
+        if (fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length) continue;
+        const { id: fid, role } = id(kind, k);
+        out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x, y, orientation } } });
+        placed.push({ kind, tiles });
+        take(tiles, 3);
+        done = true;
+      }
       for (let tries = 0; tries < 40 && cands.length && !done; tries++) {
         const pick = cands[rng.int(0, cands.length)];
         const x = pick % W;
@@ -315,7 +419,7 @@ function thornBelt(
  *  middle, dry and free, on level ground of 600+ tiles, with pumpable clean water within 16
  *  tiles; the best have the most moist free land round them (for its grove and berries) and stand
  *  nearest 85 tiles out. At most `n`, 24+ tiles apart. */
-export function districtCandidates(b: BuildResult, features: readonly Feature[], avoid: Uint8Array | null, n: number): [number, number][] {
+export function districtCandidates(b: BuildResult, features: readonly Feature[], avoid: Uint8Array | null, n: number, band: { lo: number; hi: number; mid: number } = { lo: 60, hi: 120, mid: 85 }, ok: ((i: number) => boolean) | null = null): [number, number][] {
   const { W, H } = b;
   const N = W * H;
   if (!b.start) return [];
@@ -337,12 +441,7 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
     pump[lv] = any ? distanceFrom(m, W, H) : null;
     return pump[lv];
   };
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const moist = new Uint8Array(N);
   for (let i = 0; i < N; i++) moist[i] = b.moisture[i] > 0 && !(b.water[i] > 0) && !b.occupied[i] ? 1 : 0;
   const scored: [number, number][] = [];
@@ -350,15 +449,15 @@ export function districtCandidates(b: BuildResult, features: readonly Feature[],
   for (let y = r; y < H - r; y += 2)
     for (let x = r; x < W - r; x += 2) {
       const i = y * W + x;
-      // (60–120 tiles from the start's middle, as the site's plan measures it)
+      // (60–120 tiles from the start's middle, as the site's plan measures it, or the band asked)
       const e = portable.sqrt((x - b.start.x) * (x - b.start.x) + (y - b.start.y) * (y - b.start.y));
-      if (e < 60 || e > 120 || b.water[i] > 0.05 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i]) continue;
-      if (regions.size[regions.labels[i]] < DISTRICT_LAND) continue;
+      if (e < band.lo || e > band.hi || b.water[i] > 0.05 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i]) continue;
+      if (regions.size[regions.labels[i]] < DISTRICT_LAND || (ok && !ok(i))) continue;
       const p = pumpFor(h[i]);
       if (!p || p[i] > DISTRICT_WATER - 1) continue;
       let m = 0;
       for (let yy = y - 12; yy <= y + 12; yy += 2) for (let xx = x - 12; xx <= x + 12; xx += 2) if (xx >= 0 && yy >= 0 && xx < W && yy < H && moist[yy * W + xx]) m++;
-      scored.push([m - Math.abs(e - 85) * 0.5, i]);
+      scored.push([m - Math.abs(e - band.mid) * 0.5, i]);
     }
   scored.sort((a, c) => c[0] - a[0] || a[1] - c[1]);
   const out: [number, number][] = [];
@@ -396,12 +495,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
   }
   const labels = walkRegions(b.heights, W, H, null, links);
   const root = labels[b.start.y * W + b.start.x];
-  const lakes = new Uint8Array(N);
-  for (const f of features) {
-    if (f.kind !== "lake") continue;
-    const m = polygonMask(f.params.outline, W, H);
-    for (let i = 0; i < N; i++) if (m[i]) lakes[i] = 1;
-  }
+  const lakes = lakeBeds(features, b.heights, W, H);
   const h = b.heights;
   const bad = (i: number) => labels[i] === root || b.water[i] > 0 || b.occupied[i] || b.channel[i] || lakes[i] || avoid?.[i] || b.cache.terrain.protect[i];
   const R = radius;
@@ -477,3 +571,129 @@ export function riseStands(b: BuildResult, x: number, y: number, radius: number,
 }
 
 export { OBJECT_NAMES };
+
+/** Item 47's second district close to the start, behind a small obstacle (the forces-preview
+ *  feedback; PLAN §20 D325: the second district site and the obstacle with a payoff combined, no new
+ *  builder): how far out a close site stands (the session's default, decisions-pending), against the
+ *  second district's own 60–120. */
+export const CLOSE_DISTRICT = { lo: 40, hi: 70, mid: 55 } as const;
+/** The most tiles of debris the obstacle takes: more is no small obstacle. */
+export const BEHIND_CUT = 6;
+
+/** The fewest tiles whose debris would cut the colony's walk from the start to (x, y) (item 47's
+ *  small obstacle): a vertex cut of the walk (4 neighbours on one level, and the map's slopes)
+ *  nearest the site, found by augmenting paths from the site; null when it takes more than `max`
+ *  tiles, or the walk does not reach the site. Only dry, free ground may take debris, clear of the
+ *  start's 5×5 and the site's disc. */
+export function neckCut(b: BuildResult, x: number, y: number, max: number, keepClear: number): number[] | null {
+  const { W, H } = b;
+  const N = W * H;
+  if (!b.start) return null;
+  const h = b.heights;
+  const blocked = new Uint8Array(N);
+  const links: [number, number][] = [];
+  for (const e of b.entities) {
+    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
+    if (e.template !== "Slope") continue;
+    const [dx, dy] = slopeHighSideOf(e.orientation);
+    const hx = e.x + dx;
+    const hy = e.y + dy;
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
+  }
+  const adj = new Map<number, number[]>();
+  for (const [a, c] of links) {
+    (adj.get(a) ?? adj.set(a, []).get(a)!).push(c);
+    (adj.get(c) ?? adj.set(c, []).get(c)!).push(a);
+  }
+  const sx = b.start.x;
+  const sy = b.start.y;
+  // a tile may take debris (unit capacity) or not (never cut)
+  const cuttable = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const tx = i % W;
+    const ty = (i - tx) / W;
+    if (blocked[i] || b.water[i] > WET || b.occupied[i] || b.channel[i]) continue;
+    if (Math.max(Math.abs(tx - sx), Math.abs(ty - sy)) <= 2) continue;
+    if ((tx - x) * (tx - x) + (ty - y) * (ty - y) <= keepClear * keepClear) continue;
+    cuttable[i] = 1;
+  }
+  const neighbours = (i: number, out: number[]) => {
+    out.length = 0;
+    const tx = i % W;
+    const ty = (i - tx) / W;
+    const lv = h[i];
+    if (tx > 0 && h[i - 1] === lv && !blocked[i - 1]) out.push(i - 1);
+    if (tx < W - 1 && h[i + 1] === lv && !blocked[i + 1]) out.push(i + 1);
+    if (ty > 0 && h[i - W] === lv && !blocked[i - W]) out.push(i - W);
+    if (ty < H - 1 && h[i + W] === lv && !blocked[i + W]) out.push(i + W);
+    for (const n of adj.get(i) ?? []) if (!blocked[n]) out.push(n);
+    return out;
+  };
+  // flow through each tile (0 or 1 on a cuttable one), and along each move between tiles
+  const through = new Uint8Array(N);
+  const along = new Map<number, number>();
+  const key = (a: number, c: number) => a * N + c;
+  const src = y * W + x;
+  const isSink = (i: number) => Math.abs((i % W) - sx) <= 1 && Math.abs(Math.floor(i / W) - sy) <= 1;
+  // residual search over split tiles: 2i is a tile's way in, 2i + 1 its way out
+  const prev = new Int32Array(2 * N);
+  const nb: number[] = [];
+  let flow = 0;
+  for (;;) {
+    prev.fill(-2);
+    const q = [2 * src + 1];
+    prev[2 * src + 1] = -1;
+    let end = -1;
+    for (let k = 0; k < q.length && end < 0; k++) {
+      const u = q[k];
+      const i = u >> 1;
+      if (u & 1) {
+        // out of tile i: to the ways in of its neighbours (unbounded), and back into its own way
+        // in when flow passes through it
+        for (const n of neighbours(i, nb)) {
+          const v = 2 * n;
+          if (prev[v] !== -2) continue;
+          prev[v] = u;
+          q.push(v);
+        }
+        if ((!cuttable[i] || through[i]) && prev[2 * i] === -2) {
+          prev[2 * i] = u;
+          q.push(2 * i);
+        }
+      } else {
+        if (isSink(i)) {
+          end = u;
+          break;
+        }
+        // in to tile i: through it when it has room, and back along a move that carries flow in
+        if ((!cuttable[i] || !through[i]) && prev[u + 1] === -2) {
+          prev[u + 1] = u;
+          q.push(u + 1);
+        }
+        for (const n of neighbours(i, nb)) {
+          if (!((along.get(key(n, i)) ?? 0) > 0)) continue;
+          const v = 2 * n + 1;
+          if (prev[v] !== -2) continue;
+          prev[v] = u;
+          q.push(v);
+        }
+      }
+    }
+    if (end < 0) break;
+    flow++;
+    if (flow > max) return null;
+    for (let v = end; prev[v] !== -1; v = prev[v]) {
+      const u = prev[v];
+      const a = u >> 1;
+      const c = v >> 1;
+      if (a === c) through[a] = u & 1 ? 0 : 1;
+      else if (u & 1) along.set(key(a, c), (along.get(key(a, c)) ?? 0) + 1);
+      else along.set(key(c, a), (along.get(key(c, a)) ?? 0) - 1);
+    }
+  }
+  if (!flow) return null;
+  // the cut nearest the site: the tiles reached on the site's side whose way out is not
+  const cut: number[] = [];
+  for (let i = 0; i < N; i++) if (cuttable[i] && through[i] && prev[2 * i] !== -2 && prev[2 * i + 1] === -2) cut.push(i);
+  return cut.length === flow ? cut.sort((a, c) => a - c) : null;
+}
