@@ -4,10 +4,9 @@
 
 import type { BuildResult } from "../../features/build";
 import { placementOf } from "../../format/entities";
-import { forceCeiling, forceResult, type ForceMap } from "../force";
-import { forceOfCarve, type ForceResultParams } from "../op";
+import { forceCeiling, type ForceMap } from "../force";
+import type { ForceResultParams } from "../op";
 import { keptObject, literalOf } from "../result";
-import type { CarveParams } from "./op";
 import { sourceStrength, type CarveRun, type CarveSettings } from "./run";
 import { oxbowLake } from "./water";
 import { FLOOR_DEFAULT } from "../floor";
@@ -38,48 +37,44 @@ export interface CarveRecord {
   replaces?: number;
 }
 
-/** The operation a run becomes, against the map it started from (null: it changed nothing). */
-export function carveParams(before: ForceMap, run: CarveRun, rec: CarveRecord): CarveParams | null {
-  const out = forceResult(before, run, keptObject);
+/** The operation a carve becomes (`forceResult`, op.ts), against the map it started from: its
+ *  result, the volcanic rock it cut through (the levels it took away are no longer rock), its source
+ *  and the rest of its row (D314), and its sealed lake. Null: it changed nothing. */
+export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveRecord): ForceResultParams | null {
+  const { tiles, heights, removed, rock } = literalOf(before, run.map);
   const src = run.source;
-  if (!out.tiles.length && !src) return null;
+  if (!tiles.length && !src) return null;
   const set = rec.settings;
   const lake = oxbowLake(run);
   return {
-    mode: set.mode,
-    origin: rec.origin,
-    ...(rec.end && set.mode === "aim" ? { end: rec.end } : {}),
-    power: set.power,
-    wander: set.wander ?? 35,
-    width: set.width ?? null,
-    seed: set.seed ?? 0,
-    walls: set.walls,
-    defyGravity: set.defyGravity,
-    dry: set.dry,
-    ...(set.depth != null ? { depth: set.depth } : {}),
-    ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
-    ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
-    ...(set.banks != null ? { banks: set.banks } : {}),
+    version: 1,
+    verb: "carve",
+    settings: {
+      mode: set.mode,
+      power: set.power,
+      wander: set.wander ?? 35,
+      width: set.width ?? null,
+      seed: set.seed ?? 0,
+      walls: set.walls,
+      defyGravity: set.defyGravity,
+      dry: set.dry,
+      ...(set.depth != null ? { depth: set.depth } : {}),
+      ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
+      ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
+      ...(set.banks != null ? { banks: set.banks } : {}),
+    },
+    where: { origin: rec.origin, ...(rec.end && set.mode === "aim" ? { end: rec.end } : {}) },
     ...(rec.cut !== null ? { cut: rec.cut } : {}),
     steps: run.steps,
     reason: run.done ? run.reason : "stopped",
-    tiles: out.tiles,
-    heights: out.heights,
-    removed: out.removed,
+    tiles,
+    heights,
+    removed,
     // its source, and since D314 the rest of its row (each its share)
     ...(src ? { source: { id: src.id, x: src.x, y: src.y, strength: run.group[0]?.id === src.id ? run.group[0].strength : sourceStrength(set.power, set.width) } } : {}),
     ...(src && run.group.length > 1 ? { sources: run.group.slice(1).map((s) => ({ id: s.id, x: s.tile % before.W, y: Math.floor(s.tile / before.W), strength: s.strength })) } : {}),
     ...(lake ? { lake } : {}),
     ...(rec.replaces !== undefined ? { replaces: rec.replaces } : {}),
+    ...(rock ? { rock } : {}),
   };
-}
-
-/** A carve as the shared force operation (`forceResult`, op.ts): its result, and the volcanic rock
- *  it cut through (the levels it took away are no longer rock). */
-export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveRecord): ForceResultParams | null {
-  const p = carveParams(before, run, rec);
-  if (!p) return null;
-  const out = forceOfCarve(p);
-  const { rock } = literalOf(before, run.map);
-  return rock ? { ...out, rock } : out;
 }

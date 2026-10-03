@@ -34,7 +34,7 @@ import { placeSourceGroup } from "../../water/sourceGroups";
 import { waterModel } from "../../sim/model";
 import type { WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
-import { entityTiles, protectedGround, type ForceHead, type ForceMap, type ForceRun, type Lane } from "../force";
+import { entityTiles, protectedGround, type ForceHead, type ForceMap, type Lane } from "../force";
 import { naturalWidth, RiverCharacter } from "./character";
 import { strength } from "../strength";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
@@ -156,7 +156,7 @@ export interface CarveOptions {
   bad?: boolean;
 }
 
-export class CarveRun implements ForceRun {
+export class CarveRun {
   readonly map: ForceMap;
   readonly original: Uint8Array;
   readonly initialWater: Float64Array;
@@ -340,10 +340,6 @@ export class CarveRun implements ForceRun {
   get steps(): number {
     return this.metrics.steps;
   }
-  get added(): readonly string[] {
-    return this.group.map((s) => s.id);
-  }
-
   /** Keep river's source group (D314): the anchor at the origin first, its tile, its share. */
   group: { id: string; tile: number; strength: number }[] = [];
   /** The water as it was, on the ground as it stands: the editor's water carries on from it when the

@@ -1174,8 +1174,6 @@ export function labelOf(op: AppliedOp): string {
       return op.params.mode === "raise" ? "Raise terrain" : op.params.mode === "lower" ? "Lower terrain" : op.params.mode === "flatten" ? "Flatten terrain" : op.params.mode === "terrace" ? "Terrace terrain" : "Smooth terrain";
     case "brush":
       return BRUSH_NAMES[op.params.tool] ?? "Brush";
-    case "carve":
-      return op.params.replaces !== undefined ? "Try another path" : op.params.dry ? "Carve a dry canyon" : "Carve a river";
     case "forceResult":
       return forceLabel(op.params);
     case "placeEntity":

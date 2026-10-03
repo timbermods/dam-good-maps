@@ -1,21 +1,20 @@
 // A force as the document keeps it (PLAN §20 D194, D202, D203, D206, D220): one operation,
 // `forceResult`, one undo step, its result stored literally (from investigation/forces-core's
-// `core/operation.ts`, fitted to the document: the build assigns it like the carve before it). The
-// four forces share it: what the player asked for (the force, its settings and where: a record, since
-// a replay never runs the force again), then what it left: the changed tiles and their levels, the
-// fresh volcanic rock on them (rock.ts), the objects that lost their ground, the ones it carried (a
-// Slide), the trees it knocked down (dead, lying away from the blow), and a carve's source and sealed
-// oxbow lake. "Try another" replaces the force before it (`replaces`): undoing it brings that one
-// back. The build applies its levels with the sculpts (step 6, kept out of the integrity pass) and its
-// objects' changes with the entity edits.
+// `core/operation.ts`, fitted to the document). The five forces share it: what the player asked for
+// (the force, its settings and where: a record, since a replay never runs the force again), then what
+// it left: the changed tiles and their levels, the fresh volcanic rock on them (rock.ts), the objects
+// that lost their ground, the ones it carried (a Slide), the trees it knocked down (dead, lying away
+// from the blow), a carve's source and sealed oxbow lake, a glacier's springs and tarn. "Try another"
+// replaces the force before it (`replaces`): undoing it brings that one back. The build applies its
+// levels with the sculpts (step 6, kept out of the integrity pass) and its objects' changes with the
+// entity edits.
 //
-// Projects saved with the `carve` operation before the forces shared this one still open and replay
-// exactly: `carve` stays a document operation (carve/op.ts), applied the same way.
+// Projects saved with the `carve` operation, from before the forces shared this one, become
+// `forceResult` when they open (`forceOfCarve`, doc/document.ts), and build exactly as they did.
 
 import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
-import type { CarveParams } from "./carve/op";
 import { glaciateDetailsProblem } from "./glaciate/model";
 import { floorProblem } from "./floor";
 
@@ -76,17 +75,42 @@ export interface ForceResultParams {
   replaces?: number;
 }
 
-/** The literal part the build assigns, common to `forceResult` and the older `carve`. */
-export type ForceLiteral = Pick<ForceResultParams, "tiles" | "heights" | "removed" | "source" | "lake" | "replaces"> & Partial<Pick<ForceResultParams, "rock" | "moved" | "felled" | "sources">>;
-
-/** A force's result, `forceResult` or the older `carve` (their params carry tiles, heights and the
- *  objects they took). */
-export function isForce(p: object): p is CarveParams | ForceResultParams {
+/** A force's result (its params carry tiles, heights and the objects it took). */
+export function isForce(p: object): p is ForceResultParams {
   return "tiles" in p && "heights" in p && "removed" in p;
 }
 
-/** A `carve` of before the shared operation, in its shape. */
-export function forceOfCarve(p: CarveParams): ForceResultParams {
+/** A carve as a project saved before D220 keeps it: the `carve` operation's params, which opening the
+ *  project turns into `forceResult` (`forceOfCarve`). */
+export interface SavedCarve {
+  mode: "unleash" | "aim";
+  origin: [number, number];
+  end?: [number, number];
+  power: number;
+  wander: number;
+  width: number | null;
+  depth?: number;
+  floor?: number;
+  riverDepth?: number | null;
+  banks?: number;
+  seed: number;
+  walls: "steep" | "wide";
+  defyGravity: boolean;
+  dry: boolean;
+  cut?: number;
+  steps: number;
+  reason: string;
+  tiles: number[];
+  heights: number[];
+  removed: string[];
+  source?: { id: string; x: number; y: number; strength: number };
+  sources?: { id: string; x: number; y: number; strength: number }[];
+  lake?: RetainedWater;
+  replaces?: number;
+}
+
+/** A saved `carve` as the shared operation: the build applies it exactly as it applied the `carve`. */
+export function forceOfCarve(p: SavedCarve): ForceResultParams {
   return {
     version: 1,
     verb: "carve",
@@ -106,7 +130,7 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
 }
 
 /** The rectangle of tiles a force changed (null: none). */
-export function forceBounds(p: Pick<ForceLiteral, "tiles">, W: number): Rect | null {
+export function forceBounds(p: Pick<ForceResultParams, "tiles">, W: number): Rect | null {
   if (!p.tiles.length) return null;
   let x0 = Infinity;
   let y0 = Infinity;

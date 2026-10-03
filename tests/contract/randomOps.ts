@@ -10,7 +10,7 @@ import type { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
 import { deleteEdit, moveEdit, planContextOf, planLake, planLandform, planPiece, planRiver, type PlannedEdit } from "../../src/core/doc/tools";
 import { DEFAULTS as CARVE_DEFAULTS, CarveRun, type CarveSettings } from "../../src/core/forces/carve/run";
-import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
+import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
 import { plainEntities, protectedGround, type FullForceMap } from "../../src/core/forces/force";
 import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, type EruptSettings } from "../../src/core/forces/erupt";
@@ -151,8 +151,8 @@ function randomCarve(s: MapSession, rng: Rng): EditOp | null {
   };
   const run = new CarveRun(m, settings, { origin: oy * W + ox }, { sourceId: guid(rng) });
   for (let k = 0, n = 30 + rng.int(0, 40); k < n && !run.done; k++) run.step();
-  const params = carveParams(m, run, { settings, origin: [ox, oy], cut: null });
-  return params ? { op: "carve", params } : null;
+  const params = carveForceParams(m, run, { settings, origin: [ox, oy], cut: null });
+  return params ? { op: "forceResult", params } : null;
 }
 
 /** A small, real force (Craterize, Erupt or Quake's Lift; D202, D203, D206, the way the product makes

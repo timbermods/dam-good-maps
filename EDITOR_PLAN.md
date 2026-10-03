@@ -717,7 +717,8 @@ stroke records the options it used:
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
   item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
