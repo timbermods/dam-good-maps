@@ -287,34 +287,33 @@ than the room above the water bar. Where this section says otherwise, the verdic
 - **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
   cause before #163 merges.
 
-**Layout 2 mockups (2026-10-03).** Kyler's brief of 2026-10-03 (tabs over the left column with a fixed footer, one
-bar at the bottom middle, the Show toggles top left, the camera group top right) as captures of the real page
-rearranged, River Valley 4242 at 128², five states at 1280×800, 1366×768 and 1920×1080:
-[docs/design/layout2.html](docs/design/layout2.html). Where the brief doesn't fit, and what the mockups do:
-- **The minimap at 1366×768** is 155px, not 168, so the shelf's fifteen objects show whole above the fixed footer;
-  168px at the other sizes.
-- **The water controls** need 555px on one line; the column has 352px. They take two centred lines in the footer
-  (the status, Pause water, Speed; then Skip, Replay, Drought, Badtide). The footer is 296–309px tall.
-- **The Map Generation tab** gets what the footer leaves: 290px at 1366×768 and 311px at 1280×800, enough for what is
-  on the map, Theme, Seed, Size and one or two section rows; the rest scrolls under Generate. At 1920×1080 it still
-  scrolls by 15px.
-- **The bar** is 879px at every size (eleven 76px cells, set by "Naturalize", the hairline and padding): 24px clear
-  of each side of the map at 1280 wide. A twelfth tool or a longer name doesn't fit there without narrower cells.
-- **The settings above the bar are never empty:** Select has settings, so with Select in hand its line (drag on the
-  map, the shapes) sits above the bar. Raise's settings take two lines at the bar's width, Carve's one.
+**Layout 2 mockups (2026-10-03).** The targets are 2560×1440 and 1920×1080 only (1280 and 1366 dropped from the
+brief, Kyler 2026-10-03). Round 2 of Kyler's brief, as captures of the real page rearranged (River Valley 4242 at
+128², five states at both sizes): [docs/design/layout2.html](docs/design/layout2.html).
+The objects' groups: **Water** (Water source, Badwater source, Natural dam) · **Start** (Start) · **Plants** (Pine,
+Birch, Oak, Berry bush) · **Ruins** (Ruin, Mine site, Relic) · **Land** (Slope, Thorns, Blockage, Geothermal field).
+Where the brief still doesn't fit, and what the mockups do:
+- **The column** is 175px: two 76px tiles, their gap, the padding and the hairline. Half of it is 83px, so the
+  tab "Map Generation" takes two lines (both tabs 48px tall).
+- **The objects at 1920×1080** need 81px more than the column holds above the footer at their full size: their
+  pictures are 39px there instead of 48 (48 at 2560×1440). Thorns are in Land rather than Plants, which saves a row.
+- **The minimap** is 158px, the column's inner width, not 168 (which would leave 3px each side).
+- **Generate and Surprise me** don't fit side by side in 158px (both ellipsize): they are stacked, both pinned.
+  At 1920×1080 Your maps then scrolls by 23px under them.
+- **Size** shows "Medium (128×128)" whole only with the field's left padding cut from 8px to 3px. The drawer's
+  scrollbar is thin, since its reserved gutter would take about a tenth of the column.
+- **The water row** floats like the toggles, so "Water settled" and Speed get their own plates and look like buttons.
 - **The map behind the bar:** today's camera frames the map in the whole map area, so the bar and its settings
-  (102–140px tall) would cover its south corner. The mockups frame it between the toggles and the bar with a one-line
-  settings row (the build needs insets in `frameMap()`); Raise's two lines still cover about 14px of land at 1280
-  and 1366.
+  (102–140px tall) would cover its south corner. The mockups frame it between the water row and the bar with a
+  one-line settings row (the build needs insets in `frameMap()`); Raise's two lines still cover about 8px of land at
+  1920×1080.
 - **The top right:** with the compass in the camera row, the slice can't stay beside it. The cluster is a
-  three-column grid, 310px wide: Top-down, Reset view and the compass on one plate; under them the slice, Slow
-  forces and the sound (still under the compass).
-- **Under roofs** fits on the toggles' row at 1280: the row would end at 907px and the camera group starts at 956
-  (checked with the toggle added by hand; no map with roofs on the machine).
-- **The heights legend** sits under the toggles' row at the Heights toggle's left edge: "Ground height", the ramp,
-  the map's lowest and highest level. Its swatch is the ramp's unlit colours, so the lit land looks lighter.
+  three-column grid, 310px wide: Top-down, Reset view and the compass, then the slice, Slow forces and the sound
+  (still under the compass).
+- **The heights legend** can't sit under the Show row, where the water row is: it sits under the water row at the
+  Heights toggle's left edge. Its swatch is the ramp's unlit colours, so the lit land looks lighter.
 - **The coordinates repeat the readout's height** ("Z 10" over "Height 10, dry soil"). Shown as asked; the readout
-  could drop its height.
+  could drop its height. A longer readout than this one may not fit the column's 158px; not checked.
 
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
 - **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;
