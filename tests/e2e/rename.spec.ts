@@ -87,3 +87,12 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   expect((await info()).history.length).toBe(steps);
   expect(errors).toEqual([]);
 });
+
+test("keys typed straight after the click on the title all reach the field", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await page.locator(".editor-title h1 button.title-button").click();
+  await page.keyboard.type("Beaver Bend");
+  await expect(page.getByLabel("Map name")).toHaveValue("Beaver Bend");
+  await page.keyboard.press("Escape");
+});

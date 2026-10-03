@@ -5,7 +5,7 @@
 // shared buttons and bars (D176).
 
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
@@ -130,7 +130,8 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
   const [text, setText] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
-  useEffect(() => {
+  // (focus is taken in the same task as the click that opens the field, so no key typed straight after it is lost)
+  useLayoutEffect(() => {
     closing.current = false;
     if (text !== null) {
       input.current?.focus();
