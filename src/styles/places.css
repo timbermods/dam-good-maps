@@ -130,6 +130,13 @@
   margin: 0 0 4px;
 }
 
+.place-note {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
 .place-actions {
   display: flex;
   gap: 8px;

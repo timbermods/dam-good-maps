@@ -97,7 +97,7 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 3. **M9b's Delta** (D447, blocks M9b's release): the water outcome misses on 5 of 20 at every size (planned river courses
    partly dry): trace from e3130755, fix with a failing test first, re-measure only what the fix reaches.
 4. **`pickStart`'s latent NaN** (src/core/gen/settler.ts) where a tile has no walkable-land label.
-5. **The gallery shows every Real place again** (D445).
+5. ~~The gallery shows every Real place again~~ (D445): done, awaiting merge (PR from `fix/gallery-all-places`).
 6. **The third waterView.spec flake** (line ~144, the selected source group not visible after a click; D341).
 7. **Resume:** the Rust adoptions (D442), M9b's release steps, #182, #184, #186 and #183 (merging as CI turns green).
 
