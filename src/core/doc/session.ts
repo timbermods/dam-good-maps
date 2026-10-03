@@ -684,7 +684,12 @@ export class MapSession {
    *  says. Null for a document that stored no owners (it builds them as before). */
   generatedResources(): ReadonlyMap<string, ReadonlySet<number>> | null {
     const c = this.resourcesCache;
-    if (c && c.key === this.gen.base && c.features === this.st.features) return c.tiles;
+    // (the features as they stood, one by one: an operation changes the list in place, so the list
+    // alone kept a feature the player had changed since as the generation's, and the session built
+    // it otherwise than its project reopens: a forest whose species changed kept its flooded trees
+    // dead in the session, and lost them on reopening)
+    const same = (a: readonly Feature[], b: readonly Feature[]) => a.length === b.length && a.every((f, k) => f === b[k]);
+    if (c && c.key === this.gen.base && same(c.features, this.st.features)) return c.tiles;
     let all = c && c.key === this.gen.base ? c.all : null;
     if (!all && this.gen.base.owners) {
       all = new Map();
@@ -703,7 +708,7 @@ export class MapSession {
         if (kept && b && (b === f || shape(b) === shape(f))) tiles.set(f.id, kept);
       }
     }
-    this.resourcesCache = { key: this.gen.base, features: this.st.features, all, tiles };
+    this.resourcesCache = { key: this.gen.base, features: this.st.features.slice(), all, tiles };
     return tiles;
   }
 
