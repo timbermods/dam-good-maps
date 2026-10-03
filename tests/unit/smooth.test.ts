@@ -241,3 +241,11 @@ describe("the re-run rule on a half-measured round", () => {
     expect(cellOutcome([...first, ...half], 5)).toMatchObject({ state: "more", rounds: ["SLOWER"] });
   });
 });
+
+describe("measuring chosen cells", () => {
+  it("--cells keeps only the cells named", () => {
+    const f = parseFilters({ cells: "chromium|128|high|orbit, firefox|256|standard|brush", repeats: "1" });
+    const keys = [...new Set(expand(f).map((r) => r.key.split("|").slice(0, 4).join("|")))];
+    expect(keys).toEqual(["chromium|128|high|orbit", "firefox|256|standard|brush"]);
+  });
+});

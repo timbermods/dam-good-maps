@@ -62,6 +62,8 @@ export interface Filters {
   configs: ConfigId[];
   scenarios: Scenario[];
   repeats: number;
+  /** Only these cells (`cellKey`s), when given: re-measuring the ones that failed. */
+  cells?: string[];
 }
 
 /** Every run of the series, cells in order (configuration, size, look, scenario), each cell's runs in ABBA order. */
@@ -71,7 +73,7 @@ export function expand(f: Filters): RunSpec[] {
     for (const size of f.sizes)
       for (const look of f.looks)
         for (const scenario of f.scenarios) {
-          out.push(...roundRuns({ config, size, look, scenario }, f.repeats, 1));
+          if (!f.cells || f.cells.includes(cellKey({ config, size, look, scenario }))) out.push(...roundRuns({ config, size, look, scenario }, f.repeats, 1));
         }
   return out;
 }
@@ -97,5 +99,6 @@ export function parseFilters(a: Record<string, string | undefined>): Filters {
     configs: pick(a.configs, CONFIG_IDS, "configuration"),
     scenarios: pick(a.scenarios, SCENARIOS, "scenario"),
     repeats,
+    ...(a.cells ? { cells: a.cells.split(",").map((c) => c.trim()) } : {}),
   };
 }

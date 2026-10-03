@@ -56,6 +56,7 @@ const HELP = `npm run smooth -- [options]
   --before-env K=V      (repeatable) environment for building that side, e.g. VITE_X=off; same for --after-env
   --sizes 128,256       --looks standard,high   --configs chromium,chromium-4x,igpu-4x,firefox,webkit
   --scenarios orbit,brush,force   --repeats 5
+  --cells "chromium|128|high|orbit,firefox|256|standard|brush"   only these cells (config|size|look|scenario)
   --unqualified         do not wait for a quiet machine or discard for load (to try the tool; not evidence; own series)
   --dry                 print the plan and the time estimate, run nothing
   --report              print the report of what is already measured, run nothing
