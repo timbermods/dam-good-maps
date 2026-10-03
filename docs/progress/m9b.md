@@ -234,7 +234,8 @@ Generator 0.8.0.
 - 12 Islands seeds have no island to expand to (D432).
 - Delta still misses water on 3 / 1 / 5 of its 40 maps.
 - With Lake Basin round 2, most Lake Basin 96² lakes fill past the editor's four-day preview cap from
-  dry: 5 of seeds 2–10. Seeds 1 and 8 are the expected failure in `draftWaterQuiet`.
+  dry: 5 of the 8 seeds tried (2–7, 9, 10). Seed 1 is the expected failure in `draftWaterQuiet`, and
+  seed 8 now fails the same way.
 - At 64² (no preset size) some maps pass no start: Highlands 4, 6 and 14, Canyon 2.
 - Naturalize at Terracing 100 leaves more level edges on River Valley 3 and Lake Basin 3 (expected
   failures in `naturalizeNature`).
