@@ -50,8 +50,9 @@ describe("a stroke's water after a force (D244's measurements)", () => {
     expect(Array.from(sliced.sim.D)).toEqual(Array.from(job.sim.D));
   };
   it("the editor's background settle runs on past its first day while the water still moves, and ends settled", () => {
-    // (a lake basin's lake takes about three days to fill from dry; seed 8 on M9b's maps, 2.75 days, D148)
-    fillsFromDry(8);
+    // (a lake basin's lake takes about three days to fill from dry; seed 8 on M9b's maps, 2.75 days, D148;
+    // seed 9 since Lake Basin round 2, D453, 2.9 days: seed 8's lake, like seed 1's below, now fills past the cap)
+    fillsFromDry(9);
   });
   // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): M9b's Lake Basin 96² seed 1
   // lake is still filling at the editor's four-day preview cap, so the background settle never ends

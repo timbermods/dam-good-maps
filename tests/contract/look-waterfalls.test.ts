@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { outflowsOf } from "../../src/render3d/current";
 import { lipAt, lipOutflow } from "../../src/render3d/falls";
 import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
@@ -21,8 +22,11 @@ function checkLips(theme: ThemeId, seed: number): void {
   const W = 128;
   const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
   const b = r.built;
-  const sw = surfaceWater(W, W, waterFromDepth(b.heights, b.water, b.contamination));
   const out = b.settle.out!;
+  // (the view carries the settle's outflows from the water worker since D353, as the page draws it)
+  const view = waterFromDepth(b.heights, b.water, b.contamination);
+  view.outflow = outflowsOf(view, W, W, out)!;
+  const sw = surfaceWater(W, W, view);
   const floor = b.waterModel.floor;
   const none = new Float32Array(W * W);
   const errors: number[] = [];
@@ -50,9 +54,8 @@ describe("the flow over a fall's lip", () => {
     ["highlands", 4], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below)
     ["lakeBasin", 5], // (seed 5 since M9b, D148: seed 3 is below)
   ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => checkLips(theme, seed));
-  // Expected failures, kept on the seeds that caught them (Kyler, 2026-10-02): the High look's flow at
-  // a lip against the settle's. The renderer session's PR #165 replaces High's slope estimate with the
-  // simulation's current and may fix them; when one passes, `fails` comes off it.
-  it.fails("highlands 5: the map-edge lip at (86, 127): the view pours 0.26, the settle 0.03", () => checkLips("highlands", 5));
-  it.fails("lakeBasin 3: a lip pair on level ground at (32, 37): the view pours 2.2, the settle 0.19", () => checkLips("lakeBasin", 3));
+  // The seeds that caught the view's estimate (Kyler, 2026-10-02), kept: with the settle's outflows
+  // (dev's D353, met in M9b's merge) the view pours what the settle does, and `fails` came off them.
+  it("highlands 5: the map-edge lip at (86, 127) pours the settle's outflow (the estimate poured 0.26 for 0.03)", () => checkLips("highlands", 5));
+  it("lakeBasin 3: the lip pair on level ground at (32, 37) pours the settle's outflow (the estimate poured 2.2 for 0.19)", () => checkLips("lakeBasin", 3));
 });
