@@ -39,7 +39,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 - **Flakes and a timeout:** `sources.spec` and `waterView.spec` (D341; `fix/sources-flake`); the `properties.test` 256² timeout
   (`fix/properties-timeout`).
 - **A latent NaN in `pickStart`** (`src/core/gen/settler.ts`): fixed after M9b's measures.
-- **Naturalize's sound** (D387 (5)): being built (D459, `feature/naturalize-sound`): one clean CC0 recording, wired in palette.ts and calibration.ts as a one-time exception to D388.
+- **Naturalize's sound** (D387 (5)): on dev (#198, D459): qubodup's "20 Rustles of dry leaves" (CC0), a stroke and a held-stroke bed; Kyler judges it by ear.
 - **M9b follow-ups:** brushKit back on seed 34; the dodged spring test restored; look-waterfalls' High lip case back as an
   expected failure; the Header.tsx title change Kyler allowed as a one-time exception.
 
@@ -47,7 +47,7 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 |---|---|---|---|---|
 | M9b | `feature/m9b` | #70 draft | `-m9b` | Islands (safe version, D430, D432) and Delta (D416) accepted; re-pins done, CI green at 49d87d74 or later; the 840-map measures are running (96² and 128² done, 0 failing absolutes); then the D148 re-pins |
 | The page | `feature/page` | #163 draft | `-page` | Page session; the build is under way (see above) |
-| Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound being built (D459) |
+| Naturalize | `feature/naturalize` | #170 merged | none | On `dev` (D399–D424); its sound on dev (#198) |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Follows M9b (D337-D339) |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Held for Kyler's sitting; after the page |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | The reference: its TypeScript stacked engine is never adopted; Codex ports it into the Rust water crate after the Rust water's adoption, then the foundations step wires the Rust engine in (D448) |
@@ -115,7 +115,7 @@ Nothing waiting. The coherence review (D386) waits for his word, when he is sati
 
 Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
 shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
-gallery (D421; amended by D445: every place shown again with a "No reachable water" note, #193). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), being built, D459);
+gallery (D421; amended by D445: every place shown again with a "No reachable water" note, #193). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), on dev, #198);
 **the coherence review** (D386), once Kyler is satisfied; and **M9b's own release steps** (the measures,
 the re-pins, the tag).
 
