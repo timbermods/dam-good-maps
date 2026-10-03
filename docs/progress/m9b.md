@@ -1,5 +1,52 @@
 # M9b: composition and variety
 
+## The release gate's generator hunt, fixed (2026-10-03; `fix/m9b-generator-findings`)
+
+The hunt (`investigation/release-gate-generator/`, its PR into `dev` #205) tested `feature/m9b` at
+fe3ed80f through the public entry points and found six things; five are fixed here, each with its test
+in `tests/contract/`, and one was not a bug. Kyler's intent for Lake Basin: a Lake Basin map looks like
+a Lake Basin whatever its settings, intentions or siblings; Highest terrain is a ceiling no Variety
+goes past.
+
+1. **Lake Basin round 2 on every Lake Basin map** (`land/lakeBasin.ts`, `gen/generate.ts`): the shaping
+   ran only on the default Normal square map with the preset settings and no intentions, so Another
+   like this (every sibling carries the map's intentions), every candidates-strip version and every
+   setting away from the preset lost the theme. Now the theme alone gates it; the player's Rivers count
+   and a Lakes setting away from the preset's keep their lean. 96² seeds 1–12: the siblings keep the
+   promise on 10 of 12 (6 before; River Valley's siblings 10 of 12), seed 7's sibling makes a map.
+   `lakeBasinSibling.test.ts`; `tests/unit/lakeBasin.test.ts` checks the new rule.
+2. **Every Lake Basin setting makes a map**: the same fix. Rivers 3 and Buildable land: Tight at 96²
+   now pass on 20 of 20 seeds each (16 and 19 before). `lakeBasinSettings.test.ts`.
+3. **Highest terrain caps a land Variety drew tall** (`land/genome.ts`): a tall draw at Variety 85+
+   kept the default cap's 22 under a Highest terrain of 16. 4 of 70 maps at Variety 100 at 96² rose to
+   17–21. `highestTerrainCap.test.ts`.
+4. **A link asking for colonies the generator does not build** (`spec/codec.ts`): `c=2t` passed the
+   schema and threw in `generate`; it opens as one colony with a word in `problems`. **Intentions a
+   link names that do not exist** (`spec/mapspec.schema.json`): the schema lists the ids, so they are
+   refused with a word instead of dropped silently and carried on in the map's own link.
+   `linkRefusals.test.ts` (and the schema's list equals `INTENTIONS`).
+5. **Mine sites places the count set** (`gen/extras.ts`): a site beyond the pair the band had no room
+   for was left out without a word (Lake Basin 96² seed 1 at Mine sites 4: three); it stands nearer,
+   down to the reach band's start, or beyond the band. `mineSitesCount.test.ts`.
+6. **Not a bug:** the hunt's "water nothing feeds" (Any 96² seed 1 at Relief 100, a one-tile pit full
+   to its rim beside a lower lake; two more at 128²: Any seed 6, Islands seed 5) is fed by a trickle
+   over the plateau thinner than the file stores (about 0.0004 deep): the game keeps it full. The
+   settle is unchanged; the hunt's report (on `investigation/release-gate-generator`) says otherwise
+   and is corrected with that PR.
+
+**What moved:** none of the 140 default maps at 96² (seeds 1–20, every theme; byte-identical), so no
+re-pin of the sheet or the golden fixtures. Moved by design: every Lake Basin map away from the
+preset path (another difficulty, a size outside 96–256 or non-square, any setting changed, any
+sibling or strip version), the maps Variety 85+ drew tall under a lower cap, and maps where a mine
+site beyond the pair had found no room. Re-pinned: `naturalizeNature` (Lake Basin at Terracing 100:
+seed 3 passes now and comes off the expected failures, seed 1 goes on, 2,258 → 2,380 level edges);
+`spec.test`'s round trip (a multi-colony spec decodes as one colony with the word).
+
+The hunt's sweeps at 128² (seeds 1–20, every theme) and 256² (seeds 1–5) on fe3ed80f found nothing
+else: every map passes, re-validates from its own bytes with the same verdicts, stores the canonical
+settle of its own land, keeps the land it showed, and exports the same bytes from the editor and from
+a reopened project.
+
 ## Hand-over (2026-10-02): dev merged, the adoption order through generation speed round 2
 
 Written for a session with no memory of this one. Branch `feature/m9b`, draft PR #70 into `dev`, never
@@ -1790,6 +1837,10 @@ check, the start, the water settling).
 
 ## Tests updated because a decision changed what they tested
 
+- 2026-10-03, Lake Basin round 2 on every Lake Basin map (Kyler; `fix/m9b-generator-findings`):
+  `tests/unit/lakeBasin.test.ts` ("shapes the default map only" became "shapes every Lake Basin map");
+  `naturalizeNature` (Lake Basin 3 off the expected failures, Lake Basin 1 on); `spec.test`'s round
+  trip (a multi-colony spec decodes as one colony with a word, D5's room kept).
 - 2026-10-02, step 4's re-pins (D148; each test carries its reason): `brush` (the pit 14 tiles from the
   start on the side on the map; the ramped flatten on River Valley 96² seed 2), `carve` (Highlands 96²
   seed 8 with carve seed 4; its settle checks use `SETTLE_DAYS`, D358), `look-mine-ruins` (4242 sha

@@ -118,8 +118,16 @@ describe("URL codec (PLAN §14.5)", () => {
       if (rng() < 0.2) spec.constraints = { keepOut: [], keep: ["f-abc"] };
       expect(both(spec), JSON.stringify(spec)).toEqual([true, true]);
       const back = decodeSpecFragment("#" + encodeSpecFragment(spec))!;
-      expect(back.problems).toEqual([]);
-      expect(back.spec).toEqual(spec);
+      if (spec.colonies.count === 1) {
+        expect(back.problems).toEqual([]);
+        expect(back.spec).toEqual(spec);
+      } else {
+        // (room for Timber Together, D5: until a milestone builds multi-colony maps, a link asking for
+        // them opens as one colony with a word, instead of throwing in the generator; the release-gate
+        // generator hunt's finding 5)
+        expect(back.problems).toEqual([`colonies "${spec.colonies.count}t": multi-colony maps are not built yet, so the map has one colony`]);
+        expect(back.spec).toEqual({ ...spec, colonies: { count: 1, mod: "none" } });
+      }
     }
   });
 

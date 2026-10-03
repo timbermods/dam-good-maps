@@ -439,10 +439,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
       const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: keep, variety: opts.variety ?? specIn.settings.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
       leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
-      // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on the
-      // default Normal square map from 96² to 256²; every other spec keeps the shared path)
-      if (!opts.context && opts.intentions === undefined && !specIn.intentions?.length && specIn.archetype === "lakeBasin" && specIn.colonies.count === 1 && specIn.colonies.mod === "none" && !specIn.setPieces.length && !specIn.constraints.keep.length && !specIn.constraints.keepOut.length)
-        shapeLakeBasin(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
+      // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
+      // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)
+      if (specIn.theme === "lakeBasin") shapeLakeBasin(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
       genomes++;

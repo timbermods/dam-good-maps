@@ -249,7 +249,13 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
         const fits = (tiles: [number, number][]) => !fitProblems(kind, tiles, { W, H, heights: h, water: b.water, channel: b.channel, occupied: b.occupied }).length && leavesRoom(tiles, k);
         // (60+ tiles out, a third of that beyond where there is room; one the colony reaches from 30)
         const mineLo = MINE_LO * scale + 1;
-        const spot = pickMineSite({ W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot }, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits);
+        const ground = { W, H, heights: h, blocked, startDist: sd, regions, root, land, landRoot };
+        const spot =
+          pickMineSite(ground, rng, { lo: mineLo, hi, far: mineLo + (MINE_LO * scale) / 3, reachLo: lo }, fits) ??
+          // (Mine sites is the count the player set, PLAN §5.5: a site the band has no room for stands
+          // nearer, down to the reach band's start, or beyond the band; the release-gate generator
+          // hunt's finding 6, a fourth site left out without a word)
+          pickMineSite(ground, rng, { lo, hi: Math.max(W, H) * 2, far: mineLo, reachLo: lo }, fits);
         if (!spot) break;
         const { id: fid, role } = id(kind, k);
         out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind, placement: { x: spot.x, y: spot.y, orientation: spot.orientation } } });
