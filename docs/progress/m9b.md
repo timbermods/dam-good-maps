@@ -275,8 +275,8 @@ from pins. Each was traced to its cause and fixed (e3130755). The quick suite ne
 **The Islands sheet, re-rendered** (`docs/sheets/m9b-islands.png`, at e3130755, in the format Kyler
 accepted). The shelf fix moves 22 of the 30 maps at 128²: the starts on 18, and local ground round the
 starts, pads and hollows. The layouts and islands are the same (the largest island on each seed is
-the same size). Whether each moved start still reaches the island the reach table names is not
-checked again. All 30 pass, the promise on 20, all three on 19, every start on the shore, as on the sheet
+the same size). `islands-reach.ts 1 30` gives the table below again, seed for seed: the same
+island and strait from every moved start, and the same 12 seeds with none. All 30 pass, the promise on 20, all three on 19, every start on the shore, as on the sheet
 he accepted (at be9b645c).
 
 **The heavy suite** (nightly; on 1179614b, under other sessions' load): 47 pass, 16 fail.
