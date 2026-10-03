@@ -486,3 +486,12 @@ Where it still differs from dev, each asked for: the header (New map, the centre
 Flow; Pause water; solid readout and water bar; the right column (13px wider, Legend, the legend panel, the
 names); the drawer; Select's line in the toolbar whenever nothing else is in hand; the palette's pictures framed
 tight (`thumbnail()`). At 900px tall Your maps sits below the fold, and the drawer scrolls to it.
+
+## Kyler's sitting on the build (2026-10-03)
+
+His eight points are in DESIGN.md ("Kyler's sitting on the build"). Built the same night (`7fc6fa85`): the one left
+column, the header (Maps, the title renamed in place through `setName`, "Seed"), the drawer's new order with the
+sections in place and Your maps as picture tiles, Difficulty for "Designed for", no lines under settings, the height
+slice. Also: a new map joins Your maps a moment after it opens, not while the editor opens (the suspected cause of
+the 256² preview's timeout under load; to be measured). Open: the two flakes at their cause (D341); the D380 timings
+in a slot Kyler names.

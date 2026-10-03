@@ -250,6 +250,33 @@ maps at the drawer's foot (name and size, newest first, the current map marked, 
 thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
 than the room above the water bar. Where this section says otherwise, the verdict wins.
 
+**Kyler's sitting on the build (2026-10-03); where it meets "The build" below, this wins:**
+- **One left column, one width:** the palette and the Maps drawer share the left column at 352px, wide enough for
+  the drawer. Opening or closing the drawer swaps what the column shows; nothing else moves or changes size (the
+  map, the toolbars, the minimap, the readout, the right column). The palette shows four tools to a row, each with
+  its picture and name. Nothing overlaps at any window size.
+- **The header:** the button is **Maps**. The map's title is renamed in place: a click turns it into a field at
+  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`), Esc cancels; a
+  blank name is refused in the core's words, said in the title's second line; a rename is never an undo step
+  (D443). Its tooltip is "Rename". The second line reads "Seed 4242 · 128×128". There is no name field in the
+  drawer.
+- **The Maps drawer,** top to bottom: Generate and Surprise me pinned at the top; under them, scrolling as one
+  panel: what is on the map (picture, number, name; no description); Theme and Seed; Size; the sections Terrain,
+  Water, Hazards, Resources, Difficulty, Limits for this size, each opening in place under its own row (several
+  at once, only the rows below moving down); Your maps as square tiles, two to a row, each the map's stored 64px
+  picture with its name and size under it, newest first, the open map marked, a click opening it.
+- **Difficulty replaces "Designed for":** no Easy/Normal/Hard. "Advanced: start rules" is **Difficulty**: Starting
+  wood, Max walk to water, Starting berries, Start area, No ruins within, at Normal's values. Every map is made for
+  Normal until the milestone session removes difficulty from the core after M9b's release.
+- **No explanations under settings:** no grey line under any setting. Where the line gave the official maps' range,
+  it is in the setting's tooltip as a short phrase after its purpose ("… · Official maps: 9–15").
+- **The height slice:** one control, ▾ value ▴, at one fixed width. The value runs up to 22 (the game's highest
+  terrain), then ∞, on every map; the first step down from ∞ goes straight to the map's highest level (its highest
+  ground); up runs through every level to 22, then ∞; a click on the value shows the whole world. There is no
+  separate ∞ button. Alt+scroll and Alt+middle-click on the map keep the game's own stepping.
+- **The two flakes** (D341): look-high's "Standard after High" and the 256² Islands preview are fixed at their
+  cause before #163 merges.
+
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
 - **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;
   below about 1,000px the checks' words give way to the dot alone.
