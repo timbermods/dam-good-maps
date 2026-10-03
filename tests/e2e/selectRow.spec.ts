@@ -149,17 +149,24 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
 });
 
-test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only; the forces in their clusters by prominence, D352)", async ({ page }) => {
+test("one bar at the bottom: Select, the five brushes, a hairline, the forces in their clusters' order (D352), and the held tool's settings directly above it (Layout 2, structure only)", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("1");
-  const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
-  const view = page.getByRole("button", { name: "Top-down" });
+  const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
-  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Select"]);
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
   expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  const ys = [await y(view), await y(tools), await y(forces), await y(options)];
-  expect(ys).toEqual([...ys].sort((a, b) => a - b));
-  expect(new Set(ys).size).toBe(4);
+  // the hairline between the tools and the forces
+  const naturalize = await box(tools.getByRole("button", { name: /^Naturalize/ }));
+  const carve = await box(tools.getByRole("button", { name: /^Carve/ }));
+  const sep = await box(page.locator(".tool-bar .tool-sep"));
+  expect(sep.x).toBeGreaterThan(naturalize.x + naturalize.width);
+  expect(sep.x + sep.width).toBeLessThan(carve.x);
+  // the settings above the bar, the camera's controls above them all
+  const bar = await box(tools);
+  const row = await box(options);
+  expect(row.y + row.height).toBeLessThanOrEqual(bar.y);
+  expect((await box(page.getByRole("button", { name: "Top-down" }))).y).toBeLessThan(row.y);
 });

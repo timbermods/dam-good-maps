@@ -76,20 +76,20 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   await hover(page, s.moist!);
   await expect(page.locator(".readout")).toContainText("moist soil");
 
-  // height colours, and back
-  const toggle = page.getByRole("button", { name: "Height colours" });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  // Heights, and back
+  const toggle = page.getByRole("checkbox", { name: "Heights" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("height");
   await expect(legend).toContainText("Ground height");
   await expect(legend).not.toContainText("Moist ground");
   // the choice lasts: the map reopens (a reload) with height colours too
   await page.reload();
   await waitForEditor(page);
-  await expect(page.getByRole("button", { name: "Height colours" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("checkbox", { name: "Heights" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("height");
-  await page.getByRole("button", { name: "Height colours" }).click();
+  await page.getByRole("checkbox", { name: "Heights" }).click();
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("moisture");
 
   // the editor's view has the worker's soil

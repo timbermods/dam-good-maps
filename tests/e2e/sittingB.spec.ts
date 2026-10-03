@@ -47,12 +47,15 @@ const sourcesOn = (page: Page) =>
     return out;
   });
 
-test("B1 and B3: the map is centred in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
+test("B1 and B3: the map is centred in every view, in what the controls leave of it; the level control sits top right under the camera group, with Slow forces and Sound beside it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const centred = async () =>
     page.evaluate(() => {
-      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      // (the part of the canvas the page's controls leave, setFrameInsets: Layout 2's camera frames the map there)
+      const r = document.querySelector(".view3d > canvas")!.getBoundingClientRect();
+      const ins = window.dgm3d!.renderer.frameInsets;
+      const c = { left: r.left + ins.left, top: r.top + ins.top, width: r.width - ins.left - ins.right, height: r.height - ins.top - ins.bottom };
       const m = window.dgm3d!.renderer.mapState()!;
       const pts = [[0, 0], [m.W - 1, 0], [0, m.H - 1], [m.W - 1, m.H - 1]].map(([x, y]) => window.dgmEditor!.tileToClient(x, y));
       const xs = pts.map((p) => p.x);
@@ -75,26 +78,23 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
     expect(c.w, `${step}: the whole map is in view`).toBeLessThan(c.cw);
     expect(c.h, `${step}: the whole map is in view`).toBeLessThan(c.ch);
   }
-  // the level control: top right, beside the compass, larger; Slow forces and Sound under it
+  // the level control: top right, under the camera group, as tall as the compass; Slow forces and Sound beside it
+  // (Layout 2; the grid's exact edges are viewAndHeader.spec's)
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const layer = await box(page.getByRole("group", { name: "Visible layers" }));
   const compass = await box(page.locator(".compass"));
-  const canvas = await box(page.locator("canvas"));
-  expect(layer.y).toBeLessThan(canvas.y + 70);
-  expect(layer.x + layer.width).toBeLessThanOrEqual(compass.x + 2);
-  expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(120);
-  expect(layer.height).toBeGreaterThanOrEqual(40);
+  const canvas = await box(page.locator(".view3d > canvas"));
+  expect(layer.y).toBeLessThan(canvas.y + 120);
+  expect(layer.y).toBeGreaterThanOrEqual(compass.y + compass.height);
+  expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(320);
+  expect(Math.abs(layer.height - compass.height)).toBeLessThanOrEqual(2);
   const watch = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
   const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
-  expect(watch.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
-  expect(sound.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
-  expect(watch.x + watch.width).toBeGreaterThan(layer.x);
-  // aligned with the compass (D361, item 8): level control and compass on one line, the same height;
-  // Slow forces and the speaker under them, flush with the compass's right edge
-  expect(Math.abs(layer.y - compass.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(layer.height - compass.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(watch.y - layer.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(sound.y - layer.y)).toBeLessThanOrEqual(2);
+  expect(watch.x).toBeGreaterThan(layer.x + layer.width);
+  // the speaker under the compass, flush with its right edge (D361, item 8)
   expect(Math.abs(sound.x + sound.width - (compass.x + compass.width))).toBeLessThanOrEqual(2);
-  expect(sound.y).toBeGreaterThanOrEqual(compass.y + compass.height);
   // the speaker is an icon (a drawing, no word), crossed out when the sounds are off
   const speaker = page.getByRole("button", { name: "Sound", exact: true });
   await expect(speaker).toHaveText("");
@@ -214,10 +214,14 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   await modes.getByRole("button", { name: "Whole map" }).click();
   await expect(row.getByRole("button", { name: "Up 1" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Down 1" })).toBeVisible();
-  // Ctrl+click on the land takes its level
+  // Ctrl+click on the land takes its level (dry land the map shows, clear of the controls over it)
   const target = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
-    for (let y = 20; y < m.H - 20; y++) for (let x = 20; x < m.W - 20; x++) if (m.surface.depth[y * m.W + x] <= 0 && m.heights[y * m.W + x] > 3) return { x, y, h: m.heights[y * m.W + x] };
+    const open = (x: number, y: number) => {
+      const c = window.dgmEditor!.tileToClient(x, y);
+      return document.elementFromPoint(c.x, c.y)?.tagName === "CANVAS";
+    };
+    for (let y = 20; y < m.H - 20; y++) for (let x = 20; x < m.W - 20; x++) if (m.surface.depth[y * m.W + x] <= 0 && m.heights[y * m.W + x] > 3 && open(x, y)) return { x, y, h: m.heights[y * m.W + x] };
     return null;
   });
   expect(target).not.toBeNull();
@@ -279,13 +283,12 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces row is in three groups by prominence: Carve, Craterize, Erupt · Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Quake, Glaciate; the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
+  // (Layout 2's bar has one cell per force, the clusters' order kept, with no gap between clusters)
   expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  // two clusters in one row today (the third group's forces are not adopted yet)
-  expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 

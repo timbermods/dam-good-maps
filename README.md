@@ -7,7 +7,7 @@ The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on
 <https://timbermods.github.io/dam-good-maps/>.
 
 The generator:
-- A map opens ready to edit. **Maps**, top left, opens its settings and your maps.
+- A map opens ready to edit. **Map Generator**, top left, opens its settings and your maps.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
   Basin**, **Delta** or **Islands**. Then pick the size.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
@@ -34,7 +34,7 @@ The generator:
 The editor:
 - Middle-drag turns the view, right-drag moves it, scroll zooms. WASD and the arrow keys move, Q and
   E turn, Shift is faster.
-- Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
+- Paint the ground with the brushes in the bar at the bottom: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 1–5). Drag on the map to paint.
 - { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
   **Smooth** and **Naturalize**'s strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
@@ -42,14 +42,14 @@ The editor:
   shown beside the pointer, with hard edges.
 - Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
   either end, **Free** raises or digs softly.
-- The row under the brushes holds their options: **Size**, **Level**, **Mode** and **Sources**, then
+- The held tool's settings sit just above the bar: **Size**, **Level**, **Mode** and **Sources**, then
   **Square** and **Straight lines**. **Flatten** adds **In steps**.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
   removes them.
-- **Level lines** is a view switch beside **Height colours**. A slope goes exactly where you want it
-  from the shelf's **Slope**.
+- **Lines**, under **Show** at the top left, draws a line at every level. A slope goes exactly where you
+  want it from the objects' **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
 - The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
@@ -57,10 +57,10 @@ The editor:
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
   Power. **Try another** gives a different result; **More** holds the details.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
-- The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
+- The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
-- A new source's water flows at once. The row under the brushes sets its strength.
+- A new source's water flows at once. The settings above the bar set its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
 - Point at an object or a source and press **Delete** to remove it. The start stays.
@@ -70,10 +70,10 @@ The editor:
 - Drag the start to move it. Point at it to see its water, wood and berries.
 - The water flows as you edit. **Pause water**, **Speed**, **Skip** and **Replay** control
   it. **Drought** and **Badtide** show what each does to the map.
-- A brush over water clears the water around it, so you see the bed. **Clear water** (T) clears all
+- A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
-- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Flow**, **Badwater**,
-  **Minimap**, **Sound** and **Legend**.
+- Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
+  **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
@@ -83,8 +83,8 @@ The editor:
   has **Open…**, **Save project**, **Download .timber**, **Clear everything**, **History** and
   **About**.
 - Click the map's name at the top to rename it. The saved file takes the name.
-- **Generate** makes a new map. The one you were on stays in **Your maps**, at the foot of **Maps**:
-  click it to go back.
+- **Generate** makes a new map. The one you were on stays in **Your maps**, at the foot of **Map
+  Generator**: click it to go back.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.

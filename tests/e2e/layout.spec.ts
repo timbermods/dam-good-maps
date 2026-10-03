@@ -19,11 +19,11 @@ const PANEL = 352;
 const MARGIN = 10;
 
 /** The pieces of chrome that must never overlap one another. */
-const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".editor-view .minimap", ".readout"];
+const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".editor-view .minimap", ".coords", ".readout"];
 /** What keeps its place at the map's right when the panel opens. */
 const RIGHT = [".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".objects-menu"];
 /** What moves with the map's left edge when the panel opens. */
-const LEFT = [".show-column", ".legend-panel", ".editor-view .minimap", ".readout"];
+const LEFT = [".show-column", ".legend-panel", ".editor-view .minimap", ".coords", ".readout"];
 
 interface Box {
   name: string;
@@ -68,7 +68,7 @@ async function contrast(page: Page): Promise<{ name: string; ratio: number; soli
     const out: { name: string; ratio: number; solid: boolean }[] = [];
     const seen = new Set<Element>();
     // ("Water settled" is plain text over the map's sky with a dark shadow, by design: not among them)
-    for (const el of document.querySelectorAll(".editor-bar button, .editor-bar h1, .editor-bar .muted, .shelf-item, .drawer button, .drawer label, .drawer li, .show-column button, .tool-dock button, .tool-dock label, .cell-head, .view3d-corner button, .view3d-corner output, .legend-panel .pick-line, .legend-panel .panel-head, .readout, .water-bar button, .water-bar label, .layer-legend p, .overlay-legend p")) {
+    for (const el of document.querySelectorAll(".editor-bar button, .editor-bar h1, .editor-bar .muted, .shelf-item, .drawer button, .drawer label, .drawer li, .show-column button, .tool-dock button, .tool-dock label, .cell-head, .view3d-corner button, .view3d-corner output, .legend-panel .pick-line, .legend-panel .panel-head, .readout, .coords, .water-bar button, .water-bar label, .layer-legend p, .overlay-legend p")) {
       if (seen.has(el) || (el as HTMLElement).offsetParent === null) continue;
       seen.add(el);
       const cs = getComputedStyle(el);

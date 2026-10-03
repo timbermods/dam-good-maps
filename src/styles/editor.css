@@ -100,14 +100,14 @@ button[aria-pressed="true"] {
   overflow: hidden;
 }
 
-.view3d canvas {
+.view3d > canvas {
   display: block;
   width: 100%;
   height: 100%;
   touch-action: none;
 }
 
-.view3d canvas:focus-visible {
+.view3d > canvas:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
 }

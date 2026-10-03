@@ -78,7 +78,7 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   const size = row.locator(".size-control output");
-  const power = row.locator(".slider-field").filter({ hasText: "Power" }).locator("output");
+  const power = row.locator('label.slider-field:has(input[aria-label="Power"])').locator("output");
   // numbers: Power's, and Size's on Auto as "Auto (n)"
   await expect(power).toHaveText(/^\d+$/);
   await expect(size).toHaveText(/^Auto \(\d+\)$/);
@@ -130,7 +130,7 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await page.keyboard.press("7");
   const carve = page.getByRole("group", { name: "Carve options" });
   await expect(carve.locator(".size-control output")).toHaveText(/^Auto \([\d.]+\)$/);
-  await expect(carve.locator(".slider-field").filter({ hasText: "Power" }).locator("output")).toHaveText(/^\d+$/);
+  await expect(carve.locator('label.slider-field:has(input[aria-label="Power"])').locator("output")).toHaveText(/^\d+$/);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();

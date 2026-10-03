@@ -6,7 +6,7 @@
 // opens it again.
 
 import { expect, test } from "@playwright/test";
-import { generateButton, openDrawer, openEditor } from "./open";
+import { centreOn, generateButton, openDrawer, openEditor } from "./open";
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
@@ -18,6 +18,7 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   const at: [number, number] = [70, 12];
   const ground = await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), at);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await centreOn(page, at[0], at[1]);
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] - 3, at[1]] as const);
   const b = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] + 3, at[1]] as const);
   await page.mouse.move(a.x, a.y);

@@ -1,6 +1,6 @@
 // The view and the header (PLAN §20 D184, D205, D207, D330), through the page: the map's name and its line,
 // the header's two icons, its one primary button and the File menu; the quiet dot and its list; the first run's three hints,
-// each gone once done and never back; the minimap, its toggle and a click that moves the camera;
+// each gone once done and never back; the minimap, always shown, and a click that moves the camera;
 // camera bookmarks, kept with the project; the start's reach while the pointer is on it; the
 // brushes working only the visible land under a cut.
 
@@ -23,8 +23,9 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   page.on("pageerror", (e) => errors.push(String(e)));
   await open(page);
 
-  // the header: the open map's name and its line (seed and size), the Maps button on the left, shut
-  await expect(page.locator(".editor-title h1")).toHaveText("River Valley");
+  // the header: the open map's name (its standout's since M9b, D278) and its line (seed and size), Map Generator on
+  // the left, shut
+  await expect(page.locator(".editor-title h1")).toHaveText(await page.evaluate(() => window.dgmEditor!.info().name));
   await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
   await expect(page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true })).toHaveAttribute("aria-pressed", "false");
 
@@ -72,11 +73,10 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(hints).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // the minimap: off on a small map, a view button turns it on; a click there moves the camera
+  // the minimap: always shown, at the bottom left (Layout 2); a click there moves the camera
   const minimap = page.getByRole("img", { name: /^Minimap/ });
-  await expect(minimap).toHaveCount(0);
-  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Minimap" }).click();
   await expect(minimap).toBeVisible();
+  await expect(page.getByRole("button", { name: "Minimap" })).toHaveCount(0);
   const box = (await minimap.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.25);
   const t = (await view(page)).target;
@@ -177,23 +177,24 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   expect(errors).toEqual([]);
 });
 
-test("D368 (5), D330: the top right is one tidy cluster: the compass in the corner, the level control beside it, Slow forces and Sound beneath, the Legend button under them, all on the cluster's edges, one height and one gap throughout", async ({ page }, testInfo) => {
+test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view and the compass, then the level control, Slow forces and Sound under them, on three columns 310px wide, one height and one gap throughout", async ({ page }, testInfo) => {
   await open(page);
   await page.waitForTimeout(500);
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
-  // (the cluster's own: one height and one gap for every piece, 10px from the view's top and right edges; the right
-  // column's exact edges at every window size are pinned in layout.spec.ts)
+  // (the grid's own: one height and one gap for every piece, 10px from the view's top and right edges)
   const HEIGHT = 44;
   const GAP = 8;
   const EDGE = 10;
+  const WIDTH = 310;
   const measure = async () => {
     const view = await box(page.locator(".editor-view .view3d"));
     const compass = await box(page.locator(".view3d-corner .compass"));
+    const top = await box(page.getByRole("button", { name: "Top-down", exact: true }));
+    const reset = await box(page.getByRole("button", { name: "Reset view", exact: true }));
     const level = await box(page.locator(".view3d-corner .corner-level"));
     const slow = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
     const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
-    const legend = await box(page.getByRole("button", { name: "Legend", exact: true }));
-    return { view, compass, level, slow, sound, legend };
+    return { view, compass, top, reset, level, slow, sound };
   };
   const near = (a: number, b: number, what: string) => expect(Math.abs(a - b), `${what}: ${a} against ${b}`).toBeLessThanOrEqual(1);
   // at rest (the whole world showing) and with a layer cut (the level control keeps its width)
@@ -202,35 +203,28 @@ test("D368 (5), D330: the top right is one tidy cluster: the compass in the corn
       await page.getByRole("button", { name: "Lower the visible layer" }).click();
       await expect(page.getByRole("group", { name: "Visible layers" }).locator("output")).not.toHaveText("∞");
     }
-    const { view, compass, level, slow, sound, legend } = await measure();
+    const { view, compass, top, reset, level, slow, sound } = await measure();
     const right = (b: { x: number; width: number }) => b.x + b.width;
     const bottom = (b: { y: number; height: number }) => b.y + b.height;
-    // the compass in the corner of the view
+    // the compass in the corner of the view, the grid 310px wide
     near(view.x + view.width - right(compass), EDGE, `${state}: the compass's right margin`);
     near(compass.y - view.y, EDGE, `${state}: the compass's top margin`);
-    // the level control beside it, on its line, one height, one gap
-    near(level.y, compass.y, `${state}: the level control on the compass's line`);
-    near(level.height, HEIGHT, `${state}: the level control's height`);
-    near(compass.height, HEIGHT, `${state}: the compass's height`);
-    near(compass.x - right(level), GAP, `${state}: the gap between the level control and the compass`);
-    // Slow forces directly under the level control, exactly as wide; Sound directly under the compass
-    near(slow.y - bottom(compass), GAP, `${state}: the gap beneath`);
-    near(sound.y, slow.y, `${state}: Slow forces and Sound on one line`);
-    near(slow.x, level.x, `${state}: Slow forces from the level control's left edge`);
-    near(slow.width, level.width, `${state}: Slow forces as wide as the level control`);
-    near(right(sound), right(compass), `${state}: Sound to the compass's right edge`);
-    near(sound.width, compass.width, `${state}: Sound square under the compass`);
-    near(sound.x - right(slow), GAP, `${state}: the gap between Slow forces and Sound`);
-    for (const [name, b] of [
-      ["Slow forces", slow],
-      ["Sound", sound],
-    ] as const)
-      near(b.height, HEIGHT, `${state}: ${name}'s height`);
-    // the Legend button under them, spanning the cluster
-    near(legend.x, slow.x, `${state}: Legend from the cluster's left edge`);
-    near(right(legend), right(sound), `${state}: Legend to the cluster's right edge`);
-    near(legend.y - bottom(slow), GAP, `${state}: the gap above Legend`);
-    near(legend.height, HEIGHT, `${state}: Legend's height`);
+    near(right(compass) - top.x, WIDTH, `${state}: the grid's width`);
+    // row 1: Top-down, Reset view and the compass on one line, one height, one gap
+    for (const [name, b] of [["Top-down", top], ["Reset view", reset], ["the compass", compass], ["the level control", level], ["Slow forces", slow], ["Sound", sound]] as const) near(b.height, HEIGHT, `${state}: ${name}'s height`);
+    near(top.y, compass.y, `${state}: Top-down on the compass's line`);
+    near(reset.y, compass.y, `${state}: Reset view on the compass's line`);
+    near(reset.x - right(top), GAP, `${state}: the gap between Top-down and Reset view`);
+    near(compass.x - right(reset), GAP, `${state}: the gap between Reset view and the compass`);
+    // row 2, one gap beneath, on row 1's columns: the level control under Top-down, Slow forces under Reset view,
+    // Sound under the compass
+    for (const b of [level, slow, sound]) near(b.y - bottom(compass), GAP, `${state}: the gap beneath`);
+    near(level.x, top.x, `${state}: the level control under Top-down`);
+    near(level.width, top.width, `${state}: the level control as wide as Top-down`);
+    near(slow.x, reset.x, `${state}: Slow forces under Reset view`);
+    near(slow.width, reset.width, `${state}: Slow forces as wide as Reset view`);
+    near(sound.x, compass.x, `${state}: Sound under the compass`);
+    near(sound.width, compass.width, `${state}: Sound as wide as the compass`);
   }
   // (a picture for Kyler's eye: the cluster, at rest)
   await page.getByRole("group", { name: "Visible layers" }).locator("output").click();

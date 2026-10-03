@@ -29,15 +29,15 @@ test("the start requirements follow the settings, and the editor's start follows
   expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 30, 178]);
   for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) expect(c[id].ok, id).toBe(true);
 
-  // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the Maps drawer's Difficulty section)
+  // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the map generator's Difficulty section)
   const sheet = await openSection(page, "Difficulty");
   // Difficulty holds the start rules in this order, at Normal's values; "Designed for" and its Easy and Hard are gone
   await expect(sheet.locator("label.field .field-head")).toHaveText(["Starting wood", "Max walk to water", "Starting berries", "Start area", "No ruins within"]);
   await expect(sheet.locator("#rule-wood")).toHaveValue("200");
   await expect(sheet.locator("#rule-water")).toHaveValue("20");
   await expect(sheet.locator("#rule-bushes")).toHaveValue("30");
-  await expect(page.locator("aside[aria-label=\"Maps\"]")).not.toContainText("Designed for");
-  await expect(page.locator("aside[aria-label=\"Maps\"]").getByRole("button", { name: /^(Easy|Hard)$/ })).toHaveCount(0);
+  await expect(page.locator("aside[aria-label=\"Map Generator\"]")).not.toContainText("Designed for");
+  await expect(page.locator("aside[aria-label=\"Map Generator\"]").getByRole("button", { name: /^(Easy|Hard)$/ })).toHaveCount(0);
   await sheet.getByLabel("Starting wood").fill("75");
   await sheet.getByLabel("Starting wood").dispatchEvent("change");
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();

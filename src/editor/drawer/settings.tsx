@@ -1,4 +1,4 @@
-// The Maps drawer's settings (PLAN §5, §14.1): Terrain, Water, Hazards, Resources, Difficulty and Limits for this
+// The map generator panel's settings (PLAN §5, §14.1): Terrain, Water, Hazards, Resources, Difficulty and Limits for this
 // size, each a section that opens in place under its own row. Every field is the generator's settings page's as
 // it was on dev (its name, its guard, PLAN §5.3), with no line under it (Kyler, 2026-10-03): the official maps'
 // range a line gave is in the setting's tooltip. Difficulty holds the start rules; every map is made for Normal

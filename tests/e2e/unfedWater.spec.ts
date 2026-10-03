@@ -53,7 +53,7 @@ test("a removed source's marker goes at once, and its water drains away in the e
   await expect.poll(() => waterNear(page, x, y), { timeout: 20_000 }).toBeGreaterThan(0.01);
   // let it settle (the journey and the background check)
   await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
-  await page.getByRole("button", { name: "Markers" }).click();
+  await page.getByRole("checkbox", { name: "Markers" }).click();
   const markers = page.locator(".source-marker");
   const n0 = await markers.count();
   expect(n0).toBeGreaterThan(0);

@@ -30,7 +30,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
   // refine: the editor opens the generated map in 3D
   await openEditor(page, "s=4262&z=96&d=n&t=riverValley");
-  await expect(page.getByRole("heading", { name: "River Valley" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Top-down" }).click();
 
@@ -87,6 +87,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // an edit of what the generator made: drag the start two tiles on the map
   const before = i.features.find((f) => f.kind === "start")!.params as { position: [number, number] };
   // (west: the berries, wood and water this map has for its start stay within reach)
+  await centreOn(page, before.position[0], before.position[1]);
   await drag(page, before.position, [before.position[0] - 2, before.position[1]]);
   await expect.poll(async () => (await info(page)).history.length, { timeout: 30_000 }).toBe(3);
   await page.evaluate(() => window.dgmEditor!.idle());
@@ -187,11 +188,12 @@ test("the next visit, with no link in the address, opens the map left open, with
   await drag(page, [30, 40], [34, 40]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   expect((await info(page)).edits).toBe(1);
+  const name = (await info(page)).name;
   await page.waitForTimeout(2500);
   await page.goto("about:blank");
   await page.goto("./");
   await waitForEditor(page);
   const again = await info(page);
   expect(again.edits).toBe(1);
-  expect(again.name).toBe("River Valley");
+  expect(again.name).toBe(name);
 });

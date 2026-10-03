@@ -157,7 +157,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   expect(await view()).toBe(turned);
 
   // a fast drag across the map: down, two moves, up, with no waits between
-  const box = (await page.locator(".view3d canvas").boundingBox())!;
+  const box = (await page.locator(".view3d > canvas").boundingBox())!;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   let n = await count();
@@ -174,7 +174,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   n = await count();
   await page.evaluate(
     ([x, y]) => {
-      const c = document.querySelector(".view3d canvas")!;
+      const c = document.querySelector(".view3d > canvas")!;
       const ev = (type: string, px: number, buttons: number) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "mouse", isPrimary: true, clientX: px, clientY: y, button: 0, buttons });
       c.dispatchEvent(ev("pointerdown", x - 120, 1));
       c.dispatchEvent(ev("pointermove", x, 1));

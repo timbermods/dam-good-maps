@@ -827,9 +827,17 @@
   bottom: 86px;
 }
 
-.readout.coords {
+.editor-view .coords {
+  position: absolute;
+  left: 10px;
   bottom: 48px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
@@ -902,6 +910,7 @@
   padding: 6px 4px;
 }
 
+.cell-stack,
 .cell-rows {
   display: flex;
   flex-direction: column-reverse;

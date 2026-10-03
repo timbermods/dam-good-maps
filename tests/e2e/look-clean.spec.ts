@@ -21,8 +21,8 @@ test("the 3D view is clean until Markers turns the information layer on", async 
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
   // clean: no markers, no slope arrows; the legend keeps the markers' lines apart
-  const button = page.getByRole("group", { name: "View" }).getByRole("button", { name: "Markers", exact: true });
-  await expect(button).toHaveAttribute("aria-pressed", "false");
+  const button = page.getByRole("group", { name: "Show" }).getByRole("checkbox", { name: "Markers", exact: true });
+  await expect(button).toHaveAttribute("aria-checked", "false");
   let s = await state(page);
   expect(s.markers).toBe(false);
   expect(s.arrows).not.toBe(true);
@@ -32,13 +32,13 @@ test("the 3D view is clean until Markers turns the information layer on", async 
 
   // on: the arrows show, and the choice lasts (a reload opens the map with Markers still on)
   await button.click();
-  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(button).toHaveAttribute("aria-checked", "true");
   s = await state(page);
   expect(s.markers).toBe(true);
   expect(s.arrows).not.toBe(false);
   await page.reload();
   await waitForEditor(page);
-  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(button).toHaveAttribute("aria-checked", "true");
   expect((await state(page)).markers).toBe(true);
 
   // off again
@@ -47,15 +47,15 @@ test("the 3D view is clean until Markers turns the information layer on", async 
 
   // no Dam sites view (D287): dam sites are never drawn on the map
   const markers = button;
-  const viewBar = page.getByRole("group", { name: "View" });
-  for (const gone of ["Dam sites", "Moisture", "Drought", "Orbit"]) await expect(viewBar.getByRole("button", { name: gone, exact: true }), gone).toHaveCount(0);
-  await expect(viewBar.getByRole("button", { name: "Badwater", exact: true })).toHaveCount(1);
+  const viewBar = page.getByRole("group", { name: "Show" });
+  for (const gone of ["Dam sites", "Moisture", "Drought", "Orbit"]) await expect(viewBar.getByRole("checkbox", { name: gone, exact: true }), gone).toHaveCount(0);
+  await expect(viewBar.getByRole("checkbox", { name: "Badwater", exact: true })).toHaveCount(1);
   // the shelf's Slope shows the markers (the slopes' arrows) while it is out
   const slope = page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Slope", exact: true });
   await slope.click();
-  await expect(markers).toHaveAttribute("aria-pressed", "true");
+  await expect(markers).toHaveAttribute("aria-checked", "true");
   await slope.click();
-  await expect(markers).toHaveAttribute("aria-pressed", "false");
+  await expect(markers).toHaveAttribute("aria-checked", "false");
 
   expect(errors).toEqual([]);
 });

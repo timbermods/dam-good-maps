@@ -2,7 +2,7 @@
 // start): every press rolls a fresh seed; typing a seed pins it ("Keep" beside the box, lit) and Generate
 // then makes that map again until it is unlocked or cleared; opening a share link pins its seed; the Dice
 // button is gone. The seed in the drawer's box, the header's line under the name, the address, the link and the
-// map open in the editor are always the map shown. Generate runs from the Maps drawer.
+// map open in the editor are always the map shown. Generate runs from the map generator's panel.
 
 import { expect, test, type Page } from "@playwright/test";
 import { generateButton, openDrawer, openEditor } from "./open";

@@ -27,7 +27,9 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
 
   // the title is a button that says "Rename"; the second line reads the seed and size
   const button = h1.locator("button.title-button");
-  await expect(button).toHaveText("River Valley");
+  // (a generated map is named by its standout since M9b, D278: the name the core gave it)
+  const name = (await info()).name;
+  await expect(button).toHaveText(name);
   await expect(button).toHaveAttribute("title", "Rename");
   await expect(facts).toHaveText("Seed 4242 · 96×96");
   await expectReady(page);
@@ -38,7 +40,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   const before = { title: await box(title), h1: await box(h1), name: await box(button) };
   await button.click();
   await expect(field).toBeFocused();
-  await expect(field).toHaveValue("River Valley");
+  await expect(field).toHaveValue(name);
   same(await box(title), before.title, "the title's box while editing");
   same(await box(h1), before.h1, "the heading's box while editing");
   same(await box(field), before.name, "the name's box while editing");
@@ -47,8 +49,8 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await field.fill("Nowhere Bend");
   await page.keyboard.press("Escape");
   await expect(field).toHaveCount(0);
-  await expect(button).toHaveText("River Valley");
-  expect(await stored()).toBe("River Valley");
+  await expect(button).toHaveText(name);
+  expect(await stored()).toBe(name);
   same(await box(title), before.title, "the title's box after Esc");
 
   // Enter saves through the core: the heading shows it, and it is no undo step

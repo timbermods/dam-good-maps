@@ -363,6 +363,32 @@ Where it doesn't fit, and what the mockups do:
 - **The coordinates repeat the readout's height** ("Z 10" over "Height 10, dry soil"); the readout could drop its
   height.
 
+**Layout 2 as built (2026-10-03, Kyler's yes to round 8 with the Legend).** As the design above, with Kyler's two
+refinements and what the mockups left open:
+- **The legend** shows each object with the objects menu's own picture (Trees and bushes with the pine's); the ground
+  colours, the water and the markers keep their swatches. Its rows are one height on every map, 17px: the fullest
+  legend (20 lines, "Markers on:" and its 4 lines, with Under roofs added to the Show column) needs 437px at
+  1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
+  line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
+- **The settings on the bar's cells:** each group keeps its place on every tool of its kind, an empty place left
+  empty, so nothing jumps between tools: Smooth and Naturalize (no Level) give Size cells 1–4; Flatten's In steps
+  takes cells 9–11 of the row above; Quake (no Size) has its Lift or Slide in the choice's cells 7–9; Glaciate's
+  choice is Meltwater, under "Water". **Try another** (Carve's too, no longer "Try another path") sits beside More in
+  cells 10–11. More's details are three cells each (Debris and Flows four, Benches and Steps five), the Floor last.
+  A force at work: its status 1–5, Pause 6 (Carve), the keys 7–9, Revert 10–11.
+- **Select with a selection:** its size in cells 7–11 with the keys; its actions take the row above, one per cell:
+  Up 1, Down 1, Level, Flatten, Cut down, Fill up, Delete (its menu opening upward), and over water Max water depth.
+- **An object's settings:** a source on the shelf: Next source 1–3, Pointing at 4–6; a source picked on the map:
+  Strength 1–2, This source 3–4, Water 5–6, Remove 7, Unleash 8, its Power 9–10, Put it down (×) 11; a picked
+  object: "Drag it to move it" 1–4, Delete 5, × 11; a ruin's Height and a relic's Size 1–3.
+- **The overlays' captions** sit beside their rows while on: Heights' "Ground height" with the ramp and the map's
+  lowest and highest level; Badwater's and Under roofs' one-line captions.
+- **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
+- **The panel narrows the map area** rather than covering it, so the camera's insets are the top row (the water row
+  and the camera group), the Show column, the bar with its settings and the objects menu, each as far as it reaches
+  plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
+- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
 - **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;
   below about 1,000px the checks' words give way to the dot alone.

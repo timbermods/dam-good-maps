@@ -304,14 +304,15 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   expect(await look(page)).toBe("high");
   await page.keyboard.press("0");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
-  // dry ground in the middle of the view, clear of the rows over the map
+  // dry ground in the middle of the view, clear of the controls over the map
   const at = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
-    const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
+    const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
+    const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - 20;
     for (let d = 0; d < m.W / 3; d++)
       for (const [x, y] of [[m.W / 2 + d, m.H / 2 + d], [m.W / 2 - d, m.H / 2 + d], [m.W / 2 + d, m.H / 2 - d], [m.W / 2 - d, m.H / 2 - d]].map(([a, b]) => [Math.round(a), Math.round(b)])) {
         const p = window.dgmEditor!.tileToClient(x, y);
-        if (m.surface.depth[y * m.W + x] > 0 || p.y < below || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
+        if (m.surface.depth[y * m.W + x] > 0 || p.y < below || p.y > above || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
         return p;
       }
     return null;
@@ -362,6 +363,8 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 test("High's basin sources highlight as Standard's do (D378): a source turns a clear red (D249), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
+  // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera)
+  await page.evaluate(() => window.dgm3d!.renderer.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 }));
   const result = await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     /** The frame drawn now, read back, and how many device pixels a CSS pixel is. */

@@ -529,3 +529,23 @@ On /preview/ (from `feature/page`); captures beside dev in `docs/design/editor-b
 5. **The height slice.** ▾ value ▴, one width; down from ∞ goes to the map's highest ground, up runs to 22 then ∞; a
    click on the value is ∞.
 6. **No notices strip.** Remove the last badwater spring: the quiet dot's list says "No badwater".
+
+## Layout 2 built (2026-10-03, Kyler's yes to round 8 with the Legend)
+
+Built on `feature/page` as DESIGN.md's "the design to build" with Kyler's two refinements (the legend's objects
+with the objects menu's pictures; one fixed row height, 17px, so the fullest legend fits at 1920×1080 above the
+minimap, never scrolling). What the mockups left open is in DESIGN.md, "Layout 2 as built". Also in this round:
+- **Selecting never waits on the worker:** a click on an object or a source takes its record (id, template, place,
+  strength) from the page's own copy (`EntityView.ids`, #200), found by the same footprints the worker's
+  `entitiesAt` uses (`useSourcePointer.ts` `entitiesHere`); the worker answers only where an object has no id.
+- **The warm-up (#208):** the page starts `prepareRenderer()` as the first map starts loading; the view takes the
+  warmed renderer and its canvas in place of a new one, and a page left with no map drops it.
+- **The camera insets (#206):** `src/editor/view/insets.ts` measures how far the top row, the Show column, the bar
+  with its settings and the objects menu reach into the view and keeps the renderer's insets up to date; a new map is
+  framed within them; setting them never moves the camera.
+- Tests: `layout.spec.ts` rewritten for Layout 2 at its two sizes (the places, the settings on the bar's cells, the
+  fullest legend fitting); the specs that named the old controls moved to the new names (the Show column's
+  checkboxes, Map Generator, the bar's one toolbar, Try another). Renamed, as the rule allows: brushKit's "the top
+  bar and the brush kit…" (now "the bar and the brush kit…, Lines in the Show column"), selectRow's "four rows…"
+  (now "one bar at the bottom…"), viewAndHeader's top-right test (now the three-column grid), legend.spec's Legend
+  test. The tests that expected every generated map to be called "River Valley" read the name M9b gives it.

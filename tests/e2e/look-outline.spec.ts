@@ -9,7 +9,7 @@ import { openEditor } from "./open";
  *  counted in the page from a PNG screenshot. */
 async function outlinePixels(page: Page): Promise<number> {
   await page.evaluate(() => window.dgm3d!.renderer.renderNow());
-  const png = await page.locator(".view3d canvas").screenshot({ type: "png" });
+  const png = await page.locator(".view3d > canvas").screenshot({ type: "png" });
   return page.evaluate(async (b64) => {
     const img = new Image();
     img.src = `data:image/png;base64,${b64}`;
@@ -58,13 +58,13 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   // Markers off: no outline. The ground itself can hold a few pixels of the outline's colour (light
   // dry ground at this distance), so the counts are compared with the view's own: Markers off
   // counts what Markers on counts once the soil is clean
-  const markers = page.getByRole("button", { name: "Markers", exact: true });
-  await expect(markers).toHaveAttribute("aria-pressed", "false");
+  const markers = page.getByRole("checkbox", { name: "Markers", exact: true });
+  await expect(markers).toHaveAttribute("aria-checked", "false");
   const off = await outlinePixels(page);
 
   // Markers on: the outline
   await markers.click();
-  await expect(markers).toHaveAttribute("aria-pressed", "true");
+  await expect(markers).toHaveAttribute("aria-checked", "true");
   const on = await outlinePixels(page);
   expect(on - off).toBeGreaterThan(150);
 

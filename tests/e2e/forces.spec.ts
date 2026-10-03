@@ -58,12 +58,13 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
   const far = await page.evaluate(
     ([s0, s1]) => {
       const m = window.dgm3d!.renderer.mapState()!;
-      // (below the rows over the map, which grow with the force picked: a force's options and its More take
-      // more than the two rows and the first-run hints)
-      const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
+      // (clear of the top row, and of the bar with its settings, which grow upward with the force picked: its More
+      // takes further rows, and the first-run hints sit above them)
+      const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
+      const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - (document.querySelector('.tool-settings [aria-label$=" details"]') ? 20 : 140);
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
-        return p.y > below && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+        return p.y > below && p.y < above && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       let best: [number, number] = [0, 0];
       let score = -Infinity;

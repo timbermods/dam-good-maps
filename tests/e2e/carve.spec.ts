@@ -137,7 +137,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   expect(worker).toEqual(kept);
 
   // Try another path: the same carve, another way, replacing the first
-  const again = page.getByRole("button", { name: "Try another path" });
+  const again = page.getByRole("button", { name: "Try another", exact: true });
   await expect(again).toBeVisible();
   await again.click();
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.seed ?? 0) === 1, null, { timeout: 20_000 });
@@ -184,7 +184,7 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
   await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
 
   // Try another: the pinned Wander never moves, even though it replaces the carve with another one
-  await row.getByRole("button", { name: "Try another path" }).click();
+  await row.getByRole("button", { name: "Try another", exact: true }).click();
   await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
   expect((await labels(page)).at(-1)).toBe("Try another path");

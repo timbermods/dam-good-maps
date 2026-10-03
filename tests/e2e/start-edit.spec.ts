@@ -49,8 +49,16 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
 
   // thorns on its door: the instant check shows the problem at once, with its fix
   await shelf.getByRole("button", { name: "Thorns", exact: true }).click();
-  const pd = await client(page, door % W, Math.floor(door / W));
+  // (the pointer on the door's tile before the click: the view settles from the turn first)
+  let pd = await client(page, door % W, Math.floor(door / W));
   await page.mouse.move(pd.x + 3, pd.y);
+  await expect
+    .poll(async () => {
+      pd = await client(page, door % W, Math.floor(door / W));
+      await page.mouse.move(pd.x, pd.y);
+      return page.evaluate(() => window.dgm3d!.renderer.hoverHit && [window.dgm3d!.renderer.hoverHit.x, window.dgm3d!.renderer.hoverHit.y]);
+    })
+    .toEqual([door % W, Math.floor(door / W)]);
   await page.mouse.click(pd.x, pd.y);
   await idle(page);
   expect((await info(page)).history.at(-1)!.label).toBe("Place thorns");

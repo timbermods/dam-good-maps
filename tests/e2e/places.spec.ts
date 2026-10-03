@@ -136,6 +136,7 @@ test("a real place replaces the open map without asking, and the replaced map st
   // (a generated map's name is its own since M9b, from its standout, D278)
   // a map in the editor, autosaved
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  const name = await page.evaluate(() => window.dgmEditor!.info().name);
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));
@@ -163,8 +164,8 @@ test("a real place replaces the open map without asking, and the replaced map st
   const yours = page.getByRole("region", { name: "Your maps" });
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
-  await yours.getByRole("button", { name: /^River Valley/ }).click();
-  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name), { timeout: 60_000 }).toBe("River Valley");
+  await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name), { timeout: 60_000 }).toBe(name);
   expect((await page.evaluate(() => window.dgmEditor!.info())).edits).toBe(1);
 });
 

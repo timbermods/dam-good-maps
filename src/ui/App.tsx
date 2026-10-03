@@ -32,6 +32,7 @@ import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture } from "../editor/Editor";
 import { thumbnailPixels } from "../core/render/thumb";
+import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { DrawerModel, YourMapRow } from "../editor/Drawer";
 import type { Section } from "../editor/drawer/settings";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
@@ -432,6 +433,8 @@ export function App() {
           setSeedPinned(false);
           return run({ ...s, seed }, tries + 1);
         }
+        // (no map to show after all: the warm renderer goes)
+        discardPreparedRenderer();
         return null;
       }
       shown = r;
@@ -491,6 +494,8 @@ export function App() {
   }
 
   useEffect(() => {
+    // the 3D view's renderer warms while the first map loads (D367, part 1): the view takes it when it opens
+    void prepareRenderer();
     void (async () => {
       const list = await yourMaps.list().catch(() => [] as YourMapEntry[]);
       setMaps(list);

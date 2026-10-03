@@ -29,9 +29,11 @@ async function dryAt(page: Page, room = 8): Promise<[number, number]> {
   return page.evaluate((r) => {
     const m = window.dgm3d!.renderer.mapState()!;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+    // (clear of the controls, with room above the bar's settings for a selection's actions row, which opens there)
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
-      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
     for (let y = r + 4; y < m.H - r - 4; y += 2)
       for (let x = r + 4; x < m.W - r - 4; x += 2) {
@@ -158,12 +160,13 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   await openTopDown(page);
   const row = page.getByRole("group", { name: "Selection" });
   await row.getByRole("button", { name: "Wand" }).click();
-  // a river tile where the map takes the pointer
+  // a river tile where the map takes the pointer (with room above the bar for a selection's actions row)
   const r = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
-      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
     for (let y = 10; y < m.H - 10; y++) for (let x = 10; x < m.W - 10; x++) if (m.surface.depth[y * m.W + x] > 0.3 && onMap(x, y)) return [x, y] as [number, number];
     return null;

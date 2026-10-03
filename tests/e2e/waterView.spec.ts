@@ -1,5 +1,5 @@
 // Water is never an object, and the ways to see it (PLAN §20 D196, D197, D212): clicking water
-// picks nothing; the hover readout gives its depth, bed and badwater; T or Clear water make all of
+// picks nothing; the hover readout gives its depth, bed and badwater; T or See-through make all of
 // it see-through, and a brush over water clears the water round it (on dry land it stays as it
 // is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets a soft brush's strength; a source is
 // always findable (its marker with a source picked on the shelf, and the sources feeding the water
@@ -66,8 +66,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("t");
   await expect.poll(() => clear(page)).toBe(true);
-  await expect(page.getByRole("button", { name: "Clear water" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Clear water" }).click();
+  await expect(page.getByRole("checkbox", { name: "See-through" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("checkbox", { name: "See-through" }).click();
   await expect.poll(() => clear(page)).toBe(false);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   await page.mouse.move(mp.x + 2, mp.y);

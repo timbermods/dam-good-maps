@@ -1,6 +1,6 @@
 // Every tool and control has an accurate tooltip when hovered (PLAN §20 D351, item B12): every tool and force,
 // every option in a settings row and in More, every view toggle, every shelf item, every button in the
-// Maps drawer, the legend and the File menu says in one plain line what it does, and its key where it has one. This test
+// map generator's panel, the legend and the File menu says in one plain line what it does, and its key where it has one. This test
 // collects the interactive controls from the rendered page, in every state the editor has, and fails
 // on any control with no tooltip (its own `title`, or the label or group that holds it).
 //
@@ -198,19 +198,17 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.getByRole("button", { name: /^Checks:/ }).click();
   await check("the checks list");
   await page.getByRole("button", { name: /^Checks:/ }).click();
-  await page.getByRole("button", { name: "Legend", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
   await check("the legend");
-  await page.getByRole("button", { name: "Legend", exact: true }).click();
-  await page.getByRole("button", { name: "Minimap" }).click();
-  await check("the minimap");
-  await page.getByRole("button", { name: "Badwater", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Badwater", exact: true }).click();
   await check("the badwater layer");
 
   expect(missing, "controls with no tooltip, or a tooltip that is not one short phrase, by state").toEqual({});
   expect((await info(page)).W).toBeGreaterThan(0);
 });
 
-test("every control in the Maps drawer, in each settings section opened in place, and the title's rename button has a tooltip", async ({ page }) => {
+test("every control in the map generator's panel, in each settings section opened in place, and the title's rename button has a tooltip", async ({ page }) => {
   test.setTimeout(200_000);
   await page.setViewportSize({ width: 1400, height: 1000 });
   await openEditor(page, "s=9&z=96&d=n&t=riverValley");
@@ -296,7 +294,7 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   await page.keyboard.press("7");
   const size = page.getByRole("group", { name: "Carve options" }).locator(".size-control .slider-field");
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
-  const power = page.getByRole("group", { name: "Carve options" }).locator(".slider-field").filter({ hasText: "Power" });
+  const power = page.getByRole("group", { name: "Carve options" }).locator('label.slider-field:has(input[aria-label="Power"])');
   expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });

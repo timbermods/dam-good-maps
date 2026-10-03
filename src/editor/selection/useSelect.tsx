@@ -408,8 +408,10 @@ export function useSelect(ed: Ed): SelectSlice {
       span: 5,
       centre: true,
       node: (
-        <span class="bar-status sel-status" role="status">
-          <span class="sel-line">{z ? sizeWords(z) : "Drag on the map"}</span>
+        <span class="bar-status sel-status">
+          <span class="sel-line" role="status">
+            {z ? sizeWords(z) : "Drag on the map"}
+          </span>
           {keys}
         </span>
       ),
@@ -531,10 +533,10 @@ export function useSelect(ed: Ed): SelectSlice {
         ]
       : [];
     return (
-      <>
-        <CellRow label="Selection" cells={[shapes, status]} />
-        {actions.length ? <CellRow label="Selection actions" cells={actions} /> : null}
-      </>
+      <div class="cell-stack" role="group" aria-label="Selection">
+        <CellRow label="Shapes" cells={[shapes, status]} />
+        {actions.length ? <CellRow label="Actions" cells={actions} /> : null}
+      </div>
     );
   }
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */

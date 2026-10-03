@@ -290,9 +290,9 @@ export function cellRows(cells: readonly Cell[]): Cell[][] {
 }
 
 /** One row of groups on the bar's cells (or several, the first lowest, when they don't fit on one). */
-export function CellRow(p: { label: string; cells: readonly Cell[]; status?: boolean }) {
+export function CellRow(p: { label?: string; cells: readonly Cell[] }) {
   return (
-    <div class="cell-rows" role="group" aria-label={p.label}>
+    <div class="cell-rows" role={p.label ? "group" : undefined} aria-label={p.label}>
       {cellRows(p.cells).map((row, k) => (
         <div class="cell-row" key={k}>
           {row.map((c) => (
@@ -456,10 +456,9 @@ export function TopBar(p: TopBarProps) {
   const off = p.loading || p.forceAtWork;
   const why = p.loading ? tip("The map is still loading") : tip("A force is at work", "Esc skips it");
   const brushRows = t ? (
-    <>
+    <div class="cell-stack" role="group" aria-label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}>
       {t === "flatten" ? (
         <CellRow
-          label="Flatten details"
           cells={[
             {
               key: "steps",
@@ -485,7 +484,6 @@ export function TopBar(p: TopBarProps) {
         />
       ) : null}
       <CellRow
-        label={`${BRUSHES.find((b) => b.tool === t)!.name} options`}
         cells={[
           {
             key: "size",
@@ -573,14 +571,14 @@ export function TopBar(p: TopBarProps) {
           },
         ]}
       />
-    </>
+    </div>
   ) : null;
   const rows = [
     brushRows,
     p.force && p.forceRow ? p.forceRow : null,
     p.row ? <CellRow label={p.row.label} cells={p.row.cells} /> : null,
     p.selectRow ?? null,
-    p.selectChip ? <CellRow label="Selection" cells={[{ key: "chip", at: 1, span: BAR_CELLS, centre: true, node: p.selectChip }]} /> : null,
+    p.selectChip ? <CellRow label="Working area" cells={[{ key: "chip", at: 1, span: BAR_CELLS, centre: true, node: p.selectChip }]} /> : null,
   ].filter(Boolean);
   const button = (tool: BrushTool | "select" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>

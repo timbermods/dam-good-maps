@@ -4,6 +4,7 @@
 import { View3D } from "../../ui/View3D";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
+import { measureInsets } from "../view/insets";
 import { Drawer } from "../Drawer";
 import { Shelf } from "../Shelf";
 import { LayerWidget } from "../LayerWidget";
@@ -44,6 +45,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               besideHeight={levelLinesButton(ed)}
               legendInCorner
               legendOpen={false}
+              frameInsets={measureInsets}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}

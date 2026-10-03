@@ -9,7 +9,8 @@
 
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { MapRenderer, type BuildStats, type MapView, type TileHit, type ViewMode } from "../render3d";
+import { MapRenderer, type BuildStats, type FrameInsets, type MapView, type TileHit, type ViewMode } from "../render3d";
+import { takePreparedRenderer } from "../render3d/prepared";
 import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
 import { presentEntries, type PresentEntry } from "./legendMap";
@@ -60,6 +61,9 @@ export interface View3DProps {
   /** An object's picture for its legend line (the objects menu's own), by the line's name; null keeps its
    *  swatch. */
   legendIcon?(label: string): string | null;
+  /** The edges of the view the page's controls cover, measured on the view, so a new map is framed clear of them
+   *  (`setFrameInsets`; the page keeps them up to date as the controls change). */
+  frameInsets?(view: HTMLElement): Partial<FrameInsets>;
 }
 
 const GROUND_KEY = "dgm.groundColours";
@@ -141,8 +145,9 @@ export function View3D(props: View3DProps) {
   /** The legend's line pointed to on the map, and the map's changes (the legend reads them). */
   const [pointed, setPointed] = useState<string | null>(null);
   const [mapTick, setMapTick] = useState(0);
-  /** The tile under the pointer, in the game's order (Layout 2's coordinates). */
-  const [coords, setCoords] = useState<readonly [number, number, number] | null>(null);
+  /** The tile under the pointer, in the game's order (Layout 2's coordinates): written straight to its line, so a
+   *  pointer moving over the map never re-renders the view. */
+  const coordsEl = useRef<HTMLDivElement>(null);
   const coordsRef = useRef<string>("");
   const onHover = useRef(props.onHover);
   onHover.current = props.onHover;
@@ -162,13 +167,23 @@ export function View3D(props: View3DProps) {
 
   useEffect(() => {
     let r: MapRenderer;
-    try {
-      r = new MapRenderer(canvas.current!);
-    } catch (e) {
-      setError("The 3D view needs WebGL, which this browser has turned off. The 2D view still works.");
-      console.warn(e);
-      return;
-    }
+    // the renderer warmed while the map loaded (D367, part 1), its canvas in this one's place; else a new one
+    const own = canvas.current!;
+    const taken = takePreparedRenderer(own.parentElement!);
+    if (taken) {
+      own.before(taken.canvas);
+      own.remove();
+      taken.canvas.setAttribute("aria-label", own.getAttribute("aria-label") ?? "");
+      canvas.current = taken.canvas;
+      r = taken;
+    } else
+      try {
+        r = new MapRenderer(own);
+      } catch (e) {
+        setError("The 3D view needs WebGL, which this browser has turned off. The 2D view still works.");
+        console.warn(e);
+        return;
+      }
     renderer.current = r;
     setMade(r);
     r.setGroundMode(ground);
@@ -178,11 +193,13 @@ export function View3D(props: View3DProps) {
     r.onHover = (hit) => {
       onHover.current?.(hit);
       if (!props.legendInCorner) return;
-      const c = hit ? ([hit.x, hit.y, r.heightAt(hit.x, hit.y)] as const) : null;
-      const k = c ? c.join(",") : "";
+      const k = hit ? `X ${hit.x} · Y ${hit.y} · Z ${r.heightAt(hit.x, hit.y)}` : "";
       if (k === coordsRef.current) return;
       coordsRef.current = k;
-      setCoords(c);
+      const el = coordsEl.current;
+      if (!el) return;
+      el.textContent = k;
+      el.hidden = !k;
     };
     // the legend reads the map again a moment after it changes, when the page is idle (never
     // while a brush paints or the water flows)
@@ -207,9 +224,14 @@ export function View3D(props: View3DProps) {
     };
   }, []);
 
+  // (the canvas may be the warmed renderer's: its name follows the view's)
+  useEffect(() => canvas.current?.setAttribute("aria-label", props.label), [props.label]);
+
   useEffect(() => {
     const r = renderer.current;
     if (!r) return;
+    const view = canvas.current?.parentElement;
+    if (view && props.frameInsets) r.setFrameInsets(props.frameInsets(view));
     const stats = r.setMap(props.view);
     // the legend reads the new map now
     setMapTick((n) => n + 1);
@@ -447,11 +469,7 @@ export function View3D(props: View3DProps) {
             <div class="corner-level">{props.cornerLevel}</div>
             {props.cornerBelow}
           </div>
-          {coords ? (
-            <div class="readout coords" aria-label="Coordinates">
-              X {coords[0]} · Y {coords[1]} · Z {coords[2]}
-            </div>
-          ) : null}
+          <div ref={coordsEl} class="coords" aria-label="Coordinates" hidden />
           {props.hoverText ? (
             <div class="readout" role="status">
               {props.hoverText}
