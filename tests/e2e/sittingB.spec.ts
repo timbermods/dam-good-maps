@@ -5,6 +5,7 @@
 // and every thing's hover readout (B11).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -13,10 +14,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function open(page: Page, hash = "s=9&z=96&d=n&t=riverValley") {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, hash);
   await page.waitForTimeout(600);
 }
 
@@ -49,12 +47,16 @@ const sourcesOn = (page: Page) =>
     return out;
   });
 
-test("B1 and B3: the map is centred in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
+test("B1 and B3: the map is centred in the free space in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const centred = async () =>
     page.evaluate(() => {
-      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      // the space the page's panels leave free (DESIGN.md: the default view fits the map in it)
+      const canvas = document.querySelector("canvas")!;
+      const all = canvas.getBoundingClientRect();
+      const inset = (side: string) => parseFloat(getComputedStyle(canvas).getPropertyValue(`--frame-${side}`)) || 0;
+      const c = { left: all.left + inset("left"), top: all.top + inset("top"), width: all.width - inset("left") - inset("right"), height: all.height - inset("top") - inset("bottom") };
       const m = window.dgm3d!.renderer.mapState()!;
       const pts = [[0, 0], [m.W - 1, 0], [0, m.H - 1], [m.W - 1, m.H - 1]].map(([x, y]) => window.dgmEditor!.tileToClient(x, y));
       const xs = pts.map((p) => p.x);
@@ -85,7 +87,8 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
   expect(layer.y).toBeLessThan(canvas.y + 70);
   expect(layer.x + layer.width).toBeLessThanOrEqual(compass.x + 2);
   expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(120);
-  expect(layer.height).toBeGreaterThanOrEqual(40);
+  // (one height for every plate outside the panel: 38px, DESIGN.md "Layout", D330; 40 before)
+  expect(layer.height).toBeGreaterThanOrEqual(38);
   const watch = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
   const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
   expect(watch.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
@@ -276,13 +279,13 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces row is in three groups by prominence: Carve, Craterize, Erupt · Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+test("B13: the forces row is one line in the order of prominence: Carve, Craterize, Erupt, Quake, Glaciate, with no clusters (D330); the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
   expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  // two clusters in one row today (the third group's forces are not adopted yet)
-  expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
+  // one evenly spaced line: no clusters and no dividers (DESIGN.md, "Layout"; this changes D352's groups)
+  await expect(row.locator(".force-cluster")).toHaveCount(0);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 

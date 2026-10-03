@@ -1,4 +1,4 @@
-// The left shelf and Delete (PLAN §20 D184, D288), through the page. The shelf: a picked object's
+// The shelf (on the right since D330) and Delete (PLAN §20 D184, D288), through the page. The shelf: a picked object's
 // ghost follows the pointer, its footprint green where the game keeps it and red where the game
 // would delete it, the reason beside the pointer; a click there is refused, and placed where it
 // fits; R turns it; Esc puts it back; trees and bushes paint many with a drag; the start moves where
@@ -7,16 +7,14 @@
 // the start stays. There is no Remove tool. (ROADMAP M7's object checks, through the shelf.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
 
-async function refine(page: Page, hash: string) {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash: string) {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -82,7 +80,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -160,7 +158,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });
@@ -310,7 +308,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
 // ------------------------------------------------------------------------------ D323: items 11, 12 and 32
 
 test("a drag never offers to open a file; a file dropped from outside the page still does (item 11)", async ({ page }) => {
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   // one edit, so that opening a file would ask to close the map and its edits
   const [x, y] = (await openGround(page, 1))[0];
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();
@@ -343,7 +341,7 @@ test("a drag never offers to open a file; a file dropped from outside the page s
 });
 
 test("one label beside the pointer for what is picked, none when nothing is; Esc or a right-click puts it away (item 32)", async ({ page }) => {
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -401,7 +399,7 @@ test("one label beside the pointer for what is picked, none when nothing is; Esc
 test("drag from the shelf: the ghost follows the pointer, the drop places it, a drag that doesn't place ends placement (item 11)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -470,7 +468,7 @@ test("drag from the shelf: the ghost follows the pointer, the drop places it, a 
 });
 
 test("an edge wall on an edited map warns in the checks dot, never blocks Save, and Lower the wall is one undo step (item 12)", async ({ page }) => {
-  await refine(page, "s=1&z=96&d=n&t=riverValley");
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const W = (await info(page)).W;
   const cells: [number, number, number][] = [];
   for (let y = 0; y < W; y++) cells.push([y, 0, 1]);

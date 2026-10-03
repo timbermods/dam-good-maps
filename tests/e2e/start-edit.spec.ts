@@ -3,6 +3,7 @@
 // (an object on its door) shows the problem at once, with a one-click fix.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -11,10 +12,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 test("the start: its footprint and what is nearby while it is dragged; on the shelf R turns its door; a broken start gets a one-click fix", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=77&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=77&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const W = (await info(page)).W;
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number]; orientation: string });

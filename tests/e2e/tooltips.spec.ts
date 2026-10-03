@@ -12,6 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -86,10 +87,7 @@ async function open(page: Page) {
   // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went; its one flat
   // spot is a plateau by the map's edge, where the placed source's water runs over the uneven ground
   // the mine site needs levelled, and "the water is in the way")
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.waitForTimeout(500);
 }
@@ -207,16 +205,28 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   expect((await info(page)).W).toBeGreaterThan(0);
 });
 
-test("every control on the settings page has a tooltip", async ({ page }) => {
+test("every control in the panel and in each settings sheet has a tooltip", async ({ page }) => {
   test.setTimeout(200_000);
   await page.setViewportSize({ width: 1400, height: 1000 });
-  await page.goto("./#s=9&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
+  await openEditor(page, "s=9&z=96&d=n&t=riverValley");
   const missing: Record<string, string[]> = {};
-  // (the advanced sections open too)
-  for (const s of await page.locator("summary").all()) if (await s.isVisible()) await s.click().catch(() => undefined);
-  const m = [...(await untitled(page)), ...(await wordy(page))];
-  if (m.length) missing["the settings page"] = m;
+  const check = async (state: string) => {
+    const m = [...(await untitled(page)), ...(await wordy(page))];
+    if (m.length) missing[state] = m;
+  };
+  await check("the panel");
+  // each section's sheet, with every field it holds
+  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Advanced: start rules", "Limits for this size"]) {
+    await page.getByRole("button", { name: section, exact: true }).click();
+    await expect(page.getByRole("dialog", { name: `${section} settings` })).toBeVisible();
+    await check(`the ${section} sheet`);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
+  // the collapsed panel's strip
+  await page.getByRole("button", { name: "Collapse the panel" }).click();
+  await check("the collapsed panel");
+  await page.getByRole("button", { name: "Open the panel" }).click();
   expect(missing, "controls with no tooltip, by state").toEqual({});
 });
 

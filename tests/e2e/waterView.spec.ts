@@ -7,6 +7,7 @@
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -22,10 +23,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.setViewportSize({ width: 1400, height: 900 });
   // (seed 15 since M9a, D148: 0.7.0's 4242 main river stands in pools, dry at 60% of its path; there
   // one group of sources feeds the water, where three rivers join on most maps)
-  await page.goto("./#s=15&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=15&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const W = i.W;

@@ -8,6 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -17,12 +18,9 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page, size: number) {
+async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
-  await page.goto(`./#s=4242&z=${size}&d=n&t=highlands`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
 }
@@ -107,7 +105,7 @@ const CASES: { name: string; key: string; mode?: string; go(page: Page, s: Await
 ];
 
 test("Fast (the default): each force's land is final within about two seconds of its gesture; Slow forces play about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
-  await refine(page, 96);
+  await openTopDown(page, 96);
   const watch = page.getByRole("button", { name: "Slow forces", exact: true });
   await expect(watch).toHaveAttribute("aria-pressed", "false");
   const s = await spots(page);
@@ -164,7 +162,7 @@ test("the forces' Fast timings at 128² and 256² (DGM_BENCH_FORCES=1: informati
   test.setTimeout(900_000);
   const rows: string[] = [];
   for (const size of [128, 256]) {
-    await refine(page, size);
+    await openTopDown(page, size);
     const s = await spots(page);
     for (const c of CASES) {
       await page.keyboard.press(c.key);

@@ -4,6 +4,7 @@
 // however quickly the notches come.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -40,10 +41,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   await page.setViewportSize({ width: 1400, height: 1000 });
   // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and keeps room
   // for only one of the two rows; of River Valley 96² seeds 1-30 only seed 4 has both)
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.waitForTimeout(500);
   const found = await spots(page);

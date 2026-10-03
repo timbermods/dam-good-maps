@@ -1,4 +1,4 @@
-// The 3D view (PLAN §14.2, ROADMAP M4) as far as CI can check it: the generator's 3D switch builds
+// The 3D view (PLAN §14.2, ROADMAP M4) as far as CI can check it: the page builds
 // a 256² map into 64 chunks with water and objects, hover reads tiles in plain words, a terrain
 // change remeshes only its chunks, and the camera orbits. The build time is reported against its
 // budget (under 1.5 s at 256² with a GPU; 3 s where CI renders in software, 376 ms there in M4), not
@@ -10,6 +10,7 @@
 // whole turn (8 s) instead of 1.5 s.
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 import { recordTiming } from "../../tools/timings";
 
 const BUILD_BUDGET_MS = process.env.CI ? 3_000 : 1_500;
@@ -20,10 +21,7 @@ test("the 3D preview builds a 256² map, reads tiles on hover, and remeshes only
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=1&z=256&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=1&z=256&d=n&t=riverValley");
   const build = await page.evaluate(() => window.dgm3d!.build);
   console.log(`3D build at 256²: ${build.ms.toFixed(0)} ms (meshing ${build.meshMs.toFixed(0)} ms), ${build.terrainQuads} terrain quads, ${build.waterQuads} water quads, ${build.instances} objects`);
   expect(build.chunks).toBe(64);
@@ -68,8 +66,5 @@ test("the 3D preview builds a 256² map, reads tiles on hover, and remeshes only
   const orbit = await page.evaluate((ms) => window.dgm3d!.renderer.benchOrbit(ms), ORBIT_MS);
   console.log(`orbit (${process.env.CI ? "software rendering, not a budget" : "this machine"}): ${orbit.frames} frames in ${orbit.seconds.toFixed(1)} s, ${orbit.fps.toFixed(0)} fps, p95 ${orbit.p95.toFixed(1)} ms`);
   expect(orbit.frames).toBeGreaterThan(5);
-  // back to 2D: the canvas preview is still there
-  await page.getByRole("button", { name: "2D", exact: true }).click();
-  await expect(page.getByLabel("Map preview, north up")).toBeVisible();
   expect(errors).toEqual([]);
 });

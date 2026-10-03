@@ -4,6 +4,7 @@
 // back with no trace. A large brush at full strength on terraced land, so the weathering has work to do.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -32,10 +33,7 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=3&z=96&d=n&t=riverValley&tr=100");
-  await expect(page.getByText(/checks passed|checks failed/).first()).toBeVisible({ timeout: 180_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley&tr=100", { timeout: 180_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
   // Naturalize, Size 12, Strength 10
   await page.keyboard.press("5");
