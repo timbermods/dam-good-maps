@@ -459,3 +459,30 @@ run's hints' final form (5), the first visit's ready-made map (6), phones (7).
     four marker lines by name; the e2e specs that read the legend's words (`look`, `look-clean`, `look-readable`,
     `legend`) carry the new words, though they open the generator's view, which the one-page prototype no longer
     shows (they run against dev's layout, the milestone's).
+
+## The build's checkpoint (2026-10-03): the sitting's checklist
+
+On https://timbermods.github.io/dam-good-maps/preview/ (from `feature/page`); captures beside dev in
+`docs/design/editor-build-*` (1440×900 and 1920×1080, drawer closed and open, Badwater with the legend).
+
+1. **Scale and column.** No scale-up at any size; the right column is 13px wider and every legend line fits on one
+   line.
+2. **Legend.** Open it with **Legend**: as tall as its lines, the same space at its foot as its head; "Markers on:"
+   one weight; the Badwater caption is one line.
+3. **Name.** New map → **Name**: type a name; the header follows at once; a blank name is refused in the core's
+   words; Save to Timberborn and Download .timber use it; no undo step.
+4. **Your maps.** At the drawer's foot: name and size, newest first, the open map marked; a click opens one.
+5. **Generate.** The drawer's settings and sections (each a sheet over the lower part) work as dev's did; Generate
+   replaces the open map without asking, named for its theme, and the old one stays in Your maps.
+6. **File and the address.** File holds Open…, Save project, Download .timber, Clear everything, History, About;
+   the address is always the open map's share link; a reload brings the open map back.
+7. **The header narrower than 1,219px.** The second line goes first, then the name ellipsizes; below 1,000px the dot
+   stands alone.
+8. **Select in hand.** Held from the start; a drag on the land marks an area, a click clears it; Esc and X return
+   to Select; a click picks an object and a drag then moves it; a drag starting on an unpicked object marks an
+   area; sources and the start drag as on dev.
+
+Where it still differs from dev, each asked for: the header (New map, the centred info, the dot's words, File);
+Flow; Pause water; solid readout and water bar; the right column (13px wider, Legend, the legend panel, the
+names); the drawer; Select's line in the toolbar whenever nothing else is in hand; the palette's pictures framed
+tight (`thumbnail()`). At 900px tall Your maps sits below the fold, and the drawer scrolls to it.
