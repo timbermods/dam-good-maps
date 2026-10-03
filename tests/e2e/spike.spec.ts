@@ -14,6 +14,11 @@ const CSP =
   "default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net/npm/ https://cdn.tailwindcss.com https://code.jquery.com; " +
   "style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src 'self'; worker-src blob:";
 
+// Skipped (PLAN §20 D452, with D277): the water runs only in Rust's WebAssembly now (D381), which the
+// artifact's policy refuses, so the spike can't settle a map there. The artifact edition is Claude work,
+// deferred to M12 with the rest (D277); this test comes back with it.
+test.skip(true, "the artifact's policy refuses WebAssembly, and the water is Rust's (D452, D277)");
+
 test.beforeAll(() => {
   execSync("npx tsx tools/build-spike.ts", { stdio: "inherit" });
 });

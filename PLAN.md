@@ -722,11 +722,13 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
   kept positive, then scaled so a tile never gives more than it has. The stored outflow is `max(0, f − 0.8·f_back)`.
 - The port mirrors `prototype/watersim.py` operation for operation and agrees with it bit for bit on the golden
   fixtures; only `+ − × ÷`, `min`, `max` and `ceil` are used (§2.1).
-- The Rust water (`rust/water`, D381, D442 (b)) is wired but not switched on: its Wasm is committed
-  (`sim/waterWasm.ts`, bound by `sim/rustWater.ts` and `sim/waterRust.ts`), and `tools/batch.ts --native` runs the
-  canonical settle in its native binary. CI checks that it gives the same bytes natively, in Node and in each
-  engine. The switch, the identity run against the app's water and the TypeScript's deletion wait until M9b is
-  on dev; the Rust is then re-ported to M9b's `water.ts`.
+- The simulation runs in Rust (`rust/water`, D381, D441, D442 (b)) in every engine and at every size: its Wasm is
+  committed (`sim/waterWasm.ts`, bound by `sim/rustWater.ts`; `WaterSim` keeps its interface). Batch jobs run the
+  whole canonical settle in the native binary (`tools/batch.ts`, `--wasm` to opt out). The TypeScript simulation
+  is tagged `ts-water-final` and deleted. CI checks the same bytes natively, in Node and in each engine, the
+  native settle against the app's (`tools/rust/water-identity.ts`), the pinned digests and D366's three-engine
+  check. The artifact edition, whose policy refuses WebAssembly, can't settle water; its spike test is skipped
+  until M12 (D452, D277).
 - Evaporation: `1e-4` per second (`1e-3` under 0.02 deep), times the cluster-saturation modifier. Sources add `dt·S/N`
   per cell. **Map edges drain; the edge beside a source cell is a wall.**
 - Partial obstacles (NaturalDam 0.65) follow the dam rules in the spec; Blockage and a badtide drain's back wall are

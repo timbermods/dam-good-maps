@@ -2,7 +2,7 @@
 //! water (fed.ts `fedTiles`, `keptSeeds`, `withoutUnfed`; D385, D387 (2)), ported exactly, and the canonical
 //! settle after its pre-fill (prefill.ts `canonicalRun`, `keepSealed`).
 
-use crate::sim::{Model, Sim, TICKS_PER_DAY};
+use crate::sim::{Model, Rules, Sim, SETTLE_DAYS, TICKS_PER_DAY};
 use portable::max;
 
 /// The settle's result (water.ts `SettleResult`).
@@ -23,7 +23,7 @@ pub struct SettleOptions {
 
 impl Default for SettleOptions {
     fn default() -> Self {
-        SettleOptions { max_days: 4.0, tol: 0.005, check_every: 128, moved_share: 0.005, sealed: None }
+        SettleOptions { max_days: SETTLE_DAYS, tol: 0.005, check_every: 128, moved_share: 0.005, sealed: None }
     }
 }
 
@@ -329,7 +329,7 @@ pub fn without_unfed(m: &Model, stored: &Stored, sim: &Sim) -> Option<Sim> {
     if !any {
         return None;
     }
-    let mut next = Sim::new(m.clone(), Some(&depth), Some(&contamination));
+    let mut next = Sim::new(m.clone(), Some(&depth), Some(&contamination), sim.rules);
     next.out.copy_from_slice(&out);
     next.ticks = sim.ticks;
     Some(next)
@@ -362,8 +362,8 @@ pub struct CanonicalRun {
 }
 
 impl CanonicalRun {
-    pub fn new(model: Model, stored: Stored, start_depth: Vec<f64>, start_contamination: Vec<f64>) -> CanonicalRun {
-        let sim = Sim::new(model.clone(), Some(&start_depth), Some(&start_contamination));
+    pub fn new(model: Model, stored: Stored, start_depth: Vec<f64>, start_contamination: Vec<f64>, rules: Rules) -> CanonicalRun {
+        let sim = Sim::new(model.clone(), Some(&start_depth), Some(&start_contamination), rules);
         let sealed = stored.sealed_tiles();
         let run = SettleRun::new(&sim, SettleOptions { sealed: sealed.clone(), ..Default::default() });
         let max_ticks = run.max_ticks();
@@ -396,7 +396,7 @@ impl CanonicalRun {
             let closed = self.run.closed_basins(&self.sim);
             let kept = keep_sealed(&mut self.sim, &self.model, &self.stored, closed.as_deref(), &self.start_depth, &self.start_contamination);
             let sat = if kept {
-                Sim::new(self.model.clone(), Some(&self.sim.d), Some(&self.sim.c)).saturation()
+                Sim::new(self.model.clone(), Some(&self.sim.d), Some(&self.sim.c), self.sim.rules).saturation()
             } else {
                 self.sim.saturation()
             };
