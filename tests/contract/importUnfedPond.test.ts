@@ -5,14 +5,14 @@
 // it stops matches the canonical settle's, except under roofs", and water "changes only through its
 // causes" (D260). On the import's first edit, far from the pond, the live water (warm-started from the
 // file's water) keeps the pond, while the canonical settle (the quiet dot's background check, every
-// export) takes it away: the pond vanishes a moment after a stroke that never came near it. Which of
-// the two is right is a decision (D260 keeps it, D385/D420 "no map keeps water nothing feeds" drop
-// it); they must not disagree.
+// export) took it away: the pond vanished a moment after a stroke that never came near it (the release
+// gate's bug hunt, D385). Kyler's call (D457): an imported map keeps its own water, in the live water
+// and the export alike; both keep the pond.
 
 import { describe, expect, it } from "vitest";
-import { MapSession } from "../../../src/core/doc/session";
-import { planFill } from "../../../src/core/doc/waterEdits";
-import { openHeights, rect, sourceOp, tilesOf } from "./synthetic";
+import { MapSession } from "../../src/core/doc/session";
+import { planFill } from "../../src/core/doc/waterEdits";
+import { openHeights, rect, sourceOp, tilesOf } from "./gateWater";
 
 const W = 48;
 const H = 48;
@@ -30,7 +30,7 @@ function pondFile(): Uint8Array {
 }
 
 describe("an imported map's unfed pond after an edit elsewhere (EDITOR_PLAN water preview; D260, D385)", () => {
-  it("the editor's water once it stops is the canonical settle's: the pond is either kept by both or gone from both", () => {
+  it("the editor's water once it stops is the canonical settle's: both keep the pond (D457)", () => {
     const s = MapSession.importMap(pondFile(), "pond.timber");
     const pond = 23 * W + 23;
     expect(s.waterNow().depth[pond]).toBe(2);
@@ -41,6 +41,8 @@ describe("an imported map's unfed pond after an edit elsewhere (EDITOR_PLAN wate
     const live = s.built.water[pond];
     s.settleCanonical();
     const canonical = s.built.water[pond];
+    // (kept, D457)
+    expect(canonical).toBeGreaterThan(1.5);
     expect(Math.abs(live - canonical), `the pond: live water ${live.toFixed(3)} deep, canonical ${canonical.toFixed(3)}`).toBeLessThan(0.1);
   });
 });
