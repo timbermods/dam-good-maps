@@ -251,7 +251,11 @@ from pins. Each was traced to its cause and fixed (e3130755). The quick suite ne
   2 islands. Kyler judged the safe version at 128², where it keeps the promise on 13 of 20 here.
   Nothing is changed for it: Kyler decides.
 - **Delta misses the water outcome on 5 of 20 at every size** (before, it missed the standout on 1
-  or 2). Why each misses is not yet read.
+  or 2). On all 15, a river's planned course is dry in places:
+  - on 10, the main river holds water on 55–83% of its course (the reading asks 85%);
+  - on 5, another river holds water on 42–59% of its course (it asks 60%).
+  - The main system holds 84–100% of the water. Whether the fan's water leaves the planned course for
+    another channel is not yet read.
 - Fixes used: "rising basin fed gently" on 5 maps at 256² (1 before): Lake Basin 24 as before, and
   Islands 5, 19, 20 and 32, whose seas were still rising. No way out was worn. No map was shown more
   than once.
@@ -267,6 +271,18 @@ from pins. Each was traced to its cause and fixed (e3130755). The quick suite ne
   Islands is the slowest theme at 256². D380's comparison with `dev` waits for the quiet window.
 - The rows are committed as the new baseline, `investigation/m9b/baseline/e3130755-*.jsonl.gz`
   (`compare.py e3130755 <run>`).
+
+**The heavy suite** (nightly; on 1179614b, under other sessions' load): 47 pass, 16 fail.
+- `settings.test.ts`: the four known shortfalls held for the settings round 2 (Verticality, Lakes and
+  basins, Waterfalls, Designed for), as before.
+- `properties.test.ts`, all four presets: the project file reopens to a different file. On River Valley
+  96² seed 306 the session holds dead blueberry bushes (`IsDead`, the kept bushes an edit floods,
+  D425) that the reopened project does not rebuild. **`dev` (478fefad) fails the same case**, so it is
+  not M9b's.
+- `editSequences.heavy.test.ts`, 8 themes and sizes, including the four themes whose maps did not
+  move: a force's edit adds a `WaterSource` (a river head's spring derived a tile over, the finding
+  above), and on three sequences a bush or an oak. River Valley 96² passes on `dev`'s maps, so M9b's
+  maps bring it out.
 
 ### Islands accepted: the safe version (D429–D430, 2026-10-02, 19:12), and islands to expand to
 
