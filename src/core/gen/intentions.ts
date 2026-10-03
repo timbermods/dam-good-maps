@@ -7,7 +7,7 @@ import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
 import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
 import type { Hydro } from "../land/hydro";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import type { Rng } from "../math/rng";
 
@@ -22,8 +22,6 @@ export interface IntentionResult {
    *  the map was not steered toward but shows of its own accord (M9b). */
   outcome: "emerged" | "re-steered" | "dropped" | "found";
 }
-
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** The land and water the settler scores places on, for the intentions' preferences. */
 export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {

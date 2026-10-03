@@ -15,7 +15,8 @@ import * as portable from "../math/portable";
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
-import { clamp, hash, smooth } from "./random";
+import { clamp, hash } from "./random";
+import { smoothstep } from "../math/clamp";
 import { strength, tempered } from "./strength";
 
 export interface Point {
@@ -265,10 +266,10 @@ const CRATER_DEPTH = 0.22;
  *  crater or caldera; a fissure's ridge (its line, not its summit, shapes it). */
 export function coneProfile(s: Pick<EruptSettings, "shape">, summit: EruptSettings["summit"], r: number, fissure = false): number {
   const e = s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65;
-  if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smoothstep((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
   if (!fissure && summit === "crater" && r < CRATER_R) {
     const rim = portable.pow(1 - CRATER_R, e);
-    return rim - CRATER_DEPTH * (1 - smooth(r / CRATER_R));
+    return rim - CRATER_DEPTH * (1 - smoothstep(r / CRATER_R));
   }
   return portable.pow(Math.max(0, 1 - r), e);
 }
@@ -321,8 +322,8 @@ export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "su
     const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4);
     const ridge = s.ridges
       ? fissure
-        ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : strength * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2)
+        ? (1 - smoothstep((r - 1.05) / 0.85)) * smoothstep((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : strength * (0.7 + s.power * 0.013) * smoothstep((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2)
       : 0;
     const basin = !fissure && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? CRATER_R : 0);
     const rise = basin ? a.height * profile : Math.max(a.height * profile, apron) + ridge;
@@ -509,10 +510,10 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const datum = s.mode === "vent" ? a.datum : local;
   let profile = coneProfile(s, a.summit, r, s.mode === "fissure");
   if (s.mode === "fissure") {
-    const bowl = 1 - smooth(f.ventDistance / Math.max(2.4, a.radius * 0.19));
+    const bowl = 1 - smoothstep(f.ventDistance / Math.max(2.4, a.radius * 0.19));
     profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
   }
-  const shoulder = smooth((r - 0.48) / 0.7);
+  const shoulder = smoothstep((r - 0.48) / 0.7);
   const cone = datum + (k === 1 || s.mode === "vent" ? a.height : a.height * k) * profile + (h - datum) * shoulder;
   // a fitted volcano's lava runs downhill from its vent: its apron and ridges never pile onto higher
   // ground (an older cone's upper slopes, pressed against the ceiling, would become a mesa)
@@ -523,8 +524,8 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4) * (0.86 + 0.14 * portable.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
   const ridge = s.ridges
     ? (s.mode === "fissure"
-        ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2) * (1 - smooth((r - reach * 0.7) / (reach * 0.3)))) *
+        ? f.ridge * (1 - smoothstep((r - 1.05) / 0.85)) * smoothstep((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : flows[i] * (0.7 + s.power * 0.013) * smoothstep((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2) * (1 - smoothstep((r - reach * 0.7) / (reach * 0.3)))) *
       k *
       flowsHere
     : 0;
@@ -732,7 +733,7 @@ export function erupt(m: FullForceMap, s: EruptSettings, intent: EruptIntent, ke
  *  objects on their ground then. */
 export function stageMap(before: FullForceMap, after: FullForceMap, t: number): FullForceMap {
   const m = snapshotMap(after);
-  for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smooth(t));
+  for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smoothstep(t));
   m.entities = m.entities.map((e) => ({ ...e, z: m.heights[e.y * m.W + e.x] }));
   m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[Math.floor(f.y) * m.W + Math.floor(f.x)] }));
   return m;

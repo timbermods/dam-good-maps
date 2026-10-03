@@ -8,7 +8,7 @@ import type { WaterState } from "../../src/core/sim/water";
 import type { FullForceMap } from "../../src/core/forces/force";
 import { entityTiles } from "../../src/core/forces/force";
 import { isPlant } from "../../src/core/forces/objects";
-import { clamp } from "../../src/core/forces/glaciate/model";
+import { clamp } from "../../src/core/forces/random";
 import { N4, planGlaciate, type GlaciatePlan } from "../../src/core/forces/glaciate/plan";
 import type { GlaciateIntent, GlaciateSettings, Valley } from "../../src/core/forces/glaciate/model";
 
