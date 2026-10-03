@@ -1,0 +1,12 @@
+# rust/.cargo/config.toml's strict floating point for native builds (no FMA, a fixed baseline CPU; PLAN §20 D401).
+[build]
+target-dir = "local/target"
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-self-contained=yes", "-C", "target-feature=-fma", "-C", "target-cpu=x86-64-v2"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=-fma", "-C", "target-cpu=x86-64-v2"]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=-fma", "-C", "target-cpu=x86-64-v2"]
