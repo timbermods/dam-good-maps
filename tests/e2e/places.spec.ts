@@ -11,7 +11,7 @@ import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
 const DIR = "public/real-places";
-/** The index as the gallery page lists it: the places whose start reaches no fed water are left out (D421). */
+/** The index as the gallery page lists it: every place (D445). */
 const INDEX = galleryIndex(JSON.parse(readFileSync(`${DIR}/index.json`, "utf8")) as PlaceIndex);
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const entry = (id: string) => INDEX.places.find((p) => p.id === id)!;

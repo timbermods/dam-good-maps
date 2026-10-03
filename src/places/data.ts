@@ -16,8 +16,7 @@ export async function fetchIndex(): Promise<PlaceIndex> {
   return (await r.json()) as PlaceIndex;
 }
 
-/** The index as the gallery lists it: the places whose start reaches no fed water are left out
- *  (D421) until Real places 2 fixes them. */
+/** The index as the gallery lists it: every place (D445). */
 export async function fetchGalleryIndex(): Promise<PlaceIndex> {
   return galleryIndex(await fetchIndex());
 }

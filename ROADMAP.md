@@ -427,10 +427,9 @@ byte check nightly and in the release check; clean titles; 3D thumbnails rendere
 rebuilt without perimeter walls, water free to drain, at 256² where the data allows with its signature as the focal point; and
 the gallery grown to about 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
-**Meanwhile (D421, done):** the gallery leaves out the 33 places whose start reaches no fed water (the page filters by each
-place's recorded `start.water` fault, `src/core/places/place.ts`), so a place shows again once round 2 fixes it; they stay
-in the repository and still build. `tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and
-berry shortfalls wait for round 2.
+**Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 33 whose start reaches no fed water (the recorded
+`start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2 fixes them.
+`tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and berry shortfalls wait for round 2.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
