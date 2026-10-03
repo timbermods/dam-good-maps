@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Dam Good Maps roadmap</title>
+<title>Roadmap</title>
 <style>
   :root {
     --bg: #f6f3ee; --panel: #ffffff; --ink: #1f2328; --muted: #5f6b7a; --line: #e3ddd3; --accent: #b4642b; --accent-ink: #fff;
@@ -149,7 +149,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><h1>Dam Good Maps roadmap</h1><div class="meta" id="meta"></div></div>
+  <div class="brand"><h1>Roadmap</h1><div class="meta" id="meta"></div></div>
   <nav class="tabs" id="tabs" aria-label="Views"></nav>
   <div class="tools">
     <input id="search" type="search" placeholder="Search steps, decisions, PRs…" aria-label="Search">
@@ -172,6 +172,8 @@
   }
 
   // ------------------------------------------------------------ data
+  const SRC = D.sources || {}, OWNER = D.project?.owner || 'the owner', NAME = D.project?.name || 'The project';
+  document.title = `${NAME} roadmap`; $('.brand h1').textContent = `${NAME} roadmap`;
   const cards = D.milestones;
   const byId = new Map(cards.map((c) => [c.id, c]));
   const lanes = new Map(D.lanes.map((l) => [l.id, l]));
@@ -256,13 +258,13 @@
     const s = D.stats;
     const stat = (b, l, t = '') => `<div class="stat" title="${esc(t)}"><b>${esc(b)}</b><span>${esc(l)}</span></div>`;
     $('#stats').innerHTML = [
-      stat(s.released, 'released', 'Steps with a <step>-done tag on main'),
+      stat(s.released, 'released', `Steps with a <step>${D.tagSuffix} tag`),
       stat(s['on-dev'], 'built, not released', 'Merged into dev, waiting for the next release'),
       stat(s['in-flight'], 'in flight', 'On a branch or being built now'),
       stat(s.planned, 'planned', 'In the order of work, not started'),
       stat((s.parked || 0) + (s.deferred || 0) + (s.later || 0), 'parked, deferred, later'),
-      stat(s.decisionsInForce, `decisions in force · next ${s.nextDecision}`, 'PLAN.md §20'),
-      stat(s.pendingOpen, `defaults waiting for Kyler · next ${s.nextPending}`, 'docs/decisions-pending.md'),
+      stat(s.decisionsInForce, `decisions in force · next ${s.nextDecision}`, '${SRC.decisionsLabel}'),
+      stat(s.pendingOpen, `defaults waiting for ${OWNER} · next ${s.nextPending}`, '${SRC.pending}'),
       s.openPrs !== null ? stat(`${s.openPrs}`, `open PRs · ${s.openDraftPrs} drafts`, 'GitHub, at generation time') : '',
       stat(s.lastRelease ? fmtDate(s.lastRelease.date) : '—', `last release · ${s.lastRelease ? s.lastRelease.name : ''}`, 'The newest *-done tag'),
     ].join('');
@@ -275,7 +277,7 @@
   // ------------------------------------------------------------ views
   function renderBoard() {
     const groups = D.statusGroups.map((g) => ({ ...g, cards: cards.filter((c) => groupOf(c.status) === g.id).sort(seq) }));
-    $('#main').innerHTML = `<p class="hint">Every card is a step from ROADMAP.md, in ROADMAP's order inside each column. Click one for what it delivers, what blocks it, where it stands and what it follows. Status comes from the tags, docs/STATUS.md and GitHub.</p>
+    $('#main').innerHTML = `<p class="hint">Every card is a step from ${SRC.roadmap}, in the roadmap's order inside each column. Click one for what it delivers, what blocks it, where it stands and what it follows. Status comes from the tags, ${SRC.status} and GitHub.</p>
       <div class="board">${groups.map((g) => `<section class="col"><h2>${esc(g.name)} <span class="n">${g.cards.length}</span></h2><p class="hint">${esc(g.hint)}</p>${g.cards.map(renderCardEl).join('') || '<p class="hint">Nothing here.</p>'}</section>`).join('')}</div>`;
   }
 
@@ -285,7 +287,7 @@
       ${it.text && it.text !== it.title ? `<div class="tx">${esc(it.text.length > 360 ? it.text.slice(0, 360) + '…' : it.text)}</div>` : ''}
       ${it.children.length ? `<ol class="items">${it.children.map((k) => item(k, depth + 1)).join('')}</ol>` : ''}</li>`;
     $('#main').innerHTML = `<div class="order">
-      <p class="hint">ROADMAP.md's "The order of work", as written on <code>${esc(D.repo.branch)}</code>, with each item tied to its card. Where either plan orders things differently, ROADMAP wins.</p>
+      <p class="hint">${SRC.roadmap}'s "The order of work", as written on <code>${esc(D.repo.branch)}</code>, with each item tied to its card. Where either plan orders things differently, the roadmap wins.</p>
       ${o.intro ? `<div class="intro">${esc(o.intro)}</div>` : ''}
       ${o.phases.map((p) => `<section class="phase"><h2><span class="num">${p.n}</span> ${esc(p.title)} ${p.cards.length ? `<span class="links">${p.cards.map(cardLink).join('')}</span>` : ''}</h2>
         ${p.intro ? `<p class="pi">${esc(p.intro)}</p>` : ''}
@@ -340,7 +342,7 @@
             <text x="11" y="17">${esc(trunc(shortTitle(c), 25))}</text><text class="sub" x="11" y="31">${esc(trunc(c.status === 'released' ? ((c.tags || []).find((t) => t.exists)?.name || 'released') : (c.prs?.length ? c.prs.map((p) => '#' + p.number).slice(0, 3).join(' ') + (c.branch ? ' · ' + c.branch : '') : (c.branch || STATUS[c.status]?.name || '')), 30))}</text></g>`; }).join('')}</g>
       </g>
       <g id="lanelabels">${laneIds.map((id, i) => `<g style="--lane:${lanes.get(id).color}"><rect class="labelbg" x="0" y="${laneTop[i] + 6}" width="${LEFT - 24}" height="20" rx="4"></rect><text class="lanelabel" x="10" y="${laneTop[i] + 20}">${esc(lanes.get(id).name)}</text></g>`).join('')}</g>`;
-    $('#main').innerHTML = `<p class="hint">Left to right: the released steps by date, then what is in flight now, then the planned steps in ROADMAP's order; each row is a lane. Arrows show what a step follows. Hover a step to light what it waits for (orange) and what waits for it (blue); drag to pan, wheel to zoom.</p>
+    $('#main').innerHTML = `<p class="hint">Left to right: the released steps by date, then what is in flight now, then the planned steps in the roadmap's order; each row is a lane. Arrows show what a step follows. Hover a step to light what it waits for (orange) and what waits for it (blue); drag to pan, wheel to zoom.</p>
       <div class="mapwrap"><svg id="map" data-w="${totalW}" data-h="${totalH}" data-now="${LEFT + nowCol * (NW + GX)}">${svg}</svg>
       <div class="ctl"><button class="btn" id="fit">Fit</button><button class="btn" id="zin">+</button><button class="btn" id="zout">−</button></div>
       <div class="legend">${Object.entries(STATUS).filter(([k]) => k !== 'deferred').map(([k, v]) => `<span><span class="dot" style="--c:${v.color}"></span> ${v.name}</span>`).join('')}</div></div>`;
@@ -395,10 +397,10 @@
       </section>
       <section class="panel"><h2>The next release</h2>
         ${gate ? `<p>${esc(gate.statusText || gate.summary || '')}</p>` : ''}
-        <h3>In flight or built, in ROADMAP's order</h3><ul>${next.map((c) => `<li>${cardLink(c.id)} <span class="hint">${esc(c.statusRows?.[0] ? (c.statusRows[0].cells.State || '').replace(/[`*]/g, '') : c.statusReason)}</span></li>`).join('')}</ul>
-        ${D.status.waiting.length ? `<h3>Waiting for Kyler</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
-        ${D.status.queued.length ? `<h3>Queued next (docs/STATUS.md)</h3><ol>${D.status.queued.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
-        ${D.pending.open ? `<h3>Defaults Kyler can overrule (${D.pending.open})</h3><ul>${D.pending.rows.filter((r) => /pending/i.test(r.status)).map((r) => `<li><b>#${esc(r.n)}</b> ${esc(r.milestone)}: ${esc(r.question)}</li>`).join('')}</ul>` : ''}
+        <h3>In flight or built, in the roadmap's order</h3><ul>${next.map((c) => `<li>${cardLink(c.id)} <span class="hint">${esc(c.statusRows?.[0] ? (c.statusRows[0].cells.State || '').replace(/[`*]/g, '') : c.statusReason)}</span></li>`).join('')}</ul>
+        ${D.status.waiting.length ? `<h3>Waiting for ${OWNER}</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
+        ${D.status.queued.length ? `<h3>Queued next (${SRC.status})</h3><ol>${D.status.queued.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
+        ${D.pending.open ? `<h3>Defaults ${OWNER} can overrule (${D.pending.open})</h3><ul>${D.pending.rows.filter((r) => /pending/i.test(r.status)).map((r) => `<li><b>#${esc(r.n)}</b> ${esc(r.milestone)}: ${esc(r.question)}</li>`).join('')}</ul>` : ''}
       </section></div>`;
   }
 
@@ -413,7 +415,7 @@
       waiting: `${D.status.waiting.length} items waiting`,
       tags: `${D.stats.doneTags} tags`,
       release: D.stats.lastRelease ? `last ${fmtDate(D.stats.lastRelease.date)}` : '',
-      log: D.github.progressLogCount ? `${D.github.progressLogCount} entries on #57` : '',
+      log: D.github.progressLogCount ? `${D.github.progressLogCount} entries on #${SRC.progressIssue}` : '',
     })[n.stat] || '';
     const svg = `<svg viewBox="0 0 ${X0 * 2 + nodes.length * (W + GAP)} 190"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"></path></marker></defs>
       ${nodes.map((n, i) => `<g class="pnode ${state.pnode === n.id ? 'on' : ''}" data-pnode="${n.id}" transform="translate(${X0 + i * (W + GAP)},${Y0})"><rect width="${W}" height="${H}" rx="9"></rect><text class="k" x="12" y="22">${i + 1}</text><text x="30" y="22">${esc(n.title.length > 18 ? n.title.slice(0, 17) + '…' : n.title)}</text><text x="12" y="42" class="pside">${esc(statOf(n))}</text></g>
@@ -424,12 +426,12 @@
       <div class="panel flow">${svg}</div>
       <div class="two" style="margin-top:14px">
         <section class="panel"><h2>${esc(cur.title)}</h2><p>${esc(cur.text)}</p>${statOf(cur) ? `<p class="hint">Now: ${esc(statOf(cur))}</p>` : ''}
-          ${cur.id === 'kyler' ? `<h3>Decisions by topic (PLAN.md §20)</h3><ul>${D.decisions.topics.map((t) => `<li>${esc(t.name)}: <b>${t.count}</b></li>`).join('')}</ul>` : ''}
-          ${cur.id === 'sessions' && D.status.sessions ? `<h3>The sessions (docs/STATUS.md)</h3><ul>${D.status.sessions.items.map((s) => `<li>${esc(s.text.length > 300 ? s.text.slice(0, 300) + '…' : s.text)}</li>`).join('')}</ul>` : ''}
+          ${cur.id === 'decide' ? `<h3>Decisions by topic (${SRC.decisionsLabel})</h3><ul>${D.decisions.topics.map((t) => `<li>${esc(t.name)}: <b>${t.count}</b></li>`).join('')}</ul>` : ''}
+          ${cur.id === 'sessions' && D.status.sessions ? `<h3>The sessions (${SRC.status})</h3><ul>${D.status.sessions.items.map((s) => `<li>${esc(s.text.length > 300 ? s.text.slice(0, 300) + '…' : s.text)}</li>`).join('')}</ul>` : ''}
           ${cur.id === 'roadmap' ? `<h3>The phases</h3><ol>${D.order.phases.map((p) => `<li>${esc(p.title)}${p.cards.length ? ' ' + p.cards.map(cardLink).join(' ') : ''} <span class="hint">${p.items.length} items</span></li>`).join('')}</ol>` : ''}
-          ${cur.id === 'kyler-eye' ? `<h3>What perfect means (docs/PERFECT.md)</h3><ul>${D.perfect.map((s) => `<li><b>${esc(s.heading)}</b>${s.text ? ': ' + esc(s.text.length > 160 ? s.text.slice(0, 160) + '…' : s.text) : ''}</li>`).join('')}</ul>` : ''}
+          ${cur.id === 'review' ? `<h3>What perfect means (${SRC.yardstick})</h3><ul>${D.perfect.map((s) => `<li><b>${esc(s.heading)}</b>${s.text ? ': ' + esc(s.text.length > 160 ? s.text.slice(0, 160) + '…' : s.text) : ''}</li>`).join('')}</ul>` : ''}
           ${cur.id === 'tag' || cur.id === 'release' ? `<h3>Release points</h3><p class="hint">Released: ${D.tags.map((t) => t.name).join(', ')}.</p><p class="hint">Still to come: ${cards.filter((c) => c.status !== 'released' && (c.tags || []).length).sort(seq).map((c) => c.tags[0].name).join(', ')}.</p>` : ''}
-          ${cur.id === 'kyler-eye' && D.status.waiting.length ? `<h3>Waiting for Kyler now</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
+          ${cur.id === 'review' && D.status.waiting.length ? `<h3>Waiting for ${OWNER} now</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
           ${cur.id === 'pr' && D.stats.openPrs !== null ? `<h3>Open pull requests</h3><ul>${Object.values(D.prs).filter((p) => p.state === 'OPEN').sort((a, b) => b.number - a.number).map((p) => `<li>${prChip(p)} ${esc(p.title)}</li>`).join('')}</ul>` : ''}
         </section>
         <section class="panel"><h2>The Progress log, latest first</h2>${D.progressLog.length ? `<ul class="log">${D.progressLog.map((e) => `<li><time>${esc(fmtDateTime(e.createdAt))}</time>${esc(e.body)}</li>`).join('')}</ul>${D.github.progressLogUrl ? `<p class="hint"><a href="${esc(D.github.progressLogUrl)}" target="_blank" rel="noopener">All ${D.github.progressLogCount} entries on GitHub</a></p>` : ''}` : `<p class="hint">${esc(D.github.note || 'Not read.')}</p>`}</section>
@@ -445,9 +447,9 @@
       <section class="panel health"><h2>Drift between the cards and the documents</h2><p class="hint">What extract.mjs noticed: ROADMAP sections, tags or STATUS rows no card covers, and STATUS rows GitHub contradicts. Fix the manifest or the document.</p>
         ${D.health.length ? `<ul>${D.health.map((h) => `<li class="kind-${esc(h.kind)}"><b>${esc(h.kind)}</b>: ${esc(h.text)}</li>`).join('')}</ul>` : '<p class="ok">Nothing: every section, tag and STATUS row has a card.</p>'}
         <h3>Sources</h3><ul>
-          <li>ROADMAP.md: ${D.roadmapSections.length} sections; the order of work has ${D.order.phases.length} phases.</li>
-          <li>docs/STATUS.md: ${D.status.sections.length} sections, ${D.status.waiting.length} items waiting for Kyler.</li>
-          <li>PLAN.md §20: ${D.stats.decisionsInForce} decisions in force across ${D.decisions.topics.length} topics; next ${D.stats.nextDecision}.</li>
+          <li>${SRC.roadmap}: ${D.roadmapSections.length} sections; the order of work has ${D.order.phases.length} phases.</li>
+          <li>${SRC.status}: ${D.status.sections.length} sections, ${D.status.waiting.length} items waiting for ${OWNER}.</li>
+          <li>${SRC.decisionsLabel}: ${D.stats.decisionsInForce} decisions in force across ${D.decisions.topics.length} topics; next ${D.stats.nextDecision}.</li>
           <li>git: ${D.tags.length} release tags; data from ${esc(D.repo.branch)}@${esc(D.repo.commit)} (dev at ${esc(D.repo.devCommit || '?')}).</li>
           <li>GitHub: ${D.github.available ? `${Object.keys(D.prs).length} pull requests, ${D.github.progressLogCount || 0} Progress log entries` : esc(D.github.note)}.</li>
         </ul></section>
@@ -471,7 +473,7 @@
       ${c.summary ? `<p>${esc(c.summary)}</p>` : ''}
       ${c.statusNote && c.statusNote !== c.summary ? `<p class="hint">${esc(c.statusNote)}</p>` : ''}
       ${(c.tags || []).length ? `<h3>Tag</h3><div class="row">${c.tags.map((t) => `<span class="tag" title="${esc(t.subject || '')}">${t.exists ? '🏷 ' : '○ '}${esc(t.name)}${t.exists ? ' · ' + t.date : ' · not yet'}</span>`).join('')}</div>` : ''}
-      ${rows ? `<h3>Where it stands (docs/STATUS.md)</h3>${rows}` : ''}
+      ${rows ? `<h3>Where it stands (${SRC.status})</h3>${rows}` : ''}
       ${c.branch && !rows ? `<h3>Branch</h3><p><code>${esc(c.branch)}</code></p>` : ''}
       ${(c.prs || []).length ? `<h3>Pull requests</h3><div class="row">${c.prs.map((p) => `<span>${prChip(p)} <span class="hint">${esc(p.title || '')}</span></span>`).join('<br>')}</div>` : ''}
       ${s ? `${list('Delivers', s.delivers)}${list('Blocking', s.blocking)}${list('Information', s.information)}${s.effort || s.inGame ? `<div class="kv" style="margin-top:10px">${s.effort ? `<span>Effort</span><span>${esc(s.effort)}</span>` : ''}${s.inGame ? `<span>In-game check</span><span>${esc(s.inGame)}</span>` : ''}</div>` : ''}` : ''}
@@ -481,7 +483,7 @@
       ${(c.after || []).length || c.leadsTo.length ? `<h3>Follows / leads to</h3><div class="row">${(c.after || []).map(cardLink).join('')}</div>${c.leadsTo.length ? `<p class="hint" style="margin:8px 0 4px">Leads to</p><div class="row">${c.leadsTo.map(cardLink).join('')}</div>` : ''}` : ''}
       ${(c.decisions || []).length ? `<h3>Decisions (${c.decisions.length})</h3><details><summary>${esc(c.decisions.slice(0, 12).join(', '))}${c.decisions.length > 12 ? '…' : ''}</summary>${c.decisions.map((d) => { const t = D.decisions.byNumber[d]; return `<p class="dec"><b>${esc(d)}</b> ${t ? `<span class="hint">${esc(t.topic)}</span><br>${esc(t.text)}` : '<span class="hint">not in force: superseded or completed (docs/archive/decisions.md)</span>'}</p>`; }).join('')}</details>` : ''}
       ${(c.mentionedPrs || []).length ? `<details style="margin-top:10px"><summary>Also mentioned: ${c.mentionedPrs.length} pull requests</summary><div class="row" style="margin-top:6px">${c.mentionedPrs.map(prChip).join('')}</div></details>` : ''}
-      <h3>Read</h3><div class="row">${s && docUrl(s.file, s.anchor) ? `<a class="chip" href="${esc(docUrl(s.file, s.anchor))}" target="_blank" rel="noopener">${esc(s.file)} › ${esc(s.heading.length > 40 ? s.heading.slice(0, 40) + '…' : s.heading)}</a>` : ''}${docUrl('docs/STATUS.md') ? `<a class="chip" href="${esc(docUrl('docs/STATUS.md'))}" target="_blank" rel="noopener">docs/STATUS.md</a>` : ''}${docUrl('PLAN.md') ? `<a class="chip" href="${esc(docUrl('PLAN.md', '20-editor-decisions'))}" target="_blank" rel="noopener">PLAN.md §20</a>` : ''}</div>`;
+      <h3>Read</h3><div class="row">${s && docUrl(s.file, s.anchor) ? `<a class="chip" href="${esc(docUrl(s.file, s.anchor))}" target="_blank" rel="noopener">${esc(s.file)} › ${esc(s.heading.length > 40 ? s.heading.slice(0, 40) + '…' : s.heading)}</a>` : ''}${docUrl(SRC.status) ? `<a class="chip" href="${esc(docUrl(SRC.status))}" target="_blank" rel="noopener">${esc(SRC.status)}</a>` : ''}${docUrl(SRC.decisions) ? `<a class="chip" href="${esc(docUrl(SRC.decisions, D.decisions.anchor))}" target="_blank" rel="noopener">${esc(SRC.decisionsLabel)}</a>` : ''}</div>`;
     el.classList.add('open');
   }
 
