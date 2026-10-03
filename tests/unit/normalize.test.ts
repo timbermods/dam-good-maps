@@ -74,7 +74,7 @@ describe("import normalization (PLAN §19.6)", () => {
     expect(top).toBe(1); // tile 7 keeps its voxel in layer 21; layer 22 is empty, as the game leaves it
     const change = report.changes.find((c) => c.id === "terrain.layers")!;
     expect(change.level).toBe("warning");
-    expect(change.message).toContain("dropped 3 voxels");
+    expect(change.message).toContain("dropped 3 blocks of ground");
     expect("MapHeight" in (w.singletons.MapSize as JsonObject)).toBe(false);
   });
 

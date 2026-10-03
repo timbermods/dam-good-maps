@@ -148,7 +148,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     const c = check(s);
     expect(c["start.water"].ok).toBe(false);
     expect(c["start.water"].value).toBe("none");
-    expect(c["start.water"].message).toMatch(/^the water 20 tiles' walk away is a sealed puddle no source feeds, which a 9-day drought empties/);
+    expect(c["start.water"].message).toMatch(/^A sealed puddle 20 tiles' walk away dries up in a 9-day drought/);
   });
 
   it("water beyond the walking distance fails, and the water setting moves the result", () => {
@@ -307,7 +307,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     // a playability check: it rejects a generated map, whatever the difficulty
     expect(c["start.wood_floor"].class).toBe("playability");
     expect(c["start.wood_floor"].severity).toBe("error");
-    expect(c["start.wood_floor"].message).toBe(`160 logs within 40 tiles' walk of the start, under the floor of ${LOG_FLOOR}: not enough to build a Forester, and without one the game is over`);
+    expect(c["start.wood_floor"].message).toBe(`160 logs within 40 tiles' walk of the start, under the ${LOG_FLOOR} a Forester needs`);
     // wood beyond 40 tiles' walk does not count toward it (the far bank of the river is 45 and more)
     const beyond: [number, number][] = [];
     for (let y = 0; y < H && beyond.length < 20; y++) if (s.objects.every((o) => o.x !== 40 || o.y !== y)) beyond.push([40, y]);
@@ -320,7 +320,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
       expect(c["start.wood_floor"].value, d).toBe(180);
       expect(c["start.wood_floor"].ok, d).toBe(true);
     }
-    expect(c["start.wood_floor"].message).toBe(`180 logs within 40 tiles' walk of the start: enough to build a Forester (the floor is ${LOG_FLOOR})`);
+    expect(c["start.wood_floor"].message).toBe(`180 logs within 40 tiles' walk of the start, enough for a Forester (${LOG_FLOOR} needed)`);
   });
 
   it("wood across a slope counts (slopes allowed); wood on a cliff top beyond reach does not", () => {
