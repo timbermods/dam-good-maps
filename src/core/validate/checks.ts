@@ -182,7 +182,7 @@ function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector, 
     value: Math.round(most.share * 100) / 100,
     limit: EDGE_SHARE,
     message: walled.length
-      ? `Wall along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")}, holding water in`
+      ? `Wall along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")} holds back water`
       : "No wall along the map's edges",
     ...(walled.length ? { where: { tiles: walled.map((e) => e.at) } } : {}),
     ...(fix ? { fix } : {}),
