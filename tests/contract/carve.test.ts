@@ -647,7 +647,7 @@ describe("a carve at work in the editor's worker", () => {
     for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
     expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
-    // (the water stays as it was: no frame carries any)
+    // (no frame carries water: a carve's own flows as a stroke's does, carveBornAsItCuts.test.ts)
     expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
     const back = ed.carveCancel();
