@@ -33,6 +33,7 @@ import { SETTLE_DAYS, TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim
 import { asksForBadwater } from "../resources/badwater";
 import { DIFFICULTY_RULES, SMALL_MAP, type Difficulty, type MapSpec } from "../spec/mapspec";
 import type { Collector, FixOp } from "./report";
+import { counted, lines, placeOf, possessive } from "./words";
 
 /** Water deeper than this counts as a water tile (prototype `wet = D > 0.05`). */
 export const WET = 0.05;
@@ -212,7 +213,7 @@ const WATER_CHECKS = new Set([
   "water.settles", "water.clean_exists", "water.clean_reach", "water.outflow", "water.badwater_contained", "water.source_in_flow", "water.storage_possible",
   "resources.badwater_source", "start.water", "start.badwater", "start.food", "start.farmland", "plants.survive", "plants.drought",
 ]);
-export const NO_WATER_SOURCE = "No water source: this map was made without its sources (Sources: None), for you to place them";
+export const NO_WATER_SOURCE = "No water source: the map was made with Sources: None";
 
 export function checkPlayability(inp: PlayabilityInput, c0: Collector): PlayabilityAnalysis {
   const { W, H, surface: h, objects, water, rules, model } = inp;
@@ -264,10 +265,10 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     limit: SETTLE_DAYS * TICKS_PER_DAY,
     message:
       steadyAt === undefined
-        ? `the water is still changing after ${SETTLE_DAYS} game days`
+        ? `Water still changing after ${SETTLE_DAYS} days`
         : water.settled
-          ? `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); water may keep flowing off the map`
-          : `the water is steady after ${steadyAt} ticks (${days(steadyAt)} days); a sealed lake keeps slowly evaporating, as an unfed lake does in the game`,
+          ? `Water steady after ${days(steadyAt)} days, still flowing off the map`
+          : `Water steady after ${days(steadyAt)} days, a sealed lake keeps slowly evaporating`,
   });
   const share = wetCount / N;
   c.add({
@@ -276,7 +277,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     ok: share <= rules.maxWaterShare,
     value: Math.round(share * 1000) / 1000,
     limit: rules.maxWaterShare,
-    message: `${Math.round(share * 100)}% of the map is under water (at most ${Math.round(rules.maxWaterShare * 100)}%; official maps reach 40% at p90)`,
+    message: `${Math.round(share * 100)}% of the map is under water, at most ${Math.round(rules.maxWaterShare * 100)}%`,
   });
   // how much clean water the map keeps is a target, not a rule: maps need not hold their water
   // (D152); the start's own water is `start.water`'s
@@ -288,7 +289,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     ok: cleanCount >= 0.02 * N,
     value: cleanCount,
     limit: minClean,
-    message: `${cleanCount} tiles of clean water (the target is 2% of the map, ${minClean})`,
+    message: `${counted(cleanCount, "tile")} of clean water, aim for ${minClean}`,
   });
   checkOutflow(inp, c);
   checkSourcesInFlow(inp, c);
@@ -302,7 +303,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     ok: largest >= 40,
     value: largest,
     limit: 40,
-    message: `the largest body of clean water badwater never reaches has ${largest} tiles (the target is 40)`,
+    message: `Largest clean water badwater cannot reach is ${counted(largest, "tile")}, aim for 40`,
   });
   checkContained(inp, c);
 
@@ -342,16 +343,16 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     value: badSources,
     limit: wantsBad ? 1 : 0,
     message: !wantsBad
-      ? `No badwater: a peaceful map needs no badwater source${badSources ? ` (it has ${badSources})` : ""}`
+      ? `No badwater, as chosen${badSources ? ` (the map has ${counted(badSources, "source")})` : ""}`
       : badSources
-        ? `${badSources} badwater source${badSources > 1 ? "s" : ""} (every map needs at least one, unless it is set to No badwater)`
-        : "no badwater source: every map needs at least one, the late game's lasting badwater, unless it is set to No badwater",
+        ? counted(badSources, "badwater source")
+        : "No badwater source",
   });
 
   // ---- the start (vanilla: exactly one; `start.count` reports anything else)
   const starts = objects.map((o, k) => [o, k] as const).filter(([o]) => o.template === "StartingLocation");
   if (starts.length !== 1) {
-    for (const cid of START_CHECKS) c.notApplicable(cid, "playability", `needs exactly one start (the map has ${starts.length})`, ADVISORY_START.has(cid));
+    for (const cid of START_CHECKS) c.notApplicable(cid, "playability", `Needs one start, the map has ${starts.length}`, ADVISORY_START.has(cid));
     checkMines(objects, W, H, null, c);
     return analysis;
   }
@@ -442,7 +443,6 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
   const walked = reach ? mines - out.length : 0;
   const n = reach ? walked : mines;
   const want = minesWanted(W, H);
-  const every = want === MINES_WANTED ? "every map needs" : "a map this small needs";
   const cut = cutAtOpen ? out.filter(([x, y]) => !cutAtOpen.has(y * W + x)) : [];
   c.add({
     id: "resources.mine_site",
@@ -452,10 +452,10 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
     value: n,
     limit: want,
     message: !reach
-      ? `${mines} mine site${mines === 1 ? "" : "s"} (${every} at least ${want}, the late game's lasting source of scrap metal)`
+      ? `${counted(mines, "mine site")}, at least ${want} needed`
       : cut.length
-        ? `${cut.length === 1 ? "a mine site the colony reached is" : `${cut.length} mine sites the colony reached are`} out of its reach now: no way from the start without crossing water or climbing a cliff (place a slope or level the ground); ${walked} of ${mines} reached`
-        : `${walked} of ${mines} mine site${mines === 1 ? "" : "s"} the colony reaches from the start, without crossing water or climbing a cliff (${every} at least ${want})`,
+        ? `${cut.length === 1 ? "A mine site is" : `${cut.length} mine sites are`} out of reach of the start now (${walked} of ${mines} reachable)`
+        : `${walked} of ${counted(mines, "mine site")} reachable from the start, at least ${want} needed`,
     ...(cut.length ? { where: { tiles: cut.slice(0, 20) } } : {}),
   });
 }
@@ -468,12 +468,12 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
 function checkContained(inp: PlayabilityInput, c: Collector): void {
   const { W, H, surface: h, features } = inp;
   if (!features) {
-    c.notApplicable("water.badwater_contained", "playability", "needs the map's planned badwater basins (imported maps have none)");
+    c.notApplicable("water.badwater_contained", "playability", "Imported maps have no planned badwater basins");
     return;
   }
   const basins = features.filter((f) => f.kind === "setPiece" && f.params.kind === "badwaterBasin" && f.params.plan.mode === "basin" && Array.isArray(f.params.plan.outlet));
   if (!basins.length) {
-    c.notApplicable("water.badwater_contained", "playability", "no badwater basin with a planned outlet on this map");
+    c.notApplicable("water.badwater_contained", "playability", "No badwater basin with an outlet on this map");
     return;
   }
   const leaks: [number, number][] = [];
@@ -489,8 +489,8 @@ function checkContained(inp: PlayabilityInput, c: Collector): void {
     value: leaks.length,
     limit: 0,
     message: leaks.length
-      ? `${leaks.length} of ${basins.length} badwater basins leak below their rim: a levee on the outlet would not hold the badwater`
-      : `a levee on the outlet keeps the badwater in its basin (${basins.length} basin${basins.length > 1 ? "s" : ""})`,
+      ? `${leaks.length} of ${counted(basins.length, "badwater basin")} leak below the rim`
+      : `${counted(basins.length, "badwater basin")} ${basins.length === 1 ? "holds its" : "hold their"} water`,
     ...(leaks.length ? { where: { tiles: leaks } } : {}),
   });
 }
@@ -542,12 +542,12 @@ export function basinLeak(p: ContainedPlan, h: Uint8Array, W: number, H: number)
  *  anywhere (D184): the rule is for generated maps, so it does not apply there. */
 function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
   if (c.profile === "export") {
-    c.notApplicable("water.source_in_flow", "design", "sources go anywhere in the editor (D184): the rule is for generated maps");
+    c.notApplicable("water.source_in_flow", "design", "Not checked in the editor: sources go anywhere");
     return;
   }
   const r = sourcesInFlow(inp.model, inp.objects, inp.water.depth);
   if (!r.sources) {
-    c.notApplicable("water.source_in_flow", "design", "no water sources on this map");
+    c.notApplicable("water.source_in_flow", "design", "No water sources on this map");
     return;
   }
   const where = r.inFlow.map((k) => inp.ids?.[k]).filter((e): e is string => !!e);
@@ -558,8 +558,8 @@ function checkSourcesInFlow(inp: PlayabilityInput, c: Collector): void {
     value: r.inFlow.length,
     limit: 0,
     message: r.inFlow.length
-      ? `${r.inFlow.length} of ${r.sources} water sources stand where water from another source already flows: a source is where water begins`
-      : `every water source stands where its water begins (${r.sources} source${r.sources > 1 ? "s" : ""})`,
+      ? `${r.inFlow.length} of ${counted(r.sources, "water source")} ${r.inFlow.length === 1 ? "sits" : "sit"} in another source's flow`
+      : "Every water source starts its own flow",
     ...(r.inFlow.length ? { where: { tiles: r.tiles.slice(0, 20), ...(where.length ? { entities: where } : {}) } } : {}),
   });
 }
@@ -578,7 +578,7 @@ const ADVISORY_START = new Set(["start.badwater", "start.reach", "start.ruins_cl
 function checkOutflow(inp: PlayabilityInput, c: Collector): void {
   const { W, H, model, water, features } = inp;
   if (!features) {
-    c.notApplicable("water.outflow", "playability", "needs the map's planned lakes (imported maps have none)");
+    c.notApplicable("water.outflow", "playability", "Imported maps have no planned lakes");
     return;
   }
   const N = W * H;
@@ -613,8 +613,8 @@ function checkOutflow(inp: PlayabilityInput, c: Collector): void {
     value: bad.length,
     limit: 0,
     message: bad.length
-      ? `${bad.length} sources feed water that reaches neither a map edge nor a planned lake (it would pool and flood)`
-      : "every source's water drains to a map edge or a planned lake",
+      ? `${possessive(bad.length, "source")} water pools without an outlet`
+      : "Every source's water has an outlet",
     ...(bad.length ? { where: { tiles: bad.slice(0, 20) } } : {}),
   });
 }
@@ -660,7 +660,7 @@ function checkStart(
     class: "playability",
     ok: !flooded,
     where: { tiles: [[sx, sy]] },
-    message: flooded ? "water stands within 2 tiles of the district center after the water settles" : "the district center and its ring stay dry after the water settles",
+    message: flooded ? "Water within 2 tiles of the start" : "Start stays dry",
   });
 
   // walking: the map's own ground, and its slopes join levels (no player stairs)
@@ -684,7 +684,7 @@ function checkStart(
   analysis.waterDistance = dw;
   const walkText = (d: number) => `${(Math.round(d * 10) / 10).toString()} tiles' walk`;
   const dwText = Number.isFinite(dw) ? walkText(dw) : "not";
-  const puddleText = shore.puddle <= rules.waterWithin ? `the water ${walkText(shore.puddle)} away is a sealed puddle no source feeds, which a ${rules.droughtDays}-day drought empties; ` : "";
+  const puddleText = shore.puddle <= rules.waterWithin ? `A sealed puddle ${walkText(shore.puddle)} away dries up in a ${rules.droughtDays}-day drought. ` : "";
   c.add({
     id: "start.water",
     class: "playability",
@@ -694,12 +694,12 @@ function checkStart(
     ...(shore.tile >= 0 ? { where: { tiles: [[shore.tile % W, Math.floor(shore.tile / W)]] as [number, number][] } } : {}),
     message:
       dw <= rules.waterWithin
-        ? `clean water a pump reaches is ${dwText} from the start, over the map's own ground and slopes (${cap(rules.difficulty)} allows ${rules.waterWithin})`
+        ? `Clean water ${dwText} from the start (${cap(rules.difficulty)} allows ${rules.waterWithin})`
         : Number.isFinite(dw)
-          ? `${puddleText}the nearest clean water a pump reaches that a source feeds or that lasts a drought is ${dwText} from the start; ${cap(rules.difficulty)} allows ${rules.waterWithin} (beavers go thirsty on day 6)`
+          ? `${puddleText}Nearest lasting clean water is ${dwText} from the start (${cap(rules.difficulty)} allows ${rules.waterWithin})`
           : puddleText
-            ? `${puddleText}no other clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start: beavers would go thirsty`
-            : `no clean water a pump reaches within ${WALK_LIMIT} tiles' walk of the start over the map's own ground and slopes: beavers would need stairs to drink`,
+            ? `${puddleText}No other clean water within ${WALK_LIMIT} tiles' walk of the start`
+            : `No clean water within ${WALK_LIMIT} tiles' walk of the start`,
   });
   let db = Infinity;
   let badAt = -1;
@@ -717,7 +717,7 @@ function checkStart(
     value: Number.isFinite(db) ? Math.round(db * 10) / 10 : "none",
     limit: rules.badwaterWithin,
     ...(badAt >= 0 ? { where: { tiles: [[badAt % W, Math.floor(badAt / W)]] as [number, number][] } } : {}),
-    message: Number.isFinite(db) ? `the nearest badwater or contaminated soil is ${Math.round(db)} tiles from the start (the target is ${rules.badwaterWithin})` : "no badwater or contaminated soil on the map",
+    message: Number.isFinite(db) ? `Nearest badwater or contaminated soil is ${counted(Math.round(db), "tile")} from the start, aim for ${rules.badwaterWithin}` : "No badwater or contaminated soil on the map",
   });
 
   // reach: same-level land joined by slopes (beavers cannot climb a 1-level step)
@@ -738,7 +738,7 @@ function checkStart(
     ok: dry >= rules.reachMin,
     value: dry,
     limit: rules.reachMin,
-    message: `${dry} dry tiles are walkable from the start through slopes (the target is ${rules.reachMin}; official p10 1,007)`,
+    message: `${counted(dry, "dry tile")} walkable from the start, aim for ${rules.reachMin}`,
   });
 
   // requirement 3 (D85): living berry bushes within 20 tiles' walk of the start, slopes allowed;
@@ -816,7 +816,7 @@ function checkStart(
       ok: farmland >= rules.farmland,
       value: farmland,
       limit: rules.farmland,
-      message: `${farmland} tiles of moist farmland within ${NEAR} tiles' walk of the start, no stairs needed (at least ${rules.farmland})`,
+      message: `${counted(farmland, "tile")} of moist farmland within ${NEAR} tiles' walk of the start (at least ${rules.farmland})`,
     });
     c.add({
       id: "start.level_land",
@@ -824,7 +824,7 @@ function checkStart(
       ok: level >= rules.levelLand,
       value: level,
       limit: rules.levelLand,
-      message: `${level} tiles of level building land within ${NEAR} tiles' walk of the start, no reshaping needed (at least ${rules.levelLand})`,
+      message: `${counted(level, "tile")} of level building land within ${NEAR} tiles' walk of the start (at least ${rules.levelLand})`,
     });
   }
   // the fixes when the start falls short (D257: a force may leave it so): berry bushes, then oaks for
@@ -842,7 +842,7 @@ function checkStart(
     ok: bushes >= rules.bushesWithin20,
     value: bushes,
     limit: rules.bushesWithin20,
-    message: `${bushes} living berry bushes within 20 tiles' walk of the start (at least ${rules.bushesWithin20})`,
+    message: `${counted(bushes, "living blueberry bush", "living blueberry bushes")} within 20 tiles' walk of the start (at least ${rules.bushesWithin20})`,
     ...(plant.bushes.length ? { fix: plant.bushes } : {}),
   });
   c.add({
@@ -866,8 +866,8 @@ function checkStart(
     limit: LOG_FLOOR,
     message:
       floorWood >= LOG_FLOOR
-        ? `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start: enough to build a Forester (the floor is ${LOG_FLOOR})`
-        : `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the floor of ${LOG_FLOOR}: not enough to build a Forester, and without one the game is over`,
+        ? `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, enough for a Forester (${LOG_FLOOR} needed)`
+        : `${floorWood} logs within ${LOG_FLOOR_WALK} tiles' walk of the start, under the ${LOG_FLOOR} a Forester needs`,
   });
   const ruinsNear: string[] = [];
   let ruinsNearCount = 0;
@@ -887,7 +887,7 @@ function checkStart(
     ok: ruinsNearCount === 0,
     value: ruinsNearCount,
     limit: 0,
-    message: `${ruinsNearCount} ruin columns within ${rules.ruinsWithin} tiles of the start (the target is none)`,
+    message: `${counted(ruinsNearCount, "ruin column")} within ${rules.ruinsWithin} tiles of the start`,
     ...(ruinsNear.length ? { where: { entities: ruinsNear }, fix: [fixDelete(ruinsNear, "Remove the ruin columns next to the start")] } : {}),
   });
 
@@ -913,7 +913,7 @@ function checkStart(
     ok: wrongCount === 0,
     value: wrongCount,
     limit: 0,
-    message: wrongCount ? `${wrongCount} living plants stand on soil that kills them (dry, flooded or contaminated)` : "every living plant is on soil where it survives",
+    message: wrongCount ? `${counted(wrongCount, "living plant")} on soil that kills ${wrongCount === 1 ? "it" : "them"}` : "Every living plant is on soil it survives",
     ...(wrong.length ? { where: { entities: wrong }, fix: [fixDelete(wrong, "Remove the plants that would die")] } : {}),
   });
 
@@ -927,7 +927,7 @@ function checkStart(
       ok: true,
       value: 0,
       limit: 0,
-      message: `${cap(rules.difficulty)} droughts (${rules.droughtDays} days) are shorter than a berry bush survives dry`,
+      message: `${cap(rules.difficulty)} droughts (${rules.droughtDays} days) are shorter than a blueberry bush survives dry`,
     });
   } else {
     const kept = droughtStorage(model, D, rules.droughtDays);
@@ -952,8 +952,8 @@ function checkStart(
       value: thirstyCount,
       limit: 0,
       message: thirstyCount
-        ? `${thirstyCount} berry bushes near the start dry out in a ${rules.droughtDays}-day drought (their water drains; a blueberry dies after about ${BLUEBERRY_DAYS_TO_DIE_DRY} dry days). Irrigate or dam upstream.`
-        : `the berry bushes near the start keep moist soil through a ${rules.droughtDays}-day drought`,
+        ? `${counted(thirstyCount, "blueberry bush", "blueberry bushes")} near the start dry out in a ${rules.droughtDays}-day drought`
+        : `Blueberry bushes near the start stay moist through a ${rules.droughtDays}-day drought`,
       ...(thirsty.length ? { where: { entities: thirsty } } : {}),
     });
   }
@@ -1005,12 +1005,12 @@ function checkStart(
     limit: Math.round(need),
     message:
       shore.tile < 0
-        ? "no clean water within the start's reach to store"
+        ? "No clean water in reach of the start to store"
         : running < runningNeed
-          ? `the start's water is fed by ${Math.round(running * 100) / 100} water/s of clean flow, too little to refill ${Math.round(need)} in two days`
+          ? `The start's water flows at ${Math.round(running * 100) / 100}/s, too little to refill ${Math.round(need)} in two days`
           : how
-            ? `storage is possible near the start (${how}): ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`
-            : `no dam, natural pool or levee line within ${RESERVOIR_RADIUS} tiles${deep > 0 ? `, at least ${deep} deep on average,` : ""} holds ${Math.round(need)} (the best dam ${Math.round(best ? best.volume : 0)}, natural pools ${Math.round(natural)}, levees ${Math.round(levee)})`,
+            ? `Storage near the start by ${how}: ${Math.round(need)} carries ${colony} beavers through a ${rules.droughtDays}-day drought`
+            : `No dam, natural pool or levee within ${RESERVOIR_RADIUS} tiles holds ${Math.round(need)}`,
   });
 
   // resource totals, information (never a reason to reject): a warning below half the official
@@ -1031,7 +1031,7 @@ function checkStart(
   const res: ["scrap" | "trees" | "bushes", number, string][] = [
     ["scrap", scrap, "scrap metal in ruins"],
     ["trees", treeTotal, "living trees"],
-    ["bushes", bushTotal, "berry bushes"],
+    ["bushes", bushTotal, "blueberry bushes"],
   ];
   for (const [key, have, what] of res) {
     // (living trees only, item 26: against the official maps' living share of their trees)
@@ -1050,7 +1050,7 @@ function checkStart(
       ok: have >= need2,
       value: have,
       limit: Math.round(need2),
-      message: `${have.toLocaleString("en-US")} ${what}: ${where} the official maps' typical range for this size${k !== 1 ? " and setting" : ""} (${lo.toLocaleString("en-US")}–${hi.toLocaleString("en-US")})${have >= need2 ? "" : `; under half their median (${Math.round(need2).toLocaleString("en-US")})`}`,
+      message: `${have.toLocaleString("en-US")} ${what}, ${where} the official range of ${lo.toLocaleString("en-US")}–${hi.toLocaleString("en-US")}${have >= need2 ? "" : ", under half the median"}`,
     });
   }
 
@@ -1075,7 +1075,7 @@ function checkStart(
       ok: shareIn >= 0.8,
       value: Math.round(shareIn * 100) / 100,
       limit: 0.8,
-      message: `${Math.round(shareIn * 100)}% of ruin columns are in fields of 10 or more (at least 80%; official median 97%)`,
+      message: `${Math.round(shareIn * 100)}% of ruin columns are in fields of 10 or more, at least 80%`,
     });
     let noAccess = 0;
     for (const o of ruins) {
@@ -1095,11 +1095,11 @@ function checkStart(
       ok: noAccess === 0,
       value: noAccess,
       limit: 0,
-      message: noAccess ? `${noAccess} ruin columns have no neighbour at their level for a scavenger to stand on` : "every ruin column can be scavenged from its own level",
+      message: noAccess ? `${counted(noAccess, "ruin column")} nobody can scavenge from` : "Every ruin column can be scavenged",
     });
   } else {
-    c.notApplicable("ruins.fields", "playability", "no ruins on this map");
-    c.notApplicable("ruins.access", "playability", "no ruins on this map");
+    c.notApplicable("ruins.fields", "playability", "No ruins on this map");
+    c.notApplicable("ruins.access", "playability", "No ruins on this map");
   }
   checkExtras(inp, c, sd);
 }
@@ -1140,12 +1140,12 @@ export const FLOOD_MARGIN = 2;
 function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): void {
   const { W, H, surface: h, water, features } = inp;
   if (!features) {
-    c.notApplicable("extras.placement", "playability", "distance bands are generator rules; imported maps keep their objects");
+    c.notApplicable("extras.placement", "playability", "Imported maps keep their objects where they are");
     return;
   }
   const extras = features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS);
   if (!extras.length) {
-    c.notApplicable("extras.placement", "playability", "no relics, geothermal fields, mine sites, thorn belts or unstable cores on this map");
+    c.notApplicable("extras.placement", "playability", "No relics, geothermal fields, mine sites, thorn belts or unstable cores on this map");
     return;
   }
   const N = W * H;
@@ -1176,13 +1176,19 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
     const k = f.params.kind;
     const tiles = objectTiles(f, W, H);
     const on = tiles.filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
-    const name = OBJECT_NAMES[k].toLowerCase();
+    const name = OBJECT_NAMES[k];
+    // one line: "Geothermal field on uneven ground · X 105 · Y 7 · Z 11" (the object's first tile)
+    const line = (wrong: string) => {
+      const [x, y] = on.length ? on[0] : [Math.max(0, tiles[0][0]), Math.max(0, tiles[0][1])];
+      const inside = x >= 0 && y >= 0 && x < W && y < H;
+      return `${name} ${wrong} · ${placeOf(x, y, inside ? h[y * W + x] : 0)}`;
+    };
     let problem = "";
-    if (on.length < tiles.length) problem = `a ${name} lies off the map`;
+    if (on.length < tiles.length) problem = line("off the map");
     else if (FLAT_EXTRAS.has(k)) {
       const lv = h[on[0][1] * W + on[0][0]];
-      if (on.some(([x, y]) => h[y * W + x] !== lv)) problem = `a ${name} stands on uneven ground`;
-      else if (on.some(([x, y]) => flood[y * W + x])) problem = `a ${name} is within ${FLOOD_MARGIN} tiles of water or in a reservoir site`;
+      if (on.some(([x, y]) => h[y * W + x] !== lv)) problem = line("on uneven ground");
+      else if (on.some(([x, y]) => flood[y * W + x])) problem = line(`within ${FLOOD_MARGIN} tiles of water`);
     }
     if (!problem && f.origin === "generated" && on.length) {
       const b = EXTRA_BANDS[k];
@@ -1190,11 +1196,11 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
       const hi = b.scaled ? b.hi * scale : b.hi;
       let d = Infinity;
       for (const [x, y] of on) if (sd[y * W + x] < d) d = sd[y * W + x];
-      if (d < lo || d > hi) problem = `a ${name} is ${Math.round(d)} tiles from the start (its band is ${Math.round(lo)}${hi < Infinity ? `–${Math.round(hi)}` : "+"})`;
+      if (d < lo || d > hi) problem = line(`${Math.round(d)} tiles from the start, wanted ${Math.round(lo)}${hi < Infinity ? `–${Math.round(hi)}` : "+"}`);
     }
     if (!problem && k === "unstableCore" && f.origin === "generated") cores.push({ tiles: on, radius: f.params.core?.radius ?? 2 });
     if (problem) {
-      if (why.length < 4) why.push(problem);
+      why.push(problem);
       if (on.length) bad.push(on[0]);
       else bad.push([Math.min(W - 1, Math.max(0, tiles[0][0])), Math.min(H - 1, Math.max(0, tiles[0][1]))]);
     }
@@ -1209,7 +1215,7 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
           if (g < gap) gap = g;
         }
       if (gap < Math.max(cores[a].radius, cores[b].radius) + 2) {
-        if (why.length < 4) why.push(`two unstable cores are ${gap} tiles apart: one would set off the other`);
+        why.push(`Unstable cores ${gap} tiles apart · ${placeOf(cores[b].tiles[0][0], cores[b].tiles[0][1], h[cores[b].tiles[0][1] * W + cores[b].tiles[0][0]])}`);
         bad.push(cores[b].tiles[0]);
       }
     }
@@ -1219,7 +1225,7 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
     ok: bad.length === 0,
     value: bad.length,
     limit: 0,
-    message: bad.length ? why.join("; ") : `${extras.length} map objects stand where they should`,
+    message: bad.length ? lines(why) : `${counted(extras.length, "map object")} where they should be`,
     ...(bad.length ? { where: { tiles: bad.slice(0, 20) } } : {}),
   });
 }

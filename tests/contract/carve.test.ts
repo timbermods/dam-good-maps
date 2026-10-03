@@ -554,7 +554,7 @@ describe("a carve in the document (breakage rule)", () => {
     expect(Math.max(...surfaces) - Math.min(...surfaces)).toBeLessThan(1e-9);
     const settles = s.validate("export").report.checks.find((c) => c.id === "water.settles")!;
     expect(settles.ok, settles.message).toBe(true);
-    expect(settles.message).toMatch(/sealed lake keeps slowly evaporating/);
+    expect(settles.message).toMatch(/a sealed lake keeps slowly evaporating/);
     // the same carve without its kept water: the game's settle from the land and the sources alone
     const bare = MapSession.fromGenerated(r, r.file);
     const { lake: _lake, ...params } = op.params;
@@ -651,7 +651,7 @@ describe("a carve at work in the editor's worker", () => {
     for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
     expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
-    // (the water stays as it was: no frame carries any)
+    // (no frame carries water: a carve's own flows as a stroke's does, carveBornAsItCuts.test.ts)
     expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
     const back = ed.carveCancel();

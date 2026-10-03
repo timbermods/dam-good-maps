@@ -101,7 +101,9 @@ The editor's parts as they are now; their placement and styling are the design p
   Timberborn's own editor) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
   speaker icon, crossed out when muted; its volume opens beneath it); one height and one gap throughout
   (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
-  B1).
+  B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
+  (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
+  is left; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
@@ -170,10 +172,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
-  large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
+  large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
+  in its own 3.5 seconds once worked out (D374), eased (slow as the ice grips, steady through, settling gently), its
+  advance, the land changing, three quarters of it. **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
-  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking.
+  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
+  new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·
@@ -181,7 +186,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
-  any edit. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
+  any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
+  as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
+  channel (shown as a stroke's water is); kept (or skipped to its end), the map's water flows on from that water, so
+  nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
@@ -933,6 +941,12 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
+  - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
+    `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws
+    in the look that will be drawn, compiles its programs (`compileAsync`) and waits for the GPU; the 3D view takes
+    that renderer, canvas and context, with `takePreparedRenderer`, so the map's first frame compiles nothing new
+    (`tests/e2e/rendererWarmup.spec.ts`). A map's moving water is retired, not dropped, until the next map's first
+    frame, so a new map reuses its programs too.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,

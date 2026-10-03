@@ -9,7 +9,8 @@
 // Time is a stepped clock (D341): every pace and moment here is exact, never the machine's.
 
 import { describe, expect, it } from "vitest";
-import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, MIN_SHOW_MS, paceOf, powerWord, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
+import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, GLACIATE_ADVANCE_SHARE, GLACIATE_ADVANCE_STEPS, GLACIATE_SHOW_MS, GLACIATE_STEPS, showingAt, MIN_SHOW_MS, paceOf, powerWord, shownAt, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
+import { ADVANCE_STEPS, RETREAT_STEPS } from "../../src/core/forces/glaciate/run";
 import type { Verb } from "../../src/core/forces/op";
 import type { ForceFrame, ForceStarted } from "../../src/worker/session";
 import { StepClock } from "../stepClock";
@@ -112,12 +113,58 @@ describe("the force driver", () => {
   it("Fast keeps a quicker force's own pace; a slow working-out still leaves it a short showing", () => {
     expect(showMs("craterize", 11, "fast", 20)).toBe(11 * CARVE_PACE.ms);
     expect(showMs("carve", 800, "fast", 300)).toBe(FAST_MS - 300);
-    expect(showMs("glaciate", 50, "fast", 1900)).toBe(MIN_SHOW_MS);
+    expect(showMs("carve", 800, "fast", 1900)).toBe(MIN_SHOW_MS);
     expect(dueMs("carve", 800, "fast", 300)).toBe(FAST_MS);
-    expect(dueMs("glaciate", 50, "fast", 1900)).toBe(1900 + MIN_SHOW_MS);
+    expect(dueMs("carve", 800, "fast", 1900)).toBe(1900 + MIN_SHOW_MS);
     // Watch: four times Fast's own, whatever the working-out took
     expect(showMs("carve", 800, "watch", 300)).toBe(WATCH_FACTOR * FAST_MS);
     expect(showMs("craterize", 11, "watch", 20)).toBe(WATCH_FACTOR * 11 * CARVE_PACE.ms);
+  });
+
+  it("a glacier's showing is its own 3.5 seconds once worked out, however long that took, eased, its advance three quarters of it (D374)", () => {
+    const total = ADVANCE_STEPS + RETREAT_STEPS;
+    expect(GLACIATE_ADVANCE_STEPS).toBe(ADVANCE_STEPS);
+    expect(GLACIATE_STEPS).toBe(total);
+    // (and back: how far through its showing a step is shown)
+    for (const steps of [0, 1, 15, 30, 31, 49, 50]) expect(shownAt("glaciate", total, showingAt("glaciate", total, steps))).toBeCloseTo(steps, 6);
+    for (const worked of [0, 600, 1900, 4000]) {
+      expect(showMs("glaciate", total, "fast", worked)).toBe(GLACIATE_SHOW_MS);
+      expect(dueMs("glaciate", total, "fast", worked)).toBe(worked + GLACIATE_SHOW_MS);
+      expect(showMs("glaciate", total, "watch", worked)).toBe(WATCH_FACTOR * GLACIATE_SHOW_MS);
+    }
+    // from none to all of it, never going back
+    expect(shownAt("glaciate", total, 0)).toBe(0);
+    expect(shownAt("glaciate", total, 1)).toBeCloseTo(total, 9);
+    const n = 200;
+    const rates: number[] = [];
+    for (let k = 1; k <= n; k++) rates.push((shownAt("glaciate", total, k / n) - shownAt("glaciate", total, (k - 1) / n)) * n);
+    expect(Math.min(...rates)).toBeGreaterThan(0);
+    // slow as the ice grips and as it settles, steady through: its first and last tenths slower than its middle
+    const mid = rates[n / 2];
+    expect(rates[0]).toBeLessThan(mid / 2);
+    expect(rates[n - 1]).toBeLessThan(rates[n / 2 + n / 4]);
+    // the advance (the land changing) takes three quarters of the time
+    const advanceAt = rates.findIndex((_, k) => shownAt("glaciate", total, (k + 1) / n) >= ADVANCE_STEPS) / n;
+    expect(advanceAt).toBeGreaterThan(0.7);
+    expect(advanceAt).toBeLessThan(0.8);
+    expect(GLACIATE_ADVANCE_SHARE).toBe(0.75);
+    // every other force: evenly
+    expect(shownAt("carve", 800, 0.25)).toBe(200);
+    expect(shownAt("erupt", 28, 1)).toBe(28);
+  });
+
+  it("a glacier's driver keeps its 3.5 seconds on exact time, whatever its working-out took", async () => {
+    const clock = new StepClock();
+    const h = fakeHost(clock, { total: ADVANCE_STEPS + RETREAT_STEPS, workCalls: 12, workMs: 150, verb: "glaciate" });
+    const d = new ForceDriver(h.host, clock);
+    const started = d.start();
+    await clock.until(() => !d.running);
+    expect(await started).toBe(true);
+    expect(d.timing!.worked).toBeGreaterThanOrEqual(1800);
+    expect(d.timing!.show).toBe(GLACIATE_SHOW_MS);
+    // (its last step comes a little before the end: the showing settles gently into it)
+    expect(d.timing!.final - d.timing!.worked).toBeGreaterThanOrEqual(0.9 * GLACIATE_SHOW_MS);
+    expect(d.timing!.final - d.timing!.worked).toBeLessThanOrEqual(GLACIATE_SHOW_MS + 2 * FRAME_MS);
   });
 
   it("Watch plays it out about four times as long; a jump keeps its whole result at once", async () => {
@@ -303,14 +350,14 @@ describe("the force driver", () => {
     expect(h.log).toContain("error:Start here");
   });
 
-  it("each force keeps its own pace, whatever the water's speed (D266): an eruption's 28 stages in about 1.5 seconds (D312), a glacier's 50 in five (D246); Fast compresses the longer ones to two (D321)", () => {
+  it("each force keeps its own pace, whatever the water's speed (D266): an eruption's 28 stages in about 1.5 seconds (D312), a glacier's 50 in five (D246); Fast compresses the longer ones to two (D321), a glacier to its own 3.5 (D374)", () => {
     expect((CARVE_PACE.steps * 1000) / CARVE_PACE.ms).toBe(20);
     expect(paceOf("craterize")).toEqual(CARVE_PACE);
     expect(paceOf("quake")).toEqual(CARVE_PACE);
     expect((28 * paceOf("erupt").ms) / 1000).toBeLessThanOrEqual(2);
     expect((28 * paceOf("erupt").ms) / 1000).toBeGreaterThan(1.2);
     expect((50 * paceOf("glaciate").ms) / 1000).toBeCloseTo(5, 1);
-    expect(showMs("glaciate", 50, "fast", 0)).toBe(FAST_MS);
+    expect(showMs("glaciate", 50, "fast", 0)).toBe(GLACIATE_SHOW_MS);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("glaciate", p))).toEqual(["Light scour", "Glacier", "Great glacier", "Ice age"]);
     expect([0, 30, 60, 90].map(powerWord)).toEqual(["Creek", "Torrent", "River", "Catastrophe"]);
     expect([0, 30, 60, 90].map((p) => forcePowerWord("craterize", p))).toEqual(["Pebble", "Meteor", "Asteroid", "Cataclysm"]);

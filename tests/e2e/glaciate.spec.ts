@@ -7,7 +7,7 @@
 // varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
+import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -208,14 +208,15 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   };
   const slow = await timed("slower");
   const quick = await timed("instant");
-  // the same glacier, shown at Fast's pace either way: its showing is the force's own (its steps, the
-  // time it took to work out), never the water's. (D341: the pace as the page plans it, not the wall
+  // the same glacier, shown at Fast's pace either way: its showing is the force's own (its 3.5
+  // seconds once worked out, D374), never the water's. (D341: the pace as the page plans it, not the wall
   // clock of a busy machine; the driver keeps to its plan on exact time in forceDriver.test.)
   expect(quick.total).toBe(slow.total);
   for (const t of [slow, quick]) {
     expect(t.speed).toBe("fast");
     expect(Math.abs(t.show - showMs("glaciate", t.total, "fast", t.worked))).toBeLessThanOrEqual(1);
-    expect(t.due).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
+    expect(t.show).toBe(GLACIATE_SHOW_MS);
+    expect(t.due).toBeLessThanOrEqual(t.worked + GLACIATE_SHOW_MS + 1);
   }
 });
 

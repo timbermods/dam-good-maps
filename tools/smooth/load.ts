@@ -118,21 +118,26 @@ export function mergeBusy(lists: readonly (readonly Busy[])[]): Busy[] {
   return [...by.values()].sort((a, b) => b.maxCpu - a.maxCpu).slice(0, 6);
 }
 
-/** The series' answer to "was the PC idle?": outside CPU rarely above 5% and its median at most 5%, over the runs' samples. */
-export function idleLine(loads: readonly { outside: Triple | null; samples: number; over5: number; busy: Busy[] }[]): { idle: boolean; text: string } {
+/** The series' answer to "was the PC idle?", by the gate's own rule (Kyler, 2026-10-03: the line and the rule can't
+ *  disagree): outside CPU and outside GPU at most RULES' 10% in every sample of the runs it kept. Samples above 5% are
+ *  still counted and their busy processes named, as information. */
+export function idleLine(loads: readonly { outside: Triple | null; gpu?: Triple | null; samples: number; over5: number; busy: Busy[] }[], r: LoadRules = RULES): { idle: boolean; text: string } {
   const withOut = loads.filter((l) => l.outside);
   if (!withOut.length) return { idle: false, text: "PC idle: unknown (no load samples)" };
   const min = Math.min(...withOut.map((l) => l.outside!.min));
   const max = Math.max(...withOut.map((l) => l.outside!.max));
   const meds = withOut.map((l) => l.outside!.median).sort((a, b) => a - b);
   const median = meds[Math.floor(meds.length / 2)];
+  const gpus = loads.map((l) => l.gpu).filter((g): g is Triple => !!g);
+  const gpuMax = gpus.length ? Math.max(...gpus.map((g) => g.max)) : null;
   const samples = loads.reduce((s, l) => s + l.samples, 0);
   const over5 = loads.reduce((s, l) => s + l.over5, 0);
-  const idle = median <= BUSY_PCT && over5 <= 0.05 * samples;
-  const range = `outside CPU min/median/max ${min.toFixed(1)}/${median.toFixed(1)}/${max.toFixed(1)}%`;
-  if (idle && over5 === 0) return { idle, text: `PC idle: yes (${range}, never above ${BUSY_PCT}%)` };
+  const idle = max <= r.cpuMax && (gpuMax === null || gpuMax <= r.gpuMax);
+  const range = `outside CPU min/median/max ${min.toFixed(1)}/${median.toFixed(1)}/${max.toFixed(1)}%${gpuMax === null ? "" : `, outside GPU max ${gpuMax.toFixed(1)}%`}`;
+  const rule = `the gate's rule: at most ${r.cpuMax}% CPU and ${r.gpuMax}% GPU`;
+  if (over5 === 0) return { idle, text: `PC idle: ${idle ? "yes" : "NO"} (${range}; ${rule}; never above ${BUSY_PCT}%)` };
   const busy = mergeBusy(loads.map((l) => l.busy)).map((b) => `${b.name} ${b.maxCpu.toFixed(0)}%`).join(", ");
-  return { idle, text: `PC idle: ${idle ? "yes" : "NO"} (${range}; above ${BUSY_PCT}% in ${over5} of ${samples} samples${busy ? "; busy: " + busy : ""})` };
+  return { idle, text: `PC idle: ${idle ? "yes" : "NO"} (${range}; ${rule}; above ${BUSY_PCT}% in ${over5} of ${samples} samples${busy ? "; busy: " + busy : ""})` };
 }
 
 const triple = (v: number[]): Triple | null => {
