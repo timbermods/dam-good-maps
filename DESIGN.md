@@ -235,6 +235,47 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 - The panel collapses: it narrows to its strip over 200 ms and the rows slide beside it; the camera stays where it is.
 - The shelf, if it opens only while placing: it unrolls downward over 180 ms.
 
+## The one-page editor: the current editor's skeleton, refined (Kyler's verdict, 2026-10-02 17:36)
+
+**The rule.** Wherever Kyler hasn't asked for a change, the current editor on dev wins: layout, spacing, sizes,
+colours and states. Where this document's v4 system conflicts with the current editor's look, the current editor
+wins. **Set aside from the v4 system:** its tokens (the plate and cell measurements, the wood colours), its colour
+roles beyond "one accent for lit, Save only" and "one for selected" (both the current editor's mint), and the grouped
+shelf. **Kept:** the type scale's spirit (the editor's own sizes), the icon family as the editor draws it, the
+no-overlap and contrast tests, Select in hand, the checks list, File, the brush worker patch, the core wiring and the
+D380 work.
+
+**The prototype** (`feature/page-proto`, from dev's editor code with only the changes below; on `/preview/`):
+- The page opens the generated map in the editor at once; there is no settings page.
+- **The header:** a named **New map** button at the left edge, above the palette column, shown selected while the
+  drawer is open; the map's name with one line under it, "seed 4242 · 128×128" (an opened file shows its size; if
+  saving in the browser fails, that line says so instead); the brand mark and "Dam Good Maps" at the window's exact
+  centre, in the quiet colour, over nothing; on the right Undo, Redo, the checks dot with its words, Save to
+  Timberborn (the only lit control), Look, and **File** (Open…, Save project, Download .timber, Clear everything,
+  History, About). The brand fits beside both side groups from about 1,240px wide; narrower windows are not yet
+  designed (a proposal is in docs/progress/page.md).
+- **The palette:** exactly the current editor's, one two-column grid in its order, no breaks.
+- **The toolbar:** the current editor's rows, buttons, padding and gaps, with Flow among the view layers; the forces
+  keep their icons; the options row is the current one, one line, More at its end.
+- **Top right:** the level control, the compass, Slow forces and Sound exactly as on dev; never hidden or moved.
+- **The drawer:** in the palette's place at the width its contents need (352px), with Theme, Seed, Size, Designed
+  for, the six sections, Generate, Surprise me and the map card. The palette stays beneath it, so the map's area and
+  the map never move; the toolbar, the minimap and the readout keep their place to the drawer's right edge and move
+  with it as one block; the top-right group and the water bar never change.
+- **Solid chrome:** every control on the map (the readout and the water bar too) has the panel's solid background.
+- **Large screens:** from 1,800px wide the chrome scales up by 1.2; the map does not.
+- Pause water shows unavailable while the water is settled, never hidden.
+
+**Where the prototype still differs from dev, each with its reason** (the rest is dev by construction):
+1. The header's left block, centre and right group, as asked.
+2. Flow in the view bar, as asked (D353).
+3. "Pause water", unavailable when settled, as asked.
+4. The checks' words beside the dot, as asked.
+5. The readout and the water bar on a solid background, as asked (dev's were 95% translucent).
+6. The view bar wraps before the top-right cluster instead of running under it at 1280 wide (a bug the no-overlap
+   test found; dev reserved room for the compass alone).
+7. The chrome at 1.2× from 1800px wide, as asked.
+
 ## Set aside: the floating plates (Kyler, 2026-10-02)
 
 Side by side with the current editor, the floating-plate layout (v4 and its system round, mockups 01–35) was worse:

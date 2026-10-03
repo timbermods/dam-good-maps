@@ -165,3 +165,15 @@ run's hints' final form (5), the first visit's ready-made map (6), phones (7).
   "Set aside"). Two mockups for where the generator goes (a drawer in the palette's place; two views switched in the
   header), each beside the current editor captured from dev at 1440×900 and 1920×1080: `docs/design/editor-v6-*`.
   Nothing visual is built until he chooses.
+- **2026-10-02, the prototype** (`feature/page-proto`, cut from dev; `docs/design/editor-v7-*`: dev beside the
+  prototype at 1440×900 and 1920×1080, drawer closed and open). Kyler chose option 1, the New map drawer, and
+  asked for one clickable prototype built from dev's editor code with only the listed changes; it is on
+  `/preview/`. The rule from here: where Kyler hasn't asked for a change, dev's editor wins; the v4 system's tokens,
+  colour roles and grouped shelf are set aside (DESIGN.md, "The one-page editor"). `tests/e2e/layout.spec.ts`
+  checks no overlap, the brand's centre, solid backgrounds and WCAG AA at the seven sizes, drawer closed and open.
+  - The brand fits beside both side groups from about 1,240px wide (the right group is 525px, the left 235px, the
+    brand 152px). Proposal for narrower windows, not built: below 1,240px the brand keeps only its mark at the
+    centre; below about 1,000px the mark joins the left block after the name.
+  - The toolbar's longest row (the view bar, 1,025px at 1×) fits between the open drawer and the top-right group
+    from 1,560px wide; at 1440×900 it wraps onto two lines as dev's does on narrow windows, with the drawer open or
+    closed from 1,366 down. Reported, not changed.
