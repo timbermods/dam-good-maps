@@ -7,18 +7,18 @@ The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on
 <https://timbermods.github.io/dam-good-maps/>.
 
 The generator:
-- A map opens ready to edit. **New map**, top left, opens its settings.
+- A map opens ready to edit. **Maps**, top left, opens its settings and your maps.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
-  Basin**, **Delta** or **Islands**. Then pick the size and the difficulty.
+  Basin**, **Delta** or **Islands**. Then pick the size.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
-- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Advanced: start rules** to change the
-  map. Each setting shows what the official maps use.
+- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Difficulty** to change the map. Point at
+  a setting to see what the official maps use.
 - **Generate** makes the map. Its water is settled by the game's own rules, and it is checked for a
   colony's survival.
 - Every map's start has clean water within a short walk, using only the map's own slopes. Wood and
-  berry bushes grow nearby. **Advanced: start rules** sets what the start needs.
+  berry bushes grow nearby. **Difficulty** sets what the start needs.
 - The ground looks as in the game: green where the soil is moist, cracked earth where it is dry,
   rusty red where badwater spoils it.
 - Trees, berry bushes and ruins come in about the amounts official maps of that size have. They
@@ -82,9 +82,9 @@ The editor:
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
   has **Open…**, **Save project**, **Download .timber**, **Clear everything**, **History** and
   **About**.
-- **Name**, at the top of **New map**, renames the map. The saved file takes the name.
-- **Generate** makes a new map. The one you were on stays in **Your maps**, at the foot of **New
-  map**: click it to go back.
+- Click the map's name at the top to rename it. The saved file takes the name.
+- **Generate** makes a new map. The one you were on stays in **Your maps**, at the foot of **Maps**:
+  click it to go back.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.

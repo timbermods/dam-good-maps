@@ -49,33 +49,39 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 ## 3. The screen
 
 The editor's parts as they are now. The page is the editor (D330): every map opens in the editor at once, in one
-window, and New map opens the generator's settings in a drawer beside it. Their look, sizes and exact places are
+window, and Maps opens the generator's settings in a drawer in the palette's column. Their look, sizes and exact places are
 [DESIGN.md](DESIGN.md)'s ("The one-page editor").
 
-- **The header:** **New map** alone at the left edge, above the palette, lit while the drawer is open. The map's name
-  at the window's exact centre, and under it "seed 4242 · 128×128" (an opened file shows its size; if this browser
-  can't keep the map, that line says so); it never reaches either side: where the room is short the second line goes
-  first, then the name ellipsizes, its tooltip holding it in full. On the right Undo, Redo, the checks dot with its
+- **The header:** **Maps** alone at the left edge, above the left column, lit while the drawer is open. The map's
+  name at the window's exact centre, and under it "Seed 4242 · 128×128" (an opened file shows its size; if this
+  browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
+  line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
+  font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
   Save project, Download .timber, Clear everything, History, About).
-- **The New map drawer** (Kyler's option 1, v8): in the palette's place, over the map's left edge; the map and the
-  map's area never move, and the toolbar, the minimap and the readout move right with it as one block. Top to
-  bottom: the open map's **Name** (a rename shows at once in the header, is kept in Your maps, and names the saved
-  file); Theme, Seed (a typed seed is kept, with a lock to unlock it), Size and Designed for; Terrain, Water,
-  Hazards, Resources, Advanced: start rules and Limits for this size, each opening as a sheet over the drawer's
-  lower part with the settings' fields, bands and guards (PLAN §5); **Generate** and **Surprise me**; the map card
-  (its premise, then what is on the map with counts); **Your maps**. Every Generate makes a new map named for its
+- **One left column** at one width (352px): the palette (four tools to a row, each with its picture and name) or
+  the Maps drawer; opening or closing the drawer swaps them, and nothing else on the screen moves or changes size.
+- **The Maps drawer:** **Generate** and **Surprise me** pinned at its top; under them, scrolling as one panel: what
+  is on the map (picture, number, name); Theme and Seed (a typed seed is kept, with a lock to unlock it); Size;
+  Terrain, Water, Hazards, Resources, **Difficulty** (Starting wood, Max walk to water, Starting berries, Start
+  area, No ruins within) and Limits for this size, each opening in place under its own row, several at once, with
+  the settings' fields and guards (PLAN §5) and no line under them (the official maps' range is in each tooltip);
+  **Your maps**. Every map is made for Normal until the core drops difficulty after M9b's release. Every Generate makes a new map named for its
   theme ("River Valley") and replaces the open one without asking: edits never replay onto new land (D336), and the
   map it replaces is already in Your maps.
 - **Your maps** (D234): every map opened or made is kept in this browser and saved quietly after its edits settle
-  (`core/library/saver.ts`), the open one written before anything replaces it; the drawer's foot lists them, newest
+  (`core/library/saver.ts`), a new one a moment after it opens and the open one before anything replaces it; the
+  drawer's foot shows them as square tiles, two to a row (the stored 64px picture, the name and the size), newest
   first, the open map marked, a click opening one. Phones stay view-only (D185).
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
   map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
   edits and all. A real place's address is `#place=<id>`; an opened file has none.
 - **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
-  return to it; a drag on the land marks an area, a press on a source, the start or an object picks it up.
+  return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
+  dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
+  marks an area. The middle button turns the view, the right button pans.
 
 - **The rows over the map** (D323, item 9): four, top to bottom: the view bar; the tools (Raise, Lower, Flatten,
   Smooth, Naturalize, Select); the forces in three clusters by prominence (D352, `FORCE_GROUPS` in `TopBar.tsx`:
@@ -125,8 +131,8 @@ window, and New map opens the generator's settings in a drawer beside it. Their 
   has roofed water). Toggling any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-- **The top-right cluster** (D345 B3, D368 (5)): the compass in the corner, the **level control** (▾ ∞ ▴, as in
-  Timberborn's own editor) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
+- **The top-right cluster** (D345 B3, D368 (5)): the compass in the corner, the **level control** (▾ value ▴, at one
+  fixed width) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
   speaker icon, crossed out when muted; its volume opens beneath it), then a named **Legend** button across the
   column; one height and one gap throughout, one right edge for the column and the water bar
   (`tests/e2e/viewAndHeader.spec.ts`, `layout.spec.ts`). The legend opens only by its button, under it over the
@@ -134,11 +140,13 @@ window, and New map opens the generator's settings in a drawer beside it. Their 
   Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Level lines, Contamination edge, Mine site
   outline), a click showing its things on the map. **Every camera view frames the whole map, centred in the map
   area** (D345, B1).
-- **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
-  shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
-  surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
-  same level returns to ∞. Brushes and placement act on the visible land, never on hidden terrain above the
-  cursor. Esc never resets the slice; the control's ∞ does.
+- **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
+  shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
+  first step down from ∞ goes to the map's highest level, up runs through every level to 22, then ∞, and a click on
+  the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
+  objects) and the cut surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's
+  level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on
+  the visible land, never on hidden terrain above the cursor. Esc never resets the slice.
 - **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
   `waterSettled`; the page begins a water journey only when it is false, and reads "Water settled" at once when it
   is true, so an undo, a redo or an edit that leaves the water as it is never leaves "Water flowing… 0%" waiting
@@ -611,8 +619,8 @@ Glaciate and M Select.
 ## 8. The generator, Claude and the first run
 
 **The page is the editor** (D330; [docs/UI-BRIEF.md](docs/UI-BRIEF.md), as Kyler reshaped it on the current editor's
-skeleton, DESIGN.md): one window with no step between making a map and shaping it; the New map drawer holds the map
-as a whole (its name, the settings, the map card, Your maps) and the rows over the map hold the land; Generate runs
+skeleton, DESIGN.md): one window with no step between making a map and shaping it; the Maps drawer holds the map
+as a whole (the settings, what is on it, Your maps) and the rows over the map hold the land; Generate runs
 only on its button. **Edits never replay onto new land** (D336): every Generate makes a new map, at any size or
 setting; an edited map stays in Your maps, one click away (D234). Decided and not yet built: the candidates strip
 (the versions, checkpoint 2).
