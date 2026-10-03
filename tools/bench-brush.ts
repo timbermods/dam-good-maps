@@ -8,6 +8,15 @@
 // tasks; how soon the worker has the stroke after the button comes up; how soon undo shows; and
 // whether the map the worker built is the one painted (strokes that differ: 0 when all is well).
 //
+// Where the land is drawn from decides how a move is followed. The page's own preview (every brush but
+// Naturalize without the D422 patch) presses its dabs in the page, so the re-mesh after a move is the move's.
+// A Naturalize stroke weathered in the worker (D422) draws land that comes back later, and that land is
+// from the dabs the worker was sent, not from the moves that arrived since. The tool then watches the page's
+// messages to the worker (weatherAdd's dabs and the moment each answer arrives, hooked from the page side,
+// nothing in the product changed), gives each move the first dab call that carries a point beyond the
+// previous move's position (the stroke runs left to right, so a point's x says which move it came from),
+// and follows that call's answer to the re-mesh it draws and to the frame after it.
+//
 // Configurations, as `npm run bench:3d` picks them (PLAN §20 D46): the default GPU; and, on a
 // machine with two, the other GPU (on a desktop, its integrated one) with the page's CPU slowed 4×
 // on a laptop-sized screen. Measures are information (D115), never a failure.
@@ -71,6 +80,34 @@ const PROFILE = process.argv.includes("--profile");
 type Profile = { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number; children?: number[] }[]; samples: number[]; timeDeltas: number[] };
 
 async function measure(page: Page): Promise<Record<string, unknown>> {
+  // the worker's messages (a string, so the bundler's helpers stay out of the page): each weatherAdd call's
+  // dabs and when it was posted, and, from the answer's own event time, when its land arrived
+  await page.addInitScript(`(() => {
+    const w = window;
+    w.__w = { adds: [], byId: new Map() };
+    const seen = new WeakSet();
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (m, ...rest) {
+      try {
+        if (!seen.has(this)) {
+          seen.add(this);
+          this.addEventListener("message", (e) => {
+            const a = e.data && w.__w.byId.get(e.data.id);
+            if (a) a.resp = e.timeStamp;
+          });
+        }
+        if (m && Array.isArray(m.path) && m.path[0] === "weatherAdd") {
+          const a0 = m.argumentList && m.argumentList[0];
+          const dabs = Array.isArray(a0) ? a0 : a0 && a0.value;
+          const a = { t: performance.now(), xs: [], resp: null };
+          for (let i = 0; Array.isArray(dabs) && i < dabs.length; i += 2) a.xs.push(dabs[i] / 4);
+          w.__w.adds.push(a);
+          w.__w.byId.set(m.id, a);
+        }
+      } catch {}
+      return post.call(this, m, ...rest);
+    };
+  })()`);
   await page.goto(`http://localhost:${PORT}/#s=1&z=${SIZE}&d=n&t=${THEME}${TERRACING ? `&tr=${TERRACING}` : ""}`);
   await waitForEditor(page, 300_000);
   // let the first checks finish, so painting is measured on its own
@@ -83,15 +120,16 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   // (a string, so the bundler's helpers stay out of the page)
   await page.evaluate(`(() => {
     const w = window;
-    w.__b = { ev: [], mv: [], rend: [], raf: [], long: [], pending: [], moves: [] };
+    w.__b = { ev: [], mv: [], rend: [], raf: [], long: [], pending: [], moves: [], mx: [], meshAt: [] };
     // each pointer move's arrival: the land it brought is drawn by the next re-mesh, whether the page
     // presses its dab at once or queues its points for the next animation frame (one dab a frame)
-    window.addEventListener("pointermove", (e) => { w.__b.pending.push(e.timeStamp); w.__b.moves.push(e.timeStamp); }, { capture: true });
+    window.addEventListener("pointermove", (e) => { w.__b.pending.push(e.timeStamp); w.__b.moves.push(e.timeStamp); w.__b.mx.push(e.clientX); }, { capture: true });
     const r = w.dgm3d.renderer;
     const u = r.updateTerrainRect.bind(r);
     w.__b.mesh = [];
     r.updateTerrainRect = (...a) => {
       const now = performance.now();
+      w.__b.meshAt.push(now);
       for (const t of w.__b.pending) w.__b.mv.push([t, now]);
       w.__b.pending = [];
       const t = performance.now();
@@ -108,7 +146,11 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   })()`);
   const at = (await page.evaluate(`window.dgmEditor.tileToClient(${Math.round(SIZE * 0.3)}, ${Math.round(SIZE * 0.35)})`)) as { x: number; y: number };
   await page.mouse.move(at.x, at.y);
-  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; b.mesh = []; b.pending = []; b.moves = []; })()");
+  await page.evaluate("(() => { const b = window.__b; b.ev = []; b.mv = []; b.rend = []; b.raf = []; b.long = []; b.mesh = []; b.pending = []; b.moves = []; b.mx = []; b.meshAt = []; window.__w.adds = []; window.__w.byId.clear(); })()");
+  // (the page's pixels per tile in the top-down view, to place each move on the map; a tile's own x is its centre)
+  const tile0 = Math.round(SIZE * 0.3);
+  const pxPerTile = (((await page.evaluate(`window.dgmEditor.tileToClient(${tile0 + 10}, ${Math.round(SIZE * 0.35)})`)) as { x: number }).x - at.x) / 10;
+  const histBefore = await page.evaluate(() => window.dgmEditor!.info().history.length);
   const cdp = PROFILE ? await page.context().newCDPSession(page) : null;
   // (--profile: the drag itself, from the press to just before the release)
   if (cdp) {
@@ -128,6 +170,8 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   const profile = cdp ? ((await cdp.send("Profiler.stop")) as { profile: Profile }).profile : null;
   await page.mouse.up();
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 60_000 });
+  // (a worker-weathered stroke is one operation once its last land is in)
+  await page.waitForFunction((n) => window.dgmEditor!.info().history.length > n, histBefore, { timeout: 60_000 });
   const commitMs = Date.now() - t0;
   if (profile) {
     const self = new Map<string, number>();
@@ -141,7 +185,23 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     console.log("self time (ms) while painting:");
     for (const [k, v] of top) console.log(`  ${v.toFixed(1).padStart(8)}  ${k}`);
   }
-  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[] };
+  const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[]; mx: number[]; meshAt: number[] };
+  const worker = (await page.evaluate("window.__w.adds")) as { t: number; xs: number[]; resp: number | null }[];
+  // the worker's land (D422): each move's land is in the first dab call carrying a point beyond the
+  // previous move's tile x (the points a move pressed, or, when it pressed none, the next move's); the
+  // land is drawn by the first re-mesh after that call's answer arrived
+  if (worker.some((a) => a.xs.length)) {
+    const tileX = (cx: number) => tile0 + 0.5 + (cx - at.x) / pxPerTile;
+    raw.mv = [];
+    let prev = tileX(at.x);
+    for (let m = 0; m < raw.moves.length; m++) {
+      const call = worker.find((a) => a.resp !== null && a.resp >= raw.moves[m] && a.xs.some((x) => x > prev + 0.125));
+      prev = tileX(raw.mx[m]);
+      if (!call) continue;
+      const u = raw.meshAt.find((t) => t >= call.resp!);
+      if (u !== undefined) raw.mv.push([raw.moves[m], u]);
+    }
+  }
   const lat: number[] = [];
   // (and only the moves the next re-mesh follows within half a second: those whose points changed
   // the land; a move that pressed nothing waits for whichever dab next does)
@@ -184,6 +244,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     stroke: label,
     brush: last ? `${last.tool}, Size ${last.size}, Strength ${last.strength}` : null,
     refreshMs: round(refresh),
+    landFrom: worker.some((a) => a.xs.length) ? `worker (${worker.length} dab calls)` : "page preview",
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
     cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
     landShownMs: { p50: round(pct(shown, 0.5)), p95: round(pct(shown, 0.95)), samples: shown.length },

@@ -74,8 +74,8 @@ The order of work (the release gate, the editor-core items, the post-release lis
 [STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; this session merges them
 as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started from an
 unreleased one) and adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
-default. Hold any PR Kyler says Codex is still working on. The Rust forces (#158) are still round 1: nothing to do until
-round 2 lands.
+default. Hold any PR Kyler says Codex is still working on. The Rust forces (#158) are at round 3 (the 1% pilot passes; its full
+corpus waits for a window Kyler names): nothing to do until then. Today's merges (#159–#181) are listed in STATUS.
 
 ## 5. How things are run here
 
