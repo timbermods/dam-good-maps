@@ -198,6 +198,44 @@ settings experiment 30 of 34 (below), the rest green.
     (`editsPlaceNothing` counts it as added; seed 3 at 128²);
   - Canyon 96² seed 3 with every object on and three mine sites returns no start (one of 60 such maps).
 
+### Islands accepted: the safe version (D429–D430, 2026-10-02, 19:12), and islands to expand to
+
+Kyler released the safe version: all 30 pass, the promise on 20, all three outcomes on 19
+(`docs/sheets/m9b-islands.png`). The start on an island is not required (D429), and the 1,200-tile
+island-start rule (D428) lapses with the grown variant. The big-island and grown patches stay in
+`investigation/m9b/` as history.
+
+**His check: an island to expand to** (`investigation/m9b/islands-reach.ts`, seeds 1–30 at 128²).
+What counts:
+- An island is dry land (water at most 0.05 deep), not joined to the start's land, clear of the
+  map's edges, and 150 tiles or more.
+- It is reachable across at most 8 tiles of water at a time: a bridge, levees or a dam across a
+  strait, hopping on from any land reached. A land bridge makes it the start's own land.
+- Every start stands on the shore.
+
+| Seed | Largest reachable island, tiles (strait) | Seed | Largest reachable island, tiles (strait) |
+|---|---|---|---|
+| 1 | 489 (1) | 16 | 671 (7) |
+| 2 | 209 (1) | 17 | none (largest island 207, farther) |
+| 3 | 599 (5) | 18 | 635 (2) |
+| 4 | 731 (7) | 19 | none (291, farther) |
+| 5 | none (largest 81) | 20 | none (71) |
+| 6 | 323 (8) | 21 | 408 (8) |
+| 7 | 437 (2) | 22 | none (69) |
+| 8 | none (149) | 23 | 155 (6) |
+| 9 | none (10) | 24 | none (40) |
+| 10 | 300 (2) | 25 | 186 (7) |
+| 11 | none (68) | 26 | 207 (2) |
+| 12 | none (240, farther) | 27 | none (2) |
+| 13 | 170 (5) | 28 | 355 (8) |
+| 14 | none (72) | 29 | 384 (4) |
+| 15 | 1,041 (4) | 30 | 199 (2) |
+
+No island to expand to on 12 maps: 5, 8, 9, 11, 12, 14, 17, 19, 20, 22, 24 and 27. On most of them
+the islands meet the shore (where the ring breaks they may), so their land is the start's. On 12,
+17 and 19 the largest island lies more than 8 tiles of water out. Nothing is changed for them:
+Kyler decides.
+
 ### Islands: the sea's layout for the grown island (D427–D428, 2026-10-02, night): the stop
 
 Kyler on be9b645c: not accepted. The grown island sat in a moat on seeds 13 and 17 (nearly 3), the
