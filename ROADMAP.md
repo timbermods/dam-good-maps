@@ -78,6 +78,8 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
       the forces' port (D381).
    5. **Shift+F resets what F changes on every tool** (a force's Size and Power to Auto; a brush's Size and strength to
       defaults); it never starts resizing or triggers Shift's invert.
+   6. **The Dependabot majors** (D460): #24 (TypeScript 7.0) and #25 (@types/node 26) merge after M9b's release, once CI
+      and the nightly suite are green on them.
    6. **A Strength slider for Smooth and Naturalize** in their settings row, moving live with F+scroll and `[ ]`.
    7. **Trees on soil an edit has dried out** get a "dry soil, will die" hint in the readout and with Markers on
       (D376).
@@ -252,7 +254,9 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
 1.30–1.44 s median (1.59 s worst), cold on a typical connection, with byte identity and Save and export still gated.
 
 1. **Part 1** (`build`, post-release list): a stored map opens from its stored state without rebuilding (legacy files and
-   files with water still pending keep the rebuild fallback); the renderer warms its shaders and GPU state while the map
+   files with water still pending keep the rebuild fallback); this is also byte-exact reopening's (a) (D455): on reopen the
+   log is replayed once and compared with the stored map, and if they match byte for byte undo below the save point works
+   as normal, otherwise it stops at the save point, never an approximate replay; the renderer warms its shaders and GPU state while the map
    loads; the checks start after the first editable frame, every gate unchanged.
 2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)

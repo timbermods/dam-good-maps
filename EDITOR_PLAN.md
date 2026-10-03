@@ -720,6 +720,8 @@ away; an older map opens exactly as it was saved, edits included: a project made
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
 leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
 
+After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
+
 **Stable identity** is `PLAN.md` §19.4: generated features are hashed from the seed, their kind and their role in the
 plan, the player's and Claude's placements get a stored UUID, entities are hashed from their owning feature. Edits
 referencing them survive other edits wherever the referenced object still exists; when it disappears, the edit is

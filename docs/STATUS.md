@@ -14,7 +14,7 @@ Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, 
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns PLAN §20's numbering (next
-  free: D455), STATUS and HANDOFF.
+  free: D461), STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
@@ -97,41 +97,19 @@ verdicts are in ROADMAP, "The Codex adoptions"):
    reaches, then the D148 re-pins.
 3. **An M9b bug:** after a force edit, a spring river's source gets a new id (`groupIds`, #172) when the land shifts its row;
    fixed after Delta (D382 allows re-pinning source ids).
-4. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
+4. **Recorded 2026-10-03 (D455–D460):** D456's step grouping saved in the project and D457 (an imported map's own water
+   kept), both fixing on `dev`; D458 (Lake Basin round 2 onto `feature/m9b`, M9b); D459 (Naturalize's sound, in
+   `palette.ts` and `calibration.ts`; tell Kyler when it is on `dev`); D460 (the Dependabot majors, after M9b's release).
+5. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
    spike's answer).
 
 ## Decisions open for Kyler (word for word)
 
-1. **Byte-exact reopening (release gate, editor-core 1).** A project stores the unedited generated map plus the list of
-   edits, never the edited map, so every reopen rebuilds the edits with the code that's running. When the build or the
-   water changes between versions (M9b changes both), a project saved under 0.7.0 with any edit, the player's own strokes
-   included, can export slightly different bytes under 0.8.0. An unedited project stays exact. #196 keeps the edits (a
-   moved start stays moved, a deleted river stays gone) but can't make them byte-exact.
-   - **(a)** Store the built map in the project at each save. A project then opens exactly as saved under any version, and
-     later edits build on it. A project-format change; undo below the save point is either dropped or replays with the new
-     code and doesn't come back exactly. Matches D367 part 1 (opening a stored map loads its stored state). Recommended.
-   - **(b)** Keep what #196 does: the edits are kept and rebuilt by today's code, close but not guaranteed exact. D382
-     allows it (no outside users; Kyler's maps keep opening).
-   - **(c)** Versioned deploys (/v/<version>/, D285, in Later): an old project opens in its own version's code.
-2. **Undo after a reopen (release gate, editor-core 7).** After a reopen (Your maps, the autosave's recovery), one undo
-   takes back a single operation, not a whole step, because the project never stored which operations make one step.
-   - **(a)** Save the step grouping in the project (an optional field per logged operation: where its step begins, and the
-     step's label). Old projects open as today; an older app ignores the field. Recommended.
-   - **(b)** Keep today's behaviour and say so in EDITOR_PLAN.
-   - **(c)** A reopened map starts with no undo history (changes D1).
-3. **Water 4.** An imported map's pond that no source feeds: the live water keeps it, the canonical settle and every export
-   drop it. Which way should they agree: keep it (D260) or drop it (D385, D420)?
-4. **Lake Basin round 2:** the permission system refused the M9b agent's step to bring its ported patch onto feature/m9b
-   (flagged as integrating untrusted code). Allow it, or apply `investigation/m9b/quiet-window/lake-basin-round2.patch`
-   (on `chore/m9b-quiet-window`) yourself.
-5. **Naturalize's sound (D387 (5)):** its sound is chosen in `src/editor/juice/palette.ts` and `calibration.ts`, the page
-   session's files. The page session, or this session as a one-time exception?
+Nothing waiting. His answers are PLAN §20 D455–D460.
 
 ## Waiting for Kyler
 
-1. **The README's three new lines on the forces** (keys, Power and Size, **Slow forces**): read them once as a player.
-2. **Defaults he can overrule:** `docs/decisions-pending.md` (the High look's, #83 and #110-#117).
-3. **Held Dependabot majors** #24 (TypeScript 7.0) and #25 (@types/node 26): a quiet housekeeping slot (D150, D283).
+Nothing waiting. The coherence review (D386) waits for his word, when he is satisfied.
 
 ## The release gate (D385–D387)
 
