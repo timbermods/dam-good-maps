@@ -1,6 +1,12 @@
 # CLAUDE.md
 
-> **Kyler's standing rule, read before any task (PLAN §20, D316): compute is a resource, effort matches the stakes,
+> **Kyler's standing rule on checks, above every other (PLAN §20, D454):** no excessive tests, timings or validation, only
+> when genuinely necessary or when Kyler asks. Speed is judged by Kyler using the product. What stays: CI and the nightly
+> suite, checks that catch real bugs, and a real check that the change works before reporting it done. Before adding any
+> check, measurement or validation step, ask whether something is actually likely to break and whether Kyler would not see
+> it anyway; if not, don't add it.
+>
+> **Kyler's standing rule, read before any task (PLAN §20, D316, tightened by D454): compute is a resource, effort matches the stakes,
 > and quality is never compromised.** It applies to every session, agent and investigation, and to prompts from the
 > planning chat and Codex.
 >

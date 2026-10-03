@@ -47,6 +47,8 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
   judging them. Report what fell short as plainly as what worked.
 - **Prompts stand alone.** Code blocks are the exact text Kyler sends; prose is for him. Each prompt says where it goes and
   needs nothing from the chat to make sense. A prompt is never assumed sent until Kyler says so.
+- **No excess checks (D454), above every other rule on checks.** No excessive tests, timings or validation, only when genuinely
+  necessary or when Kyler asks; CI, the nightly suite, bug-catching checks and a real check before "done" stay.
 - **Compute is a resource (D316–D318).** Effort matches the stakes; quality is never compromised. Invest in what compounds;
   spend little on ceremony. The cheapest model and effort that does the job; a real check before anything is reported done;
   short reports.
@@ -87,8 +89,6 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
   text in `investigation/README.md`); original or clearly licensed assets only; a `git diff` check before the PR; "don't
   wait for my replies". Each branch gets an INTEGRATION.md for adoption.
 - Shared-code findings are reported separately from a prototype's own shaping, so Claude's agent fixes each once.
-- **Quiet windows:** Codex's performance measurements need the machine quiet; the session pauses every heavy job for the
-  window Kyler names.
 
 ## Where things live after the prune (D390)
 
@@ -98,7 +98,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D454.**
+- **The next free decision number is D455.**
 
 ## How the planning chat checks in
 

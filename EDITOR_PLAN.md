@@ -966,12 +966,9 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   imports, renders and validates, and with no edits re-exports its normalized world byte for byte; the two 0.6
   heightmap maps import through the `Heights` conversion; the 90-layer workshop map keeps layers 0–21 with a
   warning and exports with the standard 23.
-- **Performance budgets on 256×256.** Under Kyler's one rule (`PLAN.md` §20, D115) they are information, reported at
-  each step; what blocks is what a player feels: the editor stays responsive, tool feedback comes within a frame,
-  slower work runs in the background, and the page never freezes. Tool feedback within one frame (16 ms), with
-  lightweight proxies while dragging; a feature edit committed in ≤ 100 ms; instant checks ≤ 50 ms; a dirty-chunk
-  remesh ≤ 5 ms per chunk; the water preview after a local edit ≤ 2 s (warm start; CI reports it as a number,
-  never a failed build, D145); the canonical full settle for export ≤ 3 s as the target (`PLAN.md` §10).
+- **Speed (D453, D454).** No measured budgets; Kyler judges speed by using the tool. What blocks is what a player feels:
+  the editor stays responsive, tool feedback comes within a frame, slower work runs in the background, and the page never
+  freezes.
 - **End to end** (Playwright): generate, edit, export, re-import, compare.
 - **In-game checklist** for the milestones that need one (deferred, logged as pending in
   `docs/archive/ingame-log.md`, D11): the map loads, water settles as the preview showed, the district center

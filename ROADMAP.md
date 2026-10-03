@@ -85,7 +85,7 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    9. **Check whether the README and the website need a line about the High look.**
    10. **Batch jobs** (M9b's measures, theme measures, nightly checks) run independent maps across all CPU threads.
    11. **Startup part 2's service worker** (D397): the one service worker (the caching and multi-core water's isolation),
-       built with multi-core water's adoption, with its budgets and CI check (the page session builds the first-visit map
+       built with multi-core water's adoption (the page session builds the first-visit map
        picker and parallel loading).
    13. **Later: a Codex round on Canyon and Highlands at 96².**
    14. **"Designed for" removed from the core** (D449), after M9b's release: difficulty leaves the spec, the share link's
@@ -122,13 +122,11 @@ The Rust order (D381) runs through all of it. Every step that changes generated 
   notice or what would break. Only three kinds of thing block: **breakage** (maps failing in the game, files or share
   links changing, lost edits, crashes); **principles Kyler has already decided** (no built dam walls, D111; from the 3D
   stages, the support rule's 0 dropped voxels and nothing stamped); and **what a player feels** (the page never freezes,
-  and a first result appears quickly while the rest streams in). Measures and numeric budgets are information; the 3D
-  speed benchmark on the integrated GPU with a slowed CPU runs only when something 3D-heavy changes. No blind review
+  and a first result appears quickly while the rest streams in). No blind review
   rounds: for anything visual, Kyler is shown captures and decides. Stop and ask Kyler only for real decisions or real
   breakage; otherwise keep building, log the rest in [docs/STATUS.md](docs/STATUS.md), and show the result rather than
   measure it. Each step lists its acceptance as **Blocking** and **Information**; the no-built-dam-wall check (D111) and
-  the support rule (0 dropped voxels) always block. CI's timing tests (the 256² settle median, D33; the editor's 2 s
-  re-preview) are reported numbers, never a failed build. Speed is judged by Kyler using the tool (D453); something that
+  the support rule (0 dropped voxels) always block. Speed is judged by Kyler using the tool (D453); something that
   feels slow is a bug like any other.
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
   checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
@@ -260,23 +258,20 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
    with multi-core water's adoption.
 
-Both parts add the investigation's budgets and its CI check (the service worker's, the milestone session's). Open: a
-whole-laptop measurement, which Kyler makes on a real modest laptop once it's adopted.
+Both parts add the investigation's CI check (the service worker's, the milestone session's).
 
 ## Carve's river is born as it cuts (D371)
 
 Alongside the startup's part 1: while Carve cuts, the water front follows just behind the cutting edge from upstream,
 handing off to the real simulation's water with no jump and ending exactly where it settles; both looks, reduced motion calm;
 the same approach for Glaciate's lakes, Craterize's crater lakes and the Rift's captured rivers, using
-`investigation/performance`'s findings. Gates: no frame-rate cost at 256² (the smoothness harness), and the final frame's
-water equals the settled water.
+`investigation/performance`'s findings. Gate: the final frame's water equals the settled water.
 
 ## Glaciate in Fast: the ice carves as it advances (D374)
 
 With D371: Glaciate's land change takes most of its time, carving as the ice advances (no long opening circle, no rush at the
 end); its Fast time is 3.5 s with easing, the other forces about 2 s, Slow forces proportionally slower; every force checked
-for the same imbalance; any stutter left is fixed with the smoothness work's adoption, its harness run on every force at 256²,
-Glaciate first.
+for the same imbalance; any stutter Kyler sees is fixed, Glaciate first.
 
 ## Follow-ups to the editor and the look
 
@@ -504,8 +499,7 @@ Python check exactly as today.
   - progress shows while water settles, and the page never stalls.
 - Information: on the official cave maps, the canonical settle matches each map's own water at
   least as well as the investigation measured, and moisture per run matches the stored slots on at
-  least 18 of 19; budgets: the settle ≤ 3 s at 256² on generated maps (D33), no slower than today's
-  on the official maps; the instant checks ≤ 50 ms at 256² with the support rule.
+  least 18 of 19.
 
 **In-game check:** the golden-fixture probe batch, asked under D117. **Effort:** high (`build`).
 
@@ -522,8 +516,6 @@ After the High look is adopted (Map look 2, released), so there is only one mesh
 **Acceptance**
 - Blocking: unedited imports export byte for byte; the editor stays responsive (tool feedback
   within a frame, slower work in the background).
-- Information (runs stopped, D453): `bench:3d` with 3D maps, in its budget configuration (a build < 1.5 s at 256²,
-  ≥ 60 fps with and without the cutaway).
 
 **In-game check:** none. **Effort:** high (`build`).
 
@@ -650,7 +642,6 @@ timing is unverified).
 **Acceptance** (Kyler's one rule, D115)
 - Blocking: no map file changes; the drought line and the map-card line trace to the model and the verified rules; the
   drought line updates in the background and never blocks editing.
-- Information: the probe batch's timing comparison with the model, if measured.
 
 **In-game check:** none beyond what D267's buttons already have. **Effort:** high.
 
@@ -806,10 +797,10 @@ side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64�
 boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
 down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
 with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
-player feels stays at the standard (the smoothness harness at every size). The camera and minimap fit any shape. Beyond
+player feels stays at the standard. The camera and minimap fit any shape. Beyond
 256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
 refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
-loaded in the game, their water checked against our model, the game's smoothness measured, the practical limits
+loaded in the game, their water checked against our model, the practical limits
 reported. PLAN §20 D357 has the whole decision.
 
 - **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
@@ -829,10 +820,9 @@ floods. Nothing is suggested or guessed, and nothing is saved unless real object
 the reservoir finder (each basin's storable water and the exact tiles to wall, every candidate checked by simulation),
 replacing D287's guessed dam sites.
 
-The engine (`investigation/dam-sketch`, #159) is merged as an investigation, not adopted (D392). Adopting it needs two
-gates: (a) a calibration probe batch on the dedicated machine: a few sketched walls (a dam, a levee, a floodgate, a stacked
-wall) built in the game, comparing level, volume and dry-out day with the engine; (b) browser timings in a worker in
-Chromium, Firefox and WebKit, at 128² and 256², while dragging a wall (a short benchmark, D439). Its Node numbers
+The engine (`investigation/dam-sketch`, #159) is merged as an investigation, not adopted (D392). Adopting it needs one
+gate: a calibration probe batch on the dedicated machine: a few sketched walls (a dam, a levee, a floodgate, a stacked
+wall) built in the game, comparing level, volume and dry-out day with the engine. Its Node numbers
 (first preview 16 / 67 ms, full fill 0.67 / 2.94 s, under shared load) support a progressive fill, not an instant answer.
 
 **Round 2** (#166, D403): merged as an investigation, not adopted; no round 3 before the release. When it resumes,
