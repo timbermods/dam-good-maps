@@ -16,7 +16,8 @@ run `rustup toolchain install` in the repository. `npm run setup:machine` says w
 
 **Build.** `npx tsx tools/rust/build.ts [--native]` rebuilds the committed water Wasm (source paths written with
 forward slashes, so every OS builds the same bytes) and, with `--native`, the batch binary; `--check` fails when the
-committed Wasm differs from a fresh build.
+committed Wasm differs from a fresh build. While `npm run dev` runs, saving any `.rs` file rebuilds it and the page reloads
+(`tools/rust/vite-plugin.mjs`; D444); a failed build shows in the page's error overlay.
 
 **Check.** `npx tsx tools/rust/check.ts [--engines]` runs what CI's `rust` job runs: the maths guard over every `.rs`
 file, strict builds for wasm32 and the host with their IR, assembly and Wasm audited (no libm, no FMA, no transcendental
