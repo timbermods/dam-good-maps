@@ -149,5 +149,109 @@
       27012.122167968817
     ]
   },
-  "execution": "Eight independent single-case-at-a-time processes; deterministic per-case computation unchanged. Longest estimated remaining shards first. At most six 512² and two browsers per engine. Pause admission below 10 GiB available RAM. Stop at the named window end or the first failure; retain case checkpoints and failure payloads, never waive counts."
+  "execution": "Eight independent single-case-at-a-time processes; deterministic per-case computation unchanged. Longest estimated remaining shards first. At most six 512² and two browsers per engine. Pause admission below 10 GiB available RAM. Stop at the named window end or the first failure; retain case checkpoints and failure payloads, never waive counts.",
+  "machineAssignments": [
+    {
+      "machine": "Kyler shared PC",
+      "logicalThreads": 16,
+      "workers": 8,
+      "share": 1,
+      "targetChecks": 99000,
+      "shards": 2520,
+      "status": "Stopped; no workload until Kyler explicitly authorizes a window",
+      "projectedHours": 9.78645787546795,
+      "projectedPeakCpuPercent": 100
+    }
+  ],
+  "parts": [
+    {
+      "machine": "Kyler shared PC",
+      "target": "native + Node-Wasm (paired)",
+      "requiredTargetChecks": 72000,
+      "pilotCasesPerForceSize": 20,
+      "pilotSeconds": 1234.3788161621094,
+      "projectedSerialWorkerHours": 34.28830044894748,
+      "bySize": [
+        {
+          "size": 128,
+          "pilotSeconds": 51.50075415039063
+        },
+        {
+          "size": 256,
+          "pilotSeconds": 220.66620654296875
+        },
+        {
+          "size": 512,
+          "pilotSeconds": 962.21185546875
+        }
+      ]
+    },
+    {
+      "machine": "Kyler shared PC",
+      "target": "chromium",
+      "requiredTargetChecks": 9000,
+      "pilotCasesPerForceSize": 5,
+      "pilotSeconds": 324.3531149902344,
+      "projectedSerialWorkerHours": 9.009808749728734,
+      "bySize": [
+        {
+          "size": 128,
+          "pilotSeconds": 18.24994482421875
+        },
+        {
+          "size": 256,
+          "pilotSeconds": 66.49325854492187
+        },
+        {
+          "size": 512,
+          "pilotSeconds": 239.60991162109374
+        }
+      ]
+    },
+    {
+      "machine": "Kyler shared PC",
+      "target": "firefox",
+      "requiredTargetChecks": 9000,
+      "pilotCasesPerForceSize": 5,
+      "pilotSeconds": 272.3671105957032,
+      "projectedSerialWorkerHours": 7.565753072102867,
+      "bySize": [
+        {
+          "size": 128,
+          "pilotSeconds": 23.63337060546875
+        },
+        {
+          "size": 256,
+          "pilotSeconds": 65.84956787109375
+        },
+        {
+          "size": 512,
+          "pilotSeconds": 182.88417211914063
+        }
+      ]
+    },
+    {
+      "machine": "Kyler shared PC",
+      "target": "webkit",
+      "requiredTargetChecks": 9000,
+      "pilotCasesPerForceSize": 5,
+      "pilotSeconds": 423.99395678710937,
+      "projectedSerialWorkerHours": 11.777609910753037,
+      "bySize": [
+        {
+          "size": 128,
+          "pilotSeconds": 20.033689697265626
+        },
+        {
+          "size": 256,
+          "pilotSeconds": 73.81565112304688
+        },
+        {
+          "size": 512,
+          "pilotSeconds": 330.1446159667969
+        }
+      ]
+    }
+  ],
+  "partsBasis": "Observed elapsed durations derived from the sealed sequential pilot completion timestamps, including TS reference, exact comparisons, exports and startup. One pilot sample per cell: not repeated planner timings, no per-part median/worst available. Native and Node-Wasm time is combined. Parts run concurrently in the shared queue; serial worker-hours are not separate overnight wall-clock slots."
 }

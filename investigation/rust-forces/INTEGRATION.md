@@ -24,6 +24,8 @@ Keep TypeScript presentation: animation, Slow forces, sounds, stroke previews an
 
 ## Round 3: shared arithmetic and identity-only regeneration (Windows)
 
+**Scheduling hold:** Kyler explicitly stopped all round 3 workloads on this PC for another job's measurements. Do not invoke any build, pilot, matrix, suite or browser workload below until Kyler authorizes a window. No automatic start is scheduled. [SCHEDULE.md](SCHEDULE.md) records the assigned machine's share and observed pilot duration per part; the full matrix target is about 10 hours, with final existing suites additional.
+
 Run here. Everything generated stays ignored under `local/`; never commit bundles, Wasm/executables, maps, exports, IR, failure payloads or full result corpora. Compact evidence contains hashes, counts and repeated timing samples. Use an isolated run directory to avoid overwriting a running investigation's binaries.
 
 Prerequisites: `../rust-water/local/toolchain/` from its pinned setup; existing product dependencies via `DGM_DEPS` (measured: `C:/Users/Kyler/code/DamGoodMaps-m9b`); matching Playwright and @playwright/test 1.58.2 drivers/Chromium 1208, Firefox 1509 and WebKit 2248 via `DGM_BROWSER_DEPS`. `node prepare-oracle.mjs` exports the pinned Git tree read-only to `local/oracle`; alternatively set `DGM_ROOT` to that exact checkout. Apply the water investigation's two upstream debugger settings with `python prepare-firefox.py SOURCE_FIREFOX_DIRECTORY local/firefox-optimized`; the script verifies unchanged executable bytes and records both archive hashes. Set `DGM_FIREFOX` to that copy's `firefox.exe`.

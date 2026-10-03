@@ -11,4 +11,10 @@ const model=simulate(jobs);assert.equal(model.completed,2520);assert.equal(model
 assert.equal(eligible({size:512,target:'native'},Array(6).fill({size:512,target:'native'})),false);
 assert.equal(eligible({size:256,target:'firefox'},Array(2).fill({size:128,target:'firefox'})),false);
 assert.equal(eligible({size:128,target:'webkit'},Array(8).fill({size:128,target:'native'})),false);
+const plan=JSON.parse(readFileSync(new URL('./parallel-plan.json',import.meta.url)));
+assert.equal(plan.machineAssignments.length,1);assert.equal(plan.machineAssignments[0].share,1);
+assert.equal(plan.machineAssignments[0].targetChecks,99000);assert.equal(plan.machineAssignments[0].shards,2520);
+assert.equal(plan.parts.reduce((n,p)=>n+p.requiredTargetChecks,0),99000);
+assert.ok(Math.abs(plan.parts.reduce((n,p)=>n+p.pilotSeconds,0)-costs.pilotSeconds)<.01);
+for(const p of plan.parts)assert.ok(Math.abs(p.bySize.reduce((n,s)=>n+s.pilotSeconds,0)-p.pilotSeconds)<.00001);
 console.log('Static plan PASS: 90 cells, 99,000 target checks, no overlapping case IDs, 2,520 shards, resource caps. No workers spawned.');
