@@ -1412,6 +1412,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const iLo = fan ? Math.max(0, Math.ceil(k - (len - 7 - ma) / gap)) : 0;
     const iHi = fan ? Math.min(k, Math.floor((ma - 6) / gap)) : 0;
     const i0 = fan ? Math.round(clamp(k / 2 - lean / gap, Math.min(iLo, iHi), Math.max(iLo, iHi))) : -1;
+    // (the arms' beds, for the main river's own course below the apex, D447)
+    const armBeds: { prof: Float64Array; L: number; n: number }[] = [];
     for (let a = 0; a < (fan ? k + 1 : k); a++) {
       let along: number;
       if (fan) {
@@ -1447,7 +1449,45 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const j0 = Math.round((s0 / m.L) * m.n);
       const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, m.prof[j0]);
       carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
+      armBeds.push({ prof: pa.prof, L: pa.L, n: pa.n });
       arms.push({ kind: "mouth", river: main.id, path: armCourse });
+    }
+    // (D447: on a Delta the main river's own course below the apex is one of the fan's channels: its
+    // bed falls from the apex as soon as the arms' beds do, at the same distance from the apex, and
+    // never stands above its own cut. Where it stood above theirs (the apex in a lake whose floor the
+    // arms were cut from, or arms falling to the plain sooner), the arms took all its water and its
+    // course stood dry from the apex to its mouth. Its feature's bed follows)
+    if (fan && armBeds.length) {
+      const j0 = Math.round((s0 / m.L) * m.n);
+      const below: Point[] = [];
+      for (let s = s0; s < m.L; s += 1) below.push(pointAt(m.path, s).p);
+      below.push(m.path[m.path.length - 1]);
+      // (a channel as narrow as an arm, in the main river's own bed: it carries its share, as an arm
+      // does, not the river's whole flow)
+      const bw = Math.max(MIN_WIDTH, Math.round(0.4 * m.width * 10) / 10);
+      const bhalf = () => bw / 2;
+      const pb = profileOf(below, bw, 1, false, main.id, bhalf, m.prof[j0]);
+      const bed = pb.prof.slice();
+      for (let q = 0; q <= pb.n; q++) {
+        const t = (q * pb.L) / pb.n;
+        for (const ab of armBeds) {
+          const v = ab.prof[Math.min(ab.n, Math.round((t / ab.L) * ab.n))];
+          if (v < bed[q]) bed[q] = v;
+        }
+      }
+      carve(pb.st, bed, pb.L, pb.n, bhalf, 0);
+      for (let j = j0; j <= m.n; j++) {
+        const q = Math.min(pb.n, Math.max(0, Math.round((((j * m.L) / m.n - s0) / pb.L) * pb.n)));
+        if (bed[q] < m.prof[j]) m.prof[j] = bed[q];
+      }
+      const env = m.prof.slice();
+      for (let j = m.n - 1; j >= 0; j--) if (env[j] < env[j + 1]) env[j] = env[j + 1];
+      const steps: BedStep[] = [];
+      for (let j = 1; j <= m.n; j++) {
+        const stepDown = env[j - 1] - env[j];
+        if (stepDown >= 1) steps.push({ at: Math.round(((j * m.L) / m.n) * 100) / 100, drop: stepDown });
+      }
+      main.params.bedProfile = { start: env[0], steps };
     }
   }
   return { rivers, water, lakes, falls, arms, flowTotal };

@@ -535,7 +535,8 @@ rounded at the corners; on three sea maps in four the sea lies off the middle an
 it, an inland sea in a ring of land on the fourth; its start may stand on an island that holds what it needs (D410,
 D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
-direction and size vary by seed (D412, D416).
+direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
+narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
 
 ---
 
