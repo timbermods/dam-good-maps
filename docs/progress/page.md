@@ -178,3 +178,22 @@ run's hints' final form (5), the first visit's ready-made map (6), phones (7).
   - The toolbar's longest row (the view bar, 771px at 1×) fits on one line with the drawer closed at every size
     covered; with the drawer open it fits from about 1,316px wide (at 1440×900 it ends 10px short of the top-right
     group), and wraps onto two lines below that, as dev's does on narrow windows. Reported, not changed.
+- **2026-10-02, v8** (`feature/page-proto`; `docs/design/editor-v8-*`: dev beside the prototype at 1440×900 and
+  1920×1080, drawer closed and open, Badwater on with the legend open at both sizes, and the right column at 2×).
+  Kyler's four changes to v7 (18:18): the scale-up from 1800px is 1.1 and `?ui=` lets him try 1.0, 1.05, 1.1 and
+  1.15 (temporary); the brand is gone and the map's name and "seed · size" sit at the window's centre in the
+  editor's title type, capped so they never reach the side groups (a long name truncates, its tooltip holds it);
+  the right column lines up to the pixel with a named Legend button and the legend panel under it over the map,
+  the docked legend gone; the legend's lines are names only (DESIGN.md, "The one-page editor"). The layout test
+  now also checks the centred info, the column's shared edges (within a tenth of a pixel), that toggling each
+  view layer moves nothing, the legend closed and open, and the four `?ui` values from 1800px wide.
+  - The centred info clears both groups from 1,219px wide ("River Valley", "Ready to play") and from 1,395px with
+    the checks' longest words; "Dam Good Map" with a ten-digit seed, 1,263px and 1,439px. Proposal for narrower
+    windows, not built: below those widths the info drops its second line first, then the name ellipsizes down to
+    about 80px; below about 1,000px the dot's words give way to the dot alone.
+  - Two legend lines are wider than the column and are cut at its edge (DESIGN.md says which, with the fix that
+    keeps the type). Reported, not changed.
+  - Tests renamed for the new names: `look.test.ts` "the legend names each colour…"; `look-clean.test.ts` pins the
+    four marker lines by name; the e2e specs that read the legend's words (`look`, `look-clean`, `look-readable`,
+    `legend`) carry the new words, though they open the generator's view, which the one-page prototype no longer
+    shows (they run against dev's layout, the milestone's).

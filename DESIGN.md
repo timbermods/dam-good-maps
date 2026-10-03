@@ -247,23 +247,50 @@ D380 work.
 
 **The prototype** (`feature/page-proto`, from dev's editor code with only the changes below; on `/preview/`):
 - The page opens the generated map in the editor at once; there is no settings page.
-- **The header:** a named **New map** button at the left edge, above the palette column, shown selected while the
-  drawer is open; the map's name with one line under it, "seed 4242 · 128×128" (an opened file shows its size; if
-  saving in the browser fails, that line says so instead); the brand mark and "Dam Good Maps" at the window's exact
-  centre, in the quiet colour and the wordmark's face (Bitter), over nothing; on the right Undo, Redo, the checks dot with its words, Save to
+- **The header (v8, Kyler 18:18):** a named **New map** button alone at the left edge, above the palette column,
+  shown selected while the drawer is open; the map's info at the window's exact horizontal centre, in the editor's
+  own title type: the name on the first line and under it "seed 4242 · 128×128" (an opened file shows its size; if
+  saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
+  measures how far each group reaches and caps the info's width between them, so a name too long truncates with an
+  ellipsis and its tooltip holds the full name. On the right Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Save project, Download .timber, Clear everything,
-  History, About). The brand clears both side groups from 1,242px wide with "Ready to play" showing and from 1,418px with the
-  checks' longest words; narrower windows are not yet designed (a proposal is in docs/progress/page.md).
+  History, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
+  1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
+  ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
+  docs/progress/page.md).
 - **The palette:** exactly the current editor's, one two-column grid in its order, no breaks.
 - **The toolbar:** the current editor's rows, buttons, padding and gaps, with Flow among the view layers; the forces
   keep their icons; the options row is the current one, one line, More at its end.
-- **Top right:** the level control, the compass, Slow forces and Sound exactly as on dev; never hidden or moved.
+- **The right column (v8):** one exact right edge for the level row, Slow forces and Sound, **Legend**, the legend
+  panel and the water bar, and one left edge, Slow forces'. Row 1: the level control is Slow forces' width, the
+  compass Sound's (round, centred in it), the same gap between them as between Slow forces and Sound. Row 3: a
+  named **Legend** button spanning the column, the same height, corners, solid background and type as Slow forces,
+  the same gap, lit in the mint while the legend is open (like Minimap). The legend panel opens and closes only by
+  that button (the open state remembered; the editor starts it closed); it sits under the button with the same gap,
+  on the button's edges, down to the same gap above the water bar; it lies over the map, so nothing resizes, the map
+  doesn't move and no control shifts, and it never covers a control; its lines keep today's look (swatches, the
+  "Markers on:" heading, a click shows the line's things on the map); content taller than the panel scrolls inside
+  it. The docked full-height legend, its vertical tab and the view layers' hold on it are gone: no layer opens or
+  moves the legend, and toggling any layer moves nothing. Badwater keeps its caption at the lower left as the
+  layer's explanation, above the minimap's place, over nothing.
+- **The legend's names (v8):** every line is a name on one line, nothing of what it does in the game: Moist ground ·
+  Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
+  bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
+  Blockage · Other objects; under "Markers on:": Slope arrows · Level lines · Contamination edge · Mine site
+  outline. Each line's tooltip is "Show on the map"; the notes about far-off drawing and clicking are gone. The same
+  names serve wherever the legend appears. **Two lines are wider than the column** at the panel's present paddings
+  (the column is 164px at 1×, the text has 108px): "Contaminated ground" needs 121px and "Contamination edge" 112px;
+  they are cut at the panel's edge, not wrapped or shrunk, until Kyler decides. The cheapest fix that keeps the type:
+  the panel's padding 8→4px and each line's 4→2px, which frees 12px and fits "Contamination edge"; "Contaminated
+  ground" also needs the swatch's gap 8→6px, or the column 13px wider.
 - **The drawer:** in the palette's place at the width its contents need (352px), with Theme, Seed, Size, Designed
   for, the six sections, Generate, Surprise me and the map card. The palette stays beneath it, so the map's area and
   the map never move; the toolbar, the minimap and the readout keep their place to the drawer's right edge and move
   with it as one block; the top-right group and the water bar never change.
 - **Solid chrome:** every control on the map (the readout and the water bar too) has the panel's solid background.
-- **Large screens:** from 1,800px wide the chrome scales up by 1.2; the map does not.
+- **Large screens:** from 1,800px wide the chrome scales up, the map does not. The scale is 1.1 (1.2 overshot,
+  Kyler 18:18); while he chooses, `?ui=1.0`, `1.05`, `1.1` or `1.15` on the preview's address sets it (a temporary
+  parameter in main.tsx, removed once he picks one).
 - Pause water shows unavailable while the water is settled, never hidden.
 
 **Where the prototype still differs from dev, each with its reason** (the rest is dev by construction):
@@ -274,12 +301,11 @@ D380 work.
 5. The readout and the water bar on a solid background, as asked (dev's were 95% translucent).
 6. The view bar wraps before the top-right cluster instead of running under it at 1280 wide (a bug the no-overlap
    test found; dev reserved room for the compass alone).
-7. The chrome at 1.2× from 1800px wide, as asked.
-8. The brand's name set in Bitter, the wordmark face accepted with Lamplight v3; the mark and the name are new, so
-   dev has no look for them to keep. The rest of the header is the editor's own type.
-9. At 1920×1080 the map sits 23px further right and 1.3% smaller than dev's (measured from the captures): the
-   scaled-up palette is 35px wider and the header 13px taller, so the map's area is that much smaller. A
-   consequence of the 1.2 scale-up, as asked; the framing itself is dev's.
+7. The chrome at 1.1× from 1800px wide (1.2 overshot), as asked; at 1920×1080 the map sits 12px further right and
+   0.7% smaller than dev's, since the scaled-up palette and header take that room.
+8. The right column: the Legend button, the legend panel over the map and no docked legend, as asked; the legend's
+   names, as asked; the Badwater caption moved up above the minimap's place so it overlaps nothing (it sat on the
+   readout's and the minimap's spot on dev).
 
 ## Set aside: the floating plates (Kyler, 2026-10-02)
 
