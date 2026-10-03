@@ -436,6 +436,16 @@ export class MapSession {
     return encodeProject(this.document, level);
   }
 
+  /** Every object id the document has used: the objects standing and every object an operation
+   *  placed, though removed since (a force's springs, a placed object). A new object takes none of
+   *  them (the operations' check refuses them). */
+  usedEntityIds(): ReadonlySet<string> {
+    const ids = new Set<string>();
+    for (const e of this.cur.entities) ids.add(e.id);
+    for (const e of this.st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
+    return ids;
+  }
+
   /** Operations that have no effect now, and why. */
   orphans(): DocOrphan[] {
     const bySeq = new Map(this.log.map((o) => [o.seq, o]));

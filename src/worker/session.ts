@@ -1995,7 +1995,7 @@ function sessionForceMap(s: MapSession): FullForceMap {
   const fallen = m.entities
     .filter((e) => down.has(e.id))
     .map((e) => ({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[e.y * W + e.x], dx: down.get(e.id)!.dx, dy: down.get(e.id)!.dy, length: e.template === "Oak" ? 2.6 : 2 }));
-  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen };
+  return { ...m, rockLayers: geologyOf(s), lava: lava ? lava.slice() : new Uint32Array(m.W * m.H), fallen, usedIds: s.usedEntityIds() };
 }
 
 /** The same map for Craterize, Erupt and Quake: they work on plain copies of the objects (an
