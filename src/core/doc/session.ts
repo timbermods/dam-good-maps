@@ -75,6 +75,18 @@ interface Generation {
 /** One undo step: one operation, or a group applied together (a fix, a proposal). */
 type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
 
+/** A log as its history: the operations of a step of several (`step`, D456) one entry, every other
+ *  operation one of its own (a project saved before D456 undoes operation by operation). */
+function stepsOf(log: readonly AppliedOp[]): HistoryEntry[] {
+  const out: HistoryEntry[] = [];
+  for (const op of log) {
+    const last = out.at(-1);
+    if (op.step !== undefined && op.step !== op.seq && last && last.ops[0].seq === op.step) last.ops.push(op);
+    else out.push({ kind: "ops", ops: [op] });
+  }
+  return out;
+}
+
 /** A place in the history (`MapSession.mark`), and the one step taken since it (`stepSince`): what
  *  `takeBack` needs to take that step back exactly. Opaque outside the session. */
 export interface HistoryMark {
@@ -168,8 +180,8 @@ export class MapSession {
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
     }
-    // the log is the history of an opened document: its operations undo one by one
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    // the log is the history of an opened document: its operations undo step by step (D456)
+    this.undoStack = stepsOf(this.log);
     this.snaps.set(this.undoStack.length, this.cur);
   }
 
@@ -269,7 +281,7 @@ export class MapSession {
     this.log = r.log;
     this.st = r.state;
     this.seqNext = nextSeq;
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    this.undoStack = stepsOf(this.log);
     this.redoStack = [];
     this.snaps.clear();
     this.cur = this.rebuilt();
@@ -592,6 +604,8 @@ export class MapSession {
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
+    // (a step of several is marked in the log, so it stays one step when the project is reopened)
+    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);

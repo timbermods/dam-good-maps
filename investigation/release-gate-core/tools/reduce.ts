@@ -4,7 +4,7 @@ import { MapSession } from "../../../src/core/doc/session";
 import { stream } from "../../../src/core/math/rng";
 import { randomOp } from "../../../tests/contract/randomOps";
 import type { EditOp } from "../../../src/core/doc/ops";
-import { map, reopen, sha } from "../editor-core/helpers";
+import { map, reopen, sha } from "../../../tests/contract/gateHelpers";
 import { diffSessions } from "./diff";
 import { writeFileSync } from "node:fs";
 const [seed, mode, kind, steps, side, theme] = [Number(process.argv[2]), process.argv[3] as any, process.argv[4], Number(process.argv[5]), Number(process.argv[6] ?? 64), process.argv[7] as any];

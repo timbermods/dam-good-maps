@@ -740,7 +740,10 @@ adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recover
 a new imported map.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. Undo never crosses from one map to another: each
+history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
+operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
+project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
 document keeps its own land (D336); when UI-BRIEF §6's undo brings back a replaced map, the page opens that map
 afresh, with a view built for its size.
 
@@ -832,6 +835,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     (`sim/fed.ts`), and the canonical settle takes away the water its pre-fill left where none reaches (`PLAN.md`
     §10; `tests/contract/waterFromNowhere.test.ts`). The preview does the same once its water stops: the
     pre-fill's water that only the walk's thin water joined to fed water goes, and the water runs on from there.
+  - **An imported map keeps its own water** (D457): standing water its file holds that no source feeds (a pond
+    whose source its maker removed) is the map's own, a stored lake like a Fill (`features/build.ts`
+    `importedWater`), so the live water and the export keep it alike and the game evaporates it in its own time;
+    Remove unfed water can still take it. D420 is unchanged for generated maps and Real places.
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical

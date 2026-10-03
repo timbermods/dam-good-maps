@@ -115,6 +115,10 @@ interface Applied {
   undo?: UndoData;
   /** Why the operation has no effect: its target no longer exists (PLAN §19.4). */
   orphaned?: string;
+  /** The `seq` of the first operation of the step it was applied in, when the step held several
+   *  (one undo takes them all back, after a reopen too: D456); absent, it is a step of its own. The
+   *  step's label is its first operation's `label`. */
+  step?: number;
 }
 
 export type AppliedOp = EditOp & Applied;

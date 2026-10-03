@@ -3,7 +3,7 @@
 // placement is one instant undo step; PERFECT, the editor 2: "one undo fixes it"). Saving and
 // reopening the map, as Your maps and the autosave's recovery do, must keep it one step.
 import { describe, expect, it } from "vitest";
-import { guid, reopen, session, timber } from "./helpers";
+import { guid, reopen, session, timber } from "./gateHelpers";
 
 describe("a step of several operations after the project is reopened", () => {
   it("one undo after reopening takes back the whole step (a source replaced by a stronger one), as it did before saving", () => {
@@ -24,8 +24,8 @@ describe("a step of several operations after the project is reopened", () => {
     expect(s.history().length).toBe(1);
 
     const again = reopen(s);
-    // one undo returns the map as it was before the step (today it takes back only the placing:
-    // the map is left with no source there, a map the player never had)
+    // one undo returns the map as it was before the step (before D456 it took back only the placing:
+    // the map was left with no source there, a map the player never had)
     again.undo();
     expect(timber(again)).toBe(before);
     expect(again.canUndo).toBe(false);
