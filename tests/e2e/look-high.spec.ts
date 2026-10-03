@@ -295,10 +295,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   expect(await look(page)).toBe("high");
   await page.keyboard.press("0");
