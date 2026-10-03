@@ -1388,7 +1388,11 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect, hash32(seed, "shelves", attempt));
   // (D410: round a sea the shelf at its spill level rises a level instead, to the low shore it is, so no
   // pale sheet of water a few hundredths deep lies round its islands and along its coast)
-  else raiseSeaShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect);
+  else if (raiseSeaShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect)) {
+    // (the shelves risen are dry land: they leave the water kept, so the start's walkable land holds
+    // them; kept as water, a start on one read no walkable land and its score was not a number)
+    for (let i = 0; i < N; i++) if (keep[i] && !hy.water[i] && !ctx?.locked?.mask[i]) keep[i] = 0;
+  }
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -2051,9 +2055,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // at its spill level): the sources whose water reaches it run stronger (1.6, then 2.5 times) until
   // it settles within the water's flood line; recorded in the features, so the link rebuilds it
   // (round 2, #155: a rising basin at 256² in River Valley or Lake Basin drains at a gentler inflow,
-  // 0.7, 0.49, then 0.343 of its feeders' flow, keeping its terrain; recorded like the lake feed)
+  // 0.7, 0.49, then 0.343 of its feeders' flow, keeping its terrain; recorded like the lake feed.
+  // M9b: so does a sea at 256², a big body still rising over its way out at the end of the settle)
   const drainFix = (b: BuildResult): BuildResult | null => {
-    if (W < 256 || (shown.theme !== "riverValley" && shown.theme !== "lakeBasin")) return null;
+    if (W < 256 || (shown.theme !== "riverValley" && shown.theme !== "lakeBasin" && !g.seaLayout)) return null;
     const sourceTiles = new Uint8Array(N);
     for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
     const risen = risenBasin(h, W, H, b.water, sourceTiles);
