@@ -1,7 +1,7 @@
 # Assets and sources
 
 All new geometry, fixtures, shader additions and captures are original work under this repository's
-MIT license. Existing DGM terrain/water shaders and procedural patterns are imported unchanged;
+license (AGPL v3; MIT before 2026-10-01). Existing DGM terrain/water shaders and procedural patterns are imported unchanged;
 Erode's mesher/light field and the named investigations' original case builders are read from pinned
 Git snapshots. `prepare.mjs` and `INTEGRATION.md` identify their commits.
 

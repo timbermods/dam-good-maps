@@ -36,8 +36,10 @@ const OPS: Record<number, number> = { 96: 40, 128: 32, 192: 20, 256: 16 };
 
 /** Seeds re-picked where a map change left a preset's random draws without a tool edit, which the
  *  test needs (D148): the large preset on 305 since housekeeping's randomOps (no setLock) shifted
- *  the draws on M9a's maps, and 303 then applied none. */
-const SEED_FOR: Record<number, number> = { 192: 305 };
+ *  the draws on M9a's maps, and 303 then applied none; the small preset on 306 since the draws took
+ *  in Fill and Remove unfed water (#167's operations), and 301 then applied none; the max preset on 309
+ *  since Remove unfed water joined the log operations (#176), and 304 then never found unfed water to take. */
+const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 309 };
 
 // (River Valley and Any in turn: every map since M9a is a generated field, whose read-back features
 // the random operations reshape too)
@@ -51,8 +53,10 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
     let applied = 0;
     let rejected = 0;
     const kinds = new Set<string>();
-    // the random operations, then once more each log operation the draw has not produced yet
-    const sweep = LOG_OPS.map((kind) => () => {
+    // the random operations, then once more each log operation the draw has not produced yet, in
+    // two passes: a kind that needs another first (Remove unfed water needs unfed water, which a Fill
+    // makes) gets its second chance once the others have applied
+    const sweep = [...LOG_OPS, ...LOG_OPS].map((kind) => () => {
       if (kinds.has(kind)) return null;
       for (let tries = 0; tries < 400; tries++) {
         const op = randomOp(s, rng);

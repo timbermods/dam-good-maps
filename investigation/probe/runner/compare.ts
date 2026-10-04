@@ -110,6 +110,15 @@ export function waterDiff(info: MapInfo, s: MapSnapshot, ref?: { depth: ArrayLik
   return { wetEither: wet, within01: wet ? within / wet : 1, maxAbs: max, meanAbs: wet ? sum / wet : 0, volumeFile: vf, volumeGame: vg, worst: worst >= 0 ? `(${worst % info.W}, ${(worst / info.W) | 0}) ${f3(a[worst] || 0)} → ${f3(s.depth[worst] || 0)}` : '-' };
 }
 
+/** The stored water holds: 95% of wet tiles within 0.1 deep and the volume within 10%. A map with no
+ *  water in the file and none in the game (Sources: None, D330) holds; water on either side alone
+ *  does not. */
+export function waterHolds(d: WaterDiff): boolean {
+  const none = (v: number) => !(v > 1e-9);
+  if (none(d.volumeFile) || none(d.volumeGame)) return none(d.volumeFile) && none(d.volumeGame);
+  return d.within01 >= 0.95 && Math.abs(d.volumeGame / d.volumeFile - 1) <= 0.1;
+}
+
 export function waterText(d: WaterDiff): string {
   return `${pct(d.within01)} of ${d.wetEither} wet tiles within 0.1 deep; mean |Δ| ${f3(d.meanAbs)}, max ${f3(d.maxAbs)} at ${d.worst}; volume ${d.volumeFile.toFixed(0)} → ${d.volumeGame.toFixed(0)} (${pct(d.volumeFile ? d.volumeGame / d.volumeFile - 1 : 0)})`;
 }
@@ -268,8 +277,7 @@ const EVALS: Record<string, Eval> = {
   water(c) {
     const s = need(c.L.snapshotAt(D0 + 1, 0.1) ?? c.L.snapshot('end'), 'day-1');
     const d = waterDiff(c.L.info, s);
-    const ok = d.within01 >= 0.95 && Math.abs(d.volumeGame / Math.max(1e-9, d.volumeFile) - 1) <= 0.1;
-    return { verdict: ok ? 'passed' : 'failed', detail: `after ${f2(s.day - D0)} days: ${waterText(d)}` };
+    return { verdict: waterHolds(d) ? 'passed' : 'failed', detail: `after ${f2(s.day - D0)} days: ${waterText(d)}` };
   },
   'high-water'(c) {
     return EVALS.water(c);

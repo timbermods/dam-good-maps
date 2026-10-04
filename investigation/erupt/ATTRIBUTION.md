@@ -9,7 +9,7 @@ local lava-hardness lookups and a dry-preview correction. Craterize's working tr
 snapshotted on 2026-09-26 for the worker, operation envelope, renderer, map loader, effects
 pool pattern and shell. Quake's working tree informed curved paths and riding footprints.
 Production rendering, map generation, entity helpers and water simulation are imported
-directly from this repository. The repository's MIT licence applies.
+directly from this repository. The repository's licence (AGPL v3) applies.
 
 # Survey attribution
 

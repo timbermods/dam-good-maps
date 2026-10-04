@@ -44,6 +44,8 @@ export interface EntityView {
   variant: Uint8Array;
   /** A water or badwater source's strength (blocks a second); 0 for anything else. */
   strength: Float32Array;
+  /** Each object's stable id (the core entity's `id`); `ids[k]` is object k's, "" when none was given. Strings are copied with the view, not transferred. */
+  ids: string[];
 }
 
 /** Water columns (sparse): one entry per wet column. Under caves a tile may hold several; the
@@ -56,6 +58,9 @@ export interface WaterView {
   depth: Float32Array;
   /** Badwater share, 0–1. */
   contamination: Float32Array;
+  /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
+   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+  outflow?: Float32Array;
 }
 
 /** Soil per tile, as bytes (palette.ts `moistureByte`, `contaminationByte`): moisture above 0
@@ -124,6 +129,11 @@ export interface SurfaceWater {
   floor: Float32Array;
   depth: Float32Array;
   contamination: Float32Array;
+  /** Each tile's surface column, as an index into the view (−1 where dry). */
+  top: Int32Array;
+  /** The view's outflows (four a column, current.ts), or null where it has none: read through `top`.
+   *  (Kept as the view sent them: a water update does no work for them on the page's thread.) */
+  outflow: Float32Array | null;
   /** Columns below the surface one (water in caves), as indices into the view. */
   lower: number[];
 }
@@ -150,7 +160,7 @@ export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
     surface[i] = w.floor[k] + w.depth[k];
     contamination[i] = w.contamination[k];
   }
-  return { surface, floor, depth, contamination, lower };
+  return { surface, floor, depth, contamination, top, outflow: w.outflow ?? null, lower };
 }
 
 /** The voxel columns as a map from tile index to its 23 voxels. */
@@ -161,6 +171,8 @@ export function columnMap(c: MapView["columns"]): Map<number, Uint8Array> {
 }
 
 export interface EntityInput {
+  /** The entity's stable id. */
+  id?: string;
   template: string;
   x: number;
   y: number;
@@ -196,6 +208,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     owner: new Uint16Array(n),
     variant: new Uint8Array(n),
     strength: new Float32Array(n),
+    ids: new Array<string>(n),
   };
   list.forEach((e, k) => {
     let t = tIndex.get(e.template);
@@ -220,6 +233,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0);
     v.variant[k] = variantIndex(e.variant);
     v.strength[k] = e.strength ?? 0;
+    v.ids[k] = e.id ?? "";
   });
   return v;
 }
@@ -236,7 +250,7 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
     add(v.columns.tiles);
     add(v.columns.voxels);
   }
-  if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination]) add(a);
+  if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
   if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination]) add(a);
   if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
   return out;

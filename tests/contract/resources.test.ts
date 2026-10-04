@@ -16,7 +16,7 @@ import { stream } from "../../src/core/math/rng";
 import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
 import { isSapling, treeLogs } from "../../src/core/analysis/wood";
 import { startingLocation } from "../../src/core/format/entities";
-import { groundOfFile, measureResources, TOWER } from "../../src/core/resources/measure";
+import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../src/core/resources/measure";
 import { planMapResources } from "../../src/core/resources/plan";
 import { decodeSpecFragment, defaultSettings, makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
@@ -91,13 +91,16 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     expect(more.scrap).toBeCloseTo(0.5 * base.scrap, -1);
   });
 
-  it("mine sites: one to four, never none", () => {
-    expect(resourceBudget(128, 128, { ...settings, mineSites: 0 }, 1).mineSites).toBe(1);
+  it("mine sites: two to four, never fewer (item 47; one to four before, D148)", () => {
+    expect(resourceBudget(128, 128, { ...settings, mineSites: 0 }, 1).mineSites).toBe(2);
+    expect(resourceBudget(128, 128, { ...settings, mineSites: 1 }, 1).mineSites).toBe(2);
     expect(resourceBudget(128, 128, { ...settings, mineSites: 9 }, 1).mineSites).toBe(4);
-    // an old share link asking for none asks for one, and says nothing is wrong
-    const d = decodeSpecFragment("v=0.6.0&s=5&t=canyon&z=128&d=n&ms=0")!;
-    expect(d.spec.settings.resources.mineSites).toBe(1);
-    expect(d.problems).toEqual([]);
+    // an old share link asking for none or one asks for two, and says nothing is wrong
+    for (const ms of [0, 1]) {
+      const d = decodeSpecFragment(`v=0.6.0&s=5&t=canyon&z=128&d=n&ms=${ms}`)!;
+      expect(d.spec.settings.resources.mineSites).toBe(2);
+      expect(d.problems).toEqual([]);
+    }
   });
 
   it("groves: one species each, clearings between them, thinning from the heart; alive on moist ground, dead on dry", () => {
@@ -260,12 +263,12 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     expect(again.entities.map((e) => `${e.id}:${e.template}`)).toEqual(r.entities.map((e) => `${e.id}:${e.template}`));
   });
 
-  it("every generated map has a mine site; a map without one fails resources.mine_site, which blocks generation and warns on export", () => {
+  it("every generated map has two mine sites it reaches (item 47; one before, D148); a map without them fails resources.mine_site, which blocks generation and warns on export", () => {
     for (const theme of THEMES) {
       const r = generate(makeSpec({ seed: 11, theme, size: { x: 96, y: 96 } }));
       expect(r.report.passed, theme).toBe(true);
       const mines = r.built.entities.filter((e) => e.template === "UndergroundRuins").length;
-      expect(mines, theme).toBeGreaterThanOrEqual(1);
+      expect(mines, theme).toBeGreaterThanOrEqual(2);
       expect(r.report.checks.find((c) => c.id === "resources.mine_site")!.ok).toBe(true);
     }
     const r = generate(makeSpec({ seed: 12, size: { x: 96, y: 96 } }));
@@ -281,33 +284,46 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     }
   });
 
-  it("a project file saved asking for no mine sites opens asking for one", () => {
+  it("a project file saved asking for no mine sites, or one, opens asking for two (item 47; D148)", () => {
     const r = generate(makeSpec({ seed: 13, size: { x: 96, y: 96 } }));
-    const doc = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
-    doc.spec.settings.resources.mineSites = 0;
-    const back = decodeProject(gzipSync(strToU8(JSON.stringify(doc))));
-    expect(back.spec!.settings.resources.mineSites).toBe(1);
+    for (const ms of [0, 1]) {
+      const doc = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
+      doc.spec.settings.resources.mineSites = ms;
+      const back = decodeProject(gzipSync(strToU8(JSON.stringify(doc))));
+      expect(back.spec!.settings.resources.mineSites).toBe(2);
+    }
   });
 
-  it("generated maps carry the official amounts for their size, in groves with clearings and patches", () => {
+  it("generated maps carry the official amounts for their size, living trees only, in groves with clearings and patches (item 26; D148)", () => {
     for (const [theme, side, seed] of [["riverValley", 128, 3], ["lakeBasin", 128, 4], ["canyon", 96, 5], ["highlands", 192, 6]] as const) {
       const r = generate(makeSpec({ seed, theme, size: { x: side, y: side } }));
       expect(r.report.passed).toBe(true);
       const m = measureResources(groundOfFile(r.file));
       const s = r.spec.settings.resources;
       const area = side * side;
+      // (item 26: the tree budget counts living trees, the official maps' living share of theirs)
       const t = officialRange("trees", area);
-      expect(m.trees.total, `${theme} trees`).toBeGreaterThan(0.85 * t.low * (s.forestDensity / 100));
-      expect(m.trees.total, `${theme} trees`).toBeLessThan(1.1 * t.high * (s.forestDensity / 100));
+      const [la, lb] = OFFICIAL_LAYOUT.livingShare;
+      const living = m.trees.total - Object.values(m.trees.bySpecies).reduce((a, v) => a + v.dead, 0);
+      expect(living, `${theme} living trees`).toBeGreaterThan(0.85 * t.low * la * (s.forestDensity / 100));
+      expect(living, `${theme} living trees`).toBeLessThan(1.1 * t.high * lb * (s.forestDensity / 100));
       const sc = officialRange("scrap", area);
       expect(m.ruins.scrap, `${theme} scrap`).toBeGreaterThan(0.85 * sc.low * (s.ruins / 100));
       expect(m.ruins.scrap, `${theme} scrap`).toBeLessThan(1.15 * sc.high * (s.ruins / 100));
-      // about two thirds of pines, birches and oaks stored dead; groves as full as the official ones
-      expect(m.trees.deadShare).toBeGreaterThan(0.5);
-      expect(m.trees.groveFill).toBeLessThan(0.52);
+      // dead trees rare and deliberate (item 26: the official maps store two thirds dead; ours, the
+      // start's fallback and a drought-killed grove); the map's own groves as full as the official
+      // ones. (D148: item 26 counts living trees only, so where the start's walk holds little moist
+      // ground its planting fills that ground to make the starting wood (D85, D252), with no dead
+      // grove on dry land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's
+      // own groves 0.36. The groves beyond the start's 25 tiles are the map's own.)
+      expect(m.trees.deadShare, `${theme} dead share`).toBeLessThan(0.1);
+      const ground = groundOfFile(r.file);
+      const st = startCentreOf(ground.objects.find((o) => o.template === "StartingLocation")!);
+      const own = measureResources({ ...ground, objects: ground.objects.filter((o) => Math.max(Math.abs(o.x - st.x), Math.abs(o.y - st.y)) > 25) });
+      expect(own.trees.groveFill, `${theme} the map's own groves`).toBeLessThan(0.52);
       expect(m.trees.groves.gaps.every((c) => c >= 1)).toBe(true);
       expect(m.bushes.patches.count).toBeLessThanOrEqual(10);
-      expect(m.mines.count).toBeGreaterThanOrEqual(1);
+      expect(m.mines.count).toBeGreaterThanOrEqual(2);
     }
   });
 });

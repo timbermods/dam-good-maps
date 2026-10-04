@@ -3,7 +3,8 @@
 // the rest, and Chromium, Firefox and WebKit do differ in their last bits: enough to move a glacier's
 // route or a fallen tree. Everything the core computes uses these instead (tests/unit/portable.test.ts
 // rejects a native call in src/core). Each is built from + − × ÷, floor and comparisons, evaluated
-// in a fixed order; sqrt is WebAssembly's f64.sqrt, which IEEE-754 rounds correctly.
+// in a fixed order; sqrt is WebAssembly's f64.sqrt, which IEEE-754 rounds correctly. rust/portable is the
+// same maths for every Rust port (D401); tools/rust/check.mjs compares the two bit for bit.
 //
 // For finite map arguments, not a general maths library: pow refuses what is outside expDet's range.
 
@@ -30,10 +31,41 @@ function wasmSqrt(): ((x: number) => number) | null {
   }
 }
 
-/** The correctly rounded square root: WebAssembly's, which the standard guarantees; where a page's
- *  policy refuses WebAssembly, Math.sqrt, which every engine computes with the processor's own
- *  correctly rounded instruction, though the language does not promise it. */
-export const sqrt: (x: number) => number = wasmSqrt() ?? Math.sqrt;
+/** The correctly rounded square root without WebAssembly, for a page whose policy refuses it: the exact
+ *  integer significand is scaled so the root has 53 bits, its integer square root taken, and the exact
+ *  squared midpoint compared. No native approximation; the same algorithm as rust/portable's sqrt
+ *  (from investigation/portable-math, #171, D401). */
+export function sqrtExact(x: number): number {
+  if (x === 0 || x === Infinity) return x;
+  if (!(x > 0)) return NaN;
+  const d = new DataView(new ArrayBuffer(8));
+  d.setFloat64(0, x, true);
+  const bits = d.getBigUint64(0, true);
+  const mask = (1n << 52n) - 1n;
+  const raw = Number((bits >> 52n) & 2047n);
+  const m = (bits & mask) | (raw ? 1n << 52n : 0n);
+  const e = raw ? raw - 1075 : -1074;
+  let r = Math.floor((e + m.toString(2).length - 1) / 2);
+  const n = m << BigInt(e + 104 - 2 * r);
+  let q = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+  for (;;) {
+    const next = (q + n / q) >> 1n;
+    if (next >= q) break;
+    q = next;
+  }
+  const midpoint = 2n * q + 1n;
+  if (4n * n > midpoint * midpoint) q++;
+  if (q === 1n << 53n) {
+    q >>= 1n;
+    r++;
+  }
+  d.setBigUint64(0, (BigInt(r + 1023) << 52n) | (q & mask), true);
+  return d.getFloat64(0, true);
+}
+
+/** The correctly rounded square root: WebAssembly's, which the standard guarantees, or sqrtExact where a
+ *  page's policy refuses WebAssembly. */
+export const sqrt: (x: number) => number = wasmSqrt() ?? sqrtExact;
 
 /** √(Σ x²), scaled by the largest argument and summed in argument order. */
 export function hypot(...args: number[]): number {
@@ -143,4 +175,30 @@ export function pow(x: number, y: number): number {
 export function tanh(x: number): number {
   const a = expDet(-2 * Math.abs(x));
   return (x < 0 ? -1 : 1) * ((1 - a) / (1 + a));
+}
+
+/** tan, sin over cos. */
+export function tan(x: number): number {
+  return sinDet(x) / cosDet(x);
+}
+
+/** asin and acos through atan2, for |x| ≤ 1. */
+export function asin(x: number): number {
+  return atan2(x, sqrt((1 - x) * (1 + x)));
+}
+
+export function acos(x: number): number {
+  return atan2(sqrt((1 - x) * (1 + x)), x);
+}
+
+/** Inverse hyperbolic sine, keeping signed zero. */
+export function asinh(x: number): number {
+  if (x === 0) return x;
+  const a = Math.abs(x);
+  return (x < 0 ? -1 : 1) * log(a + hypot(a, 1));
+}
+
+/** The remainder of x / y: ECMAScript's `%` is exact arithmetic (rust/portable implements it in integers). */
+export function rem(x: number, y: number): number {
+  return x % y;
 }

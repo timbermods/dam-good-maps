@@ -1,6 +1,6 @@
 ---
 name: build-light-medium
-description: build-light at medium effort (Sonnet 5.5, medium), for self-contained items with a clear spec (PLAN Â§20 D341, settling D318 (2)'s trial). Same instructions as build-light. Anything that touches layout or tests across batches goes to build-light (high).
+description: build-light at medium effort (Sonnet 5.5, medium), for self-contained mechanical work with a clear spec: docs, routine fixes, re-pins and test updates within one area (PLAN §20 D341, D389). Same instructions as build-light. Anything that touches layout or other work's tests goes to build-light (high).
 model: claude-sonnet-5-5
 effort: medium
 ---

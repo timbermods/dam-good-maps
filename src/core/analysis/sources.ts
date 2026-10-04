@@ -36,6 +36,8 @@ export interface SourcesInFlow {
    *  first tile of each. */
   inFlow: number[];
   tiles: [number, number][];
+  /** For each of `inFlow`, the objects whose water reaches it (their groups' emitters). */
+  reachedBy?: number[][];
 }
 
 interface Unit {
@@ -169,18 +171,18 @@ export function sourcesInFlow(model: WaterModel, objects: readonly MapObject[], 
 
   // 5. groups another running group's water comes down to
   const running = groups.map((g) => g.some((k) => units[k].strength > 0));
-  const inFlow: [number, [number, number]][] = [];
+  const inFlow: [number, [number, number], number[]][] = [];
   for (let b = 0; b < groups.length; b++) {
     if (!groups[b].some((k) => units[k].source)) continue;
-    let hit = false;
-    for (let a = 0; a < groups.length && !hit; a++) if (a !== b && running[a] && reaches(a, b, true) && !reaches(b, a, false)) hit = true;
-    if (!hit) continue;
+    const by: number[] = [];
+    for (let a = 0; a < groups.length; a++) if (a !== b && running[a] && reaches(a, b, true) && !reaches(b, a, false)) for (const k of groups[a]) by.push(units[k].object);
+    if (!by.length) continue;
     for (const k of groups[b]) {
       if (!units[k].source) continue;
       const c = units[k].cells[0];
-      inFlow.push([units[k].object, [c % W, (c - (c % W)) / W]]);
+      inFlow.push([units[k].object, [c % W, (c - (c % W)) / W], by]);
     }
   }
   inFlow.sort((p, q) => p[0] - q[0]);
-  return { sources, inFlow: inFlow.map(([o]) => o), tiles: inFlow.map(([, t]) => t) };
+  return { sources, inFlow: inFlow.map(([o]) => o), tiles: inFlow.map(([, t]) => t), reachedBy: inFlow.map(([, , by]) => by) };
 }

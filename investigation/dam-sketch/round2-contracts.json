@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "comparisons": 846,
+  "rows": [
+    {
+      "id": "dam-seep",
+      "budget": 1,
+      "digest": "8d8211b3470b323db55f1c421e7254f3698bee2d335fb5617bb6f4cbfb170524"
+    },
+    {
+      "id": "dam-seep",
+      "budget": 8,
+      "digest": "d3331f5abe0a5060b1fa8f49dbbda3ff549785707771e3774697691e613cdc86"
+    },
+    {
+      "id": "dam-seep",
+      "budget": 129,
+      "digest": "52e13ffec8d723b4d8e818f943beff422611b8ee0579134b8046d0d50ad58520"
+    },
+    {
+      "id": "stack-seep",
+      "budget": 1,
+      "digest": "3c5506a58f8dc2431692fb2c557e378f00640c87ba61b5f9f0fe358664c8b5a9"
+    },
+    {
+      "id": "stack-seep",
+      "budget": 8,
+      "digest": "5af93ebb8b2861e147e4926c52fa4dcc49e9f5996d78fa258a495e8755670f00"
+    },
+    {
+      "id": "stack-seep",
+      "budget": 129,
+      "digest": "d1d6d9f680b24aa25c075e7210917cc7b73e4bcd5856c778ca489aa2e2f202a7"
+    },
+    {
+      "id": "roof-zero-forcing",
+      "budget": 1,
+      "digest": "c85196f9249ba486f57c6bc2b046e15f0cca32ce795cd6b1eaa4019580d9ba74"
+    },
+    {
+      "id": "roof-zero-forcing",
+      "budget": 8,
+      "digest": "f2c71a794d2d66acfe3ddc6450efb6e68b6afef130c208e8e2a5ba9c15aee14f"
+    },
+    {
+      "id": "roof-zero-forcing",
+      "budget": 129,
+      "digest": "75e98331fbf747bd443b0d3e037fdf0fe6ba576741f929a4019fa97948fd6c0d"
+    }
+  ],
+  "excluded": [
+    "runtimeMs"
+  ]
+}

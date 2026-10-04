@@ -18,6 +18,7 @@ import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import { drainage } from "./drainage";
 import { bump, clamp, DIRS8, dist, polyDist, smoothstep, unit } from "./num";
+import { sinDet, TWO_PI } from "../math/detmath";
 import type { Genome, Part } from "./genome";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
@@ -78,8 +79,21 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       // bowls; calderas and cone craters keep their own round shapes.
       const shape = p.shape ?? (p.size < 14 ? "round" : "valley");
       if (shape === "round") {
+        // (M9b, D273 (5): a round lake is round like a real one, lobed and a little long, never a
+        // circle)
+        const rr = stream(s, "round-rim");
+        const k1 = 2 + Math.floor(2 * rr.float());
+        const p1 = rr.float();
+        const a1 = 0.12 + 0.1 * rr.float();
+        const [bx, by] = unit(rr.float());
+        const stretch = 1.1 + 0.35 * rr.float();
         each((x, y, i) => {
-          const d = dist(x, y, cx, cy) / (p.size * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
+          const dx0 = x - cx;
+          const dy0 = y - cy;
+          const along = dx0 * bx + dy0 * by;
+          const across = -dx0 * by + dy0 * bx;
+          const lobes = 1 + a1 * sinDet(TWO_PI * (k1 * pseudoAngle(dx0, dy0) + p1));
+          const d = portable.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
           U[i] += p.height * bump(d) + p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45);
           if (p.soft > 0) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (p.size * 0.3 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
         });
@@ -88,7 +102,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const sea = shape === "sea";
       const r = stream(s, "basin-shape");
       const [ux, uy] = unit(p.turn);
-      const aspect = sea ? 1 + 0.4 * r.float() : 1.6 + 1.8 * r.float();
+      const drawn = r.float();
+      // (M9b: a sea layout may set the sea's aspect, as `extra`)
+      const aspect = sea ? (p.extra > 0 ? p.extra : 1 + 0.4 * drawn) : 1.6 + 1.8 * drawn;
       const major = p.size * portable.sqrt(aspect);
       const minor = p.size / portable.sqrt(aspect);
       const bend = sea ? 0 : (r.float() * 2 - 1) * 0.6;
@@ -119,16 +135,44 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
           if (e < d) d = e;
         }
         // a sea keeps a broad floor with steep shores (thin sheets of water settle slowly); a valley
-        // lake deepens toward its middle
-        U[i] += p.height * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
+        // lake deepens toward its middle. (M9b: a sea keeps a rim of land along the map's edges,
+        // since the game drains every edge tile: one that ran to an edge spilled out there)
+        // (the rim's inner line wanders, so the sea's shelf never runs parallel to the edges)
+        // (D350: the rim is never breached: the outer third of it always keeps its land, where the
+        // wandering line once reached the edge and the sea drained out there, Islands 256² seeds 1–3)
+        // (D417, Kyler's second look: the sea's outline neither runs with the edges nor turns square
+        // corners. The rim's inner line is a rounded square whose distance from the edge wanders from
+        // a tile or two to a tenth of the map, broken by narrow headlands, its fall to the sea now a
+        // gentle shore, now a cliff)
+        const keepRim = sea ? rimKeep(s, x, y, W, H) : 1;
+        U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });
       return;
     }
     case "caldera": {
+      // M9b (D273 (5), D294: round craters read as stamped): the rim is lobed by two waves round
+      // it (on a pseudo-angle, so no trigonometry), stretched along a drawn axis, and noisier, so
+      // no crater is a circle
+      const cr = stream(s, "caldera-rim");
+      const k1 = 2 + Math.floor(2 * cr.float());
+      const k2 = 4 + Math.floor(3 * cr.float());
+      const p1 = cr.float();
+      const p2 = cr.float();
+      const a1 = 0.1 + 0.08 * cr.float();
+      const a2 = 0.05 + 0.05 * cr.float();
+      const [ax, ay] = unit(cr.float());
+      const stretch = 1.1 + 0.3 * cr.float();
       each((x, y, i) => {
-        const r = p.size * (1 + 0.15 * fbm(s, x, y, 14, 2));
-        const d = dist(x, y, cx, cy);
+        const dx0 = x - cx;
+        const dy0 = y - cy;
+        // (the stretch: distances along the axis count less)
+        const along = dx0 * ax + dy0 * ay;
+        const across = -dx0 * ay + dy0 * ax;
+        const t = pseudoAngle(dx0, dy0);
+        const lobes = 1 + a1 * sinDet(TWO_PI * (k1 * t + p1)) + a2 * sinDet(TWO_PI * (k2 * t + p2));
+        const r = p.size * lobes * (1 + 0.22 * fbm(s, x, y, 12, 2));
+        const d = portable.sqrt((along / stretch) * (along / stretch) + across * across);
         const ring = bump(Math.abs(d - r) / (p.soft * (3.2 + 1.0 * fbm(s + 2, x, y, 10, 2))));
         const inside = d < r ? smoothstep((r - d) / 5) : 0;
         U[i] += p.height * (0.65 + 0.35 * (fbm(s + 3, x, y, 8, 2) + 1)) * ring - (p.height + 1.5) * inside;
@@ -188,11 +232,37 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       });
       return;
     }
+    case "isle": {
+      // an island (D410, Kyler's review): land rising from the sea's floor to high ground of its own,
+      // its coast wandering in bays and headlands (a warped ellipse, `extra` its aspect), its top
+      // broken into spurs and knolls by ridged noise, never a cone's rings or a table
+      const [ux, uy] = unit(p.turn);
+      const aspect = p.extra > 0 ? p.extra : 1.3;
+      const major = p.size * portable.sqrt(aspect);
+      const minor = p.size / portable.sqrt(aspect);
+      const cell = Math.max(6, p.size * 0.55);
+      each((x, y, i) => {
+        const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
+        const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
+        const dx = x - cx + wx;
+        const dy = y - cy + wy;
+        const a = (dx * ux + dy * uy) / major;
+        const b = (-dx * uy + dy * ux) / minor;
+        const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
+        if (d >= 1.15) return;
+        let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
+        n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
+        // (steep flanks into the sea, a broad top: no shallow shelf round it)
+        const t = smoothstep((1.15 - d) / 0.4);
+        U[i] += p.height * t * (0.72 + 0.4 * n);
+      });
+      return;
+    }
     case "cone": {
       each((x, y, i) => {
         const d = dist(x, y, cx, cy) / (p.size * (1 + 0.15 * fbm(s, x, y, 10, 2)));
         if (d < 1) U[i] += p.height * (1 - d);
-        if (p.extra > 0) U[i] -= p.height * 0.55 * bump(dist(x, y, cx, cy) / p.extra);
+        if (p.extra > 0) U[i] -= p.height * 0.55 * bump(dist(x, y, cx, cy) / (p.extra * (1 + 0.3 * fbm(s + 7, x, y, 5, 2))));
       });
       return;
     }
@@ -231,6 +301,24 @@ export interface Field {
   hard: Float64Array;
 }
 
+/** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
+ *  tile, so the sea keeps a rim of land) to 1 inside the rim (D417): the rim's inner line is a
+ *  rounded square (no square corners), its distance from the edge wandering from 1% of the side to
+ *  8%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
+ *  the side. */
+function rimKeep(s: number, x: number, y: number, W: number, H: number): number {
+  const side = Math.min(W, H);
+  const ex = Math.min(x, W - 1 - x);
+  const ey = Math.min(y, H - 1 - y);
+  const rc = 0.2 * side;
+  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
+  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
+  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
+  const inner = side * (0.01 + 0.07 * t + 0.03 * head);
+  const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
+  return smoothstep((e - inner) / fall);
+}
+
 /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
 export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
   const ls = landSeed(seed, g.variation);
@@ -254,8 +342,14 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
         const dv = y / (H - 1) - g.focus[1];
         h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
       }
-      // the slow regional field: broad highs and lows that are not one plane
-      h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
+      // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
+      // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
+      // its shore, Islands 128² seeds 14 and 26)
+      if (g.regional.warped) {
+        const rx = x + 0.35 * g.regional.cell * fbm(rs + 1, x, y, 0.6 * g.regional.cell, 2);
+        const ry = y + 0.35 * g.regional.cell * fbm(rs + 2, x, y, 0.6 * g.regional.cell, 2);
+        h += g.regional.amp * fbm(rs, rx, ry, g.regional.cell, 2);
+      } else h += g.regional.amp * fbm(rs, x, y, g.regional.cell, 2);
       const px = x + nz.warp * fbm(wx, x, y, nz.warpCell, 2);
       const py = y + nz.warp * fbm(wy, x, y, nz.warpCell, 2);
       let n = fbm(sx, px, py, nz.cell, nz.octaves);

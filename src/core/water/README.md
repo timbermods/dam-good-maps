@@ -27,8 +27,13 @@ const g = placeSourceGroup(
 - `occupied` must hold everything already placed, **but not the caller's own reservation for this
   source** (the build reserves its spring and mouth tiles before step 9: leave those out, or call the
   module where the reservation is made and reserve `groupTiles(g)` instead).
-- Ids: one entity per source. Keep the caller's existing id for the anchor (the source at `x, y`) and
-  derive the others from it and the tile, so a replay gives the same ids.
+- Ids: one entity per source, from `groupIds(anchorId, request, g)`: the anchor (the source at `x, y`)
+  keeps the caller's existing id, and the others' ids derive from it and their place along the row
+  (their offset from the anchor, counted round the rule's count), never their tiles. A replay gives
+  the same ids, and a group the build places again on ground an edit changed keeps them: a Quake
+  Lift that raises one side of a river head's row moves a spring to the row's other end, and it
+  keeps its id (a tile's id would be new, an object the player never placed, D368 (10)). A caller
+  that stores its ids in its operation (Carve's row, Glaciate's springs) keeps the ones it stored.
 - The fallback keeps the strength; `g.clamped` is true only where the fewer sources would pass the
   game's cap (8 a tile).
 
@@ -40,7 +45,10 @@ Every generated map changes, so it goes in with the one switch and its one re-pi
   "springs: a river's first channel tiles"): one call per river with a spring entry, at the spring's
   tile (`springTiles`' nearest tile to `entry.spring`), `strength: f.params.flow`, `flow` from the
   river's path at its start (its first two path points), in place of the per-tile loop and its
-  `ceil(flow / 8)` tiles. A lake's spring (`lakeSpringTile`) the same, with `inflow.spring`.
+  `ceil(flow / 8)` tiles. A lake's spring (`lakeSpringTile`) the same, with `inflow.spring`. The
+  sources' ids: `groupIds(entityId(f.id, "WaterSource", anchorTile), request, g)`, so the anchor keeps
+  the id its one tile had, and the build derives the row again after every edit without new ids
+  (the regression: `tests/contract/editsPlaceNothing.test.ts`, "a spring the build derives again").
 - **Edge mouths** (step 9, "a source on every channel tile of its mouth"): a mouth must stay sealed
   tile for tile (PLAN §7.6), so either call at the mouth's middle tile with `count: tiles.length`
   (equal shares, as now), or narrow the channel at the edge to `wantedCount(request)` tiles so the row
@@ -80,3 +88,45 @@ On `feature/forces` (Carve, Unleash) and `feature/glaciate` (Glaciate):
   (a shelf source, D314). If Unleash should give its river a row at the head, that is Kyler's call;
   the module would be called at the source's tile with the source's strength and the breakout's
   direction as `flow`.
+
+# The edge lip: a river that starts at the edge flows into the map (item 27)
+
+`edgeLip.ts` holds the head of any river that starts at the map's edge (the forces-preview feedback's item
+27, PLAN §20 D325). The game drains every edge tile but a source's own, so water from an edge row of sources
+that reaches the edge tiles beside it pours off the map. The lip raises exactly those tiles a level above
+the head's water, and the tiles just inside them a level lower, never a wall along the whole edge.
+
+```ts
+const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
+// row: the sources' boundary tiles (y·W + x); rowTiles(edge, along, W, H) turns a row's positions
+//   along the edge into tiles
+// surface: the head's water (its bed plus depth, or the lake it backs into); the lip stands at
+//   floor(surface) + 1, at least the bed plus two
+// keep: tiles never raised (other rivers' mouths, a player's locked ground)
+// r.raised: the tiles raised; r.open: edge tiles its water still reaches beyond `reach` (16)
+```
+
+- **The generator** (M9b): every edge river's mouth, before the course check (`gen/generate.ts`); the
+  course check seals only the mouth's own tiles (`land/courses.ts` `sealedMouths`, the build's
+  `mouthTilesOf`), and badwater ditches keep out of the lip's reach.
+- **The forces** (batch 1): Carve's source row and Glaciate's meltwater, when their row stands on an edge,
+  once the row is placed and before the water settles; `keep` holds the force's own channel if it runs
+  along the edge.
+- **Real places** (when it resumes, D319): each head the conversion puts on an edge.
+
+# A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
+
+`wearOutlet(h, W, H, depth, { seed, width, keep, basin, floor })` takes the water that doesn't settle
+(`basin`, else the largest basin whose water stands over its spill level, `risenBasin`) and widens
+the way its water leaves by, from the sill beside the basin to lower ground or the map edge and on
+down: a channel widened on one bank (the side that takes the less ground away), its width changing
+smoothly along the way (0.8–1.2 of `width`, never tile by tile), its banks stepping back up a level a tile, its bed a level under the basin past the shore so
+the sill is short. Never within two tiles of the basin under its level, never on `keep`, never below
+`floor`. The cut is one shape along that way (D360 (3)): no part of it narrower than three tiles
+(`openSquare`: no arms or stubs where the path turns, no slivers), the largest piece of the worn
+ground kept and the rest left as it was; `cutShape(cut, path, W, H, reach)` counts its pieces, stray
+tiles, tiles off to the path's side and thin tiles, and a cut that isn't one clean piece is refused. It
+returns the new ground, the tiles cut and the path, or null. The generator calls it on a shown land
+whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
+the water still rising (9, then 17 tiles, the first that settles, a cut of at most 200 tiles);
+`tests/unit/outletWear.test.ts`.

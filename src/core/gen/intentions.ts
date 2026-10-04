@@ -5,24 +5,29 @@
 
 import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
-import { checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
+import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
 import type { Hydro } from "../land/hydro";
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
+import type { Rng } from "../math/rng";
 import { waterModel } from "../sim/model";
 
 export interface IntentionResult {
   id: IntentionId;
   ok: boolean;
   note: string;
-  /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped". */
-  outcome: "emerged" | "re-steered" | "dropped";
+  /** What the map shows, in a player's words, when it emerged (the how-it-plays line uses the
+   *  standout's). */
+  say?: string;
+  /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped"; "found" for one
+   *  the map was not steered toward but shows of its own accord (M9b). */
+  outcome: "emerged" | "re-steered" | "dropped" | "found";
 }
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 /** The land and water the settler scores places on, for the intentions' preferences. */
-export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
+export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, kept9?: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
   const N = W * H;
   const joinT = new Uint8Array(N);
   for (const r of hy.rivers) {
@@ -36,7 +41,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
   for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
   const sorted = Array.from(h).sort((a, b) => a - b);
   // clean bodies of 60+ tiles, their surface and what a 9-day drought leaves
-  const kept = droughtStorage(waterModel(W, H, h, []), D, 9);
+  const kept = kept9 ?? droughtStorage(waterModel(W, H, h, []), D, 9);
   const lab = new Int32Array(N).fill(-1);
   const lakes: SettlerView["lakes"] = [];
   for (let s0 = 0; s0 < N; s0++) {
@@ -115,12 +120,40 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
         }
       if (sides >= 2) gorge[i] = 1;
     }
-  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), lakes, farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))] };
+  // badwater, and the land in 4×4 blocks (two ways to grow)
+  const badT = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05) badT[i] = 1;
+  const B = 4;
+  const bw = Math.ceil(W / B);
+  const bh = Math.ceil(H / B);
+  const blocks = { B, bw, bh, n: new Float32Array(bw * bh), farm: new Float32Array(bw * bh), hs: new Float32Array(bw * bh), lowBad: new Float32Array(bw * bh) };
+  const dBad = distanceFrom(badT, W, H);
+  for (let i = 0; i < N; i++) {
+    if (D[i] >= 0.05) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const k = Math.floor(y / B) * bw + Math.floor(x / B);
+    blocks.n[k]++;
+    blocks.hs[k] += h[i];
+    if (M[i] > 0 && C[i] < 0.05) blocks.farm[k]++;
+    // low land beside badwater: within 5 tiles of it and at most 1.5 over its surface there
+    if (dBad[i] <= 5) {
+      let surf = Infinity;
+      for (let dy = -5; dy <= 5; dy++)
+        for (let dx = -5; dx <= 5; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H && badT[yy * W + xx]) surf = Math.min(surf, h[yy * W + xx] + D[yy * W + xx]);
+        }
+      if (h[i] <= surf + 1.5) blocks.lowBad[k]++;
+    }
+  }
+  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), lakes, farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks };
   return { ...view, prefer: (id, x, y, L, walk) => startPreference(id, view, x, y, L, walk) };
 }
 
 /** The finished map as the intention checks read it. */
-export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
+export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }): FinalCtx {
   const { W, H } = b;
   const start = b.start ?? { x: 0, y: 0, z: 0 };
   const objs = b.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
@@ -141,11 +174,14 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
     moist: b.moisture,
     start: { x: start.x, y: start.y, z: start.z },
     walk: reachWalk(b.heights, W, H, objs, start),
+    ...(objs.some((o) => o.template === "Blockage") ? { walkCleared: reachWalk(b.heights, W, H, objs.filter((o) => o.template !== "Blockage"), start) } : {}),
     kept9: droughtStorage(b.waterModel, b.water, 9),
     objects: objs,
     falls: fallsOf(b.heights, b.water, W, H, 1.5),
     joins,
     rivers: hy.rivers.map((r) => r.params.path.map((p) => [p[0], p[1]] as [number, number])),
+    riverInfo: hy.rivers.map((r) => ({ role: r.role ?? "", joins: "river" in r.params.exit ? hy.rivers.findIndex((o) => o.id === (r.params.exit as { river: string }).river) : -1 })),
+    arms: (hy.arms ?? []).map((a) => a.path.map((p) => [p[0], p[1]] as [number, number])),
   };
 }
 
@@ -155,7 +191,7 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers">): FinalCtx {
  * (the land is kept, so the settle is reused); it is taken when more intentions emerge there, and
  * `commit` makes it the map. Every absent intention is dropped, never forced (D138).
  */
-export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy: Pick<Hydro, "rivers">, resteer: () => { built: BuildResult; commit: () => void } | null): IntentionResult[] {
+export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }, resteer: () => { built: BuildResult; commit: () => void } | null): IntentionResult[] {
   let res = ids.map((id) => ({ id, ...checkIntention(id, finalCtx(built, hy)) }));
   if (res.some((r) => !r.ok && START_SIDE.has(r.id))) {
     const alt = resteer();
@@ -165,9 +201,27 @@ export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy:
       if (res3.filter((r) => r.ok).length > res.filter((r) => r.ok).length) {
         const before = new Set(res.filter((r) => r.ok).map((r) => r.id));
         alt.commit();
-        return res3.map((r) => ({ id: r.id, ok: r.ok, note: r.note, outcome: r.ok ? (before.has(r.id) ? "emerged" : "re-steered") : "dropped" }));
+        return res3.map((r) => ({ id: r.id, ok: r.ok, note: r.note, ...(r.ok && r.say ? { say: r.say } : {}), outcome: r.ok ? (before.has(r.id) ? "emerged" : "re-steered") : "dropped" }));
       }
     }
   }
-  return res.map((r) => ({ id: r.id, ok: r.ok, note: r.note, outcome: r.ok ? "emerged" : "dropped" }));
+  return res.map((r) => ({ id: r.id, ok: r.ok, note: r.note, ...(r.ok && r.say ? { say: r.say } : {}), outcome: r.ok ? "emerged" : "dropped" }));
+}
+
+/** M9b (D273 (3): a standout on every map; D138: failure allowed, many realizations): when none of
+ *  the intentions a map was steered toward emerged, one it shows of its own accord, checked the same
+ *  way: the set is tried in an order of the map's own (its random stream), so maps that find one do
+ *  not all find the same. */
+export function foundIntention(built: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }, drawn: readonly IntentionId[], rng: Rng): IntentionResult | null {
+  const ctx = finalCtx(built, hy);
+  const order = ACTIVE.filter((id) => !drawn.includes(id));
+  for (let k = order.length - 1; k > 0; k--) {
+    const j = rng.int(0, k + 1);
+    [order[k], order[j]] = [order[j], order[k]];
+  }
+  for (const id of order) {
+    const r = checkIntention(id, ctx);
+    if (r.ok) return { id, ok: true, note: r.note, ...(r.say ? { say: r.say } : {}), outcome: "found" };
+  }
+  return null;
 }

@@ -11,6 +11,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
+- `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
 - `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, and the probe's runner calls them itself before a batch); `ingame-files.ts` makes the files for the in-game checks.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
@@ -40,3 +41,18 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 `npm run setup:machine` (`tools/setup-machine.mjs`): on a fresh clone, creates the worktrees the plan uses, installs their
 dependencies, writes the probe allow rules for this machine's paths into `.claude/settings.local.json`, checks the tools
 the work needs and prints what's ready and what's missing. Safe to run again; `--dry-run`, `--all`, `--no-install`.
+Among the tools it checks is Rust (rustup, the pinned 1.90.0 and the wasm32 target); it says how to install them for
+the user and never installs anything system-wide.
+
+## Rust and the maths guards
+
+`npx tsx tools/rust/check.ts [--engines]`: the Rust maths guard (`tools/rust/guard.mjs`), strict builds of `rust/` with
+their IR, assembly and Wasm audited, and `rust/portable` against `src/core/math/portable.ts` bit for bit (natively, in
+Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's `rust` job runs it; `rust/README.md`
+has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
+tools (D401), run by `tests/unit/portable.test.ts`.
+
+The Rust water (wired, not switched on until M9b is on dev): `npx tsx tools/rust/build.ts [--native] [--check]`
+rebuilds its committed Wasm (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts`
+runs a process's canonical settles natively (`tools/batch.ts --native`); `npx tsx tools/rust/water-identity.ts`
+compares the Rust water with the app's water, three ways (the adoption's identity run).

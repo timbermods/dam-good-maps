@@ -30,34 +30,85 @@ export function pathField(path: Point[], W: number, H: number): PathField {
   const d = new Float64Array(W * H);
   const s = new Float64Array(W * H);
   const side = new Int8Array(W * H);
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      let best = Infinity;
-      let bestS = 0;
-      let bestSide = 1;
-      for (let i = 0; i + 1 < n; i++) {
-        const ax = path[i][0];
-        const ay = path[i][1];
-        const vx = path[i + 1][0] - ax;
-        const vy = path[i + 1][1] - ay;
-        const l2 = vx * vx + vy * vy;
-        let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-        if (t < 0) t = 0;
-        else if (t > 1) t = 1;
-        const px = ax + t * vx - x;
-        const py = ay + t * vy - y;
-        const dd = px * px + py * py;
-        if (dd < best) {
-          best = dd;
-          bestS = cum[i] + t * segLen[i];
-          // cross product of the segment direction with (tile - segment start): positive = left
-          bestSide = vx * (y - ay) - vy * (x - ax) >= 0 ? 1 : -1;
-        }
+  // (the segments in chunks, each with its bounding box: a chunk whose box lies no nearer than the
+  // best distance so far cannot hold a nearer segment (the test is strict), so it is skipped and the
+  // result is the same bit for bit; a 256² map's many rivers spent a second here)
+  const CH = 16;
+  const chunks: { i0: number; i1: number; x0: number; x1: number; y0: number; y1: number }[] = [];
+  for (let i0 = 0; i0 + 1 < n; i0 += CH) {
+    const i1 = Math.min(n - 1, i0 + CH);
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (let k = i0; k <= i1; k++) {
+      x0 = Math.min(x0, path[k][0]);
+      x1 = Math.max(x1, path[k][0]);
+      y0 = Math.min(y0, path[k][1]);
+      y1 = Math.max(y1, path[k][1]);
+    }
+    chunks.push({ i0, i1, x0, x1, y0, y1 });
+  }
+  // (and the tiles in blocks: every tile's nearest distance in a block is at most the farthest
+  // block corner's from some chunk's first point, so a chunk whose box lies farther from the block
+  // than that holds no segment as near and is left out for the whole block; the chunks kept are
+  // searched in their own order as before, so the result is still the same bit for bit)
+  const B = 8;
+  const cand: typeof chunks = [];
+  for (let by0 = 0; by0 < H; by0 += B) {
+    const by1 = Math.min(H, by0 + B) - 1;
+    for (let bx0 = 0; bx0 < W; bx0 += B) {
+      const bx1 = Math.min(W, bx0 + B) - 1;
+      let U = Infinity;
+      for (const c of chunks) {
+        const px = path[c.i0][0];
+        const py = path[c.i0][1];
+        const fx = Math.max(Math.abs(px - bx0), Math.abs(px - bx1));
+        const fy = Math.max(Math.abs(py - by0), Math.abs(py - by1));
+        const u = fx * fx + fy * fy;
+        if (u < U) U = u;
       }
-      const idx = y * W + x;
-      d[idx] = portable.sqrt(best);
-      s[idx] = bestS;
-      side[idx] = bestSide;
+      cand.length = 0;
+      for (const c of chunks) {
+        const gx = bx1 < c.x0 ? c.x0 - bx1 : bx0 > c.x1 ? bx0 - c.x1 : 0;
+        const gy = by1 < c.y0 ? c.y0 - by1 : by0 > c.y1 ? by0 - c.y1 : 0;
+        if (gx * gx + gy * gy <= U + 1e-6) cand.push(c);
+      }
+      for (let y = by0; y <= by1; y++)
+        for (let x = bx0; x <= bx1; x++) {
+          let best = Infinity;
+          let bestS = 0;
+          let bestSide = 1;
+          for (const c of cand) {
+            const bx = x < c.x0 ? c.x0 - x : x > c.x1 ? x - c.x1 : 0;
+            const by = y < c.y0 ? c.y0 - y : y > c.y1 ? y - c.y1 : 0;
+            // (a margin for rounding: the box test only skips what is clearly farther)
+            if (bx * bx + by * by > best + 1e-6) continue;
+            for (let i = c.i0; i < c.i1; i++) {
+              const ax = path[i][0];
+              const ay = path[i][1];
+              const vx = path[i + 1][0] - ax;
+              const vy = path[i + 1][1] - ay;
+              const l2 = vx * vx + vy * vy;
+              let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
+              if (t < 0) t = 0;
+              else if (t > 1) t = 1;
+              const px = ax + t * vx - x;
+              const py = ay + t * vy - y;
+              const dd = px * px + py * py;
+              if (dd < best) {
+                best = dd;
+                bestS = cum[i] + t * segLen[i];
+                // cross product of the segment direction with (tile - segment start): positive = left
+                bestSide = vx * (y - ay) - vy * (x - ax) >= 0 ? 1 : -1;
+              }
+            }
+          }
+          const idx = y * W + x;
+          d[idx] = portable.sqrt(best);
+          s[idx] = bestS;
+          side[idx] = bestSide;
+        }
     }
   }
   return { d, s, side, length: cum[n - 1] };

@@ -22,7 +22,7 @@ import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
-import { growGroveAt, growPatchAt, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, succulentsOf, type BaselineGround } from "../resources/baseline";
+import { growGroveAt, growPatchAt, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
   W: number;
@@ -346,17 +346,22 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       if (got >= SITE_TREES) break;
     }
   }
-  // the map's trees (the baseline): living groves on moist ground, at most on a quarter of it, and
-  // the rest on dry ground, dead (or succulents); each grove one species. `keep` trees are kept
-  // back for the start's own planting
+  // the map's trees (the baseline): living trees only count toward it (the forces-preview
+  // feedback's item 26: the official maps' own living share, never dead groves to make up their
+  // total), in groves on moist ground, at most on a quarter of it, and living succulents on dry
+  // ground by the mix; each grove one species. `keep` trees are kept back for the start's own
+  // planting
+  const succulents = Math.round((budget.living * mixW.succulent) / Math.max(1, mixW.pine + mixW.birch + mixW.oak + mixW.succulent));
+  let succulentsPlanted = 0;
   const baseGroves = (keep: number, keepOut: Uint8Array | null = null) => {
     let moistRoom = 0;
     for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
-    const livingWant = Math.max(0, Math.min(budget.living - succulentsOf(budget, spec.settings.resources) - treeCount - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
-    const dryWant = Math.max(0, budget.trees - treeCount - livingWant - keep);
+    const livingWant = Math.max(0, Math.min(budget.living - succulents - (treeCount - succulentsPlanted) - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
+    const dryWant = Math.max(0, succulents - succulentsPlanted);
     syncTaken();
     keepOutOf(keepOut);
-    for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist })) {
+    for (const gr of planGroves(ground, { living: livingWant, dry: dryWant }, { rng: vegRng, groveSize: spec.settings.resources.groveSize, speciesMix: mixW, clearings, waterDist, deadOnDry: false })) {
+      if (!gr.living) succulentsPlanted += gr.tiles.length;
       const role = anchorRole("forest/grove", gr.tiles);
       out.push({
         id: featureId(seed, "forest", role),
@@ -524,6 +529,23 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     // the rest of the map's bushes and trees: what the start's planting did not use of the budget
     basePatches(budget.bushes - bushCount);
     baseGroves(0);
+  }
+
+  // ---- a small drought-killed grove as a feature (item 26: dead trees rare and deliberate), on a
+  //      third of the maps: 8–20 standing dead trees on dry ground at the edge of moist land, where a
+  //      drought would have killed them, beyond the starting-logs floor's walk (their logs are no
+  //      easy early wood)
+  {
+    const dr = stream(seed, "drought-grove", candidate, attempt);
+    if (dr.float() < 1 / 3 && anySpecies) {
+      const edgeOfMoist = distanceFrom(moist, W, H);
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (free[i] && !moist[i] && !wet[i] && !clearings[i] && edgeOfMoist[i] <= 3 && (!walk || walk[i] > LOG_FLOOR_WALK + 5)) w[i] = 1;
+      const zone = new Uint8Array(N);
+      for (let i = 0; i < N; i++) zone[i] = w[i] > 0 ? 1 : 0;
+      const n = 8 + dr.int(0, 13);
+      for (const s of pickSeeds(dr, w, W, 3, 4)) if (growGrove(s, n, false, zone, nearFill.trees, false, "forest/droughtKilled", [1, 1, 1, 0])) break;
+    }
   }
 
   // ---- the starting-logs floor (D224, D227, D229): every map has the floor's logs within 40

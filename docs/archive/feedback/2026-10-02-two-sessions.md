@@ -1,0 +1,39 @@
+# Kyler's message to the milestone session, 2026-10-02 (verbatim, the parts after the 4aab909e refresh)
+
+TWO SESSIONS
+You handle everything except "The page is the editor" and its design. A separate page session, on Fable 5.1 at high, does only the page, in its own worktree and branch, started once your prune has landed. Don't touch the page's files (the page, the editor's interface, Editor.tsx and its split) while it works; it doesn't touch the core, the water, the generator or the documents you own. You own PLAN §20's numbering, STATUS and HANDOFF: the page session records its design decisions in its own DESIGN.md and docs/progress/page.md, and you fold them into PLAN when its work merges.
+
+MODELS AND USAGE
+You run on Opus 5.5 at high. Delegate: the document prune, and mechanical work that touches layout or other work's tests, to Sonnet 5.5 sub-agents at high; self-contained mechanical work (docs, routine fixes, re-pins, test updates within one area) to Sonnet 5.5 at medium. Never use Fable unless I explicitly ask; never raise any model's effort on your own, and never start sub-agents at max.
+
+RECORD FIRST (PLAN §20, one line each on #57), on a Sonnet sub-agent
+- D384: the design pass moves from polish (D349's step 3) into step 1, built together with "The page is the editor" by the page session on Fable 5.1 at high, with my sittings at each checkpoint. It defines Dam Good Maps' own look, guided by the UI brief (docs/UI-BRIEF.md) and Timberborn's warmth as the High look now carries it, using the impeccable-app-flow skill as its process, and leaving a DESIGN.md as the record. It may borrow from the timbermods "walnut lodge" palette where that fits, but isn't bound by it: this supersedes the "timbermods design system" part of PLAN's visual-design line (D113). 3D's own controls are designed when 3D arrives.
+- A release gate: the water and the editor's core must be perfect before the next release. Anything I find in them blocks the release until it's fixed.
+- Before the next release, once I'm satisfied with the quality: a whole-codebase coherence review on Fable 5.1 at high (dead code, duplication, inconsistent patterns, things built twice), with a cleanup plan.
+- The editor-core items required before the next release:
+  1. The hover readout refreshes live whenever the water under the pointer changes (the Weather view's days, the settle, any edit), without re-hovering.
+  2. Remove unfed water: removes water no source feeds, map-wide from the ⋯ menu or within a selection in Select, showing what it will remove first ("12 pools, 3,400 tiles of water"), as one undo step. Water fed by sources is untouched.
+  3. Fill: fills a hollow with standing water to a chosen level, with no source, stored in the map as the oxbow lakes' retained water is, evaporating at the game's rate (about 0.05 levels a day on unfed water). The tool shows roughly how long it will last. It's a temporary reservoir; the ground under it dries normally once it's gone.
+  4. Naturalize's land effect: today it scatters single-tile bumps and holes, breaking clean terraces into static. It must weather like nature: cliffs retreat into irregular slopes with scree at their feet, edges soften, contours stay coherent while becoming natural, at a scale that follows Size and Strength. Never single-tile speckle. I'll show you my before-and-after terraces as the target.
+  5. Naturalize's sound: too grainy and low-quality. A clean, high-quality CC0 recording of a soft scrape and settle of earth and gravel, matched in loudness and character to the other tools' sounds.
+  Where an item needs a control in the interface (Remove unfed water, Fill), build its engine and tests in the core, and agree its place in the page with the page session through me.
+- The Codex verdicts since the refresh, into HANDOFF:
+  - Multi-core water (#130): approved. Adopt threads only where they help: 256² and up in Chromium and Firefox (Firefox always measured with its optimizing WebAssembly tier), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in WebKit. Gate: the remaining native exp and hypot calls made portable first (investigation/portable-math, in flight). Costs: one first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².
+  - The Rust water's Firefox round (#156): Firefox's slowdown was the test harness (the debugger forced the baseline WebAssembly compiler); corrected and tightened, a 128² settle went from 1.73 s to 0.16 s, byte-identical. WebKit gains 1.2–1.9× on larger maps, while TypeScript still wins small maps there. Policy: Rust in Chromium and Firefox once the corrected comparison against TypeScript confirms it; Rust in WebKit for larger maps only.
+  - The Rust analysis (#157): approved, byte-identical everywhere; at 256², analysis 3.5 → 2.8 s in Chromium, 16 → 10 s in WebKit, 10 → 7 s natively. Firefox is being re-measured with the corrected setup. The full M9b batch on 16 threads took about 18.5 minutes on a fully loaded machine: compare against the TypeScript batch in the quiet measuring window.
+  - The Rust forces (#158): round 1 not adoptable (about 5× slower, because a generic serialization layer copied the map across the boundary on every call; Carve and Glaciate unported). Round 2 is in flight: the boundary fixed first (the map shared in typed memory, one call per operation, never serialized), then Carve and Glaciate, then the full identity gate. The lesson applies to every port.
+  - Still with Codex: the Rust forces round 2, the Rust analysis's Firefox re-measure, portable maths everywhere (investigation/portable-math), the dam sketch tool's engine (investigation/dam-sketch), and Rust water with threads (investigation/rust-threads).
+
+YOUR FIRST TASK: prune the documents (item 34, done as a hard prune), on Sonnet 5.5 sub-agents at high
+Velocity is how this project refines quality, and the documents must serve that. The test for every document, section and rule: does it change what gets built, or how? If not, it goes.
+- Keep, sharp and current: CLAUDE.md (standing rules, short), docs/PERFECT.md, docs/STATUS.md (short), docs/HANDOFF.md (short), ROADMAP, the active briefs (UI-BRIEF, COLLAB-BRIEF) and the decisions still in force.
+- Move to an archive, never delete: superseded or completed decisions (PLAN §20 keeps those in force, each pointing to its archived history), finished plans and progress logs, investigation reports (with one index of what each found and whether it was adopted).
+- Merge what overlaps (for example PLAN and EDITOR_PLAN where they repeat), and delete what's stale or contradictory after checking nothing depends on it.
+- Delete the remote investigation branches whose work is already on dev by cherry-pick (listed first, with each one's last commit, as docs/merged-branches.md does).
+- Nothing about the product, its tests or its behaviour changes. CI green, one commit per step, pushed. Report the number of documents and their total size before and after, and what was archived, merged or removed.
+
+THEN: PREPARE THE PAGE SESSION
+When the prune has landed, create a worktree for the page session: a branch feature/page from dev, with "The page is the editor" part 1 (PR #92's branch) merged in, in a sibling folder (for example DamGoodMaps-page), with its dependencies installed and its allow rules in place (npm run setup:machine can do this). Then ping me with the folder's path: I'll start the page session there.
+
+THEN, ALONGSIDE THE PAGE SESSION
+The editor-core items, the M9b adoptions in HANDOFF's order, the post-release list, and the Codex results as I pass them on, on Opus with Sonnet sub-agents as above. My standing rules are in CLAUDE.md and docs/HANDOFF.md; nothing about how we work has changed.

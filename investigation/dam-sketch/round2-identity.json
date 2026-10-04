@@ -1,0 +1,159 @@
+{
+  "baseline": "bb5723f8",
+  "rust": "2ebeea87",
+  "comparisons": 2200,
+  "allBytesEqual": true,
+  "excluded": [
+    "runtimeMs"
+  ],
+  "method": "Paired diagnostic runs, before then after; one pass per actual round-one map/wall. Includes lossless result/column hashing and profiler overhead: not a browser latency benchmark. runtimeMs alone is excluded. Distinct typed-array bytes, negative zero and nonfinite numbers are preserved by the digest. No physics or traversal-order changes.",
+  "cases": [
+    {
+      "map": "riverValley-128-4242",
+      "case": "one dam across the valley",
+      "size": 128,
+      "publications": 150,
+      "digest": "dc8006daded730033c05b6daec2b0222a66cd0544e7be33461c54931b20e3a97"
+    },
+    {
+      "map": "riverValley-128-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 128,
+      "publications": 230,
+      "digest": "729f98e255e28ab484e4d19fd23d01ac84574c9c8494681e3a844874777beb89"
+    },
+    {
+      "map": "riverValley-128-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 128,
+      "publications": 134,
+      "digest": "387148c1b3cb6077739450149b66fee97810b7dad38d209d22f8f64cd63f5c61"
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "one dam across the valley",
+      "size": 128,
+      "publications": 118,
+      "digest": "3a99f35ab9d4115728d160e94a93092098b016aa9bf29019b7ca26508f9d367b"
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 128,
+      "publications": 198,
+      "digest": "fc38b264fe92ff9c4c617d62140e368acebfb0d48bfab9b095b51eba3f2efd21"
+    },
+    {
+      "map": "lakeBasin-128-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 128,
+      "publications": 118,
+      "digest": "a7ec261aff3865dfd9300bf2c655f6572dc492463e07465fc22fd730eb89b56c"
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "publications": 262,
+      "digest": "b76a0138f5781ef40627fb2b35ddeef7a58208e3dc902371cd9b7d1ead13682b"
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "publications": 486,
+      "digest": "e115ca264a155aec6183ce0b93d0c1392aef6b8d5e3997954d595e92001b2661"
+    },
+    {
+      "map": "riverValley-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "publications": 246,
+      "digest": "feb3678aa71ba954f129972abf781d9a9acaa127691eac6f7eeb2d1c7d1e8028"
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "one dam across the valley",
+      "size": 256,
+      "publications": 86,
+      "digest": "256f6796e71fc7a7f187f2804c9b681d6b39f0804c39af6b110642c994ef72d9"
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "three levees and a dam; a bent wall",
+      "size": 256,
+      "publications": 86,
+      "digest": "195fa7c917739cba76625f54f86609b10c2875058c8ba95ae449fac9904d9509"
+    },
+    {
+      "map": "lakeBasin-256-4242",
+      "case": "levee with a two-level gate at 1.5",
+      "size": 256,
+      "publications": 86,
+      "digest": "603f33fe8ac27b4c2fed33e6011ce04d9cda124e3e5377ed00740c7e77a1c8ff"
+    }
+  ],
+  "browserCompactFinalAgreement": {
+    "cases": 6,
+    "repetitionsPerCase": 9,
+    "fields": [
+      "fill",
+      "drought",
+      "totalWaterM3"
+    ]
+  },
+  "additionalContracts": {
+    "passed": true,
+    "comparisons": 846,
+    "rows": [
+      {
+        "id": "dam-seep",
+        "budget": 1,
+        "digest": "8d8211b3470b323db55f1c421e7254f3698bee2d335fb5617bb6f4cbfb170524"
+      },
+      {
+        "id": "dam-seep",
+        "budget": 8,
+        "digest": "d3331f5abe0a5060b1fa8f49dbbda3ff549785707771e3774697691e613cdc86"
+      },
+      {
+        "id": "dam-seep",
+        "budget": 129,
+        "digest": "52e13ffec8d723b4d8e818f943beff422611b8ee0579134b8046d0d50ad58520"
+      },
+      {
+        "id": "stack-seep",
+        "budget": 1,
+        "digest": "3c5506a58f8dc2431692fb2c557e378f00640c87ba61b5f9f0fe358664c8b5a9"
+      },
+      {
+        "id": "stack-seep",
+        "budget": 8,
+        "digest": "5af93ebb8b2861e147e4926c52fa4dcc49e9f5996d78fa258a495e8755670f00"
+      },
+      {
+        "id": "stack-seep",
+        "budget": 129,
+        "digest": "d1d6d9f680b24aa25c075e7210917cc7b73e4bcd5856c778ca489aa2e2f202a7"
+      },
+      {
+        "id": "roof-zero-forcing",
+        "budget": 1,
+        "digest": "c85196f9249ba486f57c6bc2b046e15f0cca32ce795cd6b1eaa4019580d9ba74"
+      },
+      {
+        "id": "roof-zero-forcing",
+        "budget": 8,
+        "digest": "f2c71a794d2d66acfe3ddc6450efb6e68b6afef130c208e8e2a5ba9c15aee14f"
+      },
+      {
+        "id": "roof-zero-forcing",
+        "budget": 129,
+        "digest": "75e98331fbf747bd443b0d3e037fdf0fe6ba576741f929a4019fa97948fd6c0d"
+      }
+    ],
+    "excluded": [
+      "runtimeMs"
+    ]
+  }
+}

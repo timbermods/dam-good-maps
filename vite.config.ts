@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import preact from "@preact/preset-vite";
+import { rustWatch } from "./tools/rust/vite-plugin.mjs";
 
 // The site is served from https://timbermods.github.io/dam-good-maps/ (PLAN §20, D12).
 // DGM_BASE overrides it for local previews and the end-to-end tests.
@@ -8,7 +9,8 @@ import preact from "@preact/preset-vite";
 // (real-places/index.html; its data is in public/real-places/, written by tools/real-places.ts).
 export default defineConfig({
   base: process.env.DGM_BASE ?? "/dam-good-maps/",
-  plugins: [preact()],
+  // rustWatch: saving a .rs file rebuilds the Rust's Wasm while `npm run dev` runs (D444)
+  plugins: [preact(), rustWatch()],
   worker: { format: "es" },
   build: {
     target: "es2022",

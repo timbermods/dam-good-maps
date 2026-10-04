@@ -54,8 +54,10 @@ describe("project files (PLAN §19.6)", () => {
     expect(reopened.history().map((h) => h.label)).toEqual(["Raise terrain", "Add forest"]);
     while (reopened.undo());
     expect(sha(reopened.exportTimber().bytes)).toBe(sha(r.bytes));
-    // the next operation continues the numbering
-    expect(MapSession.open(doc).apply({ op: "removeSlope", params: { x: r.built.slopes[0].x, y: r.built.slopes[0].y } }).applied[0].seq).toBe(3);
+    // the next operation continues the numbering (on a slope the edits leave where it was: one in
+    // the raised box went with it on batch 5's maps, D148)
+    const kept = r.built.slopes.find((q) => (q.x < 2 || q.x > 11 || q.y < 2 || q.y > 10) && (q.x < 58 || q.x > 72 || q.y < 58 || q.y > 68))!;
+    expect(MapSession.open(doc).apply({ op: "removeSlope", params: { x: kept.x, y: kept.y } }).applied[0].seq).toBe(3);
   });
 
   it("an old project with a lock, a setLock edit and a stamp feature still opens, with its land as it was kept (D253, D270)", () => {
@@ -91,17 +93,23 @@ describe("project files (PLAN §19.6)", () => {
     // unedited, it is the stored file byte for byte
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
     // what the generator made stays as it was saved (no rebuild keeps the edits: edits never replay
-    // onto new land, D336); the player's own edits apply to the stored map
+    // onto new land, D336); the player's edits apply to the stored map, a generated feature's too
+    // (it leaves the stored map and is built as it now says, D336 (2))
     expect(s.notices[0]).not.toMatch(/rebuild/);
     expect("rebuildWithCurrentGenerator" in s).toBe(false);
-    const forest = r.features.find((f) => f.kind === "forest")!;
-    expect(s.apply({ op: "updateFeature", params: { id: forest.id, patch: { params: { density: 0.5 } } } }).errors[0]).toMatch(/keeps what generator 0\.1\.9 made as it was saved/);
+    const forest = r.features.find((f) => f.kind === "forest" && r.built.entities.some((e) => e.owner === f.id))!;
+    const trees = () => s.built.entities.filter((e) => e.owner === forest.id).length;
+    const before = trees();
+    expect(s.apply({ op: "updateFeature", params: { id: forest.id, patch: { params: { density: 0.05 } } } }).ok).toBe(true);
+    expect(trees()).toBeLessThan(before);
+    expect(s.orphans()).toEqual([]);
     expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: box(3, 3, 6, 6), level: 14 } }).ok).toBe(true);
     expect(s.built.heights[4 * W + 4]).toBe(14);
     // and reopening it replays them onto the same land
     const again = MapSession.open(decodeProject(s.project()));
     expect(again.mode).toBe("frozen");
     expect(sha(again.exportTimber().bytes)).toBe(sha(s.exportTimber().bytes));
+    s.undo();
     s.undo();
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
   });

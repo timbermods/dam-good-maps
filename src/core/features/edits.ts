@@ -215,6 +215,9 @@ export function applyEntityEdits(
   edits: readonly EntityEdit[],
   g: EditGround,
   allowPlace: boolean,
+  /** Objects a force's quiet move puts down where it says, whatever holds the ground (an edited
+   *  generated map's kept resources: the force found that ground free). */
+  unheld?: (e: EntitySpec) => boolean,
 ): { entities: EntitySpec[]; rest: EntityEdit[] } {
   const list = entities.slice();
   const at = new Map<string, number>();
@@ -229,8 +232,10 @@ export function applyEntityEdits(
   const missing = (ed: EntityEdit) => {
     if (!(ed.op === "moveEntity" || ed.op === "setEntityProps") || !ed.params.quiet || allowPlace) rest.push(ed);
   };
-  // the tiles taken, for the objects a force carried (built at the first such move)
+  // the tiles taken, for the objects a force carried (built at the first such move, then kept up to
+  // date by every placement, move and removal)
   let occ: Map<number, number> | null = null;
+  const lifted = new Set<number>();
   const tilesOf = (e: EntitySpec) => entityTiles(e).map(([x, y]) => y * g.W + x);
   for (const ed of edits) {
     switch (ed.op) {
@@ -260,13 +265,28 @@ export function applyEntityEdits(
             occ = new Map();
             for (let j = 0; j < list.length; j++) if (!removed.has(j)) for (const i of tilesOf(list[j])) occ.set(i, j);
           }
+          // (a force carries its objects together: each leaves its ground before any lands, so one
+          // carried onto the tile another left is never taken for held, whatever order the force
+          // listed them in; D368 (10))
+          if (!lifted.has(ed.seq)) {
+            lifted.add(ed.seq);
+            for (const other of edits) {
+              if (other.op !== "moveEntity" || !other.params.quiet || other.seq !== ed.seq) continue;
+              const j = find(other.params.id);
+              if (j >= 0) for (const i of tilesOf(list[j])) if (occ.get(i) === j) occ.delete(i);
+            }
+          }
           const to = tilesOf(moved);
           for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
-          if (to.some((i) => occ!.has(i) && occ!.get(i) !== k) || to.some((i) => i < 0 || i >= g.W * g.H)) {
+          if (to.some((i) => i < 0 || i >= g.W * g.H) || (!unheld?.(list[k]) && to.some((i) => occ!.has(i) && occ!.get(i) !== k))) {
             removed.add(k);
             break;
           }
           for (const i of to) occ.set(i, k);
+        } else if (occ) {
+          // (a move by hand after a force's: the ground it left is free, the ground it took is held)
+          for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
+          for (const i of tilesOf(moved)) occ.set(i, k);
         }
         list[k] = moved;
         break;
@@ -285,7 +305,11 @@ export function applyEntityEdits(
         for (const id of ed.params.entities) {
           const k = find(id);
           if (k < 0) missing.push(id);
-          else removed.add(k);
+          else {
+            removed.add(k);
+            // (the ground it held is free for what a later force carries there)
+            if (occ) for (const i of tilesOf(list[k])) if (occ.get(i) === k) occ.delete(i);
+          }
         }
         // a carve's (quiet) edit finds what is still there: the resources its ground placed again
         // may be gone, and that is fine

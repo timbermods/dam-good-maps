@@ -38,9 +38,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Python for the first-visit maps' load checks (prototype/validate.py)
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: prototype/requirements.txt
       - run: npm ci
+      - run: pip install -r prototype/requirements.txt
       - run: npm run typecheck
       - run: npm test -- tests/unit
+      # The first-visit maps (PLAN §20 D330, D343): built here, never committed, and checked like a
+      # release (the generator's checks, the validator's export profile, the starting-logs floor,
+      # the outcomes where the generator has them, reopening, the Python load checks). Any failure
+      # stops the deploy.
+      - name: First-visit maps
+        run: npx tsx tools/first-visit-maps.ts
       - name: Build
         run: npm run build
         env:
@@ -76,6 +89,8 @@ jobs:
         working-directory: preview-src
         run: |
           npm ci
+          # the branch's own first-visit maps, checked the same way (a branch without the script has none)
+          if [ -f tools/first-visit-maps.ts ]; then npx tsx tools/first-visit-maps.ts; fi
           npx vite build --outDir ../dist/preview --emptyOutDir
         env:
           DGM_BASE: /dam-good-maps/preview/

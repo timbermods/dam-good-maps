@@ -5,12 +5,13 @@
 import { expose, proxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
 import { viewBuffers } from "../render3d/model";
-import { emptyWaterFile, runGenerate, type GenerateResponse, type GenProgress } from "./api";
+import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -53,6 +54,12 @@ const api = {
     const r = await runGenerate(spec, onProgress ? (p) => void onProgress(p) : undefined, seedWord);
     return transfer(r, responseBuffers(r));
   },
+  /** D329's background search (a worker of its own): a sibling of the map that meets all three
+   *  outcomes, or null. */
+  async findVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
+    const r = await runFindVersion(from);
+    return r ? transfer(r, responseBuffers(r)) : null;
+  },
   /** The last generated map without pre-filled water, or null. */
   emptyWater(): { bytes: Uint8Array; name: string } | null {
     const f = emptyWaterFile();
@@ -85,6 +92,23 @@ const api = {
   draftStroke: (rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array) => ed.draftStroke(rect, heights),
   /** The stroke was taken back: its water goes. */
   cancelDraft: () => ed.cancelDraft(),
+  /** A Naturalize stroke weathered here (D422): it begins, its dabs come and their land goes back (the
+   *  changed rectangle's heights, transferred), its riding pieces, its end (the heights before the
+   *  integrity pass and the protected tiles), or Esc. */
+  weatherBegin: (settings: Omit<BrushParams, "dabs">, ground: [number, number, number][]) => ed.weatherBegin(settings, ground),
+  weatherAdd(dabs: number[], pressure?: number[]) {
+    const r = ed.weatherAdd(dabs, pressure);
+    return r ? transfer(r, [r.heights.buffer as ArrayBuffer]) : null;
+  },
+  weatherFinish(rigid: [number, number, number, number][]) {
+    const r = ed.weatherFinish(rigid);
+    return r ? transfer(r, [r.heights.buffer as ArrayBuffer]) : null;
+  },
+  weatherEnd() {
+    const r = ed.weatherEnd();
+    return r ? transfer(r, [r.pre.buffer as ArrayBuffer, r.protect.buffer as ArrayBuffer]) : null;
+  },
+  weatherCancel: () => ed.weatherCancel(),
   /** Resolves when the water has settled after the latest edit (tests and benchmarks). */
   whenWaterSettles: () => ed.whenWaterSettles(),
   /** The checks worker (a port to it): the checks run there, on a replica of the open map. */

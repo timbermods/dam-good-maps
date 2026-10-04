@@ -1,0 +1,234 @@
+{
+  "ref": "84fe4d363cabb958429c07c02fc6a25738a360f8",
+  "mergeBase": "03afd35c5fbc61d123c3d5e768fe2874290f834d",
+  "forceBase": "9e14f1895c386489928dda78f888fc79772ceef6",
+  "purpose": "Isolated presentation integration only; computation and interface stay at force base",
+  "entries": [
+    {
+      "file": "src/render3d/brushCursor.ts",
+      "sha256": "9a335b0d03d94219d0ae73a3c729fae9a92f192b6263199dd9e528e8b81d7bce"
+    },
+    {
+      "file": "src/render3d/effects.ts",
+      "sha256": "018431ff37d511eabbbce893373245f0e89425dfbfea2dc49b3a9a11064770dc"
+    },
+    {
+      "file": "src/render3d/entities3d.ts",
+      "sha256": "ab248d2fdcc26b6290f4743f4026a6c650eb9fb81d271c54d46b49020c032d05"
+    },
+    {
+      "file": "src/render3d/falls.ts",
+      "sha256": "4305687e394d1f5a1f2e4a2e7ea5599c36a7fa1cb4784eceeae083c0a2acaa66"
+    },
+    {
+      "file": "src/render3d/high/bake.ts",
+      "sha256": "56ec5856523638ed405713b3439056e4a9a3d6c3841ded55ae9cfd8fcf759763"
+    },
+    {
+      "file": "src/render3d/high/bake.worker.ts",
+      "sha256": "1e05833779553904288d9df17750923c42f6b60256cebfefdc6a6905016572bb"
+    },
+    {
+      "file": "src/render3d/high/effects.ts",
+      "sha256": "3dc2d22e70eb29c80a538b2c820f63f471519fd068f9121988d34f6fcfca6023"
+    },
+    {
+      "file": "src/render3d/high/fallback.ts",
+      "sha256": "339eb9523ab4765e591bfa8022975bd1d338480738d583665203785ce2a6bf6b"
+    },
+    {
+      "file": "src/render3d/high/fields.ts",
+      "sha256": "66023ffa52c7d98b23b1ee339a1611b274139b938f5d8a7b7308f6313381a31f"
+    },
+    {
+      "file": "src/render3d/high/flow.ts",
+      "sha256": "1fbb62e1ffa2142244e521144802b614ca9225ae0f419e0d9f8af79aaa3f68c2"
+    },
+    {
+      "file": "src/render3d/high/forest.ts",
+      "sha256": "aa62f0f76b6f36b2b1dfbe3e97b0dcb50f78e44e9235a4cd479d8f276bb51e9f"
+    },
+    {
+      "file": "src/render3d/high/highLook.ts",
+      "sha256": "a89c8f89a92f9fb0f40f4444abec52b8544d10289a104bd8a2e1949da0e00803"
+    },
+    {
+      "file": "src/render3d/high/landmarks.ts",
+      "sha256": "1241496782a62dbdc2921d47e2eb572dc2535e0cf4c46e0f90763963e3e3da01"
+    },
+    {
+      "file": "src/render3d/high/mist.ts",
+      "sha256": "1cc188b23c80404e45b909b19b665ffa3a37fad83fd398880c098e158ec320cf"
+    },
+    {
+      "file": "src/render3d/high/models.ts",
+      "sha256": "1a7e66ba4af847c5d54c3a7a24ad54b64ebb17ce5403c4a523dd38c59f9a4f85"
+    },
+    {
+      "file": "src/render3d/high/shaders.ts",
+      "sha256": "20d7dc1c6e10395ba6a1d25710be1b29be71bbd841cc18a4f5ece74b2ce3b5b7"
+    },
+    {
+      "file": "src/render3d/high/shadows.ts",
+      "sha256": "6311ddb55d266136f81af08b5d0dbb4044d8824eb0f726f5aa930b2b93607aa5"
+    },
+    {
+      "file": "src/render3d/index.ts",
+      "sha256": "0fdf4fc031b2db810190cc2f5a860561c20ce564c2b3a113844ddfb7a3d3bf5a"
+    },
+    {
+      "file": "src/render3d/light.ts",
+      "sha256": "7439565d1d5bb39464901b8a20be9b69dd213f6288d71fefb225ebe20b95f970"
+    },
+    {
+      "file": "src/render3d/materials.ts",
+      "sha256": "0992847a958c2e8a996f3bbc3332c05321cc8d42dfcbd092c7dcd946548d0707"
+    },
+    {
+      "file": "src/render3d/mesh.ts",
+      "sha256": "f35586a1cdd0fd4ebaddd0c03d983183928549779327fcd9ca73af9b9c19076a"
+    },
+    {
+      "file": "src/render3d/model.ts",
+      "sha256": "aabd1c18719acf0dce8da90105fa3b79d02c1e5b28856c718ee51565ea90fcd4"
+    },
+    {
+      "file": "src/render3d/palette.ts",
+      "sha256": "a782d3f07bb112163e7166c28564c5e4ef5daebd9c7980ae625d9344246e209e"
+    },
+    {
+      "file": "src/render3d/pick.ts",
+      "sha256": "43667a724b661da7b84d4b0bd1fc8d41baab497d0450687c572403ce16b17020"
+    },
+    {
+      "file": "src/render3d/renderer.ts",
+      "sha256": "36ced77a6b4d17bdb7a995be753af5fb38495ef1a8bac7207eb5058fde7b5094"
+    },
+    {
+      "file": "src/render3d/waterMesh.ts",
+      "sha256": "86eb635eed4296b56c6148f28ccfb5713e70f217d033a67a3c45178cdafcfe88"
+    },
+    {
+      "file": "src/render3d/waterPalette.ts",
+      "sha256": "29ae0796fbc87c0d9ac82df4b1e0d7ae384668acb76881a04a0282b1671e4170"
+    }
+  ],
+  "integrated": [
+    {
+      "file": "src/render3d/brushCursor.ts",
+      "sha256": "9d06dddc46641aa972185e71be3860f8b4ebd24fce1c7dacf274fa4da895e617"
+    },
+    {
+      "file": "src/render3d/effects.ts",
+      "sha256": "dd8ca4f4997fcd1cb5cd47540fc9ef3cc6f3dcf087685974b89ae74e61168bd6"
+    },
+    {
+      "file": "src/render3d/entities3d.ts",
+      "sha256": "9b460a4c13bc361546c191a19f098f8634a7c78a3e4729b1b70579f1dba34285"
+    },
+    {
+      "file": "src/render3d/falls.ts",
+      "sha256": "4305687e394d1f5a1f2e4a2e7ea5599c36a7fa1cb4784eceeae083c0a2acaa66"
+    },
+    {
+      "file": "src/render3d/high/bake.ts",
+      "sha256": "56ec5856523638ed405713b3439056e4a9a3d6c3841ded55ae9cfd8fcf759763"
+    },
+    {
+      "file": "src/render3d/high/bake.worker.ts",
+      "sha256": "1e05833779553904288d9df17750923c42f6b60256cebfefdc6a6905016572bb"
+    },
+    {
+      "file": "src/render3d/high/effects.ts",
+      "sha256": "3dc2d22e70eb29c80a538b2c820f63f471519fd068f9121988d34f6fcfca6023"
+    },
+    {
+      "file": "src/render3d/high/fallback.ts",
+      "sha256": "339eb9523ab4765e591bfa8022975bd1d338480738d583665203785ce2a6bf6b"
+    },
+    {
+      "file": "src/render3d/high/fields.ts",
+      "sha256": "66023ffa52c7d98b23b1ee339a1611b274139b938f5d8a7b7308f6313381a31f"
+    },
+    {
+      "file": "src/render3d/high/flow.ts",
+      "sha256": "1fbb62e1ffa2142244e521144802b614ca9225ae0f419e0d9f8af79aaa3f68c2"
+    },
+    {
+      "file": "src/render3d/high/forest.ts",
+      "sha256": "aa62f0f76b6f36b2b1dfbe3e97b0dcb50f78e44e9235a4cd479d8f276bb51e9f"
+    },
+    {
+      "file": "src/render3d/high/highLook.ts",
+      "sha256": "a89c8f89a92f9fb0f40f4444abec52b8544d10289a104bd8a2e1949da0e00803"
+    },
+    {
+      "file": "src/render3d/high/landmarks.ts",
+      "sha256": "1241496782a62dbdc2921d47e2eb572dc2535e0cf4c46e0f90763963e3e3da01"
+    },
+    {
+      "file": "src/render3d/high/mist.ts",
+      "sha256": "1cc188b23c80404e45b909b19b665ffa3a37fad83fd398880c098e158ec320cf"
+    },
+    {
+      "file": "src/render3d/high/models.ts",
+      "sha256": "1a7e66ba4af847c5d54c3a7a24ad54b64ebb17ce5403c4a523dd38c59f9a4f85"
+    },
+    {
+      "file": "src/render3d/high/shaders.ts",
+      "sha256": "20d7dc1c6e10395ba6a1d25710be1b29be71bbd841cc18a4f5ece74b2ce3b5b7"
+    },
+    {
+      "file": "src/render3d/high/shadows.ts",
+      "sha256": "6311ddb55d266136f81af08b5d0dbb4044d8824eb0f726f5aa930b2b93607aa5"
+    },
+    {
+      "file": "src/render3d/index.ts",
+      "sha256": "0fdf4fc031b2db810190cc2f5a860561c20ce564c2b3a113844ddfb7a3d3bf5a"
+    },
+    {
+      "file": "src/render3d/light.ts",
+      "sha256": "7439565d1d5bb39464901b8a20be9b69dd213f6288d71fefb225ebe20b95f970"
+    },
+    {
+      "file": "src/render3d/materials.ts",
+      "sha256": "d4f3e98dfcfdc05910ad9ed089be76545db090dac354963b3205d25fc50201ff"
+    },
+    {
+      "file": "src/render3d/mesh.ts",
+      "sha256": "f35586a1cdd0fd4ebaddd0c03d983183928549779327fcd9ca73af9b9c19076a"
+    },
+    {
+      "file": "src/render3d/model.ts",
+      "sha256": "08d4c8df04f3713f828c0bd0f13e46631046424a71d9adb3f388c010a91c0b2e"
+    },
+    {
+      "file": "src/render3d/palette.ts",
+      "sha256": "47735de8fbebd4b74c4fee4f1138ea6e91360003be74a841707014660cc94525"
+    },
+    {
+      "file": "src/render3d/pick.ts",
+      "sha256": "43667a724b661da7b84d4b0bd1fc8d41baab497d0450687c572403ce16b17020"
+    },
+    {
+      "file": "src/render3d/renderer.ts",
+      "sha256": "2202b78b77be2e6e79cf83d4983885b77778b91ddf0901c04da753da1a97c4e1"
+    },
+    {
+      "file": "src/render3d/waterMesh.ts",
+      "sha256": "86eb635eed4296b56c6148f28ccfb5713e70f217d033a67a3c45178cdafcfe88"
+    },
+    {
+      "file": "src/render3d/waterPalette.ts",
+      "sha256": "29ae0796fbc87c0d9ac82df4b1e0d7ae384668acb76881a04a0282b1671e4170"
+    },
+    {
+      "file": "src/render3d/cameraGlide.ts",
+      "sha256": "fafe41ffa31862a079f90fc39ed489c0dab0cd97b7ea140fbda6d80b8d0aa87f"
+    },
+    {
+      "file": "src/render3d/forces.ts",
+      "sha256": "3fb1038f150ea7a98c2ebcbba72ac245227ef290d6a661e77396afac27e78e2b"
+    }
+  ]
+}

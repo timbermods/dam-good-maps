@@ -8,10 +8,11 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { namedFile } from "../../src/core/gen/pack";
-import { decodePlaceFile, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
 const DIR = "public/real-places";
-const INDEX = JSON.parse(readFileSync(`${DIR}/index.json`, "utf8")) as PlaceIndex;
+/** The index as the gallery page lists it: every place (D445). */
+const INDEX = galleryIndex(JSON.parse(readFileSync(`${DIR}/index.json`, "utf8")) as PlaceIndex);
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const entry = (id: string) => INDEX.places.find((p) => p.id === id)!;
 /** Node's .timber of a place. */
@@ -132,6 +133,8 @@ test("the generator links to the gallery, and a place never replaces a saved map
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("./#s=1&z=96&d=n&t=riverValley");
   await expect(page.getByText(/checks passed|checks failed/)).toBeVisible({ timeout: 60_000 });
+  // (a generated map's name is its own since M9b, from its standout, D278)
+  const saved = (await page.locator(".card header h2").textContent())?.trim() ?? "";
   // a map in the editor, autosaved
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor, null, { timeout: 120_000 });
@@ -143,7 +146,7 @@ test("the generator links to the gallery, and a place never replaces a saved map
   // Refine asks first; Cancel keeps the saved map
   await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
   const ask = page.getByRole("alertdialog");
-  await expect(ask).toContainText("Opening this real place replaces River Valley, which is saved in this browser.");
+  await expect(ask).toContainText(`Opening this real place replaces ${saved}, which is saved in this browser.`);
   await expect(ask.getByRole("button", { name: "Save project file" })).toBeVisible();
   await ask.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByText("Continue editing")).toBeVisible();

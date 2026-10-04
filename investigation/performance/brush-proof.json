@@ -1,0 +1,2824 @@
+{
+  "scope": "Round3 large brush only. Historical broad gate and future-force obligations remain unpassed.",
+  "records": [
+    {
+      "folder": "2026-10-01T17-45-32.351Z-standard-native-before-profile",
+      "index": 0,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": true,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "3da9e137fb6ec058449d7620ef05090e93df745d8e3d98526568e75dbb08021b",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790876805864,
+      "to": 1790876821166,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 2.132686755237866,
+          "median": 4.170199996305707,
+          "max": 6.9506104081665345
+        },
+        "total": {
+          "min": 19,
+          "median": 26,
+          "max": 31
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 2356,
+        "p99": 12.200000000011642,
+        "max": 121.29999999998836,
+        "hitches": 26,
+        "longTasks": 9,
+        "unattributedHitches": 26
+      },
+      "stages": []
+    },
+    {
+      "folder": "2026-10-01T17-48-45.530Z-standard-native-before-profile",
+      "index": 0,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": true,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "4ae4aad7de9f1fea3e4698431372ff02be4d742199e6477728aaea5dccfb6981",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790876996683,
+      "to": 1790877026537,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 2.703161860315127,
+          "median": 3.5916566039191244,
+          "max": 4.2325733228223505
+        },
+        "total": {
+          "min": 14,
+          "median": 21,
+          "max": 31
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 4716,
+        "p99": 12.099999999991269,
+        "max": 115.29999999998836,
+        "hitches": 35,
+        "longTasks": 11,
+        "unattributedHitches": 35
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 24.20000000001164,
+          "max": 115.29999999998836,
+          "hitches": 24
+        },
+        {
+          "stage": "undo",
+          "p99": 6.2000000000116415,
+          "max": 36.30000000000291,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 97,
+          "hitches": 7
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T17-51-23.697Z-high-native-before-profile",
+      "index": 0,
+      "phase": "before",
+      "look": "high",
+      "profile": "native",
+      "profiling": true,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "316916f1738ff6f3f15b01dcc2a84a5fc2523b11ea3d73af3670a3255b02d8e9",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877155858,
+      "to": 1790877192851,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 9.127352175361695,
+          "median": 10.23739507017738,
+          "max": 11.396996936586124
+        },
+        "total": {
+          "min": 16,
+          "median": 22,
+          "max": 39
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5693,
+        "p99": 6.30000000000291,
+        "max": 157.6999999999971,
+        "hitches": 37,
+        "longTasks": 27,
+        "unattributedHitches": 37
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.19999999999709,
+          "max": 157.6999999999971,
+          "hitches": 27
+        },
+        {
+          "stage": "undo",
+          "p99": 6.30000000000291,
+          "max": 127.30000000000291,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 109.39999999999418,
+          "hitches": 8
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T17-54-38.688Z-standard-laptop-before-profile",
+      "index": 0,
+      "phase": "before",
+      "look": "standard",
+      "profile": "laptop",
+      "profiling": true,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "932f38b64fefca021f2149477a352b2586eae81f83f6a92a0ee334dbdec0482e",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877349107,
+      "to": 1790877427453,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 9.159061293965989,
+          "median": 15.798827173987672,
+          "max": 20.101669668186126
+        },
+        "total": {
+          "min": 31,
+          "median": 67,
+          "max": 81
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5997,
+        "p99": 363.90000000000873,
+        "max": 479.09999999999127,
+        "hitches": 190,
+        "longTasks": 65,
+        "unattributedHitches": 190
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 388.8999999999942,
+          "max": 479.09999999999127,
+          "hitches": 121
+        },
+        {
+          "stage": "undo",
+          "p99": 66.5,
+          "max": 367.5,
+          "hitches": 10
+        },
+        {
+          "stage": "redo",
+          "p99": 261.30000000001746,
+          "max": 413.1999999999971,
+          "hitches": 58
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "index": 0,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "a50c21a7a24355fbc0a6290e612710b199024e2a70dc2b2ff41d8a60f92f1f45",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877713997,
+      "to": 1790877751409,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 9.86100215971261,
+          "median": 12.072235087460438,
+          "max": 15.843689283891218
+        },
+        "total": {
+          "min": 21,
+          "median": 30,
+          "max": 42
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5943,
+        "p99": 6.30000000000291,
+        "max": 127.40000000000873,
+        "hitches": 32,
+        "longTasks": 14,
+        "unattributedHitches": 32
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.099999999991269,
+          "max": 127.40000000000873,
+          "hitches": 22
+        },
+        {
+          "stage": "undo",
+          "p99": 6.30000000000291,
+          "max": 60.70000000001164,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 60.60000000000582,
+          "hitches": 8
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "index": 1,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 2,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "63449efb5f4649534a2b31fa47ebbebfff959619557c8d182843613309055b46",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877779549,
+      "to": 1790877817195,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 9.819997646374073,
+          "median": 11.189561949425293,
+          "max": 16.837124319863783
+        },
+        "total": {
+          "min": 15,
+          "median": 19,
+          "max": 26
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 6009,
+        "p99": 6.30000000000291,
+        "max": 133.29999999999563,
+        "hitches": 32,
+        "longTasks": 10,
+        "unattributedHitches": 32
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.099999999998545,
+          "max": 133.29999999999563,
+          "hitches": 22
+        },
+        {
+          "stage": "undo",
+          "p99": 6.200000000004366,
+          "max": 48.599999999998545,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 60.799999999995634,
+          "hitches": 8
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "index": 2,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 3,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "b8757b6b960d31a2293d2a5469a2db39b4f0263e664e965926cc7ad8608ba7e7",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877842546,
+      "to": 1790877879458,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 13.650628812789085,
+          "median": 18.507441586840002,
+          "max": 19.683848067246824
+        },
+        "total": {
+          "min": 23,
+          "median": 32,
+          "max": 56
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5882,
+        "p99": 6.30000000000291,
+        "max": 115.30000000000291,
+        "hitches": 32,
+        "longTasks": 9,
+        "unattributedHitches": 32
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 6.30000000000291,
+          "max": 115.30000000000291,
+          "hitches": 22
+        },
+        {
+          "stage": "undo",
+          "p99": 6.30000000000291,
+          "max": 60.599999999998545,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 103.10000000000582,
+          "hitches": 8
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "index": 3,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 4,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "ccee5ba6e488c7e490e4967c8c0753e5e2758fa9c33c5defc71e84a604dfda68",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877904020,
+      "to": 1790877939983,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 11.18969725525524,
+          "median": 14.5794996394202,
+          "max": 16.941772656978014
+        },
+        "total": {
+          "min": 18,
+          "median": 36,
+          "max": 41
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5707,
+        "p99": 6.30000000000291,
+        "max": 127.19999999999709,
+        "hitches": 35,
+        "longTasks": 12,
+        "unattributedHitches": 35
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.200000000000728,
+          "max": 127.19999999999709,
+          "hitches": 26
+        },
+        {
+          "stage": "undo",
+          "p99": 6.30000000000291,
+          "max": 48.5,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 103.09999999999854,
+          "hitches": 7
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "index": 4,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 5,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "9c9608f78cf563e01eeb848ff4f5f92315e452dd24a0c6b8b8b6bf498f6d5894",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": null,
+      "exportOk": null,
+      "geometry": null,
+      "from": 1790877960291,
+      "to": 1790877992395,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 11.34976957321427,
+          "median": 14.340059807157743,
+          "max": 16.499301295008564
+        },
+        "total": {
+          "min": 16,
+          "median": 59,
+          "max": 64
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5102,
+        "p99": 6.30000000000291,
+        "max": 103,
+        "hitches": 35,
+        "longTasks": 8,
+        "unattributedHitches": 35
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 18.200000000000728,
+          "max": 103,
+          "hitches": 24
+        },
+        {
+          "stage": "undo",
+          "p99": 6.200000000004366,
+          "max": 36.5,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 60.69999999999709,
+          "hitches": 9
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-11-34.422Z-standard-native-after-profile",
+      "index": 0,
+      "phase": "after",
+      "look": "standard",
+      "profile": "native",
+      "profiling": true,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "545c0175502034cb2368f8ca8286a88aa2af9fa873603628f4a14221e6240d2d",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": "6ae369aaafa10d4808a8e73c62fae13754f8aace6c97ece808db97527d6bc19c",
+      "exportOk": true,
+      "geometry": "d090599984affbebf76ab182250f650278a3e47281d9a4c960e23230b40ee648",
+      "from": 1790878363572,
+      "to": 1790878398616,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 11.630182669913806,
+          "median": 13.919448253411153,
+          "max": 15.877404257238608
+        },
+        "total": {
+          "min": 20,
+          "median": 34,
+          "max": 37
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 5584,
+        "p99": 6.30000000000291,
+        "max": 127.39999999999418,
+        "hitches": 31,
+        "longTasks": 11,
+        "unattributedHitches": 31
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.10000000000582,
+          "max": 127.39999999999418,
+          "hitches": 21
+        },
+        {
+          "stage": "undo",
+          "p99": 6.2000000000116415,
+          "max": 48.5,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 109.29999999998836,
+          "hitches": 7
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-18-07.428Z-standard-native-before",
+      "index": 0,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 1,
+      "status": "complete",
+      "claimedQualified": true,
+      "qualified": false,
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "61d442be1ec3039ffae9eb44a79d29c6aea94e3bf5d0592d6b89ecd61e96a3aa",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": "6ae369aaafa10d4808a8e73c62fae13754f8aace6c97ece808db97527d6bc19c",
+      "exportOk": true,
+      "geometry": "d090599984affbebf76ab182250f650278a3e47281d9a4c960e23230b40ee648",
+      "from": 1790878772091,
+      "to": 1790878802015,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 10.195819645895371,
+          "median": 16.097583148741506,
+          "max": 24.914389616893384
+        },
+        "total": {
+          "min": 20,
+          "median": 59,
+          "max": 77
+        }
+      },
+      "discardedTopProcesses": [],
+      "pacing": {
+        "frames": 4759,
+        "p99": 6.30000000000291,
+        "max": 109.20000000001164,
+        "hitches": 32,
+        "longTasks": 6,
+        "unattributedHitches": 32
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 12.200000000011642,
+          "max": 109.20000000001164,
+          "hitches": 23
+        },
+        {
+          "stage": "undo",
+          "p99": 6.30000000000291,
+          "max": 48.5,
+          "hitches": 2
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 91,
+          "hitches": 7
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-18-07.428Z-standard-native-before",
+      "index": 1,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 2,
+      "status": "discarded-load",
+      "claimedQualified": false,
+      "qualified": false,
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "046751a0733b039d869276315d79da6e8985f8325c4ac8d08daf079c4c5bd939",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": "6ae369aaafa10d4808a8e73c62fae13754f8aace6c97ece808db97527d6bc19c",
+      "exportOk": true,
+      "geometry": "d090599984affbebf76ab182250f650278a3e47281d9a4c960e23230b40ee648",
+      "from": 1790878829637,
+      "to": 1790878888145,
+      "loadGeneration": 1,
+      "load": {
+        "other": {
+          "min": 12.60014361527384,
+          "median": 75.88531296638129,
+          "max": 97.69236367416448
+        },
+        "total": {
+          "min": 33,
+          "median": 100,
+          "max": 100
+        }
+      },
+      "discardedTopProcesses": [
+        {
+          "at": "2026-10-01T18:20:59.5696804Z",
+          "otherCpu": 86.53539936953123,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 20248,
+              "name": "chrome",
+              "privateMB": 272.17578125,
+              "workingMB": 351.390625,
+              "cpuPercent": 8.79696877568715
+            },
+            {
+              "pid": 59640,
+              "name": "node",
+              "privateMB": 291.421875,
+              "workingMB": 308.734375,
+              "cpuPercent": 5.450295871893125
+            },
+            {
+              "pid": 51392,
+              "name": "node",
+              "privateMB": 271.9921875,
+              "workingMB": 293.22265625,
+              "cpuPercent": 5.1634381944250665
+            },
+            {
+              "pid": 18248,
+              "name": "node",
+              "privateMB": 99.07421875,
+              "workingMB": 127.796875,
+              "cpuPercent": 5.06781896860238
+            },
+            {
+              "pid": 15536,
+              "name": "node",
+              "privateMB": 324.49609375,
+              "workingMB": 339.84375,
+              "cpuPercent": 4.972199742779694
+            },
+            {
+              "pid": 38748,
+              "name": "node",
+              "privateMB": 284.66796875,
+              "workingMB": 307.69921875,
+              "cpuPercent": 4.972199742779694
+            },
+            {
+              "pid": 25284,
+              "name": "node",
+              "privateMB": 362.4609375,
+              "workingMB": 348.6328125,
+              "cpuPercent": 4.589722839488948
+            },
+            {
+              "pid": 60300,
+              "name": "node",
+              "privateMB": 299.53125,
+              "workingMB": 317.63671875,
+              "cpuPercent": 4.207245936198202
+            },
+            {
+              "pid": 60256,
+              "name": "node",
+              "privateMB": 171.29296875,
+              "workingMB": 179.640625,
+              "cpuPercent": 4.111626710375516
+            },
+            {
+              "pid": 14784,
+              "name": "node",
+              "privateMB": 319.7734375,
+              "workingMB": 308.25,
+              "cpuPercent": 4.016007484552829
+            },
+            {
+              "pid": 14524,
+              "name": "node",
+              "privateMB": 448.01171875,
+              "workingMB": 465.35546875,
+              "cpuPercent": 3.9203882587301426
+            },
+            {
+              "pid": 8488,
+              "name": "node",
+              "privateMB": 196.53125,
+              "workingMB": 219.953125,
+              "cpuPercent": 3.9203882587301426
+            },
+            {
+              "pid": 27208,
+              "name": "node",
+              "privateMB": 165.17578125,
+              "workingMB": 187.96484375,
+              "cpuPercent": 3.824769032907456
+            },
+            {
+              "pid": 40208,
+              "name": "node",
+              "privateMB": 164.44140625,
+              "workingMB": 185.125,
+              "cpuPercent": 3.7291498070847697
+            },
+            {
+              "pid": 49096,
+              "name": "node",
+              "privateMB": 287.328125,
+              "workingMB": 305.9921875,
+              "cpuPercent": 3.6335305812620833
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:21:16.4981764Z",
+          "otherCpu": 97.69236367416448,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 3020,
+              "name": "node",
+              "privateMB": 102.94921875,
+              "workingMB": 133.65625,
+              "cpuPercent": 7.360383564491845
+            },
+            {
+              "pid": 46952,
+              "name": "node",
+              "privateMB": 105.0703125,
+              "workingMB": 130.66015625,
+              "cpuPercent": 6.78684718284313
+            },
+            {
+              "pid": 51392,
+              "name": "node",
+              "privateMB": 381.796875,
+              "workingMB": 398.7734375,
+              "cpuPercent": 6.78684718284313
+            },
+            {
+              "pid": 59640,
+              "name": "node",
+              "privateMB": 371.08984375,
+              "workingMB": 387.46484375,
+              "cpuPercent": 6.595668388960225
+            },
+            {
+              "pid": 14784,
+              "name": "node",
+              "privateMB": 407.21484375,
+              "workingMB": 394.7109375,
+              "cpuPercent": 6.213310801194415
+            },
+            {
+              "pid": 25284,
+              "name": "node",
+              "privateMB": 432.859375,
+              "workingMB": 420.48828125,
+              "cpuPercent": 6.213310801194415
+            },
+            {
+              "pid": 42316,
+              "name": "node",
+              "privateMB": 244.84375,
+              "workingMB": 270.61328125,
+              "cpuPercent": 6.213310801194415
+            },
+            {
+              "pid": 30252,
+              "name": "node",
+              "privateMB": 370.16015625,
+              "workingMB": 386.48046875,
+              "cpuPercent": 5.830953213428605
+            },
+            {
+              "pid": 8488,
+              "name": "node",
+              "privateMB": 430.31640625,
+              "workingMB": 446.84375,
+              "cpuPercent": 5.544185022604247
+            },
+            {
+              "pid": 60256,
+              "name": "node",
+              "privateMB": 325.046875,
+              "workingMB": 344.30078125,
+              "cpuPercent": 5.4485956256627945
+            },
+            {
+              "pid": 15536,
+              "name": "node",
+              "privateMB": 442.140625,
+              "workingMB": 424.55078125,
+              "cpuPercent": 5.2574168317798895
+            },
+            {
+              "pid": 27208,
+              "name": "node",
+              "privateMB": 344.1015625,
+              "workingMB": 364.30859375,
+              "cpuPercent": 4.875059244014079
+            },
+            {
+              "pid": 18248,
+              "name": "node",
+              "privateMB": 340.6640625,
+              "workingMB": 363.2265625,
+              "cpuPercent": 4.779469847072627
+            },
+            {
+              "pid": 49096,
+              "name": "node",
+              "privateMB": 446.4453125,
+              "workingMB": 463.08203125,
+              "cpuPercent": 4.683880450131174
+            },
+            {
+              "pid": 9200,
+              "name": "node",
+              "privateMB": 374.58984375,
+              "workingMB": 363.921875,
+              "cpuPercent": 4.205933465423912
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:21:31.1923189Z",
+          "otherCpu": 75.88531296638129,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 47168,
+              "name": "node",
+              "privateMB": 93.171875,
+              "workingMB": 119.3515625,
+              "cpuPercent": 6.267529025177617
+            },
+            {
+              "pid": 35632,
+              "name": "node",
+              "privateMB": 136.21875,
+              "workingMB": 160.9609375,
+              "cpuPercent": 5.688987884391991
+            },
+            {
+              "pid": 15536,
+              "name": "node",
+              "privateMB": 518.953125,
+              "workingMB": 502.42578125,
+              "cpuPercent": 5.303293790534907
+            },
+            {
+              "pid": 10972,
+              "name": "node",
+              "privateMB": 104.9765625,
+              "workingMB": 130.99609375,
+              "cpuPercent": 4.724752649749281
+            },
+            {
+              "pid": 8488,
+              "name": "node",
+              "privateMB": 383.20703125,
+              "workingMB": 397.71875,
+              "cpuPercent": 4.724752649749281
+            },
+            {
+              "pid": 25284,
+              "name": "node",
+              "privateMB": 453.10546875,
+              "workingMB": 439.921875,
+              "cpuPercent": 4.628329126285009
+            },
+            {
+              "pid": 59640,
+              "name": "node",
+              "privateMB": 420.3359375,
+              "workingMB": 439.90234375,
+              "cpuPercent": 4.339058555892196
+            },
+            {
+              "pid": 60256,
+              "name": "node",
+              "privateMB": 410.88671875,
+              "workingMB": 426.6640625,
+              "cpuPercent": 3.953364462035112
+            },
+            {
+              "pid": 59324,
+              "name": "claude",
+              "privateMB": 235.69140625,
+              "workingMB": 311.53515625,
+              "cpuPercent": 3.953364462035112
+            },
+            {
+              "pid": 46952,
+              "name": "node",
+              "privateMB": 308.3203125,
+              "workingMB": 328.29296875,
+              "cpuPercent": 3.8569409385708413
+            },
+            {
+              "pid": 51392,
+              "name": "node",
+              "privateMB": 365.70703125,
+              "workingMB": 382.67578125,
+              "cpuPercent": 3.76051741510657
+            },
+            {
+              "pid": 18248,
+              "name": "node",
+              "privateMB": 408.33984375,
+              "workingMB": 424.53125,
+              "cpuPercent": 3.567670368178028
+            },
+            {
+              "pid": 14784,
+              "name": "node",
+              "privateMB": 420.8359375,
+              "workingMB": 407.2421875,
+              "cpuPercent": 3.471246844713757
+            },
+            {
+              "pid": 3020,
+              "name": "node",
+              "privateMB": 316.45703125,
+              "workingMB": 342.62109375,
+              "cpuPercent": 3.471246844713757
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 740.61328125,
+              "workingMB": 747.234375,
+              "cpuPercent": 3.278399797785215
+            }
+          ]
+        }
+      ],
+      "pacing": {
+        "frames": 9384,
+        "p99": 6.30000000000291,
+        "max": 151.5,
+        "hitches": 37,
+        "longTasks": 16,
+        "unattributedHitches": 37
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 6.400000000001455,
+          "max": 109.20000000000437,
+          "hitches": 23
+        },
+        {
+          "stage": "undo",
+          "p99": 6.299999999995634,
+          "max": 78.79999999999563,
+          "hitches": 3
+        },
+        {
+          "stage": "redo",
+          "p99": 6.30000000000291,
+          "max": 151.5,
+          "hitches": 11
+        }
+      ]
+    },
+    {
+      "folder": "2026-10-01T18-18-07.428Z-standard-native-before",
+      "index": 2,
+      "phase": "before",
+      "look": "standard",
+      "profile": "native",
+      "profiling": false,
+      "repeat": 2,
+      "status": "discarded-load",
+      "claimedQualified": false,
+      "qualified": false,
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "rawMatches": true,
+      "bracketed": true,
+      "quiet": true,
+      "hardware": true,
+      "fullInterval": false,
+      "raw": "a9c8d08e39a25edf78e7d36d6fdb035472912cc8e345e88b316f79d765fcccc5",
+      "snapshot": "b1b26ea0e1ae46e83c195f863d09a949028fd8ff2cb85c8562d2929533b48932",
+      "exportHash": "6ae369aaafa10d4808a8e73c62fae13754f8aace6c97ece808db97527d6bc19c",
+      "exportOk": true,
+      "geometry": "d090599984affbebf76ab182250f650278a3e47281d9a4c960e23230b40ee648",
+      "from": 1790879132035,
+      "to": 1790879295814,
+      "loadGeneration": 2,
+      "load": {
+        "other": {
+          "min": 16.452380539458456,
+          "median": 82.57825692313723,
+          "max": 86.15643962521017
+        },
+        "total": {
+          "min": 45,
+          "median": 100,
+          "max": 100
+        }
+      },
+      "discardedTopProcesses": [
+        {
+          "at": "2026-10-01T18:25:40.0252169Z",
+          "otherCpu": 30.23335662389288,
+          "totalCpu": 45,
+          "processes": [
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2097.7734375,
+              "workingMB": 2080.28125,
+              "cpuPercent": 9.52690980431351
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 887.54296875,
+              "workingMB": 818.12890625,
+              "cpuPercent": 8.263136054761718
+            },
+            {
+              "pid": 12496,
+              "name": "Discord",
+              "privateMB": 685.44140625,
+              "workingMB": 621.30859375,
+              "cpuPercent": 3.6941078833052385
+            },
+            {
+              "pid": 59324,
+              "name": "claude",
+              "privateMB": 232.80078125,
+              "workingMB": 269.95703125,
+              "cpuPercent": 3.0136143258542734
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 420.09375,
+              "workingMB": 235.26171875,
+              "cpuPercent": 1.36098711490193
+            },
+            {
+              "pid": 6408,
+              "name": "codex",
+              "privateMB": 485.09375,
+              "workingMB": 436.53515625,
+              "cpuPercent": 0.8749202881512407
+            },
+            {
+              "pid": 16532,
+              "name": "powershell",
+              "privateMB": 225.6796875,
+              "workingMB": 248.74609375,
+              "cpuPercent": 0.5832801921008272
+            },
+            {
+              "pid": 30744,
+              "name": "ChatGPT",
+              "privateMB": 1711.9609375,
+              "workingMB": 1372.484375,
+              "cpuPercent": 0.38885346140055144
+            },
+            {
+              "pid": 1744,
+              "name": "ChatGPT",
+              "privateMB": 435.8125,
+              "workingMB": 425.6171875,
+              "cpuPercent": 0.38885346140055144
+            },
+            {
+              "pid": 49952,
+              "name": "bash",
+              "privateMB": 6.33984375,
+              "workingMB": 11.08984375,
+              "cpuPercent": 0.19442673070027572
+            },
+            {
+              "pid": 33440,
+              "name": "opencode-cli",
+              "privateMB": 597.83984375,
+              "workingMB": 297.0859375,
+              "cpuPercent": 0.19442673070027572
+            },
+            {
+              "pid": 49700,
+              "name": "chrome",
+              "privateMB": 309.73046875,
+              "workingMB": 333.2109375,
+              "cpuPercent": 0.19442673070027572
+            },
+            {
+              "pid": 5004,
+              "name": "ctfmon",
+              "privateMB": 13.91796875,
+              "workingMB": 39.9453125,
+              "cpuPercent": 0.19442673070027572
+            },
+            {
+              "pid": 31232,
+              "name": "AWCC.UCSubAgent",
+              "privateMB": 77.01171875,
+              "workingMB": 137.76953125,
+              "cpuPercent": 0.19442673070027572
+            },
+            {
+              "pid": 54576,
+              "name": "claude",
+              "privateMB": 420.86328125,
+              "workingMB": 226.10546875,
+              "cpuPercent": 0.19442673070027572
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:26:01.0237960Z",
+          "otherCpu": 36.55817916546943,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 185.0546875,
+              "workingMB": 142.19140625,
+              "cpuPercent": 3.7919387964183717
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2104.15625,
+              "workingMB": 2086.61328125,
+              "cpuPercent": 3.2085635969693915
+            },
+            {
+              "pid": 46160,
+              "name": "node",
+              "privateMB": 141.09765625,
+              "workingMB": 125.34765625,
+              "cpuPercent": 3.014105197153065
+            },
+            {
+              "pid": 32116,
+              "name": "node",
+              "privateMB": 141.7265625,
+              "workingMB": 125.5078125,
+              "cpuPercent": 2.819646797336738
+            },
+            {
+              "pid": 32268,
+              "name": "node",
+              "privateMB": 141.16015625,
+              "workingMB": 125.29296875,
+              "cpuPercent": 2.7224175974285747
+            },
+            {
+              "pid": 44180,
+              "name": "node",
+              "privateMB": 143.390625,
+              "workingMB": 127.75390625,
+              "cpuPercent": 2.527959197612248
+            },
+            {
+              "pid": 58756,
+              "name": "node",
+              "privateMB": 141.8359375,
+              "workingMB": 125.8515625,
+              "cpuPercent": 2.3335007977959212
+            },
+            {
+              "pid": 11840,
+              "name": "node",
+              "privateMB": 142.12109375,
+              "workingMB": 127.0234375,
+              "cpuPercent": 2.1390423979795945
+            },
+            {
+              "pid": 59872,
+              "name": "node",
+              "privateMB": 143.30859375,
+              "workingMB": 126.9609375,
+              "cpuPercent": 2.041813198071431
+            },
+            {
+              "pid": 30744,
+              "name": "ChatGPT",
+              "privateMB": 1712.74609375,
+              "workingMB": 1373.5390625,
+              "cpuPercent": 1.555667198530614
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 984.67578125,
+              "workingMB": 917.8203125,
+              "cpuPercent": 1.0695211989897973
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 496.3984375,
+              "workingMB": 257.296875,
+              "cpuPercent": 0.9722919990816338
+            },
+            {
+              "pid": 47816,
+              "name": "ChatGPT",
+              "privateMB": 704.5703125,
+              "workingMB": 184.16796875,
+              "cpuPercent": 0.8750627991734704
+            },
+            {
+              "pid": 16532,
+              "name": "powershell",
+              "privateMB": 187.51953125,
+              "workingMB": 210.453125,
+              "cpuPercent": 0.8750627991734704
+            },
+            {
+              "pid": 12496,
+              "name": "Discord",
+              "privateMB": 686.8359375,
+              "workingMB": 622.6953125,
+              "cpuPercent": 0.6806043993571437
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:26:21.5460183Z",
+          "otherCpu": 86.15643962521017,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 38676,
+              "name": "chrome",
+              "privateMB": 200.76953125,
+              "workingMB": 260.21875,
+              "cpuPercent": 10.419815766542778
+            },
+            {
+              "pid": 38700,
+              "name": "chrome",
+              "privateMB": 178.49609375,
+              "workingMB": 231.53515625,
+              "cpuPercent": 8.490220254220041
+            },
+            {
+              "pid": 41668,
+              "name": "chrome",
+              "privateMB": 322.15234375,
+              "workingMB": 383.76953125,
+              "cpuPercent": 8.297260702987767
+            },
+            {
+              "pid": 34204,
+              "name": "chrome",
+              "privateMB": 200.3359375,
+              "workingMB": 257.24609375,
+              "cpuPercent": 7.428942722442535
+            },
+            {
+              "pid": 27560,
+              "name": "chrome",
+              "privateMB": 360.59765625,
+              "workingMB": 423.3984375,
+              "cpuPercent": 6.6571045175134405
+            },
+            {
+              "pid": 20376,
+              "name": "chrome",
+              "privateMB": 167.71484375,
+              "workingMB": 226.82421875,
+              "cpuPercent": 6.07822586381662
+            },
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 345.19921875,
+              "workingMB": 337.6171875,
+              "cpuPercent": 5.306387658887525
+            },
+            {
+              "pid": 56856,
+              "name": "chrome",
+              "privateMB": 360.75,
+              "workingMB": 427.0859375,
+              "cpuPercent": 5.113428107655252
+            },
+            {
+              "pid": 59604,
+              "name": "chrome",
+              "privateMB": 250.109375,
+              "workingMB": 160.31640625,
+              "cpuPercent": 3.183832595332515
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 230.08984375,
+              "workingMB": 151.98046875,
+              "cpuPercent": 2.797913492867968
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2375.85546875,
+              "workingMB": 2356.625,
+              "cpuPercent": 2.6049539416356944
+            },
+            {
+              "pid": 62228,
+              "name": "chrome",
+              "privateMB": 49.04296875,
+              "workingMB": 149.7265625,
+              "cpuPercent": 2.5084741660195573
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 850.19921875,
+              "workingMB": 782.90625,
+              "cpuPercent": 2.219034839171147
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 335.92578125,
+              "workingMB": 206.7265625,
+              "cpuPercent": 1.5436764098581892
+            },
+            {
+              "pid": 17896,
+              "name": "chrome",
+              "privateMB": 213.13671875,
+              "workingMB": 186.84765625,
+              "cpuPercent": 1.4471966342420524
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:26:41.7424081Z",
+          "otherCpu": 85.90886010962932,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 11624,
+              "name": "chrome",
+              "privateMB": 433.02734375,
+              "workingMB": 497.67578125,
+              "cpuPercent": 9.459627292970413
+            },
+            {
+              "pid": 62156,
+              "name": "chrome",
+              "privateMB": 243.03125,
+              "workingMB": 302.23828125,
+              "cpuPercent": 7.43256430161961
+            },
+            {
+              "pid": 59932,
+              "name": "chrome",
+              "privateMB": 425.49609375,
+              "workingMB": 207.80859375,
+              "cpuPercent": 7.1429838742837815
+            },
+            {
+              "pid": 61364,
+              "name": "chrome",
+              "privateMB": 101.8046875,
+              "workingMB": 153.3125,
+              "cpuPercent": 6.370769401388237
+            },
+            {
+              "pid": 16056,
+              "name": "chrome",
+              "privateMB": 452.13671875,
+              "workingMB": 514.15625,
+              "cpuPercent": 6.0811889740524085
+            },
+            {
+              "pid": 57288,
+              "name": "node",
+              "privateMB": 656.4609375,
+              "workingMB": 669.17578125,
+              "cpuPercent": 5.502028119380751
+            },
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 377.87890625,
+              "workingMB": 368.1015625,
+              "cpuPercent": 4.633286837373264
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 973.83984375,
+              "workingMB": 906.796875,
+              "cpuPercent": 4.343706410037434
+            },
+            {
+              "pid": 37392,
+              "name": "chrome",
+              "privateMB": 295.0625,
+              "workingMB": 359.4296875,
+              "cpuPercent": 4.054125982701605
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2166.16796875,
+              "workingMB": 2148.42578125,
+              "cpuPercent": 3.5714919371418907
+            },
+            {
+              "pid": 17896,
+              "name": "chrome",
+              "privateMB": 285.61328125,
+              "workingMB": 206.37109375,
+              "cpuPercent": 2.7992774642463467
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 300.0625,
+              "workingMB": 160.81640625,
+              "cpuPercent": 2.316643418686632
+            },
+            {
+              "pid": 11020,
+              "name": "chrome",
+              "privateMB": 47.4296875,
+              "workingMB": 148.09765625,
+              "cpuPercent": 2.220116609574689
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 458.11328125,
+              "workingMB": 230.08203125,
+              "cpuPercent": 2.123589800462746
+            },
+            {
+              "pid": 17584,
+              "name": "claude",
+              "privateMB": 355.10546875,
+              "workingMB": 199.8125,
+              "cpuPercent": 2.0270629913508027
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:27:00.9074762Z",
+          "otherCpu": 84.27075308209247,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 29804,
+              "name": "chrome",
+              "privateMB": 182.81640625,
+              "workingMB": 236.72265625,
+              "cpuPercent": 10.135657587193252
+            },
+            {
+              "pid": 20500,
+              "name": "chrome",
+              "privateMB": 181.84375,
+              "workingMB": 242.5703125,
+              "cpuPercent": 10.135657587193252
+            },
+            {
+              "pid": 1896,
+              "name": "chrome",
+              "privateMB": 166.48046875,
+              "workingMB": 220.15234375,
+              "cpuPercent": 8.88076664782647
+            },
+            {
+              "pid": 3324,
+              "name": "chrome",
+              "privateMB": 187.40625,
+              "workingMB": 241.00390625,
+              "cpuPercent": 7.625875708459685
+            },
+            {
+              "pid": 2184,
+              "name": "chrome",
+              "privateMB": 340.46484375,
+              "workingMB": 405.3046875,
+              "cpuPercent": 7.529345636200702
+            },
+            {
+              "pid": 32092,
+              "name": "chrome",
+              "privateMB": 88.26953125,
+              "workingMB": 141.10546875,
+              "cpuPercent": 5.888334407797985
+            },
+            {
+              "pid": 29124,
+              "name": "chrome",
+              "privateMB": 101.33984375,
+              "workingMB": 154.84765625,
+              "cpuPercent": 5.309153974244085
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2327.49609375,
+              "workingMB": 2309.2109375,
+              "cpuPercent": 5.2126239019851015
+            },
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 402.7421875,
+              "workingMB": 393.96875,
+              "cpuPercent": 5.116093829726118
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 829.8203125,
+              "workingMB": 763.0546875,
+              "cpuPercent": 4.826503612949168
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 402.50390625,
+              "workingMB": 187.66796875,
+              "cpuPercent": 2.702842023251534
+            },
+            {
+              "pid": 1744,
+              "name": "ChatGPT",
+              "privateMB": 417.1640625,
+              "workingMB": 407.3125,
+              "cpuPercent": 2.3167217342156006
+            },
+            {
+              "pid": 30744,
+              "name": "ChatGPT",
+              "privateMB": 1639.38671875,
+              "workingMB": 1304.296875,
+              "cpuPercent": 1.1583608671078003
+            },
+            {
+              "pid": 34208,
+              "name": "node",
+              "privateMB": 90.88671875,
+              "workingMB": 89.1328125,
+              "cpuPercent": 1.061830794848817
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 272,
+              "workingMB": 210.40625,
+              "cpuPercent": 0.8687706503308502
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:27:20.7483329Z",
+          "otherCpu": 82.57825692313723,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 20392,
+              "name": "chrome",
+              "privateMB": 131.85546875,
+              "workingMB": 188.46875,
+              "cpuPercent": 10.97805062625236
+            },
+            {
+              "pid": 2268,
+              "name": "chrome",
+              "privateMB": 179.20703125,
+              "workingMB": 235.375,
+              "cpuPercent": 10.006541721274274
+            },
+            {
+              "pid": 52768,
+              "name": "chrome",
+              "privateMB": 206.08203125,
+              "workingMB": 265.36328125,
+              "cpuPercent": 7.77207123982468
+            },
+            {
+              "pid": 38444,
+              "name": "chrome",
+              "privateMB": 216.99609375,
+              "workingMB": 280.234375,
+              "cpuPercent": 7.480618568331254
+            },
+            {
+              "pid": 22036,
+              "name": "chrome",
+              "privateMB": 278.20703125,
+              "workingMB": 336.70703125,
+              "cpuPercent": 5.731902539370702
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2257.69921875,
+              "workingMB": 2239.59375,
+              "cpuPercent": 5.440449867877276
+            },
+            {
+              "pid": 3324,
+              "name": "chrome",
+              "privateMB": 224.07421875,
+              "workingMB": 277.57421875,
+              "cpuPercent": 5.051846305886042
+            },
+            {
+              "pid": 15044,
+              "name": "chrome",
+              "privateMB": 153.03515625,
+              "workingMB": 212.9609375,
+              "cpuPercent": 4.954695415388233
+            },
+            {
+              "pid": 44180,
+              "name": "node",
+              "privateMB": 387.7578125,
+              "workingMB": 376.7421875,
+              "cpuPercent": 3.88603561991234
+            },
+            {
+              "pid": 25196,
+              "name": "pwsh",
+              "privateMB": 29.53125,
+              "workingMB": 88.046875,
+              "cpuPercent": 2.8173758244364464
+            },
+            {
+              "pid": 30744,
+              "name": "ChatGPT",
+              "privateMB": 1670.09765625,
+              "workingMB": 1338.98828125,
+              "cpuPercent": 2.2344704814495953
+            },
+            {
+              "pid": 15916,
+              "name": "chrome",
+              "privateMB": 277.84765625,
+              "workingMB": 144.421875,
+              "cpuPercent": 1.4572633574671274
+            },
+            {
+              "pid": 1744,
+              "name": "ChatGPT",
+              "privateMB": 441.734375,
+              "workingMB": 433.2890625,
+              "cpuPercent": 1.4572633574671274
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 293.3828125,
+              "workingMB": 211,
+              "cpuPercent": 1.1658106859737019
+            },
+            {
+              "pid": 47816,
+              "name": "ChatGPT",
+              "privateMB": 726.21875,
+              "workingMB": 172.35546875,
+              "cpuPercent": 1.0686597954758934
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:27:41.0836514Z",
+          "otherCpu": 79.66604451470809,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 17492,
+              "name": "chrome",
+              "privateMB": 246.47265625,
+              "workingMB": 312.87109375,
+              "cpuPercent": 7.821757097807707
+            },
+            {
+              "pid": 11948,
+              "name": "chrome",
+              "privateMB": 336.6015625,
+              "workingMB": 401.69921875,
+              "cpuPercent": 7.145802780713214
+            },
+            {
+              "pid": 58412,
+              "name": "chrome",
+              "privateMB": 272.421875,
+              "workingMB": 335.62109375,
+              "cpuPercent": 6.566413366060791
+            },
+            {
+              "pid": 25944,
+              "name": "chrome",
+              "privateMB": 238.12109375,
+              "workingMB": 302.4140625,
+              "cpuPercent": 6.46984846361872
+            },
+            {
+              "pid": 10504,
+              "name": "chrome",
+              "privateMB": 88.51953125,
+              "workingMB": 141.25390625,
+              "cpuPercent": 5.890459048966298
+            },
+            {
+              "pid": 15044,
+              "name": "chrome",
+              "privateMB": 225.61328125,
+              "workingMB": 285.7421875,
+              "cpuPercent": 4.924810024545593
+            },
+            {
+              "pid": 39784,
+              "name": "chrome",
+              "privateMB": 206.84375,
+              "workingMB": 262.8046875,
+              "cpuPercent": 4.15229080500903
+            },
+            {
+              "pid": 3324,
+              "name": "chrome",
+              "privateMB": 254.67578125,
+              "workingMB": 308.4609375,
+              "cpuPercent": 3.766031195240748
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2271.0625,
+              "workingMB": 2251.8828125,
+              "cpuPercent": 3.476336487914536
+            },
+            {
+              "pid": 13644,
+              "name": "chrome",
+              "privateMB": 78.515625,
+              "workingMB": 129.8046875,
+              "cpuPercent": 2.8003821708200434
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 317.8125,
+              "workingMB": 171.01171875,
+              "cpuPercent": 1.8347331463993386
+            },
+            {
+              "pid": 28456,
+              "name": "chrome",
+              "privateMB": 49.99609375,
+              "workingMB": 151.00390625,
+              "cpuPercent": 1.8347331463993386
+            },
+            {
+              "pid": 16344,
+              "name": "claude",
+              "privateMB": 848.46875,
+              "workingMB": 781.7421875,
+              "cpuPercent": 1.738168243957268
+            },
+            {
+              "pid": 26912,
+              "name": "chrome",
+              "privateMB": 50.9296875,
+              "workingMB": 153.58984375,
+              "cpuPercent": 1.6416033415151978
+            },
+            {
+              "pid": 59932,
+              "name": "chrome",
+              "privateMB": 275.71875,
+              "workingMB": 190.44921875,
+              "cpuPercent": 1.5450384390731273
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:28:00.3663441Z",
+          "otherCpu": 79.05974230374342,
+          "totalCpu": 100,
+          "processes": [
+            {
+              "pid": 58560,
+              "name": "chrome",
+              "privateMB": 158.09375,
+              "workingMB": 214.87890625,
+              "cpuPercent": 10.977844850946104
+            },
+            {
+              "pid": 31952,
+              "name": "chrome",
+              "privateMB": 349.484375,
+              "workingMB": 416.0078125,
+              "cpuPercent": 6.644485041362116
+            },
+            {
+              "pid": 3324,
+              "name": "chrome",
+              "privateMB": 478.7109375,
+              "workingMB": 523.03515625,
+              "cpuPercent": 5.87410996410274
+            },
+            {
+              "pid": 6428,
+              "name": "chrome",
+              "privateMB": 193.62109375,
+              "workingMB": 244.5859375,
+              "cpuPercent": 5.585219310130474
+            },
+            {
+              "pid": 59872,
+              "name": "node",
+              "privateMB": 250.1171875,
+              "workingMB": 243.58984375,
+              "cpuPercent": 5.39262554081563
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2173.28125,
+              "workingMB": 2155.01171875,
+              "cpuPercent": 5.200031771500786
+            },
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 394.609375,
+              "workingMB": 386.18359375,
+              "cpuPercent": 5.007438002185943
+            },
+            {
+              "pid": 28956,
+              "name": "chrome",
+              "privateMB": 397.84765625,
+              "workingMB": 458.421875,
+              "cpuPercent": 4.237062924926566
+            },
+            {
+              "pid": 44180,
+              "name": "node",
+              "privateMB": 462.05078125,
+              "workingMB": 448.94921875,
+              "cpuPercent": 3.659281616982035
+            },
+            {
+              "pid": 41840,
+              "name": "chrome",
+              "privateMB": 429.31640625,
+              "workingMB": 491.90625,
+              "cpuPercent": 2.118531462463283
+            },
+            {
+              "pid": 32712,
+              "name": "claude",
+              "privateMB": 267.78515625,
+              "workingMB": 208.06640625,
+              "cpuPercent": 1.6370470391761733
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 268.47265625,
+              "workingMB": 161.41796875,
+              "cpuPercent": 1.6370470391761733
+            },
+            {
+              "pid": 42932,
+              "name": "chrome",
+              "privateMB": 50.50390625,
+              "workingMB": 153.421875,
+              "cpuPercent": 1.4444532698613295
+            },
+            {
+              "pid": 15916,
+              "name": "chrome",
+              "privateMB": 267.04296875,
+              "workingMB": 174.1484375,
+              "cpuPercent": 1.2518595005464856
+            },
+            {
+              "pid": 50480,
+              "name": "chrome",
+              "privateMB": 29.140625,
+              "workingMB": 41.01953125,
+              "cpuPercent": 1.2518595005464856
+            }
+          ]
+        },
+        {
+          "at": "2026-10-01T18:28:18.5838014Z",
+          "otherCpu": 83.12362629414709,
+          "totalCpu": 97,
+          "processes": [
+            {
+              "pid": 15832,
+              "name": "chrome",
+              "privateMB": 147.8671875,
+              "workingMB": 198.703125,
+              "cpuPercent": 9.705764457466879
+            },
+            {
+              "pid": 29124,
+              "name": "chrome",
+              "privateMB": 144.18359375,
+              "workingMB": 195.50390625,
+              "cpuPercent": 8.64870100170316
+            },
+            {
+              "pid": 62156,
+              "name": "chrome",
+              "privateMB": 111.8515625,
+              "workingMB": 162.8359375,
+              "cpuPercent": 7.976024257126247
+            },
+            {
+              "pid": 40952,
+              "name": "chrome",
+              "privateMB": 87.9921875,
+              "workingMB": 140.4140625,
+              "cpuPercent": 6.918960801362528
+            },
+            {
+              "pid": 39784,
+              "name": "chrome",
+              "privateMB": 160.99609375,
+              "workingMB": 219.22265625,
+              "cpuPercent": 6.2462840567856155
+            },
+            {
+              "pid": 23664,
+              "name": "node",
+              "privateMB": 453.9609375,
+              "workingMB": 440.5859375,
+              "cpuPercent": 5.477510634412001
+            },
+            {
+              "pid": 44780,
+              "name": "node",
+              "privateMB": 2052,
+              "workingMB": 2031.453125,
+              "cpuPercent": 5.381413956615299
+            },
+            {
+              "pid": 42824,
+              "name": "chrome",
+              "privateMB": 277.8671875,
+              "workingMB": 344.94921875,
+              "cpuPercent": 5.285317278818598
+            },
+            {
+              "pid": 30744,
+              "name": "ChatGPT",
+              "privateMB": 1711.53515625,
+              "workingMB": 1386.9453125,
+              "cpuPercent": 2.3063202671208427
+            },
+            {
+              "pid": 62228,
+              "name": "chrome",
+              "privateMB": 48.9453125,
+              "workingMB": 152.40625,
+              "cpuPercent": 2.2102235893241406
+            },
+            {
+              "pid": 42932,
+              "name": "chrome",
+              "privateMB": 49.92578125,
+              "workingMB": 153.67578125,
+              "cpuPercent": 2.114126911527439
+            },
+            {
+              "pid": 47644,
+              "name": "chrome",
+              "privateMB": 358.1171875,
+              "workingMB": 424.6953125,
+              "cpuPercent": 1.9219335559340354
+            },
+            {
+              "pid": 1744,
+              "name": "ChatGPT",
+              "privateMB": 636.890625,
+              "workingMB": 624.4765625,
+              "cpuPercent": 1.9219335559340354
+            },
+            {
+              "pid": 24272,
+              "name": "chrome",
+              "privateMB": 422.83203125,
+              "workingMB": 180.9140625,
+              "cpuPercent": 1.9219335559340354
+            },
+            {
+              "pid": 6408,
+              "name": "codex",
+              "privateMB": 514.109375,
+              "workingMB": 512.6015625,
+              "cpuPercent": 1.8258368781373338
+            }
+          ]
+        }
+      ],
+      "pacing": {
+        "frames": 98,
+        "p99": 15009,
+        "max": 15009,
+        "hitches": 98,
+        "longTasks": 81,
+        "unattributedHitches": 98
+      },
+      "stages": [
+        {
+          "stage": "stroke",
+          "p99": 15009,
+          "max": 15009,
+          "hitches": 91
+        },
+        {
+          "stage": "undo",
+          "p99": 1000.6000000000349,
+          "max": 1000.6000000000349,
+          "hitches": 1
+        },
+        {
+          "stage": "redo",
+          "p99": 1000.6999999999534,
+          "max": 1000.6999999999534,
+          "hitches": 4
+        }
+      ]
+    }
+  ],
+  "rawIndex": [
+    {
+      "folder": "2026-10-01T17-45-32.351Z-standard-native-before-profile",
+      "manifest": "0a5ba736acb40911d047f3590760116eafc4467100d53d0b9d743223a7440ab5",
+      "session": "2026-10-01T17-45-32.353Z",
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T17-48-45.530Z-standard-native-before-profile",
+      "manifest": "0631cc3860ba3ade9c2bc51fc5407467429afee478b7f879bb6e8fca6d1f97cd",
+      "session": "2026-10-01T17-48-45.532Z",
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T17-51-23.697Z-high-native-before-profile",
+      "manifest": "7df641707d792f72d12b322a2e6d619963b5d227fff68660add9ff1f00328dd7",
+      "session": "2026-10-01T17-51-23.699Z",
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T17-54-38.688Z-standard-laptop-before-profile",
+      "manifest": "df31910b431befb24a5ff61c66116a8ab21f208cb870de5f3db8ce1e84f24cb6",
+      "session": "2026-10-01T17-54-38.690Z",
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T18-00-44.298Z-standard-native-before",
+      "manifest": "dd15dd31cfafd7d0dc3a30f2cce12e846fe080ce7e81c40b948025fef37358e9",
+      "session": "2026-10-01T18-00-44.300Z",
+      "protocolFrozen": false,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T18-11-34.422Z-standard-native-after-profile",
+      "manifest": "c68c9e554ff0276af9b087e2b1ce4c8e6c6a2b55fd822e2ca1b00a85be7abcd7",
+      "session": "2026-10-01T18-11-34.423Z",
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": null
+    },
+    {
+      "folder": "2026-10-01T18-18-07.428Z-standard-native-before",
+      "manifest": "343a3ee25b5f88708aa582bdc05f199ac128b47ee80d9619aa467e25ee4c2d4c",
+      "session": "2026-10-01T18-18-07.023Z",
+      "protocolFrozen": true,
+      "protocolValid": false,
+      "sourceValid": true,
+      "buildValid": true,
+      "error": "Error: Other-process quiet gate timeout"
+    }
+  ],
+  "sessions": [
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-45-32.353Z\\session.json",
+      "sessionHash": "8d010de94bd857b3dfc26c6f2a5a99b2b8f4342bce83d2cdb495a3dc859a4eb9",
+      "session": {
+        "id": "2026-10-01T17-45-32.353Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-45-32.353Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-45-32.353Z\\machine.json",
+        "start": 1790876732353,
+        "end": 1790963132353,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790876805759,
+        "closedAt": 1790876833022,
+        "qualification": {
+          "quietDurationMs": 64542,
+          "sampleCount": 10
+        }
+      },
+      "traceHash": "fd91e1c863be86245cdaa7249da0d62284d77c4967b58f244a3425e7bc0879c2",
+      "metadataHash": "95f79a2538a0d14cb8c1a22ba036b0353576ecb59d8efd33e6fe12fd11c0c15e",
+      "samples": 14
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-48-45.532Z\\session.json",
+      "sessionHash": "8702b5cf51b1738ca95756d964b8623d1e4666bba066c830a46a34cc82d833ba",
+      "session": {
+        "id": "2026-10-01T17-48-45.532Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-48-45.532Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-48-45.532Z\\machine.json",
+        "start": 1790876925532,
+        "end": 1790963325532,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790876996574,
+        "closedAt": 1790877035017,
+        "qualification": {
+          "quietDurationMs": 62238,
+          "sampleCount": 10
+        }
+      },
+      "traceHash": "5548cb94cb7a6416a95a6b8ff1f7dbfddfda942fa9281ae85783934f307e0f42",
+      "metadataHash": "6d5500853b63ff57b25c6a5209621f90c70b8fca325c7d32a9543439abf22702",
+      "samples": 16
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-51-23.699Z\\session.json",
+      "sessionHash": "5ba99970861c66636e1f5ab9f864d0af2e372a825d75d11ceaac10bbcdc6b512",
+      "session": {
+        "id": "2026-10-01T17-51-23.699Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-51-23.699Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-51-23.699Z\\machine.json",
+        "start": 1790877083699,
+        "end": 1790963483699,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790877155730,
+        "closedAt": 1790877201880,
+        "qualification": {
+          "quietDurationMs": 63890,
+          "sampleCount": 10
+        }
+      },
+      "traceHash": "f7831f59e2791410df5f2bd2cfb3ab779fcdc43d97fef25ee290203aff158720",
+      "metadataHash": "429cf4fa7f5fa88d08afaf06700b6a3ea1a3fde03c78bc18081b34dee9643ff1",
+      "samples": 16
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-54-38.690Z\\session.json",
+      "sessionHash": "ef0d4d11cf460776e421f921359f316fb8f389ab2afea06d231a3b0e5d5f0fff",
+      "session": {
+        "id": "2026-10-01T17-54-38.690Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-54-38.690Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T17-54-38.690Z\\machine.json",
+        "start": 1790877278690,
+        "end": 1790963678690,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790877348988,
+        "closedAt": 1790877437285,
+        "qualification": {
+          "quietDurationMs": 61948,
+          "sampleCount": 9
+        }
+      },
+      "traceHash": "dd6309e36cb6744d5bec1e20c91de245c83ddb8c8102941aef838b177ab87309",
+      "metadataHash": "ab394ed291a785c0eb7bdcfc162b6856fade10f866aba2c0d4bbc8ba146bbfd1",
+      "samples": 20
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-00-44.300Z\\session.json",
+      "sessionHash": "8a775b4f2ddde7952644afa573720b74af73dcbd91f4098625820001a3c41e45",
+      "session": {
+        "id": "2026-10-01T18-00-44.300Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-00-44.300Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-00-44.300Z\\machine.json",
+        "start": 1790877644300,
+        "end": 1790964044300,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790877713988,
+        "closedAt": 1790878000988,
+        "qualification": {
+          "quietDurationMs": 60649,
+          "sampleCount": 9
+        }
+      },
+      "traceHash": "f9544d0405e84ed1db0a3ff0efad662bc21dc30bf116caa6cabd88c2f431b8e7",
+      "metadataHash": "d819320e05f8afda74e5a74f7a989e2dc1076ec5eb25dd3f568d608569e59f8d",
+      "samples": 44
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-11-34.423Z\\session.json",
+      "sessionHash": "72aad35789c6d7ee9b874141cb034ba1df534c9a26bb33fa281a82b87fcef5e2",
+      "session": {
+        "id": "2026-10-01T18-11-34.423Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-11-34.423Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-11-34.423Z\\machine.json",
+        "start": 1790878294423,
+        "end": 1790964694423,
+        "generation": 1,
+        "valid": false,
+        "qualifiedAt": 1790878363457,
+        "closedAt": 1790878409731,
+        "qualification": {
+          "quietDurationMs": 60197,
+          "sampleCount": 9
+        }
+      },
+      "traceHash": "fe15369fb1a569100825b6dc78df5ff17e5c564180000a0f09e4749c624963a3",
+      "metadataHash": "a2427dad638aa057dfd0129d238c86fa2cb60c66fa4b2bd3fc7db3c29f7bcfcd",
+      "samples": 15
+    },
+    {
+      "path": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-18-07.023Z\\session.json",
+      "sessionHash": "7312b2f64b1df15372ef399405197aa7de8df752db41ad7bd01c59676cd51983",
+      "session": {
+        "id": "2026-10-01T18-18-07.023Z",
+        "trace": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-18-07.023Z\\load.jsonl",
+        "metadata": "C:\\Users\\Kyler\\Documents\\ChatGPT\\dam-good-maps\\investigation\\performance\\local\\checkout\\investigation\\performance\\local\\sessions\\2026-10-01T18-18-07.023Z\\machine.json",
+        "start": 1790878687023,
+        "end": 1790965087023,
+        "generation": 2,
+        "valid": false,
+        "qualifiedAt": 1790879132015,
+        "closedAt": 1790880232109,
+        "reason": "Outside load/gap",
+        "qualification": {
+          "quietDurationMs": 61765,
+          "sampleCount": 9
+        }
+      },
+      "traceHash": "d65d0bc02e29e5e91eb39fcf20348a335b1fc8e6f996a6adf417f83ec4cc328c",
+      "metadataHash": "ebd5a7507ad97574e1cf6cfc2a733a3e9bd10e99607b00d8c20fac6126340129",
+      "samples": 122
+    }
+  ],
+  "configurations": [
+    {
+      "look": "standard",
+      "profile": "native",
+      "phases": {
+        "before": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        },
+        "after": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        }
+      },
+      "pairs": [
+        {
+          "repeat": 1,
+          "complete": false
+        },
+        {
+          "repeat": 2,
+          "complete": false
+        },
+        {
+          "repeat": 3,
+          "complete": false
+        },
+        {
+          "repeat": 4,
+          "complete": false
+        },
+        {
+          "repeat": 5,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "look": "standard",
+      "profile": "laptop",
+      "phases": {
+        "before": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        },
+        "after": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        }
+      },
+      "pairs": [
+        {
+          "repeat": 1,
+          "complete": false
+        },
+        {
+          "repeat": 2,
+          "complete": false
+        },
+        {
+          "repeat": 3,
+          "complete": false
+        },
+        {
+          "repeat": 4,
+          "complete": false
+        },
+        {
+          "repeat": 5,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "look": "high",
+      "profile": "native",
+      "phases": {
+        "before": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        },
+        "after": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        }
+      },
+      "pairs": [
+        {
+          "repeat": 1,
+          "complete": false
+        },
+        {
+          "repeat": 2,
+          "complete": false
+        },
+        {
+          "repeat": 3,
+          "complete": false
+        },
+        {
+          "repeat": 4,
+          "complete": false
+        },
+        {
+          "repeat": 5,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "look": "high",
+      "profile": "laptop",
+      "phases": {
+        "before": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        },
+        "after": {
+          "completed": 0,
+          "missing": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "p99": {
+            "median": null,
+            "worst": null
+          },
+          "max": {
+            "median": null,
+            "worst": null
+          },
+          "hitches": {
+            "median": null,
+            "worst": null
+          },
+          "records": []
+        }
+      },
+      "pairs": [
+        {
+          "repeat": 1,
+          "complete": false
+        },
+        {
+          "repeat": 2,
+          "complete": false
+        },
+        {
+          "repeat": 3,
+          "complete": false
+        },
+        {
+          "repeat": 4,
+          "complete": false
+        },
+        {
+          "repeat": 5,
+          "complete": false
+        }
+      ]
+    }
+  ],
+  "workers": [
+    {
+      "look": "standard",
+      "file": "checks.worker-CBu1cAYf.js",
+      "equal": true,
+      "sha256": "6625fc3f92a993814b510ce91b9d6dd79be340ad3e541c4a2c4b80392d5f598a"
+    },
+    {
+      "look": "standard",
+      "file": "generator.worker-WOSEoAdU.js",
+      "equal": true,
+      "sha256": "f886e9bf6408bbee3ac125ea8d52a491a1eed14b8829554b39ce3cac9d96e1d8"
+    },
+    {
+      "look": "standard",
+      "file": "startCheck.worker-CBVIVgGX.js",
+      "equal": true,
+      "sha256": "a6afacddef9809ca00a818dd64d23265dbbabc838d581f60640352e7a785cc7d"
+    },
+    {
+      "look": "high",
+      "file": "bake.worker-2-luqXeY.js",
+      "equal": true,
+      "sha256": "915947ec3d4fe0c5d4ae65e9f7c16108734d38a893f04a29f1265d4721c184f8"
+    },
+    {
+      "look": "high",
+      "file": "checks.worker-CBu1cAYf.js",
+      "equal": true,
+      "sha256": "6625fc3f92a993814b510ce91b9d6dd79be340ad3e541c4a2c4b80392d5f598a"
+    },
+    {
+      "look": "high",
+      "file": "generator.worker-WOSEoAdU.js",
+      "equal": true,
+      "sha256": "f886e9bf6408bbee3ac125ea8d52a491a1eed14b8829554b39ce3cac9d96e1d8"
+    },
+    {
+      "look": "high",
+      "file": "startCheck.worker-CBVIVgGX.js",
+      "equal": true,
+      "sha256": "a6afacddef9809ca00a818dd64d23265dbbabc838d581f60640352e7a785cc7d"
+    }
+  ],
+  "failures": [
+    "standard/native/before: missing repeats 1,2,3,4,5",
+    "standard/native/after: missing repeats 1,2,3,4,5",
+    "standard/laptop/before: missing repeats 1,2,3,4,5",
+    "standard/laptop/after: missing repeats 1,2,3,4,5",
+    "high/native/before: missing repeats 1,2,3,4,5",
+    "high/native/after: missing repeats 1,2,3,4,5",
+    "high/laptop/before: missing repeats 1,2,3,4,5",
+    "high/laptop/after: missing repeats 1,2,3,4,5"
+  ],
+  "status": "draft-failed-or-incomplete"
+}

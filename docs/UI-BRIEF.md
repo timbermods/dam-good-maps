@@ -3,7 +3,7 @@
 Kyler's decisions, 2026-09-29. One workspace is a core part of Dam Good Maps' identity: generation, editing and sculpting are seamless.
 
 > Recorded as [PLAN.md §20](../PLAN.md#20-editor-decisions) D330, from Kyler's question-and-answer round on
-> [UI-QUESTIONS.md](UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
+> [UI-QUESTIONS.md](archive/UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
 
 ## 1. One workspace
 One window for everything. The map fills it from the first visit. There is no separate editor, no expand button, no full-screen mode and no "Refine this map" step. The keys are the same everywhere; Esc means what it means today; keys are ignored while typing in a field. Phones are view-only (D185): the map, the panel and Your maps to browse, with no editing.

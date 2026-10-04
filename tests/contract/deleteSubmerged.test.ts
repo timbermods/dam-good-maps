@@ -1,7 +1,9 @@
-// Delete's counts and "Everything" include the objects under water (PLAN §20 D345, B5): the resource
-// features hold trees and bushes on ground a lake later covers (a source the player placed in a
-// forest, say), and they stand again when the water drains. A selection's counts include them, and
-// deleting everything in it leaves nothing to grow back when the sources go and the water drains.
+// Delete's counts and "Everything" include the objects under water (PLAN §20 D345, B5). A generated
+// map's own trees, bushes and ruin columns stand in a lake that later covers them (a source the player
+// placed in a forest, say), a tree dead (D404): the water never hides one, and none appears when it
+// drains (D368 (10)). A resource feature without the generation's record (an old document's) holds its
+// objects under the water and grows them back as it drains; the counts include those too. Deleting
+// everything in a selection leaves nothing to grow back when the sources go and the water drains.
 
 import { describe, expect, it } from "vitest";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -41,7 +43,7 @@ function inTheTrees(): [number, number] {
 }
 
 describe("Delete counts what is under water too (D345, B5)", () => {
-  it("a lake over a forest: the counts include the trees it hides, and deleting everything leaves none to appear as it drains", async () => {
+  it("a lake over a forest: its trees stand in the water and are counted, none hidden, and deleting everything leaves none to appear as it drains", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
@@ -52,11 +54,12 @@ describe("Delete counts what is under water too (D345, B5)", () => {
     expect(r.ok, JSON.stringify(r.errors)).toBe(true);
     ed.settleWater();
     const flooded = growing();
-    expect(flooded, "the water hides some of the trees").toBeLessThan(dry);
+    // (the source took its own tile's tree; the rest stand in the water, D404)
+    expect(flooded, "the water hides none of the trees").toBeGreaterThanOrEqual(dry - 1);
     const counts = ed.objectsInArea(ALL);
-    // the counts are the objects standing plus the ones the water hides
-    expect(total(counts.submerged)).toBeGreaterThan(0);
-    expect(total(counts.counts) - total(counts.submerged)).toBeGreaterThanOrEqual(flooded);
+    // the counts are the objects standing, those in the water too: nothing is held under it
+    expect(total(counts.submerged)).toBe(0);
+    expect(total(counts.counts)).toBeGreaterThanOrEqual(flooded);
     // Everything: the source goes, the water drains (D260), and the hidden trees go with the rest
     const gone = ed.removeAt(ALL, ["trees", "bushes", "ruins", "sources", "slopes", "objects", "start"], "Delete everything");
     expect(gone.ok, JSON.stringify(gone.errors)).toBe(true);

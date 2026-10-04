@@ -22,7 +22,8 @@ import { fbm } from "../math/noise";
 import { levelRegions, MinHeap } from "../math/grid";
 import { stream } from "../math/rng";
 import { clamp, N4, pctSorted, smoothstep } from "./num";
-import type { Genome } from "./genome";
+import { BED_FLOOR, VT_HIGH, type Genome } from "./genome";
+import { windRoute } from "./wind";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -64,12 +65,44 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         const m = smoothstep((fbm(ts, x, y, g.terrace.cell, 2) + 1) / 2 - (1 - g.terrace.share) + 0.5);
         if (m > 0.5) L = Math.floor((L - phase) / st + 0.5) * st + phase;
       }
-      out[i] = clamp(Math.round(L), 1, maxLv);
+      // (the land stands a level above the beds' floor, item 47)
+      out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }
+  // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
+  // two tiles wide standing two levels or more over the land round it
+  if (g.vt >= VT_HIGH) readable(out, W, H);
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
   return out;
+}
+
+/** The land's opening and closing by a 3×3 square, applied only where they move a tile two levels
+ *  or more: a spike, a wall or a trench one or two tiles wide that stands out that far goes to the
+ *  land round it; one-level steps and broader shapes stay as they are. */
+export function readable(h: Uint8Array, W: number, H: number): void {
+  const N = W * H;
+  const pass = (src: Uint8Array, max: boolean): Uint8Array => {
+    const out = new Uint8Array(N);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let v = src[y * W + x];
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy < 0 ? 0 : y + dy >= H ? H - 1 : y + dy;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx < 0 ? 0 : x + dx >= W ? W - 1 : x + dx;
+            const u = src[yy * W + xx];
+            if (max ? u > v : u < v) v = u;
+          }
+        }
+        out[y * W + x] = v;
+      }
+    return out;
+  };
+  const opened = pass(pass(h, false), true);
+  for (let i = 0; i < N; i++) if (h[i] - opened[i] >= 2) h[i] = opened[i];
+  const closed = pass(pass(h, true), false);
+  for (let i = 0; i < N; i++) if (closed[i] - h[i] >= 2) h[i] = closed[i];
 }
 
 // ------------------------------------------------------------------------------------ natural ramps
@@ -303,8 +336,9 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
  *  the edge, so a thin raised band can be left along it. Each of the two outer rows is lowered to
  *  the inward profile carried on (the next tile in, plus its rise toward the edge, never a fall), so
  *  land that rises toward the edge keeps rising and a band standing over the land inside it goes.
- *  Never raises a tile. Returns the number of tiles lowered. */
-export function relaxEdges(h: Uint8Array, W: number, H: number): number {
+ *  Never raises a tile. Tiles marked in `keep` stay as they are (M9b: the banks beside an inflow's
+ *  mouth, which hold its water in its channel). Returns the number of tiles lowered. */
+export function relaxEdges(h: Uint8Array, W: number, H: number, keep: Uint8Array | null = null): number {
   let n = 0;
   const edges: [number, (k: number, t: number) => number][] = [
     [H, (k, t) => k * W + t],
@@ -319,7 +353,7 @@ export function relaxEdges(h: Uint8Array, W: number, H: number): number {
         const b = h[at(k, t + 2)];
         const cap = a + Math.max(0, a - b);
         const i = at(k, t);
-        if (h[i] > cap) {
+        if (h[i] > cap && !keep?.[i]) {
           h[i] = cap;
           n++;
         }
@@ -449,7 +483,7 @@ export function fillDryHollows(h: Uint8Array, W: number, H: number, keep: Uint8A
  *  basins of `minArea` tiles or more whose flat at the spill level is `minFlat` tiles or more; the
  *  tiles of `keep` (the river channels) are never cut, a lake's shallow shore may be. Returns the
  *  tiles cut. */
-export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120): number {
+export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120, wet: Uint8Array | null = null): number {
   const N = W * H;
   // spill levels from the draining map edge (priority flood)
   const spill = new Int16Array(N).fill(-1);
@@ -503,7 +537,9 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
   }
   let cut = 0;
   basins.forEach((b, id) => {
-    if (b.tiles.length < minArea || b.level < 1) return;
+    if (b.tiles.length < minArea || b.level < BED_FLOOR + 1) return;
+    // (with `wet`, only a basin the planned water reaches: its own tiles or beside them)
+    if (wet && !b.tiles.some((i) => wet[i] || (i % W > 0 && wet[i - 1]) || (i % W < W - 1 && wet[i + 1]) || (i >= W && wet[i - W]) || (i < N - W && wet[i + W]))) return;
     const S = b.level;
     // the flat at the spill level joined to the basin: a sheet of water would spread over all of it
     const seen = new Uint8Array(N);
@@ -581,9 +617,26 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
       }
     }
     if (end < 0) return;
+    // (wound like a gully, D209: across a flat the cheapest way is a straight line, and a channel
+    // cut along it has ruler-straight banks)
+    const straight: number[] = [];
+    for (let c = end; c >= 0 && label[c] !== id; c = prev[c]) straight.push(c);
+    straight.reverse();
+    const isOut = (c: number) => {
+      const x = c % W;
+      const y = (c - x) / W;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return true;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H && spill[yy * W + xx] < S && label[yy * W + xx] !== id) return true;
+      }
+      return false;
+    };
+    const route = windRoute(straight, W, H, (i) => label[i] !== id && h[i] === S && spill[i] === S, isOut, stream(seed, "outlet-wind", id));
     // cut the way at a level below the flat, `width` tiles wide (never the kept water)
     const r = (width - 1) / 2;
-    for (let c = end; c >= 0 && label[c] !== id; c = prev[c]) {
+    for (const c of route) {
       const cx = c % W;
       const cy = (c - cx) / W;
       for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++)
@@ -665,7 +718,7 @@ export function unreachedLakes(h: Uint8Array, W: number, H: number, heads: reado
 
 /** Spill levels from the draining map edge (priority flood): the lowest level water standing on a
  *  tile drains at. */
-function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
+export function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
   const N = W * H;
   const spill = new Int16Array(N).fill(-1);
   const heap = new MinHeap();
@@ -708,8 +761,10 @@ function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
  *  sea's level takes a slope of water to carry the flow), never below the sea's level within two
  *  tiles of it and never on `keep`. A large lake of `lakes` whose floor is at its outlet's level is
  *  such a body too (its water stands as a sheet over the flat). A widening that would drain the
- *  sea or a kept lake is undone. */
-export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, flow: number, lakes: readonly (readonly number[])[] = [], minArea = 2500): number {
+ *  sea or a kept lake is undone. With `organic` (a sea's map, D417) the route winds more and the
+ *  banks wander from half the half-width to half as much again, the same width on average: a
+ *  straight band of even width cut the shore as a rectangle (Islands 128² seed 20). */
+export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, flow: number, lakes: readonly (readonly number[])[] = [], minArea = 2500, organic = false): number {
   const N = W * H;
   let spill = edgeSpill(h, W, H);
   const label = new Int32Array(N).fill(-1);
@@ -787,7 +842,7 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
         if (label[j] === id || h[j] > S || spill[j] > spill[c] || cost[j] <= k) continue;
-        const nk = k + 1 + 3 * (fbm(ns, xx, yy, Math.max(12, width), 2) + 1);
+        const nk = k + 1 + (organic ? 6 : 3) * (fbm(ns, xx, yy, Math.max(12, width), 2) + 1);
         if (nk < cost[j]) {
           cost[j] = nk;
           prev[j] = c;
@@ -816,22 +871,28 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
     const best = new Float64Array(N).fill(Infinity);
     const target = new Int16Array(N).fill(-1);
     const band: number[] = [];
-    const Ri = Math.ceil(R);
+    const Ro = organic ? 1.5 * R : R;
+    const Ri = Math.ceil(Ro);
+    const bs = hash32(seed, "widen-bank", id);
     for (const r of route) {
       const rx = r % W;
       const ry = (r - rx) / W;
       for (let dy = -Ri; dy <= Ri; dy++)
         for (let dx = -Ri; dx <= Ri; dx++) {
           const d2 = dx * dx + dy * dy;
-          if (d2 > R * R + 0.5) continue;
+          if (d2 > Ro * Ro + 0.5) continue;
           const xx = rx + dx;
           const yy = ry + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          if (organic) {
+            const Rb = R * clamp(1 + 1.4 * fbm(bs, xx, yy, Math.max(5, 0.6 * R), 3), 0.5, 1.5);
+            if (d2 > Rb * Rb + 0.5) continue;
+          }
           const j = yy * W + xx;
           if (target[j] < 0) band.push(j);
           if (d2 < best[j]) {
             best[j] = d2;
-            target[j] = h[r] >= S && !nearSea[r] ? Math.max(0, S - 1) : h[r];
+            target[j] = h[r] >= S && !nearSea[r] ? Math.max(BED_FLOOR, S - 1) : h[r];
           }
         }
     }
@@ -841,18 +902,43 @@ export function widenOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
     for (const j of band) {
       inBand[j] = 1;
       if (label[j] === id || keep[j]) continue;
-      const t = nearSea[j] ? Math.max(target[j], S) : target[j];
+      // (organic: off the route's own channel no lower than a level under the sea's: a band cut
+      // down to a deep channel's bed it ran through stood as a box canyon, Islands 128² seed 12)
+      const t = nearSea[j] ? Math.max(target[j], S) : organic && best[j] > 2.5 ? Math.max(target[j], Math.max(BED_FLOOR, S - 1)) : target[j];
       if (h[j] > t) {
         h[j] = t;
         n++;
       }
     }
     if (!n) return;
-    // undone if it drains the sea or a kept lake (a hollow beside the route may join it)
-    const after = edgeSpill(h, W, H);
-    let drained = false;
-    for (let i = 0; i < N && !drained; i++) if ((label[i] === id || (keep[i] && !inBand[i])) && spill[i] > before[i] && after[i] < spill[i]) drained = true;
-    if (drained) {
+    // where it drains the sea or a kept lake (a hollow beside the route may join it), the cut round
+    // what drained stands as it was (M9b, D350 (d): before, the whole widening was undone, and a
+    // sea kept a way out too narrow for its springs, rising a level over its spill level); undone
+    // when that is not enough
+    let after = edgeSpill(h, W, H);
+    let drained: number[] = [];
+    for (let round = 0; round < 4; round++) {
+      drained = [];
+      for (let i = 0; i < N; i++) if ((label[i] === id || (keep[i] && !inBand[i])) && spill[i] > before[i] && after[i] < spill[i]) drained.push(i);
+      if (!drained.length) break;
+      const near = new Uint8Array(N);
+      for (const i of drained) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -3; dy <= 3; dy++)
+          for (let dx = -3; dx <= 3; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx >= 0 && yy >= 0 && xx < W && yy < H) near[yy * W + xx] = 1;
+          }
+      }
+      for (const j of band) if (near[j] && h[j] !== before[j]) {
+        h[j] = before[j];
+        n--;
+      }
+      after = edgeSpill(h, W, H);
+    }
+    if (drained.length || n <= 0) {
       h.set(before);
       return;
     }

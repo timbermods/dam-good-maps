@@ -14,6 +14,7 @@ import { MapSession } from "../../src/core/doc/session";
 import { normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
 import { encodeWorld } from "../../src/core/format/world";
+import { namedFile } from "../../src/core/gen/pack";
 
 const RAW = "investigation/raw";
 const list = (dir: string) => (existsSync(join(RAW, dir)) ? readdirSync(join(RAW, dir)).filter((f) => f.endsWith(".timber")).map((f) => join(RAW, dir, f)) : []);
@@ -66,7 +67,8 @@ test.describe("every investigation map imports, renders and exports unchanged (l
       await page.getByRole("button", { name: "More", exact: true }).click();
       await page.getByRole("menuitem", { name: "Download .timber" }).click();
       const d = await download;
-      expect(d.suggestedFilename()).toBe(name);
+      // an opened map downloads as dgm- plus its name (D345 B10): Beaverome.timber as dgm-beaverome.timber
+      expect(d.suggestedFilename()).toBe(namedFile(name.replace(/\.timber$/i, "")));
       const out = new Uint8Array(readFileSync(await d.path()));
 
       // unchanged: the browser's export is Node's, byte for byte

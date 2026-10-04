@@ -18,4 +18,10 @@ playwright-report/
 out/*/local/
 # Large generated investigation results stay out of git (PLAN.md §20, D195)
 investigation/*/local/
+# The first-visit maps: built and checked at deploy, never committed (PLAN.md §20, D343)
+public/first-visit/
 .claude/settings.local.json
+# smooth: the renderer smoothness gate keeps builds, raw frames and state here (tools/smooth/README.md)
+tools/smooth/local/
+# Rust build output (tools/rust/check.ts)
+rust/target/

@@ -16,6 +16,9 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const note = (page: Page) => page.locator(".shape-note");
+/** The note's words now, "" when there is none. One read in the page: a count() then a textContent() would wait for a note's return
+    when it timed out between them (it lasts about a second), and hang the poll that asked. */
+const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
 async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await page.goto(`./#${hash}`);
@@ -26,37 +29,54 @@ async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
 }
 
 /** Dry ground far from the start where the map (not a bar over it) takes the pointer, with 14 tiles
- *  of map each side of it. */
+ *  of map each side of it. A tool's options row is a bar over the map too (D323 item 9) and its height
+ *  differs by tool, so the spot must be clear of the bar with each kind of tool picked (seed 4242 on
+ *  M9b's maps, D148: its best spot stood under the Raise row). */
 async function spot(page: Page): Promise<[number, number]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-  return page.evaluate(
-    ([s0, s1]) => {
+  const grid = () =>
+    page.evaluate(() => {
       const m = window.dgm3d!.renderer.mapState()!;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
-      let best: [number, number] = [0, 0];
-      let score = -Infinity;
+      const out: string[] = [];
       for (let y = 20; y < m.H - 20; y += 2)
         for (let x = 20; x < m.W - 20; x += 2) {
           if (m.surface.depth[y * m.W + x] > 0) continue;
           if (![[0, 0], [-14, 0], [14, 0], [0, -14], [0, 14], [14, 14], [-14, -14]].every(([dx, dy]) => onMap(x + dx, y + dy))) continue;
-          const s = Math.hypot(x - s0, y - s1) - Math.hypot(x - m.W / 2, y - m.H / 2) * 0.5;
-          if (s > score) {
-            score = s;
-            best = [x, y];
-          }
+          out.push(`${x},${y}`);
         }
-      return best;
-    },
-    [start[0], start[1]] as const,
-  );
+      return out;
+    });
+  let clear = new Set(await grid());
+  for (const key of ["1", "4", "7", "8", "9", "0", "-"]) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(150);
+    const here = new Set(await grid());
+    clear = new Set([...clear].filter((c) => here.has(c)));
+    await page.keyboard.press("x");
+  }
+  const dims = await page.evaluate(() => { const m = window.dgm3d!.renderer.mapState()!; return [m.W, m.H]; });
+  let best: [number, number] = [0, 0];
+  let score = -Infinity;
+  for (const c of clear) {
+    const [x, y] = c.split(",").map(Number);
+    const sc = Math.hypot(x - start[0], y - start[1]) - Math.hypot(x - dims[0] / 2, y - dims[1] / 2) * 0.5;
+    if (sc > score) {
+      score = sc;
+      best = [x, y];
+    }
+  }
+  expect(score, "a spot clear of every bar").toBeGreaterThan(-Infinity);
+  return best;
 }
 
 test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
   await refine(page);
+  const at = await spot(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   const size = row.locator(".size-control output");
@@ -64,7 +84,6 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   // numbers: Power's, and Size's on Auto as "Auto (n)"
   await expect(power).toHaveText(/^\d+$/);
   await expect(size).toHaveText(/^Auto \(\d+\)$/);
-  const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
@@ -293,7 +312,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     // [ ]: the strength on Smooth and Naturalize; nothing on the height brushes (their target level is theirs)
     const s0 = (await saved()).strength!;
     // (the size's word gone: the brush's own words are back)
-    const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+    const words = () => noteWords(page);
     await expect.poll(words, { timeout: 5_000 }).not.toMatch(/^(size|strength|power) /);
     await page.keyboard.press(s0 >= 10 ? "[" : "]");
     if (strength) {
@@ -343,7 +362,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
       // (Quake has no Size: F and { } leave it as it is)
       await page.keyboard.press("}");
       await page.waitForTimeout(300);
-      expect((await note(page).count()) ? await note(page).textContent() : "").not.toMatch(/size|power/);
+      expect(await noteWords(page)).not.toMatch(/size|power/);
       await expect(power).toHaveValue("50");
     }
     // [ ]: its Power by five
@@ -365,7 +384,7 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
   const p = await client(page, at[0], at[1]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
   const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
-  const words = async () => ((await note(page).count()) ? ((await note(page).textContent()) ?? "") : "");
+  const words = () => noteWords(page);
   /** The pointer on the map (a slider just set lets go of the keys first). */
   const point = async () => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -379,10 +398,25 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     await page.mouse.wheel(0, up ? -120 : 120);
     await page.waitForTimeout(150);
   };
-  /** The words beside the pointer: near it. */
-  const besidePointer = async () => {
-    const b = (await note(page).boundingBox())!;
-    expect(Math.hypot(b.x - p.x, b.y - p.y), "the number beside the pointer").toBeLessThan(120);
+  /** The words beside the pointer: near it. The note lasts about a second, so its place is read in
+   *  the same step as its words (a box asked for after other waits finds it gone, or waits for its
+   *  return); the poll runs until a note with these words is there and near the pointer. */
+  const besidePointer = async (words: RegExp) => {
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            ([src, x, y]) => {
+              const el = document.querySelector(".shape-note");
+              if (!el || !new RegExp(src).test(el.textContent ?? "")) return null;
+              const r = el.getBoundingClientRect();
+              return Math.hypot(r.x - (x as number), r.y - (y as number));
+            },
+            [words.source, p.x, p.y] as const,
+          ),
+        { message: "the number beside the pointer" },
+      )
+      .toBeLessThan(120);
   };
 
   // the brushes
@@ -400,8 +434,8 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     await fWheel(s0 < 10);
     if (strength) {
       await expect(note(page), `${name}: F+scroll sets its strength`).toHaveText(/^strength \d+$/);
+      await besidePointer(/^strength \d+$/);
       await expect.poll(async () => (await saved()).strength, `${name}: its strength changed`).toBe(s0 < 10 ? s0 + 1 : s0 - 1);
-      await besidePointer();
       await page.mouse.wheel(0, s0 < 10 ? 120 : -120);
       await expect.poll(async () => (await saved()).strength).toBe(s0);
     } else {
@@ -429,8 +463,8 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
     const v0 = await view();
     await fWheel(true);
     await expect(note(page), `${name}: F+scroll sets its Power`).toHaveText("power 55");
+    await besidePointer(/^power 55$/);
     await expect(power).toHaveValue("55");
-    await besidePointer();
     await page.mouse.wheel(0, 120);
     await page.mouse.wheel(0, 120);
     await expect(power).toHaveValue("45");

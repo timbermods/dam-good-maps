@@ -1,0 +1,112 @@
+{
+  "status": "NOT READY; no qualified before/after performance results",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cores": 16,
+    "memoryGB": 61.60379409790039,
+    "gpus": [
+      "AMD Radeon(TM) Graphics",
+      "NVIDIA GeForce RTX 4080 SUPER"
+    ]
+  },
+  "blockedBaseline": {
+    "browser": "edge",
+    "size": 128,
+    "look": "clean",
+    "status": "blocked-busy",
+    "load": {
+      "quiet": false,
+      "samples": [
+        {
+          "at": "2026-09-30T07:09:45.8019822Z",
+          "cpu": 88,
+          "gpuEngineMax": 3.2666169286277436
+        },
+        {
+          "at": "2026-09-30T07:09:58.5956534Z",
+          "cpu": 91,
+          "gpuEngineMax": 3.1813592398219597
+        },
+        {
+          "at": "2026-09-30T07:10:10.5676369Z",
+          "cpu": 85,
+          "gpuEngineMax": 3.7724287741727465
+        },
+        {
+          "at": "2026-09-30T07:10:24.5650324Z",
+          "cpu": 93,
+          "gpuEngineMax": 3.86126242293729
+        },
+        {
+          "at": "2026-09-30T07:10:35.3768520Z",
+          "cpu": 91,
+          "gpuEngineMax": 3.6500149517275577
+        }
+      ]
+    }
+  },
+  "latestLoad": {
+    "quiet": false,
+    "samples": [
+      {
+        "at": "2026-09-30T07:53:13.0070154Z",
+        "cpu": 100,
+        "gpuEngineMax": null
+      },
+      {
+        "at": "2026-09-30T07:53:26.4832516Z",
+        "cpu": 100,
+        "gpuEngineMax": 0.30060508718998974
+      },
+      {
+        "at": "2026-09-30T07:53:40.0602438Z",
+        "cpu": 100,
+        "gpuEngineMax": 0.21070129514875105
+      },
+      {
+        "at": "2026-09-30T07:53:51.7091634Z",
+        "cpu": 100,
+        "gpuEngineMax": 0.43492095722130275
+      },
+      {
+        "at": "2026-09-30T07:54:03.4060794Z",
+        "cpu": 100,
+        "gpuEngineMax": 0.24192735997439846
+      }
+    ]
+  },
+  "functional": {
+    "index": "smoke-proof.json",
+    "scope": "128 clean native; functional byte comparisons only, NOT timing certification",
+    "passed": 6,
+    "total": 6
+  },
+  "diagnosticCapture": {
+    "scope": "Edge native Clean 256 Craterize Fast Power 100; busy, unqualified smoke; not before/after performance evidence",
+    "path": "local/runs/2026-09-30T07-25-54.071Z-after-smoke/edge-native-256-clean-craterize-fast-1-frames",
+    "redoExact": true,
+    "counts": {
+      "water-under-ground": 60097,
+      "water-state-mismatch": 1048182,
+      "presentation-not-settled-after-worker": 1
+    },
+    "interpretation": "Geometry candidates only: depth occlusion can hide below-land surfaces; queued mesh state can differ from target state. Pixel glitches are unverified.",
+    "source": [
+      "probe.js: diagnose",
+      "src/render3d/renderer.ts: updateWaterSoon/processWaterQueue",
+      "src/editor/waterPlayer.ts: blendWater"
+    ],
+    "audio": "Legacy capture omitted silent input quanta and reported two gaps; not audible-dropout proof. Tap corrected; fresh qualified PCM and listening remain required."
+  },
+  "missing": [
+    "three quiet repeats",
+    "High look",
+    "physical laptop and Firefox throttle coverage",
+    "one-hour sessions",
+    "qualified before/after GIFs",
+    "pixel/audio oracle",
+    "Firefox long-task oracle",
+    "export file byte comparison",
+    "calibrated budgets"
+  ]
+}

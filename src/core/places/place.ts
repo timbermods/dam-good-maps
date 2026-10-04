@@ -75,6 +75,34 @@ export interface PlaceIndexEntry {
   /** The .timber's size in bytes and its sha256: every build of the place gives this file. */
   bytes: number;
   sha256: string;
+  /** The playability checks this place's own map fails, recorded when the tool builds it
+   *  (`PLACE_FAULT_CHECKS`): what the gallery reads for a place's card note (D445). */
+  faults: string[];
+}
+
+/** The checks tools/real-places.ts records per place in `faults`, as the generate profile gives them
+ *  on the place's own build. The conversion-wide ones every place has (the edge wall, the missing
+ *  mine site and badwater source, D151, D200) are not recorded. */
+export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
+
+/** What every place as converted has, and what Real places 2 removes: not a reason to leave one out. */
+export const CONVERSION_FAULT_CHECKS = ["terrain.edge_wall", "resources.mine_site", "resources.badwater_source"] as const;
+
+/** The fault whose card note reads `NO_WATER_NOTE` (D445): the place's start reaches no water a source
+ *  feeds. The place still shows in the gallery; Real places 2 fixes it, and the next run of the tool
+ *  no longer records it. */
+export const NO_WATER_FAULT = "start.water";
+
+/** The card note for a place with `NO_WATER_FAULT` (D445). No other fault gets a note. */
+export const NO_WATER_NOTE = "No reachable water";
+
+/** The card note a place carries, from its recorded faults, or null. */
+export const placeNote = (e: Pick<PlaceIndexEntry, "faults">): string | null => (e.faults.includes(NO_WATER_FAULT) ? NO_WATER_NOTE : null);
+
+/** The index as the gallery page shows it (D445): every place, including those whose start reaches no
+ *  fed water, which carry a note (`placeNote`). */
+export function galleryIndex(index: PlaceIndex): PlaceIndex {
+  return index;
 }
 
 export interface PlaceIndex {
@@ -179,7 +207,9 @@ export function buildPlace(p: PlaceData): BuiltPlace {
   const entities = placeEntities(p, heights);
   const objects = entities.map(mapObject);
   const model = waterModel(W, H, heights, objects);
-  const settle = canonicalSettle(model);
+  // (the places were converted under the port's water rules and are settled with them, so the
+  // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
+  const settle = canonicalSettle(model, { rules: "port" });
   const barrier = moistureBarrier(W, H, objects);
   const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
   const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);

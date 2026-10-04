@@ -17,18 +17,23 @@ import { ORIENTATION_NAMES, RUIN_VARIANT_IDS } from "../../src/render3d/model";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
-/** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as `dev`
- *  makes it since the terrain and water from processes (M9a, generator 0.7.0, with natural ramps
- *  that only climb cliffs, winding badwater ditches, the starting-logs floor with D227's Minimum
- *  starting wood, D252's start planting spread over the walk and the settled outflows written into
- *  the file (FORMAT.md §4.3); `ec1ff6d3…` before the outflows, `fb0e9f70…` before a walk short of
+/** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as M9b
+ *  makes it (generator 0.8.0: composition and variety, the game's water and soil rules, D308, D311;
+ *  batch 5, D325, D329: the land on the beds' floor, living trees only, two reachable mine sites,
+ *  the start's land, badwater contained, the edge lip, the first map that passes; D333: the land
+ *  kept once it passes, no flat level with the water, springs toward the land far from it; D348,
+ *  D350, D358, D360: the first land shown is the map, its water settled up to 6 days, outlets and
+ *  channels wound, a second place for a start; then dev's merge, small starts, generation speed rounds 1 and 2 and open groves, `dbab238a…` before them, D148); `9644dc88…` before D348, `050fe985…` before D333, `8d2941ad…` before batch 5; `776a9a44…` as M9a made it, since the terrain and water from processes (generator 0.7.0, with
+ *  natural ramps that only climb cliffs, winding badwater ditches, the starting-logs floor with
+ *  D227's Minimum starting wood, D252's start planting spread over the walk and the settled outflows
+ *  written into the file (FORMAT.md §4.3); `ec1ff6d3…` before the outflows, `fb0e9f70…` before a walk short of
  *  moist land kept the start's wood first, `64ee3b4f…` before D252,
  *  `1d865554…` before the floor, `1b4cf3c7…` as M9a finished its settings,
  *  `4e304804…` from M9a's first slice; `b358b4f8…` from
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "776a9a447c8e17091dc9c6ac1a03fb3d459687e71f71ab512d09332dd0d3a309";
+const LIVE_SHA = "80f7c5ef5388bedc68adbb0e33f671b6c0e5971a1e4c11b0d99fedc97b518f05";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

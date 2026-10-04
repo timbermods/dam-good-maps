@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -27,7 +27,9 @@
     { "if": { "properties": { "op": { "const": "deleteEntities" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/deleteEntities" } } } },
     { "if": { "properties": { "op": { "const": "setEntityProps" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setEntityProps" } } } },
     { "if": { "properties": { "op": { "const": "pinSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/pinSlope" } } } },
-    { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } }
+    { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } },
+    { "if": { "properties": { "op": { "const": "removeUnfedWater" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/removeUnfedWater" } } } },
+    { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -56,6 +58,11 @@
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
         "weathers": { "const": true },
+        "weathering": { "enum": [2, 3] },
+        "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
+        "shore": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "pools": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "moist": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square"] },
         "precise": { "type": "boolean" },
@@ -325,6 +332,38 @@
       "additionalProperties": false,
       "required": ["x", "y", "orientation"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "orientation": { "$ref": "#/$defs/orientation" } }
+    },
+    "removeUnfedWater": {
+      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tiles"],
+      "properties": {
+        "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+        "area": { "$ref": "#/$defs/runs" },
+        "pools": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "fillHollow": {
+      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean. Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "level", "lake"],
+      "properties": {
+        "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+        "level": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 },
+        "lake": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "floor", "depth", "contamination"],
+          "properties": {
+            "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 } },
+            "contamination": { "type": "array", "maxItems": 65536, "items": { "const": 0 } }
+          }
+        }
+      }
     },
     "tile": {
       "type": "object",

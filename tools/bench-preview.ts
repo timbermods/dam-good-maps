@@ -15,6 +15,7 @@ import type { EditOp } from "../src/core/doc/ops";
 import { pathField } from "../src/core/features/geometry";
 import type { RiverFeature } from "../src/core/features/schema";
 import { generate } from "../src/core/gen/generate";
+import { hypot } from "../src/core/math/portable";
 import { AVAILABLE_THEMES, makeSpec, type ThemeId } from "../src/core/spec/mapspec";
 
 function arg(name: string, fallback: string): string {
@@ -37,7 +38,7 @@ function besideWater(s: MapSession): [number, number] | null {
     const x = i % W;
     const y = Math.floor(i / W);
     if (x < 12 || y < 12 || x > W - 14 || y > W - 14 || b.water[i] > 0) continue;
-    if (b.start && Math.hypot(x - b.start.x, y - b.start.y) < 24) continue;
+    if (b.start && hypot(x - b.start.x, y - b.start.y) < 24) continue;
     for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (b.water[(y + dy) * W + x + dx] > 0.3) return [x, y];
   }
   return null;

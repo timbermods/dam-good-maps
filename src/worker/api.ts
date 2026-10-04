@@ -9,6 +9,7 @@ import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
 import { writeTimber } from "../core/format/timber";
 import { generate, type GenerateResult } from "../core/gen/generate";
+import { findVersion, missesOf, notifies, versionNote, worthSearching, type Misses } from "../core/gen/versions";
 import { fileName, mapName, description, toTimberFile } from "../core/gen/pack";
 import type { MapSpec } from "../core/spec/mapspec";
 import { rulesFor, type PlayabilityAnalysis } from "../core/validate/playability";
@@ -83,6 +84,19 @@ export interface GenerateResponse {
   ms: number;
   /** The player's edits on this map (0 for a freshly generated map). */
   edits: number;
+  /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
+  intentions: string[];
+  /** Items 24's and 47's numbers (information, D325; the map card of "The page is the editor", #92,
+   *  reads them): the trees within the starting-logs floor's walk and their logs, the farmland and
+   *  level building land within 20 tiles' walk; and the five difficulty levers. The shapes of
+   *  `PlayabilityAnalysis`; null without a start. Every map carries them: generated, a background
+   *  version, a sibling, an edited document. */
+  walkReach: PlayabilityAnalysis["walkReach"];
+  levers: PlayabilityAnalysis["levers"];
+  /** D329: the outcomes a generated map missed, when a background search for a version meeting
+   *  them all is worth starting, and the note that version gets ("A version with its sea is ready"),
+   *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
+  version?: { misses: Misses; note: string | null } | null;
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -90,7 +104,7 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** The last map generated here, for "Refine this map" and the download without water. */
+/** The last map generated here, for opening it in the editor and the download without water. */
 let last: GenerateResult | null = null;
 /** The seed of the last map as it was typed, when it was a word (its saved file is named with it). */
 let lastSeedWord: string | undefined;
@@ -132,6 +146,11 @@ export interface ResponseInput {
   timber: Uint8Array;
   project: Uint8Array;
   edits: number;
+  /** A generated map's own name and how it plays (D278 (1b)); else the theme's name and the map's
+   *  description. */
+  name?: string;
+  premise?: string;
+  intentions?: string[];
 }
 
 /** The page's view of a built map (a fresh generation, or an editor document's current map). */
@@ -182,18 +201,58 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     timberName: fileName(r.spec, lastSeedWord),
     project: r.project,
     projectName: projectFileName(r.spec, lastSeedWord),
-    name: mapName(r.spec),
-    premise: description(r.spec),
+    name: r.name ?? mapName(r.spec),
+    premise: r.premise ?? description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",
     ms: r.ms,
     edits: r.edits,
+    intentions: r.intentions ?? [],
+    walkReach: a?.walkReach ? { ...a.walkReach } : null,
+    levers: a?.levers ? { ...a.levers } : null,
   };
+}
+
+/** D329's background search (gen/versions.ts): siblings of the map until one meets all three
+ *  outcomes. Run in a worker of its own, so the editor never waits on it; `stop` is checked between
+ *  siblings. Null when none was found. */
+let searchId = 0;
+export function stopVersionSearch(): void {
+  searchId++;
+}
+
+export async function runFindVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
+  const id = ++searchId;
+  const t0 = performance.now();
+  const found = findVersion(from, { stop: () => id !== searchId });
+  const r = found.result;
+  if (!r || id !== searchId) return null;
+  return responseOf({
+    spec: r.spec,
+    features: r.features,
+    built: r.built,
+    checks: r.report.checks,
+    passed: r.report.passed,
+    analysis: r.analysis,
+    attempts: r.attempts,
+    ms: Math.round(performance.now() - t0),
+    timber: r.bytes,
+    project: encodeProject(generatedDocument(r)),
+    edits: 0,
+    ...(r.name ? { name: r.name } : {}),
+    ...(r.description ? { premise: r.description } : {}),
+    intentions: r.info.genome?.intentions ?? [],
+  });
 }
 
 /** What the page hears while a map is made (ROADMAP M9a: generating shows its progress): each
  *  attempt's stage, and its first look, the land and the water the hydrology planned (channels 1,
  *  lakes 2, floors 3), before the water is settled. */
-export type GenProgress = { kind: "stage"; attempt: number; stage: string } | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array };
+export type GenProgress =
+  | { kind: "stage"; attempt: number; stage: string }
+  | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array }
+  /** The map, once it passed its checks (D329: the first that passes is the map, shown at once):
+   *  its land and its settled water (1 where wet). */
+  | { kind: "candidate"; attempt: number; candidate: number; of: number; met: boolean; W: number; H: number; heights: Uint8Array; water: Uint8Array };
 
 export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
   const t0 = performance.now();
@@ -203,6 +262,12 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
       ? {
           onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage }),
           onLand: (l) => onProgress({ kind: "land", attempt: l.attempt, W: spec.size.x, H: spec.size.y, heights: l.heights, water: l.water }),
+          onCandidate: (c) => {
+            const b = c.result.built;
+            const wet = new Uint8Array(b.W * b.H);
+            for (let i = 0; i < wet.length; i++) wet[i] = b.water[i] > 0.05 ? 1 : 0;
+            onProgress({ kind: "candidate", attempt: c.attempt, candidate: c.candidate, of: c.of, met: c.outcomes.met, W: b.W, H: b.H, heights: b.heights.slice(), water: wet });
+          },
         }
       : {},
   );
@@ -222,6 +287,16 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     timber: r.bytes,
     project,
     edits: 0,
+    ...(r.name ? { name: r.name } : {}),
+    ...(r.description ? { premise: r.description } : {}),
+    intentions: r.info.genome?.intentions ?? [],
+  }).then((resp) => {
+    // (a miss worth a background search, D329)
+    if (r.report.passed && r.outcomes) {
+      const m = missesOf(r.outcomes);
+      resp.version = worthSearching(m) ? { misses: m, note: notifies(m) ? versionNote(r.spec.theme, m) : null } : null;
+    }
+    return resp;
   });
 }
 

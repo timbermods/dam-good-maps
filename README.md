@@ -104,8 +104,8 @@ Real places:
 | [EDITOR_PLAN.md](EDITOR_PLAN.md) | The plan for the in-browser map editor and the Claude integration. |
 | [docs/README.md](docs/README.md) | Which documents are current and which are history. |
 | [ROADMAP.md](ROADMAP.md) | One milestone order for both plans. |
-| [AUDIT.md](AUDIT.md) | The audit that reconciled both plans with the investigation. Kyler's answers to its decisions are in PLAN.md §20. |
-| [docs/ingame-log.md](docs/ingame-log.md) | The in-game checks each milestone needs. They are deferred for now and listed as pending. |
+| [AUDIT.md](docs/archive/AUDIT.md) | The audit that reconciled both plans with the investigation. Kyler's answers to its decisions are in PLAN.md §20. |
+| [docs/ingame-log.md](docs/archive/ingame-log.md) | The in-game checks each milestone needs. They are deferred for now and listed as pending. |
 | [FORMAT.md](FORMAT.md) | The `.timber` map format as the game writes it in 1.1. |
 | [investigation/](investigation/README.md) | Every study behind the plans, what became of it, and where its adopted pieces live. |
 | [investigation/REPORT.md](investigation/REPORT.md) | What the game's code, data and maps say about map rules and design, with the numbers behind every threshold. |

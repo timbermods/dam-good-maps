@@ -1,0 +1,223 @@
+{
+  "summary": [
+    {
+      "engine": "chromium",
+      "size": 128,
+      "firstVisibleMs": {
+        "count": 108,
+        "median": 33.39999997615814,
+        "p95": 65.69999998807907,
+        "max": 100.20000004768372
+      },
+      "mainWorkMaxMs": 1.0999999642372131,
+      "mainWorkOver16_7": 0,
+      "cadenceMedianMs": 17,
+      "cadenceMaxMs": 283.19999998807907,
+      "cancelAckMaxMs": 21.19999998807907,
+      "cancellations": 99,
+      "midFillCancellations": 99,
+      "missedPreviews": 0,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 1465.9000000357628,
+        "p95": 5032,
+        "max": 5032
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 1716.3999999761581,
+        "p95": 3134.600000023842,
+        "max": 3134.600000023842
+      },
+      "rafIntervalMaxMs": 16.80000000000291,
+      "controlRafMaxMs": 16.800000000000182,
+      "cpuMeanPercent": 99.24056468242384,
+      "provisional": true
+    },
+    {
+      "engine": "chromium",
+      "size": 256,
+      "firstVisibleMs": {
+        "count": 72,
+        "median": 67.89999997615814,
+        "p95": 100.5,
+        "max": 101.30000001192093
+      },
+      "mainWorkMaxMs": 3.699999988079071,
+      "mainWorkOver16_7": 0,
+      "cadenceMedianMs": 33.89999997615814,
+      "cadenceMaxMs": 365.30000001192093,
+      "cancelAckMaxMs": 162.89999997615814,
+      "cancellations": 99,
+      "midFillCancellations": 98,
+      "missedPreviews": 36,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 7750.199999988079,
+        "p95": 16215.5,
+        "max": 16215.5
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 5266.199999988079,
+        "p95": 6300.5,
+        "max": 6300.5
+      },
+      "rafIntervalMaxMs": 16.800000000017462,
+      "controlRafMaxMs": 16.80000000000109,
+      "cpuMeanPercent": 98.71962623988566,
+      "provisional": true
+    },
+    {
+      "engine": "firefox",
+      "size": 128,
+      "firstVisibleMs": {
+        "count": 108,
+        "median": 31,
+        "p95": 48,
+        "max": 73
+      },
+      "mainWorkMaxMs": 2,
+      "mainWorkOver16_7": 0,
+      "cadenceMedianMs": 17,
+      "cadenceMaxMs": 104,
+      "cancelAckMaxMs": 13,
+      "cancellations": 99,
+      "midFillCancellations": 99,
+      "missedPreviews": 0,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 1436,
+        "p95": 2831,
+        "max": 2831
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 1469,
+        "p95": 1847,
+        "max": 1847
+      },
+      "rafIntervalMaxMs": 66.7199999999998,
+      "controlRafMaxMs": 30.979999999999563,
+      "cpuMeanPercent": 99.46699697382006,
+      "provisional": true
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "firstVisibleMs": {
+        "count": 22,
+        "median": 99,
+        "p95": 573,
+        "max": 596
+      },
+      "mainWorkMaxMs": 24,
+      "mainWorkOver16_7": 2,
+      "cadenceMedianMs": 33,
+      "cadenceMaxMs": 594,
+      "cancelAckMaxMs": 499,
+      "cancellations": 99,
+      "midFillCancellations": 97,
+      "missedPreviews": 86,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 7434,
+        "p95": 15150,
+        "max": 15150
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 5644,
+        "p95": 6463,
+        "max": 6463
+      },
+      "rafIntervalMaxMs": 72.75999999999476,
+      "controlRafMaxMs": 30.44000000000051,
+      "cpuMeanPercent": 99.3007659602396,
+      "provisional": true
+    },
+    {
+      "engine": "webkit",
+      "size": 128,
+      "firstVisibleMs": {
+        "count": 104,
+        "median": 60,
+        "p95": 91.99999999999636,
+        "max": 108
+      },
+      "mainWorkMaxMs": 61,
+      "mainWorkOver16_7": 3,
+      "cadenceMedianMs": 17,
+      "cadenceMaxMs": 134,
+      "cancelAckMaxMs": 61,
+      "cancellations": 99,
+      "midFillCancellations": 99,
+      "missedPreviews": 4,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 1259,
+        "p95": 2552,
+        "max": 2552
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 1496,
+        "p95": 1843,
+        "max": 1843
+      },
+      "rafIntervalMaxMs": 88,
+      "controlRafMaxMs": 41,
+      "cpuMeanPercent": 99.60384665995505,
+      "provisional": true
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "firstVisibleMs": {
+        "count": 13,
+        "median": 140,
+        "p95": 419,
+        "max": 419
+      },
+      "mainWorkMaxMs": 114,
+      "mainWorkOver16_7": 17,
+      "cadenceMedianMs": 35,
+      "cadenceMaxMs": 524,
+      "cancelAckMaxMs": 273.9999999999709,
+      "cancellations": 99,
+      "midFillCancellations": 83,
+      "missedPreviews": 95,
+      "changes": 108,
+      "fillMs": {
+        "count": 9,
+        "median": 7569,
+        "p95": 15113,
+        "max": 15113
+      },
+      "droughtMs": {
+        "count": 9,
+        "median": 6379,
+        "p95": 8104,
+        "max": 8104
+      },
+      "rafIntervalMaxMs": 153,
+      "controlRafMaxMs": 42,
+      "cpuMeanPercent": 99.62429735188735,
+      "provisional": true
+    }
+  ],
+  "bundleHashes": {
+    "worker.js": "30328ff9d11b481b6b0cdce16cda376f366929ec7b0717a158f197062cccd6a2",
+    "browser-client.js": "8284db12fadeda548cffaa7f8fd7549caa4205ef4cd7aa551c3525e396a9a16e"
+  },
+  "wasmSha256": "24864480a4a24f874a989f897199d61e343f200f9ed4085c014b52924a199509",
+  "allTimingsProvisional": true,
+  "noStaleDisplay": true,
+  "frameGate": "Sketch JS callbacks fit the budget if mainWorkOver16_7 is zero. Full-frame/compositor/causal 16.7 ms guarantee unproven; headless shared-host references cannot establish it.",
+  "visibleWaterGate": "Canvas uploads in rAF only: earliest paint opportunity, not measured compositor presentation."
+}

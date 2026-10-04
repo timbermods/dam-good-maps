@@ -15,24 +15,28 @@ import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
+import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
+import { entityTiles } from "../features/edits";
+import { limitRuns, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
-import { sameRetained, type WaterModel } from "../sim/water";
+import { sameKeptWater, type WaterModel } from "../sim/water";
 import { entityJson, rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { mixedSimulationSingletons, settledSimulationSingletons, storedSoil, storedWater, type WorldModel } from "../format/world";
+import { mixedSimulationSingletons, settledSimulationSingletons, storedOutflows, storedSoil, storedWater, type WorldModel } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
-import { runsToTiles } from "../math/grid";
+import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
 import { GENERATOR_VERSION, type MapSpec } from "../spec/mapspec";
 import { clone } from "../spec/mergepatch";
@@ -41,7 +45,7 @@ import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import {
   applyOp,
   invertOp,
@@ -70,6 +74,18 @@ interface Generation {
 
 /** One undo step: one operation, or a group applied together (a fix, a proposal). */
 type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
+
+/** A log as its history: the operations of a step of several (`step`, D456) one entry, every other
+ *  operation one of its own (a project saved before D456 undoes operation by operation). */
+function stepsOf(log: readonly AppliedOp[]): HistoryEntry[] {
+  const out: HistoryEntry[] = [];
+  for (const op of log) {
+    const last = out.at(-1);
+    if (op.step !== undefined && op.step !== op.seq && last && last.ops[0].seq === op.step) last.ops.push(op);
+    else out.push({ kind: "ops", ops: [op] });
+  }
+  return out;
+}
 
 /** A place in the history (`MapSession.mark`), and the one step taken since it (`stepSince`): what
  *  `takeBack` needs to take that step back exactly. Opaque outside the session. */
@@ -120,12 +136,15 @@ export class MapSession {
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
   private snaps = new Map<number, BuildResult>();
-  private baseCache: { key: BaseMap; frozen: boolean; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private baseCache: { key: BaseMap; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
+  private frozenCache: { key: BaseLayer; touched: string; layer: BaseLayer } | null = null;
   private fieldCache: { key: FieldData; edited: string; field: GeneratedField } | null = null;
   private keptCache: { key: KeptContent; layer: LockedLayer } | null = null;
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
   private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
+  private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
+  private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
@@ -159,10 +178,10 @@ export class MapSession {
     }
     this.cur = built ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. Show → Water under roofs marks them.");
+      this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
     }
-    // the log is the history of an opened document: its operations undo one by one
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    // the log is the history of an opened document: its operations undo step by step (D456)
+    this.undoStack = stepsOf(this.log);
     this.snaps.set(this.undoStack.length, this.cur);
   }
 
@@ -229,6 +248,15 @@ export class MapSession {
     return this.gen.meta.views ?? [];
   }
 
+  /** Rename the map (D443): not a map operation, so never on the history and never undone. The name
+   *  is stored data: the project file, the .timber file's name and Your maps' entry follow it. An
+   *  empty name is refused with a one-line reason; any other is trimmed. */
+  setName(name: string): NameResult {
+    const r = cleanMapName(name);
+    if (r.ok) this.gen = { ...this.gen, meta: { ...this.gen.meta, name: r.name } };
+    return r;
+  }
+
   setViews(views: SavedView[]): void {
     this.gen = { ...this.gen, meta: { ...this.gen.meta, views: views.length ? views.map((v) => ({ ...v, target: [...v.target] as [number, number, number] })) : undefined } };
     if (!views.length) delete (this.gen.meta as { views?: SavedView[] }).views;
@@ -253,7 +281,7 @@ export class MapSession {
     this.log = r.log;
     this.st = r.state;
     this.seqNext = nextSeq;
-    this.undoStack = this.log.map((op) => ({ kind: "ops", ops: [op] }));
+    this.undoStack = stepsOf(this.log);
     this.redoStack = [];
     this.snaps.clear();
     this.cur = this.rebuilt();
@@ -267,7 +295,11 @@ export class MapSession {
 
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
-    return new MapSession(toDocument(r.spec, r.features, r.built, file, r.field, seedWord), r.built);
+    const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
+    // (M9b, D278 (1b): the map's own name and how it plays)
+    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
+    if (r.description) doc.meta.premise = r.description;
+    return new MapSession(doc, r.built);
   }
 
   /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
@@ -330,6 +362,14 @@ export class MapSession {
     return this.cur.waterFromFile;
   }
 
+  /** The map's water model and the water it shows now, one depth per tile (an unedited import's own
+   *  water while it keeps it, `showsStoredWater`; else the build's): what Remove unfed water and
+   *  Fill measure and are checked against (doc/water.ts). */
+  waterNow(): { model: WaterModel; depth: Float64Array } {
+    const own = this.showsStoredWater ? this.baseStuff().layer.water : undefined;
+    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
+  }
+
   /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
@@ -344,7 +384,7 @@ export class MapSession {
     const base = live ? null : this.baseStuff().terrain;
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
     // a generated map's field: the build's integrity pass compares with it (M9a)
-    const field = live ? (this.input().field ?? null) : null;
+    const field = this.mode !== "import" ? (this.input().field ?? null) : null;
     return {
       field: field ? field.heights.slice() : null,
       top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
@@ -355,6 +395,8 @@ export class MapSession {
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
+      water: this.cur.water.slice(),
+      moisture: this.cur.moisture.slice(),
     };
   }
 
@@ -363,6 +405,13 @@ export class MapSession {
     const b = this.baseStuff();
     if (this.storedWaterCache?.key !== this.gen.base) this.storedWaterCache = { key: this.gen.base, water: storedWater(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
     return this.storedWaterCache.water;
+  }
+
+  /** The outflows the base file stores (its surface water's), for the 3D view's moving water. */
+  storedOutflows(): Float64Array | null {
+    const b = this.baseStuff();
+    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    return this.storedOutflowsCache.out;
   }
 
   /** The soil the base file stores on each tile's top (moisture and contamination), for the 3D
@@ -404,6 +453,16 @@ export class MapSession {
     return encodeProject(this.document, level);
   }
 
+  /** Every object id the document has used: the objects standing and every object an operation
+   *  placed, though removed since (a force's springs, a placed object). A new object takes none of
+   *  them (the operations' check refuses them). */
+  usedEntityIds(): ReadonlySet<string> {
+    const ids = new Set<string>();
+    for (const e of this.cur.entities) ids.add(e.id);
+    for (const e of this.st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
+    return ids;
+  }
+
   /** Operations that have no effect now, and why. */
   orphans(): DocOrphan[] {
     const bySeq = new Map(this.log.map((o) => [o.seq, o]));
@@ -412,15 +471,6 @@ export class MapSession {
     for (const o of this.cur.orphans) {
       const op = bySeq.get(o.seq);
       if (op) out.push({ seq: o.seq, op: op.op, label: labelOf(op), reason: o.reason });
-    }
-    if (this.mode === "frozen") {
-      const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-      for (const o of this.log) {
-        const target = o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature" ? o.params.id : null;
-        if (target && frozen.has(target) && !o.orphaned) {
-          out.push({ seq: o.seq, op: o.op, label: labelOf(o), reason: `the map keeps what generator ${this.gen.generatorVersion} made as it was saved` });
-        }
-      }
     }
     return out.sort((a, b) => a.seq - b.seq);
   }
@@ -451,10 +501,14 @@ export class MapSession {
     const slopeTiles = new Set<number>();
     const starts = new Set(this.st.features.filter((f) => f.kind === "start").map((f) => f.id));
     let otherStarts = 0;
+    const startObjects = new Map<string, string>();
     for (const e of this.cur.entities) {
       entityIds.add(e.id);
       if (e.template === "Slope") slopeTiles.add(e.y * W + e.x);
-      else if (e.template === "StartingLocation" && !starts.has(e.owner)) otherStarts++;
+      else if (e.template === "StartingLocation") {
+        if (starts.has(e.owner)) startObjects.set(e.id, e.owner);
+        else otherStarts++;
+      }
     }
     const errors = validateOp(op, {
       state: this.st,
@@ -465,6 +519,9 @@ export class MapSession {
       slopeTiles,
       lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
       otherStarts,
+      water: this.waterNow(),
+      heights: this.cur.heights,
+      startObjects,
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -472,27 +529,70 @@ export class MapSession {
         return entityProblem(this, { template, x: p.x, y: p.y, orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
       },
     });
-    if (errors.length || this.mode !== "frozen") return errors;
-    const frozen = new Set(this.gen.baseFeatures.map((f) => f.id));
-    const target = op.op === "updateFeature" || op.op === "deleteFeature" || op.op === "reorderFeature" ? op.params.id : null;
-    if (target && frozen.has(target)) return [`this map keeps what generator ${this.gen.generatorVersion} made as it was saved`];
-    return [];
+    return errors;
   }
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    const before = this.cur;
+    const mark = this.mark();
+    const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
+    const again = this.rideTilted([op], before, mark, seq);
+    if (again) return this.ridden(() => this.apply(again[0], origin, label));
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
+  }
+
+  /** A step whose brush stroke left a source of several tiles (a BadwaterSource) off level ground,
+   *  its ground changed under it, is taken back and given again with that source riding the stroke
+   *  whole (its rectangle among the stroke's `rigid` pieces, taking its middle tile's level): D249,
+   *  a source rides the ground under a brush, never left floating (the game would not load it), and
+   *  D270, a brush stroke over a source is never refused. The page lists the pieces that ride; this
+   *  covers any other caller of the operation. The operations to give again, or null when the step
+   *  stands (it is never given again twice). */
+  private rideTilted(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark, seq: number): EditOp[] | null {
+    if (this.riding || !ops.some((o) => o.op === "brush")) return null;
+    const { W, H } = this.cur;
+    const now = this.cur.heights;
+    const rects: [number, number, number, number][] = [];
+    for (const e of this.cur.entities) {
+      if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+      const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+      const tiles = cells.map(([x, y]) => y * W + x);
+      if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
+      if (!tiles.some((i) => before.heights[i] !== now[i])) continue;
+      const xs = cells.map(([x]) => x);
+      const ys = cells.map(([, y]) => y);
+      rects.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+    }
+    if (!rects.length) return null;
+    const step = this.stepSince(mark);
+    if (!step || !this.takeBack(step)) return null;
+    this.seqNext = seq;
+    return ops.map((o) => (o.op === "brush" ? { ...o, params: { ...o.params, rigid: [...(o.params.rigid ?? []), ...rects] } } : o));
+  }
+
+  private riding = false;
+  private ridden(give: () => ApplyResult): ApplyResult {
+    this.riding = true;
+    try {
+      return give();
+    } finally {
+      this.riding = false;
+    }
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const before = this.cur;
+    const mark = this.mark();
+    const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
       const errors = this.check(op);
@@ -508,14 +608,42 @@ export class MapSession {
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
+    // (a step of several is marked in the log, so it stays one step when the project is reopened)
+    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
+    const again = this.rideTilted(ops, before, mark, seq);
+    if (again) return this.ridden(() => this.applyAll(again, origin, label));
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 3): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 2, the
+    // whole stroke at once, saved with where water would stand round it, `rim`)
+    // (rule 3 painted on the page comes with its rule but never its ring: added here)
+    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || (applied.params.weathering === 3 && applied.params.rim === undefined))) {
+      const pre = this.cur.cache.terrain.pre7;
+      const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
+      applied.params = { ...applied.params, weathering: 3, ...(rim.length ? { rim } : {}) };
+    }
+    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
+    // recorded the water it showed
+    const p = applied.op === "brush" ? applied.params : null;
+    if (p && (p.weathering === 2 || p.weathering === 3) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
+      const box = weatherBox(p, this.size.x, this.size.y);
+      if (box) {
+        if (p.weathering === 2) {
+          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, this.size.x);
+          applied.params = { ...p, shore, pools };
+        } else {
+          const runs = limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, this.size.x, this.size.y), box, this.size.x);
+          applied.params = { ...p, ...runs };
+        }
+      }
+    }
     // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
     // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
     if (applied.op === "brush") {
@@ -566,6 +694,11 @@ export class MapSession {
     return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
   }
 
+  /** The operations of the latest step on the history (empty when there is none). */
+  lastStepOps(): readonly AppliedOp[] {
+    return this.undoStack.at(-1)?.ops ?? [];
+  }
+
   /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
   stepSince(mark: HistoryMark): HistoryMark | null {
     if (this.undoStack.length !== mark.depth + 1 || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return null;
@@ -603,9 +736,8 @@ export class MapSession {
   // ------------------------------------------------------------------------------ building
 
   private baseStuff(): { layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } {
-    const frozen = this.mode === "frozen";
     const c = this.baseCache;
-    if (c && c.key === this.gen.base && c.frozen === frozen) return c;
+    if (c && c.key === this.gen.base) return c;
     const terrain = baseTerrain(this.gen.base);
     const file = fileFromBase(this.gen.base, terrain);
     const owners = this.gen.base.owners;
@@ -613,11 +745,32 @@ export class MapSession {
       heights: terrain.heights,
       columns: terrain.columns,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
-      frozen: frozen ? new Set(this.gen.baseFeatures.map((f) => f.id)) : undefined,
       water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
     };
-    this.baseCache = { key: this.gen.base, frozen, layer, terrain, file };
+    this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
+  }
+
+  /** A stored generation opened by a newer generator (D336 (2): it opens exactly as it was saved,
+   *  edits included): the stored map is the ground and holds every generated feature, except the
+   *  ones the log changed, deleted or reordered. Those leave the stored map, their objects with
+   *  them, and are built as they now say, as they were when the edit was made; the rest stay as the
+   *  generator that made them built them. */
+  private frozenLayer(): BaseLayer {
+    const layer = this.baseStuff().layer;
+    const ids = new Set(this.gen.baseFeatures.map((f) => f.id));
+    const touched = new Set<string>();
+    for (const o of this.log) {
+      if (o.orphaned || (o.op !== "updateFeature" && o.op !== "deleteFeature" && o.op !== "reorderFeature")) continue;
+      if (ids.has(o.params.id)) touched.add(o.params.id);
+    }
+    const key = [...touched].sort().join(",");
+    const c = this.frozenCache;
+    if (c && c.key === layer && c.touched === key) return c.layer;
+    for (const id of touched) ids.delete(id);
+    const frozen: BaseLayer = { ...layer, frozen: ids, entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
+    this.frozenCache = { key: layer, touched: key, layer: frozen };
+    return frozen;
   }
 
   private keptLayer(): LockedLayer | null {
@@ -635,9 +788,12 @@ export class MapSession {
   }
 
   private input(): BuildInput {
-    const live = this.mode === "live";
-    const base = live ? null : this.baseStuff().layer;
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), live ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null);
+    const mode = this.mode;
+    const live = mode === "live";
+    const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
+    // (a frozen generation takes the field too: the features read back from it, so one the player
+    // changed is not carved again unless its shape changed, and a tall map's top)
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable
@@ -662,6 +818,39 @@ export class MapSession {
     return slopes;
   }
 
+  /** Where the generation placed each of its resource features' objects (berry patches, forests,
+   *  ruin fields), from the map it stored: an edited map keeps only those, whatever the water does
+   *  under them (D368 (10), D404). Only for the features the player has not changed (a ruin field's
+   *  deleted tiles aside, which it leaves out itself): one the player changed is built as it now
+   *  says. Null for a document that stored no owners (it builds them as before). */
+  generatedResources(): ReadonlyMap<string, ReadonlySet<number>> | null {
+    const c = this.resourcesCache;
+    // (keyed on the features themselves, not on their list: an operation changes the list in place,
+    // and each feature it changes is a new object, ops.ts `applyOp`; keyed on the list, a feature
+    // changed after the first build kept the generation's tiles until the project was reopened)
+    if (c && c.key === this.gen.base && sameItems(c.features, this.st.features)) return c.tiles;
+    let all = c && c.key === this.gen.base ? c.all : null;
+    if (!all && this.gen.base.owners) {
+      all = new Map();
+      for (const f of this.gen.baseFeatures) if (isResource(f)) all.set(f.id, new Set());
+      const W = this.gen.base.sizeX;
+      for (const e of this.baseStuff().layer.entities) all.get(e.owner)?.add(e.y * W + e.x);
+    }
+    let tiles: Map<string, Set<number>> | null = null;
+    if (all) {
+      const shape = (f: Feature) => JSON.stringify({ kind: f.kind, params: { ...(f.params as unknown as Record<string, unknown>), cleared: undefined } });
+      const base = new Map(this.gen.baseFeatures.map((f) => [f.id, f]));
+      tiles = new Map();
+      for (const f of this.st.features) {
+        const kept = all.get(f.id);
+        const b = base.get(f.id);
+        if (kept && b && (b === f || shape(b) === shape(f))) tiles.set(f.id, kept);
+      }
+    }
+    this.resourcesCache = { key: this.gen.base, features: [...this.st.features], all, tiles };
+    return tiles;
+  }
+
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
    *  so incremental rebuilds see it unchanged). A feature read back from the field that the player
    *  has since changed is the field's no longer: it is built as the feature says. */
@@ -684,8 +873,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), sculpts: st.sculpts, slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -721,7 +910,8 @@ export class MapSession {
   badwaterRemoved(built: BuildResult = this.cur): boolean {
     if (built.entities.some((e) => e.template === "BadwaterSource")) return false;
     const spec = this.gen.spec;
-    if (spec) return spec.settings.hazards.badwater !== "off";
+    // (a map made with Sources: None has no badwater of its own to remove, D330)
+    if (spec) return spec.settings.hazards.badwater !== "off" && spec.settings.water.sources !== "none";
     return this.baseStuff().file.world.entities.some((e) => e.Template === "BadwaterSource");
   }
 
@@ -774,7 +964,8 @@ export class MapSession {
    *  profile, PLAN §19.5): they are noted at the end of the map's description. */
   /** The exported file's name. */
   exportTimberName(): string {
-    return this.gen.spec ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
+    // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
+    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
   exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
@@ -838,7 +1029,7 @@ export class MapSession {
     const b = this.baseStuff();
     if (this.cutCache?.key === this.gen.base) return this.cutCache.cut;
     const w = b.file.world;
-    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), w.sizeX, w.sizeY);
+    const cut = mineSitesCutAt(mapObjects(w), surfaceOf(w), storedWetMask(storedWater(w.singletons, w.sizeX, w.sizeY), w.sizeX * w.sizeY), w.sizeX, w.sizeY);
     this.cutCache = { key: this.gen.base, cut };
     return cut;
   }
@@ -888,10 +1079,17 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   for (let i = 0; i < a.floor.length; i++) if (a.floor[i] !== b.floor[i]) return false;
   if (!!a.dam !== !!b.dam) return false;
   if (a.dam && b.dam) for (let i = 0; i < a.dam.length; i++) if (a.dam[i] !== b.dam[i]) return false;
-  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameRetained(a.retained, b.retained);
+  return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameKeptWater(a, b);
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** The same items in the same order (the same objects). */
+function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
@@ -925,7 +1123,12 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
   const ramps: [number, number][] = [];
   const r = f.ramps ?? [];
   for (let k = 0; k + 1 < r.length; k += 2) ramps.push([r[k], r[k + 1]]);
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}) };
+  const mask = (runs: Runs) => {
+    const m = new Uint8Array(W * H);
+    for (const i of runsToTiles(runs, W)) m[i] = 1;
+    return m;
+  };
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
@@ -987,6 +1190,10 @@ export function labelOf(op: AppliedOp): string {
       return "Place a slope";
     case "removeSlope":
       return "Remove a slope";
+    case "removeUnfedWater":
+      return op.params.pools ? `Remove unfed water, ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
+    case "fillHollow":
+      return "Fill a hollow";
     default:
       return (op as { op: string }).op;
   }

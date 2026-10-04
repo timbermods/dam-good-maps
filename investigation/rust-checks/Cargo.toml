@@ -1,0 +1,27 @@
+# The checks in Rust (PLAN §20 D381): its own workspace for now, joining rust/'s when adopted (INTEGRATION.md).
+[package]
+name = "rust-checks"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "rust-checks"
+path = "src/main.rs"
+
+[dependencies]
+portable = { path = "../../rust/portable" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[workspace]

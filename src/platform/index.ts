@@ -21,6 +21,13 @@ export function createGenerator(): Remote<GeneratorApi> {
   return api;
 }
 
+/** D329's background search: a generator worker of its own (no checks worker), so the editor's
+ *  never waits on it; `stop` ends it at once (a new map was asked for). */
+export function createBackground(): { api: Remote<GeneratorApi>; stop(): void } {
+  const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
+  return { api: wrap<GeneratorApi>(worker), stop: () => worker.terminate() };
+}
+
 /** files: save bytes under a file name. The artifact edition wraps .timber in a .zip (D10). */
 export function saveFile(bytes: Uint8Array, name: string, type = "application/octet-stream"): void {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type });

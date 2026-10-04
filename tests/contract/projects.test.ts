@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import type { Feature } from "../../src/core/features/schema";
+import type { Feature, RiverFeature } from "../../src/core/features/schema";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { makeSpec, SIZE_PRESETS, THEMES, type ThemeId } from "../../src/core/spec/mapspec";
@@ -70,16 +70,22 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
     expect(decodeProject(s.project(6)).features).toEqual(doc.features);
   });
 
-  it("a river falling from land above 16 to level 0 in one step reopens (Highlands 128², seed 7, Verticality 100)", () => {
+  it("a river's bed may fall more than 15 levels in one step, from land above 16, and a tall map reopens (Highlands 128², seed 10, Verticality 100)", () => {
     // the feature schema allowed a bed step 15 levels, its start 22: at Verticality 70 and above the
     // land rises past 16 and a river's natural fall can be deeper (M9b's chaos batch, and M9a's sweep
     // at Verticality 100, 128², 2026-09-27: 27 of 118 accepted maps' project files refused as damaged)
-    const r = generate(decodeSpecFragment("s=7&t=highlands&z=128&d=n&vt=100")!.spec);
+    // (seed 10 since 0.8.0; D148: since batch 5 the beds stand on a floor of 3 (item 47) and the
+    // land within 22, so a generated fall that deep is rare: the step is checked on the map's own
+    // tallest river made to fall 19 levels at once, from 22 to the floor)
+    const r = generate(decodeSpecFragment("s=10&t=highlands&z=128&d=n&vt=100")!.spec);
     expect(r.report.passed).toBe(true);
-    const falls = r.features.flatMap((f) => (f.kind === "river" && f.params.bedProfile ? [f.params.bedProfile] : [])).filter((b) => b.start > 16 && b.steps.some((s) => s.drop > 15));
-    expect(falls.some((b) => b.start - b.steps.reduce((a, s) => a + s.drop, 0) === 0)).toBe(true);
+    const river = r.features.filter((f) => f.kind === "river" && f.params.bedProfile).sort((a, b) => (b as RiverFeature).params.bedProfile!.start - (a as RiverFeature).params.bedProfile!.start)[0] as RiverFeature;
+    expect(river.params.bedProfile!.start).toBeGreaterThan(16);
+    const deep: RiverFeature = { ...river, params: { ...river.params, bedProfile: { start: 22, steps: [{ at: 4, drop: 19 }] } } };
+    const features = r.features.map((f) => (f.id === river.id ? deep : f));
+    expect(validateFeatures(features)).toEqual([]);
+    expect(ajvFeatures(features), JSON.stringify(ajvFeatures.errors?.slice(0, 3))).toBe(true);
     expect(validateFeatures(r.features)).toEqual([]);
-    expect(ajvFeatures(r.features), JSON.stringify(ajvFeatures.errors?.slice(0, 3))).toBe(true);
     const s = MapSession.open(decodeProject(encodeProject(generatedDocument(r))));
     expect(s.mode).toBe("live");
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
@@ -98,9 +104,12 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
 
 describe("generated outlines past the map edge are edited and locked (decisions-pending #30, D103)", () => {
   it("a natural lake at the map's edge: locked, changed and moved in the editor; the unedited map keeps its bytes", () => {
-    // (generator 0.7.0 reads the natural lakes back out of the field; this one's outline runs along
-    // the edge, through the tile corners at −0.5)
-    const r = gen("lakeBasin", 96, 4);
+    // (the generator reads the natural lakes back out of the field; this one's outline runs along
+    // the edge, through the tile corners at −0.5; seed 6 at 0.8.0, whose lakes keep off the edges
+    // more often, seed 8 since batch 5's edge lip, seed 3 since D333's maps, seed 5 since M9b's small starts
+    // and speed rounds, whose seed 3 keeps its lakes off the edges, D148; River Valley 1 since Lake Basin
+    // round 2, D453, whose one central basin keeps every Lake Basin lake off the edges)
+    const r = gen("riverValley", 96, 1);
     const s = MapSession.fromGenerated(r, r.file);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;

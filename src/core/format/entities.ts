@@ -65,9 +65,11 @@ export function tree(b: Base & { species: TreeSpecies; dead?: boolean; growth?: 
   return { ...pos(b), template: b.species, components: c };
 }
 
-/** A blueberry bush: ripe (3 berries ready) or regrowing its yield. */
-export function bush(b: Base & { ripe: boolean; regrowth?: number }): EntitySpec {
+/** A blueberry bush: ripe (3 berries ready) or regrowing its yield; `dead` stores
+ *  LivingNaturalResource.IsDead (a kept bush on ground that kills it, D404). */
+export function bush(b: Base & { ripe: boolean; regrowth?: number; dead?: boolean }): EntitySpec {
   const c: JsonObject = { CoordinatesOffsetter: { Random: true } };
+  if (b.dead) c.LivingNaturalResource = { IsDead: true };
   if (b.ripe) {
     c["Yielder:Gatherable"] = yieldOf("Berries", 3);
     c.GatherableYieldGrower = { GrowthProgress: F(1) };

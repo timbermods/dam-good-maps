@@ -1,6 +1,6 @@
 # M9 design step, version 2: the prototype's numbers
 
-The numbers behind [docs/m9-design.md](../../docs/m9-design.md) (design version 2). Every measure is
+The numbers behind [docs/m9-design.md](../../docs/archive/m9-design.md) (design version 2). Every measure is
 information for Kyler's judgement (D115); what blocks is breakage, Kyler's decided principles (no
 built dam walls, nothing stamped) and what a player feels (no stalls, a first result quickly).
 

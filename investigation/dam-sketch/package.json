@@ -1,0 +1,13 @@
+{
+  "name": "dam-sketch-investigation",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "prepare": "node prepare.mjs",
+    "check": "node local/check.cjs",
+    "demo": "node local/demo.cjs",
+    "live": "node local/live.cjs",
+    "serve": "node serve.mjs"
+  }
+}

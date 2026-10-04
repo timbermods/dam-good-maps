@@ -863,9 +863,22 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   m.fallen = m.fallen.filter((f) => m.entities.some((e) => e.id === f.id));
   trimRock(m);
   let serial = 0;
+  // (an id standing when the glacier began is taken too, though it swept that object away, and so is
+  // one the document placed before, though gone since: the operation's check refuses both, so a
+  // glacier used again where an earlier one stood names its springs past that one's, D257)
+  const standing = new Set(before.entities.map((e) => e.id));
+  for (const id of input.usedIds ?? []) standing.add(id);
+  const idTaken = (id: string) => standing.has(id) || m.entities.some((e) => e.id === id);
   const newId = () => {
     let id = guidFrom("glaciate", s.seed, intent.origin, serial++);
-    while (m.entities.some((e) => e.id === id)) id = guidFrom("glaciate", s.seed, intent.origin, serial++);
+    while (idTaken(id)) id = guidFrom("glaciate", s.seed, intent.origin, serial++);
+    return id;
+  };
+  // a group's other springs are named from its anchor (an earlier glacier's group, from the same
+  // anchor, may still stand)
+  const memberId = (anchor: string, x: number, y: number) => {
+    let id = guidFrom(anchor, x, y);
+    for (let k = 1; idTaken(id); k++) id = guidFrom(anchor, x, y, k);
     return id;
   };
   const addSource = (i: number, strength: number, id = newId()) => {
@@ -882,7 +895,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     const anchor = newId();
     for (const q of g.sources) {
       const at = q.y * W + q.x;
-      addSource(at, q.strength, at === i ? anchor : guidFrom(anchor, q.x, q.y));
+      addSource(at, q.strength, at === i ? anchor : memberId(anchor, q.x, q.y));
       taken[at] = 1;
     }
   };

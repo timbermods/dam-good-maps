@@ -1,0 +1,10 @@
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {HERE,LOCAL,WORKSPACE,json,hash} from './common.mjs';
+const toolchain=resolve(WORKSPACE,'rust-water/local/toolchain');const env={...process.env,CARGO_HOME:resolve(toolchain,'cargo'),RUSTUP_HOME:resolve(toolchain,'rustup')};const rustc=resolve(env.CARGO_HOME,'bin/rustc.exe');
+const rows=[];
+for(const target of ['wasm','native','addon']){const path=resolve(LOCAL,target+'.ll'),args=[resolve(HERE,'analysis.rs'),'--edition=2021','--crate-type','cdylib','-O','-C','panic=abort','--emit=llvm-ir','-o',path];if(target==='wasm')args.push('--target','wasm32-unknown-unknown');else args.push('-C','target-feature=-fma');if(target==='addon')args.push('--cfg','addon');execFileSync(rustc,args,{cwd:HERE,env,windowsHide:true});const ir=readFileSync(path,'utf8');
+ const bad=ir.split('\n').filter(l=>/\bf(add|sub|mul|div|rem|cmp)\s+(fast|reassoc|nnan|ninf|nsz|arcp|contract|afn)\b/.test(l)||/@llvm\.(fma|fmuladd|experimental\.constrained\.fma)\./.test(l));if(bad.length)throw Error(target+' relaxed arithmetic/FMA: '+bad.slice(0,4).join('\n'));
+ rows.push({target,sha256:hash(ir),bytes:ir.length,status:'pass'});
+}json('ir.json',{compiler:execFileSync(rustc,['--version'],{env,encoding:'utf8'}).trim(),rows});console.log('Strict floating-point IR PASS');

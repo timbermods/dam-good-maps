@@ -38,7 +38,9 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  await page.goto("./#s=9&z=96&d=n&t=riverValley");
+  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and keeps room
+  // for only one of the two rows; of River Valley 96² seeds 1-30 only seed 4 has both)
+  await page.goto("./#s=4&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
@@ -130,9 +132,16 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
       const own = steps[k];
       const total = n > 1 ? n - 1 + own : own;
       await page.mouse.wheel(0, k < 4 ? -120 : 120);
-      // the note says the new number; in that same frame the label and the row say it too, never a step behind
-      await expect.poll(async () => (await sample()).note, { message: `${what}, notch ${k + 1}: the note` }).toBe(own);
-      expect(await sample(), `${what}, notch ${k + 1}: one number everywhere`).toEqual({ label: total, own, row: total, select: own, note: own });
+      // the note says the new number; in that same frame the label and the row say it too, never a step behind.
+      // The note lasts only 1.5 s after the notch (useSourcePointer's wheelNoteTimer), so the sample that sees
+      // it is the sample that is checked: sampling again after the poll let a stall of the page or the runner
+      // between the two reads find the note gone, the other three numbers right (D341; CI run 37092077947).
+      // The poll looks often, so it sees the note long before it goes.
+      let seen: Awaited<ReturnType<typeof sample>> | undefined;
+      await expect
+        .poll(async () => ((seen = await sample()), seen.note), { intervals: [20, 50, 100], message: `${what}, notch ${k + 1}: the note` })
+        .toBe(own);
+      expect(seen, `${what}, notch ${k + 1}: one number everywhere`).toEqual({ label: total, own, row: total, select: own, note: own });
     }
     await page.keyboard.up("Control");
     // the source's real strength is the same number, and so are the label and the row once it is

@@ -38,6 +38,10 @@ export interface ForceMap {
   lava?: Uint32Array;
   /** Trees knocked down by earlier forces, as they lie (objects.ts). */
   fallen?: Fallen[];
+  /** Ids the document has used besides the objects standing (an object placed and since removed,
+   *  `MapSession.usedEntityIds`): a force naming new objects skips them, as the operation's check
+   *  refuses them. Absent: only the standing objects' ids are taken. */
+  usedIds?: ReadonlySet<string>;
 }
 
 /** The highest level a force builds to: the editor's one ceiling on every map, D172's tall maximum

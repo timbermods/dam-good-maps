@@ -130,6 +130,10 @@ describe("strokes saved before D322 replay exactly (D158)", () => {
     const d = JSON.parse(readFileSync(DIGESTS, "utf8")) as Digests;
     const s = MapSession.open(decodeProject(new Uint8Array(readFileSync(PROJECT))));
     expect(sha(s.built.heights)).toBe(d.final.heights);
+    // (its objects as M9b's one rules switch places them, D308: the springs as groups (D314) and the
+    // game's soil (D298) leave 13 of the slopes the build derived for this 0.7.0 project out, and the
+    // two birches and a ruin column they displaced stand again; the heights and every step are as
+    // they were, D148, D382)
     expect(entitiesOf(s)).toBe(d.final.entities);
     // step by step: the saved strokes applied again one at a time, each map as it was
     const doc = decodeProject(new Uint8Array(readFileSync(PROJECT)));

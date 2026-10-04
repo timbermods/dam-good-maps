@@ -12,6 +12,13 @@ Units: depth in blocks, strength S = S blocks of water per second; 1 tick = 0.6 
 
 Emitters are dicts {tiles: [(y, x)], strength: S, contamination: 0..1} with an optional
 depth_limit: ((y, x), off, on) for seeps (off above `off` deep at the anchor, back on below `on`).
+
+The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's), as
+src/core/sim/water.ts runs them: evaporation on every tile, a dry one that receives water too; the
+spill threshold at the map's edge too (floor-0 tiles beside the padding); a partial obstacle read
+from the higher of the two floors; the source step setting the old depth. rules="port" keeps the
+port as it was before M9b. DEFAULT_WATER_RULES is what a caller gets when it does not ask, as in
+the TypeScript.
 """
 from __future__ import annotations
 
@@ -26,7 +33,11 @@ SPILL = 0.1               # spill threshold onto dry ground of the same floor
 KEEP = 0.999              # flow momentum kept per substep
 BAL = 0.8                 # outflow balancing against the reverse flow
 TICKS_PER_DAY = 768
+# the game days the canonical settle may run (PLAN §10, D358: 6; 4 before 2026-10-01); it stops at
+# the first check that passes, so water that settles sooner is the same whatever the limit
+SETTLE_DAYS = 6
 EVAPORATION_PER_DAY = 0.0535
+DEFAULT_WATER_RULES = "game"   # M9b's switch (D308, D311)
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
 DIRS = ((-1, 0), (0, -1), (1, 0), (0, 1))
 OPP = (2, 3, 0, 1)
@@ -47,10 +58,14 @@ def seq_sum(a) -> float:
 
 
 class WaterSim:
-    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None):
+    def __init__(self, floor: np.ndarray, sources=(), dam=None, depth=None, contamination=None, rules=None, edge_spill=None):
         """floor: floor of the water column per tile (terrain surface, raised by full obstacles).
         sources: emitters (see the module doc). dam: height of a partial obstacle (NaturalDam 0.65)
-        above the floor per tile, -1 where there is none. depth/contamination: a starting state."""
+        above the floor per tile, -1 where there is none. depth/contamination: a starting state.
+        rules: "game" or "port" (DEFAULT_WATER_RULES when not given); edge_spill: the spill threshold
+        at the map's edge (D303), on with the game's rules unless given."""
+        self.game = (rules or DEFAULT_WATER_RULES) == "game"
+        self.edge_spill = self.game if edge_spill is None else bool(edge_spill)
         self.F = floor.astype(float)
         Y, X = floor.shape
         self.D = np.zeros((Y, X)) if depth is None else np.array(depth, dtype=float)
@@ -112,12 +127,15 @@ class WaterSim:
             Dn = _shift(D, k, 0.0)
             e = H - Hn
             prev = KEEP * self.out[k]
-            e_sp = np.where((Dn == 0) & (Fn == F) & self.inside[k], e - SPILL, e)
+            e_sp = np.where((Dn == 0) & (Fn == F) & (self.inside[k] | self.edge_spill), e - SPILL, e)
             fk = prev + K * e_sp
             if self.dam is not None:
                 # a partial obstacle (NaturalDam) in the target tile
                 lim = np.where(self.inside[k], _shift(self.dam, k, -1.0), -1.0)
                 at_dam = (lim >= 0) & (Fn < np.ceil(H))
+                if self.game:
+                    # the game reads it from the higher of the two floors up
+                    at_dam = at_dam & (F <= Fn)
                 hd = H - Fn
                 a = np.clip(np.clip((lim - hd) / 0.1, 0, 1) * np.clip(1 - 2.25 * (H - (F + self.Dold)), 0.5, 2), 0, 1)
                 f_below = 0.995 * prev - 0.02 * a
@@ -127,7 +145,12 @@ class WaterSim:
             blocked = self.wall[k] | (Fn >= H) | (D <= 0)
             f[k] = np.where(blocked, 0.0, np.maximum(fk, 0.0))
         s = f.sum(axis=0)
-        scale = np.where(s * DT > D, D / np.maximum(s * DT, 1e-12), 1.0)
+        if self.game:
+            sd = s * DT
+            over = (s > 0) & (D < sd)
+            scale = np.divide(D, sd, out=np.ones_like(D), where=over)
+        else:
+            scale = np.where(s * DT > D, D / np.maximum(s * DT, 1e-12), 1.0)
         f *= scale
         inflow = np.zeros((4,) + D.shape)
         for k in range(4):
@@ -141,7 +164,8 @@ class WaterSim:
             self.out[k] = np.maximum(0.0, f[k] - BAL * inflow[k])
         self.Dold = D.copy()
         evap = np.where(D < 0.02, 1e-3, 1e-4) * evap_mod
-        newD = np.maximum(0.0, D + (insum - outsum - evap * (D > 0)) * DT)
+        # (the game: every tile evaporates, a dry one that receives water too)
+        newD = np.maximum(0.0, D + (insum - outsum - (evap if self.game else evap * (D > 0))) * DT)
         mass = C * remaining + cin * DT
         self.C = np.where(newD > 1e-9, np.clip(mass / np.maximum(newD, 1e-9), 0, 1), 0.0)
         self.D = newD
@@ -154,6 +178,8 @@ class WaterSim:
                 continue
             for (y, x) in src["tiles"]:
                 d0 = self.D[y, x]
+                if self.game:
+                    self.Dold[y, x] = d0
                 self.C[y, x] = (self.C[y, x] * d0 + src.get("contamination", 0.0) * add) / (d0 + add)
                 self.D[y, x] = d0 + add
 
@@ -166,29 +192,33 @@ class WaterSim:
             self.ticks += 1
         return self
 
-    def settle(self, max_days=4.0, tol=0.005, check_every=128, sealed=None):
+    def settle(self, max_days=SETTLE_DAYS, tol=0.005, check_every=128, sealed=None):
         """Run with sources on until the water stops changing (PLAN §11.3): between two checks
         128 ticks apart, the total volume changes by under 0.2% and at least 99.5% of tiles move
         by at most `tol`. (A strict max-change test never passes: thin sheets at spill
         thresholds keep flickering by a few hundredths.)
 
-        `sealed`: the kept tiles of the map's sealed basins (flat indices, a carve's oxbow lakes).
-        What they lose to evaporation is not the water changing (D222): `self.steady_ticks` is the
-        first check where only that still changed (None otherwise); the settle itself runs on to
-        its own test, so its water never changes with it."""
+        `sealed`: the kept tiles of the map's sealed basins (flat indices, a carve's oxbow lakes,
+        Fills). What they lose to evaporation is not the water changing (D222, D413): the settle
+        stops at the first check where only that still changed, and `self.steady_ticks` is that
+        check's tick (None otherwise). `self.last_prev` is the water at the check before the last
+        (`sealed_basins` at the last check)."""
         self.steady_ticks = None
         prev = self.D.copy()
         prev_vol = seq_sum(prev)
         n = self.D.size
+        self.last_prev = prev
         for _ in range(int(max_days * TICKS_PER_DAY / check_every)):
             self.run(check_every)
             vol = seq_sum(self.D)
             dv = abs(vol - prev_vol) / max(vol, 1e-9)
             moved = int(np.count_nonzero(np.abs(self.D - prev) > tol))
+            self.last_prev = prev
             if dv < 0.002 and moved <= 0.005 * n:
                 return True
-            if sealed and self.steady_ticks is None and steady_apart_from_sealed(self, prev, vol, sealed, tol, 0.005):
+            if sealed and steady_apart_from_sealed(self, prev, sealed, tol, 0.005):
                 self.steady_ticks = self.ticks
+                return False
             prev = self.D.copy()
             prev_vol = vol
         return False
@@ -197,14 +227,12 @@ class WaterSim:
         return self._evap_mod()[1]
 
 
-def steady_apart_from_sealed(sim, prev, vol, sealed, tol, moved_share):
-    """Whether the water changed between two checks only by sealed basins evaporating (D222). A
-    sealed basin is the water round a basin's kept tiles (4-connected tiles wet at either check)
-    while it holds no running source's tile and reaches no map edge: nothing flows in or out, so
-    all it can lose is what evaporates. Its tiles that lost water are left out of the settle's
-    test (the tiles moved and the volume change); its tiles that rose (water still running inside
-    it) and every other tile count as before. Same as src/core/sim/water.ts
-    `steadyApartFromSealed`."""
+def sealed_basins(sim, prev, sealed):
+    """The sealed basins at a check (D222): the water round each of a basin's kept tiles
+    (4-connected tiles wet at either check) while it holds no running source's tile and reaches no
+    map edge: nothing flows in or out, so all it can lose is what evaporates. Returns (closed,
+    drying), flat masks: every tile of such a basin, and those of its tiles that did not rise. Same
+    as src/core/sim/water.ts `sealedBasins`."""
     Y, X = sim.D.shape
     D = sim.D.ravel()
     P = prev.ravel()
@@ -215,6 +243,7 @@ def steady_apart_from_sealed(sim, prev, vol, sealed, tol, moved_share):
             for (y, x) in s["tiles"]:
                 feeds[y * X + x] = True
     wet = (D > 0) | (P > 0)
+    closed = np.zeros(N, bool)
     drying = np.zeros(N, bool)
     seen = np.zeros(N, bool)
     for s0 in sealed:
@@ -238,13 +267,27 @@ def steady_apart_from_sealed(sim, prev, vol, sealed, tol, moved_share):
         if is_open:
             continue
         for i in queue:
+            closed[i] = True
             if not D[i] > P[i]:
                 drying[i] = True
+    return closed, drying
+
+
+def steady_apart_from_sealed(sim, prev, sealed, tol, moved_share):
+    """Whether the water changed between two checks only by sealed basins evaporating (D222,
+    D413): the settle's test on everything but the tiles of a sealed basin that lost water (its
+    tiles that rose count as before): the rest's volume changes by under 0.2% of the rest and at
+    most `moved_share` of the map's tiles move by over `tol`. Same as src/core/sim/water.ts
+    `steadyApartFromSealed`."""
+    D = sim.D.ravel()
+    P = prev.ravel()
+    N = D.size
+    _, drying = sealed_basins(sim, prev, sealed)
     # the settle's test on everything else, summed in index order as the TypeScript does
     rest = seq_sum(np.where(drying, 0.0, D))
     rest_prev = seq_sum(np.where(drying, 0.0, P))
     moved = int(np.count_nonzero((np.abs(D - P) > tol) & ~drying))
-    dv = abs(rest - rest_prev) / max(vol, 1e-9)
+    dv = abs(rest - rest_prev) / max(rest, 1e-9)
     return dv < 0.002 and moved <= moved_share * N
 
 
@@ -379,15 +422,183 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     return depth.reshape(Y, X), cont.reshape(Y, X)
 
 
-def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=()):
-    """The canonical settle: the pre-fill, then the simulation until it settles (at most 4 game
-    days). Returns (sim, settled); `sim.steady_ticks` is set when only sealed basins evaporating
-    kept it from settling (D222), and such water has settled too (`water.settles`)."""
+DRAIN_DAYS = 4      # as src/core/sim/prefill.ts `DRAIN_DAYS`
+
+
+def fed_tiles(floor: np.ndarray, D: np.ndarray, sources=(), dam=None, seeds=None) -> np.ndarray:
+    """Tiles of D a running source's water, or a seed's (a mask), reaches: from the running
+    emitters' tiles and the wet seed tiles, water reaches a wet neighbour whose floor stands no
+    higher than the reached tile's surface (a NaturalDam overtopped). Same as src/core/sim/fed.ts `fedTiles`."""
+    Y, X = floor.shape
+    F = floor.astype(float).ravel()
+    d = np.asarray(D, dtype=float).ravel()
+    lim = None if dam is None else np.asarray(dam, dtype=float).ravel()
+    fed = np.zeros(Y * X, bool)
+    queue = []
+    for s in sources:
+        if not s["strength"] > 0:
+            continue
+        for (y, x) in s["tiles"]:
+            i = y * X + x
+            if not fed[i]:
+                fed[i] = True
+                queue.append(i)
+    if seeds is not None:
+        for i in np.flatnonzero(np.asarray(seeds).ravel() & (d > 0) & ~fed):
+            fed[i] = True
+            queue.append(int(i))
+    head = 0
+    while head < len(queue):
+        c = queue[head]
+        head += 1
+        if not d[c] > 0:
+            continue
+        hc = F[c] + d[c]
+        y, x = divmod(c, X)
+        for n in (c - X if y > 0 else -1, c - 1 if x > 0 else -1, c + X if y < Y - 1 else -1, c + 1 if x < X - 1 else -1):
+            if n < 0 or fed[n] or not d[n] > 0:
+                continue
+            fn = F[n]
+            if not fn <= hc:            # level counts: a pre-filled lake stands at its rim
+                continue
+            if lim is not None and lim[n] >= 0 and fn < math.ceil(hc) and hc - fn < lim[n]:
+                continue
+            fed[n] = True
+            queue.append(n)
+    return fed.reshape(Y, X)
+
+
+def canonical_settle(floor: np.ndarray, sources=(), dam=None, retained=(), rules=None):
+    """The canonical settle: the pre-fill, then the simulation until it settles (at most
+    SETTLE_DAYS game days, D358); then, when water no running source and no stored lake reaches is left (the pre-fill's
+    walk spreads over dry flats further than the water goes, D385), once more without it, at most
+    DRAIN_DAYS. Returns (sim, settled); `sim.steady_ticks` is set when it stopped because only
+    sealed basins were still changing, by evaporating (D222, D413), and such water has settled too
+    (`water.settles`). Every sealed basin at the last check is stored as the pre-fill started it
+    (D413; src/core/sim/prefill.ts `keepSealed`: its stored lakes' water, levelled into its hollow
+    when it would not stand where it is). (The player's drained tiles, Remove unfed water,
+    are the editor's alone and not modelled here.) `rules`: the water rules (DEFAULT_WATER_RULES
+    when not given)."""
     d0, c0 = prefill(floor, sources, dam, retained)
-    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0)
+    sim = WaterSim(floor, sources, dam=dam, depth=d0, contamination=c0, rules=rules)
     sealed = sorted({i for lake in retained or () for i in lake["tiles"]})
-    settled = sim.settle(max_days=4, sealed=sealed or None)
+    settled = sim.settle(max_days=SETTLE_DAYS, sealed=sealed or None)
+    stored = None
+    if sealed:
+        stored = np.zeros(floor.size, bool)
+        stored[sealed] = True
+    fed = fed_tiles(floor, sim.D, sources, dam, stored)
+    unfed = (sim.D > 0) & ~fed
+    if unfed.any():
+        depth = np.where(unfed, 0.0, sim.D)
+        cont = np.where(unfed, 0.0, sim.C)
+        nxt = WaterSim(floor, sources, dam=dam, depth=depth, contamination=cont, rules=rules)
+        nxt.out = np.where(unfed[None, :, :], 0.0, sim.out)
+        nxt.ticks = sim.ticks
+        sim = nxt
+        settled = sim.settle(max_days=DRAIN_DAYS, sealed=sealed or None)
+    if sealed:
+        closed, _ = sealed_basins(sim, sim.last_prev, sealed)
+        keep_sealed(sim, floor, dam, closed.reshape(-1), stored, d0, c0)
     return sim, settled
+
+
+REST = 0.01  # surfaces within this of each other stand level (src/core/sim/prefill.ts `REST`)
+
+
+def keep_sealed(sim, floor, dam, closed, lake, d0, c0):
+    """src/core/sim/prefill.ts `keepSealed`: each sealed basin keeps its stored lakes' water as the
+    pre-fill started it, or, when that would not stand where it is (its hollow since widened below
+    its level), that water levelled into its hollow (`level_into`); the pre-fill walk's other water
+    in the basin goes (D385)."""
+    Y, X = floor.shape
+    N = X * Y
+    F = floor.reshape(-1).astype(float)
+    D, C = sim.D.reshape(-1), sim.C.reshape(-1)
+    out = sim.out.reshape(4, -1)
+    sd, sc = d0.reshape(-1), c0.reshape(-1)
+    seen = np.zeros(N, bool)
+
+    def nbrs(i):
+        y, x = divmod(i, X)
+        return [n for n, ok in ((i - X, y > 0), (i - 1, x > 0), (i + X, y < Y - 1), (i + 1, x < X - 1)) if ok]
+
+    for s in range(N):
+        if not closed[s] or seen[s]:
+            continue
+        seen[s] = True
+        queue = [s]
+        for c in queue:
+            for n in nbrs(c):
+                if closed[n] and not seen[n]:
+                    seen[n] = True
+                    queue.append(n)
+        tiles = sorted(queue)
+        volume = bad = 0.0
+        rests = True
+        top, bottom = -math.inf, math.inf
+        for i in tiles:
+            d = sd[i] if lake[i] else 0.0
+            if not d > 0:
+                continue
+            volume += d
+            bad += d * sc[i]
+            surface = F[i] + d
+            top, bottom = max(top, surface), min(bottom, surface)
+            for n in nbrs(i):
+                if lake[n] and sd[n] > 0:
+                    continue
+                if (d > SPILL) if F[n] == F[i] else (surface > F[n] + REST):
+                    rests = False
+        if top - bottom > REST:
+            rests = False
+        level = None if rests or not volume > 0 else level_into(F, dam, X, Y, [i for i in tiles if lake[i]], volume)
+        for i in tiles:
+            d = sd[i] if rests and lake[i] else 0.0
+            D[i], C[i] = d, (sc[i] if d > 0 else 0.0)
+            out[:, i] = 0.0
+        for i, d in level or ():
+            D[i] = d
+            C[i] = sc[i] if lake[i] and sd[i] > 0 else (bad / volume if volume > 0 else 0.0)
+            out[:, i] = 0.0
+    sim.D, sim.C, sim.out = D.reshape(Y, X), C.reshape(Y, X), out.reshape(4, Y, X)
+
+
+def level_into(F, dam, X, Y, seeds, volume):
+    """src/core/sim/prefill.ts `levelInto`: `volume` poured into the hollow round `seeds` and levelled
+    flat, filling over the lowest rim first; water rising over a map edge tile drains there."""
+    dm = None if dam is None else np.asarray(dam, float).reshape(-1)
+    eff = (lambda i: F[i] + (dm[i] if dm is not None and dm[i] >= 0 else 0.0))
+    queued = set(seeds)
+    heap = [(eff(i), i) for i in seeds]
+    heapq.heapify(heap)
+    added, passes = [], []
+    count, total, at, level, edge = 0, 0.0, -math.inf, math.inf, math.inf
+    while heap:
+        p, c = heapq.heappop(heap)
+        if p > at:
+            if edge < math.inf:
+                level = edge
+                break
+            if count > 0 and count * p - total >= volume:
+                level = (volume + total) / count
+                break
+            at = p
+        y, x = divmod(c, X)
+        if x == 0 or y == 0 or x == X - 1 or y == Y - 1:
+            edge = p
+        added.append(c)
+        passes.append(p)
+        count += 1
+        total += eff(c)
+        for n, ok in ((c - X, y > 0), (c - 1, x > 0), (c + X, y < Y - 1), (c + 1, x < X - 1)):
+            if ok and n not in queued:
+                queued.add(n)
+                e = eff(n)
+                heapq.heappush(heap, (e if e > p else p, n))
+    if level == math.inf:
+        level = edge if edge < math.inf else ((volume + total) / count if count > 0 else 0.0)
+    return sorted((i, level - eff(i)) for i, p in zip(added, passes) if p < level and level - eff(i) > 0)
 
 
 # ---------------------------------------------------------------------------------------------

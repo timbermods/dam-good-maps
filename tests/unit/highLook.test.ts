@@ -2,8 +2,8 @@
 // they are (the High additions go in only at named points, and only into High's own materials);
 // every High effect has its switch; the automatic choice steps down to High's lower-cost tier and
 // then to Standard when frames stay too slow (never on one slow spell, never back up by itself) and
-// remembers where it settled per GPU and size; the water's flow is estimated from its surface
-// (downhill, still where level) and its contamination is smoothed within one surface only; the new
+// remembers where it settled per GPU and size; the water's flow is the settle's own current (still
+// without one) and its contamination is smoothed within one surface only; the new
 // trees are placed the same way every time and switch models with the camera; the landmarks keep
 // the objects' bookkeeping. The pixels are compared on a GPU by tools/capture-high.ts.
 
@@ -13,7 +13,9 @@ import { fallMaterial, objectMaterial, sceneUniforms, skyMaterial, terrainMateri
 import { entityView, surfaceWater, waterFromDepth, DEAD } from "../../src/render3d/model";
 import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DROPS } from "../../src/render3d/high/effects";
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
-import { roughWater, surfaceContamination, surfaceFlow } from "../../src/render3d/high/flow";
+import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
+import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
+import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
 import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
@@ -170,35 +172,41 @@ describe("the automatic choice (the fallback)", () => {
   });
 });
 
-describe("the water's flow (estimated from its surface)", () => {
-  /** A channel along x, its surface falling eastward, beside a level lake. */
+describe("the water's flow (the settle's own current, D353)", () => {
+  /** A channel along x carrying the settle's outflows eastward, beside a level lake. */
   const scene = () => {
     const W = 12;
     const H = 6;
     const heights = new Uint8Array(W * H);
     const depth = new Float32Array(W * H);
     const cont = new Float32Array(W * H);
+    const out = new Float64Array(W * H * 4);
     for (let x = 0; x < W; x++) {
-      // the channel, rows 1–2: ground stepping down eastward, water a level deep on it
+      // the channel, rows 1–2: ground stepping down eastward, water a level deep on it, flowing east
       for (const y of [1, 2]) {
         heights[y * W + x] = 4;
         depth[y * W + x] = 1 - x * 0.03;
+        if (x < W - 1) out[(y * W + x) * 4 + 3] = 0.8;
       }
-      // the lake, rows 4–5: level
+      // the lake, rows 4–5: level, its neighbours trading equal flows (balanced: still)
       for (const y of [4, 5]) {
         heights[y * W + x] = 2;
         depth[y * W + x] = 1;
         cont[y * W + x] = x < 6 ? 1 : 0;
+        if (x < W - 1) out[(y * W + x) * 4 + 3] = 0.3;
+        if (x > 0) out[(y * W + x) * 4 + 1] = 0.3;
       }
     }
     const view = waterFromDepth(heights, depth, cont);
-    return { W, H, heights, sw: surfaceWater(W, H, view) };
+    const outflow = outflowsOf(view, W, H, out);
+    if (outflow) view.outflow = outflow;
+    return { W, H, heights, view, sw: surfaceWater(W, H, view) };
   };
 
-  it("runs downhill in a channel and holds still in a level lake", () => {
+  it("runs with the settle's outflows in a channel and holds still in a level lake", () => {
     const { W, H, sw } = scene();
-    const v = surfaceFlow(W, H, sw);
-    const at = (x: number, y: number) => [v[(y * W + x) * 2], v[(y * W + x) * 2 + 1]];
+    const c = surfaceCurrent(W, H, sw);
+    const at = (x: number, y: number) => [c[(y * W + x) * 2], c[(y * W + x) * 2 + 1]];
     expect(at(5, 1)[0]).toBeGreaterThan(0.3);
     expect(Math.abs(at(5, 1)[1])).toBeLessThan(0.05);
     expect(at(5, 4)).toEqual([0, 0]);
@@ -206,13 +214,12 @@ describe("the water's flow (estimated from its surface)", () => {
     expect(at(5, 3)).toEqual([0, 0]);
   });
 
-  it("holds a lake still though its surface falls a hair, as a settled lake's does (under 2.5 × 10⁻⁴ a tile)", () => {
-    const W = 10;
-    const H = 3;
-    const heights = new Uint8Array(W * H).fill(2);
-    const depth = Float32Array.from({ length: W * H }, (_, i) => 2 - (i % W) * 1e-4);
-    const sw = surfaceWater(W, H, waterFromDepth(heights, depth, new Float32Array(W * H)));
-    expect(surfaceFlow(W, H, sw).every((v) => v === 0)).toBe(true);
+  it("is missing without outflows (still water, never a guess from the surface)", () => {
+    const { W, H, view } = scene();
+    expect(outflowsOf(view, W, H, undefined)).toBeUndefined();
+    expect(outflowsOf(view, W, H, new Float64Array(4))).toBeUndefined();
+    const { outflow: _, ...plain } = view;
+    expect(surfaceCurrent(W, H, surfaceWater(W, H, plain)).every((v) => v === 0)).toBe(true);
   });
 
   it("smooths contamination into a soft front, through water on the same surface only", () => {
@@ -231,7 +238,8 @@ describe("the water's flow (estimated from its surface)", () => {
 
   it("finds no rough water in a gentle river, and some below a fall", () => {
     const { W, H, heights, sw } = scene();
-    const calm = roughWater(W, H, heights, sw, surfaceFlow(W, H, sw));
+    const drawn = (s: ReturnType<typeof surfaceWater>) => surfaceCurrent(W, H, s).map((v) => v * FLOW_DISPLAY);
+    const calm = roughWater(W, H, heights, sw, drawn(sw));
     expect(calm.counts.falls).toBe(0);
     // a fall: the channel's east half a level and a half lower
     const h2 = heights.slice();
@@ -242,7 +250,7 @@ describe("the water's flow (estimated from its surface)", () => {
         d2[y * W + x] = 0.6;
       }
     const sw2 = surfaceWater(W, H, waterFromDepth(h2, d2, new Float32Array(W * H)));
-    const rough = roughWater(W, H, h2, sw2, surfaceFlow(W, H, sw2));
+    const rough = roughWater(W, H, h2, sw2, drawn(sw2));
     expect(rough.counts.falls).toBeGreaterThan(0);
   });
 });

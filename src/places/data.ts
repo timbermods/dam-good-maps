@@ -2,7 +2,7 @@
 // tools/real-places.ts), and how a page fetches it. The gallery loads the index and the card
 // pictures; a place's own data loads only when it is downloaded or opened in the editor.
 
-import type { PlaceIndex } from "../core/places/place";
+import { galleryIndex, type PlaceIndex } from "../core/places/place";
 
 /** The folder of the gallery and its data, under the site's base. */
 export const PLACES_URL = `${import.meta.env.BASE_URL}real-places/`;
@@ -14,6 +14,11 @@ export async function fetchIndex(): Promise<PlaceIndex> {
   const r = await fetch(`${PLACES_URL}index.json`);
   if (!r.ok) throw new Error(`the list of places did not load (${r.status})`);
   return (await r.json()) as PlaceIndex;
+}
+
+/** The index as the gallery lists it: every place (D445). */
+export async function fetchGalleryIndex(): Promise<PlaceIndex> {
+  return galleryIndex(await fetchIndex());
 }
 
 /** A place's data file (gzip JSON), by id. */

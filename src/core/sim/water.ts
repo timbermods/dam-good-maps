@@ -8,12 +8,55 @@
 // two agree bit for bit on the golden fixtures (tests/unit/water.test.ts). Only + − × ÷, min, max
 // and ceil are used (PLAN §2.1), so Node and every browser give the same bytes.
 //
+// The game's rules (PLAN §20 D293, D303, D308, D311: one water model everywhere, the game's; read
+// from Timberborn 1.1.2.4's code by the 3D engine's study, investigation/terrain3d/GAME_RULES.md §3,
+// and proved on its stacked engine, sim/stack.ts on feature/terrain3d-a). The port as it was before
+// M9b simplified the game in four places a heightfield holds; `rules: "port"` keeps them, and
+// "game" is the game's code (`DEFAULT_WATER_RULES` says which a caller gets when it does not ask;
+// a map converted or built under one keeps being settled with it, `rules` passed explicitly):
+// - evaporation on every active tile, a dry tile that receives water too (the port: wet tiles only);
+// - the spill threshold at the map's edge too, where a floor-0 tile meets the padding (the port
+//   left it out; `edgeSpill`, taken from feature/weather-days' drought run, D303);
+// - a partial obstacle (NaturalDam) read from the higher of the two floors up to the ceiled surface
+//   (the port read it at the target's floor only: water from a higher floor passes over it);
+// - the source step sets the old depth too (it only matters beside a partial obstacle).
+// The game's fifth rule the port leaves out, direction limiters, needs a badtide drain's roofed
+// cell, which a heightfield cannot hold (sim/columns.ts).
+//
 // Speed: only an *exact* active list is updated each substep: the tiles with water at the start of
 // the substep, their 4-neighbours, and the source tiles. Every other tile is dry and cannot change,
 // so the result is identical to updating the whole grid (PLAN §10: a list rebuilt once per tick
-// changed the settled volume by 5%). An interior tile counts its wet neighbours directly, and the
-// outflows' direction loop is written out (PLAN §20 D130): exact rewrites, proved bit for bit
-// against the loops they replace (tests/unit/water-speedups.test.ts).
+// changed the settled volume by 5%). The outflows' direction loop is written out (PLAN §20 D130).
+//
+// The faster settle (PLAN §20 D359, from investigation/water-speed): the bookkeeping around the
+// arithmetic is kept up to date as tiles turn wet or dry, instead of being rebuilt every substep or
+// tick. The water's arithmetic is untouched: every expression, every per-tile sum's order, the source
+// order, the two substeps per tick and the settle's checks are as they were. Why each part is exact:
+// - Active list. A tile is active while it is wet, has a wet 4-neighbour, or is a source cell;
+//   `activeRefs` counts those reasons (at most 6). When a tile turns wet or dry its own count and its
+//   4-neighbours' change by one, applied after the substep's scan, so the set each substep updates
+//   is exactly the set rebuilt from the wet list before.
+// - Tile order. The list's order changes (a removed tile's slot takes the last one; the list is
+//   sorted every 64 ticks for memory locality), and it doesn't matter: the outflow pass reads the
+//   start-of-substep depth and momentum and writes only its own tile's outflows; the depth pass reads
+//   the complete outflows and the old contamination and writes only its own tile. Nothing is summed
+//   across tiles in list order.
+// - Wet neighbours. `wn[i]` is 1 + the wet 8-neighbours, updated by ±1 as a neighbour turns wet or
+//   dry: integer counts, so the order of the updates cannot change them.
+// - Evaporation. A tile's saturation reads the wet state within two tiles of it, so when a tile turns
+//   wet or dry the 5×5 square round it is marked, and only the marked tiles' modifiers are recomputed,
+//   at the start of the tick as before (both substeps keep the tick's modifier). The polynomial's
+//   eight values are computed once by the same expression, in the same order.
+// - Stale outflows. A tile wet at the start of a substep overwrites all four of its outflows before
+//   any are read, so only a tile that was wet and is now dry needs its outflows cleared.
+// - Dry tiles. A dry active tile with no inflow has zero outflows, and the depth pass would give it
+//   zero depth, contamination and momentum: those are assigned directly (its old depth keeps the
+//   zero's sign, as before).
+// Proved bit for bit against the engine before it (tests/unit/water-speedups.test.ts pins every byte
+// of the state; the M9b adoption compared every fixture, official map, seed batch, live edit and
+// weather day at every step). The caches follow the water only through `run`: a caller changes the
+// water by constructing a simulator (with its warm start) and may set `out` before running, as
+// always; the floor may change between runs (a carve), since no cache holds a floor.
 
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
@@ -21,6 +64,25 @@ export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
 export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
+/** The game days the canonical settle may run before its water counts as not settling (PLAN §10,
+ *  §11.3; D358: 6, 4 before 2026-10-01). It stops at the first check that passes, so a map whose
+ *  water settles sooner is the same whatever the limit. */
+export const SETTLE_DAYS = 6;
+
+/** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
+export type WaterRules = "game" | "port";
+
+/** The rules a simulator runs when its caller does not say: the game's, since M9b's switch (D308,
+ *  D311). A map built under the port's keeps them where it is settled again (the Real places, until
+ *  Real places 2 converts them under the game's). */
+export const DEFAULT_WATER_RULES: WaterRules = "game";
+
+export interface WaterSimOptions {
+  rules?: WaterRules;
+  /** The spill threshold at the map's edge (D303): the game's rule, on with the game's rules unless
+   *  it is given (feature/weather-days' drought run passes it explicitly). */
+  edgeSpill?: boolean;
+}
 
 /** Direction k: 0 = −y, 1 = −x, 2 = +y, 3 = +x; OPP[k] is the reverse direction. */
 const OPP = [2, 3, 0, 1];
@@ -47,16 +109,67 @@ export interface WaterModel {
   /** Every emitter. The out-of-map sides of each emitter tile are walls, also for emitters that
    *  are switched off (WaterMapBoundary decorates every water source). */
   emitters: Emitter[];
-  /** Water sealed basins keep from before they were sealed (a carve's oxbow lakes), in order: the
-   *  canonical settle starts their tiles from it (prefill.ts). */
+  /** Water sealed basins keep from before they were sealed (a carve's oxbow lakes) and Fills, in
+   *  order: the canonical settle starts their tiles from it (prefill.ts). */
   retained?: readonly RetainedWater[];
+  /** Tiles whose unfed water the player removed (Remove unfed water, D387 (2)), ascending: once the
+   *  canonical settle has run, the water no source feeds on them is taken away and the water settles
+   *  on from there (prefill.ts `canonicalRun`), as the game's own would from a file without it. Water
+   *  a source feeds is never taken. */
+  drained?: readonly number[];
 }
 
-/** Water a sealed basin keeps from before it was sealed (a carve's oxbow lake, D199, D216). With no
- *  source feeding it, a basin cut off from its river would start the canonical settle dry; its
- *  tiles start with the water that stood there instead, up to the surface it had (`floor` plus
- *  `depth`) on the ground as it is now, and it evaporates as the game's water does. Stored with the
- *  operation that sealed it, so the same document always settles the same. */
+/** One stored change to a map's water, in the order its operations stand in the log: a lake that
+ *  keeps its water (a carve's oxbow lake, D216; a Fill, D394), or tiles whose unfed water was
+ *  removed (D387 (2)). */
+export type KeptWater = { lake: RetainedWater } | { drain: readonly number[] };
+
+/** A water model's `retained` and `drained` from the stored changes, in order: a lake keeps its
+ *  water; a removal takes the tiles it names out of every lake before it and drains them; a later
+ *  lake on those tiles keeps its water again. With lakes only, `retained` is the lakes as given (the
+ *  same objects), so maps without a removal settle exactly as before. */
+export function composeKept(list: readonly KeptWater[]): { retained?: RetainedWater[]; drained?: number[] } {
+  if (!list.some((k) => "drain" in k)) {
+    const lakes = list.map((k) => (k as { lake: RetainedWater }).lake);
+    return lakes.length ? { retained: lakes } : {};
+  }
+  let retained: RetainedWater[] = [];
+  const drained = new Set<number>();
+  for (const k of list) {
+    if ("lake" in k) {
+      retained.push(k.lake);
+      for (const i of k.lake.tiles) drained.delete(i);
+      continue;
+    }
+    const gone = new Set(k.drain);
+    for (const i of k.drain) drained.add(i);
+    retained = retained
+      .map((r) => {
+        if (!r.tiles.some((i) => gone.has(i))) return r;
+        const keep = r.tiles.map((i) => !gone.has(i));
+        return { tiles: r.tiles.filter((_, j) => keep[j]), floor: r.floor.filter((_, j) => keep[j]), depth: r.depth.filter((_, j) => keep[j]), contamination: r.contamination.filter((_, j) => keep[j]) };
+      })
+      .filter((r) => r.tiles.length > 0);
+  }
+  return { ...(retained.length ? { retained } : {}), ...(drained.size ? { drained: [...drained].sort((a, b) => a - b) } : {}) };
+}
+
+/** Two models keep the same stored water: their lakes (`retained`) and their drained tiles. */
+export function sameKeptWater(a: Pick<WaterModel, "retained" | "drained">, b: Pick<WaterModel, "retained" | "drained">): boolean {
+  if (!sameRetained(a.retained, b.retained)) return false;
+  const x = a.drained ?? [];
+  const y = b.drained ?? [];
+  if (x.length !== y.length) return false;
+  for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return false;
+  return true;
+}
+
+/** Water a sealed basin keeps from before it was sealed (a carve's oxbow lake, D199, D216; a Fill,
+ *  D394). With no source feeding it, a basin cut off from its river would start the canonical
+ *  settle dry; its tiles start with the water that stood there instead, up to the surface it had
+ *  (`floor` plus `depth`) on the ground as it is now, and it evaporates as the game's water does.
+ *  Stored with the operation that sealed (or filled) it, so the same document always settles the
+ *  same. */
 export interface RetainedWater {
   /** Tile indices, ascending. */
   tiles: readonly number[];
@@ -94,25 +207,54 @@ export class WaterSim {
 
   /** Wall bits per tile: bit k set = the out-of-map neighbour in direction k is solid. */
   private readonly wall: Uint8Array;
+  /** The 4-neighbour in direction k (0 = −y, 1 = −x, 2 = +y, 3 = +x), or −1 off the map: geometry
+   *  only, no floor or water is cached. */
+  private readonly n0: Int32Array;
+  private readonly n1: Int32Array;
+  private readonly n2: Int32Array;
+  private readonly n3: Int32Array;
   private readonly f: Float64Array;
   private readonly Cnew: Float64Array;
+  /** The evaporation modifier per tile (1 on a dry tile), as of the start of the tick. */
   private readonly mod: Float64Array;
+  /** The modifier for each saturation 1–8 (index 0 unused). */
+  private readonly evap = new Float64Array(9);
+  /** Tiles whose modifier may have changed since the tick began (`dirtyMask` marks them once). */
+  private readonly dirty: Int32Array;
+  private dirtyCount = 0;
+  private readonly dirtyMask: Uint8Array;
+  /** 1 + the wet 8-neighbours, on every tile. */
   private readonly wn: Int32Array;
-  private readonly mark: Int32Array;
-  private stamp = 0;
+  /** Whether each tile was wet at the end of the last substep (depth > 0). */
+  private readonly wetMask: Uint8Array;
   private wet: Int32Array;
   private wetCount = 0;
   private prevWet: Int32Array;
   private prevWetCount = 0;
-  private active: Int32Array;
+  /** The active list, its reasons per tile (wet, a wet 4-neighbour, a source cell) and each active
+   *  tile's place in it. */
+  private readonly active: Int32Array;
   private activeCount = 0;
-  private modSet: Int32Array;
-  private modSetCount = 0;
+  private readonly activeRefs: Uint8Array;
+  private readonly activePos: Int32Array;
+  /** The tiles that turned wet or dry in the substep, applied to the active list after its scan. */
+  private readonly turned: Int32Array;
   private readonly sourceCells: Int32Array;
   /** Seep on/off state per emitter (1 = on). */
   private readonly seepOn: Uint8Array;
 
-  constructor(model: WaterModel, initial?: WaterState) {
+  /** The game's rules (D293, D311), or the port's. */
+  readonly rules: WaterRules;
+  /** The game's spill threshold at the map's edge too (its padding is an open column, floor 0,
+   *  never wet: water on a floor-0 tile at the edge keeps its last 0.1 there, as it would beside a
+   *  dry tile on the same floor). The game's rule (D303); the port left it out. */
+  readonly edgeSpill: boolean;
+  private readonly game: boolean;
+
+  constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
+    this.rules = opts.rules ?? DEFAULT_WATER_RULES;
+    this.game = this.rules === "game";
+    this.edgeSpill = opts.edgeSpill ?? this.game;
     const { W, H } = model;
     const N = W * H;
     this.W = W;
@@ -132,12 +274,32 @@ export class WaterSim {
     this.f = new Float64Array(4 * N);
     this.Cnew = new Float64Array(N);
     this.mod = new Float64Array(N).fill(1);
-    this.wn = new Int32Array(N);
-    this.mark = new Int32Array(N);
+    this.dirty = new Int32Array(N);
+    this.dirtyMask = new Uint8Array(N);
+    this.wn = new Int32Array(N).fill(1);
+    this.wetMask = new Uint8Array(N);
     this.wet = new Int32Array(N);
     this.prevWet = new Int32Array(N);
     this.active = new Int32Array(N);
-    this.modSet = new Int32Array(N);
+    this.activeRefs = new Uint8Array(N);
+    this.activePos = new Int32Array(N).fill(-1);
+    this.turned = new Int32Array(N);
+    this.n0 = new Int32Array(N);
+    this.n1 = new Int32Array(N);
+    this.n2 = new Int32Array(N);
+    this.n3 = new Int32Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      this.n0[i] = y > 0 ? i - W : -1;
+      this.n1[i] = x > 0 ? i - 1 : -1;
+      this.n2[i] = y < H - 1 ? i + W : -1;
+      this.n3[i] = x < W - 1 ? i + 1 : -1;
+    }
+    for (let sat = 1; sat <= 8; sat++) {
+      const t = 10 - sat;
+      this.evap[sat] = 0.0595 * (t * t) + 0.101 * t + 0.72;
+    }
     this.seepOn = new Uint8Array(model.emitters.length).fill(1);
     // the map edge drains water, except the padding next to a source cell, which is solid
     this.wall = new Uint8Array(N);
@@ -158,14 +320,24 @@ export class WaterSim {
       }
     }
     this.sourceCells = Int32Array.from(cells);
-    for (let i = 0; i < N; i++) if (this.D[i] > 0) this.wet[this.wetCount++] = i;
+    // the starting water: its wet tiles, their neighbour counts, the active list and the modifiers
+    // to compute at the first tick
+    for (let i = 0; i < N; i++) {
+      if (!(this.D[i] > 0)) continue;
+      this.wet[this.wetCount++] = i;
+      this.wetMask[i] = 1;
+      this.countWet(i, 1);
+      this.markActive(i, 1);
+      this.dirtyMask[i] = 1;
+      this.dirty[this.dirtyCount++] = i;
+    }
+    for (const i of this.sourceCells) this.refActive(i, 1);
   }
 
   /** Cluster saturation per wet tile (0 elsewhere): WN = 1 + wet 8-neighbours,
    *  sat = min(8, max(WN, max over 4-neighbours of WN − 1)). */
   saturation(): Uint8Array {
     const sat = new Uint8Array(this.N);
-    this.computeWn();
     for (let k = 0; k < this.wetCount; k++) {
       const i = this.wet[k];
       sat[i] = this.satAt(i);
@@ -173,32 +345,67 @@ export class WaterSim {
     return sat;
   }
 
-  private computeWn(): void {
-    const { W, H, D, wn } = this;
-    for (let k = 0; k < this.wetCount; k++) {
-      const i = this.wet[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      let c = 1;
-      if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
-        // an interior tile has all eight neighbours: count them directly (an integer count, so
-        // the order of the additions cannot change it; PLAN §20 D130)
-        c += +(D[i - W - 1] > 0) + +(D[i - W] > 0) + +(D[i - W + 1] > 0)
-          + +(D[i - 1] > 0) + +(D[i + 1] > 0)
-          + +(D[i + W - 1] > 0) + +(D[i + W] > 0) + +(D[i + W + 1] > 0);
-      } else {
-        for (let dy = -1; dy <= 1; dy++) {
-          const yy = y + dy;
-          if (yy < 0 || yy >= H) continue;
-          for (let dx = -1; dx <= 1; dx++) {
-            if (!dx && !dy) continue;
-            const xx = x + dx;
-            if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
-          }
+  /** Tile `i` turned wet (`delta` 1) or dry (−1): its 8-neighbours' wet counts change by one. */
+  private countWet(i: number, delta: number): void {
+    const { W, H, wn } = this;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy++) {
+      const yy = y + dy;
+      if (yy < 0 || yy >= H) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const xx = x + dx;
+        if (xx >= 0 && xx < W) wn[yy * W + xx] += delta;
+      }
+    }
+  }
+
+  /** Tile `i` turned wet or dry: every modifier within two tiles may change (the saturation reads
+   *  the 4-neighbours' counts, which read their 8-neighbours). The 5×5 square covers them. */
+  private markDirty(i: number): void {
+    const { W, H, dirtyMask, dirty } = this;
+    const x = i % W;
+    const y = (i - x) / W;
+    const y1 = Math.min(H - 1, y + 2);
+    const x1 = Math.min(W - 1, x + 2);
+    for (let yy = Math.max(0, y - 2); yy <= y1; yy++) {
+      for (let xx = Math.max(0, x - 2); xx <= x1; xx++) {
+        const c = yy * W + xx;
+        if (!dirtyMask[c]) {
+          dirtyMask[c] = 1;
+          dirty[this.dirtyCount++] = c;
         }
       }
-      wn[i] = c;
     }
+  }
+
+  /** One more (`delta` 1) or one fewer (−1) reason for tile `i` to be active. */
+  private refActive(i: number, delta: number): void {
+    const before = this.activeRefs[i];
+    const after = before + delta;
+    this.activeRefs[i] = after;
+    if (!before && after) {
+      this.activePos[i] = this.activeCount;
+      this.active[this.activeCount++] = i;
+    } else if (before && !after) {
+      // the last tile in the list takes its place
+      const pos = this.activePos[i];
+      const last = this.active[--this.activeCount];
+      this.active[pos] = last;
+      this.activePos[last] = pos;
+      this.activePos[i] = -1;
+    }
+  }
+
+  /** Tile `i` turned wet or dry: it and its 4-neighbours gain or lose a reason to be active. */
+  private markActive(i: number, delta: number): void {
+    this.refActive(i, delta);
+    const { n0, n1, n2, n3 } = this;
+    if (n0[i] >= 0) this.refActive(n0[i], delta);
+    if (n1[i] >= 0) this.refActive(n1[i], delta);
+    if (n2[i] >= 0) this.refActive(n2[i], delta);
+    if (n3[i] >= 0) this.refActive(n3[i], delta);
   }
 
   private satAt(i: number): number {
@@ -213,43 +420,17 @@ export class WaterSim {
     return best < 8 ? best : 8;
   }
 
-  /** The evaporation modifier from cluster saturation, recomputed once per tick. */
+  /** The evaporation modifier from cluster saturation, once per tick: 0.0595·t² + 0.101·t + 0.72
+   *  with t = 10 − saturation on a wet tile, 1 on a dry one. Only the tiles marked since the last
+   *  tick can have changed; both substeps use the tick's modifier. */
   private updateEvapMod(): void {
-    const mod = this.mod;
-    for (let k = 0; k < this.modSetCount; k++) mod[this.modSet[k]] = 1;
-    this.modSetCount = 0;
-    this.computeWn();
-    for (let k = 0; k < this.wetCount; k++) {
-      const i = this.wet[k];
-      const t = 10 - this.satAt(i);
-      mod[i] = 0.0595 * (t * t) + 0.101 * t + 0.72;
-      this.modSet[this.modSetCount++] = i;
+    const { mod, D, dirty, dirtyMask, evap } = this;
+    for (let k = 0; k < this.dirtyCount; k++) {
+      const i = dirty[k];
+      mod[i] = D[i] > 0 ? evap[this.satAt(i)] : 1;
+      dirtyMask[i] = 0;
     }
-  }
-
-  private buildActive(): void {
-    const { W, H, mark } = this;
-    const s = ++this.stamp;
-    let n = 0;
-    const act = this.active;
-    const add = (i: number) => {
-      if (mark[i] !== s) {
-        mark[i] = s;
-        act[n++] = i;
-      }
-    };
-    for (let k = 0; k < this.wetCount; k++) {
-      const i = this.wet[k];
-      add(i);
-      const x = i % W;
-      const y = (i - x) / W;
-      if (y > 0) add(i - W);
-      if (x > 0) add(i - 1);
-      if (y < H - 1) add(i + W);
-      if (x < W - 1) add(i + 1);
-    }
-    for (let k = 0; k < this.sourceCells.length; k++) add(this.sourceCells[k]);
-    this.activeCount = n;
+    this.dirtyCount = 0;
   }
 
   /** The outflow of wet tile `c` (floor `Fc`, surface `Hc`) into a neighbour holding a partial
@@ -266,23 +447,23 @@ export class WaterSim {
   }
 
   private substep(scale: number): void {
-    const { W, H, F, D, C, out, f, wall, mod, dam } = this;
-    // flows of the tiles that had water last substep are stale: clear them
+    const { F, D, C, out, f, wall, mod, dam, game, edgeSpill, n0: nb0, n1: nb1, n2: nb2, n3: nb3 } = this;
+    // flows of the tiles that had water last substep and are dry now are stale: clear them (a tile
+    // still wet overwrites all four in step 1)
     for (let k = 0; k < this.prevWetCount; k++) {
-      const b = 4 * this.prevWet[k];
+      const c = this.prevWet[k];
+      if (D[c] > 0) continue;
+      const b = 4 * c;
       f[b] = 0;
       f[b + 1] = 0;
       f[b + 2] = 0;
       f[b + 3] = 0;
     }
-    this.buildActive();
 
     // 1. outflows of every wet tile, from the start-of-substep state: the four directions written
     //    out in order (−y, −x, +y, +x), each the same steps (PLAN §20 D130)
     for (let w = 0; w < this.wetCount; w++) {
       const c = this.wet[w];
-      const x = c % W;
-      const y = (c - x) / W;
       const Fc = F[c];
       const Dc = D[c];
       const Hc = Fc + Dc;
@@ -290,7 +471,7 @@ export class WaterSim {
       const wc = wall[c];
       // −y
       {
-        const n = y > 0 ? c - W : -1;
+        const n = nb0[c];
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
@@ -301,9 +482,9 @@ export class WaterSim {
           const prev = KEEP * out[b];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b] = fk > 0 ? fk : 0;
@@ -311,7 +492,7 @@ export class WaterSim {
       }
       // −x
       {
-        const n = x > 0 ? c - 1 : -1;
+        const n = nb1[c];
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
@@ -322,9 +503,9 @@ export class WaterSim {
           const prev = KEEP * out[b + 1];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 1] = fk > 0 ? fk : 0;
@@ -332,7 +513,7 @@ export class WaterSim {
       }
       // +y
       {
-        const n = y < H - 1 ? c + W : -1;
+        const n = nb2[c];
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
@@ -343,9 +524,9 @@ export class WaterSim {
           const prev = KEEP * out[b + 2];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 2] = fk > 0 ? fk : 0;
@@ -353,7 +534,7 @@ export class WaterSim {
       }
       // +x
       {
-        const n = x < W - 1 ? c + 1 : -1;
+        const n = nb3[c];
         const inside = n >= 0;
         const Fn = inside ? F[n] : 0;
         const Dn = inside ? D[n] : 0;
@@ -364,17 +545,27 @@ export class WaterSim {
           const prev = KEEP * out[b + 3];
           let fk: number;
           const lim = inside && dam ? dam[n] : -1;
-          if (lim >= 0 && Fn < Math.ceil(Hc)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
+          if (lim >= 0 && Fn < Math.ceil(Hc) && (!game || Fc <= Fn)) fk = this.damFlow(c, Fc, Hc, Fn, lim, e, prev);
           else {
-            if (inside && Dn === 0 && Fn === Fc) e = e - SPILL;
+            if ((inside || edgeSpill) && Dn === 0 && Fn === Fc) e = e - SPILL;
             fk = prev + K * e;
           }
           f[b + 3] = fk > 0 ? fk : 0;
         }
       }
-      // a tile never gives more than it has
+      // a tile never gives more than it has (the game scales by have / (s·dt) when that is under
+      // 1; the port guarded the quotient, which differs only below 1e-12)
       const s = f[b] + f[b + 1] + f[b + 2] + f[b + 3];
-      if (s * DT > Dc) {
+      if (game) {
+        const sd = s * DT;
+        if (s > 0 && Dc < sd) {
+          const r = Dc / sd;
+          f[b] *= r;
+          f[b + 1] *= r;
+          f[b + 2] *= r;
+          f[b + 3] *= r;
+        }
+      } else if (s * DT > Dc) {
         const r = Dc / Math.max(s * DT, 1e-12);
         f[b] *= r;
         f[b + 1] *= r;
@@ -387,18 +578,28 @@ export class WaterSim {
     const Cnew = this.Cnew;
     for (let a = 0; a < this.activeCount; a++) {
       const c = this.active[a];
-      const x = c % W;
-      const y = (c - x) / W;
       const b = 4 * c;
-      const n0 = y > 0 ? c - W : -1;
-      const n1 = x > 0 ? c - 1 : -1;
-      const n2 = y < H - 1 ? c + W : -1;
-      const n3 = x < W - 1 ? c + 1 : -1;
+      const n0 = nb0[c];
+      const n1 = nb1[c];
+      const n2 = nb2[c];
+      const n3 = nb3[c];
       // inflow from direction k is the neighbour's outflow in the opposite direction
       const in0 = n0 >= 0 ? f[4 * n0 + 2] : 0;
       const in1 = n1 >= 0 ? f[4 * n1 + 3] : 0;
       const in2 = n2 >= 0 ? f[4 * n2 + 0] : 0;
       const in3 = n3 >= 0 ? f[4 * n3 + 1] : 0;
+      // a dry tile that receives nothing stays dry: its outflows are all zero (cleared when it
+      // dried), so the steps below would give it zero depth, contamination and momentum
+      if (D[c] === 0 && in0 === 0 && in1 === 0 && in2 === 0 && in3 === 0) {
+        this.Dold[c] = D[c]; // keeps the zero's sign, as `Dold[c] = Dc` below does
+        out[b] = 0;
+        out[b + 1] = 0;
+        out[b + 2] = 0;
+        out[b + 3] = 0;
+        Cnew[c] = 0;
+        D[c] = 0;
+        continue;
+      }
       const f0 = f[b];
       const f1 = f[b + 1];
       const f2 = f[b + 2];
@@ -420,7 +621,8 @@ export class WaterSim {
       out[b + 3] = Math.max(0, f3 - BAL * in3);
       this.Dold[c] = Dc;
       let net = insum - outsum;
-      if (Dc > 0) net = net - (Dc < 0.02 ? 1e-3 : 1e-4) * mod[c];
+      // (the game: every active tile evaporates, a dry one that receives water too)
+      if (game || Dc > 0) net = net - (Dc < 0.02 ? 1e-3 : 1e-4) * mod[c];
       const d1 = Dc + net * DT;
       const newD = d1 > 0 ? d1 : 0;
       const mass = C[c] * remaining + cin * DT;
@@ -440,22 +642,38 @@ export class WaterSim {
       if (!(add > 0)) continue; // a source that is off (or a drought) adds nothing
       for (const i of src.cells) {
         const d0 = D[i];
+        if (game) this.Dold[i] = d0;
         C[i] = (C[i] * d0 + src.contamination * add) / (d0 + add);
         D[i] = d0 + add;
       }
     }
 
-    // the wet list for the next substep: every wet tile is in the active list
+    // the wet list for the next substep: every wet tile is in the active list. A tile that turned
+    // wet or dry updates its neighbours' wet counts and marks the modifiers round it; the active
+    // list takes the change after this scan, so the scan sees the list the substep updated
     const t = this.prevWet;
     this.prevWet = this.wet;
     this.prevWetCount = this.wetCount;
     this.wet = t;
+    const wetMask = this.wetMask;
     let n = 0;
+    let nTurned = 0;
     for (let a = 0; a < this.activeCount; a++) {
       const c = this.active[a];
-      if (D[c] > 0) this.wet[n++] = c;
+      const wet = D[c] > 0 ? 1 : 0;
+      if (wet !== wetMask[c]) {
+        wetMask[c] = wet;
+        this.countWet(c, wet ? 1 : -1);
+        this.markDirty(c);
+        this.turned[nTurned++] = c;
+      }
+      if (wet) this.wet[n++] = c;
     }
     this.wetCount = n;
+    for (let k = 0; k < nTurned; k++) {
+      const c = this.turned[k];
+      this.markActive(c, wetMask[c] ? 1 : -1);
+    }
   }
 
   /** Seeps switch off above their depth limit and back on below the restart depth. */
@@ -472,6 +690,12 @@ export class WaterSim {
   /** Run `ticks` ticks (2 substeps each). `strengthScale` scales every source (0 = drought). */
   run(ticks: number, strengthScale = 1): this {
     for (let t = 0; t < ticks; t++) {
+      // sorting the active list now and then keeps its memory access in order (D359); the order
+      // changes no result
+      if (this.ticks % 64 === 0) {
+        const active = this.active.subarray(0, this.activeCount).sort();
+        for (let a = 0; a < active.length; a++) this.activePos[active[a]] = a;
+      }
       this.updateSeeps();
       this.updateEvapMod();
       this.substep(strengthScale);
@@ -504,7 +728,7 @@ function clamp(v: number, lo: number, hi: number): number {
 // ------------------------------------------------------------------------------------------ settle
 
 export interface SettleOptions {
-  /** Give up after this many game days (PLAN §11.3: 4). */
+  /** Give up after this many game days (PLAN §11.3: `SETTLE_DAYS`). */
   maxDays?: number;
   /** Largest depth change between checks that counts as still (PLAN §11.3: 0.005). */
   tol?: number;
@@ -512,13 +736,10 @@ export interface SettleOptions {
   checkEvery?: number;
   /** Share of tiles that may still move by more than `tol` (PLAN §11.3: 0.005). */
   movedShare?: number;
-  /** The kept tiles of the map's sealed basins (`sealedTiles`: a carve's oxbow lakes). What they
-   *  lose to evaporation is not the water changing (D222): see `steadyApartFromSealed`. */
+  /** The kept tiles of the map's sealed basins (`sealedTiles`: a carve's oxbow lakes, Fills). What
+   *  they lose to evaporation is not the water changing (D222, D413): the settle stops at the first
+   *  check where only that still changed (`steadyApartFromSealed`). */
   sealed?: readonly number[];
-  /** Stop at the first check where the water is steady apart from sealed basins evaporating (the
-   *  editor's preview). The canonical settle runs on to its own test instead: the water a file
-   *  gets is the water at the tick that test gives (§19.7), so this never changes it. */
-  untilSteady?: boolean;
 }
 
 export interface SettleResult {
@@ -526,9 +747,9 @@ export interface SettleResult {
   settled: boolean;
   /** Ticks run: the water is the water at this tick. */
   ticks: number;
-  /** When the settle's test had not passed but, at a check, the water was steady apart from sealed
-   *  basins evaporating (D222): that check's tick. Such water has settled: only real flow is the
-   *  water still changing (`waterSteady`). */
+  /** When the settle stopped because, at a check, the water was steady apart from sealed basins
+   *  evaporating (D222, D413), though its own test had not passed: that check's tick (`ticks` too).
+   *  Such water has settled: only real flow is the water still changing (`waterSteady`). */
   steadyTicks?: number;
 }
 
@@ -547,17 +768,19 @@ export function sealedTiles(m: WaterModel): number[] | undefined {
   return [...all].sort((a, b) => a - b);
 }
 
-/** Whether the water changed between two checks only by sealed basins evaporating (D222). A sealed
- *  basin is the water round a basin's kept tiles (4-connected tiles wet at either check) while it
- *  holds no running source's tile and reaches no map edge: nothing flows in or out, so all it can
- *  lose is what evaporates. Its tiles that lost water are left out of the settle's test (the tiles
- *  moved and the volume change); its tiles that rose (water still running inside it) and every
- *  other tile count as before. `prototype/watersim.py` (`steady_apart_from_sealed`) is the same. */
-export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: number, sealed: readonly number[], tol: number, movedShare: number): boolean {
+/** The sealed basins at a check (D222): the water round each of a basin's kept tiles (4-connected
+ *  tiles wet at either check, `prev` or now) while it holds no running source's tile and reaches no
+ *  map edge: nothing flows in or out, so all it can lose is what evaporates. `closed` marks every
+ *  tile of such a basin; `drying` those of its tiles that did not rise (only lost water). The one
+ *  definition: the settle's stopping test (`steadyApartFromSealed`), `water.settles` and the water
+ *  the canonical settle stores (prefill.ts `canonicalRun`) all use it. `prototype/watersim.py`
+ *  (`sealed_basins`) is the same. */
+export function sealedBasins(sim: WaterSim, prev: Float64Array, sealed: readonly number[]): { closed: Uint8Array; drying: Uint8Array } {
   const { W, H, N, D } = sim;
   const feeds = new Uint8Array(N);
   for (const e of sim.emitters) if (e.strength > 0) for (const i of e.cells) feeds[i] = 1;
   const wet = (i: number) => D[i] > 0 || prev[i] > 0;
+  const closed = new Uint8Array(N);
   const drying = new Uint8Array(N);
   const seen = new Uint8Array(N);
   const queue = new Int32Array(N);
@@ -586,9 +809,22 @@ export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: nu
     if (open) continue;
     for (let h = 0; h < tail; h++) {
       const i = queue[h];
+      closed[i] = 1;
       if (!(D[i] > prev[i])) drying[i] = 1;
     }
   }
+  return { closed, drying };
+}
+
+/** Whether the water changed between two checks only by sealed basins evaporating (D222, D413):
+ *  the settle's test on everything but the tiles of a sealed basin (`sealedBasins`) that lost water
+ *  (its tiles that rose, water still running inside it, count as before): the rest's volume changes
+ *  by under 0.2% of the rest and at most `movedShare` of the map's tiles move by over `tol`. So the
+ *  water that flows stops on the same check as on the map without the basin. `prototype/watersim.py`
+ *  (`steady_apart_from_sealed`) is the same. */
+export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, sealed: readonly number[], tol: number, movedShare: number): boolean {
+  const { N, D } = sim;
+  const { drying } = sealedBasins(sim, prev, sealed);
   // the settle's test on everything else, summed in index order as the Python does
   let rest = 0;
   let restPrev = 0;
@@ -599,7 +835,7 @@ export function steadyApartFromSealed(sim: WaterSim, prev: Float64Array, vol: nu
     restPrev += prev[i];
     if (Math.abs(D[i] - prev[i]) > tol) moved++;
   }
-  const dv = Math.abs(rest - restPrev) / Math.max(vol, 1e-9);
+  const dv = Math.abs(rest - restPrev) / Math.max(rest, 1e-9);
   return dv < 0.002 && moved <= movedShare * N;
 }
 
@@ -618,15 +854,14 @@ export function settle(sim: WaterSim, opts: SettleOptions = {}): SettleResult {
  *  check that settles, so the editor's worker can run the canonical settle a slice at a time,
  *  answer the page between slices, and give up when a newer edit arrives (EDITOR_PLAN §6). The
  *  ticks and the checks are the same whatever the slices, so the result is too. With sealed basins
- *  it also notes the first check where only their evaporation still changed (`steadyTicks`). */
+ *  it also stops at the first check where only their evaporation still changed (`steadyTicks`,
+ *  D222, D413). */
 export class SettleRun {
   readonly every: number;
   readonly checks: number;
   private readonly tol: number;
   private readonly movedShare: number;
   private readonly sealed: readonly number[] | null;
-  private readonly untilSteady: boolean;
-  private steadyTicks: number | undefined;
   private prev: Float64Array;
   private prevVol: number;
   private k = 0;
@@ -637,11 +872,10 @@ export class SettleRun {
     readonly sim: WaterSim,
     opts: SettleOptions = {},
   ) {
-    const maxDays = opts.maxDays ?? 4;
+    const maxDays = opts.maxDays ?? SETTLE_DAYS;
     this.tol = opts.tol ?? 0.005;
     this.movedShare = opts.movedShare ?? 0.005;
     this.sealed = opts.sealed?.length ? opts.sealed : null;
-    this.untilSteady = opts.untilSteady ?? false;
     this.every = opts.checkEvery ?? 128;
     this.checks = Math.floor((maxDays * TICKS_PER_DAY) / this.every);
     this.prev = sim.D.slice();
@@ -663,6 +897,14 @@ export class SettleRun {
     return this.result;
   }
 
+  /** Once it has finished, the sealed basins at its last check (`sealedBasins`' `closed`: the
+   *  water round the kept tiles that nothing flows into or out of); null without sealed basins or
+   *  before it has finished. */
+  closedBasins(): Uint8Array | null {
+    if (!this.result || !this.sealed) return null;
+    return sealedBasins(this.sim, this.prev, this.sealed).closed;
+  }
+
   /** Run at most `ticks` more ticks; the result when the settle has finished, else null. */
   advance(ticks: number): SettleResult | null {
     const sim = this.sim;
@@ -682,15 +924,9 @@ export class SettleRun {
       for (let i = 0; i < sim.N; i++) if (Math.abs(D[i] - prev[i]) > this.tol) moved++;
       this.k++;
       if (dv < 0.002 && moved <= this.movedShare * sim.N) this.result = { settled: true, ticks: sim.ticks };
-      else {
-        // only sealed basins evaporating: steady (D222); the canonical settle still runs on to its
-        // own test, so its water is what it always was
-        if (this.sealed && this.steadyTicks === undefined && steadyApartFromSealed(sim, prev, vol, this.sealed, this.tol, this.movedShare)) {
-          this.steadyTicks = sim.ticks;
-          if (this.untilSteady) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
-        }
-        if (!this.result && this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks, ...(this.steadyTicks !== undefined ? { steadyTicks: this.steadyTicks } : {}) };
-      }
+      // only sealed basins evaporating: the water has settled (D222, D413)
+      else if (this.sealed && steadyApartFromSealed(sim, prev, this.sealed, this.tol, this.movedShare)) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
+      else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
       if (!this.result) {
         this.prev = D.slice();
         this.prevVol = vol;

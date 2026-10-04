@@ -1,0 +1,263 @@
+// The top bar's rows: the source picked, the shelf item's options and the force's rows.
+
+import type { ComponentChildren } from "preact";
+import type { EditOp } from "../../core/doc/ops";
+import type { EntityInfo } from "../../worker/session";
+import { newId, sourceStrengths, sourceStrengthWords } from "../features";
+import { SourceReadout, StrengthSlider } from "../panels";
+import type { ShelfOptions } from "../shelfItems";
+import { powerWord } from "../forceDriver";
+import { CarveRow, carveSettingsOf } from "../CarveRow";
+import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
+import { GlaciateRow } from "../ForceRows";
+import type { GlaciateSettings } from "../../core/forces/glaciate/model";
+import type { Verb } from "../../core/forces/op";
+import { FORCES } from "../TopBar";
+import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
+import { tip } from "../../ui/Tooltip";
+import type { Ed } from "../ed";
+
+export interface RowsSlice {
+  pickTile: (x: number, y: number) => void;
+  pickedRow: () => { label: string; content: ComponentChildren } | null;
+  shelfRow: () => { label: string; content: ComponentChildren } | null;
+  forceRow: () => ComponentChildren;
+}
+
+export function useRows(ed: Ed): RowsSlice {
+  const {
+    api, info, tool, options, setOptions, shelf, shelfOptions, setShelfOptions, feel, setPicked, picked,
+    pickedObject, setPickedObject, optionsRef, enqueue, run, strengthOfEntity, liveStrength, entityIndexOf,
+    groupsRef, pointedWords, removeSources, carveUi, setCarveUi, craterUi, setCraterUi, eruptUi, setEruptUi, quakeUi,
+    setQuakeUi, glaciateUi, setGlaciateUi, moreOpen, setMoreOpen, forcer, lastUnleash, unleashPower, setUnleashPower,
+    unleash, unleashAgain, unleashDown, forceAgain
+  } = ed;
+
+  /** A source clicked (D196): it is picked, with its strength and its water in the row beneath the
+   *  top bar. */
+  function pickTile(x: number, y: number) {
+    void enqueue(() => api.entitiesAt(x, y)).then((list) => {
+      const sources = list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
+      setPicked(sources.length ? { x, y, list: sources } : null);
+    });
+  }
+  /** A picked source's water (clean or bad) or strength changed. */
+  function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
+    if (!picked) return;
+    const at: [number, number] = [picked.x, picked.y];
+    if (c.kind) {
+      // clean or bad is the source's own (D196): a new source of the other kind in its place
+      const bad = c.kind === "bad";
+      const cx = e.template === "BadwaterSource" ? e.x + 1 : e.x;
+      const cy = e.template === "BadwaterSource" ? e.y + 1 : e.y;
+      const s0 = Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? 1);
+      const req = sourceRequest({ ...optionsRef.current, sourceBad: bad, sourceStrength: Math.min(8, s0), badwaterStrength: s0 }, cx, cy);
+      const place: EditOp = { op: "placeEntity", params: { id: newId(), template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.components ? { components: req.components } : {}) } };
+      void run(
+        () => api.applyAll([{ op: "deleteEntities", params: { entities: [e.id] } }, place], bad ? "Make a source badwater" : "Make a source clean"),
+        (u) => {
+          if (!u.ok) return;
+          pickTile(cx, cy);
+          feel("source", cx, cy);
+        },
+      );
+      return;
+    }
+    if (c.strength === undefined) return;
+    const v = c.strength;
+    // its water answers each step, and one adjustment is one undo step; its label and row show it at once (D368 (4))
+    const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
+    const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
+    liveStrength(e, v);
+    void run(
+      () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
+      (u) => {
+        if (u.ok) pickTile(at[0], at[1]);
+      },
+    ).finally(() => liveStrength(e, null));
+  }
+  /** A picked source's strength: the one number its label shows too (D361 (6), D368 (4)), never the record's. */
+  function pickedStrength(e: EntityInfo): number {
+    const k = entityIndexOf(e);
+    return k >= 0 ? strengthOfEntity(k) : Number((e.components.WaterSource as { SpecifiedStrength?: number } | undefined)?.SpecifiedStrength ?? 1);
+  }
+  /** A picked source's strength in words, as its marker's label says it (D361, item 6). */
+  function pickedWords(e: EntityInfo): string {
+    const k = entityIndexOf(e);
+    const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
+    return s ? sourceStrengthWords(s) : `${pickedStrength(e)} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
+  }
+  /** The row beneath the top bar for a picked source: its strength, its water, Remove. */
+  function pickedRow(): { label: string; content: ComponentChildren } | null {
+    if (pickedObject && !picked) {
+      const o = pickedObject;
+      const name = o.template === "UndergroundRuins" ? "Mine site" : o.template.replace(/([a-z])([A-Z])/g, "$1 $2");
+      return {
+        label: `${name}, selected`,
+        content: (
+          <>
+            <span class="bar-status">Drag it to move it</span>
+            <button
+              type="button"
+              {...tip("Delete it", "Delete")}
+              onClick={() => {
+                setPickedObject(null);
+                void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
+              }}
+            >
+              Delete
+            </button>
+            <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPickedObject(null)}>
+              ×
+            </button>
+          </>
+        ),
+      };
+    }
+    const e = picked?.list[0];
+    if (!e) return null;
+    const bad = e.template === "BadwaterSource";
+    const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
+    const strength = pickedStrength(e);
+    return {
+      label: `${bad ? "Badwater" : "Water"} source, selected`,
+      content: (
+        <>
+          <label {...tip("Water a second", "Ctrl+scroll over it")}>
+            Strength
+            <select aria-label="Strength" value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
+              {[...new Set([...steps, strength])]
+                .sort((a, b) => a - b)
+                .map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v} water/s
+                  </option>
+                ))}
+            </select>
+          </label>
+          <SourceReadout label="This source" words={pickedWords(e)} />
+          <label title="Clean water or badwater">
+            Water
+            <select aria-label="Water" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
+              <option value="clean">Clean</option>
+              <option value="bad">Badwater</option>
+            </select>
+          </label>
+          <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
+            Remove
+          </button>
+          <span class="bar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            class="unleash-button"
+            {...tip("Carve a river from it", "U")}
+            onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)}
+            onClick={() => unleash(e)}
+          >
+            Unleash
+          </button>
+          <label class="slider-field" title="How hard its river cuts">
+            Power
+            <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
+            <output>{powerWord(unleashPower)}</output>
+          </label>
+          {info.forceAgain === "carve" && lastUnleash.current === e.id ? (
+            <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
+              Try another
+            </button>
+          ) : null}
+          <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPicked(null)}>
+            ×
+          </button>
+        </>
+      ),
+    };
+  }
+  /** The row beneath the top bar for the shelf's object: its own options, if it has any. */
+  function shelfRow(): { label: string; content: ComponentChildren } | null {
+    if (!shelf) return null;
+    if (shelf.source) {
+      const bad = shelf.source === "bad";
+      const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
+      const value = bad ? options.badwaterStrength : options.sourceStrength;
+      // the strength of the next one (over a placed source, Ctrl+scroll sets its own, D322)
+      return {
+        label: `${shelf.name} options`,
+        content: (
+          <>
+            <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />
+            {pointedWords ? <SourceReadout label="Pointing at" words={pointedWords} /> : null}
+          </>
+        ),
+      };
+    }
+    if (shelf.id === "ruin")
+      return {
+        label: "Ruin options",
+        content: (
+          <label title="How tall the ruin is">
+            Height
+            <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
+                <option key={k} value={String(k)}>
+                  {k} {k === 1 ? "level" : "levels"}
+                </option>
+              ))}
+            </select>
+          </label>
+        ),
+      };
+    if (shelf.id === "relic")
+      return {
+        label: "Relic options",
+        content: (
+          <label title="How big the relic is">
+            Size
+            <select aria-label="Size" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+        ),
+      };
+    return null;
+  }
+
+  /** The options row of the force picked (Power, Size, its one choice, Try another: D289), or its
+   *  status while it works. */
+  function forceRow(): ComponentChildren {
+    if (!tool) return null;
+    const force = FORCES.find((f) => f.id === tool)!;
+    const st = forcer.current?.status ?? null;
+    const canAgain = info.forceAgain === tool;
+    const more = moreOpen[tool as Verb] ?? false;
+    const onMore = (open: boolean) => setMoreOpen((m) => ({ ...m, [tool as Verb]: open }));
+    if (tool === "carve")
+      return (
+        <CarveRow
+          force={force}
+          ui={carveUi}
+          onUi={(u) => {
+            setCarveUi(u);
+          }}
+          status={st}
+          canAgain={canAgain}
+          onAgain={() => void forceAgain()}
+          onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
+          onRevert={() => forcer.current?.cancel()}
+          more={more}
+          onMore={onMore}
+          drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
+        />
+      );
+    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
+    const again = () => void forceAgain();
+    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
+    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
+    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
+  }
+
+  return { pickTile, pickedRow, shelfRow, forceRow };
+}

@@ -1,7 +1,7 @@
 # Assets
 
-Maps come from Dam Good Maps' MIT-licensed generator. The primitive renderer and interface adapt
-the repository's MIT-licensed Rift study. Meander's algorithm and effects are original code.
+Maps come from Dam Good Maps' AGPL v3-licensed generator. The primitive renderer and interface adapt
+the repository's AGPL v3-licensed Rift study. Meander's algorithm and effects are original code.
 No assets were taken from Timberborn's files.
 
 Sound reuses repository recordings directly from `investigation/juice-2/audio/`:

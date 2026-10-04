@@ -4,6 +4,9 @@ Dam Good Maps is a one-person passion project. There is no launch date; the goal
 ## The whole experience
 A whimsical, surprising terrain is put in front of me. I play with it: flatten the land to connect two rivers, craterize the whole area, add a few water sources. It looks interesting now, so let's play. From opening Dam Good Maps to playing a map I love takes minutes, and getting it into the game is one click, with no file handling.
 
+## Performance
+Speed is part of perfect (PLAN §20 D453). Kyler judges it by using the tool, and something that feels slow is a bug like any other. There are no measured budgets and no speed gates.
+
 ## Maps
 1. Every map feels designed by nature, not a program: no ruler-straight channels, stamped shapes or copied pieces.
 2. Maps feel genuinely different from one another: across any handful, different openings, water stories and problems to solve, and no single type dominates. Only true near-duplicates are ever rejected; the best candidate wins, and variety breaks near ties.

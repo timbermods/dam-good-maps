@@ -13,6 +13,8 @@ import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
+import { wantedCount } from "../../water/sourceGroups";
+import * as portable from "../../math/portable";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -219,22 +221,88 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
 
 /** Channel tiles on the map border where the river enters (its sealed mouth, PLAN §7.6). */
 export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField" | "narrows">): number[] {
-  const entry = f.params.entry;
-  if (!("edge" in entry)) return [];
-  const { W, H } = t;
+  if (!("edge" in f.params.entry)) return [];
   const field = t.pathField(f.id);
   const narrows = t.narrows(f.id);
+  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2));
+}
+
+/** The mouth's border tiles, `inChannel` saying which border tiles the channel covers. */
+function mouthTilesBy(f: RiverFeature, W: number, H: number, inChannel: (i: number) => boolean): number[] {
+  const entry = f.params.entry;
+  if (!("edge" in entry)) return [];
   const out: number[] = [];
   const border = (x: number, y: number) => {
     const i = y * W + x;
-    if (field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2)) out.push(i);
+    if (inChannel(i)) out.push(i);
   };
   const edge: Edge = entry.edge;
   if (edge === "west") for (let y = 0; y < H; y++) border(0, y);
   else if (edge === "east") for (let y = 0; y < H; y++) border(W - 1, y);
   else if (edge === "south") for (let x = 0; x < W; x++) border(x, 0);
   else for (let x = 0; x < W; x++) border(x, H - 1);
-  return out;
+  // (M9b, D314: the mouth is a row of the rule's count across the flow, the channel narrowed to it
+  // at the edge; a channel narrower than the row keeps its own width)
+  const m = mouthRow(f, W, H);
+  if (!m || out.length <= m.count) return out;
+  const along = (i: number) => (edge === "west" || edge === "east" ? Math.floor(i / W) : i % W);
+  const keep = new Set(m.along);
+  const row = out.filter((i) => keep.has(along(i)));
+  return row.length ? row : out;
+}
+
+/** An edge river's mouth tiles as the build places its sources (`mouthTiles`), before any build:
+ *  its own path, no narrows (item 27: the lip and the course check hold exactly these). */
+export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
+  // (the path's distance on the border tiles alone, as `pathField` measures it: the whole field
+  // took a large share of a 256² map's time)
+  const path = f.params.path;
+  const half = f.params.width / 2;
+  return mouthTilesBy(f, W, H, (i) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    let best = Infinity;
+    for (let k = 0; k + 1 < path.length; k++) {
+      const ax = path[k][0];
+      const ay = path[k][1];
+      const vx = path[k + 1][0] - ax;
+      const vy = path[k + 1][1] - ay;
+      const l2 = vx * vx + vy * vy;
+      let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
+      if (t < 0) t = 0;
+      else if (t > 1) t = 1;
+      const px = ax + t * vx - x;
+      const py = ay + t * vy - y;
+      const dd = px * px + py * py;
+      if (dd < best) best = dd;
+    }
+    return portable.sqrt(best) < half;
+  });
+}
+
+/** An edge river's mouth as D314's rule has it: the edge tile its course crosses (`mid`, along the
+ *  edge), the count of sources the rule wants for its flow, and the positions along the edge of the
+ *  row centred on `mid`. The hydrology cuts the mouth to it and the build seals it with it. */
+export function mouthRow(f: RiverFeature, W: number, H: number): { mid: number; count: number; along: number[] } | null {
+  const entry = f.params.entry;
+  if (!("edge" in entry)) return null;
+  return mouthRowAt(entry.edge, f.params.path[0], f.params.flow, f.id, W, H);
+}
+
+export function mouthRowAt(edge: Edge, p0: readonly [number, number], flow: number, id: string, W: number, H: number): { mid: number; count: number; along: number[] } {
+  const x = Math.min(W - 1, Math.max(0, Math.round(p0[0])));
+  const y = Math.min(H - 1, Math.max(0, Math.round(p0[1])));
+  const ex = edge === "west" ? 0 : edge === "east" ? W - 1 : x;
+  const ey = edge === "south" ? 0 : edge === "north" ? H - 1 : y;
+  const vertical = edge === "west" || edge === "east";
+  const mid = vertical ? ey : ex;
+  const len = vertical ? H : W;
+  const count = wantedCount({ x: ex, y: ey, strength: flow, seed: hash32(0, id) });
+  // the row: the positions nearest the middle, the lower first on a tie
+  const cand: number[] = [];
+  for (let a = Math.max(0, mid - count); a <= Math.min(len - 1, mid + count); a++) cand.push(a);
+  cand.sort((p, q) => Math.abs(p - mid) - Math.abs(q - mid) || p - q);
+  return { mid, count, along: cand.slice(0, count).sort((p, q) => p - q) };
 }
 
 /** The channel tiles a spring-fed river's sources stand on: the ones nearest its spring, enough
@@ -358,7 +426,7 @@ export function sculptReadsNeighbours(s: SculptEdit): boolean {
 /** Apply one sculpt edit or brush stroke (step 6) to the region's cells. Heights stay within
  *  0–16, the in-game editor's range (the brushes are defined that way, like the game's own).
  *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
-export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean): void {
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }): void {
   const { W, heights } = t;
   if (isForce(s.params)) {
     // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
@@ -376,8 +444,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
     const was = brushHard(s.params) ? heights.slice() : null;
-    // kept sources' ground (D322, item 31): the integrity pass leaves it as it is
-    if (s.params.sources === "keep") for (const [y, a, bb] of s.params.keep ?? []) if (y >= 0 && y < t.H) for (let x = Math.max(0, a); x <= Math.min(W - 1, bb); x++) if (t.inRegion(y * W + x)) t.protectedMask[y * W + x] = 1;
+    // kept sources' ground (D322, item 31): as the map shows it, and the integrity pass leaves it
+    if (s.params.sources === "keep") keepShownGround(s.params.keep ?? [], heights, W, t.H, t.protectedMask, t.channel, shown?.candidate ?? (() => true), shown?.cap, (i) => t.inRegion(i), shown?.outside ?? null);
     // Naturalize weathers whatever the player paints (D368 (8)): a force's result, a stroke's exact
     // tiles, a river, a set piece. It leaves only the start's pad here; the ground under sources and
     // objects is the stroke's own `keep` (objectGround.ts), and the build's drops a slope it leaves
@@ -466,22 +534,54 @@ export function integrityAt(
   y1: number,
   cap = MAX_TERRAIN,
 ): void {
-  const clip = (i: number) => (candidate(i) && pre[i] > cap ? cap : pre[i]);
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const i = y * W + x;
-      const v = clip(i);
-      out[i] = v;
-      if (x < 1 || y < 1 || x > W - 2 || y > H - 2 || prot[i] || channel[i] || !candidate(i)) continue;
-      const a = clip(i - 1);
-      const b = clip(i + 1);
-      const c = clip(i - W);
-      const d = clip(i + W);
-      const lo = Math.min(a, b, c, d);
-      const hi = Math.max(a, b, c, d);
-      if (v < lo) out[i] = lo; // pit
-      else if (v > hi) out[i] = hi; // spike
-    }
+  const get = (j: number) => pre[j];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out[y * W + x] = integrityLevel(get, W, H, prot, channel, candidate, y * W + x, cap);
+}
+
+/** The level the integrity pass (step 7) gives tile `i` (see `integrityAt`), reading the heights
+ *  before the pass through `pre`. */
+export function integrityLevel(pre: (j: number) => number, W: number, H: number, prot: Uint8Array, channel: Uint8Array, candidate: (i: number) => boolean, i: number, cap = MAX_TERRAIN): number {
+  const clip = (j: number) => (candidate(j) && pre(j) > cap ? cap : pre(j));
+  const v = clip(i);
+  const x = i % W;
+  const y = (i - x) / W;
+  if (x < 1 || y < 1 || x > W - 2 || y > H - 2 || prot[i] || channel[i] || !candidate(i)) return v;
+  const a = clip(i - 1);
+  const b = clip(i + 1);
+  const c = clip(i - W);
+  const d = clip(i + W);
+  const lo = Math.min(a, b, c, d);
+  const hi = Math.max(a, b, c, d);
+  if (v < lo) return lo; // pit
+  if (v > hi) return hi; // spike
+  return v;
+}
+
+/** A Keep stroke's kept tiles (D322, item 31: the ground of the sources it passes over) stay exactly
+ *  as the map shows them: each takes the level the integrity pass gave it before the stroke (a spike
+ *  under a source shows at its neighbours' level), and is protected from the pass from then on, so
+ *  the ground under a kept source never moves. The build (step 6) and the page's live stroke
+ *  (strokePreview.ts) both do this. */
+export function keepShownGround(
+  keep: readonly (readonly [number, number, number])[],
+  pre: Uint8Array,
+  W: number,
+  H: number,
+  prot: Uint8Array,
+  channel: Uint8Array,
+  candidate: (i: number) => boolean,
+  cap = MAX_TERRAIN,
+  inRegion: (i: number) => boolean = () => true,
+  outside: Uint8Array | null = null,
+): void {
+  const tiles: number[] = [];
+  for (const [y, a, b] of keep) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) if (inRegion(y * W + x)) tiles.push(y * W + x);
+  // (a rebuild's tiles outside its region hold what they held before it: `outside`)
+  const get = (j: number) => (outside && !inRegion(j) ? outside[j] : pre[j]);
+  const level = tiles.map((i) => integrityLevel(get, W, H, prot, channel, candidate, i, cap));
+  for (let k = 0; k < tiles.length; k++) {
+    pre[tiles[k]] = level[k];
+    prot[tiles[k]] = 1;
   }
 }
 

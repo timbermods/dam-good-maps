@@ -78,6 +78,7 @@ import { runsToTiles } from "../src/core/math/grid";
 import { shadeTiles } from "../src/core/render/shade";
 import { GENERATOR_VERSION, makeSpec } from "../src/core/spec/mapspec";
 import { validateFile } from "../src/core/validate/checks";
+import { cos, hypot, sin, sqrt } from "../src/core/math/portable";
 import { rulesFor } from "../src/core/validate/playability";
 import { encodePng } from "./png";
 
@@ -374,7 +375,7 @@ function m5(): void {
   // ---- C1: a dam site on the river's lower reach, where a dam holds a reservoir
   const sC = open();
   let dam: PlannedEdit | null = null;
-  const length = river.params.path.reduce((a, q, k, ps) => (k ? a + Math.hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
+  const length = river.params.path.reduce((a, q, k, ps) => (k ? a + hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
   for (let at = Math.round(length * 0.62); at < length - 12 && !dam; at += 3) {
     const p = planPiece(sC, "damSite", { river: river.id, at, crest: 2 }, id(2));
     if (p.ok && p.report.some((l) => l.startsWith("a dam "))) dam = p;
@@ -421,7 +422,7 @@ function m5(): void {
     const rv = planRiver({ points: [[x0, 0], [x0, Math.round(join[1] * 0.5)], [Math.round(join[0]), Math.round(join[1])]], flow: 1 }, planContextOf(sDraft), id(4));
     if (!rv.ok || !sDraft.applyAll(rv.ops, "user", rv.label).ok) continue;
     const tr = rv.feature as RiverFeature;
-    const len = tr.params.path.reduce((acc, q, k, ps) => (k ? acc + Math.hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
+    const len = tr.params.path.reduce((acc, q, k, ps) => (k ? acc + hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
     for (let from = 6; from < len - 20; from += 4) {
       const g = planPiece(sDraft, "gorge", { river: tr.id, from, length: 12, width: 3, wallHeight: 3, access: "stairs" }, id(3));
       if (!g.ok) continue;
@@ -537,13 +538,13 @@ function m7(): void {
   const Wm = s.size.x;
   const Hm = s.size.y;
   const st = s.built.entities.find((e) => e.template === "StartingLocation")!;
-  const dist = (x: number, y: number) => Math.sqrt((x - st.x - 1) * (x - st.x - 1) + (y - st.y - 1) * (y - st.y - 1));
+  const dist = (x: number, y: number) => sqrt((x - st.x - 1) * (x - st.x - 1) + (y - st.y - 1) * (y - st.y - 1));
 
   // a weir across an inflow river, as the Weir tool places it (a click on the river)
   let weir: PlannedEdit | null = null;
   for (const f of s.features) {
     if (f.kind !== "river" || f.params.badwater || !f.role?.startsWith("river/inflow") || weir) continue;
-    const len = f.params.path.reduce((a, q, k, ps) => (k ? a + Math.hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
+    const len = f.params.path.reduce((a, q, k, ps) => (k ? a + hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
     for (let at = Math.round(len * 0.4); at < len * 0.85 && !weir; at += 2) {
       const p = planObject(s, { kind: "weir", river: { id: f.id, at } }, id(1));
       if (p.ok) weir = p;
@@ -555,8 +556,8 @@ function m7(): void {
   let belt: PlannedEdit | null = null;
   search: for (let r = 24; r <= 40; r += 4)
     for (let a = 0; a < 16; a++) {
-      const cx = Math.round(st.x + 1 + r * Math.cos((a * Math.PI) / 8));
-      const cy = Math.round(st.y + 1 + r * Math.sin((a * Math.PI) / 8));
+      const cx = Math.round(st.x + 1 + r * cos((a * Math.PI) / 8));
+      const cy = Math.round(st.y + 1 + r * sin((a * Math.PI) / 8));
       if (cx < 8 || cy < 8 || cx > Wm - 9 || cy > Hm - 9) continue;
       const tiles: number[] = [];
       for (let y = cy - 2; y <= cy + 2; y++) for (let x = cx - 5; x <= cx + 5; x++) tiles.push(y * Wm + x);
@@ -677,8 +678,8 @@ function m8(): void {
     const st0 = b0.entities.find((e) => e.template === "StartingLocation")!;
     for (let d = lo; d <= hi; d += 3)
       for (let a = 0; a < 24; a++) {
-        const cx = Math.round(st0.x + d * Math.cos((a * Math.PI) / 12));
-        const cy = Math.round(st0.y + d * Math.sin((a * Math.PI) / 12));
+        const cx = Math.round(st0.x + d * cos((a * Math.PI) / 12));
+        const cy = Math.round(st0.y + d * sin((a * Math.PI) / 12));
         if (cx < 10 || cy < 10 || cx > Wm - 11 || cy > Hm - 11) continue;
         let clear = true;
         for (let y = cy - gap; y <= cy + gap && clear; y++) for (let x = cx - gap; x <= cx + gap && clear; x++) if (roofed.has(y * Wm + x)) clear = false;
@@ -705,7 +706,7 @@ function m8(): void {
     for (let i = 0; i < Wm * Hm; i += 5) {
       const x = i % Wm;
       const y = (i - x) / Wm;
-      if (x < 12 || y < 12 || x > Wm - 14 || y > Hm - 14 || wd[i] > 0 || Math.hypot(x - st0.x, y - st0.y) < 24) continue;
+      if (x < 12 || y < 12 || x > Wm - 14 || y > Hm - 14 || wd[i] > 0 || hypot(x - st0.x, y - st0.y) < 24) continue;
       let ok = false;
       let bad = false;
       for (let dy = -8; dy <= 8 && !bad; dy++)
@@ -740,7 +741,7 @@ function m8(): void {
     const a = s.apply(low.op, "user", "Lower terrain");
     if (!a.ok) throw new Error(a.errors.join("; "));
     const river = s.features.find((f): f is RiverFeature => f.kind === "river" && "edge" in f.params.entry && !f.params.badwater)!;
-    const len = river.params.path.reduce((acc, q, k, ps) => (k ? acc + Math.hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
+    const len = river.params.path.reduce((acc, q, k, ps) => (k ? acc + hypot(q[0] - ps[k - 1][0], q[1] - ps[k - 1][1]) : 0), 0);
     let weir: PlannedEdit | null = null;
     for (let at = Math.round(len * 0.7); at < len * 0.95 && !weir; at += 2) {
       const p = planObject(s, { kind: "weir", river: { id: river.id, at } }, id(2));

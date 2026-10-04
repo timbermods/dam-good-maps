@@ -54,7 +54,7 @@ import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
-import { objectCasters, shadowMap, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
+import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
@@ -65,6 +65,11 @@ import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { Baker } from "./high/fields";
+import { WaterMotion } from "./motion";
+import { RowUploads } from "./rowUploads";
+import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
+import { terrainChanges } from "./terrainChanges";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
@@ -246,6 +251,12 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
+  /** The renderer's bake worker (the moving water's fields and shapes, High's occlusion). */
+  private bakerOwn: Baker | null = null;
+  /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
+  private waterMotion: WaterMotion | null = null;
+  /** The Flow view (off by default): the current's streaks over the water. */
+  private flowOn = false;
   private lookNow: Look = "standard";
   private choice: LookChoice = "auto";
   private chosenEffects: HighEffects = allEffects();
@@ -332,6 +343,8 @@ export class MapRenderer {
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.patterns = drawPatterns(this.gl);
+    this.tileRows = new RowUploads(this.gl, () => this.tileTex);
+    this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
     this.waterMat = waterMaterial(this.uniforms, this.software);
@@ -344,6 +357,12 @@ export class MapRenderer {
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
     this.lookNow = this.software ? "light" : "standard";
+    // the Flow view from the address (?flow=on) until the page has its switch (D353)
+    try {
+      this.flowOn = new URLSearchParams(window.location.search).get("flow") === "on";
+    } catch {
+      this.flowOn = false;
+    }
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reducedMotion = !!motion?.matches;
     motion?.addEventListener?.("change", () => {
@@ -616,7 +635,29 @@ export class MapRenderer {
   /** Whether the High look has all it needs for the map drawn (its fields come from a worker a
    *  moment after the map): true when not High. */
   get highSettled(): boolean {
-    return this.high ? this.high.settled : true;
+    return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
+  }
+
+  /** The renderer's bake worker, made when first needed. */
+  private get baker(): Baker {
+    return (this.bakerOwn ??= new Baker());
+  }
+
+  /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
+   *  surface and its foam stay either way). */
+  setFlow(on: boolean): void {
+    this.flowOn = on;
+    this.waterMotion?.setFlow(on);
+    this.requestRender();
+  }
+
+  get flow(): boolean {
+    return this.flowOn;
+  }
+
+  /** The moving water's numbers (lanes, wakes, streaks; the worker's time), or null. */
+  get motionStats(): (WaterMotion["stats"] & { ms: number }) | null {
+    return this.waterMotion ? { ...this.waterMotion.stats, ms: this.waterMotion.ms } : null;
   }
 
   /** The High look's numbers (the menu's details, the measurements), or null. */
@@ -657,6 +698,11 @@ export class MapRenderer {
           falls: () => this.falls.values(),
           casters: () => this.shadowCasters(),
           groundOffset: (x, y) => this.groundOffset(x, y),
+          baker: this.baker,
+          flow: () => {
+            const m = this.waterMotion;
+            return m ? { flow: m.flow, rough: m.rough, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, rough: null, ready: true, ms: 0 };
+          },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
       } catch (e) {
@@ -668,6 +714,7 @@ export class MapRenderer {
     }
     const was = this.lookNow;
     this.lookNow = tier;
+    this.waterMotion?.setHigh(tier !== "standard");
     if (tier === "standard") {
       if (this.high) {
         this.useMaterials(this.std);
@@ -839,6 +886,8 @@ export class MapRenderer {
     const tiles = tileData(W, H, heights, sky, soil, surface);
     this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
     this.objectGround = heights.slice();
+    this.drawnLand = heights.slice();
+    this.pendingLand = null;
     let lo = 255;
     let hi = 0;
     for (let i = 0; i < heights.length; i++) {
@@ -872,6 +921,13 @@ export class MapRenderer {
     const waterQuads = this.meshAllWater();
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
+    if (!this.software) {
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
+      this.waterMotion.setHigh(this.lookNow !== "standard");
+      this.waterMotion.setFlow(this.flowOn);
+      u.flowTex.value = this.waterMotion.flow;
+      this.waterMotion.waterChanged(heights, surface, true);
+    }
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -952,6 +1008,10 @@ export class MapRenderer {
     this.lightTex?.dispose();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
+    this.tileRows.clear();
+    this.lightRows.clear();
+    this.waterMotion?.dispose();
+    this.waterMotion = null;
     this.forceFx?.clear();
     this.setHeat(null);
   }
@@ -964,16 +1024,20 @@ export class MapRenderer {
   private meshTerrain(cx: number, cy: number): number {
     const key = `${cx},${cy}`;
     const old = this.terrain.get(key);
+    const d = meshChunk(this.map!.source, cx, cy);
+    const arrays: ChunkArrays = {
+      quads: d.quads,
+      attributes: [
+        { name: "position", array: d.positions, itemSize: 3 },
+        { name: "normal", array: d.normals, itemSize: 3, normalized: true },
+      ],
+    };
+    // (into the chunk's own buffers when it fits: R1)
+    if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
     this.terrain.delete(key);
-    const d = meshChunk(this.map!.source, cx, cy);
     if (!d.quads) return 0;
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
-    g.setIndex(new BufferAttribute(d.indices, 1));
-    g.computeBoundingSphere();
-    const mesh = new Mesh(g, this.terrainMat);
+    const mesh = new Mesh(chunkGeometry(arrays), this.terrainMat);
     mesh.matrixAutoUpdate = false;
     this.scene.add(mesh);
     this.terrain.set(key, mesh);
@@ -983,20 +1047,23 @@ export class MapRenderer {
   private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
     const key = `${cx},${cy}`;
     const old = this.water.get(key);
-    if (old) this.dropMesh(old);
-    this.water.delete(key);
     const m = this.map!;
     const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
     this.meshFalls(key, d.falls, d.fallCount);
+    const arrays: ChunkArrays = {
+      quads: d.quads,
+      attributes: [
+        { name: "position", array: d.positions, itemSize: 3 },
+        { name: "normal", array: d.normals, itemSize: 3, normalized: true },
+        { name: "wdata", array: d.data, itemSize: 2 },
+        { name: "wflags", array: d.flags, itemSize: 1 },
+      ],
+    };
+    if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
+    if (old) this.dropMesh(old);
+    this.water.delete(key);
     if (!d.quads) return 0;
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(d.positions, 3));
-    g.setAttribute("normal", new BufferAttribute(d.normals, 3, true));
-    g.setAttribute("wdata", new BufferAttribute(d.data, 2));
-    g.setAttribute("wflags", new BufferAttribute(d.flags, 1));
-    g.setIndex(new BufferAttribute(d.indices, 1));
-    g.computeBoundingSphere();
-    const mesh = new Mesh(g, this.waterMat);
+    const mesh = new Mesh(chunkGeometry(arrays), this.waterMat);
     mesh.matrixAutoUpdate = false;
     mesh.renderOrder = 2;
     this.scene.add(mesh);
@@ -1076,12 +1143,14 @@ export class MapRenderer {
     const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
     this.casters = casters;
     if (rect === null) return;
-    if (rect && this.tops) shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1);
-    else {
+    if (rect && this.tops) {
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1);
+      this.touchShadows(rect);
+    } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
       (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops));
+      this.lightTex.needsUpdate = true;
     }
-    this.lightTex.needsUpdate = true;
   }
 
   /** The terrain shader's tile data again (heights, soil, sky, water). */
@@ -1134,6 +1203,7 @@ export class MapRenderer {
 
   /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed. */
   updateTerrain(heights: Uint8Array): number {
+    this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     const rect = changedRect(m.W, m.H, m.heights, heights);
@@ -1141,6 +1211,7 @@ export class MapRenderer {
     m.source = { ...m.source, heights };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
+    this.drawnLand = heights.slice();
     this.settleObjects();
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
@@ -1153,7 +1224,7 @@ export class MapRenderer {
     skyVisibilityRect(m.W, m.H, heights, m.sky, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
     if (this.tileTex) {
       tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
-      this.tileTex.needsUpdate = true;
+      this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data)
       if (this.edges) {
         contaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array);
@@ -1162,13 +1233,14 @@ export class MapRenderer {
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
       shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
-      this.lightTex.needsUpdate = true;
+      this.touchShadows(rect);
     } else this.bakeShadows();
     if (m.water.count) {
       // (a fall reads the ground two tiles round its lip: the chunks a tile further)
       const lower = lowerByTile(m.surface, m.water);
       for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy, lower);
       this.high?.waterChanged(m.surface);
+      this.waterMotion?.waterChanged(heights, m.surface);
     }
     this.high?.terrainChanged(heights, rect);
     this.requestRender();
@@ -1178,6 +1250,7 @@ export class MapRenderer {
 
   /** New water: remesh the chunks whose water changed. */
   updateWater(water: WaterView): number {
+    this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     const surface = surfaceWater(m.W, m.H, water);
@@ -1196,10 +1269,15 @@ export class MapRenderer {
     this.updateClearAround();
     this.bakeTiles();
     this.high?.waterChanged(surface);
+    this.waterMotion?.waterChanged(m.heights, surface);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
   }
+
+  /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
+  private readonly tileRows: RowUploads;
+  private readonly lightRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -1211,6 +1289,7 @@ export class MapRenderer {
    *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
    *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
   updateWaterSoon(water: WaterView): number {
+    this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     const surface = surfaceWater(m.W, m.H, water);
@@ -1219,10 +1298,17 @@ export class MapRenderer {
     m.water = water;
     m.surface = surface;
     for (const key of changed) this.waterQueue.add(key);
+    this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
+  }
+
+  /** The shadow map's samples round tiles that changed, to the GPU with the next frame. */
+  private touchShadows(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const a = shadowPairArea(rect.x0, rect.y0, rect.x1, rect.y1);
+    this.lightRows.touch(a.sx0, a.sy0, a.sx1, a.sy1);
   }
 
   /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
@@ -1248,7 +1334,7 @@ export class MapRenderer {
       // the ground under it: its tile data (the water over each top)
       if (this.tileTex) {
         tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
-        this.tileTex.needsUpdate = true;
+        this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
       }
       baked = true;
     }
@@ -1256,6 +1342,7 @@ export class MapRenderer {
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
   updateSoil(soil: SoilView): void {
+    this.flushTerrain();
     const m = this.map;
     if (!m) return;
     m.soil = soil;
@@ -1265,6 +1352,7 @@ export class MapRenderer {
   }
 
   updateEntities(e: EntityView): void {
+    this.flushTerrain();
     if (!this.map) return;
     this.setEntitiesInner(e);
     this.bakeShadows(true);
@@ -1280,29 +1368,50 @@ export class MapRenderer {
     if (!m) return 0;
     m.heights = heights;
     m.source = { ...m.source, heights };
-    const chunks = dirtyChunks(m.W, m.H, rect);
-    for (const [cx, cy] of chunks) this.meshTerrain(cx, cy);
-    const r = SKY_REACH;
-    skyVisibilityRect(m.W, m.H, heights, m.sky, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+    // (drawn at the next frame, with every other change before it: flushTerrain)
+    const p = this.pendingLand;
+    this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
+    this.requestRender();
+    return dirtyChunks(m.W, m.H, rect).length;
+  }
+
+  /** The land a brush changed since the last frame, drawn at once (before each frame, and before anything that reads
+   *  the drawn land): only the tiles that really changed and what they touch (terrainChanges.ts), whatever rectangle
+   *  each update named: the same bytes as redoing the rectangles, a fraction of the work for a scattered dab
+   *  (Naturalize). True when there was land to draw. */
+  flushTerrain(): boolean {
+    const m = this.map;
+    const rect = this.pendingLand;
+    this.pendingLand = null;
+    if (!m || !rect || !this.drawnLand) return false;
+    const heights = m.heights;
+    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
+    if (!c) return false;
+    for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
+    for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
-      this.tileTex.needsUpdate = true;
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
       const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of chunks) this.meshWater(cx, cy, lower);
+      for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy, lower);
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
-      this.lightTex.needsUpdate = true;
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1);
+      this.touchShadows(c.rect);
     } else this.shadowsStale = true;
     this.shadowChanged = true;
-    this.followGround(heights, rect);
-    this.high?.terrainChanged(heights, rect);
-    this.requestRender();
-    return chunks.length;
+    this.followGround(heights, c.rect);
+    this.high?.terrainChanged(heights, c.rect);
+    for (let y = c.rect.y0; y <= c.rect.y1; y++) this.drawnLand.set(heights.subarray(y * m.W + c.rect.x0, y * m.W + c.rect.x1 + 1), y * m.W + c.rect.x0);
+    return true;
   }
+
+  /** A brush's land not drawn yet (updateTerrainRect), and the heights the view draws. */
+  private pendingLand: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  private drawnLand: Uint8Array | null = null;
 
   // ------------------------------------------------------------------------------------ the shelf
 
@@ -1647,6 +1756,7 @@ export class MapRenderer {
 
   /** After a brush has painted: the shadows, if they waited, and the legend. */
   refreshShadows(): void {
+    this.flushTerrain();
     if (this.shadowsStale) {
       this.shadowsStale = false;
       this.bakeShadows();
@@ -1956,6 +2066,7 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    this.flushTerrain();
     // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size) {
       this.drainWater(WATER_MESH_BUDGET_MS);
@@ -1976,6 +2087,9 @@ export class MapRenderer {
     const q = this.beginGpuTimer();
     const cost = this.beginCost();
     this.high?.beforeRender(cam, this.canvas.clientHeight || 1, this.uniforms.time.value);
+    this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
+    this.tileRows.flush();
+    this.lightRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -2408,6 +2522,7 @@ export class MapRenderer {
 
   /** Triangles and draw calls of the last frame. */
   info(): { triangles: number; calls: number; chunks: number; waterChunks: number; falls: number } {
+    this.flushTerrain();
     return { triangles: this.gl.info.render.triangles, calls: this.gl.info.render.calls, chunks: this.terrain.size, waterChunks: this.water.size, falls: this.fallCount() };
   }
 
@@ -2428,6 +2543,7 @@ export class MapRenderer {
     this.forceFx?.dispose();
     this.high?.dispose();
     this.high = null;
+    this.bakerOwn?.dispose();
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();
@@ -2490,5 +2606,6 @@ function oneObject(template: string, orientation: number): EntityView {
     owner: Uint16Array.of(0),
     variant: Uint8Array.of(NO_VARIANT),
     strength: Float32Array.of(0),
+    ids: [""],
   };
 }
