@@ -7,7 +7,12 @@ name: Deploy to GitHub Pages
 # workflow input preview_ref (a run by hand) or the repository variable DGM_PREVIEW_REF to a branch
 # of this repository, and that branch is built with the base /dam-good-maps/preview/ and published
 # under dist/preview/, noindex like the rest. The main site is built from main as always, and the
-# live check never looks at /preview/.
+# live check never looks at /preview/. A build with a preview also writes dist/preview/ref.txt
+# ("<branch> <commit>"), which roadmap-sync.yml reads to republish that same preview.
+#
+# The roadmap canvas (tools/roadmap-canvas/index.html) rides along at /roadmap/, taken from dev
+# (not main, so it never waits for a release) and always noindex. roadmap-sync.yml, on dev, runs
+# this workflow again whenever dev's copy changes.
 
 on:
   push:
@@ -15,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       preview_ref:
-        description: A branch of this repository to publish at /dam-good-maps/preview/ (empty for none)
+        description: A branch (or a full commit of one) of this repository to publish at /dam-good-maps/preview/ (empty for none)
         type: string
         required: false
         default: ""
@@ -72,6 +77,12 @@ jobs:
             echo "::error::preview_ref must be a branch name"
             exit 1
           fi
+          # a full commit: roadmap-sync.yml republishes the exact commit that is live
+          if printf '%s' "$PREVIEW_REF" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "ref=$PREVIEW_REF" >> "$GITHUB_OUTPUT"
+            echo "Previewing commit $PREVIEW_REF at /dam-good-maps/preview/"
+            exit 0
+          fi
           if ! git ls-remote --exit-code --heads origin "refs/heads/$PREVIEW_REF" > /dev/null; then
             echo "::error::$PREVIEW_REF is not a branch of this repository"
             exit 1
@@ -92,8 +103,31 @@ jobs:
           # the branch's own first-visit maps, checked the same way (a branch without the script has none)
           if [ -f tools/first-visit-maps.ts ]; then npx tsx tools/first-visit-maps.ts; fi
           npx vite build --outDir ../dist/preview --emptyOutDir
+          echo "$PREVIEW_REF $(git rev-parse HEAD)" > ../dist/preview/ref.txt
         env:
           DGM_BASE: /dam-good-maps/preview/
+          PREVIEW_REF: ${{ inputs.preview_ref || vars.DGM_PREVIEW_REF }}
+      # the roadmap canvas, from dev, at /roadmap/: one page that reads everything live, so the file
+      # is all there is. Always noindex, public or not. Skipped quietly while dev has no copy.
+      - name: Add the roadmap canvas from dev
+        run: |
+          git fetch --depth 1 origin dev
+          if ! git cat-file -e origin/dev:tools/roadmap-canvas/index.html 2> /dev/null; then
+            echo "dev has no roadmap canvas yet."
+            exit 0
+          fi
+          mkdir -p dist/roadmap
+          git show origin/dev:tools/roadmap-canvas/index.html > dist/roadmap/index.html
+          node --input-type=module - <<'EOF'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const path = "dist/roadmap/index.html";
+          const html = readFileSync(path, "utf8");
+          if (/<meta[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html)) process.exit(0);
+          const out = html.replace(/<head[^>]*>/i, (m) => `${m}\n    <meta name="robots" content="noindex, nofollow">`);
+          if (out === html) throw new Error(`${path} has no <head>`);
+          writeFileSync(path, out);
+          console.log(`noindex, nofollow: ${path}`);
+          EOF
       # The site is not public yet: search engines are asked not to index it until the repository
       # variable DGM_PUBLIC is "true" (at launch). Keep this step when changing this workflow.
       - name: Mark every page noindex (not public yet)
@@ -108,7 +142,7 @@ jobs:
           for (const f of files) {
             const path = join("dist", f);
             const html = readFileSync(path, "utf8");
-            if (html.includes(tag)) continue;
+            if (/<meta[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html)) continue; // /roadmap/ carries its own
             const out = html.replace(/<head[^>]*>/i, (m) => `${m}\n    ${tag}`);
             if (out === html) throw new Error(`${path} has no <head>`);
             writeFileSync(path, out);
