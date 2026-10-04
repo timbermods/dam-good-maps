@@ -66,7 +66,7 @@ import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
-import { Baker } from "./high/fields";
+import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
@@ -286,8 +286,6 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
-  /** The renderer's bake worker (the moving water's fields and shapes, High's occlusion). */
-  private bakerOwn: Baker | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -675,9 +673,10 @@ export class MapRenderer {
     return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
   }
 
-  /** The renderer's bake worker, made when first needed. */
+  /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
+   *  view. */
   private get baker(): Baker {
-    return (this.bakerOwn ??= new Baker());
+    return pageBaker();
   }
 
   /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
@@ -2683,7 +2682,6 @@ export class MapRenderer {
     this.forceFx?.dispose();
     this.high?.dispose();
     this.high = null;
-    this.bakerOwn?.dispose();
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();

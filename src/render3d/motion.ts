@@ -249,13 +249,12 @@ export class WaterMotion {
     this.pending = null;
     const id = ++this.latest;
     const sw = p.surface;
-    // (copies the worker takes over: the view keeps its own)
+    // (copies for the worker: the view keeps its own)
     const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: new Int32Array(0), outflow: null, lower: [] };
     const heights = p.heights.slice();
     // (the outflows four a tile: the worker works out the current from them)
     const out = outflowGrid(this.W, this.H, sw);
-    const transfer = [copy.surface, copy.floor, copy.depth, copy.contamination, heights, ...(out ? [out] : [])].map((a) => a.buffer as ArrayBuffer);
-    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out }, transfer).then((r) => {
+    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out }).then((r) => {
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
@@ -267,6 +266,9 @@ export class WaterMotion {
       this.baked = true;
       this.setShapes(r.shapes);
       this.changed();
+    }, () => {
+      // (the bake failed: the water keeps its last flow, or none)
+      if (id === this.latest) this.done = id;
     });
   }
 

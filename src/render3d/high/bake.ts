@@ -148,6 +148,8 @@ export type BakeJob =
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
   | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; ms: number };
+/** What the worker sends back: the answer, or why the job failed. */
+export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
