@@ -15,8 +15,9 @@
 import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
-import { glaciateDetailsProblem } from "./glaciate/model";
-import { floorProblem } from "./floor";
+import { forceSettingsProblems } from "./settings";
+
+export { forceSettingsProblems };
 
 export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
 export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
@@ -145,54 +146,6 @@ export function forceBounds(p: Pick<ForceResultParams, "tiles">, W: number): Rec
     if (y > y1) y1 = y;
   }
   return { x0, y0, x1, y1 };
-}
-
-const ENUMS: Record<Verb, Record<string, readonly string[]>> = {
-  carve: { mode: ["unleash", "aim"], walls: ["steep", "wide"] },
-  craterize: { mode: ["strike", "aim"], walls: ["steep", "terraced"], centre: ["auto", "bowl", "peak", "ring", "flat"], debris: ["light", "heavy"] },
-  erupt: { mode: ["vent", "fissure"], shape: ["steep", "broad"], summit: ["auto", "peak", "crater", "caldera"], flows: ["light", "heavy"] },
-  quake: { mode: ["lift", "slide"], scarp: ["sheer", "stepped"] },
-  glaciate: { mode: ["flow", "aim"] },
-};
-const FLAGS: Record<Verb, readonly string[]> = { carve: ["defyGravity", "dry"], craterize: ["rays"], erupt: ["ridges"], quake: [], glaciate: ["meltwater"] };
-
-/** Why a force's settings are not ones its row could set (empty when they are). */
-export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): string[] {
-  const name = verb === "craterize" ? "an impact" : verb === "erupt" ? "an eruption" : verb === "glaciate" ? "a glacier" : `a ${verb}`;
-  for (const [k, list] of Object.entries(ENUMS[verb])) if (!list.includes(s[k] as string)) return [`${name}'s ${k} is one of ${list.join(", ")}`];
-  for (const k of FLAGS[verb]) if (typeof s[k] !== "boolean") return [`${name}'s ${k} is true or false`];
-  const power = s.power as number;
-  if (!(Number.isFinite(power) && power >= 0 && power <= 100)) return [`${name}'s power is 0 to 100`];
-  const seed = s.seed as number;
-  if (!(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff)) return [`${name}'s seed is a whole number from 0 to 4294967295`];
-  const floor = floorProblem(s.floor);
-  if (floor) return [floor];
-  if (verb === "carve") {
-    const w = s.width as number | null;
-    if (!(Number.isFinite(s.wander as number) && (s.wander as number) >= 0 && (s.wander as number) <= 100)) return ["a carve's wander is 0 to 100"];
-    if (w !== null && !(Number.isFinite(w) && w >= 2 && w <= 24)) return ["a carve's width is 2 to 24 tiles, or null (it follows Power)"];
-    const d = s.depth as number | null | undefined;
-    if (d != null && !(Number.isInteger(d) && d >= 1 && d <= 12)) return ["a carve's depth is 1 to 12 levels, or null (it follows Power)"];
-    const rd = s.riverDepth as number | null | undefined;
-    if (rd != null && !(Number.isInteger(rd) && rd >= 1 && rd <= 22)) return ["a carve's river depth is 1 to 22 levels, or null (Off)"];
-    const b = s.banks as number | undefined;
-    if (b != null && !(Number.isFinite(b) && b >= 0 && b <= 10)) return ["a carve's banks are 0 to 10 tiles"];
-  }
-  if (verb === "erupt") {
-    const size = s.size as number | null | undefined;
-    if (size != null && !(Number.isFinite(size) && size >= 6 && size <= 140)) return ["an eruption's size is 6 to 140 tiles, or null (it follows Power)"];
-  }
-  if (verb === "glaciate") {
-    const size = s.size as number | null;
-    if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 64)) return ["a glacier's size is 4 to 64 tiles, or null (it follows Power)"];
-    const why = glaciateDetailsProblem(s);
-    if (why) return [why];
-  }
-  if (verb === "craterize") {
-    const size = s.size as number | null;
-    if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 180)) return ["an impact's size is 4 to 180 tiles, or null (it follows Power)"];
-  }
-  return [];
 }
 
 /** Why a force's result does not fit a W × H map with levels up to `maxLevel` (empty when it does). */

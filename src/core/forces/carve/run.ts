@@ -40,7 +40,8 @@ import { strength } from "../strength";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
-import { floorProblem, forceFloor } from "../floor";
+import { forceFloor } from "../floor";
+import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN, forceSettingsProblem } from "../settings";
 import { shapeRiver } from "./river";
 import { clamp } from "../random";
 
@@ -74,8 +75,8 @@ export interface CarveSettings {
   banks?: number | null;
 }
 
-/** The most tiles of banks a carve leaves (item 18). */
-export const BANKS_MAX = 10;
+/** The most tiles of banks a carve leaves (item 18; settings.ts). */
+export { BANKS_MAX };
 
 export interface CarveIntent {
   origin: number;
@@ -93,9 +94,8 @@ export const DEFAULTS: CarveSettings = { mode: "unleash", power: 65, wander: 35,
 
 /** The strength of the source a carve keeps (D199): following its nominal Width, linked to Power
  *  when Width follows it; 0.5 to 8 water a second. */
-/** Carve's Depth, in levels below the land (D226). */
-export const DEPTH_MIN = 1;
-export const DEPTH_MAX = 12;
+/** Carve's Depth, in levels below the land (D226; settings.ts). */
+export { DEPTH_MAX, DEPTH_MIN };
 
 export const sourceStrength = (power: number, width?: number | null) =>
   Math.round((0.5 + 7.5 * (width == null ? power / 100 : Math.max(0, Math.min(1, (width - 2.8) / 10)))) * 1e6) / 1e6;
@@ -233,32 +233,10 @@ export class CarveRun {
     const N = input.W * input.H;
     this.sediment = new Uint8Array(N);
     this.barFloor = new Uint8Array(N);
-    if (
-      input.heights.length !== N ||
-      !Number.isInteger(intent.origin) ||
-      intent.origin < 0 ||
-      intent.origin >= N ||
-      !["unleash", "aim"].includes(settings.mode) ||
-      !["steep", "wide"].includes(settings.walls) ||
-      !Number.isFinite(settings.power) ||
-      settings.power < 0 ||
-      settings.power > 100
-    )
-      throw new Error("Invalid carve settings");
-    if (
-      !Number.isFinite(settings.wander) ||
-      settings.wander < 0 ||
-      settings.wander > 100 ||
-      !Number.isInteger(settings.seed) ||
-      settings.seed < 0 ||
-      settings.seed > 0xffffffff ||
-      (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24)) ||
-      (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX)) ||
-      floorProblem(settings.floor) ||
-      (settings.riverDepth != null && !(Number.isInteger(settings.riverDepth) && settings.riverDepth >= 1 && settings.riverDepth <= 22)) ||
-      (settings.banks != null && !(Number.isFinite(settings.banks) && settings.banks >= 0 && settings.banks <= BANKS_MAX))
-    )
-      throw new Error("Invalid character settings");
+    if (input.heights.length !== N || !Number.isInteger(intent.origin) || intent.origin < 0 || intent.origin >= N) throw new Error("the carve's origin is off the map");
+    // (its settings as its row could set them, settings.ts)
+    const why = forceSettingsProblem("carve", settings as unknown as Record<string, unknown>);
+    if (why) throw new Error(why);
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
     // Size and Power (D361 (3)): wider than Power's own river, it cuts in proportion: no deeper than
