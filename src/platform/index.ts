@@ -8,17 +8,30 @@ import type { GeneratorApi } from "../worker/generator.worker";
  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
  *  a replica of the open map, and the two talk over a port of their own. */
 export function createGenerator(): Remote<GeneratorApi> {
+  return createGeneratorWorker().api;
+}
+
+/** The generator and its checks worker, with `stop`: both end at once (a map being made is cancelled, the page
+ *  then opens the map that was open in a new one). */
+export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): void } {
   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
   const api = wrap<GeneratorApi>(worker);
+  let checks: Worker | null = null;
   try {
-    const checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
+    checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
     const ch = new MessageChannel();
     checks.postMessage({ checksPort: ch.port1 }, [ch.port1]);
     void api.connectChecks(transfer(ch.port2, [ch.port2]));
   } catch {
     // no second worker: the checks run in the first one
   }
-  return api;
+  return {
+    api,
+    stop: () => {
+      worker.terminate();
+      checks?.terminate();
+    },
+  };
 }
 
 /** D329's background search: a generator worker of its own (no checks worker), so the editor's

@@ -101,41 +101,57 @@ export function tabOf(f: Feature): Tab {
 
 // ---------------------------------------------------------------------------------- tile index
 
-/** The tiles each feature covers, cached by the feature's parameters. */
+/** The tiles each feature covers, cached by the feature's parameters. Built when first read, not when the features
+ *  change: a map opens without waiting on it (a 256² map's rivers take a few hundred milliseconds). */
 export class FeatureIndex {
   private cache = new Map<string, { key: string; tiles: Int32Array }>();
   private fields = new Map<string, { key: string; field: PathField }>();
-  /** Per tile: the index (into `features`) of the area feature (forest, berries, ruins), the
-   *  terrain feature (landform, lake) and the river covering it; −1 for none. */
-  area: Int32Array;
-  terrain: Int32Array;
-  river: Int32Array;
+  private tiles: { area: Int32Array; terrain: Int32Array; river: Int32Array };
+  private stale = false;
   features: Feature[] = [];
 
   constructor(
     readonly W: number,
     readonly H: number,
   ) {
-    this.area = new Int32Array(W * H);
-    this.terrain = new Int32Array(W * H);
-    this.river = new Int32Array(W * H);
+    this.tiles = { area: new Int32Array(W * H), terrain: new Int32Array(W * H), river: new Int32Array(W * H) };
+  }
+
+  /** Per tile: the index (into `features`) of the area feature (forest, berries, ruins), the terrain feature
+   *  (landform, lake) and the river covering it; −1 for none. */
+  get area(): Int32Array {
+    return this.built().area;
+  }
+  get terrain(): Int32Array {
+    return this.built().terrain;
+  }
+  get river(): Int32Array {
+    return this.built().river;
   }
 
   update(features: readonly Feature[]): void {
     this.features = features as Feature[];
-    this.area.fill(-1);
-    this.terrain.fill(-1);
-    this.river.fill(-1);
+    this.stale = true;
+  }
+
+  private built() {
+    if (!this.stale) return this.tiles;
+    this.stale = false;
+    const features = this.features;
+    this.tiles.area.fill(-1);
+    this.tiles.terrain.fill(-1);
+    this.tiles.river.fill(-1);
     const seen = new Set<string>();
     features.forEach((f, k) => {
       seen.add(f.id);
       const tiles = this.tilesOf(f);
-      const into = f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField" ? this.area : f.kind === "river" ? this.river : f.kind === "landform" || f.kind === "lake" ? this.terrain : null;
+      const into = f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField" ? this.tiles.area : f.kind === "river" ? this.tiles.river : f.kind === "landform" || f.kind === "lake" ? this.tiles.terrain : null;
       if (!into) return;
       // later landforms and lakes are built over earlier ones: the last one wins
       for (const i of tiles) into[i] = k;
     });
     for (const id of [...this.cache.keys()]) if (!seen.has(id)) this.cache.delete(id);
+    return this.tiles;
   }
 
   riverField(f: RiverFeature): PathField {
@@ -847,6 +863,13 @@ export function sourceStrengths(groups: readonly SourceGroup[], strengthOf: (k: 
 export function sourceStrengthWords(s: SourceStrengths): string {
   const unit = `${s.bad ? "badwater" : "water"}/s`;
   return s.count > 1 ? `this source ${s.own} · row ${s.row} ${unit}` : `${s.own} ${unit}`;
+}
+
+/** The same, short, as a value under its name in the object window: "0.25 water/s", or in a row "0.25 of 1 water/s"
+ *  (this source's, of the row's). */
+export function shortStrengthWords(words: string): string {
+  const m = /^this source ([\d.]+) · row ([\d.]+) (.+)$/.exec(words);
+  return m ? `${m[1]} of ${m[2]} ${m[3]}` : words;
 }
 
 /** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over

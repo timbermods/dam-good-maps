@@ -70,6 +70,8 @@ export interface EditorProps {
   drawer: DrawerModel;
   drawerOpen: boolean;
   onDrawer(open: boolean): void;
+  /** The map opens with the view where it was (the same map back, after a Cancel). */
+  keepView?: boolean;
 }
 
 export default function Editor(props: EditorProps) {

@@ -10,7 +10,7 @@
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { proxy } from "comlink";
-import { createBackground, createGenerator, readFile, saveFile, storage } from "../platform";
+import { createBackground, createGeneratorWorker, readFile, saveFile, storage } from "../platform";
 import { sameLand } from "../core/analysis/story";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
@@ -36,9 +36,12 @@ import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { DrawerModel, YourMapRow } from "../editor/Drawer";
 import type { Section } from "../editor/drawer/settings";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, progressText, type Progress } from "./FirstLook";
+import { FirstLook, progressText, stageText, type Progress } from "./FirstLook";
+import { tip } from "./Tooltip";
 
-const generator = createGenerator();
+/** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
+let gen = createGeneratorWorker();
+let generator = gen.api;
 const yourMaps = openYourMaps();
 
 declare global {
@@ -62,7 +65,7 @@ window.dgm = {
     return { sha256: r.sha256, bytes: r.timber.length, passed: r.passed, ms: r.ms, ticks: r.facts.settle.ticks };
   },
   current() {
-    return shown ? { made, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
+    return shown ? { made, ms: shown.ms, attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
 };
 
@@ -164,7 +167,12 @@ export function App() {
   /** What a link said (made by another generator version, or with settings it couldn't keep). */
   const [note, setNote] = useState<string | null>(init.note ?? null);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [opened, setOpened] = useState<{ key: number; data: SessionOpen } | null>(null);
+  const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean } | null>(null);
+  /** A map being made over the open one (Generate, Surprise me, Another like this): the modal says so, and nothing
+   *  else can be clicked or started; "back" while Cancel puts the open map back; the words when it failed. */
+  const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
+  /** The open map as it was when a new one was asked for: Cancel opens it again, its edits and history with it. */
+  const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array } | null>(null);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -275,7 +283,7 @@ export function App() {
   }
 
   /** The map is the editor's: it gets its row in Your maps (a new map's is saved at once), the address its link. */
-  function enterEditor(data: SessionOpen, origin: Origin, place?: string) {
+  function enterEditor(data: SessionOpen, origin: Origin, place?: string, keepView = false) {
     const now = new Date().toISOString();
     const isNew = !("entry" in origin);
     const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, starred: false, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : origin.entry;
@@ -285,7 +293,7 @@ export function App() {
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}`;
     setName(e.name);
     setSession(data.info);
-    setOpened((o) => ({ key: (o?.key ?? 0) + 1, data }));
+    setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
     const link = data.info.kind === "generated" && data.info.spec ? "#" + encodeSpecFragment(data.info.spec) : place ? `#place=${place}` : "";
     if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
     history.replaceState(null, "", link || location.pathname + location.search);
@@ -400,8 +408,18 @@ export function App() {
     stopBackground();
     setBusy(true);
     setError(null);
+    const over = !!session;
+    if (over) setMaking("making");
     performance.mark("dgm:generate");
     try {
+      // the open map saved first (it would be before the new one replaces it): its project is what Cancel opens again
+      if (over && entry.current && tries === 0) {
+        const kept = await snapshot();
+        saver.changed(kept.entry.id, () => kept);
+        await saver.flush();
+        if (id !== runId.current) return null;
+        back.current = { entry: kept.entry, bytes: kept.project };
+      }
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -421,10 +439,14 @@ export function App() {
       );
       if (id !== runId.current) return null;
       if (!r.passed) {
-        setError(`No valid map after ${r.attempts} attempts. Try another seed.`);
+        const failed = `No valid map after ${r.attempts} attempts. Try another seed.`;
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
-        if (session) return null;
+        if (session) {
+          setMaking({ failed });
+          return null;
+        }
+        setError(failed);
         // with no map open yet (a link's map that fails its checks), the same settings with another seed, so the
         // page is never left without a map; the message says why
         if (tries < 5) {
@@ -444,15 +466,45 @@ export function App() {
       enterEditor(await replacing(() => generator.refine()), { kind: "generated" });
       performance.mark("dgm:opened");
       searchVersion(r);
+      setMaking(null);
       return r;
     } catch (e) {
-      setError(words(e));
+      if (id !== runId.current) return null;
+      if (over) setMaking({ failed: words(e) });
+      else setError(words(e));
       return null;
     } finally {
       if (id === runId.current) {
         setBusy(false);
         setProgress(null);
       }
+    }
+  }
+
+  /** Cancel a map being made: the generator's work stops at once (its worker ends), and the map that was open comes
+   *  back exactly as it was, its edits and history with it, the view where it was, in a new worker. */
+  async function cancelMaking() {
+    runId.current++;
+    stopBackground();
+    const old = gen;
+    gen = createGeneratorWorker();
+    generator = gen.api;
+    old.stop();
+    setProgress(null);
+    const b = back.current;
+    back.current = null;
+    if (!b) {
+      setBusy(false);
+      return setMaking(null);
+    }
+    setMaking("back");
+    try {
+      enterEditor(await generator.openProject(b.bytes), { entry: b.entry }, undefined, true);
+      setMaking(null);
+    } catch (e) {
+      setMaking({ failed: words(e) });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -591,7 +643,6 @@ export function App() {
     onSettings: setSettings,
     onReset: () => setSettings(defaultSettings(theme, difficulty, size)),
     busy,
-    busyWords: progress ? progressText(progress) : "Opening…",
     changed,
     onGenerate: () => guard(() => generate(), "Generating a new map"),
     onSurprise: () => guard(() => generate({ theme: "any" }), "Generating a new map"),
@@ -603,6 +654,40 @@ export function App() {
     name,
     onRename: rename,
   };
+
+  // a map being made: the modal over the editor, the one way out its Cancel (Esc too); every other key waits
+  useEffect(() => {
+    if (making !== "making" && making !== "back") return;
+    const hold = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === "Escape" && making === "making") {
+        e.preventDefault();
+        void cancelMaking();
+      } else if (e.key !== "Tab") e.preventDefault();
+    };
+    window.addEventListener("keydown", hold, true);
+    return () => window.removeEventListener("keydown", hold, true);
+  }, [making]);
+  const makingDialog = making ? (
+    <div class="dialog-backdrop making-backdrop">
+      <div class="dialog making-dialog" role={typeof making === "object" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="making-words">
+        <p id="making-words" role="status">
+          {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : stageText(progress)}
+        </p>
+        <footer>
+          {typeof making === "object" ? (
+            <button type="button" class="ghost" title="Back to the map" onClick={() => setMaking(null)} autoFocus>
+              Close
+            </button>
+          ) : (
+            <button type="button" class="ghost" disabled={making === "back"} {...tip("Stop making the map", "Esc")} onClick={() => void cancelMaking()} autoFocus>
+              Cancel
+            </button>
+          )}
+        </footer>
+      </div>
+    </div>
+  ) : null;
 
   const confirmDialog = confirm ? (
     <div class="dialog-backdrop">
@@ -687,9 +772,11 @@ export function App() {
         drawer={drawer}
         drawerOpen={drawerOpen}
         onDrawer={setDrawerOpen}
+        keepView={opened.keepView}
       />
       {message}
       {confirmDialog}
+      {makingDialog}
     </>
   );
 }

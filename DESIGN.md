@@ -401,6 +401,18 @@ refinements and what the mockups left open:
   with its settings, and the objects list with a picked object's window, each as far as it reaches plus 8px
   (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+- **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
+  400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
+  clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
+  from its project saved just before (its edits, history and view as they were; "Opening your map…" meanwhile). A
+  failed map turns the dialog into its words and Close. Generate's button no longer says what is happening.
+- **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
+  water/s" (this source's, of the row's); Pointing at the same.
+- **No focus ring on the map from the mouse:** a click on the map after a key no longer outlines it; Tab still does.
+- **Opening a map is lighter** (Kyler's slow presses, 2026-10-03): the editor keeps its 3D renderer from one map to the
+  next (it was thrown away and made again, its programs compiled again, on every map), and the features' tile index
+  is built when first read, not as the map opens. At 256² the main thread's work as a map opens fell from about 0.6 s
+  to 0.26 s (the renderer's own `setMap`).
 
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**
 - **The header below 1,219px:** the info's second line goes first, then the name ellipsizes down to about 80px;

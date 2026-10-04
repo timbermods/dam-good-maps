@@ -47,6 +47,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               legendInCorner
               legendOpen={false}
               frameInsets={measureInsets}
+              keepView={props.keepView}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}

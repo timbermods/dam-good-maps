@@ -1168,16 +1168,40 @@
   align-self: center;
 }
 
-/* a source's strength in the window: the highlighted readout at the window's width */
-.ow-body .source-readout {
+/* a source's strength in the window: a short value under its name, one line, a control's height */
+.ow-body .source-readout.plain {
   flex: 1;
   min-width: 0;
-  border-radius: 8px;
-  padding: 3px 8px;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  line-height: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ow-body .source-readout output {
-  flex: 1 1 auto;
-  min-width: 0;
+/* a map being made: the page's dialog, one width and height whatever the words, over everything (Kyler, 2026-10-03) */
+.making-backdrop {
+  z-index: 20;
+}
+
+.making-dialog {
+  width: 400px;
+  box-sizing: border-box;
+}
+
+.making-dialog p {
+  margin: 0;
+  min-height: 1.45em;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.making-dialog[role="alertdialog"] p {
   white-space: normal;
 }

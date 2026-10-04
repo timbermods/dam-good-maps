@@ -64,6 +64,35 @@ export interface View3DProps {
   /** The edges of the view the page's controls cover, measured on the view, so a new map is framed clear of them
    *  (`setFrameInsets`; the page keeps them up to date as the controls change). */
   frameInsets?(view: HTMLElement): Partial<FrameInsets>;
+  /** The first map keeps the view the kept renderer had (the same map back). */
+  keepView?: boolean;
+}
+
+/** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
+ *  canvas, WebGL context and compiled programs, instead of making another (the page's work, done once). */
+let kept: MapRenderer | null = null;
+
+/** Take the kept renderer, if any, with nothing of the last map's editor left on it. */
+function takeKept(): MapRenderer | null {
+  const r = kept;
+  kept = null;
+  if (!r) return null;
+  r.tool = null;
+  r.claimKey = null;
+  r.onClick = null;
+  r.onWheel = null;
+  r.onSlice = null;
+  r.onMarkers = null;
+  r.grab = null;
+  r.setSlice(null);
+  r.setGhost(null);
+  r.setBrushCursor(null);
+  r.setHighlight(null);
+  r.highlightObjects(null);
+  r.setSourceGlow([]);
+  r.setHoverTile(null);
+  r.hoverHit = null;
+  return r;
 }
 
 const GROUND_KEY = "dgm.groundColours";
@@ -168,13 +197,16 @@ export function View3D(props: View3DProps) {
   useEffect(() => {
     let r: MapRenderer;
     // the renderer warmed while the map loaded (D367, part 1), its canvas in this one's place; else a new one
+    // (or the one the last map's view left: a new map keeps the page's renderer)
     const own = canvas.current!;
-    const taken = takePreparedRenderer(own.parentElement!);
+    const again = takeKept();
+    const taken = again ?? takePreparedRenderer(own.parentElement!);
     if (taken) {
       own.before(taken.canvas);
       own.remove();
       taken.canvas.setAttribute("aria-label", own.getAttribute("aria-label") ?? "");
       canvas.current = taken.canvas;
+      if (again) again.adopted();
       r = taken;
     } else
       try {
@@ -189,7 +221,7 @@ export function View3D(props: View3DProps) {
     r.setGroundMode(ground);
     r.setMarkers(markers);
     // the Flow view as the player left it (D353; off by default), where the editor has its switch
-    if (props.togglesInButtons && flow) r.setFlow(true);
+    if (props.togglesInButtons && (flow || again)) r.setFlow(flow);
     r.onHover = (hit) => {
       onHover.current?.(hit);
       if (!props.legendInCorner) return;
@@ -219,7 +251,17 @@ export function View3D(props: View3DProps) {
     return () => {
       renderer.current = null;
       setMade(null);
+      clearTimeout(t);
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
+      // the editor's view keeps its renderer for the next map's (a new map re-mounts the editor); any other view's goes
+      if (props.legendInCorner) {
+        r.onHover = null;
+        r.onMapChange = null;
+        r.onView = null;
+        kept?.dispose();
+        kept = r;
+        return;
+      }
       r.dispose();
     };
   }, []);
@@ -232,15 +274,21 @@ export function View3D(props: View3DProps) {
     if (!r) return;
     const view = canvas.current?.parentElement;
     if (view && props.frameInsets) r.setFrameInsets(props.frameInsets(view));
-    const stats = r.setMap(props.view);
+    const keep = !!props.keepView && mapsShown.current === 0;
+    mapsShown.current++;
+    const stats = r.setMap(props.view, keep);
     // the legend reads the new map now
     setMapTick((n) => n + 1);
-    setMode("orbit");
-    r.setMode("orbit");
+    // (the same map back keeps its view, top-down or not)
+    const m: ViewMode = keep ? r.getView().mode : "orbit";
+    setMode(m);
+    if (!keep) r.setMode("orbit");
     window.dgm3d = { renderer: r, build: stats };
     props.onReady?.(r, stats);
   }, [props.view]);
 
+  /** The maps this view has shown (a kept view applies to its first only). */
+  const mapsShown = useRef(0);
   const pick = (m: ViewMode) => {
     setMode(m);
     renderer.current?.setMode(m);
@@ -299,11 +347,21 @@ export function View3D(props: View3DProps) {
     };
     const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && off();
     const c = canvas.current;
+    // no focus ring on the map from the mouse; a keyboard's focus (Tab) shows it
+    const byMouse = () => c?.setAttribute("data-mouse", "");
+    const notMouse = () => c?.removeAttribute("data-mouse");
+    const onTab = (ev: KeyboardEvent) => ev.key === "Tab" && notMouse();
     c?.addEventListener("pointerdown", off);
+    c?.addEventListener("pointerdown", byMouse);
+    c?.addEventListener("blur", notMouse);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onTab, true);
     return () => {
       c?.removeEventListener("pointerdown", off);
+      c?.removeEventListener("pointerdown", byMouse);
+      c?.removeEventListener("blur", notMouse);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onTab, true);
     };
   }, []);
   // a new map drops the highlight

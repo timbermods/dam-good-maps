@@ -107,7 +107,7 @@ button[aria-pressed="true"] {
   touch-action: none;
 }
 
-.view3d > canvas:focus-visible {
+.view3d > canvas:focus-visible:not([data-mouse]) {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
 }

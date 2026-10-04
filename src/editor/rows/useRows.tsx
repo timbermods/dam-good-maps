@@ -3,7 +3,7 @@
 import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
-import { newId, sourceStrengths, sourceStrengthWords } from "../features";
+import { newId, shortStrengthWords, sourceStrengths, sourceStrengthWords } from "../features";
 import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial } from "../panels";
 import type { ShelfOptions } from "../shelfItems";
 import { powerWord } from "../forceDriver";
@@ -141,7 +141,7 @@ export function useRows(ed: Ed): RowsSlice {
             </select>
           ),
         },
-        { key: "readout", label: "This source", node: <SourceReadout label="This source" words={pickedWords(e)} /> },
+        { key: "readout", label: "This source", node: <SourceReadout plain label="This source" words={shortStrengthWords(pickedWords(e))} /> },
         {
           key: "water",
           label: "Water",
@@ -206,7 +206,7 @@ export function useRows(ed: Ed): RowsSlice {
             label: "Next source",
             node: <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
           },
-          ...(pointedWords ? [{ key: "pointing", label: "Pointing at", node: <SourceReadout label="Pointing at" words={pointedWords} /> }] : []),
+          ...(pointedWords ? [{ key: "pointing", label: "Pointing at", node: <SourceReadout plain label="Pointing at" words={shortStrengthWords(pointedWords)} /> }] : []),
           ...(strongerThanOfficial(value) ? [{ key: "note", node: <span class="bar-status note">{STRONGER_WORDS}</span> }] : []),
         ],
       };

@@ -24,6 +24,12 @@ const STAGES: Record<string, string> = {
   check: "Checking the map",
 };
 
+/** What the generator is doing, in its own words, and nothing more ("Running the rivers…"). */
+export function stageText(p: Progress | null): string {
+  if (!p) return "Generating…";
+  return p.candidate ? "Your map is ready…" : `${STAGES[p.stage] ?? "Generating"}…`;
+}
+
 /** "Running the rivers", and which layout it is when the first did not pass. */
 export function progressText(p: Progress | null): string {
   if (!p) return "Generating…";

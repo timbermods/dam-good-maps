@@ -83,8 +83,8 @@ The editor:
   has **Open…**, **Save project**, **Download .timber**, **Clear everything**, **History** and
   **About**.
 - Click the map's name at the top to rename it. The saved file takes the name.
-- **Generate** makes a new map. The one you were on stays in **Your maps**, at the foot of **Map
-  Generator**: click it to go back.
+- **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
+- The map you were on stays in **Your maps**, at the foot of **Map Generator**: click it to go back.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.

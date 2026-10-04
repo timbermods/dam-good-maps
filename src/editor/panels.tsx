@@ -65,9 +65,9 @@ export const strongerThanOfficial = (v: number) => v > OFFICIAL_FLOW;
 /** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
  *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and
  *  not the row. Highlighted: it is the source being changed. */
-export function SourceReadout(p: { label: string; words: string }) {
+export function SourceReadout(p: { label: string; words: string; plain?: boolean }) {
   return (
-    <span class="source-readout" role="status" aria-label={p.label} data-source-readout>
+    <span class={`source-readout${p.plain ? " plain" : ""}`} role="status" aria-label={p.label} data-source-readout>
       <span class="source-readout-label">{p.label}</span> <output>{p.words}</output>
     </span>
   );

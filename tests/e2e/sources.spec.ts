@@ -9,7 +9,7 @@ import { centreOn, openEditor } from "./open";
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const ID = (k: number) => `00000000-0000-4000-8000-00000000000${k}`;
-/** The number in some words ("this source 0.5 · row 1.25 water/s": the first, this source's). */
+/** The number in some words ("0.5 of 1.25 water/s": the first, this source's). */
 const first = (t: string | null) => Number(/([\d.]+)/.exec(t ?? "")?.[1] ?? NaN);
 
 /** Two dry, level spots away from the start and every object, each with room for a row of three. */
@@ -96,7 +96,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     };
     const rowTotal = async () => {
       const t = await readout.textContent();
-      return n > 1 ? Number(/row ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
+      return n > 1 ? Number(/of ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
     };
     // at rest: one number everywhere
     await expect.poll(rowTotal).toBe(n);
@@ -119,7 +119,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
           return {
             label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
             own: num(words, /([\d.]+)/),
-            row: num(words, many > 1 ? /row ([\d.]+)/ : /([\d.]+)/),
+            row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
             select: Number((group?.querySelector('select[aria-label="Strength"]') as HTMLSelectElement | null)?.value),
             note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
           };

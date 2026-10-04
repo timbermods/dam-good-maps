@@ -21,9 +21,8 @@ export interface YourMapRow {
 
 /** What the page gives the drawer. */
 export interface DrawerModel extends SettingsProps {
-  /** A map is being made or opened, and what the button says meanwhile. */
+  /** A map is being made or opened (the modal says which). */
   busy: boolean;
-  busyWords: string;
   /** The settings differ from the current map's. */
   changed: boolean;
   onGenerate(): void;
@@ -121,7 +120,7 @@ export function Drawer({ model: m, info, icon }: DrawerProps) {
       >
         <div class="drawer-go">
           <button type="submit" class="primary" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
-            {m.busy ? m.busyWords : "Generate"}
+            Generate
           </button>
           <button type="button" class="ghost" disabled={m.busy} title="Make a map of any kind" onClick={m.onSurprise}>
             Surprise me

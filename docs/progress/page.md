@@ -561,3 +561,18 @@ minimap, never scrolling). What the mockups left open is in DESIGN.md, "Layout 2
 
 `layout.spec.ts` checks the group, the window's edges and gap in both pickings, no row above the bar, and the list
 never moving. Full browser suite: 130 of 131; the one is dev's own look-high highlight failure (reported before).
+
+## Kyler's four fixes (2026-10-03)
+
+1. **Slow Surprise me presses:** about 40 presses at 128² and 256², timed, the long ones traced. Every slow press is the
+   generator's time in the worker (several layouts, and at 256² the start's placement and the water), reported to
+   Kyler seed by seed. The page's part, fixed: the editor threw its 3D renderer away and made another for every map
+   (a WebGL context lost and made again, every program compiled again), and built the features' tile index as the
+   map opened; the renderer is now kept from map to map and the index built when first read. At 256² the main
+   thread's work at opening fell from about 0.6 s to 0.26 s (all in the renderer's `setMap`, `contaminationEdges`
+   most of it). No main-thread work during the generation itself; nothing piling up but the editor's own operations
+   while the worker generated, which the modal now stops.
+2. **The making modal** with a real Cancel (the worker ends; the open map comes back from its project saved just
+   before, in a new worker, its history and view as they were).
+3. **This source** in one line: "1.45 of 5.79 water/s".
+4. **No focus ring on the map from the mouse.**

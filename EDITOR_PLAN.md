@@ -112,8 +112,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size; picked on the map, a source's Strength, This source, Water, Power,
-  Unleash, Remove and Try another, an object's Delete, each with Put it down (×).
+  Pointing at, a ruin's Height, a relic's Size; picked on the map, a source's Strength, This source ("1.45 water/s",
+  in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
+  it down (×).
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
@@ -670,6 +671,9 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 (the versions, checkpoint 2).
 
 **As built today:**
+- **While a map is made** (Generate, Surprise me, Another like this) a dialog over the editor says what the generator
+  is doing, in one line, with **Cancel**: nothing else can be clicked or started. Cancel ends the work (the
+  generator's worker) and the open map comes back exactly as it was, from its project saved just before.
 - **Generate always makes a new map** (D323, item 20): every press rolls a fresh seed, shown in the box; typing a
   seed keeps it (**Keep**, lit, beside the box) and Generate then makes that map again until the player lets it go or
   clears the box; opening a share link pins its seed. Generate waits while a map is being made; the map open stays
