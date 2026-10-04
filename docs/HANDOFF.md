@@ -143,6 +143,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   <https://timbermods.github.io/dam-good-maps/preview/> (noindex). **The `/preview/` slot belongs to the page session while it
   works (D396): ask Kyler before publishing anything else there.** A normal deploy of `main` drops `/preview/`: republish the
   page's preview after every release.
+- **The roadmap canvas** is at <https://timbermods.github.io/dam-good-maps/roadmap/> (noindex), taken from dev by every deploy;
+  `roadmap-sync.yml` runs a deploy when dev's copy changes and republishes the live preview commit (`/preview/ref.txt`).
 - **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
   `dev` commit that the queue's run passed (a commit with no run is refused): pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
   cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
