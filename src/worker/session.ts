@@ -72,7 +72,7 @@ import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/v
 import { changedRect } from "../render3d/mesh";
 import { autoDetailsOf, carveNature, craterNature, eruptNature, glaciateNature, quakeNature, type ForceGround } from "../core/forces/nature";
 import { carveForceParams, forceMapOf } from "../core/forces/carve/result";
-import { CarveRun, modelFor, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
+import { CarveRun, type CarveIntent, type CarveSettings } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
 import { breakout, sourceTile, unleashWidth } from "../core/forces/carve/unleash";
 import { edgeAim } from "../core/forces/carve/edge";
@@ -84,7 +84,7 @@ import { clickFault, strokeLength, TAP, type QuakeSettings } from "../core/force
 import { geology, nextSeed } from "../core/forces/random";
 import { pathRecord, stagedParamsOf } from "../core/forces/result";
 import { trimRock } from "../core/forces/rock";
-import { CraterRun, EruptRun, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
+import { CraterRun, EruptRun, modelOf, QuakeRun, type Finalize, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { GlaciateRun } from "../core/forces/glaciate/run";
 import { glaciateNextSeed, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { plainEntities } from "../core/forces/force";
@@ -2303,7 +2303,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
   const p = f.play;
   if (!p || p.run.settings.dry) return;
   const m = p.map;
-  const model = modelFor(m);
+  const model = modelOf(m);
   forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice() };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
