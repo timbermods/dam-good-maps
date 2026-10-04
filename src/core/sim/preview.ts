@@ -26,9 +26,10 @@
 // stays only where a running source, a kept stored lake or the water kept from before reaches it
 // (sim/fed.ts), so a pit dug on dry ground stays dry while one dug beside a river fills at once; and
 // once the preview's water stops, the pre-fill's water that only the walk's thin water had joined to
-// fed water is taken away and the water runs on, as the canonical settle does (`drainUnfedAfter`).
+// fed water is taken away and the water runs on, by the canonical settle's own drain (sim/fed.ts
+// `withoutUnfed`, a new simulation on the water as it stands).
 
-import { drainUnfed, fedTiles, keptSeeds } from "./fed";
+import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
@@ -187,26 +188,6 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   return { state: init, out: po ? out : null, seeds };
 }
 
-/** Once the preview's water has stopped, the water that took the pre-fill's start and that nothing
- *  feeds is taken away (D385, D260), as the canonical settle takes its unfed water once it has
- *  settled (prefill.ts `canonicalRun`): fed is what a running source, a kept stored lake or the
- *  water kept from before (`seeds`) reaches. The warm start keeps the pre-fill's water wherever the
- *  walk's thin water joins it to fed water, and that thin water drains as the water settles: a pit
- *  whose only source was deleted, on flat ground another river's walk crosses, would otherwise keep
- *  its pool. In place; whether any water was taken. */
-function drainUnfedAfter(sim: WaterSim, m: WaterModel, seeds: Uint8Array | null): boolean {
-  const fed = fedTiles(m, sim.D, seeds ?? keptSeeds(m));
-  let any = false;
-  for (let i = 0; i < sim.N; i++) {
-    if (!(sim.D[i] > 0) || fed[i]) continue;
-    sim.D[i] = 0;
-    sim.C[i] = 0;
-    for (let k = 0; k < 4; k++) sim.out[4 * i + k] = 0;
-    any = true;
-  }
-  return any;
-}
-
 /** The tiles of the lakes `next` stores that `prev` does not (a Fill, a carve's oxbow lake just
  *  sealed), as a mask; null when there are none. */
 export function newLakeTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
@@ -289,7 +270,8 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
  *  flows and a newer edit can take over from the water as it stands (`state`). `previewSettle` runs
  *  it in one go with `PREVIEW_DAYS`. */
 export class PreviewJob {
-  readonly sim: WaterSim;
+  /** The simulation; replaced once, by the one without its unfed water (`withoutUnfed`). */
+  private current: WaterSim;
   private run: PreviewRun;
   private result: CanonicalWater | null = null;
   private readonly sealed: readonly number[] | undefined;
@@ -297,7 +279,7 @@ export class PreviewJob {
   /** The ticks when the current `advance` began (its budget spans a new day's run too). */
   private before = 0;
   /** What feeds the water beside the sources (`warmStart`), and whether the unfed water has been
-   *  taken once the water stopped (`drainUnfedAfter`). */
+   *  taken once the water stopped. */
   private readonly seeds: Uint8Array | null;
   private drained = false;
 
@@ -308,12 +290,17 @@ export class PreviewJob {
     private readonly days: number = PREVIEW_JOB_DAYS,
   ) {
     const { state, out, seeds } = warmStart(from, model);
-    this.sim = new WaterSim(model, state);
-    if (out) this.sim.out.set(out);
+    this.current = new WaterSim(model, state);
+    if (out) this.current.out.set(out);
     this.seeds = seeds;
     this.sealed = sealedTiles(model);
-    this.run = new PreviewRun(this.sim, this.sealed);
-    this.startTicks = this.sim.ticks;
+    this.run = new PreviewRun(this.current, this.sealed);
+    this.startTicks = this.current.ticks;
+  }
+
+  /** The water as it runs (read it afresh: the unfed water's drain replaces it). */
+  get sim(): WaterSim {
+    return this.current;
   }
 
   /** Run at most `ticks` more ticks; the settled preview water when it is done, else null. */
@@ -329,11 +316,18 @@ export class PreviewJob {
         r = this.run.advance(left());
       }
       if (!r) return null;
-      // (stopped: the unfed water goes, once, and the water runs on from there)
+      // (stopped: the unfed water goes, once, and the water runs on from there, as the canonical
+      // settle's does: fed is what a running source, a kept stored lake or the water kept from
+      // before reaches. The warm start keeps the pre-fill's water wherever the walk's thin water
+      // joins it to fed water, and that thin water drains as the water settles: a pit whose only
+      // source was deleted, on flat ground another river's walk crosses, would otherwise keep its
+      // pool, D385, D260)
       if (this.drained) break;
       this.drained = true;
-      if (!drainUnfedAfter(this.sim, this.model, this.seeds)) break;
-      this.run = new PreviewRun(this.sim, this.sealed);
+      const next = withoutUnfed(this.model, this.current, {}, this.seeds ?? keptSeeds(this.model));
+      if (!next) break;
+      this.current = next;
+      this.run = new PreviewRun(next, this.sealed);
       r = this.run.advance(left());
     }
     const sim = this.sim;
