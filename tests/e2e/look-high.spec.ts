@@ -388,12 +388,13 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
     };
     const m = r.mapState()!;
     const e = m.entities;
-    /** Each kind's first source: its tile (as the page highlights it), its middle, and whether its
-     *  basin shows above the water there. */
-    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean }> = {};
+    /** Each kind's source whose basin shows most (the least water over its middle: one deep under its
+     *  own pool hides its red in either look, whatever the map): its tile (as the page highlights it),
+     *  its middle, and whether its basin shows above the water there. */
+    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean; depth: number }> = {};
     for (let k = 0; k < e.count; k++) {
       const name = e.templates[e.template[k]];
-      if ((name !== "WaterSource" && name !== "BadwaterSource") || sources[name]) continue;
+      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
       let x = e.x[k];
       let y = e.y[k];
       if (name === "BadwaterSource") {
@@ -401,7 +402,9 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
         x += o === 0 || o === 1 ? 1 : -1;
         y += o === 0 || o === 3 ? 1 : -1;
       }
-      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(m.surface.depth[y * m.W + x] > 0.25) };
+      const depth = m.surface.depth[y * m.W + x] || 0;
+      if (sources[name] && sources[name].depth <= depth) continue;
+      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(depth > 0.25), depth };
     }
     const out: Record<string, Record<string, { red: number; glow: number }>> = {};
     let back = 0;
