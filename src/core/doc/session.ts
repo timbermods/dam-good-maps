@@ -9,6 +9,12 @@
 //   made on. Generate makes a new map; the log replays only onto the same land (undo and redo,
 //   reopening a project, share links).
 // - Documents made by another generator open from their stored base, exactly (PLAN §19.7).
+// - A project with a stored map (stored.ts, D367, D455) opens from it without rebuilding. Its log
+//   is replayed once (`checkReplay`, or the page's checks worker) and compared with the stored map,
+//   byte for byte: the same, and undo below the save point works as normal; different (the code
+//   changed since the save), and undo stops at the save point, so the map as saved is the earliest
+//   state, never an approximate replay. An undo that would cross the save point before the
+//   comparison is in does the comparison first, right there.
 
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
@@ -45,7 +51,8 @@ import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, cleanMapName, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
   invertOp,
@@ -135,6 +142,15 @@ export class MapSession {
   private cur: BuildResult;
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
+  /** The save point of a project opened from its stored map, as steps of the history: undo below
+   *  it waits on the replay comparison (`checkReplay`, `confirmReplay`; an undo that would cross it
+   *  first does the comparison itself), and stops there for good when the replay differs (D455).
+   *  0: undo goes all the way back. */
+  private floor = 0;
+  /** A project opened from its stored map, until its replay is compared: the state as decoded
+   *  (the checks worker compares against it), the map it restored, and the document as saved. */
+  private pending: { state: StoredState; built: BuildResult; saved: MapDocument } | null = null;
+  private storedOpen = false;
   private snaps = new Map<number, BuildResult>();
   private baseCache: { key: BaseMap; layer: BaseLayer; terrain: BaseTerrain; file: TimberFile } | null = null;
   private frozenCache: { key: BaseLayer; touched: string; layer: BaseLayer } | null = null;
@@ -154,7 +170,7 @@ export class MapSession {
    *  `lastSettled` and puts it in place with `adoptWater`. */
   private waterMode: WaterMode = "canonical";
 
-  private constructor(doc: MapDocument, built?: BuildResult) {
+  private constructor(doc: MapDocument, built?: BuildResult, opts: { rebuild?: boolean } = {}) {
     this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
     const r = replay(this.gen.baseFeatures, doc.edits);
     this.log = r.log;
@@ -176,13 +192,94 @@ export class MapSession {
     if (this.mode === "frozen") {
       this.notices.push(`This map was made with generator ${this.gen.generatorVersion}. It opens exactly as it was saved.`);
     }
-    this.cur = built ?? buildMap(this.input());
+    const stored = built || opts.rebuild ? null : this.restored(doc);
+    this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
+    if (stored) {
+      // (opened from the stored map: undo stops at the save point until the replay is compared)
+      this.floor = this.undoStack.length;
+      const { stored: state, ...saved } = doc;
+      this.pending = { state: state!, built: stored, saved };
+    }
     this.snaps.set(this.undoStack.length, this.cur);
+  }
+
+  /** The document's stored map, when it fits this document and this app (stored.ts), with the
+   *  generation's layers bound to this session's (the incremental build compares them by identity);
+   *  null when the project opens by rebuilding. Only for a document with a stored base. */
+  private restored(doc: MapDocument): BuildResult | null {
+    if (!storedFits(doc.stored, this.log.length, this.seqNext) || this.gen.base.world === null) return null;
+    const b = restoreBuilt(doc.stored, this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0);
+    if (!b) return null;
+    const input = this.input();
+    const slopes = input.generatedSlopes ?? null;
+    const list = b.cache.terrain.slopeList;
+    // (the generation's slopes the build checked: the same list as this session's, bound to it)
+    const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
+    b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
+    return b;
+  }
+
+  /** Whether the map opened from its stored map, without rebuilding (D367). */
+  get openedFromStored(): boolean {
+    return this.pending !== null || this.storedOpen;
+  }
+
+  /** Whether the replay comparison of a map opened from its stored map is still owed (D455): the
+   *  checks worker does it on its replica (`replayMatchesStored`), a headless caller with
+   *  `checkReplay`; an undo that would cross the save point first does it itself. */
+  get replayPending(): boolean {
+    return this.pending !== null;
+  }
+
+  /** Why undo cannot go below the save point now, or null (the replay differed, D455). */
+  get undoStopped(): string | null {
+    return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
+  }
+
+  /** The stored map as decoded, for the checks worker's comparison; null once compared. */
+  get storedState(): StoredState | null {
+    return this.pending?.state ?? null;
+  }
+
+  /** The replay comparison, here and now (a full build of the document as saved, as a project
+   *  without a stored map opens; seconds at 256²): whether the saved log, replayed with this code,
+   *  gives the stored map byte for byte. True when none was owed. */
+  checkReplay(): boolean {
+    const p = this.pending;
+    if (!p) return true;
+    const same = MapSession.replayMatchesStored({ ...p.saved, stored: p.state });
+    this.confirmReplay(same);
+    return same;
+  }
+
+  /** The verdict of the replay comparison, from wherever it ran: the same, and undo below the save
+   *  point works as normal; different, and it stops there for good, with a notice (D455). */
+  confirmReplay(same: boolean): void {
+    if (!this.pending) return;
+    this.pending = null;
+    this.storedOpen = true;
+    if (same) this.floor = 0;
+    else this.notice(UNDO_STOPPED);
+  }
+
+  /** D455's comparison for a document with a stored map: its log up to the save point, replayed
+   *  with this code (a full build, the way a project without a stored map opens), against the
+   *  stored map, byte for byte. `replayed` is that build when the caller has it already (the checks
+   *  worker opened the same document by rebuilding). A stored map that does not fit, or cannot be
+   *  restored, never matches. */
+  static replayMatchesStored(doc: MapDocument, replayed?: BuildResult): boolean {
+    const st = doc.stored;
+    if (!st || !storedFits(st, st.edits, st.nextSeq)) return false;
+    const stored = restoreBuilt(st, doc.base.sizeX, doc.base.sizeY, doc.spec?.seed ?? 0);
+    if (!stored) return false;
+    const atSave = st.edits === doc.edits.length;
+    const built = replayed && atSave ? replayed : new MapSession(documentAt(doc, st.edits), undefined, { rebuild: true }).cur;
+    return sameMap(built, stored);
   }
 
   /** Warm-start the water after each edit (the editor), or settle it canonically (default). */
@@ -282,15 +379,19 @@ export class MapSession {
     this.st = r.state;
     this.seqNext = nextSeq;
     this.undoStack = stepsOf(this.log);
+    this.floor = 0;
+    this.pending = null;
     this.redoStack = [];
     this.snaps.clear();
     this.cur = this.rebuilt();
   }
 
-  /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). */
-  static open(doc: MapDocument): MapSession {
+  /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
+   *  stored map opens from it without rebuilding (D367); `rebuild` builds it from its generation and
+   *  its log instead (the replay, D455). */
+  static open(doc: MapDocument, opts: { rebuild?: boolean } = {}): MapSession {
     checkDocument(doc);
-    return new MapSession(doc);
+    return new MapSession(doc, undefined, opts);
   }
 
   /** The session of a map the generator just made: its own build is the starting map. */
@@ -448,9 +549,21 @@ export class MapSession {
     };
   }
 
-  /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens). */
+  /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens).
+   *  It carries the map as it stands (`stored`, D367), unless the water is still the preview's: a
+   *  file never gets preview water (PLAN §19.7), and such a project opens by rebuilding. */
   project(level?: number): Uint8Array {
-    return encodeProject(this.document, level);
+    const doc = this.document;
+    if (this.waterPending) return encodeProject(doc, level);
+    const p = this.pending;
+    let stored: StoredState | null = null;
+    try {
+      // (unchanged since it opened from its stored map: that map again, as decoded)
+      stored = p && p.built === this.cur && p.state.edits === this.log.length && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, this.log.length, this.seqNext);
+    } catch {
+      // a map the stored format cannot carry: saved without it, and reopened by rebuilding
+    }
+    return encodeProject(stored ? { ...doc, stored } : doc, level);
   }
 
   /** Every object id the document has used: the objects standing and every object an operation
@@ -475,17 +588,24 @@ export class MapSession {
     return out.sort((a, b) => a.seq - b.seq);
   }
 
+  /** The steps undo can take back and redo bring back (the steps below the save point, once the
+   *  replay differed, are not listed: the map as saved is the earliest state, D455). */
   history(): HistoryItem[] {
     const item = (e: HistoryEntry, applied: boolean): HistoryItem => {
       const first = e.ops[0];
       const orphaned = e.ops.find((o) => o.orphaned)?.orphaned;
       return { label: e.label ?? labelOf(first), op: first.op, seq: first.seq, count: e.ops.length, applied, ...(orphaned ? { orphaned } : {}) };
     };
-    return [...this.undoStack.map((e) => item(e, true)), ...this.redoStack.slice().reverse().map((e) => item(e, false))];
+    return [...this.undoStack.slice(this.reach).map((e) => item(e, true)), ...this.redoStack.slice().reverse().map((e) => item(e, false))];
+  }
+
+  /** The steps undo may reach: all of them until the replay differed (D455). */
+  private get reach(): number {
+    return this.pending ? 0 : this.floor;
   }
 
   get canUndo(): boolean {
-    return this.undoStack.length > 0;
+    return this.undoStack.length > this.reach;
   }
 
   get canRedo(): boolean {
@@ -657,6 +777,9 @@ export class MapSession {
   }
 
   undo(): boolean {
+    // (crossing the save point of a map opened from its stored map: the replay comparison first,
+    // here, when the checks have not done it yet; it decides whether undo may go on, D455)
+    if (this.undoStack.length <= this.floor && (!this.pending || !this.checkReplay())) return false;
     const e = this.undoStack.pop();
     if (!e) return false;
     for (let k = e.ops.length - 1; k >= 0; k--) {
@@ -694,9 +817,9 @@ export class MapSession {
     return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
   }
 
-  /** The operations of the latest step on the history (empty when there is none). */
+  /** The operations of the latest step on the history (empty when there is none undo can reach). */
   lastStepOps(): readonly AppliedOp[] {
-    return this.undoStack.at(-1)?.ops ?? [];
+    return this.undoStack.length > this.reach ? (this.undoStack.at(-1)?.ops ?? []) : [];
   }
 
   /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
@@ -1043,6 +1166,9 @@ export class MapSession {
 }
 
 // ------------------------------------------------------------------------------------ helpers
+
+/** Why undo stops at the save point (D455): the notice, and a refused undo's reason. */
+const UNDO_STOPPED = "This map opens as it was saved. Its earlier edits cannot be undone: the editor has changed since they were made, so taking them back could not give the map they were made on.";
 
 let blank: Uint8Array | null = null;
 /** A 960×540 thumbnail for checks, which read only its size. */
