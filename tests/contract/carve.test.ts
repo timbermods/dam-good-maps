@@ -105,7 +105,7 @@ describe("the force: every step keeps the rules", () => {
     delete legacy.seed;
     new CarveRun(mountain, Object.freeze(legacy) as CarveSettings, intent);
     expect(legacy.seed).toBeUndefined();
-    for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/Invalid character/);
+    for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/^a carve's (width|wander|seed) is /);
     // the start's own ground is a carve's like any other (D257: the editor carries the start)
     const start = mountain.entities.find((e) => e.template === "StartingLocation")!;
     expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).not.toThrow();
