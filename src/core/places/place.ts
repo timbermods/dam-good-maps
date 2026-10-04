@@ -6,17 +6,15 @@
 // sources, start and planted objects. `buildPlace` turns it into a .timber with the steps and code
 // the generator's own maps go through: the objects as entities with ids hashed from the place, the
 // canonical water settle, soil moisture and contamination on it (build.ts step 10), the world with
-// its settled singletons, metadata and thumbnail (gen/pack.ts), the validator (export profile), and
-// writeTimber. It is a pure function of the data, so the file is the same bytes in Node and in every
-// browser.
+// its settled singletons, metadata and thumbnail (gen/pack.ts `worldOf` and `timberFileOf`, the one
+// path to file bytes), the validator (export profile), and writeTimber. It is a pure function of the
+// data, so the file is the same bytes in Node and in every browser.
 
 import { gunzipSync, strFromU8 } from "fflate";
-import { bush, entityJson, ruin, startingLocation, tree, waterSource, type EntitySpec, type TreeSpecies } from "../format/entities";
-import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
-import { GAME_VERSION, LAYERS, settledSimulationSingletons, voxelsFromHeights } from "../format/world";
+import { bush, ruin, startingLocation, tree, waterSource, type EntitySpec, type TreeSpecies } from "../format/entities";
+import { writeTimber, type TimberFile } from "../format/timber";
 import { entityId } from "../features/ids";
-import { namedFile, TIMESTAMP } from "../gen/pack";
-import { thumbnailJpeg } from "../render/shade";
+import { namedFile, timberFileOf, worldOf } from "../gen/pack";
 import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
@@ -201,22 +199,8 @@ export function buildPlace(p: PlaceData): BuiltPlace {
   const barrier = moistureBarrier(W, H, objects);
   const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
   const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
-  const file: TimberFile = {
-    metadata: mapMetadata(W, H, placeDescription(p)),
-    thumbnail: thumbnailJpeg(heights, W, H, settle.depth),
-    versionTxt: GAME_VERSION + "\r\n",
-    world: {
-      gameVersion: GAME_VERSION,
-      timestamp: TIMESTAMP,
-      sizeX: W,
-      sizeY: H,
-      layers: LAYERS,
-      voxels: voxelsFromHeights(heights, W, H),
-      singletons: settledSimulationSingletons(W, H, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out }),
-      entities: entities.map(entityJson),
-    },
-    extraFiles: [],
-  };
+  const world = worldOf(W, H, heights, entities, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out });
+  const file = timberFileOf(world, heights, placeDescription(p), settle.depth);
   return { file, heights, model, settle };
 }
 
