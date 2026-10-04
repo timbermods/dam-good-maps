@@ -20,7 +20,7 @@ import { generate } from "../../src/core/gen/generate";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
-import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
+import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { StartFeature } from "../../src/core/features/schema";
 import * as ed from "../../src/worker/session";
 
@@ -204,19 +204,19 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     expect(gone.length).toBeGreaterThan(0);
     expect(ed.apply({ op: "deleteEntities", params: { entities: gone } }).errors).toEqual([]);
     ed.settleWater();
-    const short = (id: string) => {
-      const c = ed.exportCheck();
+    const short = async (id: string) => {
+      const c = (await ed.backgroundCheck())!.check;
       return [...c.blocking, ...c.warnings, ...c.advisory].find((i) => i.id === id) ?? null;
     };
     for (const id of ["start.wood", "start.food"]) {
-      const item = short(id);
+      const item = await short(id);
       expect(item, id).not.toBeNull();
       expect(item!.fix?.length, id).toBeGreaterThan(0);
       expect(item!.fix![0].label).toMatch(id === "start.wood" ? /oaks? for the starting logs/ : /berry bush/);
       const u = ed.applyAll(item!.fix!.map(({ label: _l, ...op }) => op as EditOp), item!.fix![0].label, "fix");
       expect(u.errors, id).toEqual([]);
       ed.settleWater();
-      expect(short(id), id).toBeNull();
+      expect(await short(id), id).toBeNull();
     }
   });
 });

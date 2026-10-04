@@ -27,7 +27,7 @@ how things are and what is next, not how they got there.
 | [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance. |
 | [GLOSSARY.md](GLOSSARY.md) | The shared terms (force, working area, candidate, the absolutes and the rest), each defined once with the decision that set it. |
 | [decisions-pending.md](decisions-pending.md) | The open pending defaults only: choices the session made while Kyler was away, with the next pending number. |
-| Folder READMEs | Each `src/core/` folder, `tools/` and `prototype/` has a short README: its purpose, rules, entry points and tests. Keep it current when the folder's rules or entry points change. |
+| Folder READMEs | Each `src/core/` folder, `src/worker/`, `tools/` and `prototype/` has a short README: its purpose, rules, entry points and tests. Keep it current when the folder's rules or entry points change. |
 | `.claude/agents/` | The agent definitions (`build`, `build-light`, `build-light-medium`, `routine`, `m9b-build` and two kept, unused); HANDOFF's models table says which work goes to which. |
 
 ## Investigations

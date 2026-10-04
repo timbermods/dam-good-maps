@@ -58,11 +58,17 @@ export function severityOf(profile: Profile, cls: CheckClass, ok: boolean, advis
   return cls === "design" || cls === "principle" ? "info" : "warning";
 }
 
+/** Whether a check fails: it does not pass, applies to the map and is not advisory (an approximate
+ *  check passes, `Collector.approximate`). Whether that blocks depends on the profile (`blocks`). */
+export function failing(r: CheckResult): boolean {
+  return !r.ok && !r.advisory && r.applicable !== false;
+}
+
 /** Whether a result blocks the profile's action: the download in `generate`, the export in
  *  `export` (load problems and principles). Nothing blocks an import: the importer reports, and
  *  fixes what the game would. */
 export function blocks(profile: Profile, r: CheckResult): boolean {
-  if (r.ok || r.advisory || r.applicable === false || r.approximate) return false;
+  if (!failing(r)) return false;
   if (profile === "generate") return true;
   if (profile === "export") return r.class === "load" || r.class === "principle";
   return false;

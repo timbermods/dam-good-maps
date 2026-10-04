@@ -11,14 +11,14 @@
 
 import { damSites, type DamSite } from "../analysis/damsites";
 import { components, landRegions, walkRegions } from "../analysis/regions";
-import { reachAt, startWaterShore, walkDistance, WALK_LIMIT } from "../analysis/walk";
+import { reachAt, startWaterShore, walkDistance, walkWorld, WALK_BLOCKERS, WALK_LIMIT } from "../analysis/walk";
 import { sourcesInFlow } from "../analysis/sources";
-import { leveeStorage, runningFlow, SECONDS_PER_DAY } from "../analysis/storage";
+import { leveeStorage, runningFlow, STORAGE_DAY_SECONDS } from "../analysis/storage";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
-import { isSapling, noWood, treeLogs, woodDetail, type WoodBySpecies, type WoodSpecies } from "../analysis/wood";
+import { isDead, isSapling, noWood, treeLogs, woodDetail, type WoodBySpecies, type WoodSpecies } from "../analysis/wood";
 import { TREE_LOGS } from "../format/entities";
 import { guidFrom } from "../math/hash";
-import { footprintTiles, slopeHighSide, worldBlocks, FOOTPRINTS } from "../format/footprints";
+import { footprintTiles, startMiddleTile, FOOTPRINTS } from "../format/footprints";
 import { polygonMask } from "../features/geometry";
 import { OBJECT_NAMES, objectTiles } from "../features/objects";
 import { channelTiles } from "../features/route";
@@ -43,9 +43,8 @@ export const NEAR = 20; // gatherers, lumberjacks and scavengers work within 20 
 export const RESERVOIR_RADIUS = 40;
 export const BLUEBERRY_DAYS_TO_DIE_DRY = 9;
 export const TREES = ["Pine", "Birch", "Oak"] as const;
-export const WALK_BLOCKERS = new Set([
-  "Thorns", "Blockage", "NaturalDam", "UnstableCore", "GeothermalField", "UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic",
-]);
+/** (`analysis/walk.ts` holds it, beside the walk graph; the editor's start indicators read it here.) */
+export { WALK_BLOCKERS };
 const START_AREA = { small: 0.6, normal: 1, large: 1.8 } as const;
 
 /** Thresholds for one map: from its spec, or the difficulty's defaults for an imported map. The
@@ -153,17 +152,6 @@ export interface PlayabilityAnalysis {
   /** Living trees and living berry bushes within 20 tiles' walk of the start (slopes allowed). */
   treesNear: number;
   bushesNear: number;
-  /** The start's walk, computed once (the starting-logs floor's, over the map's own ground and
-   *  slopes; the forces-preview feedback's items 24 and 47, information): the trees within the
-   *  floor's walk (40 tiles) and the logs their grown trees hold; the farmland (moist, dry, clean
-   *  soil) and the level building land (tiles of a level, dry 2×2) within 20 tiles' walk. */
-  walkReach: { trees: number; logs: number; farmland: number; level: number } | null;
-  /** Item 47's five difficulty levers (information, computed here and shown only in "The page is
-   *  the editor", D325): the start's farmland and its level building land within 20 tiles' walk,
-   *  the tiles from the start to the nearest metal (a mine site or a ruin column) and to the nearest
-   *  badwater, and how easily it is sheltered from a badtide (the shortest dam within 40 tiles that
-   *  stores the colony's drought need, in tiles; null: none does). */
-  levers: { farmland: number; metal: number | null; badwater: number | null; shelter: number | null; buildable: number } | null;
   /** Starting wood (D164): the logs of the grown trees within 20 tiles' walk, and by species;
    *  and the logs of the saplings there, still growing. */
   woodNear: number;
@@ -176,18 +164,6 @@ export interface PlayabilityAnalysis {
   /** Water storage near the start (water.storage_possible): the clean flow feeding the start's water
    *  and what it needs, and what a dam, natural pools and levees hold, against the need. */
   storage: { running: number; runningNeed: number; dam: number; natural: number; levee: number; need: number } | null;
-}
-
-/** The district center's middle tile. */
-export function startMiddleTile(start: MapObject): [number, number] {
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, start).filter((b) => b.localZ === 0);
-  let sumX = 0;
-  let sumY = 0;
-  for (const b of cells) {
-    sumX += b.x;
-    sumY += b.y;
-  }
-  return [Math.round(sumX / cells.length), Math.round(sumY / cells.length)];
 }
 
 /** The mine sites out of the colony's reach on a map as it stands, as the tile index of each one's
@@ -228,12 +204,9 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
   const C = water.contamination;
   const id = (k: number) => inp.ids?.[k];
 
-  // ---- blockers by footprint: walking (Thorns, Blockage, relics, ...) and moisture (Thorns)
-  const blocked = new Uint8Array(N);
-  for (const o of objects) {
-    if (!WALK_BLOCKERS.has(o.template) || !FOOTPRINTS[o.template]) continue;
-    for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
-  }
+  // ---- blockers by footprint: walking (Thorns, Blockage, relics, ...), with the slopes' links, and
+  //      moisture (Thorns)
+  const { blocked, links } = walkWorld(objects, W, H);
   const barrier = moistureBarrier(W, H, objects);
 
   // ---- water
@@ -320,8 +293,6 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     woodNear: 0,
     woodBySpecies: noWood(),
     woodGrowing: 0,
-    walkReach: null,
-    levers: null,
     damSites: [],
     bestDam: null,
     naturalStorage: 0,
@@ -354,7 +325,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
     checkMines(objects, W, H, null, c);
     return analysis;
   }
-  checkStart(inp, c, starts[0][0], { M, SC, wet, clean, blocked, barrier }, analysis, id);
+  checkStart(inp, c, starts[0][0], { M, SC, wet, clean, blocked, links, barrier }, analysis, id);
   return analysis;
 }
 
@@ -375,19 +346,7 @@ export function minesWanted(W: number, H: number): number {
  *  one level (a flight of stairs at most, never across water or up a cliff). */
 export function colonyReach(W: number, H: number, h: Uint8Array, wet: Uint8Array, objects: readonly MapObject[], start: { x: number; y: number }): Uint8Array {
   const N = W * H;
-  const blocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const o of objects) {
-    if (o.template === "Slope") {
-      const [dx, dy] = slopeHighSide(o.orientation);
-      const hx = o.x + dx;
-      const hy = o.y + dy;
-      if (o.x >= 0 && o.x < W && o.y >= 0 && o.y < H && hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([o.y * W + o.x, hy * W + hx]);
-      continue;
-    }
-    if (!WALK_BLOCKERS.has(o.template) || !FOOTPRINTS[o.template]) continue;
-    for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
-  }
+  const { blocked, links } = walkWorld(objects, W, H);
   const labels = walkRegions(h, W, H, blocked, links);
   const root = labels[start.y * W + start.x];
   const land = landRegions(h, W, H, wet);
@@ -623,6 +582,8 @@ interface Fields {
   wet: Uint8Array;
   clean: Uint8Array;
   blocked: Uint8Array;
+  /** The slopes' links (`walkWorld`). */
+  links: [number, number][];
   /** Thorns: no moisture, no soil contamination (null when the map has none). */
   barrier: Uint8Array | null;
 }
@@ -639,7 +600,7 @@ function checkStart(
   const N = W * H;
   const D = water.depth;
   const C = water.contamination;
-  const { M, SC, wet, clean, blocked, barrier } = fl;
+  const { M, SC, wet, clean, blocked, links, barrier } = fl;
   // the district center's middle tile
   const [sx, sy] = startMiddleTile(start);
   const startMask = new Uint8Array(N);
@@ -662,15 +623,6 @@ function checkStart(
   });
 
   // walking: the map's own ground, and its slopes join levels (no player stairs)
-  const links: [number, number][] = [];
-  for (const o of objects) {
-    if (o.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(o.orientation);
-    const hx = o.x + dx;
-    const hy = o.y + dy;
-    if (o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
-    if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([o.y * W + o.x, hy * W + hx]);
-  }
   const walk = walkDistance(h, W, H, blocked, links, { x: sx, y: sy });
 
   // requirement 1, the water rule (D153, amending D85): clean pumpable water at a
@@ -745,10 +697,7 @@ function checkStart(
   // it dies), by its species' yield from the game's blueprints (data/log-floor.json); a sapling's
   // logs are wood still growing, shown apart (analysis/wood.ts). The starting-logs floor (D224,
   // D227) counts the same grown logs within a longer walk, 40 tiles, at every difficulty
-  const dead = (o: MapObject) => {
-    const lnr = o.components.LivingNaturalResource as { IsDead?: boolean } | undefined;
-    return !!lnr && lnr.IsDead === true;
-  };
+  const dead = (o: MapObject) => isDead(o.components);
   const survives = (i: number) => M[i] > 0 && !(D[i] > 0) && !(SC[i] > 0);
   let bushes = 0;
   let trees = 0;
@@ -783,14 +732,8 @@ function checkStart(
   }
   // (the mine sites the colony reaches, read with the one function the generator reads them with)
   checkMines(objects, W, H, colonyReach(W, H, h, wet, objects, { x: sx, y: sy }), c, inp.mineCutAtOpen);
-  // the start's walk once more (items 24 and 47): the trees within the floor's walk and their logs,
-  // and the farmland and level building land within 20 tiles' walk
+  // the farmland and level building land within 20 tiles' walk (item 47)
   {
-    let floorTrees = 0;
-    for (const o of objects) {
-      if (LOGS_PER_TREE_SPECIES[o.template] === undefined || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
-      if (reachAt(walk, W, H, o.y * W + o.x) <= LOG_FLOOR_WALK) floorTrees++;
-    }
     let farmland = 0;
     let level = 0;
     const flat = new Uint8Array(N);
@@ -807,7 +750,6 @@ function checkStart(
       if (M[i] > 0 && !(SC[i] > 0) && !blocked[i]) farmland++;
       if (flat[i]) level++;
     }
-    analysis.walkReach = { trees: floorTrees, logs: floorWood, farmland, level };
     c.add({
       id: "start.farmland",
       class: "playability",
@@ -976,24 +918,11 @@ function checkStart(
   const need = rules.reservoirNeed;
   const colony = DROUGHT[rules.difficulty].colony;
   const running = shore.tile >= 0 ? runningFlow(W, H, D, model.emitters, shore.tile) : 0;
-  const runningNeed = need / (2 * SECONDS_PER_DAY);
+  const runningNeed = need / (2 * STORAGE_DAY_SECONDS);
   const levee = shore.tile >= 0 && held < need ? leveeStorage(h, W, H, D, C, { x: sx, y: sy, z: h[sy * W + sx] }, need) : 0;
   const stored = Math.max(held, levee);
   analysis.storage = { running, runningNeed, dam: best ? best.volume : 0, natural, levee, need };
   const how = best && best.volume >= need ? "a dam" : natural >= need ? "natural pools" : levee >= need ? "levees" : "";
-  // item 47's five levers (information): computed on the start's walk and the checks' own numbers
-  {
-    let metal = Infinity;
-    for (const o of objects) {
-      if (o.template !== "UndergroundRuins" && !o.template.startsWith("RuinColumnH")) continue;
-      for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && y >= 0 && x < W && y < H) metal = Math.min(metal, sd[y * W + x]);
-    }
-    let shelter = Infinity;
-    for (const s of sites) if (sd[s.y * W + s.x] <= RESERVOIR_RADIUS && s.volume >= need) shelter = Math.min(shelter, s.length);
-    const r = analysis.walkReach;
-    const fin = (v: number) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
-    analysis.levers = { farmland: r?.farmland ?? 0, metal: fin(metal), badwater: fin(db), shelter: fin(shelter), buildable: r?.level ?? 0 };
-  }
   c.add({
     id: "water.storage_possible",
     class: "playability",
@@ -1131,6 +1060,41 @@ const FLAT_EXTRAS = new Set(["mineSite", "relicSmall", "relicMedium", "relicLarg
 /** No water tile within this many tiles (Chebyshev) of such an object: it stays out of flood reach. */
 export const FLOOD_MARGIN = 2;
 
+/** The tiles within `margin` (a square round each, Chebyshev) of the water: deeper than `WET`. The
+ *  objects keep `FLOOD_MARGIN + 1` (gen/extras.ts `objectKeepOff`), the mine pads more
+ *  (land/minePads.ts), and `extras.placement` checks `FLOOD_MARGIN`. */
+export function nearWater(wet: ArrayLike<number>, W: number, H: number, margin: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  // (a square dilation, rows then columns)
+  const rows = new Uint8Array(N);
+  for (let y = 0; y < H; y++) {
+    let last = -Infinity;
+    for (let x = 0; x < W; x++) {
+      if (wet[y * W + x] > WET) last = x;
+      if (x - last <= margin) rows[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let x = W - 1; x >= 0; x--) {
+      if (wet[y * W + x] > WET) last = x;
+      if (last - x <= margin) rows[y * W + x] = 1;
+    }
+  }
+  for (let x = 0; x < W; x++) {
+    let last = -Infinity;
+    for (let y = 0; y < H; y++) {
+      if (rows[y * W + x]) last = y;
+      if (y - last <= margin) out[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let y = H - 1; y >= 0; y--) {
+      if (rows[y * W + x]) last = y;
+      if (last - y <= margin) out[y * W + x] = 1;
+    }
+  }
+  return out;
+}
+
 /** `extras.placement` (PLAN §11.4): relics, geothermal fields and mine sites sit on flat ground, with
  *  no water within two tiles and outside every planned reservoir, and the generated ones in their
  *  distance band from the start; generated thorn belts keep 20 tiles and unstable cores 40 from the
@@ -1149,18 +1113,7 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
   const N = W * H;
   const D = water.depth;
   // tiles within the flood margin of water, and the planned reservoirs
-  const flood = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    if (!(D[i] > WET)) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    for (let dy = -FLOOD_MARGIN; dy <= FLOOD_MARGIN; dy++)
-      for (let dx = -FLOOD_MARGIN; dx <= FLOOD_MARGIN; dx++) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < W && yy < H) flood[yy * W + xx] = 1;
-      }
-  }
+  const flood = nearWater(D, W, H, FLOOD_MARGIN);
   for (const f of features) {
     if (f.kind !== "lake" || !f.params.planned) continue;
     const m = polygonMask(f.params.outline, W, H);

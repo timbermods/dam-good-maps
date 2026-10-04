@@ -179,17 +179,34 @@ export class AmbientField {
     this.texture.needsUpdate = true;
   }
 
-  /** The terrain round a rectangle of changed heights. */
+  /** The terrain round a rectangle of changed heights (redone by `catchUp`, before the next frame). */
   terrainAround(heights: Uint8Array, rect: Rect): void {
     this.heights = heights;
     const r = AMBIENT_REACH;
-    const grown = { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r };
+    const grown = { x0: Math.max(0, rect.x0 - r), y0: Math.max(0, rect.y0 - r), x1: Math.min(this.W - 1, rect.x1 + r), y1: Math.min(this.H - 1, rect.y1 + r) };
     if (!this.cover) {
       this.since = union(this.since, grown);
       return;
     }
-    this.redo(grown);
+    this.stale = union(this.stale, grown);
+  }
+
+  /** Tiles whose occlusion waits to be redone. */
+  private stale: Rect | null = null;
+
+  /** Redo the waiting occlusion, a row at a time for at most `budget` ms (each tile's is its own, from
+   *  the heights now): a brush's all at once, a brush across half the map over a few frames rather
+   *  than a long one each time it moves. Whether some still waits. */
+  catchUp(budget: number): boolean {
+    const s = this.stale;
+    if (!s || !this.cover) return false;
+    const t0 = performance.now();
+    let y = s.y0;
+    do this.redo({ x0: s.x0, y0: y, x1: s.x1, y1: y++ });
+    while (y <= s.y1 && performance.now() - t0 < budget);
+    this.stale = y > s.y1 ? null : { ...s, y0: y };
     this.texture.needsUpdate = true;
+    return this.stale !== null;
   }
 
   private redo(r: Rect): void {

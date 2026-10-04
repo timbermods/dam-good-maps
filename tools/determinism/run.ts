@@ -26,6 +26,7 @@ function arg(name: string): string | null {
   return i >= 0 ? (process.argv[i + 1] ?? null) : null;
 }
 const smoke = process.argv.includes("--smoke");
+const serial = process.argv.includes("--serial");
 // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
 const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
 const outName = arg("out") ?? (smoke ? "smoke" : "full");
@@ -35,7 +36,7 @@ const root = resolve(import.meta.dirname, "../..");
 const pw: Record<string, BrowserType> = process.env.DGM_DET_PLAYWRIGHT
   ? await import(pathToFileURL(join(process.env.DGM_DET_PLAYWRIGHT, "index.mjs")).href)
   : await import("@playwright/test");
-const dir = join(root, ".scratch/determinism", outName);
+const dir = arg("out-dir") ? resolve(arg("out-dir")!) : join(root, ".scratch/determinism", outName);
 mkdirSync(dir, { recursive: true });
 
 // the page: the cases bundled as the site bundles its core
@@ -63,6 +64,11 @@ const server = http.createServer((req, res) => {
 });
 await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
 const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+async function runEngines<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
+  if (!serial) return Promise.all(tasks.map(task => task()));
+  const out: T[] = []; for (const task of tasks) out.push(await task()); return out;
+}
 
 interface Engine {
   version: string;
@@ -103,8 +109,8 @@ try {
   const slowest: { case: string; seconds: number }[] = [];
   for (const [index, c] of list.entries()) {
     const tc = performance.now();
-    const responses = await Promise.all(
-      Object.entries(engines).map(async ([name, e]) => {
+    const responses = await runEngines(
+      Object.entries(engines).map(([name, e]) => async () => {
         try {
           const rows = await e.run(c);
           e.rows.push(...rows);

@@ -19,16 +19,16 @@ import { featureId } from "../features/ids";
 import { footprintAt, fitProblems, OBJECT_NAMES, rotatedSize } from "../features/objects";
 import type { Feature, MapObjectFeature, MapObjectKind } from "../features/schema";
 import { polygonMask } from "../features/geometry";
-import { FOOTPRINTS, ORIENTATIONS, slopeHighSide as slopeHighSideOf, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { landRegions, walkRegions } from "../analysis/regions";
-import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
+import { slopeLinks, walkWorld } from "../analysis/walk";
+import { distanceFrom, levelRegions, N4, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WALK_BLOCKERS, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, nearWater, WET } from "../validate/playability";
 import { mineFootDistance } from "../resources/mineGround";
 import { pickMineSite } from "../resources/baseline";
-import { entityTiles } from "../features/edits";
 
 export interface ExtrasInput {
   spec: MapSpec;
@@ -36,14 +36,15 @@ export interface ExtrasInput {
   base: BuildResult;
   /** The planned features so far (reservoir sites, set pieces). */
   features: readonly Feature[];
-  /** Tiles no object may take: the player's features, locks and keep-out regions (regeneration). */
-  protect?: Uint8Array | null;
   /** More tiles to keep off (a dam site's band, badwater basins). */
   avoid?: Uint8Array | null;
   candidate: number;
   attempt: number;
   /** M9b: the first medium or large relic tries ground the start cannot walk to (D274). */
   relicHigh?: boolean;
+  /** Retired (D253, D270, D336: no locks or keep-outs); always null. Kept only so the frozen
+   *  investigation prototypes that still pass it type-check (investigation/generative/proto). */
+  protect?: null;
 }
 
 /** How many of each object the settings ask for on this map (PLAN §5.4–5.5). */
@@ -87,19 +88,11 @@ const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMe
 export function objectKeepOff(b: BuildResult, features: readonly Feature[], protect?: Uint8Array | null, avoid?: Uint8Array | null): Uint8Array {
   const { W, H } = b;
   const N = W * H;
-  const blocked = new Uint8Array(N);
-  const margin = FLOOD_MARGIN + 1;
+  const blocked = nearWater(b.water, W, H, FLOOD_MARGIN + 1);
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
     if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || protect?.[i] || avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
-    if (b.water[i] > WET)
-      for (let dy = -margin; dy <= margin; dy++)
-        for (let dx = -margin; dx <= margin; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-        }
   }
   const beds = lakeBeds(features, b.heights, W, H);
   for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
@@ -125,7 +118,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
   // player's tiles and the map's border
-  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
+  const blocked = objectKeepOff(b, inp.features, null, inp.avoid);
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 
@@ -168,16 +161,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
 
   // where the colony walks from the start (its slopes, round the objects that block walking): a
   // mine site on that ground needs no player stairs
-  const walkBlocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) walkBlocked[y * W + x] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSideOf(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  const { blocked: walkBlocked, links } = walkWorld(b.entities, W, H);
   let regions = walkRegions(h, W, H, walkBlocked, links);
   let root = regions[sy * W + sx];
   // (and the land it reaches with a flight of stairs, never across water or up a cliff, item 47)
@@ -492,14 +476,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
   const sd = distanceFrom(startMask, W, H);
   let far = 0;
   for (let i = 0; i < N; i++) if (sd[i] > far && Number.isFinite(sd[i])) far = sd[i];
-  const links: [number, number][] = [];
-  for (const s of b.slopes) {
-    const [dx, dy] = slopeHighSideOf(s.orientation);
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    if (hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([s.y * W + s.x, hy * W + hx]);
-  }
-  const labels = walkRegions(b.heights, W, H, null, links);
+  const labels = walkRegions(b.heights, W, H, null, slopeLinks(b.slopes, W, H));
   const root = labels[b.start.y * W + b.start.x];
   const lakes = lakeBeds(features, b.heights, W, H);
   const h = b.heights;
@@ -523,7 +500,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
           } else if (stair < 2 && labels[j] === root && (h[j] === lv - 2 || h[j] === lv - 1) && !(b.water[j] > 0)) {
             // a tile the colony walks on, beside the disc (4-neighbour of a disc tile), a level or
             // two below
-            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            for (const [dx, dy] of N4) {
               const ax = xx + dx;
               const ay = yy + dy;
               if ((ax - x) * (ax - x) + (ay - y) * (ay - y) <= R * R + R) stair = Math.max(stair, lv - h[j]);
@@ -550,14 +527,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
 export function riseStands(b: BuildResult, x: number, y: number, radius: number, top: number, rise: number): boolean {
   const { W, H } = b;
   if (!b.start) return false;
-  const links: [number, number][] = [];
-  for (const s of b.slopes) {
-    const [dx, dy] = slopeHighSideOf(s.orientation);
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    if (hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([s.y * W + s.x, hy * W + hx]);
-  }
-  const labels = walkRegions(b.heights, W, H, null, links);
+  const labels = walkRegions(b.heights, W, H, null, slopeLinks(b.slopes, W, H));
   const root = labels[b.start.y * W + b.start.x];
   const R2 = radius * radius + radius;
   let stair = false;
@@ -571,7 +541,7 @@ export function riseStands(b: BuildResult, x: number, y: number, radius: number,
         continue;
       }
       if (labels[j] !== root || b.heights[j] !== top - rise) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if ((xx + dx - x) * (xx + dx - x) + (yy + dy - y) * (yy + dy - y) <= R2) stair = true;
+      for (const [dx, dy] of N4) if ((xx + dx - x) * (xx + dx - x) + (yy + dy - y) * (yy + dy - y) <= R2) stair = true;
     }
   return stair;
 }
@@ -596,16 +566,7 @@ export function neckCut(b: BuildResult, x: number, y: number, max: number, keepC
   const N = W * H;
   if (!b.start) return null;
   const h = b.heights;
-  const blocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSideOf(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  const { blocked, links } = walkWorld(b.entities, W, H);
   const adj = new Map<number, number[]>();
   for (const [a, c] of links) {
     (adj.get(a) ?? adj.set(a, []).get(a)!).push(c);

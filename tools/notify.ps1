@@ -1,9 +1,10 @@
 # Shows a Windows notification on this machine (docs/HANDOFF.md §7, "Pings").
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: ready to restart" -Body "…"
 # A toast through Windows PowerShell's own app id; if toasts aren't available, a tray balloon instead.
-# Then, if $env:USERPROFILE.dgm-ntfy-topic exists, one POST to https://ntfy.sh/<topic> (title in the Title header, body as
-# the message) so it reaches Kyler's phone (D470). The topic is never printed, logged or committed; a missing file or a
-# failed request is silent.
+# Then, if %USERPROFILE%\.dgm-ntfy-topic exists, one POST to https://ntfy.sh/<topic> (the title as the URL-encoded
+# `title` query parameter, so characters like ² or — survive Windows PowerShell; the body as the message) so it reaches
+# Kyler's phone (D470). The topic is never printed, logged or committed; a missing file or a failed request is silent.
+# Labelling an issue or PR needs-kyler also pings his phone, from GitHub (.github/workflows/needs-kyler-ping.yml).
 param(
   [Parameter(Mandatory = $true)][string]$Title,
   [string]$Body = ""
@@ -41,8 +42,8 @@ try {
     if ($topic) {
       $message = if ($Body) { $Body } else { $Title }
       $bytes = [System.Text.Encoding]::UTF8.GetBytes($message)
-      $headers = @{ Title = $Title }
-      [void](Invoke-RestMethod -Uri "https://ntfy.sh/$topic" -Method Post -Body $bytes -Headers $headers -ContentType 'text/plain; charset=utf-8' -TimeoutSec 5)
+      $uri = "https://ntfy.sh/$topic" + '?title=' + [uri]::EscapeDataString($Title)
+      [void](Invoke-RestMethod -Uri $uri -Method Post -Body $bytes -ContentType 'text/plain; charset=utf-8' -TimeoutSec 5)
     }
   }
 } catch { }

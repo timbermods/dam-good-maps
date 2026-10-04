@@ -10,6 +10,6 @@ The checks on a map, each with an id, a class and a severity, and the report the
 - A one-click fix is an ordinary edit operation (`FixOp`).
 - A check's message is player text (Kyler, 2026-10-03): the object's name as the game shows it, what is wrong in a few words, its place as "X 105 · Y 7 · Z 11", one line per object, correct plurals; ids and coordinates stay in the check's data. `words.ts` has the helpers; the names are the editor readout's (`describeObject`).
 
-**Start from**: `checks.ts` `validateMap`, `validateFile`; `playability.ts` (can a colony survive from the start); `report.ts` (`Collector`, `severityOf`, `blocks`).
+**Start from**: `checks.ts` `validateMap`, `validateFile`; `playability.ts` (can a colony survive from the start); `report.ts` (`Collector`, `severityOf`, `blocks`); `facts.ts` `mapFacts` (the map card's key facts, information only). How the editor lists the checks, with their fixes, is `doc/checkItems.ts`.
 
 **Tests**: `tests/contract/validate.test.ts`, `parity.test.ts`, `edges.test.ts`, `sources.test.ts`, `start.test.ts`. Run `npx vitest run tests/contract/validate.test.ts`.

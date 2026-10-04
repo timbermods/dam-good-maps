@@ -14,7 +14,7 @@
 import { sameLand } from "../analysis/story";
 import type { MapSpec, ThemeId } from "../spec/mapspec";
 import { generate, type GenerateResult } from "./generate";
-import type { Outcomes } from "./outcomes";
+import { PROMISES, type Outcomes } from "./outcomes";
 
 /** The most versions the background search makes before it gives up (the session's default,
  *  decisions-pending). */
@@ -44,20 +44,11 @@ export function notifies(m: Misses): boolean {
   return m.promise;
 }
 
-/** What a version that meets all three has that the map missed, in a few words, for its note:
- *  "A version with its sea is ready". */
-const PROMISE_WORDS: Record<Exclude<ThemeId, "any">, string> = {
-  riverValley: "its broad valley",
-  canyon: "its canyon",
-  highlands: "its highlands",
-  lakeBasin: "its big lakes",
-  delta: "its delta",
-  islands: "its sea",
-};
-
 export function versionNote(theme: ThemeId, m: Misses): string {
   const parts: string[] = [];
-  if (m.promise && theme !== "any") parts.push(PROMISE_WORDS[theme]);
+  // (what a version that meets all three has that the map missed, in a few words: "A version with
+  // its sea is ready"; outcomes.ts `PROMISES`)
+  if (m.promise && theme !== "any") parts.push(PROMISES[theme].words);
   if (m.water) parts.push(parts.length ? "clearer water" : "water you can follow");
   return `A version with ${parts.join(" and ") || "all it promises"} is ready`;
 }

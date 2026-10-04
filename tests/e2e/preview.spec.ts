@@ -1,6 +1,6 @@
 // ROADMAP M8 acceptance: a local edit re-previews in ≤ 2 s at 256² (EDITOR_PLAN §6, §9), in the
 // page's worker. On 256² maps of the two themes with the slowest water (Islands and Lake Basin,
-// PLAN §20 D83), ground beside the water is lowered and a weir closes the main river. Since live
+// PLAN §20 D83), ground beside the water is lowered and a dam of raised ground closes the main river. Since live
 // editing (Kyler: an edit never waits on the water) the worker answers an edit at once with the
 // last settled water on the new ground, and the warm-started water follows in the background; the
 // two times reported are the edit's answer and its water settled (D148: this test timed one
@@ -54,20 +54,23 @@ for (const theme of ["islands", "lakeBasin"]) {
       out.push({ name: "lower ground beside water", ms: performance.now() - t0, ok: u.ok });
       await api.whenWaterSettles();
       out.push({ name: "lower ground beside water, its water settled", ms: performance.now() - t0, ok: u.ok });
-      // a weir across the main river
+      // a dam across the main river: the ground raised over its whole channel (a weir from the
+      // retired object tools did this before; the brushes and Select raise ground the same way)
       // (the map's main river: generator 0.7.0 names it; a map whose rivers all start at springs has one too)
       const river = u.info.features.find((f) => f.kind === "river" && f.role === "river/main") ?? u.info.features.find((f) => f.kind === "river" && !(f.params as { badwater: boolean }).badwater)!;
-      // (the first places where it fitted on generator 0.6's maps, then every 5 tiles along the river)
-      const along = [30, 40, 60, 80];
-      for (let s = 10; s <= 200; s += 5) if (!along.includes(s)) along.push(s);
-      for (const s of along) {
-        const plan = await api.planTool({ tool: "object", kind: "weir", river: { id: river.id, at: s } }, "7a1b2c3d-2222-4222-8333-444455556666");
-        if (!plan.ok) continue;
+      const rp = river.params as { path: [number, number][]; width: number };
+      const half = Math.ceil(rp.width / 2) + 2;
+      for (const [px, py] of rp.path.slice(1, -1)) {
+        const [x, y] = [Math.round(px), Math.round(py)];
+        if (x - half < 2 || y - half < 2 || x + half > W - 3 || y + half > W - 3 || Math.hypot(x - start.position[0], y - start.position[1]) < 24) continue;
+        const dam: [number, number, number][] = [];
+        for (let yy = y - half; yy <= y + half; yy++) dam.push([yy, x - half, x + half]);
         t0 = performance.now();
-        u = await api.applyAll(plan.ops, "Add weir");
-        out.push({ name: "a weir across the main river", ms: performance.now() - t0, ok: u.ok });
+        u = await api.apply({ op: "sculpt", params: { mode: "raise", cells: dam, amount: 3 } }, "user", "Raise terrain");
+        if (!u.ok) continue;
+        out.push({ name: "a dam across the main river", ms: performance.now() - t0, ok: u.ok });
         await api.whenWaterSettles();
-        out.push({ name: "a weir across the main river, its water settled", ms: performance.now() - t0, ok: u.ok });
+        out.push({ name: "a dam across the main river, its water settled", ms: performance.now() - t0, ok: u.ok });
         break;
       }
       // the canonical settle in the background, then the export

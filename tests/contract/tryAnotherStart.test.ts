@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";

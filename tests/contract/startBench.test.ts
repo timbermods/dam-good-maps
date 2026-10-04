@@ -1,6 +1,6 @@
 // Release gate (D385), forces: a force that breaks the start's ground carries the start to the nearest
 // level ground where it stands well, in the same undo step (D257). `moveStartNear(s, x, y, true)`
-// (core/doc/tools.ts) promises "only where its ground is level already ... the force's land stays as
+// (core/doc/start.ts) promises "only where its ground is level already ... the force's land stays as
 // it made it", and nothing pops in after a force's last frame (D368 (9)). But it checks only the
 // start's 3 × 3 and its door tile for level ground, while the start's bench (its disc of radius 2,
 // `rasterizeBench`) is laid at the new place: a tile two away from the new start that isn't at the
@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";

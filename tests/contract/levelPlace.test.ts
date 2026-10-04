@@ -4,7 +4,7 @@
 // only the map's own limits (its edge, a cave, another object's tiles) refuse, with one plain reason.
 
 import { describe, expect, it } from "vitest";
-import { cornerFor } from "../../src/core/doc/tools";
+import { cornerFor } from "../../src/core/doc/start";
 import { footprintTiles, startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { ORIENTATION_NAMES } from "../../src/render3d/model";
@@ -103,7 +103,7 @@ describe("placed objects fit the land (D328)", () => {
       for (const i of own) expect(after[i], `tile ${i}`).toBe(after[own[0]]);
       // the water is not dammed: no wet tile is filled
       for (let i = 0; i < after.length; i++) if (g.depth[i] > 0) expect(after[i]).toBeLessThanOrEqual(before[i]);
-      expect(ed.exportCheck().blocking.map((b) => b.message)).toEqual([]);
+      expect((await ed.backgroundCheck())!.check.blocking.map((b) => b.message)).toEqual([]);
       // one undo puts the ground and the object back
       ed.undo();
       expect(steps()).toBe(n);

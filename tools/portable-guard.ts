@@ -13,7 +13,7 @@ const EXACT = new Set(["abs", "ceil", "floor", "round", "trunc", "min", "max", "
 /** Maths libraries that would bring their own native calls. */
 const LIBRARIES = ["mathjs", "gl-matrix", "numeric", "decimal.js", "@stdlib/math"];
 /** Files that may use WebAssembly: each an audited binding (keep this short). */
-const WASM_ALLOWED = new Set(["src/core/math/portable.ts", "src/core/sim/rustWater.ts", "src/core/forces/rust/bridge.ts", "tools/rust/build.ts", "tools/rust/check.ts", "tools/rust/guard.mjs"]);
+const WASM_ALLOWED = new Set(["src/core/math/portable.ts", "src/core/sim/rustWater.ts", "src/core/forces/rust/bridge.ts", "tools/rust/stack-memory.ts", "tools/rust/build.ts", "tools/rust/check.ts", "tools/rust/guard.mjs"]);
 
 /** Tools that only make pictures or time the renderer (the smoothness gate among them). */
 const PRESENTATION_TOOL = /^tools\/(smooth\/|capture-|bench3d\.ts$|measure-(ceiling|high)\.ts$|gif\.ts$|png\.ts$|sheet\.ts$|contact-sheet|start-sheet|resources-sheet|waterfall-gallery|shader-sources)/;

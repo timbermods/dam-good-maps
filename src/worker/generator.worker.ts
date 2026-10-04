@@ -128,8 +128,7 @@ const api = {
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
-  // the tools: plan (a preview), then apply; move and delete with planning again
-  planTool: (req: ed.ToolRequest, id: string) => ed.planTool(req, id),
+  // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
@@ -167,7 +166,6 @@ const api = {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
-  exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
     return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
