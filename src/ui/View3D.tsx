@@ -41,8 +41,10 @@ export interface View3DProps {
   class?: string;
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
-  /** A water overlay's caption while it is on (the Show column's key, under the column). */
+  /** A water overlay's caption while it is on (the key under Legend). */
   caption?: ComponentChildren;
+  /** A toggle beside Legend, at its left (Under roofs, on a map with roofs). */
+  besideLegend?: ComponentChildren;
   /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
    *  switches (Slow forces, Sound). */
   cornerLevel?: ComponentChildren;
@@ -490,17 +492,21 @@ export function View3D(props: View3DProps) {
         <div class="view3d">
           <canvas ref={canvas} aria-label={props.label} />
           {error ? <p class="view3d-error">{error}</p> : null}
-          <div class="show-stack">
-            <div ref={controls} class="view3d-controls show-column" role="group" aria-label="Show">
-              {toggles}
-              {props.viewButtons}
+          {/* (Kyler, 2026-10-04) the Show toggles in one row at the top left, below the header; Legend on its own at
+              the top right, just left of Top-down, the legend under it while ticked */}
+          <div ref={controls} class="view3d-controls show-bar" role="group" aria-label="Show">
+            {toggles}
+            {props.viewButtons}
+          </div>
+          <div class="legend-stack">
+            <div class="legend-row" role="group" aria-label="Legend and overlays">
+              {props.besideLegend}
               <ShowRow on={legendOpen} onToggle={() => fold(!legendOpen)} tip={tip("What the map's colours mean")} controls={legendId}>
                 Legend
               </ShowRow>
             </div>
-            {/* the column's key, under it at its width (Kyler, 2026-10-04: nothing reaches past the column, so the map
-                generator opens beside it): the legend while Legend is ticked, an overlay's caption at its top (the
-                legend holds Heights' own line); or, with Legend off, the overlays' captions alone */}
+            {/* the key under Legend: the legend while it is ticked, an overlay's caption at its top (the legend holds
+                Heights' own line); or, with Legend off, the overlays' captions alone */}
             {legendOpen ? (
               <aside class="legend-panel in-column" id={legendId} aria-label="Legend">
                 {props.caption ? <div class="key-caption">{props.caption}</div> : null}

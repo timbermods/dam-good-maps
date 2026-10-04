@@ -15,15 +15,15 @@ export function measureInsets(view: HTMLElement): FrameInsets {
   const v = view.getBoundingClientRect();
   const box = (s: string) => view.querySelector(s)?.getBoundingClientRect() ?? null;
   const reach = (n: number | null) => (n === null ? 0 : Math.max(0, Math.ceil(n + GAP)));
-  const tops = [box(".water-bar"), box(".view3d-corner")].filter((b): b is DOMRect => !!b);
-  const lefts = [box(".show-column"), box(".minimap")].filter((b): b is DOMRect => !!b);
+  const tops = [box(".water-bar"), box(".view3d-corner"), box(".show-bar")].filter((b): b is DOMRect => !!b);
+  const lefts = [box(".minimap")].filter((b): b is DOMRect => !!b);
   const dock = box(".tool-dock");
-  const objects = box(".objects-dock");
+  const rights = [box(".objects-dock")].filter((b): b is DOMRect => !!b);
   return {
     top: tops.length ? reach(Math.max(...tops.map((b) => b.bottom)) - v.top) : 0,
     left: reach(lefts.length ? Math.max(...lefts.map((b) => b.right)) - v.left : null),
     bottom: reach(dock ? v.bottom - dock.top : null),
-    right: reach(objects ? v.right - objects.left : null),
+    right: reach(rights.length ? v.right - Math.min(...rights.map((b) => b.left)) : null),
   };
 }
 
@@ -37,7 +37,7 @@ export function useFrameInsets(renderer: { current: MapRenderer | null }, ready:
     note();
     const watch = new ResizeObserver(note);
     watch.observe(view);
-    for (const s of [".water-bar", ".view3d-corner", ".show-column", ".minimap", ".tool-dock", ".objects-dock"]) {
+    for (const s of [".water-bar", ".view3d-corner", ".show-bar", ".minimap", ".tool-dock", ".objects-dock"]) {
       const el = view.querySelector(s);
       if (el) watch.observe(el);
     }

@@ -276,33 +276,55 @@
 
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
    Legend is ticked, its left edge on the column's, down to 8px above the minimap at most */
-.show-stack {
+/* the Show toggles in one row at the top left, below the header (Kyler, 2026-10-04): the toggle look, narrower, the
+   names in full; at 1920×1080 the row ends well short of the water row (a map with roofs adds Under roofs) */
+.editor-view .view3d-controls.show-bar {
   position: absolute;
   z-index: 2;
   top: 10px;
   left: 10px;
-  /* (8px above the minimap at its tallest, 168px; the coordinates and the readout sit beside it) */
-  bottom: calc(10px + 168px + 8px);
+  right: auto;
+  bottom: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Legend on its own at the top right, just left of Top-down (the camera group's 310px and the corner's 8px gap), top
+   level with the row and the water row; the legend or the overlays' key under it, their right edges on its */
+.legend-stack {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: calc(10px + 310px + 8px);
+  bottom: 10px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 6px;
   pointer-events: none;
 }
 
-.show-stack > * {
+.legend-stack > * {
   pointer-events: auto;
 }
 
-.editor-view .view3d-controls.show-column {
-  position: static;
-  flex: none;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  /* one width with the legend and the key under it (Kyler, 2026-10-04: nothing reaches past the column) */
-  width: 190px;
+.legend-row {
+  display: flex;
   gap: 6px;
+}
+
+/* (the toggle look, as in the Show row: the overlay's solid plate) */
+.legend-row .show-row {
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
 }
 
 .show-item {
@@ -310,13 +332,14 @@
   display: flex;
 }
 
-.editor-view .show-column .show-row {
+.editor-view .show-bar .show-row,
+.legend-stack .show-row {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   height: 32px;
-  padding: 0 12px 0 9px;
+  padding: 0 8px 0 7px;
   text-align: left;
   white-space: nowrap;
 }
@@ -1309,15 +1332,15 @@
 
 /* ==== the map generator and Your maps over the map (Kyler's pick, A, the sheet, 2026-10-04) ==== */
 
-/* one 640px panel at the left, beside the Show column, over the map while it is open; it starts 10px
+/* one 640px panel at the left, over the map while it is open; it starts 10px
    under the top row (the water row reaches over a 640px panel at 1920×1080), ends 10px above the bar's settings (the
    bar reaches under it there too) and sits centred in the room between them; at 2560×1440 the room runs down to the
    bar itself. The room is an even number of pixels, so a centred panel of even height sits on whole pixels */
 .gen {
   position: absolute;
   z-index: 8;
-  /* beside the Show column, one gap to its right: nothing hides when it opens (Kyler, 2026-10-04) */
-  left: calc(10px + 190px + 6px);
+  /* at the left on the page's margin, nothing beside it or under it (Kyler, 2026-10-04: the Show column moved right) */
+  left: 10px;
   top: calc(10px + 32px + 10px);
   bottom: calc(10px + 62px + 6px + 120px + 10px + 1px);
   height: fit-content;
@@ -1734,4 +1757,66 @@
 
 .show-key .ol-head {
   margin: 0 0 4px;
+}
+
+/* ---- Real places (Kyler, 2026-10-04): in the generator's box, three across and three down, each picture with its
+   whole name and its size; more scroll inside the panel. Three rows fill the room exactly (748px less its 1px edges is
+   746: 8px, three rows of 238px with 8px between them, 8px), so a fourth never peeks; the scrollbar's room is kept on
+   both sides, so the margins match */
+.places-panel {
+  height: 748px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  padding: 8px;
+}
+
+.real-places ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 238px;
+  gap: 8px;
+}
+
+.real-places .ym-tile {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.real-places button.ym-tile:hover {
+  background: var(--bg);
+}
+
+/* (the picture fills what the line leaves, whole, never cropped) */
+.real-places .ym-pic {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: auto;
+  background: none;
+}
+
+.real-places .rp-name {
+  flex: none;
+  height: 32px;
+  overflow: hidden;
+  line-height: 16px;
+}
+
+.real-places .ym-size {
+  flex: none;
+  line-height: 16px;
 }

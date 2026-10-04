@@ -234,6 +234,11 @@ test("every control in the map generator's panel, in each settings section opene
   // is certain)
   await openYourMaps(page);
   await check("Your maps");
+  // Real places, in the same box (its places join once their list has loaded)
+  await page.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Real places" }).getByRole("button").first()).toBeVisible({ timeout: 30_000 });
+  await check("Real places");
+  await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
   // closed again
   await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
   await check("the panels closed again");

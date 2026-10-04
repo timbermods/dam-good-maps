@@ -385,8 +385,9 @@ refinements and what the mockups left open:
   choice is Meltwater, under "Water". **Try another** (Carve's too, no longer "Try another path") sits beside More in
   cells 10–11. More's details are three cells each (Debris and Flows four, Benches and Steps five), the Floor last.
   A force at work: its status 1–5, Pause 6 (Carve), the keys 7–9, Revert 10–11.
-- **Select, one layout with or without a selection** (Kyler, 2026-10-04): row 1 the six shapes (cells 1–6) and the
-  size ("13 × 13 tiles"; "Drag on the map to select" before a selection) in cells 7–11; row 2 Level 1–2, Up 1, Down 1,
+- **Select, one layout with or without a selection** (Kyler, 2026-10-04): row 1 the six shapes (cells 1–6), the
+  size ("13 × 13 tiles"; "Drag on the map to select" before a selection) in cells 7–10 and **Deselect** in cell 11
+  (Esc and X in its tooltip; it serves touch screens); row 2 Level 1–2, Up 1, Down 1,
   Flatten, Cut down, Fill up, Delete (its menu opening upward), Max water depth 9–10 and Apply 11, greyed until there
   is a selection (Max water depth and Apply until it holds water deeper than 1). Selecting changes only what is
   enabled, never the layout.
@@ -402,27 +403,35 @@ refinements and what the mockups left open:
   row is for the tools only: an object picked shows no row above the bar (Select's own row gives way while one is
   picked on the map). "Drag it to move it" is gone. At 1920×1080 a source picked on the map takes 267px (303 with
   Try another), clear of the camera group.
-- **The overlays' captions** (Kyler, 2026-10-04: nothing reaches past the Show column) sit under the column, at its
-  width, in the legend's place: with Legend off, a small key holds Heights' "Ground height" with the ramp and the
-  map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the overlay's caption
-  heads the legend (which holds Heights' own line). The Show column, the key and the legend are one width, 190px.
+- **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
+  row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
+  names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Under roofs** (only on a map
+  with roofed water) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
+- **Legend on its own at the top right**, one corner gap (8px) left of Top-down, its top level with the row's and the
+  water row's, the same toggle look. Ticked, the legend (190px) hangs one gap under it, its right edge on Legend's,
+  clear of the camera controls, the water row, the objects list and its window, and the bar at both sizes (at
+  1920×1080 it spans 1402–1592px; the bar ends at 1400px). The fullest legend fits.
+- **The overlays' keys** (what Heights, Badwater and Under roofs show; Lines, Markers, Flow and See-through need
+  none) sit in the legend's place under Legend: with Legend off, a small key (190px) holds Heights' "Ground height"
+  with the ramp and the map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the
+  overlay's caption heads the legend (which holds Heights' own line).
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
 - **The bottom-left group** (Kyler, 2026-10-04): the minimap at the foot, on the page's 10px margin, its bottom level
   with the bar's and the objects list's; beside it, 6px right of its widest (168px), the readout at the foot and the
   coordinates 6px above it, 32px plates, so they show whether a panel is open or not. The readout stops at 330px, short
-  of the bar. The legend has the room down to 8px above the minimap's tallest top.
+  of the bar.
 - **The map generator lies over the map** (Kyler, 2026-10-04): opening it never resizes the map. The panel sits at
   the window's left edge, vertically centred between the header (10px below it) and the bar (11px above it, so the
   room is an even number of pixels and a centred panel sits on whole pixels), over whatever is there while it is open.
   The map area is the whole window, so the title, the water row and the bar all centre on the window (960 and 1280,
   to the pixel; the bar's hairline column is 14px so the bar is 880px, an even width). The camera's insets are the
-  top row (the water row and the camera group), the Show column and the bottom-left group (the left: whichever
-  reaches further), the bar with its settings, and the objects list with a picked object's window, each as far as it
-  reaches plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
+  top row (the Show row, the water row and the camera group), the minimap (the left), the bar with its settings, and
+  the objects list with a picked object's window (the right), each as far as it reaches plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
 - **The map generator, A, the sheet** (Kyler's pick of two structures, 2026-10-04, with his changes; the mockups of A
   and B are on [docs/design/layout2.html](docs/design/layout2.html)): one panel, 640px at both sizes (a third of the
-  window at 2560×1440 would only stretch the sliders), beside the Show column, 6px to its right (Kyler, 2026-10-04:
-  nothing hides when it opens; opening and closing changes nothing on screen but the panel), its corners rounded.
+  window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, under the Show row
+  (Kyler, 2026-10-04: nothing beside it, nothing hidden under it; opening and closing changes nothing on screen but
+  the panel), its corners rounded.
   It starts 10px under the top row (the water row reaches over a 640px panel at 1920×1080) and ends at least 10px
   above the bar's settings (the bar reaches under it there), centred in that room on whole pixels; at 2560×1440 the
   room runs down to the bar itself. 748px tall at both sizes: at 1920×1080 it ends 13px above the bar's settings.
@@ -434,9 +443,13 @@ refinements and what the mockups left open:
   its name in small capitals. The species mix is one bar of four shares, dragged at its three edges, each share's
   name and number under it; Difficulty's numbers are sliders; Badwater's "No badwater" is Off, Start area's choices
   Tight, Normal and Roomy, "Unstable cores" has "advanced" in its tooltip. "Limits for this size" is gone.
-- **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header beside Map Generator (one
-  of the two open at a time, each button lit while its panel is open), in the generator's exact box: four to a row,
-  scrolling inside when there are more. The header has no tabs on the window's edge; the left side's controls stay on
+- **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header (one panel open at a time,
+  each button lit while its panel is open), in the generator's exact box: four to a row, scrolling inside when there
+  are more.
+- **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
+  the same box, three across and three down (rows of 238px, so exactly three show and a fourth never peeks; the
+  scrollbar's room kept on both sides), each place's top-down picture, its whole name (two lines kept) and its size;
+  more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's
   words ("Water settled", "Water flowing… 40%") take one width, right-aligned, so nothing beside them moves.

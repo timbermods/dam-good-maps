@@ -84,7 +84,8 @@ The editor:
   **About**.
 - Click the map's name at the top to rename it. The saved file takes the name.
 - **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
-- The map you were on stays in **Your maps**, beside **Map Generator**: click it to go back.
+- **Real places** in the header opens maps made from real land: click one to edit it.
+- The map you were on stays in **Your maps**, in the header: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 

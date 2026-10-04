@@ -8,6 +8,7 @@ import { measureInsets } from "../view/insets";
 import { livingTrees } from "../features";
 import { GeneratorPanel } from "../generator/GeneratorPanel";
 import { YourMaps } from "../generator/YourMaps";
+import { RealPlaces } from "../generator/RealPlaces";
 import { Shelf } from "../Shelf";
 import { ObjectWindow } from "../ObjectWindow";
 import { LayerWidget } from "../LayerWidget";
@@ -19,7 +20,7 @@ import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
 import { header } from "./header";
 import { topBar } from "./topBar";
-import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
+import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, roofsButton, viewButtons } from "./viewControls";
 
 export function editorView(ed: Ed, props: EditorProps) {
   const {
@@ -31,10 +32,11 @@ export function editorView(ed: Ed, props: EditorProps) {
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class={`editor${drawerOpen || props.mapsOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
+    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
       {header(ed, props)}
       <div class="editor-main">
         {drawerOpen ? <GeneratorPanel model={props.drawer} info={info} icon={(t) => icons[t] ?? null} trees={livingTrees(mirror.current.entities)} /> : null}
+        {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
@@ -54,6 +56,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               caption={layerCaption(ed)}
+              besideLegend={roofsButton(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}
               cornerBelow={cornerButtons(ed)}
 

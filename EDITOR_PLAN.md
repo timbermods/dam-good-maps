@@ -50,7 +50,7 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 
 The editor's parts as they are now: Layout 2 (Kyler, 2026-10-03). The page is the editor (D330): every map opens in
 the editor at once, in one window; **Map Generator** opens the generator's settings in a 640px panel over the map at the
-left, and **Your maps** opens the maps kept in this browser in the same place.
+left, **Real places** opens the gallery's places, and **Your maps** the maps kept in this browser, in the same place.
 Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s ("Layout 2 mockups (2026-10-03): the design to
 build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the sizes it is designed for.
 
@@ -159,27 +159,26 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
-- **The Show toggles** (D287) at the map's top left, one column of rows at one width, each a 14px checkbox at the
-  left of its name (as in Timberborn's settings; the row is never lit, a click anywhere on it toggles it):
-  **Heights** (the ground by height; its own legend beside it while on: "Ground height", the ramp, the map's lowest
-  and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
+- **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
+  Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
+  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
   and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Under roofs** (where the map has roofed water; each with its caption under the column while on), then **Legend**,
-  last. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
+  and **Under roofs** (where the map has roofed water, beside Legend; each with its caption under Legend while on);
+  **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-- **The legend,** while Legend is ticked: directly under the Show column, its left edge on the column's, one width,
+- **The legend,** while Legend is ticked: directly under Legend, its right edge on Legend's, one width,
   every line a name (Moist ground, Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Level lines,
   Contamination edge, Mine site outline), an object's line with the objects menu's own picture, the ground, the
   water and the markers with their swatches; a click on a line shows its things on the map. Its rows are one height
-  on every map (17px), chosen so the fullest legend, with Under roofs in the column, fits at 1920×1080 above the
-  minimap; it never scrolls, never changes shape and never overlaps the minimap (`layout.spec.ts`).
+  on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
+  row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
   **Reset view** and the compass, then under them the **level control** (▾ value ▴, at one fixed width), **Slow
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it): a three-column grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
   whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
-  far the top row, the Show column and the bottom-left group, the bar with its settings and the objects list with a
+  far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera

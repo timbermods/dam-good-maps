@@ -238,11 +238,13 @@ export interface HeaderProps {
   onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
-  /** The map generator's panel and Your maps (one open at a time): open, and their switches. */
+  /** The map generator's panel, Real places and Your maps (one open at a time): open, and their switches. */
   drawerOpen: boolean;
   onDrawer(): void;
   mapsOpen: boolean;
   onMaps(): void;
+  placesOpen: boolean;
+  onPlaces(): void;
   /** Another like this (D278 (1c)): a sibling of a generated map. */
   onAnother?(): void;
   /** The look's menu (High or Standard, D284), beside More. */
@@ -314,6 +316,13 @@ export function Header(p: HeaderProps) {
           <path d="M9 3v15M15 6v15" />
         </svg>
         Map Generator
+      </button>
+      <button type="button" class="ghost new-map" aria-pressed={p.placesOpen} title={p.placesOpen ? "Close Real places" : "Open a map made from real land"} onClick={p.onPlaces}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
+        </svg>
+        Real places
       </button>
       <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

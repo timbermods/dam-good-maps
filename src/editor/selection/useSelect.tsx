@@ -411,7 +411,10 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: 5, centre: true, node: <Words status>{z ? sizeWords(z) : "Drag on the map to select"}</Words> },
+      { key: "size", row: 1, at: 7, span: 4, centre: true, node: <Words status>{z ? sizeWords(z) : "Drag on the map to select"}</Words> },
+      // Deselect (Kyler, 2026-10-04): always there, greyed with nothing selected; Esc and X do the same (touch screens
+      // have neither)
+      { key: "deselect", row: 1, at: 11, span: 1, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
       {
         key: "level",
         row: 2,

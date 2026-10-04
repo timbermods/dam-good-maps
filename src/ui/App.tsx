@@ -179,8 +179,8 @@ export function App() {
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array } | null>(null);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
-  // the map generator's panel or Your maps, one at a time
-  const [panel, setPanel] = useState<"generator" | "maps" | null>(null);
+  // the map generator's panel, Real places or Your maps, one at a time
+  const [panel, setPanel] = useState<"generator" | "places" | "maps" | null>(null);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
@@ -728,6 +728,7 @@ export function App() {
     maps: maps.map((e) => rowOf(e.id === entry.current?.id && name ? { ...e, name } : e)),
     current: entry.current?.id ?? null,
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
+    onOpenPlace: (id) => guard(() => void openPlace(id), "Opening a real place"),
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
     onDeleteMap: deleteMap,
@@ -856,6 +857,8 @@ export function App() {
         onDrawer={(o) => setPanel(o ? "generator" : null)}
         mapsOpen={panel === "maps"}
         onMaps={(o) => setPanel(o ? "maps" : null)}
+        placesOpen={panel === "places"}
+        onPlaces={(o) => setPanel(o ? "places" : null)}
         keepView={opened.keepView}
       />
       {message}

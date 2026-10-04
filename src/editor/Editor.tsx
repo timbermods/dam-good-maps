@@ -73,6 +73,8 @@ export interface EditorProps {
   onDrawer(open: boolean): void;
   mapsOpen: boolean;
   onMaps(open: boolean): void;
+  placesOpen: boolean;
+  onPlaces(open: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
 }

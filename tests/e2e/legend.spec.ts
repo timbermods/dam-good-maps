@@ -25,31 +25,31 @@ const places = (page: Page) =>
       const r = document.querySelector(sel)!.getBoundingClientRect();
       return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10);
     };
-    return { canvas: at(".view3d > canvas"), compass: at(".view3d-corner .compass"), slow: at(".view3d-corner > .slow-cell"), column: at(".show-column"), bar: at(".tool-bar"), objects: at(".objects-menu") };
+    return { canvas: at(".view3d > canvas"), compass: at(".view3d-corner .compass"), slow: at(".view3d-corner > .slow-cell"), column: at(".show-bar"), bar: at(".tool-bar"), objects: at(".objects-menu") };
   });
 
-test("Legend, ticked, shows a panel under the Show column, which lists what is on it with the objects' own pictures and points to it; nothing else moves", async ({ page }) => {
+test("Legend, ticked, shows a panel under it, which lists what is on it with the objects' own pictures and points to it; nothing else moves", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
-  // off to start with: Legend, last in the Show column, unticked, and no panel
+  // off to start with: Legend on its own at the top right, unticked, and no panel (Kyler, 2026-10-04)
   const button = page.getByRole("checkbox", { name: "Legend", exact: true });
   await expect(button).toHaveAttribute("aria-checked", "false");
-  const words = (await page.locator(".show-column").getByRole("checkbox").allTextContents()).map((t) => t.trim());
-  expect(words.at(-1)).toBe("Legend");
+  const words = (await page.locator(".show-bar").getByRole("checkbox").allTextContents()).map((t) => t.trim());
+  expect(words).toEqual(["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"]);
   await expect(page.locator("aside.legend-panel")).toHaveCount(0);
   const closed = await places(page);
 
-  // ticked: under the Show column, its left edge on the column's, over the map, and nothing else moves
+  // ticked: under Legend, its right edge on Legend's, over the map, and nothing else moves
   const legend = await openLegend(page);
   await expect(button).toHaveAttribute("aria-checked", "true");
   const canvas = (await page.locator(".view3d > canvas").boundingBox())!;
-  const column = (await page.locator(".show-column").boundingBox())!;
+  const toggle = (await page.locator(".legend-row").boundingBox())!;
   const box = (await legend.boundingBox())!;
-  expect(Math.abs(box.x - column.x)).toBeLessThanOrEqual(0.5);
-  expect(box.y).toBeGreaterThan(column.y + column.height);
+  expect(Math.abs(box.x + box.width - (toggle.x + toggle.width))).toBeLessThanOrEqual(0.5);
+  expect(box.y).toBeGreaterThan(toggle.y + toggle.height);
   expect(box.y + box.height).toBeLessThanOrEqual(canvas.y + canvas.height + 0.5);
   expect(box.width).toBeLessThan(260);
   expect(await places(page)).toEqual(closed);

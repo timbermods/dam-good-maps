@@ -211,6 +211,13 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   // Whole map is among the marking icons
   const modes = row.getByRole("group", { name: "How to select" });
   await expect(modes.getByRole("button", { name: "Whole map" })).toBeVisible();
+  // Deselect, greyed with nothing selected, clears a selection (Kyler, 2026-10-04: Esc and X do the same)
+  const deselect = row.getByRole("button", { name: "Deselect", exact: true });
+  await expect(deselect).toBeDisabled();
+  await modes.getByRole("button", { name: "Whole map" }).click();
+  await expect(deselect).toBeEnabled();
+  await deselect.click();
+  await expect(deselect).toBeDisabled();
   await modes.getByRole("button", { name: "Whole map" }).click();
   await expect(row.getByRole("button", { name: "Up 1" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Down 1" })).toBeVisible();

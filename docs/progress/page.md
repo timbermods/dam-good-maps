@@ -636,3 +636,20 @@ column, the key under it and the legend are one width (190px); the overlays' cap
 into that key (with Legend ticked, a caption heads the legend). The coordinates and the readout sit beside the minimap
 at its foot. Under roofs' caption is shorter, so it fits the column. `layout.spec.ts` now requires every piece to keep
 its place and show when a panel opens.
+
+## Kyler's answers on what the page was missing (2026-10-04)
+
+1. **Deselect** in Select's first row (cell 11), greyed with nothing selected, Esc and X in its tooltip.
+2. **Real places** in the header between Map Generator and Your maps, opening in the same box: the gallery's places
+   three across and three down, each picture, whole name and size, scrolling for more; a click opens the place
+   (`src/editor/generator/RealPlaces.tsx`, the page's own `openPlace`).
+3. Copy seed and settings as text stays out.
+Kyler approved merging the page into dev once this is on /preview/.
+
+**The Show column to the right** (Kyler, same pass): under Top-down at its width, the key and the legend under it
+(right edges on the column's); the panels back on the left margin. Not under Reset view too: at 1920×1080 a source's
+object window rises beside Reset view to about 269px from the top. The camera's right inset takes the column.
+
+**Replaced, Kyler's change of mind:** the Show toggles in one row at the top left (34px clear of the water row at
+1920×1080); Legend alone at the top right beside Top-down, the legend and the overlays' keys under it; Under roofs
+beside Legend (no room in the row at 1920×1080); the panels on the left margin under the row.
