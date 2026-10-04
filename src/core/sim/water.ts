@@ -59,6 +59,7 @@
 // always; the floor may change between runs (a carve), since no cache holds a floor.
 
 import { clamp } from "../math/clamp";
+import { evapModifier } from "./moisture";
 
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
@@ -297,10 +298,7 @@ export class WaterSim {
       this.n2[i] = y < H - 1 ? i + W : -1;
       this.n3[i] = x < W - 1 ? i + 1 : -1;
     }
-    for (let sat = 1; sat <= 8; sat++) {
-      const t = 10 - sat;
-      this.evap[sat] = 0.0595 * (t * t) + 0.101 * t + 0.72;
-    }
+    for (let sat = 1; sat <= 8; sat++) this.evap[sat] = evapModifier(sat);
     this.seepOn = new Uint8Array(model.emitters.length).fill(1);
     // the map edge drains water, except the padding next to a source cell, which is solid
     this.wall = new Uint8Array(N);
@@ -421,8 +419,8 @@ export class WaterSim {
     return best < 8 ? best : 8;
   }
 
-  /** The evaporation modifier from cluster saturation, once per tick: 0.0595·t² + 0.101·t + 0.72
-   *  with t = 10 − saturation on a wet tile, 1 on a dry one. Only the tiles marked since the last
+  /** The evaporation modifier from cluster saturation, once per tick (moisture.ts `evapModifier`,
+   *  from the table of its eight values) on a wet tile, 1 on a dry one. Only the tiles marked since the last
    *  tick can have changed; both substeps use the tick's modifier. */
   private updateEvapMod(): void {
     const { mod, D, dirty, dirtyMask, evap } = this;
