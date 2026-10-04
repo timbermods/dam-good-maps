@@ -53,6 +53,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import { BlockGhost, type GhostTile } from "./blockGhost";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -1832,6 +1833,17 @@ export class MapRenderer {
   /** The brush under the cursor, as last shown (tests). */
   brushCursorState: BrushCursorState | null = null;
 
+  private blockGhost: BlockGhost | null = null;
+
+  /** The blocks an area stroke will add or take away, while it is dragged (the area brush, the
+   *  game's Terrain): each tile's level before and after; null or none puts them away. */
+  setBlockGhost(tiles: readonly GhostTile[] | null): void {
+    const m = this.map;
+    if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
+    else this.blockGhost?.clear();
+    this.requestRender();
+  }
+
   /** Show the brush under the cursor (null hides it). */
   setBrushCursor(s: BrushCursorState | null): void {
     const m = this.map;
@@ -2631,6 +2643,7 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.ring?.dispose();
     this.effects?.dispose();
+    this.blockGhost?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.high?.dispose();
