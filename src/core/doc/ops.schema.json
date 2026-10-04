@@ -64,7 +64,7 @@
         "pools": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "moist": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
-        "shape": { "enum": ["square"] },
+        "shape": { "enum": ["square", "area"] },
         "precise": { "type": "boolean" },
         "channel": { "type": "boolean" },
         "bed": { "type": "integer", "minimum": 0, "maximum": 22 },
