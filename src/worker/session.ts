@@ -2379,6 +2379,7 @@ let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model:
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
+  forceWater?.sim.dispose();
   forceWater = null;
   const token = ++forceWaterToken;
   const p = f.play;
@@ -2398,6 +2399,7 @@ function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
 }
 
 function endForceWater(): void {
+  forceWater?.sim.dispose();
   forceWater = null;
   forceWaterToken++;
 }
