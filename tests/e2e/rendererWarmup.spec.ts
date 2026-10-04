@@ -180,6 +180,7 @@ test("DIAG which draw varies", async ({ page }) => {
     }
     restore();
     log.isolated = res;
+    if (!culprit) culprit = all[5];
     if (culprit) {
       isolate(culprit);
       const eff: Record<string, string> = {};
@@ -190,8 +191,33 @@ test("DIAG which draw varies", async ({ page }) => {
         r.setHighEffect(k as Any, true);
       }
       log.culpritEffects = eff;
-      const g = culprit.geometry;
-      log.culprit = { name: culprit.name, attrs: Object.keys(g.attributes), count: g.attributes.position?.count, index: g.index?.count, bbox: (g.computeBoundingBox(), [g.boundingBox.min, g.boundingBox.max].map((v: Any) => [v.x, v.y, v.z].map((x: number) => +x.toFixed(2)))), transparent: culprit.material?.transparent, depthWrite: culprit.material?.depthWrite, side: culprit.material?.side, renderOrder: culprit.renderOrder };
+      const mat = R_.high.materials.terrain;
+      const src0 = mat.fragmentShader as string;
+      const ROOTS = "float roots = pow(1.0 - abs(sin(a * 11.3 + y * 2.7 + vnoise(vec2(a, y)) * 4.0)), 14.0);";
+      const LIGHT = "light = skyColor * 1.1 + sunColor * 0.50 * max(dot(n, sunDir), 0.0);";
+      log.found = { roots: src0.includes(ROOTS), light: src0.includes(LIGHT), moist: src0.includes("step(0.5, soilOf(d0).x)"), cap: src0.includes("float cap = 1.0 - smoothstep(soilDepth - 0.12, soilDepth + 0.12, depth);"), top: src0.includes("1.0 - smoothstep(0.015, 0.09, depth));") };
+      const variants: Record<string, string> = {
+        base: src0,
+        nan: src0.replace(LIGHT, LIGHT + " if (any(isnan(c)) || any(isinf(c))) c = vec3(1.0, 0.0, 1.0); if (any(isnan(light)) || any(isinf(light))) c = vec3(0.0, 1.0, 1.0);"),
+        roots0: src0.replace(ROOTS, "float roots = 0.0;"),
+        rootsClamp: src0.replace(ROOTS, "float roots = pow(clamp(1.0 - abs(sin(a * 11.3 + y * 2.7 + vnoise(vec2(a, y)) * 4.0)), 0.0, 1.0), 14.0);"),
+        moist0: src0.replace("step(0.5, soilOf(d0).x)", "0.0"),
+        cap0: src0.replace("float cap = 1.0 - smoothstep(soilDepth - 0.12, soilDepth + 0.12, depth);", "float cap = 0.0;"),
+        top0: src0.replace("1.0 - smoothstep(0.015, 0.09, depth));", "0.0);"),
+      };
+      const vr: Record<string, unknown> = {};
+      const [qx, qy] = s0.at;
+      for (const [k, src] of Object.entries(variants)) {
+        mat.fragmentShader = src;
+        mat.needsUpdate = true;
+        const vals: string[] = [];
+        for (let j = 0; j < 4; j++) { const f = frame(); const i = (qy * W + qx) * 4; vals.push(`${f[i]}/${f[i + 1]}/${f[i + 2]}`); }
+        const sp = spread(8);
+        vr[k] = { most: sp.most, at: sp.at, n3: sp.n3, vals };
+      }
+      mat.fragmentShader = src0;
+      mat.needsUpdate = true;
+      log.variants = vr;
       restore();
     }
     r.dispose();
