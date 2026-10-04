@@ -70,14 +70,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   with **Keep** to keep or let it go); Size; Terrain, Water, Hazards, Resources, **Difficulty** (Starting wood, Max
   walk to water, Starting berries, Start area, No ruins within) and Limits for this size, each opening in place
   under its own row, several at once, with the settings' fields and guards (PLAN §5) and no line under them (the
-  official maps' range is in each tooltip); what is on the map (Mine sites, Berry patches, Ruin fields, Forests,
-  Rivers, each with its picture and number); **Your maps**. Every map is made for Normal until the core drops difficulty after M9b's release. Every Generate makes a new map named for its
+  official maps' range is in each tooltip); under "On this map", Mine sites, Ruin fields, Berry patches, **Trees**
+  (every living tree on the map as it is, edits included) and Rivers, each with its picture and number; **Your
+  maps**. Every map is made for Normal until the core drops difficulty after M9b's release. Every Generate makes a new map named for its
   theme ("River Valley") and replaces the open one without asking: edits never replay onto new land (D336), and the
   map it replaces is already in Your maps.
 - **Your maps** (D234): every map opened or made is kept in this browser and saved quietly after its edits settle
   (`core/library/saver.ts`), a new one a moment after it opens and the open one before anything replaces it; the
   panel's foot shows them two to a row, each the map's whole picture in a square box (the core's 256px top-down
-  thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. Phones stay view-only (D185).
+  thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  right-click on one, open or not, offers **Download .timber file**, **Rename** (in place) and **Delete** (asked
+  once; the open map gives way to the next one, or a new map when none is left). Phones stay view-only (D185).
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
   map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
   edits and all. A real place's address is `#place=<id>`; an opened file has none.

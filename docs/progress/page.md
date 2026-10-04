@@ -576,3 +576,15 @@ never moving. Full browser suite: 130 of 131; the one is dev's own look-high hig
    before, in a new worker, its history and view as they were).
 3. **This source** in one line: "1.45 of 5.79 water/s".
 4. **No focus ring on the map from the mouse.**
+
+## Your maps' menu and the counts (2026-10-03)
+
+Right-click on a map in Your maps: Download .timber file, Rename (in place), Delete (asked once). A closed map's
+.timber comes from its project in a worker of its own; a closed map renamed opens under its new name. The counts
+under "On this map", Forests now Trees (living trees, edits included). Your maps' columns are equal halves now (a
+long name had widened its column).
+
+**Kyler's audit ask (settings a key or the wheel changes, with no control):** Smooth's and Naturalize's strength
+(Shift+scroll, [ ], F+scroll; 1–10), Quake's side (V), and the object's turn before placing (R). Everything else a key
+or the wheel sets has its control (a brush's Size, Raise/Lower/Flatten's Level, a force's Power and Size, Select's
+Level, the height slice, a source's Strength).

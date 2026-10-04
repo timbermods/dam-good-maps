@@ -409,6 +409,15 @@ refinements and what the mockups left open:
 - **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
   water/s" (this source's, of the row's); Pointing at the same.
 - **No focus ring on the map from the mouse:** a click on the map after a key no longer outlines it; Tab still does.
+- **Your maps' right-click menu** (Kyler, 2026-10-03): on any map, open or not, the File menu's look at the pointer,
+  kept on screen, closed by Esc or a click elsewhere: **Download .timber file** (a closed map's made from its project
+  in a worker of its own), **Rename** (in place, on the name's own box, font and size; Enter or clicking away
+  renames, Esc cancels; the open map's is the title's rename, D443; a closed map's name is the one it opens with),
+  **Delete** (asked once, "Delete <name>?"; the open map gives way to the next map in Your maps, or a new Surprise me
+  map when none is left). The browser's own menu doesn't open on the pictures. Your maps' two columns are now equal
+  halves whatever the names (a long name widened its column, and a rename made it jump).
+- **The counts** sit under a small "On this map" label, Your maps' style; Forests became **Trees**: every living tree
+  on the map as it is, edits included (dead ones aren't counted), with thousands separators.
 - **Opening a map is lighter** (Kyler's slow presses, 2026-10-03): the editor keeps its 3D renderer from one map to the
   next (it was thrown away and made again, its programs compiled again, on every map), and the features' tile index
   is built when first read, not as the map opens. At 256² the main thread's work as a map opens fell from about 0.6 s

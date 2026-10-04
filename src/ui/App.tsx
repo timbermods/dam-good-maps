@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { proxy } from "comlink";
 import { createBackground, createGeneratorWorker, readFile, saveFile, storage } from "../platform";
 import { sameLand } from "../core/analysis/story";
+import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { YourMapsSaver } from "../core/library/saver";
@@ -139,6 +140,10 @@ interface Confirm {
   text: string;
   yes: string;
   onYes(): void;
+  /** What the yes button's tooltip says (replacing the map, unless said otherwise). */
+  yesTitle?: string;
+  /** Offer to save the open map's project first (the browser isn't keeping Your maps). */
+  offerProject?: boolean;
 }
 
 export function App() {
@@ -336,12 +341,87 @@ export function App() {
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
   function guard(action: () => void, what: string) {
     if (!keeping.current && session && session.edits > 0) {
-      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: action });
+      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: action, offerProject: true });
     } else action();
   }
 
-  async function openMap(id: string) {
+  /** A map of Your maps opened in a worker, under the name Your maps gives it (renamed there while closed). */
+  async function openEntry(bytes: Uint8Array, e: YourMapEntry, api = generator): Promise<SessionOpen> {
+    const data = await api.openProject(bytes);
+    if (data.info.name === e.name) return data;
+    const { result, info } = await api.setName(e.name);
+    return result.ok ? { ...data, info } : data;
+  }
+
+  /** Your maps' menu (Kyler, 2026-10-03): a map's .timber, as File's download makes it for the open map; a closed
+   *  map's from its project, in a worker of its own. */
+  async function downloadMap(id: string) {
     const e = maps.find((m) => m.id === id);
+    if (!e) return;
+    setError(null);
+    const here = id === entry.current?.id;
+    const bg = here ? null : createBackground();
+    try {
+      let r;
+      if (bg) {
+        const bytes = await yourMaps.project(id);
+        if (!bytes) throw new Error("its project file is missing from this browser");
+        await openEntry(bytes, e, bg.api);
+        r = await bg.api.exportTimber(true);
+      } else r = await generator.exportTimber(true);
+      if (!r.ok) return setError(`${e.name} not downloaded: ${r.errors[0] ?? "the map has problems to fix first"}`);
+      saveFile(r.bytes, r.fileName);
+      setNote(`Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.`);
+    } catch (err) {
+      setError(`${e.name} not downloaded: ${words(err)}`);
+    } finally {
+      bg?.stop();
+    }
+  }
+
+  /** A map of Your maps renamed: the open one as the title renames it (D443), another in Your maps. */
+  async function renameMap(id: string, n: string): Promise<string | null> {
+    if (id === entry.current?.id) return rename(n);
+    const r = cleanMapName(n);
+    if (!r.ok) return r.reason;
+    const done = await yourMaps.rename(id, r.name);
+    if (!done.ok) return done.reason === "full" ? "This browser's storage is full" : "This browser can't keep Your maps";
+    setMaps(await yourMaps.list().catch(() => maps));
+    return null;
+  }
+
+  /** A map deleted from Your maps, asked once; the open one gives way to the next map in Your maps, or a new map. */
+  function deleteMap(id: string) {
+    const e = maps.find((m) => m.id === id);
+    if (!e) return;
+    setConfirm({
+      text: `Delete ${e.name}?`,
+      yes: "Delete",
+      yesTitle: "Delete it from Your maps",
+      onYes: () =>
+        void (async () => {
+          const here = id === entry.current?.id;
+          const at = maps.findIndex((m) => m.id === id);
+          if (here) {
+            // (nothing of it is saved again)
+            unsaved.current = false;
+            entry.current = null;
+          }
+          // (anything of it waiting to be saved is written first, so nothing brings it back after)
+          await saver.flush();
+          await yourMaps.remove(id).catch(() => null);
+          const left = await yourMaps.list().catch(() => maps.filter((m) => m.id !== id));
+          setMaps(left);
+          if (!here) return;
+          const next = left[Math.min(at, left.length - 1)];
+          if (next) await openMap(next.id, left);
+          else await generate({ theme: "any" });
+        })(),
+    });
+  }
+
+  async function openMap(id: string, list = maps) {
+    const e = list.find((m) => m.id === id);
     if (!e) return;
     setError(null);
     setBusy(true);
@@ -349,7 +429,7 @@ export function App() {
       const data = await replacing(async () => {
         const bytes = await yourMaps.project(id);
         if (!bytes) throw new Error("its project file is missing from this browser");
-        return generator.openProject(bytes);
+        return openEntry(bytes, e);
       });
       enterEditor(data, { entry: e });
     } catch (err) {
@@ -563,7 +643,7 @@ export function App() {
         setOpening("Opening your map…");
         try {
           const bytes = await yourMaps.project(left.id);
-          if (bytes) return void enterEditor(await generator.openProject(bytes), { entry: left }, place ?? undefined);
+          if (bytes) return void enterEditor(await openEntry(bytes, left), { entry: left }, place ?? undefined);
         } catch (e) {
           setError(`${left.name} could not be opened: ${words(e)}`);
         } finally {
@@ -646,9 +726,13 @@ export function App() {
     changed,
     onGenerate: () => guard(() => generate(), "Generating a new map"),
     onSurprise: () => guard(() => generate({ theme: "any" }), "Generating a new map"),
-    maps: maps.map(rowOf),
+    // (the open map's tile says its name as soon as it is renamed)
+    maps: maps.map((e) => rowOf(e.id === entry.current?.id && name ? { ...e, name } : e)),
     current: entry.current?.id ?? null,
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
+    onDownloadMap: (id) => void downloadMap(id),
+    onRenameMap: renameMap,
+    onDeleteMap: deleteMap,
     open: openSections,
     onToggle: (s) => setOpenSections((o) => (o.includes(s) ? o.filter((x) => x !== s) : [...o, s])),
     name,
@@ -697,13 +781,15 @@ export function App() {
           <button type="button" class="ghost" title="Keep the map as it is" onClick={() => setConfirm(null)} autoFocus>
             Cancel
           </button>
-          <button type="button" class="ghost" title="Save the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
-            Save project file
-          </button>
+          {confirm.offerProject ? (
+            <button type="button" class="ghost" title="Save the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
+              Save project file
+            </button>
+          ) : null}
           <button
             type="button"
             class="primary"
-            title="Replace the map"
+            title={confirm.yesTitle ?? "Replace the map"}
             onClick={() => {
               const c = confirm;
               setConfirm(null);

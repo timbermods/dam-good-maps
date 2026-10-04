@@ -154,10 +154,17 @@
   padding: 10px 12px 12px;
 }
 
-/* what is on the map: picture, number, name (under the sections) */
+/* what is on the map: picture, number, name (under the sections), under its label as Your maps' */
+.drawer-head {
+  margin: 12px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .drawer-legend {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -283,11 +290,12 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* (two equal halves whatever the names: a long one ellipsizes, never widens its column) */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.your-maps button {
+.your-maps .ym-tile {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -301,7 +309,7 @@
   font-size: 0.85rem;
 }
 
-.your-maps button:hover {
+.your-maps button.ym-tile:hover {
   background: var(--bg);
 }
 
@@ -317,13 +325,13 @@
 }
 
 /* the map open now: the mint's edge and its name in the heading's weight */
-.your-maps button[aria-current="true"] {
+.your-maps .ym-tile[aria-current="true"] {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
   cursor: default;
 }
 
-.your-maps button[aria-current="true"] .ym-name {
+.your-maps .ym-tile[aria-current="true"] .ym-name {
   font-weight: 600;
 }
 
@@ -337,6 +345,7 @@
 .ym-name {
   flex: 1;
   min-width: 0;
+  line-height: 20px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1204,4 +1213,42 @@
 
 .making-dialog[role="alertdialog"] p {
   white-space: normal;
+}
+
+/* a map's name in Your maps renamed in place: the name's own size and font, a quiet ground behind it */
+.ym-rename {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  width: 0;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.ym-rename.refused {
+  box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+/* Your maps' right-click menu: the File menu's look, at the pointer */
+.menu.ym-menu {
+  position: fixed;
+  top: auto;
+  right: auto;
+  z-index: 30;
+  margin: 0;
+}
+
+.ym-rename:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.ym-rename.refused:focus {
+  box-shadow: inset 0 0 0 1px var(--warn);
 }

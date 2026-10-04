@@ -906,3 +906,15 @@ export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[
   }
   return [...found].sort((a, b) => a - b);
 }
+
+/** The game's trees (a tree placed by the generator, the shelf or an imported map). */
+const TREE_TEMPLATES = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove)$/;
+
+/** The living trees among the map's objects as the view holds them (its edits included; dead ones aren't counted,
+ *  the legend keeps them apart). */
+export function livingTrees(e: EntityView): number {
+  const tree = e.templates.map((t) => TREE_TEMPLATES.test(t));
+  let n = 0;
+  for (let k = 0; k < e.count; k++) if (tree[e.template[k]] && !(e.flags[k] & DEAD)) n++;
+  return n;
+}

@@ -5,6 +5,7 @@ import { View3D } from "../../ui/View3D";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
 import { measureInsets } from "../view/insets";
+import { livingTrees } from "../features";
 import { Drawer } from "../Drawer";
 import { Shelf } from "../Shelf";
 import { ObjectWindow } from "../ObjectWindow";
@@ -32,7 +33,7 @@ export function editorView(ed: Ed, props: EditorProps) {
     <div class={`editor${drawerOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
       {header(ed, props)}
       <div class="editor-main">
-        {drawerOpen ? <Drawer model={props.drawer} info={info} icon={(t) => icons[t] ?? null} /> : null}
+        {drawerOpen ? <Drawer model={props.drawer} info={info} icon={(t) => icons[t] ?? null} trees={livingTrees(mirror.current.entities)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
