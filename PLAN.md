@@ -402,11 +402,8 @@ the layout-band planners the processes replaced; they are in the archive.
 ### 7.0 Normalise
 
 Validate the `MapSpec` (§19.1) against its schema; clamp every setting and resolve size-aware targets
-(`target = multiplier × density(key, W·H)`); derive the difficulty rules. Take the spec's constraints (locked regions,
-keep-out regions, ids of features to keep), which the planner treats as occupied and protected (they served
-regeneration around the player's edits, which D336 removed; the spec and share links still carry them). Derive seed
-streams: `layout`, `terrain`, `setpieces`, `water`, `veg`, `ruins`, `extras` and `names`, each
-`hash(seed, stream, candidate, attempt)`.
+(`target = multiplier × density(key, W·H)`); derive the difficulty rules. Derive seed streams: `layout`, `terrain`,
+`setpieces`, `water`, `veg`, `ruins`, `extras` and `names`, each `hash(seed, stream, candidate, attempt)`.
 
 ### 7.5 Connect: slopes
 
@@ -1012,9 +1009,9 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 - **State in the URL fragment:** `#v=<generatorVersion>&s=<seed>&t=<theme>&z=<size>&d=<difficulty>` plus only the
   settings that differ from the theme preset (at the link's difficulty and size), in a fixed order with two-letter keys
   (the table is `core/spec/codec.ts`, D65; start rules `sw`, `sl`, `sb`, `sx`, `sr`; enum values as one letter), then
-  `a` archetype, `p` premise, `c` colonies (reserved for Timber Together, D5) and `sp`, `k` for set pieces and
-  constraints as base64url JSON, each only when set. A value the decoder cannot use is reported and the preset's value
-  kept.
+  `a` archetype, `p` premise and `c` colonies (reserved for Timber Together, D5), each only when set. A value the
+  decoder cannot use is reported and the preset's value kept. A link from before D462 may carry `sp` and `k` (set
+  pieces and constraints, which no map read): they are ignored, and the link opens the same map.
 
 - **Old versions:** a link whose `v` is older than the current generator shows "Made with v1.2 — open in v1.2 (exact) or
   generate with v1.3" (a new map; edits never replay onto new land, D336); the first option goes to `/v/1.2/#…`.
@@ -1111,10 +1108,9 @@ The settings panel, the URL codec and Claude all produce it. It holds `specVersi
 (uint32; text seeds are hashed, §5.1), the `size` (48–256 for generation), the `theme` (the preset the settings started
 from, §6: "any" or one of the six), the `archetype` (the theme: no per-theme layout planner, §8), an optional
 `premise`, `designedFor` (easy, normal or hard), `settings` (every §5 value, complete, never a diff), `colonies`
-(`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5), `setPieces` (requested set pieces,
-Claude steering, D139: `{kind, params, region?}`), `constraints` (`keepOut` regions the planner places nothing in, and
-`keep` feature ids it builds around) and `accepted` (`{attempt, candidate}`, filled in by the generator so a document
-reproduces its map without running the retry loop again).
+(`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5) and `accepted` (`{attempt, candidate}`,
+filled in by the generator so a document reproduces its map without running the retry loop again). A spec saved
+before D462 also carries `setPieces` and `constraints`, which nothing read: a project opens with them dropped.
 
 - The URL fragment encodes a `MapSpec` as a diff from its theme preset (§14.5). The schema's hard bounds are the
   ranges in §5.

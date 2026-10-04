@@ -23,7 +23,7 @@ import type { BuildResult } from "../features/build";
 import { readTimber, type TimberFile } from "../format/timber";
 import { normalizeImport, type ImportReport } from "../format/normalize";
 import type { Runs } from "../math/grid";
-import { GENERATOR_VERSION, upgradeHighestTerrain, upgradeMineSites, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, upgradeHighestTerrain, upgradeMineSites, upgradeRetiredFields, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
@@ -218,8 +218,8 @@ export interface RetiredNotes {
  *  each thing changed. */
 function dropRetired(raw: Record<string, unknown>): string[] {
   const notes: string[] = [];
-  const spec = raw.spec as { constraints?: Record<string, unknown> } | null | undefined;
-  if (spec?.constraints && "locks" in spec.constraints) delete spec.constraints.locks;
+  // (a spec's locks went with its constraints and requested set pieces, which nothing read)
+  upgradeRetiredFields(raw.spec);
   if ("locks" in raw) {
     const locks = raw.locks;
     delete raw.locks;

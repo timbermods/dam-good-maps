@@ -2140,3 +2140,28 @@ feature; a rebuild rasterizes it and never plans again (§19.7); planning again 
 the feature. The report lists every value that was reduced, everything that was cleared or relocated (trees, ruins,
 bushes) and every source that was added. A builder never moves the start or touches a locked region; when it would
 have to, the plan fails with the reason. Ruin fields are ordinary features with their own placement rules (§9.7).
+
+## From PLAN.md: §7.0, §14.5 and §19.1, the spec's set pieces and constraints (superseded by D462)
+
+Removed by the coherence cleanup's group 7, when `MapSpec.setPieces` and `constraints` and the link keys `sp` and `k` were dropped.
+
+### §7.0 Normalise (its first paragraph)
+
+Validate the `MapSpec` (§19.1) against its schema; clamp every setting and resolve size-aware targets
+(`target = multiplier × density(key, W·H)`); derive the difficulty rules. Take the spec's constraints (locked regions,
+keep-out regions, ids of features to keep), which the planner treats as occupied and protected (they served
+regeneration around the player's edits, which D336 removed; the spec and share links still carry them). Derive seed
+streams:
+
+### §14.5 Shareable links (the fragment's keys)
+
+  `a` archetype, `p` premise, `c` colonies (reserved for Timber Together, D5) and `sp`, `k` for set pieces and
+  constraints as base64url JSON, each only when set. A value the decoder cannot use is reported and the preset's value
+  kept.
+
+### §19.1 MapSpec (the fields)
+
+(`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5), `setPieces` (requested set pieces,
+Claude steering, D139: `{kind, params, region?}`), `constraints` (`keepOut` regions the planner places nothing in, and
+`keep` feature ids it builds around) and `accepted` (`{attempt, candidate}`, filled in by the generator so a document
+reproduces its map without running the retry loop again).

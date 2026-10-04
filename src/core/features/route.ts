@@ -1,6 +1,6 @@
 // Outflow channels: the way a badwater hollow's or a lake's water leaves (PLAN §9.5 badwater
-// outlets, lakes by outlet sill). A route is stored in the feature (the generator's, or one an old
-// project's lake tool planned); rebuilds carve the stored route and never plan it again (PLAN §19.3).
+// outlets, lakes by outlet sill). A route is stored in the feature (the generator's, or an old
+// project's drawn lake's); rebuilds carve the stored route and never plan it again (PLAN §19.3).
 //
 // The carve: every route tile gets a channel of `width` tiles across (a square of side `width`
 // around it, width 1, 3 or 5), at a bed level that never rises along the route, and the tiles

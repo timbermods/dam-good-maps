@@ -52,10 +52,10 @@ function walkFromStart(g: Ground): Float64Array | null {
 /** Near the start, food and wood go within this walk: the requirements count 20 (D85). */
 const NEAR_WALK = 20;
 
-/** Regeneration constraints (PLAN §7.0): tiles resources keep off, and what locks kept. */
+/** What resources keep off: the badwater hollows' ground (land/hazards.ts `avoid`), and the scrap
+ *  planned already. */
 export interface ResourceConstraints {
   protect: Uint8Array | null;
-  lockedMask: Uint8Array | null;
   /** Scrap already planned (the obstacle's ruins on a plateau): it counts toward the map's budget. */
   scrapPlaced?: number;
 }
@@ -111,10 +111,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     // living plants need moist, dry-footed, clean soil
     moist[i] = g.moisture[i] > 0 && !wet[i] && !(g.soilContamination[i] > 0) ? 1 : 0;
   }
-  // regeneration: nothing on the player's features, locked regions or keep-out regions
+  // nothing on the ground the generator keeps them off
   const keepOff = constraints?.protect;
-  const kept = constraints?.lockedMask;
-  if (keepOff || kept) for (let i = 0; i < N; i++) if (keepOff?.[i] || kept?.[i]) free[i] = 0;
+  if (keepOff) for (let i = 0; i < N; i++) if (keepOff[i]) free[i] = 0;
   const startMask = new Uint8Array(N);
   if (g.start) {
     for (let y = g.start.y - 1; y <= g.start.y + 1; y++)

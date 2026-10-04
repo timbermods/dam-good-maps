@@ -36,8 +36,6 @@ export interface ExtrasInput {
   base: BuildResult;
   /** The planned features so far (reservoir sites, set pieces). */
   features: readonly Feature[];
-  /** Tiles no object may take: the player's features, locks and keep-out regions (regeneration). */
-  protect?: Uint8Array | null;
   /** More tiles to keep off (a dam site's band, badwater basins). */
   avoid?: Uint8Array | null;
   candidate: number;
@@ -125,7 +123,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
   // player's tiles and the map's border
-  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
+  const blocked = objectKeepOff(b, inp.features, null, inp.avoid);
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 

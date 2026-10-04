@@ -5,9 +5,10 @@
 // Only the settings that differ from the theme preset at that difficulty and size are written, in
 // a fixed order, so a spec has exactly one fragment. Species weights are four bytes in base64url.
 // The rest of the spec is carried too, when it differs from a fresh spec: the archetype (`a`), the
-// premise (`p`), the colonies (`c`, reserved for Timber Together, D5), the requested set pieces
-// (`sp`) and the regeneration constraints (`k`), the last two as base64url JSON. A share link
-// carries the spec only (D7): it reproduces the generated map, not the player's edits.
+// premise (`p`) and the colonies (`c`, reserved for Timber Together, D5). A link written before the
+// coherence cleanup may carry requested set pieces (`sp`) and regeneration constraints (`k`): no map
+// ever read them, so they are ignored and the link opens the same map. A share link carries the spec
+// only (D7): it reproduces the generated map, not the player's edits.
 //
 // Decoding never throws. A value it cannot use is reported in `problems` and the preset's value
 // stays, so a mistyped link still opens a map.
@@ -103,6 +104,7 @@ const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
 /** Keys that are not settings, and `st`: Minimum starting trees before D164 (read as wood). */
+// (`sp` and `k`: set pieces and constraints, which older links may carry; ignored)
 const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
@@ -151,16 +153,6 @@ export function fromBase64Url(text: string): Uint8Array | null {
   return new Uint8Array(out);
 }
 
-function jsonToB64(v: unknown): string {
-  return toBase64Url(new TextEncoder().encode(JSON.stringify(v)));
-}
-
-function b64ToJson(text: string): unknown {
-  const bytes = fromBase64Url(text);
-  if (!bytes) throw new Error("not base64url");
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-}
-
 // ------------------------------------------------------------------------------------ encoding
 
 function sizeText(size: { x: number; y: number }): string {
@@ -197,9 +189,6 @@ export function encodeSpecFragment(spec: MapSpec): string {
   if (spec.variation) put("vr", String(spec.variation));
   if (spec.intentions?.length) put("in", spec.intentions.join("."));
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
-  if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
-  const k = spec.constraints;
-  if (k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
   return parts.join("&");
 }
 
@@ -327,18 +316,6 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       // more, so the link opens as one, with a word, instead of throwing in the generator)
       spec.colonies = before;
       problems.push(`colonies "${c}": multi-colony maps are not built yet, so the map has one colony`);
-    }
-  }
-  for (const [key, field] of [["sp", "setPieces"], ["k", "constraints"]] as const) {
-    const raw = params.get(key);
-    if (raw === undefined) continue;
-    const before = spec[field];
-    try {
-      (spec as unknown as Record<string, unknown>)[field] = b64ToJson(raw);
-      if (validateSpec(spec).length) throw new Error("invalid");
-    } catch {
-      (spec as unknown as Record<string, unknown>)[field] = before;
-      problems.push(`the ${field === "setPieces" ? "set pieces" : "constraints"} in the link are not valid`);
     }
   }
   for (const k of params.keys()) if (!OTHER_KEYS.has(k) && !SETTING_KEYS.some((sk) => sk.key === k)) problems.push(`unknown setting "${k}" ignored`);

@@ -63,11 +63,13 @@ describe("project files (PLAN §19.6)", () => {
     expect(MapSession.open(doc).apply({ op: "removeSlope", params: { x: kept.x, y: kept.y } }).applied[0].seq).toBe(3);
   });
 
-  it("an old project with a lock, a setLock edit and a stamp feature still opens, with its land as it was kept (D253, D270)", () => {
+  it("an old project with a lock, a setLock edit, a stamp feature and a spec's constraints and set pieces still opens, with its land as it was kept (D253, D270, D462)", () => {
     const region = box(4, 4, 20, 20);
     const tiles = runsToTiles(region, W) ?? [];
     const raw = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
-    raw.spec.constraints.locks = [{ runs: region }];
+    // (a spec saved then carried its constraints and requested set pieces, its locks among them)
+    raw.spec.constraints = { keepOut: [{ runs: region }], keep: ["f-abc"], locks: [{ runs: region }] };
+    raw.spec.setPieces = [{ kind: "waterfall", params: { mode: "standalone", lip: [40, 90], facing: "north", width: 20, drop: 6 } }];
     raw.locks = [{ id: "corner", region: { runs: region } }];
     raw.edits = [{ op: "setLock", params: { id: "corner", region: { runs: region } }, seq: 1, origin: "user" }];
     raw.nextSeq = 2;
@@ -75,7 +77,8 @@ describe("project files (PLAN §19.6)", () => {
     raw.baseFeatures = raw.features;
     const before = raw.base.heights;
     const doc = decodeProject(gzipSync(strToU8(JSON.stringify(raw))));
-    expect(doc.spec!.constraints).not.toHaveProperty("locks");
+    expect(doc.spec!).not.toHaveProperty("constraints");
+    expect(doc.spec!).not.toHaveProperty("setPieces");
     expect(doc).not.toHaveProperty("locks");
     expect(doc.edits).toEqual([]);
     expect(doc.features[0].origin).toBe("user");
