@@ -50,7 +50,9 @@ for (let seed = a; seed <= b; seed++) {
   const g: any = (r.info as any).genome;
   const wet = Array.from(w).filter((v) => v > 0.05).length / N;
   let hash = 0; for (let i = 0; i < N; i++) hash = (Math.imul(hash, 31) + r.built.heights[i]) | 0;
-  const row = { seed, size, attempts: r.attempts, passed: r.report.passed, hash, layout: g?.seaLayout, ring: !!g?.seaRing, orientation: g?.orientation, startLand: sz[home], startOn: edge[home] ? "shore" : "island", reachable: best >= 0 ? sz[best] : 0, strait: best >= 0 ? gapOf.get(best) : null, largest: any >= 0 ? sz[any] : 0, largestReach: any >= 0 ? reach.has(any) : false, wet: +wet.toFixed(3), islands, secs: +((Date.now() - t0) / 1000).toFixed(1) };
+  const fails: Record<string, number> = {};
+  for (const f of ((r as any).failures ?? []) as { failed: string[] }[]) for (const why of f.failed) fails[why] = (fails[why] ?? 0) + 1;
+  const row = { seed, size, attempts: r.attempts, passed: r.report.passed, fails, hash, layout: g?.seaLayout, ring: !!g?.seaRing, orientation: g?.orientation, startLand: sz[home], startOn: edge[home] ? "shore" : "island", reachable: best >= 0 ? sz[best] : 0, strait: best >= 0 ? gapOf.get(best) : null, largest: any >= 0 ? sz[any] : 0, largestReach: any >= 0 ? reach.has(any) : false, wet: +wet.toFixed(3), islands, secs: +((Date.now() - t0) / 1000).toFixed(1) };
   rows.push(row);
   console.log(seed, row.layout, row.ring ? "ring" : "open", "| start-land", row.startLand, row.startOn, "| reachable", row.reachable ? `${row.reachable} (${row.strait})` : "none", "| largest", row.largest, row.largestReach ? "reached" : "far", "| islands", islands.slice(0, 6).map((o) => `${o.s}${o.edge ? "e" : ""}${o.reach ? "r" : ""}`).join(" "), "|", row.secs, "s");
 }

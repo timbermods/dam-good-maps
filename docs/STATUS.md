@@ -40,7 +40,7 @@ are as of 2026-10-04 and move.
 | CI merge queue | `ci/merge-queue` | #238 | none | CI running |
 | Badwater joins rivers and lakes | `fix/badwater-contained-d469` | #245 | none | First of the generator queue (D469); one re-pin |
 | Lake Basin round 3 | `investigation/lake-basin-variety` | #234 | none | Kyler said yes; merges as an investigation, patch adopted third |
-| Islands round 4 | `investigation/islands-round-3` | #235 | none | On hold; CI red; Kyler judges the sheets and the 256² trade |
+| Islands round 4 | `investigation/islands-round-3` | #235 | needs-kyler | Ready: a product change, re-pinned (D148); Kyler judges the sheets |
 | The page | `feature/page` | #163 draft | `-page` | Page session; waits on Kyler's generator pick |
 | Area brush | `feature/area-brush` | #227 | none | CI green; the page adds its toggle after it merges |
 | Renderer fixes | `fix/frame-fit`, `fix/basin-highlight`, `fix/high-worker` | #219, #225, #240 | none | #225 fails the palette test (a hard-coded colour); the renderer session fixes it |
