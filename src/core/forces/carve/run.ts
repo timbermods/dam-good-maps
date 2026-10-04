@@ -29,8 +29,8 @@ import * as portable from "../../math/portable";
 import { modelOf } from "../../features/build";
 import { PLACED } from "../../features/edits";
 import { waterSource, type EntitySpec } from "../../format/entities";
-import { guidFrom, hash32 } from "../../math/hash";
-import { placeSourceGroup } from "../../water/sourceGroups";
+import { hash32 } from "../../math/hash";
+import { groupIds, placeSourceGroup } from "../../water/sourceGroups";
 import { warmState, type WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
 import { entityTiles, protectedGround, type ForceHead, type ForceMap, type Lane } from "../force";
@@ -294,11 +294,16 @@ export class CarveRun {
       const W = input.W;
       const occupied = new Uint8Array(N);
       for (const e of input.entities) for (const i of entityTiles(W, input.H, e)) occupied[i] = 1;
-      const g = placeSourceGroup({ kind: "water", x, y, strength, seed: hash32(this.seed, intent.origin), flow: [this.head.dx, this.head.dy] }, { W, H: input.H, heights: input.heights, occupied });
+      const req = { kind: "water", x, y, strength, seed: hash32(this.seed, intent.origin), flow: [this.head.dx, this.head.dy] } as const;
+      const g = placeSourceGroup(req, { W, H: input.H, heights: input.heights, occupied });
       const anchor = g.sources.find((s) => s.x === x && s.y === y);
-      const row = anchor && !g.refused ? g.sources : [{ x, y, z: input.heights[intent.origin], strength, tiles: [intent.origin] }];
+      const grouped = !!anchor && !g.refused;
+      const row = grouped ? g.sources : [{ x, y, z: input.heights[intent.origin], strength, tiles: [intent.origin] }];
+      // (the members' ids: the one rule, water/sourceGroups.ts `groupMemberId`, never an id standing or used)
+      const used = new Set([...input.entities.map((e) => e.id), ...(input.usedIds ?? [])]);
+      const rowIds = grouped ? groupIds(this.sourceId, req, g, (id) => used.has(id)) : [this.sourceId];
       this.group = row
-        .map((s) => ({ id: s.x === x && s.y === y ? this.sourceId : guidFrom(this.sourceId, "carve-source", s.y * W + s.x), tile: s.y * W + s.x, strength: s.strength }))
+        .map((s, k) => ({ id: rowIds[k], tile: s.y * W + s.x, strength: s.strength }))
         .sort((a, b) => (a.id === this.sourceId ? -1 : b.id === this.sourceId ? 1 : 0));
       const ids = new Set(this.group.map((s) => s.id));
       const placed = this.group.map((s) => waterSource({ id: s.id, owner: PLACED, x: s.tile % W, y: Math.floor(s.tile / W), z: this.map.heights[s.tile], strength: s.strength }));

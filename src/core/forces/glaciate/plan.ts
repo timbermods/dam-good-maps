@@ -16,7 +16,7 @@ import type { EntitySpec } from "../../format/entities";
 import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
 import { guidFrom, hash32 } from "../../math/hash";
-import { placeSourceGroup } from "../../water/sourceGroups";
+import { groupIds, placeSourceGroup } from "../../water/sourceGroups";
 import { forceFloor, holdAtFloor } from "../floor";
 import { MinHeap, N8 } from "../../math/grid";
 import { EMITTERS } from "../../sim/model";
@@ -855,13 +855,6 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     while (idTaken(id)) id = guidFrom("glaciate", s.seed, intent.origin, serial++);
     return id;
   };
-  // a group's other springs are named from its anchor (an earlier glacier's group, from the same
-  // anchor, may still stand)
-  const memberId = (anchor: string, x: number, y: number) => {
-    let id = guidFrom(anchor, x, y);
-    for (let k = 1; idTaken(id); k++) id = guidFrom(anchor, x, y, k);
-    return id;
-  };
   const addSource = (i: number, strength: number, id = newId()) => {
     m.entities.push(waterSource({ id, owner: "glaciate", x: i % W, y: Math.floor(i / W), z: m.heights[i], strength }));
   };
@@ -870,14 +863,17 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const taken = new Uint8Array(n);
   for (const e of m.entities) for (const i of entityTiles(e)) taken[i] = 1;
   const addGroup = (i: number, strength: number, flow: readonly [number, number]) => {
-    const g = placeSourceGroup({ kind: "water", x: i % W, y: Math.floor(i / W), strength, seed: hash32(s.seed, intent.origin, i), flow }, { W, H, heights: m.heights, occupied: taken });
+    const req = { kind: "water", x: i % W, y: Math.floor(i / W), strength, seed: hash32(s.seed, intent.origin, i), flow } as const;
+    const g = placeSourceGroup(req, { W, H, heights: m.heights, occupied: taken });
     if (g.refused || !g.sources.length) return addSource(i, strength);
-    const anchor = newId();
-    for (const q of g.sources) {
+    // a group's other springs are named from its anchor by the one rule (water/sourceGroups.ts
+    // `groupMemberId`), past any id taken (an earlier glacier's group, from the same anchor, may still stand)
+    const ids = groupIds(newId(), req, g, idTaken);
+    g.sources.forEach((q, k) => {
       const at = q.y * W + q.x;
-      addSource(at, q.strength, at === i ? anchor : memberId(anchor, q.x, q.y));
+      addSource(at, q.strength, ids[k]);
       taken[at] = 1;
-    }
+    });
   };
   if (s.meltwater) {
     // the cirque head: one group at the tarn, across the glacier's way down
