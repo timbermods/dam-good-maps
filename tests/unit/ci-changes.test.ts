@@ -1,7 +1,7 @@
 // CI skips its heavy suites only for changes that can't affect them (tools/ci-changes.mjs; the rule is in ci.yml's
 // header): documents, LICENSE and package.json's descriptive fields. Code, dependencies and scripts keep the full suite.
 import { describe, expect, it } from "vitest";
-import { isDocument, needsHeavy, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { isDocument, isInvestigation, needsHeavy, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -12,6 +12,11 @@ describe("which changes need the heavy suites", () => {
   it("documents, images under docs and LICENSE are light", () => {
     for (const f of ["README.md", "docs/STATUS.md", "investigation/x/REPORT.md", "docs/sheets/m9.png", "LICENSE", "PLAN.md"]) expect(isDocument(f), f).toBe(true);
     expect(needsHeavy(["README.md", "docs/STATUS.md", "LICENSE"], () => null)).toBe(false);
+  });
+  it("a change touching only investigation/ (plus documents) is light", () => {
+    expect(isInvestigation("investigation/probe/run.ts")).toBe(true);
+    expect(needsHeavy(["investigation/probe/run.ts", "investigation/x/data.json", "docs/STATUS.md"], () => null)).toBe(false);
+    expect(needsHeavy(["investigation/x/a.json", "src/a.ts"], () => null)).toBe(true);
   });
   it("code, data files, workflows and tests are heavy, even under docs/", () => {
     for (const f of ["src/core/a.ts", "tests/e2e/a.spec.ts", ".github/workflows/ci.yml", "docs/look/reference/pair-map.timber", "public/data.json", "tools/ci-changes.mjs"]) {

@@ -1,0 +1,78 @@
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index 16c99fde..77c36b8d 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -52,6 +52,8 @@ import { lakeRise, shallowSheet, SHEET_MOST } from "../land/sheets";
+ import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
+ import { makeField } from "../land/field";
+ import { shapeLakeBasin } from "../land/lakeBasin";
++import { shapeCanyon } from "../land/canyon";
++import { shapeHighlands } from "../land/highlands";
+ import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
+ import { planBadwater, type Hazards } from "../land/hazards";
+ import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
+@@ -445,6 +447,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
+         shapeLakeBasin(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
+       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
+       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
++      shapeCanyon(g, W, H);
++      shapeHighlands(g, W, H);
+       genomes++;
+       replans = 0;
+       // (every theme's land from the field's processes: D370's Islands and Delta templates are
+diff --git a/src/core/land/canyon.ts b/src/core/land/canyon.ts
+new file mode 100644
+index 00000000..345bd795
+--- /dev/null
++++ b/src/core/land/canyon.ts
+@@ -0,0 +1,21 @@
++// Canyon's own shaping (M9b; D273 (2): a river cut deep between cliffs for a real stretch). The
++// shared drainage, rasterizer, settle and checks are unchanged; nothing is stamped (D348, D370).
++//
++// Below 128² the theme's water gathers into fewer rivers, cut a level deeper. The genome draws a
++// 128² map's spring count whatever the side, and the clean flow follows the official density per
++// area, so at 96² up to four heads share 16% less water than at 128²: on a fifth of the maps no
++// river reaches the hydrology's cutting flow (1.2), the main river is not incised, and its walls are
++// whatever benches it happens to pass (investigation/canyon-highlands-96). So on a small map: at
++// most two springs beside the inflow, and the incision a level deeper (the gorge is cut to the
++// rivers' size, not the map's, and a short course needs a bigger share of it between walls). Full
++// at 96², tapering to nothing at 128², so no map from 128² up changes.
++import type { Genome } from "./genome";
++import { smallness } from "./highlands";
++
++export function shapeCanyon(g: Genome, W: number, H: number): void {
++  if (g.theme !== "canyon") return;
++  const k = smallness(W, H);
++  if (k <= 0) return;
++  g.hydro.springs = Math.min(g.hydro.springs, Math.round(2 + 4 * (1 - k)));
++  g.hydro.incise += k;
++}
+diff --git a/src/core/land/highlands.ts b/src/core/land/highlands.ts
+new file mode 100644
+index 00000000..d90b56bf
+--- /dev/null
++++ b/src/core/land/highlands.ts
+@@ -0,0 +1,23 @@
++// Highlands' own shaping (M9b; D273 (2): high, rugged ground with plateaus and valleys among it).
++// The shared drainage, rasterizer, settle and checks are unchanged; nothing is stamped (D348, D370).
++//
++// Below 128² a Highlands map gets the water a 128² map draws. The clean flow follows the official
++// density per area while the genome draws a 128² map's heads whatever the side, so at 96² up to four
++// heads share 16% less water than at 128²: on half the maps no river reaches the hydrology's cutting
++// flow (1.2), none is incised, the water stands at its benches' level and the land is not high over
++// it (investigation/canyon-highlands-96). Full at 96², tapering to nothing at 128², so no map from
++// 128² up changes.
++import type { Genome } from "./genome";
++
++/** How far below 128² the map is: 0 at 128² and up, 1 at 96² and under. */
++export function smallness(W: number, H: number): number {
++  const side = Math.min(W, H);
++  return Math.min(1, Math.max(0, (128 - side) / 32));
++}
++
++export function shapeHighlands(g: Genome, W: number, H: number): void {
++  if (g.theme !== "highlands") return;
++  const k = smallness(W, H);
++  if (k <= 0) return;
++  g.hydro.flowMul *= 1 + k / 3;
++}
