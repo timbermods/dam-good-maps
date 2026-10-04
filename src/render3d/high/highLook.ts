@@ -194,6 +194,9 @@ export class HighLook {
   setMap(W: number, H: number, heights: Uint8Array, surface: SurfaceWater, entities: EntityView): void {
     this.map = { W, H, heights, surface };
     this.shadows.fit(W, H);
+    // (a new map's shadows are drawn with its first frame, however soon after the last map's: the
+    // wait between redraws is for a brush's strokes, and the last map's depth map is not this one's)
+    this.lastShadow = -Infinity;
     this.ambient?.dispose();
     this.ambient = new AmbientField(W, H, this.host.baker, () => {
       this.stats.ambientMs = this.ambient?.ms ?? 0;
