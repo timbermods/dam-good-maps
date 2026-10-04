@@ -12,16 +12,16 @@
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
 import * as portable from "../math/portable";
-import { toMapObject } from "../features/build";
-import type { WarmState } from "../sim/preview";
-import { waterModel } from "../sim/model";
-import { WaterSim, type WaterModel } from "../sim/water";
-import { ImpactPlan, naturalSize as craterSize, type CraterIntent, type CraterSettings } from "./craterize";
+import { modelOf } from "../features/build";
+import { warmState, type WarmState } from "../sim/preview";
+import { WaterSim } from "../sim/water";
+import { ImpactPlan, type CraterIntent, type CraterSettings } from "./craterize";
 import { EruptPlan, lobeField, stageMap, type EruptIntent, type EruptSettings, type Point } from "./erupt";
 import { snapshotMap, type FullForceMap } from "./force";
 import type { Verb } from "./op";
 import { QuakePlan, revealQuake, type QuakeIntent, type QuakeSettings } from "./quake";
-import { clamp, smooth } from "./random";
+import { clamp } from "./random";
+import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
 import { transportRock, trimRock } from "./rock";
@@ -85,8 +85,8 @@ export interface StagedRun {
   finalize: Finalize | null;
 }
 
-/** The water model of a force's map. */
-export const modelOf = (m: FullForceMap): WaterModel => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
+/** The water model of a force's map (features/build.ts). */
+export { modelOf };
 
 /** A planning slice's budget (ms): the worker answers the page's other calls between them. */
 const PLAN_MS = 12;
@@ -120,15 +120,12 @@ export function respectKeep(before: FullForceMap, after: FullForceMap, keep: Uin
   }
 }
 
-function warm(sim: WaterSim, m: FullForceMap): WarmState {
-  return { model: modelOf(m), water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
-}
-
 /** Called on a force's final map once it is planned: the editor gives it the build's own last
  *  touches (its integrity pass), so the last stage shows exactly what is kept. */
 export type Finalize = (m: FullForceMap) => void;
 
-abstract class Staged {
+/** A force planned in slices, then shown in stages: what Craterize, Erupt, Quake and Glaciate share. */
+export abstract class Staged {
   map: FullForceMap;
   protected stage = 0;
   /** Steps of its approach shown (the impactor falling, the ground stirring), once planned. */
@@ -136,7 +133,7 @@ abstract class Staged {
   protected sim: WaterSim | null = null;
   protected ended = false;
   steps = 0;
-  /** The build's last touches on the planned map (the editor's worker sets it). */
+  /** The build's last touches on the planned map (`planForce` sets it: start.ts `buildTouches`). */
   finalize: Finalize | null = null;
 
   constructor(
@@ -146,8 +143,11 @@ abstract class Staged {
     this.map = snapshotMap(before);
   }
 
+  /** A planning step's budget (ms): at least one slice, then more while they fit. */
+  protected readonly planMs: number = PLAN_MS;
+
   /** Plan within the budget; true once planned. */
-  protected abstract plan(budgetMs: number): boolean;
+  protected abstract planFor(budgetMs: number): boolean;
   abstract get planned(): boolean;
   /** Stages it shows once planned, and the steps of its approach before them. */
   protected abstract readonly stages: number;
@@ -172,7 +172,7 @@ abstract class Staged {
     if (this.ended) return;
     this.steps++;
     if (!this.planned) {
-      this.plan(PLAN_MS);
+      this.planFor(this.planMs);
       return;
     }
     if (this.approached < this.approach) {
@@ -186,7 +186,7 @@ abstract class Staged {
 
   /** Plan all of it at once (tests, Claude's step). */
   planAll(): this {
-    while (!this.plan(Infinity)) {
+    while (!this.planFor(Infinity)) {
       // planned in slices
     }
     return this;
@@ -202,7 +202,7 @@ abstract class Staged {
 
   liveWater(): WarmState {
     if (!this.sim) this.sim = new WaterSim(modelOf(this.map), this.map.water);
-    return warm(this.sim, this.map);
+    return warmState(modelOf(this.map), this.sim);
   }
 }
 
@@ -226,7 +226,7 @@ export class CraterRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(8)) if (performance.now() - t0 > budgetMs) return false;
     holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
@@ -313,7 +313,7 @@ export class EruptRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
@@ -340,7 +340,7 @@ export class EruptRun extends Staged implements StagedRun {
     // arrival, from the vent outward (or along a fissure); the water waits for the final land
     const heat = this.heat()!;
     const W = m.W;
-    const reached = (x: number, y: number) => smooth(t) >= 0.12 + 0.76 * (heat[(clamp(Math.floor(y), 0, m.H - 1) * W + clamp(Math.floor(x), 0, W - 1)) * 4 + 3] / 255);
+    const reached = (x: number, y: number) => smoothstep(t) >= 0.12 + 0.76 * (heat[(clamp(Math.floor(y), 0, m.H - 1) * W + clamp(Math.floor(x), 0, W - 1)) * 4 + 3] / 255);
     const now = new Map(m.entities.map((e) => [e.id, e]));
     m.entities = this.before.entities.flatMap((e) => {
       const after = now.get(e.id);
@@ -384,11 +384,11 @@ export class EruptRun extends Staged implements StagedRun {
           }
         }
         const r = dist / a.radius;
-        const vent = a.segments.length ? 1 - smooth(dist / 2.1) : 1 - smooth(r / 0.22);
+        const vent = a.segments.length ? 1 - smoothstep(dist / 2.1) : 1 - smoothstep(r / 0.22);
         const hot = Math.max(vent, s.ridges ? Math.min(1, flows[i] / 1.7) : Math.max(0, 1 - r) * 0.14);
         mask[i * 4] = Math.round(255 * hot);
-        mask[i * 4 + 1] = Math.round(110 * (1 - smooth(r / 1.1)));
-        mask[i * 4 + 2] = Math.round(255 * (1 - smooth(r / 2.1)));
+        mask[i * 4 + 1] = Math.round(110 * (1 - smoothstep(r / 1.1)));
+        mask[i * 4 + 2] = Math.round(255 * (1 - smoothstep(r / 2.1)));
         mask[i * 4 + 3] = Math.round(255 * (a.segments.length ? along : Math.min(1, r / 1.8)));
       }
     return (this.mask = mask);
@@ -403,7 +403,7 @@ export class EruptRun extends Staged implements StagedRun {
       progress: p,
       x: a.x,
       y: a.y,
-      z: a.datum + a.height * smooth(p),
+      z: a.datum + a.height * smoothstep(p),
       size: a.radius * 2,
       power: this.settings.power,
       erupt: { vents: a.vents.map((v) => ({ ...v })), radius: a.radius, fissure: this.settings.mode === "fissure", line: a.segments.length ? [a.segments[0].a, ...a.segments.map((s) => s.b)] : [] },
@@ -435,7 +435,7 @@ export class QuakeRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     const p = this.plan0;
@@ -625,6 +625,3 @@ export class QuakeRun extends Staged implements StagedRun {
     };
   }
 }
-
-/** The natural size of an impact at `power` (for the cursor's footprint on the page). */
-export const craterNaturalSize = craterSize;

@@ -9,11 +9,10 @@
 // function (D342): the generator applies it as the map arrives; the editor could offer it as a fix.
 
 import { hash32 } from "../math/hash";
-import { distanceFrom, MinHeap } from "../math/grid";
+import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { fbm } from "../math/noise";
 import * as portable from "../math/portable";
-
-const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+import { edgeSpill } from "../land/drainage";
 
 export interface OutletWear {
   /** The ground with the way out worn wider. */
@@ -27,43 +26,11 @@ export interface OutletWear {
   route: number[];
 }
 
-/** Spill level of every tile: the lowest level water standing there drains at, through the map
- *  edge (priority flood). */
-function spillOf(h: Uint8Array, W: number, H: number, noOutlet: Uint8Array | null = null): Int16Array {
-  const N = W * H;
-  const spill = new Int16Array(N).fill(-1);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !noOutlet?.[i]) {
-      spill[i] = h[i];
-      heap.push(h[i], i);
-    }
-  }
-  while (heap.size) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (spill[j] >= 0) continue;
-      spill[j] = h[j] > lv ? h[j] : lv;
-      heap.push(spill[j], j);
-    }
-  }
-  return spill;
-}
-
 /** The largest basin (tiles below their spill level) whose water stands over that level (0.05 or
  *  more), and the level. */
 export function risenBasin(h: Uint8Array, W: number, H: number, depth: ArrayLike<number>, noOutlet: Uint8Array | null = null): { tiles: number[]; level: number } | null {
   const N = W * H;
-  const spill = spillOf(h, W, H, noOutlet);
+  const spill = edgeSpill(h, W, H, noOutlet);
   const risen = new Uint8Array(N);
   // (a basin's tiles: below their spill level; a river's own channel stands over its spill level
   // wherever its water runs, and is no basin)
@@ -132,7 +99,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   const S = basin.level;
   const inB = new Uint8Array(N);
   for (const i of basin.tiles) inB[i] = 1;
-  const spill = spillOf(h, W, H, opts.noOutlet ?? null);
+  const spill = edgeSpill(h, W, H, opts.noOutlet ?? null);
   // the route the water leaves by: from the basin over ground at or under its level, to lower ground
   // or the map's edge, cheapest by a noisy cost so it follows the land's own way out
   const cost = new Float64Array(N).fill(Infinity);
@@ -288,7 +255,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
   function finish(out: Uint8Array): OutletWear | null {
     // (where the cut would drain the basin all the same, the ground round what drained stays)
     for (let round = 0; round < 4; round++) {
-      const after = spillOf(out, W, H, opts.noOutlet ?? null);
+      const after = edgeSpill(out, W, H, opts.noOutlet ?? null);
       const drained = basin!.tiles.filter((i) => after[i] < spill[i]);
       if (!drained.length) break;
       if (round === 3) return null;
@@ -356,7 +323,7 @@ export function wearOutlet(h: Uint8Array, W: number, H: number, depth: ArrayLike
     // (the shape it must have, D360 (3): the steps above make it, this proves it)
     if (!cutShapeOk(cutShape(cut, route, W, H, wearReach(opts.width)))) return null;
     // (and the basin still spills where it did: no way out opened under its level)
-    const after = spillOf(out, W, H, opts.noOutlet ?? null);
+    const after = edgeSpill(out, W, H, opts.noOutlet ?? null);
     if (basin!.tiles.some((i) => after[i] < spill[i])) return null;
     return { heights: out, cut, basin: basin!.tiles, level: S, route };
   }

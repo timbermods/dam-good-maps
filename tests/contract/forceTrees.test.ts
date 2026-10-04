@@ -20,7 +20,6 @@ const TREES = /^(Pine|Birch|Oak|BlueberryBush)$/;
 describe("trees after the forces (D321, item 7)", () => {
   it("heavy, repeated quakes, an impact and an eruption: every tree upright on its own tile; a knocked-down one only where its ground held", async () => {
     await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const run = (req: ed.ForceRequest) => {
       const before = MapSession.open(decodeProject(ed.project().bytes)).built.heights.slice();

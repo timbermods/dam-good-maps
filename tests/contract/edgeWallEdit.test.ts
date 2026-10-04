@@ -27,7 +27,6 @@ const wallItem = (items: CheckItem[]) => items.find((i) => i.id === "terrain.edg
 describe("an edge wall on an edited map (D323)", () => {
   it("warns and never blocks the save; Lower the wall is one undo step and leaves no wall", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     // the generated map has none (D151)
     expect(wallItem(ed.exportCheck().warnings)).toBeUndefined();

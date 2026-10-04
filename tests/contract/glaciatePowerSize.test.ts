@@ -8,7 +8,7 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
-import { glacierSections, type GlacierSection } from "../../src/core/forces/glaciate/measure";
+import { glacierSections, type GlacierSection } from "../../tools/lib/glaciate";
 import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 

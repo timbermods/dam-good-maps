@@ -26,23 +26,23 @@
 // runs this code.
 
 import * as portable from "../../math/portable";
-import { toMapObject } from "../../features/build";
+import { modelOf } from "../../features/build";
 import { PLACED } from "../../features/edits";
 import { waterSource, type EntitySpec } from "../../format/entities";
-import { guidFrom, hash32 } from "../../math/hash";
-import { placeSourceGroup } from "../../water/sourceGroups";
-import { waterModel } from "../../sim/model";
-import type { WarmState } from "../../sim/preview";
+import { hash32 } from "../../math/hash";
+import { groupIds, placeSourceGroup } from "../../water/sourceGroups";
+import { warmState, type WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
-import { entityTiles, protectedGround, type ForceHead, type ForceMap, type ForceRun, type Lane } from "../force";
+import { entityTiles, protectedGround, type ForceHead, type ForceMap, type Lane } from "../force";
 import { naturalWidth, RiverCharacter } from "./character";
 import { strength } from "../strength";
 import { angleDelta, Course, HEADING_LIMIT, segmentsCross } from "./course";
 import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
-import { floorProblem, forceFloor } from "../floor";
+import { forceFloor } from "../floor";
+import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN, forceSettingsProblem } from "../settings";
 import { shapeRiver } from "./river";
-import { keepSourcesOnMap, type PlacedSource } from "../../water/edgeSources";
+import { clamp } from "../random";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -74,8 +74,8 @@ export interface CarveSettings {
   banks?: number | null;
 }
 
-/** The most tiles of banks a carve leaves (item 18). */
-export const BANKS_MAX = 10;
+/** The most tiles of banks a carve leaves (item 18; settings.ts). */
+export { BANKS_MAX };
 
 export interface CarveIntent {
   origin: number;
@@ -93,9 +93,8 @@ export const DEFAULTS: CarveSettings = { mode: "unleash", power: 65, wander: 35,
 
 /** The strength of the source a carve keeps (D199): following its nominal Width, linked to Power
  *  when Width follows it; 0.5 to 8 water a second. */
-/** Carve's Depth, in levels below the land (D226). */
-export const DEPTH_MIN = 1;
-export const DEPTH_MAX = 12;
+/** Carve's Depth, in levels below the land (D226; settings.ts). */
+export { DEPTH_MAX, DEPTH_MIN };
 
 export const sourceStrength = (power: number, width?: number | null) =>
   Math.round((0.5 + 7.5 * (width == null ? power / 100 : Math.max(0, Math.min(1, (width - 2.8) / 10)))) * 1e6) / 1e6;
@@ -129,7 +128,6 @@ export interface Station {
   lanes: Lane[];
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** Terrain-derived, coherent horizontal beds (a hash of the heights: the same map, the same rock). */
 export function mapSeed(m: Pick<ForceMap, "W" | "H" | "heights">): number {
@@ -142,8 +140,6 @@ export function hardness(level: number, layers: boolean, seed = 0): number {
   return layers && (level + (seed % 4)) % 4 === 0 ? 1 : 0;
 }
 
-/** The water model of a force's map. */
-export const modelFor = (m: ForceMap) => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
 
 /** A carve's own options, beyond its settings: the ground it may not touch (the layer cut, caves),
  *  and the id of the source it keeps. */
@@ -157,7 +153,7 @@ export interface CarveOptions {
   bad?: boolean;
 }
 
-export class CarveRun implements ForceRun {
+export class CarveRun {
   readonly map: ForceMap;
   readonly original: Uint8Array;
   readonly initialWater: Float64Array;
@@ -194,8 +190,6 @@ export class CarveRun implements ForceRun {
   head: ForceHead;
   private readonly model: WaterModel;
   private readonly initialContamination: Float64Array;
-  /** Its sources whose water can still run straight off the map's edge (item 27; empty: all flow in). */
-  edgeLeaks: PlacedSource[] = [];
   /** The step each object the cut took went at (the editor's playback shows it go then, D321). */
   readonly removedAt = new Map<string, number>();
   /** The objects on each tile (their ids), for the ones a cut takes. */
@@ -236,32 +230,10 @@ export class CarveRun implements ForceRun {
     const N = input.W * input.H;
     this.sediment = new Uint8Array(N);
     this.barFloor = new Uint8Array(N);
-    if (
-      input.heights.length !== N ||
-      !Number.isInteger(intent.origin) ||
-      intent.origin < 0 ||
-      intent.origin >= N ||
-      !["unleash", "aim"].includes(settings.mode) ||
-      !["steep", "wide"].includes(settings.walls) ||
-      !Number.isFinite(settings.power) ||
-      settings.power < 0 ||
-      settings.power > 100
-    )
-      throw new Error("Invalid carve settings");
-    if (
-      !Number.isFinite(settings.wander) ||
-      settings.wander < 0 ||
-      settings.wander > 100 ||
-      !Number.isInteger(settings.seed) ||
-      settings.seed < 0 ||
-      settings.seed > 0xffffffff ||
-      (settings.width !== null && (!Number.isFinite(settings.width) || settings.width < 2 || settings.width > 24)) ||
-      (settings.depth != null && (!Number.isInteger(settings.depth) || settings.depth < DEPTH_MIN || settings.depth > DEPTH_MAX)) ||
-      floorProblem(settings.floor) ||
-      (settings.riverDepth != null && !(Number.isInteger(settings.riverDepth) && settings.riverDepth >= 1 && settings.riverDepth <= 22)) ||
-      (settings.banks != null && !(Number.isFinite(settings.banks) && settings.banks >= 0 && settings.banks <= BANKS_MAX))
-    )
-      throw new Error("Invalid character settings");
+    if (input.heights.length !== N || !Number.isInteger(intent.origin) || intent.origin < 0 || intent.origin >= N) throw new Error("the carve's origin is off the map");
+    // (its settings as its row could set them, settings.ts)
+    const why = forceSettingsProblem("carve", settings as unknown as Record<string, unknown>);
+    if (why) throw new Error(why);
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
     // Size and Power (D361 (3)): wider than Power's own river, it cuts in proportion: no deeper than
@@ -286,7 +258,7 @@ export class CarveRun implements ForceRun {
     this.course = new Course(input, settings, intent, this.character);
     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
     this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
-    this.model = modelFor(input);
+    this.model = modelOf(input);
     this.target = input.heights.slice();
     this.sign = new Int8Array(N);
     this.wear = new Float64Array(N);
@@ -322,11 +294,16 @@ export class CarveRun implements ForceRun {
       const W = input.W;
       const occupied = new Uint8Array(N);
       for (const e of input.entities) for (const i of entityTiles(W, input.H, e)) occupied[i] = 1;
-      const g = placeSourceGroup({ kind: "water", x, y, strength, seed: hash32(this.seed, intent.origin), flow: [this.head.dx, this.head.dy] }, { W, H: input.H, heights: input.heights, occupied });
+      const req = { kind: "water", x, y, strength, seed: hash32(this.seed, intent.origin), flow: [this.head.dx, this.head.dy] } as const;
+      const g = placeSourceGroup(req, { W, H: input.H, heights: input.heights, occupied });
       const anchor = g.sources.find((s) => s.x === x && s.y === y);
-      const row = anchor && !g.refused ? g.sources : [{ x, y, z: input.heights[intent.origin], strength, tiles: [intent.origin] }];
+      const grouped = !!anchor && !g.refused;
+      const row = grouped ? g.sources : [{ x, y, z: input.heights[intent.origin], strength, tiles: [intent.origin] }];
+      // (the members' ids: the one rule, water/sourceGroups.ts `groupMemberId`, never an id standing or used)
+      const used = new Set([...input.entities.map((e) => e.id), ...(input.usedIds ?? [])]);
+      const rowIds = grouped ? groupIds(this.sourceId, req, g, (id) => used.has(id)) : [this.sourceId];
       this.group = row
-        .map((s) => ({ id: s.x === x && s.y === y ? this.sourceId : guidFrom(this.sourceId, "carve-source", s.y * W + s.x), tile: s.y * W + s.x, strength: s.strength }))
+        .map((s, k) => ({ id: rowIds[k], tile: s.y * W + s.x, strength: s.strength }))
         .sort((a, b) => (a.id === this.sourceId ? -1 : b.id === this.sourceId ? 1 : 0));
       const ids = new Set(this.group.map((s) => s.id));
       const placed = this.group.map((s) => waterSource({ id: s.id, owner: PLACED, x: s.tile % W, y: Math.floor(s.tile / W), z: this.map.heights[s.tile], strength: s.strength }));
@@ -343,10 +320,6 @@ export class CarveRun implements ForceRun {
   get steps(): number {
     return this.metrics.steps;
   }
-  get added(): readonly string[] {
-    return this.group.map((s) => s.id);
-  }
-
   /** Keep river's source group (D314): the anchor at the origin first, its tile, its share. */
   group: { id: string; tile: number; strength: number }[] = [];
   /** The water as it was, on the ground as it stands: the editor's water carries on from it when the
@@ -354,7 +327,7 @@ export class CarveRun implements ForceRun {
   liveWater(): WarmState {
     const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
     const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
-    return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+    return warmState(model, sim);
   }
 
   /** The source it keeps, as it stands now (null for a dry canyon). */
@@ -716,12 +689,6 @@ export class CarveRun implements ForceRun {
       this.metrics.stable = true;
       // the river's own shape once its canyon is cut: its depth and its banks (items 17, 18)
       const shaped = this.planning ? [] : shapeRiver(this);
-      // its source row at the map's edge flows into the map (item 27: M9b's edge lip, once callable)
-      if (!this.planning && this.group.length) {
-        const kept = keepSourcesOnMap(this.map, this.group.map((g) => ({ x: g.tile % this.map.W, y: Math.floor(g.tile / this.map.W) })));
-        this.edgeLeaks = kept.leaks.map((l) => l.source);
-        shaped.push(...kept.changed);
-      }
       if (shaped.length) {
         if (this.map.lava) for (const i of shaped) this.map.lava[i] &= (1 << this.map.heights[i]) - 1;
         this.dropObjects(shaped);

@@ -66,7 +66,6 @@ export function rng(seed: number): () => number {
 /** Generate and open the map in the editor's session (its water deferred: the sweep is about land). */
 export async function openMap(theme: ThemeId, size: number, seed: number) {
   await runGenerate(makeSpec({ seed, theme, size: { x: size, y: size } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   return MapSession.open(decodeProject(ed.project().bytes)).built;
 }

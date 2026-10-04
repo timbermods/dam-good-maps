@@ -34,6 +34,8 @@ const g = placeSourceGroup(
   Lift that raises one side of a river head's row moves a spring to the row's other end, and it
   keeps its id (a tile's id would be new, an object the player never placed, D368 (10)). A caller
   that stores its ids in its operation (Carve's row, Glaciate's springs) keeps the ones it stored.
+  One rule names every member (`groupMemberId`, D462 answer 5); a force passes `taken` (the ids
+  standing or used), so a new source never takes an id an object holds.
 - The fallback keeps the strength; `g.clamped` is true only where the fewer sources would pass the
   game's cap (8 a tile).
 
@@ -79,11 +81,11 @@ On `feature/forces` (Carve, Unleash) and `feature/glaciate` (Glaciate):
 - **Carve's source** (`forces/carve/run.ts`, the constructor's `waterSource` at `intent.origin`): one call
   with `strength: sourceStrength(power, width)`, `flow: [head.dx, head.dy]` (the carve's heading),
   the carve's seed; ground = the map before the first cut, `occupied` from its entities. The anchor
-  keeps `this.sourceId`; the others get ids derived from it, and `added` lists them all. Each source's
+  keeps `this.sourceId`; the others get theirs from `groupIds`, and `added` lists them all. Each source's
   `z` follows the ground when the carve is kept (the bed is cut under the row).
-- **Glaciate's meltwater** (`forces/glaciate/plan.ts`, `addSource` over the tarn and lake seeds in
-  chunks of 8): one call per site with that site's strength, `flow` from the ground (or the glacier's
-  direction), and the group's sources in place of the chunks.
+- **Glaciate's meltwater** (`forces/glaciate/plan.ts`, `addGroup`): one call per site with that site's
+  strength and `flow` the glacier's direction; the anchor takes a fresh id, the others theirs from
+  `groupIds`.
 - **Unleash** places no source today: the player's own source is the river's origin and stays single
   (a shelf source, D314). If Unleash should give its river a row at the head, that is Kyler's call;
   the module would be called at the source's tile with the source's strength and the breakout's
@@ -109,9 +111,8 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 - **The generator** (M9b): every edge river's mouth, before the course check (`gen/generate.ts`); the
   course check seals only the mouth's own tiles (`land/courses.ts` `sealedMouths`, the build's
   `mouthTilesOf`), and badwater ditches keep out of the lip's reach.
-- **The forces** (batch 1): Carve's source row and Glaciate's meltwater, when their row stands on an edge,
-  once the row is placed and before the water settles; `keep` holds the force's own channel if it runs
-  along the edge.
+- **The forces** do not call it yet: Carve's source row and Glaciate's meltwater can still stand on an edge
+  and pour off it. Whether to wire it in is Kyler's call (the coherence review's B3, D462).
 - **Real places** (when it resumes, D319): each head the conversion puts on an edge.
 
 # A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
