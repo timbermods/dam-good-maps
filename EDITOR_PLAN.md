@@ -64,8 +64,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
   Save project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
   M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
-- **The map generator's panel** (352px at the left; closed, the map takes the whole window, and opening it narrows
-  the map area, never the camera): **Generate** and **Surprise me** pinned at its top; under them, scrolling as one:
+- **The map generator's panel** (352px at the left, lying over the map: opening it never resizes the map or moves
+  the camera; its new single-view design is in mockups, DESIGN.md): **Generate** and **Surprise me** pinned at its top; under them, scrolling as one:
   the map's **Name** (the title's; renaming it here is the title's rename); Theme and Seed (a typed seed is kept,
   with **Keep** to keep or let it go); Size; Terrain, Water, Hazards, Resources, **Difficulty** (Starting wood, Max
   walk to water, Starting berries, Start area, No ruins within) and Limits for this size, each opening in place

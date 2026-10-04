@@ -410,10 +410,28 @@ refinements and what the mockups left open:
   plate 32px, 6px between them, so nothing moves as they show. At its tallest (a square map's 168px minimap) its top
   is 254px above the map's foot, where the minimap's top was before, so the fullest legend still fits at 1920×1080
   with the same 437px.
-- **The panel narrows the map area** rather than covering it, so the camera's insets are the top row (the water row
-  and the camera group), the Show column and the bottom-left group (the left: whichever reaches further), the bar
-  with its settings, and the objects list with a picked object's window, each as far as it reaches plus 8px
-  (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
+- **The map generator lies over the map** (Kyler, 2026-10-04): opening it never resizes the map. The panel sits at
+  the window's left edge, vertically centred between the header (10px below it) and the bar (11px above it, so the
+  room is an even number of pixels and a centred panel sits on whole pixels), over whatever is there while it is open.
+  The map area is the whole window, so the title, the water row and the bar all centre on the window (960 and 1280,
+  to the pixel; the bar's hairline column is 14px so the bar is 880px, an even width). The camera's insets are the
+  top row (the water row and the camera group), the Show column and the bottom-left group (the left: whichever
+  reaches further), the bar with its settings, and the objects list with a picked object's window, each as far as it
+  reaches plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
+- **The map generator's two structures** (mockups, 2026-10-04, for Kyler's pick; `?gen=a`, `?gen=b`;
+  [docs/design/layout2.html](docs/design/layout2.html)): 640px at both sizes, every setting showing, nothing
+  scrolling, every setting through `src/editor/generator/fields.tsx` in the bar's control language. **A, the sheet:**
+  a title block (Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in three columns (Terrain
+  and Difficulty, Water and Hazards, Resources and On this map); two named tabs on the left edge (Map Generator, Your
+  maps). **B, the board:** the bar's 76px cells eight across, the first column Generate, Surprise me and the groups'
+  names as tools' cells; one tab on the left edge, Your maps in the header, On this map a line at the foot. In both
+  the tabs sit flush on the window's edge, 32px wide and 152px tall, and the left side's controls (the Show column,
+  the coordinates, the readout, the minimap) stand 42px from the edge to clear them. 640px rather than a third of the
+  window at 2560×1440 (853px): the controls are the bar's sizes, with no scale-up, so more width would only stretch
+  the sliders and cover more map. "Limits for this size" goes; nothing else is cut.
+- **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
+  map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
+  checks stay left-aligned.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be

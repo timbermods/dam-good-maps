@@ -11,6 +11,7 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
+import { GEN_LAYOUT, MAPS_ICON } from "./generator/GenPanel";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -312,6 +313,12 @@ export function Header(p: HeaderProps) {
         </svg>
         Map Generator
       </button>
+      {GEN_LAYOUT === "b" ? (
+        <button type="button" class="ghost new-map your-maps-button" aria-pressed={false} {...tip("Your maps")}>
+          {MAPS_ICON}
+          Your maps
+        </button>
+      ) : null}
       <div class="editor-title">
         <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>

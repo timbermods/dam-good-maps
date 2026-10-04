@@ -100,7 +100,7 @@ export function officialPhrase(band: string | undefined): string {
 }
 
 /** A setting's tooltip: what it does, then the official maps' range where it has one (D351). */
-function tipOf(id: string, band?: string): string {
+export function tipOf(id: string, band?: string): string {
   const o = officialPhrase(band);
   return [HINT[id], o].filter(Boolean).join(" · ");
 }

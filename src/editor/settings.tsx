@@ -114,19 +114,27 @@ export function ChoiceSetting<T extends string | number>(p: {
   title?: string;
   keys?: readonly string[];
   value: T | null;
-  options: readonly (readonly [T, string, string])[];
+  /** Each option: its value, its word, its tooltip, and why it can't be picked now (if it can't). */
+  options: readonly (readonly [T, string, string, (string | false)?])[];
   onChange(v: T): void;
   auto?: Auto;
+  /** Something small at the right of the name line (Reset, a size's own numbers). */
+  extra?: ComponentChildren;
+  /** The options as wide as their words, not equal (long words in a narrow group). */
+  fit?: boolean;
 }) {
   return (
     <div class={`set plate${p.auto?.on ? " auto" : ""}`} {...(p.title ? tip(p.title, ...(p.keys ?? [])) : {})}>
       <div class="set-head">
         <span class="set-label">{p.label}</span>
-        <span class="set-right">{p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}</span>
+        <span class="set-right">
+          {p.extra}
+          {p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}
+        </span>
       </div>
-      <div class="set-seg" role="group" aria-label={p.label}>
-        {p.options.map(([v, word, title]) => (
-          <button type="button" key={String(v)} aria-pressed={p.value === v} {...tip(title, ...(p.keys ?? []))} onClick={() => p.onChange(v)}>
+      <div class={`set-seg${p.fit ? " fit" : ""}`} role="group" aria-label={p.label}>
+        {p.options.map(([v, word, title, off]) => (
+          <button type="button" key={String(v)} aria-pressed={p.value === v} disabled={!!off} {...tip(off ? `${title}: ${off}` : title, ...(p.keys ?? []))} onClick={() => p.onChange(v)}>
             {word}
           </button>
         ))}

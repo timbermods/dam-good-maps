@@ -437,8 +437,20 @@
   grid-template-columns: 0 minmax(0, 1fr) auto;
 }
 
-.editor.drawer-open .editor-main {
-  grid-template-columns: var(--left-w, 352px) minmax(0, 1fr) auto;
+/* (opening the map generator never resizes the map, Kyler, 2026-10-04: the panel lies over it) */
+.editor-main {
+  /* how far the bar reaches up from the map's foot, and 10px above it: the generator stays between it and the
+     header */
+  --bar-reach: calc(10px + 62px + 10px);
+}
+
+.drawer {
+  position: absolute;
+  z-index: 8;
+  left: 0;
+  top: 10px;
+  bottom: var(--bar-reach);
+  width: 352px;
 }
 
 .drawer {
@@ -914,7 +926,7 @@
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
    on a grid whose columns are the bar's cells (six tools, the hairline, five forces) */
 .tool-dock {
-  --cells: repeat(6, 76px) 13px repeat(5, 76px);
+  --cells: repeat(6, 76px) 14px repeat(5, 76px);
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -1463,4 +1475,564 @@
   user-select: text;
   caret-color: auto;
   cursor: text;
+}
+
+/* ==== the map generator over the map (Kyler, 2026-10-04; mockups A and B, `?gen=a`, `?gen=b`) ==== */
+
+/* the left side's controls stand clear of the tabs on the window's edge */
+.editor[class*="gen-layout-"] .show-stack,
+.editor[class*="gen-layout-"] .editor-view .coords,
+.editor[class*="gen-layout-"] .readout,
+.editor[class*="gen-layout-"] .editor-view .minimap {
+  left: 42px;
+}
+
+/* one panel at the window's left edge, vertically centred between the header and the bar, as tall as what it
+   holds; every setting showing, nothing scrolling */
+.gen {
+  position: absolute;
+  z-index: 8;
+  left: 0;
+  top: 10px;
+  bottom: calc(var(--bar-reach) + 1px);
+  height: fit-content;
+  max-height: calc(100% - 11px - var(--bar-reach));
+  margin: auto 0;
+  width: 640px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  box-shadow: var(--shadow);
+}
+
+/* the tabs on the edge, at the same centre: Map Generator (and in A, Your maps); open, they ride the panel's edge */
+.gen-tabs {
+  position: absolute;
+  z-index: 9;
+  left: 0;
+  top: 10px;
+  bottom: calc(var(--bar-reach) + 1px);
+  height: fit-content;
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gen-tabs.open {
+  left: 640px;
+}
+
+.gen-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 32px;
+  padding: 12px 0;
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.gen-tab svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+
+.gen-tab span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+.gen-tab[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.gen-tab[aria-pressed="true"] svg {
+  color: var(--accent-ink);
+}
+
+.editor-bar .your-maps-button {
+  margin-right: auto;
+  margin-left: -4px;
+}
+
+/* inside the panel: the bar's plates, a little shorter (the panel holds 34 of them) */
+.gen .set.plate {
+  height: 100%;
+  gap: 2px;
+}
+
+.gen .set-range {
+  height: 22px;
+}
+
+.gen .set-seg {
+  height: 24px;
+}
+
+.set-seg.fit button {
+  flex: 1 1 auto;
+}
+
+.set-seg button:disabled {
+  opacity: 0.4;
+}
+
+/* a text field on a plate (the Seed, a custom size): a real field, a caret */
+.set-line {
+  display: flex;
+  gap: 4px;
+  height: 24px;
+}
+
+.set-text {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 7px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* a toggle beside a field: its word centred in it */
+.set-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.set-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.set-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.set-size .set-num {
+  flex: none;
+  width: 38px;
+  height: 18px;
+  padding: 0;
+  text-align: center;
+}
+
+.set-reset {
+  cursor: pointer;
+}
+
+/* the species mix: one bar of four shares, dragged at the edges between them; each share's name and number under it */
+.mix-bar {
+  position: relative;
+  display: flex;
+  height: 10px;
+  margin: 5px 0 4px;
+  border-radius: 5px;
+}
+
+.mix-share {
+  height: 100%;
+}
+
+.mix-share:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.mix-share:nth-child(4) {
+  border-radius: 0 5px 5px 0;
+}
+
+.mix-pine {
+  background: #2f6b3f;
+}
+
+.mix-birch {
+  background: #d8d2b4;
+}
+
+.mix-oak {
+  background: #7fa645;
+}
+
+.mix-succulent {
+  background: #4fa79a;
+}
+
+.mix-edge {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 18px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--panel);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.mix-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 10px;
+  font-size: 12px;
+  line-height: 15px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.mix-words b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mix-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+/* the map's name: a plate whose field is the map's title, two lines kept so a long name never changes the panel */
+.gen .name-field,
+.gen .name-field .field {
+  height: 100%;
+  margin: 0;
+}
+
+.gen .name-field .field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.gen .name-field .field-head {
+  height: 16px;
+  font-size: 13px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.gen .name-field textarea {
+  flex: 1;
+  height: auto !important;
+  min-height: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+  resize: none;
+  overflow: hidden;
+}
+
+.gen .name-field textarea:focus {
+  outline: none;
+  background: var(--bg);
+}
+
+/* Generate and Surprise me */
+.gen-generate,
+.gen-surprise {
+  min-width: 0;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+/* what is on the map */
+.gen-otm h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.gen-otm ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gen-otm li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.gen-otm li img,
+.gen-otm li .shelf-blank {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+/* ---- A: the sheet. A title block on the columns' grid, then the five groups in three columns under hairlines */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.sheet-top,
+.sheet-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 12px;
+}
+
+.sheet-top {
+  grid-template-rows: 76px 48px 48px;
+  row-gap: 4px;
+}
+
+.sheet-name {
+  grid-column: 1 / 3;
+}
+
+.sheet-go {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+}
+
+.sheet-theme {
+  grid-column: 1 / -1;
+}
+
+.sheet-size {
+  grid-column: 2 / -1;
+}
+
+.sheet-cols {
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.sheet-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sheet-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sheet-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 20px;
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.sheet-group h3 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+}
+
+.sheet-item {
+  height: 48px;
+}
+
+.sheet-item:has(.mix) {
+  height: auto;
+}
+
+/* ---- B: the board. The bar's own cells, eight across; the first column the groups' names, as tools' cells */
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px;
+}
+
+.board-band {
+  display: grid;
+  grid-template-columns: repeat(8, 76px);
+  grid-auto-rows: 48px;
+  gap: 4px 2px;
+}
+
+.board-band + .board-band {
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.board-band > div {
+  min-width: 0;
+}
+
+.board-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.board-head svg {
+  color: var(--muted);
+}
+
+.board-go {
+  display: grid;
+  grid-template-rows: 2fr 1fr;
+  gap: 4px;
+}
+
+.board-go .gen-generate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+}
+
+.board-go .gen-surprise {
+  padding: 0 2px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+.gen-go-icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.board .gen-otm.line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.board .gen-otm.line h3 {
+  margin: 0;
+}
+
+.board .gen-otm.line ul {
+  flex: 1;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.board .mix-words {
+  flex-wrap: nowrap;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* covered by the panel while it is open: the Show column (a sliver of it would show above a panel nearly the room's
+   height) */
+.editor.drawer-open[class*="gen-layout-"] .show-stack {
+  visibility: hidden;
+}
+
+/* the species mix, compact (the board's single row): each share's number after a swatch on the name line */
+.mix-head-words {
+  display: flex;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mix-head-words .mix-dot {
+  margin-right: 3px;
+}
+
+.mix.compact .mix-bar {
+  margin: 7px 0 5px;
+}
+
+/* whole pixels: every tab one height, the mix and the counts' label fixed */
+.gen-tab {
+  height: 152px;
+  box-sizing: border-box;
+}
+
+.sheet-item:has(.mix) {
+  height: 76px;
+}
+
+.gen-otm h3 {
+  height: 18px;
+  line-height: 18px;
+}
+
+.sheet {
+  padding-bottom: 13px;
+}
+
+/* every dialog centred on the window (the backdrop does that), its buttons centred in it; a dialog of words (a map
+   being made, a question such as "Delete <name>?", About) has its words centred too (Kyler, 2026-10-04). The export
+   dialog's lists of checks stay left-aligned, read as lists. */
+.dialog footer {
+  justify-content: center;
+}
+
+.making-dialog,
+.dialog[role="alertdialog"],
+.dialog.about {
+  text-align: center;
 }

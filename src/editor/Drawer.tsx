@@ -45,7 +45,7 @@ export interface DrawerModel extends SettingsProps {
 
 /** The map's name, the same as the title: Enter or leaving the field renames it through the core (D443); a name the
  *  core refuses goes back, its reason under the field's name for a moment. */
-function NameField(p: { name: string; onRename(name: string): Promise<string | null> }) {
+export function NameField(p: { name: string; onRename(name: string): Promise<string | null> }) {
   const [text, setText] = useState(p.name);
   const [problem, setProblem] = useState<string | null>(null);
   const timer = useRef(0);

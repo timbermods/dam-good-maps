@@ -20,13 +20,81 @@
   figure { margin: 0; }
   figure a { display: block; }
   img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin: 8px 0 12px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .tablewrap { overflow-x: auto; }
   figcaption { margin-top: 6px; font-size: 0.85rem; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Layout 2: round 8 and the build</h1>
+  <h1>Layout 2: the build, the settings and the map generator</h1>
   <p class="lede">River Valley 4242 at 128×128, the High look, at 1920×1080 and 2560×1440: the design to build. The Map Generator button opens the 352px map generation panel. On the map: the Show toggles as checkbox rows at the top left, Legend last, its full legend under them when ticked; the water controls in one row at the top middle; the camera group, the height slice, Slow forces and the sound at the top right; the objects as a menu at the bottom right, always shown, one per row with no headings; the minimap, the coordinates and the readout at the bottom left; one bar at the bottom middle with the held tool's settings above it on the bar's cells. Click a picture for full size. What doesn't fit is listed in DESIGN.md, "Layout 2 mockups". <strong>Built (2026-10-03):</strong> each mockup now has the build beside it, the same map and state; the map's name is the one M9b gives it (Standing Stone), and the legend shows the objects with the objects menu's pictures at one row height. DESIGN.md, "Layout 2 as built", says what the mockups left open.</p>
+
+  <h2>The map generator: two structures (2026-10-04)</h2>
+  <p class="lede">Every generator setting in one panel over the map at the left, vertically centred between the header and the bar. Opening it never resizes the map, so the title, the water row and the bar all centre on the window (960 and 1280, to the pixel). Both use the bar's control language: a number is a slider with its value at the right of its name, a choice is the one segmented look. Both are 640px wide at both sizes, and nothing scrolls. Live on /preview/ with <code>?gen=a</code> or <code>?gen=b</code>.</p>
+  <h3>A: the sheet</h3>
+  <p class="lede">A title block on top: the Name as the map's title, with Generate and Surprise me beside it; Theme; Seed and Size. Under a hairline, the five groups in three columns: Terrain and Difficulty, Water and Hazards, Resources and On this map. <strong>Collapsed:</strong> two named tabs on the window's left edge at its centre, Map Generator and Your maps; the header's Map Generator button opens it too. Open, the sheet slides out from the edge and the tabs ride its right edge. <strong>Your maps</strong> gets its own tab, opening in the same place. <strong>On this map</strong> closes the third column.</p>
+  <h3>A, collapsed</h3>
+  <div class="row"><figure><a href="gen-a-collapsed-1920x1080.jpg"><img src="gen-a-collapsed-1920x1080.jpg" alt="Option A, collapsed, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: collapsed</figcaption></figure><figure><a href="gen-a-collapsed-2560x1440.jpg"><img src="gen-a-collapsed-2560x1440.jpg" alt="Option A, collapsed, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: collapsed</figcaption></figure></div>
+  <h3>A, open</h3>
+  <div class="row"><figure><a href="gen-a-open-1920x1080.jpg"><img src="gen-a-open-1920x1080.jpg" alt="Option A, open, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: open</figcaption></figure><figure><a href="gen-a-open-2560x1440.jpg"><img src="gen-a-open-2560x1440.jpg" alt="Option A, open, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: open</figcaption></figure></div>
+  <h3>A, open, with a long name</h3>
+  <div class="row"><figure><a href="gen-a-open-long-name-1920x1080.jpg"><img src="gen-a-open-long-name-1920x1080.jpg" alt="Option A, open, with a long name, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: open, with a long name</figcaption></figure><figure><a href="gen-a-open-long-name-2560x1440.jpg"><img src="gen-a-open-long-name-2560x1440.jpg" alt="Option A, open, with a long name, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: open, with a long name</figcaption></figure></div>
+  <h3>B: the board</h3>
+  <p class="lede">The bar's own 76px cells, eight across. The first column holds Generate and Surprise me, then each group's name with its picture, like a tool's cell on the bar. The other seven columns hold the settings, each a plate on whole cells, each group a band. <strong>Collapsed:</strong> one named tab on the left edge at its centre, plus the header's Map Generator button. <strong>Your maps</strong> moves to the header, beside Map Generator, opening in the same place. <strong>On this map</strong> is one line at the board's foot.</p>
+  <h3>B, collapsed</h3>
+  <div class="row"><figure><a href="gen-b-collapsed-1920x1080.jpg"><img src="gen-b-collapsed-1920x1080.jpg" alt="Option B, collapsed, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: collapsed</figcaption></figure><figure><a href="gen-b-collapsed-2560x1440.jpg"><img src="gen-b-collapsed-2560x1440.jpg" alt="Option B, collapsed, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: collapsed</figcaption></figure></div>
+  <h3>B, open</h3>
+  <div class="row"><figure><a href="gen-b-open-1920x1080.jpg"><img src="gen-b-open-1920x1080.jpg" alt="Option B, open, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: open</figcaption></figure><figure><a href="gen-b-open-2560x1440.jpg"><img src="gen-b-open-2560x1440.jpg" alt="Option B, open, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: open</figcaption></figure></div>
+  <h3>B, open, with a long name</h3>
+  <div class="row"><figure><a href="gen-b-open-long-name-1920x1080.jpg"><img src="gen-b-open-long-name-1920x1080.jpg" alt="Option B, open, with a long name, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: open, with a long name</figcaption></figure><figure><a href="gen-b-open-long-name-2560x1440.jpg"><img src="gen-b-open-long-name-2560x1440.jpg" alt="Option B, open, with a long name, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: open, with a long name</figcaption></figure></div>
+  <h3>Every setting</h3>
+  <p class="lede">Defaults are River Valley's at 128×128. “Limits for this size” is gone. Nothing is cut. The changes that need Kyler's yes are listed under the table.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Group</th><th>Setting</th><th>Control</th><th>Range or choices</th><th>Default</th><th>Today</th></tr></thead>
+    <tbody>
+      <tr><td>Top</td><td>Theme</td><td>Choice, 7</td><td>Any · River Valley · Canyon · Highlands · Lake Basin · Delta · Islands</td><td>River Valley</td><td>Dropdown</td></tr>
+      <tr><td>Top</td><td>Seed</td><td>Text field and Keep</td><td>Up to 24 letters or digits; Keep holds it for the next Generate</td><td>4242, Keep off</td><td>Same</td></tr>
+      <tr><td>Top</td><td>Size</td><td>Choice, 5</td><td>96 · 128 · 192 · 256 · Custom (width and height typed, 48–256)</td><td>128 × 128</td><td>Dropdown, then two fields</td></tr>
+      <tr><td>Top</td><td>Name</td><td>Text field, two lines</td><td>Up to 80 letters</td><td>The name M9b gives (Standing Stone)</td><td>Same</td></tr>
+      <tr><td>Terrain</td><td>Relief</td><td>Slider</td><td>0–100</td><td>50</td><td>Slider</td></tr>
+      <tr><td>Terrain</td><td>Verticality</td><td>Slider</td><td>0–100</td><td>20</td><td>Slider</td></tr>
+      <tr><td>Terrain</td><td>Variety</td><td>Slider</td><td>0–100</td><td>70</td><td>Slider</td></tr>
+      <tr><td>Terrain</td><td>Highest terrain</td><td>Slider</td><td>10–16; 10–22 from Verticality 70</td><td>16</td><td>Slider</td></tr>
+      <tr><td>Terrain</td><td>Terracing</td><td>Slider</td><td>0–100</td><td>45</td><td>Slider</td></tr>
+      <tr><td>Terrain</td><td>Buildable land</td><td>Choice, 3</td><td>Tight · Normal · Generous</td><td>Normal</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>Rivers</td><td>Slider</td><td>0–3</td><td>1</td><td>Slider</td></tr>
+      <tr><td>Water</td><td>River style</td><td>Choice, 3</td><td>Straight · Meandering · Braided</td><td>Meandering</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>River flow</td><td>Choice, 4</td><td>Trickle · Normal · Strong · Lush</td><td>Normal</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>Drought reserve</td><td>Choice, 3</td><td>Scarce · Normal · Plenty (one too big for the size is greyed)</td><td>Normal</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>Lakes and basins</td><td>Choice, 4</td><td>None · Few · Some · Many</td><td>Some</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>Waterfalls</td><td>Choice, 3</td><td>Off · Few · Many</td><td>Few</td><td>Dropdown</td></tr>
+      <tr><td>Water</td><td>Sources</td><td>Choice, 2</td><td>Placed · None</td><td>Placed</td><td>Dropdown</td></tr>
+      <tr><td>Hazards</td><td>Badwater</td><td>Choice, 4</td><td>Off · Low · Normal · High</td><td>Normal</td><td>Dropdown (“No badwater”)</td></tr>
+      <tr><td>Hazards</td><td>Badwater distance</td><td>Slider</td><td>8–60 tiles</td><td>15 tiles</td><td>Slider</td></tr>
+      <tr><td>Hazards</td><td>Thorn belts</td><td>Choice, 2</td><td>Off · Some</td><td>Some</td><td>Dropdown</td></tr>
+      <tr><td>Hazards</td><td>Unstable cores</td><td>Choice, 2</td><td>Off · On</td><td>Off</td><td>Dropdown (“Unstable cores (advanced)”)</td></tr>
+      <tr><td>Resources</td><td>Forest density</td><td>Slider</td><td>50–200%, steps of 5</td><td>100%</td><td>Slider</td></tr>
+      <tr><td>Resources</td><td>Grove size</td><td>Choice, 3</td><td>Scattered · Normal · Big woods</td><td>Normal</td><td>Dropdown</td></tr>
+      <tr><td>Resources</td><td>Species mix</td><td>One bar of four shares</td><td>Pine · Birch · Oak · Succulent, summing to 100</td><td>47 · 27 · 20 · 6</td><td>Four typed weights, 0–100 each</td></tr>
+      <tr><td>Resources</td><td>Berries near start</td><td>Slider</td><td>20–100</td><td>48</td><td>Slider</td></tr>
+      <tr><td>Resources</td><td>Berry bushes elsewhere</td><td>Slider</td><td>50–300%, steps of 5</td><td>100%</td><td>Slider</td></tr>
+      <tr><td>Resources</td><td>Ruins and scrap</td><td>Slider</td><td>25–300%, steps of 5</td><td>100%</td><td>Slider</td></tr>
+      <tr><td>Resources</td><td>Relics</td><td>Choice, 2</td><td>Off · Some</td><td>Some</td><td>Dropdown</td></tr>
+      <tr><td>Resources</td><td>Geothermal fields</td><td>Choice, 2</td><td>Off · Some</td><td>Some</td><td>Dropdown</td></tr>
+      <tr><td>Resources</td><td>Mine sites</td><td>Slider</td><td>2–4</td><td>2 (3 above 128×128)</td><td>Slider</td></tr>
+      <tr><td>Difficulty</td><td>Starting wood</td><td>Slider</td><td>0–800 logs, steps of 10</td><td>200</td><td>Typed number</td></tr>
+      <tr><td>Difficulty</td><td>Max walk to water</td><td>Slider</td><td>4–40 tiles</td><td>20</td><td>Typed number</td></tr>
+      <tr><td>Difficulty</td><td>Starting berries</td><td>Slider</td><td>0–200 bushes</td><td>30</td><td>Typed number</td></tr>
+      <tr><td>Difficulty</td><td>Start area</td><td>Choice, 3</td><td>Tight · Normal · Roomy</td><td>Normal</td><td>Dropdown (“Prefer tight”, “Prefer roomy”)</td></tr>
+      <tr><td>Difficulty</td><td>No ruins within</td><td>Slider</td><td>0–60 tiles</td><td>15 tiles</td><td>Typed number</td></tr>
+    </tbody>
+  </table></div>
+  <p class="lede"><strong>Changes for a yes:</strong> (1) Species mix becomes one bar of four shares, with three edges to drag, in place of four typed weights. The generator reads the four as proportions, so the same shares make the same forests. (2) Difficulty's four typed numbers become sliders, the one number look. (3) Shorter option words: Badwater's “No badwater” is Off; Start area's “Prefer tight” and “Prefer roomy” are Tight and Roomy; “Unstable cores (advanced)” is Unstable cores, with “advanced” in its tooltip. (4) “Reset to the theme's settings” is one small Reset settings button on Theme's name line.</p>
+  <h3>Also in this round</h3>
+  <div class="row"><figure><a href="dialogs-centred-1920x1080.jpg"><img src="dialogs-centred-1920x1080.jpg" alt="The making dialog, the Delete prompt and About, centred" loading="lazy"></a><figcaption>Every dialog centred on the window, its words and buttons centred in it</figcaption></figure>
+  <figure><a href="select-none-1920x1080.jpg"><img src="select-none-1920x1080.jpg" alt="Select with nothing selected" loading="lazy"></a><figcaption>Select with nothing selected: the same two rows as with a selection, greyed (select-*.jpg at both sizes)</figcaption></figure></div>
 
   <h2>Option B as built (2026-10-03)</h2>
   <p class="lede">Kyler picked B, with five fixes, now built: one grid for both rows, the bar's own 11 cells, every setting on whole cells so the edges line up with each other and the bar; no keys written in the panel, only in tooltips; Auto's pick outlined (a hollow knob, an outlined option), the player's filled; names at one brighter size; one 120px height for every tool, no empty cells. The area brush joins Brush once #227 merges.</p>

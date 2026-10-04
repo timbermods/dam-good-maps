@@ -595,3 +595,20 @@ Level, the height slice, a source's Strength).
    fields take a caret (`page.css`, the last rule).
 2. **Select keeps one layout:** with nothing selected it shows the same two rows as with a selection, greyed until
    there is one (DESIGN.md, "Layout 2 as built"). Captures: `docs/design/select-none-*.jpg`, `select-selection-*.jpg`.
+
+## The map generator: mockups A and B, and what lands now (2026-10-04)
+
+- **Now, for both:** the generator lies over the map (opening it never resizes the map); the title, the water row and
+  the bar centre on the window to the pixel (the bar now 880px, an even width); every dialog centred, its words and
+  buttons centred.
+- **Mockups:** A, the sheet, and B, the board, built on the real page behind `?gen=a` and `?gen=b` (the default stays
+  the 352px panel until Kyler picks); every setting through the new shared `src/editor/generator/fields.tsx`.
+  Captures: `docs/design/gen-{a,b}-{collapsed,open,open-long-name}-{1920x1080,2560x1440}.jpg`, the inventory table and
+  the changes for a yes on the mockups page (`docs/design/layout2.html`).
+- **Changes for a yes:** the species mix as one bar of four shares; Difficulty's numbers as sliders; shorter option
+  words (Badwater Off; Start area Tight and Roomy; Unstable cores); Reset settings on Theme's line.
+- **Open:** Your maps' own panel isn't drawn in the mockups (only its tab, or its header button in B).
+- **Tests:** `layout.spec.ts`'s open-panel checks now hold Kyler's overlay (the panel at the window's left edge between
+  the header and the bar, everything else in its place; nothing under the panel clicked) instead of the left side
+  moving with a narrowed map. Full browser suite: 129 of 131 before that update; the two left were layout.spec (now
+  passing) and dev's own look-high highlight failure; a shelf label test failed once and passed on rerun.

@@ -1,6 +1,7 @@
 // The editor's layout, Layout 2 (DESIGN.md, "Layout 2 mockups (2026-10-03): the design to build"), at the two sizes
 // it is designed for, 1920×1080 and 2560×1440: with the map generator's panel closed and open, the legend off and
-// on, and each Show toggle on, no two pieces of chrome overlap; the map's info sits at the window's centre; the
+// on, and each Show toggle on, no two pieces of chrome overlap (the open panel lies over the map and whatever is on it,
+// Kyler, 2026-10-04; opening it moves nothing); the map's info sits at the window's centre; the
 // pieces keep to their places (the Show column and the bottom-left group at the map's left, the camera group and the objects
 // menu at its right, the water row and the bar centred in it, the objects menu's foot level with the bar's); the
 // held tool's settings sit on the bar's own cells at its exact width; ticking a toggle moves nothing; the legend
@@ -20,10 +21,6 @@ const MARGIN = 10;
 
 /** The pieces of chrome that must never overlap one another. */
 const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
-/** What keeps its place at the map's right when the panel opens. */
-const RIGHT = [".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".objects-menu"];
-/** What moves with the map's left edge when the panel opens. */
-const LEFT = [".show-column", ".legend-panel", ".editor-view .minimap", ".coords", ".readout"];
 
 interface Box {
   name: string;
@@ -157,7 +154,8 @@ async function onTheCells(page: Page, state: string) {
 /** The checks of one state: no overlap, the info centred, the pieces in their places, solid and readable. */
 async function check(page: Page, w: number, state: string) {
   const bs = await boxes(page);
-  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${bs[i].name} overlaps ${bs[j].name} (${state})`).toBe(false);
+  // (the map generator's panel lies over whatever is on the map while it is open)
+  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (bs[i].name !== ".drawer" && bs[j].name !== ".drawer") expect(overlaps(bs[i], bs[j]), `${bs[i].name} overlaps ${bs[j].name} (${state})`).toBe(false);
   const find = (name: string) => bs.find((b) => b.name === name)!;
   const [map] = await boxes(page, [".editor-view .view3d"]);
   // the map's info at the window's centre, clear of both side groups
@@ -215,7 +213,8 @@ for (const [w, h] of SIZES) {
     const closed: Record<string, Box[]> = {};
     for (const panel of [false, true]) {
       if (panel) await header.getByRole("button", { name: "Map Generator", exact: true }).click();
-      for (const legend of [false, true]) {
+      // (open, the panel lies over the Show column: it is checked with the legend off, nothing under it clicked)
+      for (const legend of panel ? [false] : [false, true]) {
         const state = `panel ${panel ? "open" : "closed"}, legend ${legend ? "on" : "off"}`;
         if (legend) await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
         await settle(page, w, h);
@@ -224,21 +223,22 @@ for (const [w, h] of SIZES) {
         expect(before.some((b) => b.name === ".legend-panel"), `the legend panel (${state})`).toBe(legend);
         if (!panel) closed[String(legend)] = before;
         else {
-          // the panel opens at the map's left, at its one width; the right side stays, the left side moves with it
+          // the panel opens over the map at its left edge, at its one width, between the header and the bar; nothing
+          // else moves (Kyler, 2026-10-04: opening it never resizes the map)
           const d = before.find((b) => b.name === ".drawer")!;
+          const bar = before.find((b) => b.name === ".tool-bar")!;
+          const [map] = await boxes(page, [".editor-view .view3d"]);
           same(d.r - d.l, PANEL, `the panel's one width (${state})`);
+          same(d.l, map.l, `the panel on the window's left edge (${state})`);
+          expect(d.t, `the panel below the header (${state})`).toBeGreaterThanOrEqual(map.t + MARGIN - 0.5);
+          expect(d.b, `the panel above the bar (${state})`).toBeLessThanOrEqual(bar.t - MARGIN + 0.5);
           for (const b of closed[String(legend)]) {
             const a = before.find((x) => x.name === b.name);
-            if (RIGHT.some((s) => b.name.startsWith(s))) expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} keeps its place when the panel opens (${state})`).toBe(true);
-            if (LEFT.some((s) => b.name.startsWith(s))) {
-              expect(a, `${b.name} still there (${state})`).toBeTruthy();
-              same(a!.l - b.l, PANEL, `${b.name} moves with the map's left edge (${state})`);
-              same(a!.t, b.t, `${b.name} keeps its height on the page (${state})`);
-            }
+            expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} keeps its place when the panel opens (${state})`).toBe(true);
           }
         }
         // each toggle on: nothing moves (its own legend may appear beside it), and nothing overlaps
-        for (const name of TOGGLES) {
+        for (const name of panel ? [] : TOGGLES) {
           const box = page.locator(".show-column").getByRole("checkbox", { name, exact: true });
           await box.click();
           await expect(box).toHaveAttribute("aria-checked", "true");
