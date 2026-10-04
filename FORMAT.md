@@ -266,3 +266,7 @@ singleton set, component shapes, outflow format and metadata are otherwise ident
 6. Entities: unique GUIDs, common templates, exact enum case, required components, footprints
    inside the map and on valid ground, nothing overlapping, exactly one StartingLocation with a free
    entrance.
+
+## Map-editor parity objects (D337–D339)
+
+Seeps write WaterSource, BlockObject, WaterDepthStrengthModifier, TimeActivatedComponent, in that order. BadtideDrain writes WaterSource, BlockObject, TimeActivatedComponent; its data footprint is 1×3. Aquifer writes BlockObject then WaterSource, with CurrentStrength 0 and no countdown; AncientAquiferDrill writes BlockObject alone. A delayed source writes CurrentStrength 0 and the four countdown fields IsEnabled, CyclesUntilCountdownActivation, DaysUntilActivation and DaysPassed; days and strengths are floats. UnstableCore writes BlockObject, TimeActivatedComponent (always enabled), UnstableCore; its default radius is 5, cycle 5, countdown 10.5 days. Reserves write BlockObject, FixedStockpile, SingleGoodAllower, Inventory:Stockpile, StockpileVisualizers, Inventory:ConstructionSite; the stock is one allowed good up to capacity, and construction stock records 10 ScrapMetal. `tests/contract/parityObjects.test.ts` checks complete file and project round trips and the load checks for every new object.

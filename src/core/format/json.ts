@@ -17,6 +17,18 @@ export interface JsonObject {
 /** A float value for the writer. */
 export const F = (v: number): JsonFloat => new JsonFloat(v);
 
+/** Plain JSON of game JSON (floats as numbers): what an operation's `components` carry. */
+export function plainOf(v: JsonValue): unknown {
+  if (v instanceof JsonFloat) return v.value;
+  if (Array.isArray(v)) return v.map(plainOf);
+  if (v !== null && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v)) out[k] = plainOf((v as Record<string, JsonValue>)[k]);
+    return out;
+  }
+  return v;
+}
+
 /** Python `repr(float)` digits with a C#-style exponent (upper-case E, sign, at least 2 digits).
  *  Python switches to exponent form below 1e-4 and from 1e16; whole values get ".0". This matches
  *  the prototype's `tbmap.format_float`, which the round-trip oracle uses. */

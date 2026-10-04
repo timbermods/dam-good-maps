@@ -91,6 +91,19 @@ The editor's parts as they are now; their placement and styling are the design p
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
+  - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill
+    (it stands on an aquifer), Badtide Drain (1×3 in the game's data), Unstable Core, Reserve Pile, Warehouse and
+    Tank, Succulent and Mixed woods, with the game's values pinned in `core/data/parity-values.json`. The core has
+    them all; the shelf's tiles, models and settings are the page's. `planEntity` places one at the game's
+    defaults (a new badwater source writes 3; older operations without components keep 1); `optionsOf` and
+    `setOptionsOp` read and change strength or sink (`maxStrength`, 8 a tile), a start delay (Starts at once, or
+    a cycle and countdown days; none for aquifers), a core's radius 0–5 and cycle, a reserve's good (`goodsFor`)
+    and whole stock up to its capacity, each checked against the whole result with a one-line refusal;
+    `planPaintObjects` and the `paintObjects` operation scatter a stroke as literal placed objects in one undo
+    step (Size, Density 0.05–1, Age); `markerNotes` labels them; `blastInfo` and `explosionAfter` answer what a
+    core clears and draw the map after it goes off, the water re-settled, without changing the session;
+    `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
+    never use the placement path (D425).
 - **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down), Reset view, Height
   colours, **Level lines** (D248: a thin line wherever the ground steps down a level, off by default), Markers (the
   sources and the slopes), Clear water and the overlays, **Badwater** and **Under roofs** (where the map has roofed
@@ -156,7 +169,7 @@ The editor's parts as they are now; their placement and styling are the design p
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate; Erode and Deposit when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
@@ -315,6 +328,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
+- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
+  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
+  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
+  More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
+  `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
+- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
+  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
+  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
+  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
+  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
@@ -826,8 +852,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
     stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
     tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
     **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
-  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and
-    aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
+  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
+    above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
+    is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so

@@ -2140,3 +2140,15 @@ The workshop study's numbers for these (D87):
 - **1.0 objects are common in the workshop.** Within the 35: relics 91%, geothermal 86%, plugs
   94%, thorns 74%, seeps 74%, weirs 69%, aquifers 66%, unstable cores 63%, badtide drains 60%
   (official: 47%, 37%, 79%, 42%, 42%, 32%, 11%, 16%, 37%).
+
+---
+
+## From ROADMAP.md, 2026-10-04: Glaciate in Fast (built)
+
+Built in #203 (D374, `src/editor/forceDriver.ts`) and moved here when it merged. Verbatim:
+
+### Glaciate in Fast: the ice carves as it advances (D374)
+
+With D371: Glaciate's land change takes most of its time, carving as the ice advances (no long opening circle, no rush at the
+end); its Fast time is 3.5 s with easing, the other forces about 2 s, Slow forces proportionally slower; every force checked
+for the same imbalance; any stutter Kyler sees is fixed, Glaciate first.
