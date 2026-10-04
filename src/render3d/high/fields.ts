@@ -1,4 +1,4 @@
-// The renderer's bake worker (`Baker`: both looks' moving water, motion.ts) and the High look's
+// The page's bake worker (`Baker`: both looks' moving water, motion.ts) and the High look's
 // ambient occlusion (#65). A whole map's occlusion is made in the worker (bake.worker.ts) and arrives a
 // moment after the map; until then the ground has none (a quiet start, never a wait). An edit's own
 // tiles are redone here at once. A newer request always wins over an older.
@@ -89,6 +89,15 @@ export class Baker {
     this.worker = null;
     this.inFlight.clear();
   }
+}
+
+let shared: Baker | null = null;
+/** The page's bake worker, one for every view: started with the first map's (the warm-up's, D367) and
+ *  kept, so no view waits for a worker to start. (On CI's software drawing a new worker took over 3 s
+ *  to answer its first job, and each view started its own.) A job for a view since closed is answered
+ *  and dropped. */
+export function pageBaker(): Baker {
+  return (shared ??= new Baker());
 }
 
 function texture(W: number, H: number, fill: [number, number, number, number]): DataTexture {
