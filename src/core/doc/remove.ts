@@ -86,6 +86,8 @@ export function planRemove(s: MapSession, tiles: readonly number[], kinds: reado
   }
   for (const p of slopes) ops.push({ op: "removeSlope", params: p });
   for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
+  // (what it counted may all be gone already: an empty step is never sent)
+  if (!ops.length) return { ok: false, errors: ["nothing to remove there"] };
   const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
   const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
   return { ok: true, ops, label: label ?? auto, removed };

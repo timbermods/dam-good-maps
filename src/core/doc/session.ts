@@ -708,8 +708,9 @@ export class MapSession {
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
-   *  one undo takes them all back. */
+   *  one undo takes them all back. An empty group is refused: it would be a step that changes nothing. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
