@@ -105,13 +105,11 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 5. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
    spike's answer).
 
-## Decisions open for Kyler (word for word)
-
-Nothing waiting. His answers are PLAN §20 D455–D460.
-
 ## Waiting for Kyler
 
-Nothing waiting. The coherence review (D386) waits for his word, when he is satisfied.
+One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
+[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen). The defaults still open are in
+[decisions-pending.md](decisions-pending.md).
 
 ## The release gate (D385–D387)
 
