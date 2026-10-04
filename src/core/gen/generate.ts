@@ -2503,7 +2503,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       for (const [x, y] of districtCandidates(base, layout, avoid, band ? 8 : 4, band ?? undefined, onWalk)) {
         const role = "setpiece/secondDistrict/primary";
         const pctx = { W, H, seed, features: layout, heights: base.heights, channel: base.channel, water: base.water, contamination: base.contamination, start: { x: base.start!.x, y: base.start!.y, radius: 4 } };
-        const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role }, true);
+        const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role });
         if (!r.ok) continue;
         let b2 = build([...layout, r.feature], "resources");
         if (!walkableFromStart(b2, x, y)) continue;

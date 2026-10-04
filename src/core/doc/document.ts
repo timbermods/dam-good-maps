@@ -12,10 +12,10 @@
 // `features` is the current state, the log applied to the generation. It is stored for readers of
 // the file (the Python validator reads `spec` and `features`) and checked against the log when the
 // file is opened. `dropRetired` migrates a project file that still holds a lock, a `setLock` or
-// `regenerateRegion` operation, or a "stamp" origin (all removed): they are dropped or converted
-// quietly, and the land they held stays as it was saved. `upgradeCarves` turns a project's `carve`
-// operations, from before the forces shared `forceResult` (D220), into that one; they build exactly
-// as they did.
+// `regenerateRegion` operation, a "stamp" origin or one of the editor's retired set pieces (all
+// removed): they are dropped or converted quietly, and the land the saved map holds stays as it was.
+// `upgradeCarves` turns a project's `carve` operations, from before the forces shared `forceResult`
+// (D220), into that one; they build exactly as they did.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -212,9 +212,10 @@ export interface RetiredNotes {
 }
 
 /** An old project may hold a lock, a `setLock` or `regenerateRegion` operation, or a "stamp"
- *  origin: all removed (D253, D270). Dropped or converted here, quietly; the land they held stays
- *  as it was saved (`kept` and the stored `base` are untouched). Mutates `raw` in place; returns a
- *  note for each thing changed. */
+ *  origin: all removed (D253, D270); or one of the editor's retired set pieces (D462,
+ *  `dropRetiredPieces`). Dropped or converted here, quietly; the land they held stays as it was
+ *  saved (`kept` and the stored `base` are untouched). Mutates `raw` in place; returns a note for
+ *  each thing changed. */
 function dropRetired(raw: Record<string, unknown>): string[] {
   const notes: string[] = [];
   const spec = raw.spec as { constraints?: Record<string, unknown> } | null | undefined;
@@ -242,7 +243,63 @@ function dropRetired(raw: Record<string, unknown>): string[] {
     }
   }
   if (stamped) notes.push("This project held features placed by the stamp tool, which is no longer a feature. They open as the player's own.");
+  const pieces = dropRetiredPieces(raw);
+  if (pieces) notes.push(pieces);
   return notes;
+}
+
+/** The editor's set pieces retired with its drawing tools (D462), and what the note calls each. */
+const RETIRED_PIECES: Record<string, string> = {
+  waterfall: "a waterfall",
+  damSite: "a dam site",
+  gorge: "a gorge",
+  terracedCliffs: "terraced cliffs",
+  plugSpillway: "a plugged spillway",
+  naturalNarrows: "a natural narrows",
+};
+
+/** An old project may hold one of the editor's retired set pieces (D462): it is left out of the
+ *  generation's features, the current ones and the log (the operations that added, changed, moved
+ *  or deleted it), and a river's bed step keeps its drop but no longer names it. The land a stored
+ *  map holds stays as it was saved (an older generation's map, `MapSession`'s frozen mode); a piece
+ *  the build made (one the player placed) no longer builds, its ground and its sources gone. Mutates
+ *  `raw`; returns the note, or null when there was none. */
+function dropRetiredPieces(raw: Record<string, unknown>): string | null {
+  const retired = (f: unknown): f is { id: string; params: { kind: string } } => {
+    const g = f as { kind?: unknown; id?: unknown; params?: { kind?: unknown } } | null;
+    return !!g && g.kind === "setPiece" && typeof g.id === "string" && typeof g.params?.kind === "string" && g.params.kind in RETIRED_PIECES;
+  };
+  const ids = new Set<string>();
+  const kinds = new Set<string>();
+  const edits = Array.isArray(raw.edits) ? (raw.edits as { op?: string; params?: { id?: unknown; feature?: unknown } }[]) : [];
+  for (const f of [...(Array.isArray(raw.baseFeatures) ? raw.baseFeatures : []), ...(Array.isArray(raw.features) ? raw.features : []), ...edits.map((e) => (e?.op === "addFeature" ? e.params?.feature : null))]) {
+    if (!retired(f)) continue;
+    ids.add(f.id);
+    kinds.add(f.params.kind);
+  }
+  if (!ids.size) return null;
+  for (const key of ["baseFeatures", "features"]) if (Array.isArray(raw[key])) raw[key] = (raw[key] as unknown[]).filter((f) => !retired(f));
+  if (Array.isArray(raw.edits))
+    raw.edits = edits.filter((e) => {
+      if (e?.op === "addFeature") return !retired(e.params?.feature);
+      if (e?.op === "updateFeature" || e?.op === "deleteFeature" || e?.op === "reorderFeature") return !ids.has(e.params?.id as string);
+      return true;
+    });
+  // a river's bed step that an on-river piece put there keeps its drop, without the piece's name
+  const unlink = (v: unknown): void => {
+    if (Array.isArray(v)) for (const x of v) unlink(x);
+    else if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (typeof o.setPiece === "string" && ids.has(o.setPiece)) delete o.setPiece;
+      for (const k of Object.keys(o)) unlink(o[k]);
+    }
+  };
+  unlink(raw.baseFeatures);
+  unlink(raw.features);
+  unlink(raw.edits);
+  const names = [...kinds].map((k) => RETIRED_PIECES[k]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return `This project held ${list}, which the editor no longer makes. ${ids.size > 1 ? "They are" : "It is"} left out; land the saved map holds stays as it was.`;
 }
 
 /** A project saved before D220 keeps its carves as the `carve` operation: each becomes the forces'

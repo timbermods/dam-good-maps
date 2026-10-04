@@ -562,11 +562,11 @@ curved outlet valley on large maps; any other Lake Basin spec keeps the shared p
 
 Each set piece lists what it builds, the ranges the game's limits allow, and the constraint validation proves.
 "Levels" are terrain levels; the terrain budget is 0–16 (0 an empty column, used by official maps as river outlets;
-16 the in-game editor's limit; up to 22 at high Verticality, §5.9). Every builder is a shared set-piece builder
-(§19.3). The generator calls it, and Claude reaches it by steering the generator (D139); the editor has no set-piece
-tools (D182, D184). Each builder publishes its achievable ranges for the current map (§9.10). Values outside the
-schema's hard bounds are rejected; values inside them but beyond what the map allows are reduced to the nearest
-achievable value, and the reduction is reported. The measurements behind the ranges (the audit's runs of the water
+16 the in-game editor's limit; up to 22 at high Verticality, §5.9). The generator's land processes
+make the dam sites, falls and gorges (§7); three kinds have a set-piece builder (§19.3): the second district's site,
+ruins on a rise and the badwater hollows. The builders the editor once planned with (waterfalls, dam sites, gorges,
+terraced cliffs, plugged spillways and natural narrows) are retired (D462); the rules below stay where the
+generator and the checks follow them. Values outside a builder's hard bounds are rejected. The measurements behind the ranges (the audit's runs of the water
 port) are in the archive.
 
 ### 9.1 Dam site (gorge and basin)
@@ -695,8 +695,7 @@ where the land's own processes make them. The builder's limits still fix what a 
 
 ### 9.10 Achievable ranges by map size
 
-The builders publish these ranges for the current map, and Claude uses them to resolve words such as "giant" when it
-steers (D139). At 48² / 96² / 128² / 192² / 256²: waterfall width cap (40% of the side along the lip; the hydraulic
+These are the ranges for a map of each size; Claude uses them to resolve words such as "giant" when it steers (D139). At 48² / 96² / 128² / 192² / 256²: waterfall width cap (40% of the side along the lip; the hydraulic
 limit is about side − 8) 19 / 38 / 51 / 76 / 102; the Normal flow budget for the whole map 1.2 / 3.0 / 3.6 / 4.4 / 7.2
 blocks/s (§5.3); the dam-site basin cap (15% of the area) 345 / 1,382 / 2,457 / 5,529 / 9,830 tiles. Waterfall drop:
 hard max 15, practical 12, typical 3–8, at every size. Gorge wall height: 2 to 16 − bed. Reservoirs (blocks ≈ tiles at
@@ -1149,8 +1148,9 @@ must respect:
 - `landform` (hill / plateau / ridge / canyon / valley / island / terraces, with an edgeStyle): gentle = 1-level steps at
   least 3 tiles apart, joined by slopes; terraced = 1-level bands 6–12 deep; cliff = a step of 2+ levels, impassable
   without player stairs; terrain stays within 0–16.
-- `setPiece` (waterfall / damSite / gorge / terracedCliffs / badwaterBasin / plugSpillway / obstaclePayoff /
-  secondDistrict, params per §9): built only by its shared builder (§19.3).
+- `setPiece` (badwaterBasin / obstaclePayoff / secondDistrict, params per §9): built only by its builder (§19.3). A
+  project holding one of the retired kinds (waterfall, damSite, gorge, terracedCliffs, plugSpillway, naturalNarrows)
+  opens without it (D462).
 - `forest`, `berryPatch`: alive only on moist, dry-footed, clean tiles; succulents only on dry soil; common species only.
   `ruinField`: one level, each column needs an 8-neighbour at its level, `RuinModels.VariantId` A–E.
 - `mapObject` (mineSite, relic small / medium / large, geothermal, thornBelt, weir, plug, bridge, unstableCore): the
@@ -1170,23 +1170,23 @@ document, not in the `.timber`.
 
 ### 19.3 Set-piece builders
 
-There is one module per kind in `core/features/setpieces/` (`index.ts` `BUILDERS`). The generator's planner uses it, and
-Claude reaches it by steering the generator (D139); the editor has no set-piece tools (D182, D184). A builder has a
-`request` (a JSON Schema: the hard bounds of a request, outside them rejected), `limits(ctx)` (the ranges this map and
-place allow, §9.10), `plan(request, ctx, id)` (the anchor, footprint and values reduced to the limits, with a report; or
-why it cannot), `check(plan, W, H)` (a stored plan outside the hard bounds, which an operation may bring),
-`rasterize(feature, target)` (terrain and the protected mask), `footprint(feature, target)` (what it reads and writes,
-for dirty-region rebuilds) and optionally its springs, its own slopes, the tiles it keeps clear and what the editor
-shows.
+There is one module per kind the generator makes in `core/features/setpieces/` (`index.ts` `BUILDERS`): the second
+district's site, ruins on a rise and the badwater hollows. Claude reaches them by steering the generator (D139); the
+editor has no set-piece tools (D182, D184), and the editor's own builders (waterfalls, dam sites, gorges, terraced
+cliffs, plugged spillways, natural narrows) are retired with their replay (D462): a project that held one opens
+without it (`doc/document.ts` `dropRetired`); the land a stored map holds stays as it was saved. A builder has a
+`request` (a JSON Schema: the hard bounds of a request, outside them rejected), `check(plan, W, H)` (a stored plan
+outside the hard bounds, which an operation may bring), `rasterize(feature, target)` (terrain and the protected
+mask), `footprint(feature, target)` (what it reads and writes, for dirty-region rebuilds) and optionally `plan`
+(the second district's: the anchor and values on the generated map, with a report; or why it cannot), its springs,
+its own slopes, the tiles it keeps clear and what the editor shows.
 
-`PlanContext` is the map a piece is planned on (its surface, river channels, taken tiles, the start's zone, locked and
-protected tiles, the objects on it; D47). A set-piece feature stores `{kind, request, plan, report}`; operations that
-add or change one are checked against the builder's hard bounds. `BuildContext` is the generated land during
-generation and the current map in the editor: the same code with the same results. The resolved plan is stored in the
-feature; a rebuild rasterizes it and never plans again (§19.7); planning again happens only on an explicit edit of
-the feature. The report lists every value that was reduced, everything that was cleared or relocated (trees, ruins,
-bushes) and every source that was added. A builder never moves the start or touches a locked region; when it would
-have to, the plan fails with the reason. Ruin fields are ordinary features with their own placement rules (§9.7).
+A set-piece feature stores `{kind, request, plan, report}`; operations that add or change one are checked against
+the builder's hard bounds. The generator plans ruins on a rise and the badwater hollows itself and stores their
+plans; the second district's site is planned on the generated map (`PlanContext`: its surface, rivers, water and the
+start's zone). The resolved plan is stored in the feature; a rebuild rasterizes it and never plans again (§19.7). A
+builder never moves the start; when it would have to, the plan fails with the reason. Ruin fields are ordinary
+features with their own placement rules (§9.7).
 
 ### 19.4 Stable ids
 

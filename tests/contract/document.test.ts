@@ -87,6 +87,37 @@ describe("project files (PLAN §19.6)", () => {
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
   });
 
+  it("an old project holding the editor's retired set pieces opens without them (D462)", () => {
+    // the shapes the retired tools saved: a gorge the generator made, and a waterfall the player put
+    // on a river (its step in the river's bed names it), then changed
+    const plain = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
+    const river = plain.features.find((f: { kind: string }) => f.kind === "river");
+    const stepped = { ...river, params: { ...river.params, bedProfile: { ...river.params.bedProfile, steps: [{ at: 20, drop: 1 }] } } };
+    const opened = (raw: unknown) => decodeProject(gzipSync(strToU8(JSON.stringify(raw))));
+    // the project as it opens: the river keeps its step, without the fall
+    const without = { ...plain, edits: [{ op: "updateFeature", params: { id: river.id, patch: { params: { bedProfile: { steps: [{ at: 20, drop: 1 }] } } } }, seq: 1, origin: "user" }], nextSeq: 2 };
+    without.baseFeatures = plain.features;
+    without.features = plain.features.map((f: { id: string }) => (f.id === river.id ? stepped : f));
+    const gorge = { id: "0d1e2f3a-4b5c-4d6e-8f70-000000000001", kind: "setPiece", origin: "generated", role: "setpiece/gorge/1", locked: false, params: { kind: "gorge", request: { river: river.id, from: 30, length: 10, width: 3, wallHeight: 3, access: "none" }, plan: { river: river.id, from: 30, to: 40, width: 3, wallHeight: 3 }, report: [] } };
+    const fall = { id: "0d1e2f3a-4b5c-4d6e-8f70-000000000002", kind: "setPiece", origin: "user", locked: false, params: { kind: "waterfall", request: { mode: "on-river", river: river.id, at: 20, drop: 1 }, plan: { mode: "on-river", river: river.id, at: 20, drop: 1 }, report: [] } };
+    const changed = { ...fall, params: { ...fall.params, report: ["changed"] } };
+    const raw = { ...plain, nextSeq: 4 };
+    raw.baseFeatures = [...plain.features, gorge];
+    raw.edits = [
+      { op: "addFeature", params: { feature: fall }, seq: 1, origin: "user" },
+      { op: "updateFeature", params: { id: river.id, patch: { params: { bedProfile: { steps: [{ at: 20, drop: 1, setPiece: fall.id }] } } } }, seq: 2, origin: "user" },
+      { op: "updateFeature", params: { id: fall.id, patch: { params: { report: ["changed"] } } }, seq: 3, origin: "user" },
+    ];
+    raw.features = [...raw.baseFeatures.map((f: { id: string }) => (f.id === river.id ? { ...stepped, params: { ...stepped.params, bedProfile: { ...stepped.params.bedProfile, steps: [{ at: 20, drop: 1, setPiece: fall.id }] } } } : f)), changed];
+    const doc = opened(raw);
+    expect(doc.features.some((f) => f.kind === "setPiece" && (f.params.kind === "gorge" || f.params.kind === "waterfall"))).toBe(false);
+    expect(doc.edits.map((e) => e.op)).toEqual(["updateFeature"]);
+    const s = MapSession.open(doc);
+    expect(s.notices.some((n) => /a waterfall and a gorge|a gorge and a waterfall/.test(n))).toBe(true);
+    expect(s.history().map((h) => h.applied)).toEqual([true]);
+    expect(sha(s.exportTimber().bytes)).toBe(sha(MapSession.open(opened(without)).exportTimber().bytes));
+  });
+
   it("a map from another generator version opens exactly from its stored base (PLAN §19.7)", () => {
     const doc = { ...generatedDocument(r), generatorVersion: "0.1.9" };
     doc.spec = { ...doc.spec!, generatorVersion: "0.1.9" };

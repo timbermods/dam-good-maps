@@ -156,7 +156,7 @@ export function withObjectsOnNewGround<F extends Feature>(s: MapSession, r: Plan
 /** A set piece's name, as the player sees it. */
 export function pieceName(kind: SetPieceKind): string {
   return (
-    { waterfall: "waterfall", damSite: "dam site", gorge: "gorge", terracedCliffs: "terraced cliffs", badwaterBasin: "badwater spring", plugSpillway: "plugged spillway", obstaclePayoff: "obstacle", secondDistrict: "second district site" } as Record<
+    { badwaterBasin: "badwater spring", obstaclePayoff: "obstacle", secondDistrict: "second district site" } as Record<
       SetPieceKind,
       string
     >
