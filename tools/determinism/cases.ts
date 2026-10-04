@@ -11,14 +11,14 @@ import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
 import { snapshotMap, type ForceMap, type FullForceMap } from "../../src/core/forces/force";
 import { geology } from "../../src/core/forces/random";
 import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
-import { carveForceParams } from "../../src/core/forces/carve/result";
 import { CraterRun, EruptRun, QuakeRun, modelOf, type StagedRun } from "../../src/core/forces/runs";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS, clickFault } from "../../src/core/forces/quake";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
-import { pathRecord, stagedParamsOf } from "../../src/core/forces/result";
+import { keptForceParams } from "../../src/core/forces/keep";
+import type { ForceRequest } from "../../src/core/forces/start";
 import { VERBS } from "../../src/core/forces/op";
 import * as nature from "../../src/core/forces/nature";
 import { tree, waterSource } from "../../src/core/format/entities";
@@ -152,8 +152,10 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     const carve = new CarveRun(m, settings, intent, { sourceId: `carve-source-${seed}` });
     for (let i = 0; !carve.done && i < 3000; i++) carve.step();
     if (!carve.done) throw Error("carve exceeded 3000 steps");
-    const record = carveForceParams(m, carve, { settings, origin: [x, y], ...(mode ? { end: [end % n, Math.floor(end / n)] as [number, number] } : {}), cut: null } as any);
-    return { map: fullMap(carve.map as any), record };
+    // (its record as the editor keeps it: forces/keep.ts)
+    const request = { verb: "carve", settings, origin: [x, y], ...(mode ? { end: [end % n, Math.floor(end / n)] } : {}), cut: null } as ForceRequest;
+    const kept = keptForceParams({ before: m, request, carve, staged: null });
+    return { map: fullMap(carve.map as any), record: kept.ok ? kept.params : null };
   }
   if (verb === "craterize") {
     settings = nature.craterNature({ ...CRATER_DEFAULTS, mode: mode ? "aim" : "strike", power, size, seed, rays: true } as any, ground);
@@ -173,11 +175,14 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     run = new GlaciateRun(m, settings, intent) as any;
   }
   run.planAll();
-  const where =
+  // (its record as the editor keeps it, from the request it would have sent: forces/keep.ts)
+  const request = (
     verb === "quake"
-      ? { path: pathRecord(path), side: intent.side }
-      : { origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path: pathRecord(path) } : {}) };
-  return { map: run.final(), record: stagedParamsOf(m, run, { verb: verb as any, settings, where: where as any, cut: null }) };
+      ? { verb, settings, path, side: intent.side, cut: null }
+      : { verb, settings, origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path } : {}), cut: null }
+  ) as ForceRequest;
+  const kept = keptForceParams({ before: m, request, carve: null, staged: run });
+  return { map: run.final(), record: kept.ok ? kept.params : null };
 }
 
 function water(m: any, ticks = 24) {
@@ -236,7 +241,8 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
         const run = new CraterRun(m, settings, { origin } as any);
         while (!run.done) run.step();
         const after = run.final()!;
-        const record = stagedParamsOf(m, run, { verb: "craterize", settings, where: { origin: [origin % c.n, Math.floor(origin / c.n)] } as any, cut: null });
+        const kept = keptForceParams({ before: m, request: { verb: "craterize", settings, origin: [origin % c.n, Math.floor(origin / c.n)], cut: null }, carve: null, staged: run });
+        const record = kept.ok ? kept.params : null;
         maps.push((await digest(after)).hash);
         records.push(record);
         calls.push(run.steps);

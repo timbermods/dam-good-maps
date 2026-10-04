@@ -133,7 +133,7 @@ export abstract class Staged {
   protected sim: WaterSim | null = null;
   protected ended = false;
   steps = 0;
-  /** The build's last touches on the planned map (the editor's worker sets it). */
+  /** The build's last touches on the planned map (`planForce` sets it: start.ts `buildTouches`). */
   finalize: Finalize | null = null;
 
   constructor(

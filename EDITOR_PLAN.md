@@ -967,7 +967,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how

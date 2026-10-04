@@ -10,16 +10,16 @@ import type { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
 import { deleteEdit, moveEdit, planContextOf, planLake, planLandform, planPiece, planRiver, type PlannedEdit } from "../../src/core/doc/tools";
 import { DEFAULTS as CARVE_DEFAULTS, CarveRun, type CarveSettings } from "../../src/core/forces/carve/run";
-import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
+import { forceMapOf } from "../../src/core/forces/carve/result";
 import { plainEntities, protectedGround, type FullForceMap } from "../../src/core/forces/force";
 import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, type EruptSettings } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS, type QuakeSettings } from "../../src/core/forces/quake";
 import { footprint } from "../../src/core/forces/objects";
 import { geology } from "../../src/core/forces/random";
-import { forceParamsOf, pathRecord } from "../../src/core/forces/result";
+import { keptForceParams } from "../../src/core/forces/keep";
+import type { ForceRequest } from "../../src/core/forces/start";
 import { CraterRun, EruptRun, QuakeRun } from "../../src/core/forces/runs";
-import type { ForceWhere } from "../../src/core/forces/op";
 import type { Facing } from "../../src/core/features/setpieces/common";
 import type { Feature, LandformFeature, Point, RiverFeature } from "../../src/core/features/schema";
 import type { Orientation } from "../../src/core/format/footprints";
@@ -151,8 +151,9 @@ function randomCarve(s: MapSession, rng: Rng): EditOp | null {
   };
   const run = new CarveRun(m, settings, { origin: oy * W + ox }, { sourceId: guid(rng) });
   for (let k = 0, n = 30 + rng.int(0, 40); k < n && !run.done; k++) run.step();
-  const params = carveForceParams(m, run, { settings, origin: [ox, oy], cut: null });
-  return params ? { op: "forceResult", params } : null;
+  // (its operation as the editor keeps it: forces/keep.ts)
+  const kept = keptForceParams({ before: m, request: { verb: "carve", settings, origin: [ox, oy], cut: null }, carve: run, staged: null });
+  return kept.ok ? { op: "forceResult", params: kept.params } : null;
 }
 
 /** A small, real force (Craterize, Erupt or Quake's Lift; D202, D203, D206, the way the product makes
@@ -188,33 +189,33 @@ function randomForce(s: MapSession, rng: Rng): EditOp | null {
   const verb = rng.pick(["craterize", "erupt", "quake"] as const);
   const seed = rng.int(0, 1000);
   let run: CraterRun | EruptRun | QuakeRun;
-  let settings: CraterSettings | EruptSettings | QuakeSettings;
-  let where: ForceWhere;
+  let request: ForceRequest;
   try {
     if (verb === "craterize") {
-      settings = { ...CRATER_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, seed };
+      const settings: CraterSettings = { ...CRATER_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, seed };
       run = new CraterRun(map, settings, { origin: oy * W + ox }, keep);
-      where = { origin: [ox, oy] };
+      request = { verb, settings, origin: [ox, oy], cut: null };
     } else if (verb === "erupt") {
-      settings = { ...ERUPT_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, flows: "light", seed };
+      const settings: EruptSettings = { ...ERUPT_DEFAULTS, power: rng.int(5, 30), size: rng.int(4, 9) * 2, flows: "light", seed };
       run = new EruptRun(map, settings, { origin: oy * W + ox }, keep);
-      where = { origin: [ox, oy] };
+      request = { verb, settings, origin: [ox, oy], cut: null };
     } else {
       const path = [
         { x: Math.max(1, ox - 6), y: oy },
         { x: Math.min(W - 2, ox + 6), y: Math.max(1, Math.min(H - 2, oy + rng.int(-2, 3))) },
       ];
       const side = rng.float() < 0.5 ? (1 as const) : (-1 as const);
-      settings = { ...QUAKE_DEFAULTS, mode: "lift", power: rng.int(10, 35), seed };
+      const settings: QuakeSettings = { ...QUAKE_DEFAULTS, mode: "lift", power: rng.int(10, 35), seed };
       run = new QuakeRun(map, settings, { path, side }, keep);
-      where = { path: pathRecord(path), side };
+      request = { verb, settings, path, side, cut: null };
     }
     run.planAll();
   } catch {
     return null;
   }
-  const params = forceParamsOf(map, run.final()!, { verb, settings, where, cut: null, steps: 1, reason: "done" });
-  return params ? { op: "forceResult", params } : null;
+  // (its operation as the editor keeps it, from the request it would have sent: forces/keep.ts)
+  const kept = keptForceParams({ before: map, request, carve: null, staged: run });
+  return kept.ok ? { op: "forceResult", params: kept.params } : null;
 }
 
 /** A Fill on a real hollow (D387 (3), D394), the way the editor's question makes one: a dry tile
