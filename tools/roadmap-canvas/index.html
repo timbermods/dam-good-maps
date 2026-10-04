@@ -159,6 +159,46 @@
   .drawer .kv { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 3px 10px; font-size: .85rem; }
   .drawer .kv span:nth-child(odd) { color: var(--muted); }
   .dec { font-size: .82rem; margin: 6px 0; } .dec b { font-weight: 600; }
+  /* Phones in portrait: one column, two rows of tabs, 44px targets. Nothing above 700px wide changes. */
+  @media (max-width: 700px) {
+    header { grid-template-columns: minmax(0, 1fr); grid-template-areas: "name" "side" "tabs"; padding: 0 12px; row-gap: 4px; }
+    header h1 { grid-area: name; padding: 10px 0 0; white-space: normal; }
+    .side { grid-area: side; height: auto; flex-wrap: wrap; gap: 6px; }
+    .meta { min-width: 0; text-align: left; margin-right: auto; }
+    .btn { min-height: 44px; }
+    #token, #theme { width: 6.25rem; padding: 0 6px; }
+    .tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 4px; }
+    .tabs button { height: 44px; padding: 0 4px; white-space: normal; line-height: 1.15; }
+    .tokenbox { left: 0; right: 0; top: calc(100% + 4px); flex-wrap: wrap; }
+    .tokenbox input { flex: 1 1 100%; width: auto; height: 44px; font-size: 16px; }
+    .tokenbox .btn { flex: 1 1 0; }
+    .notes { padding: 0 12px; }
+    main { padding: 12px 12px 24px; }
+    .panel { padding: 12px; }
+    .cut { white-space: normal; overflow-wrap: anywhere; }
+    .need { grid-template-columns: 40px minmax(0, 1fr) 34px; row-gap: 2px; }
+    .need > :nth-child(2) { grid-column: 2; grid-row: 1; }
+    .need > :nth-child(3) { grid-column: 2; grid-row: 2; }
+    .need > :nth-child(4) { grid-column: 3; grid-row: 1; }
+    .pr { grid-template-columns: 40px minmax(0, 1fr) 34px; row-gap: 2px; }
+    .pr > :nth-child(2) { grid-column: 2; grid-row: 1; }
+    .pr > :nth-child(3) { grid-column: 2; grid-row: 2; }
+    .pr > :nth-child(4) { grid-column: 3; grid-row: 2; text-align: right; }
+    .pr > :nth-child(5) { grid-column: 3; grid-row: 1; }
+    .merged { grid-template-columns: 40px minmax(0, 1fr) 34px; }
+    .msg { grid-template-columns: minmax(0, 1fr) 34px; }
+    .board { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+    .cardlink, a.chip { min-height: 44px; white-space: normal; text-align: left; }
+    .rel { grid-template-columns: 52px minmax(0, 1fr); }
+    .maptools { flex-wrap: wrap; }
+    .legend { margin-left: 0; flex-basis: 100%; }
+    .mapwrap { height: 70vh; min-height: 320px; }
+    .mapwrap svg { touch-action: none; }
+    .frame.with-drawer { grid-template-columns: minmax(0, 1fr); }
+    .frame.with-drawer main { display: none; }
+    .drawer { border-left: 0; padding: 12px 12px 28px; }
+    .drawer .kv { grid-template-columns: 84px minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -879,7 +919,7 @@ const CONFIG = {
     const W = +svg.dataset.w, H = +svg.dataset.h;
     const size = () => { const r = svg.parentElement.getBoundingClientRect(); svg.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); return r; };
     const apply = () => vp.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`);
-    const fit = () => { const r = size(); const k = Math.min((r.width - 16) / W, (r.height - 16) / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 8 }; apply(); };
+    const fit = () => { const r = size(); if (r.width < 40) return; const k = Math.min((r.width - 16) / W, (r.height - 16) / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 8 }; apply(); };
     size();
     if (!mapView) fit(); else apply();
     let drag = null;

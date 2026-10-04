@@ -7,7 +7,9 @@ the steps over time and the releases. It is a reading tool, not part of the site
 ## Open it
 
 Open `tools/roadmap-canvas/index.html` in a browser, straight from disk. Nothing to run or install. It reads everything
-live when it opens and again every 5 minutes while it is visible.
+live when it opens and again every 5 minutes while it is visible. It is also published from `dev` at
+<https://timbermods.github.io/dam-good-maps/roadmap/>, and works on a phone in portrait: one column, the views in two
+rows.
 
 ## Views
 
