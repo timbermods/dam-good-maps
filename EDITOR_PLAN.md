@@ -192,8 +192,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   channel (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
-  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
-  never depend on the pace.
+  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
+  moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
+  places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
+  melt-back, the lava cooling). A force's heat is its own: a later force never shows an earlier eruption's. The result
+  and what is saved never depend on the pace.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,

@@ -1657,7 +1657,30 @@ export function forceAdvance(steps: number): ForceFrame | null {
     if (!r.planned) r.step();
     else for (let k = 0; k < steps && !r.done; k++) r.step();
   }
+  // the land is final: the force is over now (its row back to its settings, the next edit at once);
+  // what was left of its showing changes nothing on the ground, and its objects take their final
+  // places at once (a glacier's melt-back, an eruption's last cooling and a carve's surge play out
+  // as the page's effects)
+  if (landFinal(f)) {
+    if (f.play) f.play.showTo(f.play.total);
+    else f.staged!.finishAll();
+  }
   return forceFrame(f);
+}
+
+/** The land shown is the force's final land, and it still has steps to show. (The ground's heights:
+ *  all of the land a frame shows.) */
+function landFinal(f: NonNullable<typeof force>): boolean {
+  const shown = f.play ? f.play.map : f.staged!.map;
+  const planned = f.play ? f.play.planned : f.staged!.planned;
+  const done = f.play ? f.play.done : f.staged!.done;
+  if (!planned || done || (f.staged instanceof QuakeRun && f.staged.painting)) return false;
+  const final = f.play ? f.play.run.map : f.staged!.final();
+  if (!final) return false;
+  const a = shown.heights;
+  const b = final.heights;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 // ------------------------------------------------------------- a force's own water (D371)
