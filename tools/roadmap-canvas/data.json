@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-03T08:11:59.423Z",
+ "generatedAt": "2026-10-04T07:22:07.559Z",
  "project": {
   "name": "Dam Good Maps",
   "owner": "Kyler"
@@ -20,9 +20,9 @@
  "repo": {
   "root": "C:\\Users\\Kyler\\code\\DamGoodMaps-roadmap",
   "branch": "tools/roadmap-canvas",
-  "commit": "d055d14a",
+  "commit": "7e05e2ed",
   "commitDate": "2026-10-03",
-  "devCommit": "66a45535",
+  "devCommit": "591d75ef",
   "version": "0.7.0",
   "remote": "timbermods/dam-good-maps"
  },
@@ -30,29 +30,29 @@
   "available": true,
   "note": "",
   "progressLogUrl": "https://github.com/timbermods/dam-good-maps/issues/57",
-  "progressLogCount": 349
+  "progressLogCount": 416
  },
  "stats": {
   "cards": 48,
-  "released": 20,
+  "released": 21,
   "on-dev": 1,
-  "in-flight": 8,
+  "in-flight": 7,
   "planned": 14,
   "ongoing": 1,
   "parked": 1,
   "later": 2,
-  "doneTags": 22,
+  "doneTags": 23,
   "lastRelease": {
-   "name": "licence-agpl-done",
-   "date": "2026-10-01",
+   "name": "m9b-done",
+   "date": "2026-10-03",
    "subject": ""
   },
   "decisionsInForce": 155,
   "nextDecision": "D447",
   "pendingOpen": 8,
   "nextPending": "#158",
-  "openPrs": 18,
-  "openDraftPrs": 11,
+  "openPrs": 33,
+  "openDraftPrs": 10,
   "version": "0.7.0"
  },
  "lanes": [
@@ -2996,7 +2996,7 @@
    "mentionedPrs": [],
    "statusReason": "STATUS: in flight",
    "manifestIndex": 20,
-   "sequence": 20
+   "sequence": 21
   },
   {
    "id": "page",
@@ -3178,7 +3178,7 @@
    "status": "in-flight",
    "statusReason": "STATUS: in flight",
    "manifestIndex": 21,
-   "sequence": 21
+   "sequence": 22
   },
   {
    "id": "m9b",
@@ -3188,7 +3188,9 @@
    "tags": [
     {
      "name": "m9b-done",
-     "exists": false
+     "date": "2026-10-03",
+     "subject": "",
+     "exists": true
     }
    ],
    "roadmap": "^M9b",
@@ -3197,11 +3199,11 @@
     {
      "number": 70,
      "url": "https://github.com/timbermods/dam-good-maps/pull/70",
-     "state": "OPEN",
-     "isDraft": true,
+     "state": "MERGED",
+     "isDraft": false,
      "title": "M9b: composition and variety",
      "branch": "feature/m9b",
-     "mergedAt": null
+     "mergedAt": "2026-10-03T20:26:55Z"
     }
    ],
    "statusMatch": "^M9b",
@@ -3383,10 +3385,11 @@
     }
    ],
    "summary": "Tag m9b-done (M9c folded in, D278). Read docs/PERFECT.md and D252 first (D225, D252): rewritten around five outcomes, judged by Kyler's eye against PERFECT, not only by the batches and the measures (D273). The branch, its tip and the hand-over are in docs/progress/m9b.md on feature/m9b (\"Hand-over\") and docs/STATUS.md.",
-   "status": "in-flight",
-   "statusReason": "STATUS: in flight",
+   "status": "released",
+   "releasedOn": "2026-10-03",
+   "statusReason": "tag m9b-done (2026-10-03)",
    "manifestIndex": 22,
-   "sequence": 22
+   "sequence": 20
   },
   {
    "id": "rust",
@@ -8991,6 +8994,11 @@
    "name": "licence-agpl-done",
    "date": "2026-10-01",
    "subject": ""
+  },
+  {
+   "name": "m9b-done",
+   "date": "2026-10-03",
+   "subject": ""
   }
  ],
  "prs": {
@@ -9666,12 +9674,12 @@
   },
   "70": {
    "headRefName": "feature/m9b",
-   "isDraft": true,
-   "mergedAt": null,
+   "isDraft": false,
+   "mergedAt": "2026-10-03T20:26:55Z",
    "number": 70,
-   "state": "OPEN",
+   "state": "MERGED",
    "title": "M9b: composition and variety",
-   "updatedAt": "2026-10-03T07:12:06Z",
+   "updatedAt": "2026-10-03T20:26:56Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/70"
   },
   "71": {
@@ -10551,7 +10559,7 @@
    "number": 158,
    "state": "OPEN",
    "title": "Investigate Rust forces: partial planners, identity and timings",
-   "updatedAt": "2026-10-03T06:47:12Z",
+   "updatedAt": "2026-10-04T03:56:25Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/158"
   },
   "159": {
@@ -10601,7 +10609,7 @@
    "number": 163,
    "state": "OPEN",
    "title": "The page is the editor, with the design pass (D330, D384)",
-   "updatedAt": "2026-10-03T08:01:00Z",
+   "updatedAt": "2026-10-04T06:53:50Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/163"
   },
   "164": {
@@ -10847,82 +10855,542 @@
   "188": {
    "headRefName": "chore/smooth-idle-line",
    "isDraft": false,
-   "mergedAt": null,
+   "mergedAt": "2026-10-03T22:59:56Z",
    "number": 188,
-   "state": "OPEN",
+   "state": "MERGED",
    "title": "tools/smooth: the PC idle line follows the gate's own rule",
-   "updatedAt": "2026-10-03T07:51:28Z",
+   "updatedAt": "2026-10-03T22:59:56Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/188"
   },
   "189": {
    "headRefName": "feature/rust-water",
    "isDraft": false,
-   "mergedAt": null,
+   "mergedAt": "2026-10-03T08:59:29Z",
    "number": 189,
-   "state": "OPEN",
+   "state": "MERGED",
    "title": "The Rust water, wired and not switched on (D442 (b)): rust/water, its Wasm, RustWaterSim, the native batch binary",
-   "updatedAt": "2026-10-03T08:02:41Z",
+   "updatedAt": "2026-10-03T08:59:29Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/189"
   },
   "190": {
    "headRefName": "tools/roadmap-canvas",
-   "isDraft": true,
+   "isDraft": false,
    "mergedAt": null,
    "number": 190,
    "state": "OPEN",
    "title": "The roadmap canvas: a standalone planning page read from the living documents",
-   "updatedAt": "2026-10-03T08:07:45Z",
+   "updatedAt": "2026-10-04T07:16:56Z",
    "url": "https://github.com/timbermods/dam-good-maps/pull/190"
+  },
+  "191": {
+   "headRefName": "investigation/release-gate-core",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T14:57:22Z",
+   "number": 191,
+   "state": "MERGED",
+   "title": "Release gate: a bug hunt of the water and the editor's core (D385)",
+   "updatedAt": "2026-10-03T14:57:23Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/191"
+  },
+  "192": {
+   "headRefName": "fix/quick-click",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:34:35Z",
+   "number": 192,
+   "state": "MERGED",
+   "title": "A force clicked quickly plays in full; D378's High tests",
+   "updatedAt": "2026-10-03T22:34:35Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/192"
+  },
+  "193": {
+   "headRefName": "fix/gallery-all-places",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T12:52:28Z",
+   "number": 193,
+   "state": "MERGED",
+   "title": "The Real places gallery shows every place, with a \"No reachable water\" note (D445)",
+   "updatedAt": "2026-10-03T12:52:48Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/193"
+  },
+  "194": {
+   "headRefName": "fix/reopen-dead-bushes",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T13:54:25Z",
+   "number": 194,
+   "state": "MERGED",
+   "title": "A reopened project keeps the dead bushes edits leave; pickStart never scores NaN",
+   "updatedAt": "2026-10-03T13:54:51Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/194"
+  },
+  "195": {
+   "headRefName": "fix/waterview-select-flake",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T14:05:25Z",
+   "number": 195,
+   "state": "MERGED",
+   "title": "waterView.spec: the selecting clicks waited 5 s on a worker busy with the water and checks (D341)",
+   "updatedAt": "2026-10-03T14:05:50Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/195"
+  },
+  "196": {
+   "headRefName": "fix/release-gate-core",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T17:19:39Z",
+   "number": 196,
+   "state": "MERGED",
+   "title": "The release gate's core findings fixed (D385)",
+   "updatedAt": "2026-10-03T18:04:28Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/196"
+  },
+  "197": {
+   "headRefName": "fix/release-gate-2",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T18:04:03Z",
+   "number": 197,
+   "state": "MERGED",
+   "title": "Undo groups survive a reopen; an imported map keeps its own water (D456, D457)",
+   "updatedAt": "2026-10-03T18:04:29Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/197"
+  },
+  "198": {
+   "headRefName": "feature/naturalize-sound",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T18:13:47Z",
+   "number": 198,
+   "state": "MERGED",
+   "title": "Naturalize's new sound: a clean CC0 recording (D387 (5), D459)",
+   "updatedAt": "2026-10-03T18:14:20Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/198"
+  },
+  "199": {
+   "headRefName": "feature/carve-river",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:38:42Z",
+   "number": 199,
+   "state": "MERGED",
+   "title": "Carve's river is born as it cuts (D371)",
+   "updatedAt": "2026-10-03T22:38:42Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/199"
+  },
+  "200": {
+   "headRefName": "feature/entity-ids-thumbs",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T21:28:09Z",
+   "number": 200,
+   "state": "MERGED",
+   "title": "Each object's id in the entity view; Your maps' thumbnails at 256px",
+   "updatedAt": "2026-10-03T21:28:31Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/200"
+  },
+  "201": {
+   "headRefName": "fix/look-high-noise",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:43:12Z",
+   "number": 201,
+   "state": "MERGED",
+   "title": "look-high: the Standard-after-High check holds each pair to a redraw's noise",
+   "updatedAt": "2026-10-03T22:43:12Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/201"
+  },
+  "202": {
+   "headRefName": "feature/check-messages",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T23:23:02Z",
+   "number": 202,
+   "state": "MERGED",
+   "title": "Every check's message reads as player text: name, what's wrong, X · Y · Z",
+   "updatedAt": "2026-10-03T23:23:02Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/202"
+  },
+  "203": {
+   "headRefName": "fix/glaciate-fast",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:47:19Z",
+   "number": 203,
+   "state": "MERGED",
+   "title": "Glaciate in Fast: its own 3.5 s once worked out, eased (D374)",
+   "updatedAt": "2026-10-03T22:47:19Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/203"
+  },
+  "204": {
+   "headRefName": "investigation/coherence-review",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T20:51:59Z",
+   "number": 204,
+   "state": "MERGED",
+   "title": "Coherence review (D386, D461): report and cleanup plan before the Rust port",
+   "updatedAt": "2026-10-03T20:52:00Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/204"
+  },
+  "205": {
+   "headRefName": "investigation/release-gate-generator",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T21:20:40Z",
+   "number": 205,
+   "state": "MERGED",
+   "title": "The generator's release-gate bug hunt: six findings with failing tests",
+   "updatedAt": "2026-10-03T21:20:40Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/205"
+  },
+  "206": {
+   "headRefName": "feature/frame-insets",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:51:41Z",
+   "number": 206,
+   "state": "MERGED",
+   "title": "The camera frames the map clear of the page's controls (frameMap insets)",
+   "updatedAt": "2026-10-03T22:51:41Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/206"
+  },
+  "207": {
+   "headRefName": "investigation/rust-checks",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T21:45:33Z",
+   "number": 207,
+   "state": "MERGED",
+   "title": "Investigation: the checks in Rust, byte-identical to the TypeScript (D381)",
+   "updatedAt": "2026-10-03T21:45:33Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/207"
+  },
+  "208": {
+   "headRefName": "feature/renderer-warmup",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:55:48Z",
+   "number": 208,
+   "state": "MERGED",
+   "title": "The renderer warms while the first map loads (D367 part 1, renderer half)",
+   "updatedAt": "2026-10-03T22:55:48Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/208"
+  },
+  "209": {
+   "headRefName": "fix/m9b-generator-findings",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T22:16:03Z",
+   "number": 209,
+   "state": "MERGED",
+   "title": "The release-gate generator hunt's fixes: Lake Basin on every Lake Basin map, Highest terrain a ceiling, links, Mine sites",
+   "updatedAt": "2026-10-03T22:16:04Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/209"
+  },
+  "210": {
+   "headRefName": "investigation/islands-round-2",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 210,
+   "state": "OPEN",
+   "title": "Islands round 2: islands to expand to and the other Islands faults, as a patch (D432, D433)",
+   "updatedAt": "2026-10-03T20:48:51Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/210"
+  },
+  "211": {
+   "headRefName": "investigation/theme-critique",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 211,
+   "state": "OPEN",
+   "title": "Theme critique: every theme's seeds 1–30 at 128², judged by eye against PERFECT's Maps",
+   "updatedAt": "2026-10-04T01:27:45Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/211"
+  },
+  "212": {
+   "headRefName": "feature/rust-water-switch",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 212,
+   "state": "OPEN",
+   "title": "The Rust water switched on (D442 (b), D452): WaterSim in Rust everywhere, batch jobs native, the TypeScript water deleted",
+   "updatedAt": "2026-10-03T21:48:51Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/212"
+  },
+  "213": {
+   "headRefName": "cleanup/1-dead-code",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 213,
+   "state": "OPEN",
+   "title": "Coherence cleanup 1: dead code (no bytes)",
+   "updatedAt": "2026-10-04T07:20:19Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/213"
+  },
+  "214": {
+   "headRefName": "cleanup/2-one-flood",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 214,
+   "state": "OPEN",
+   "title": "Coherence cleanup 2: one flood (Naturalize re-pin)",
+   "updatedAt": "2026-10-04T07:20:28Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/214"
+  },
+  "215": {
+   "headRefName": "fix/properties-seed-m9b",
+   "isDraft": false,
+   "mergedAt": "2026-10-03T23:30:31Z",
+   "number": 215,
+   "state": "MERGED",
+   "title": "properties.test: seeds re-picked for M9b's maps (D148)",
+   "updatedAt": "2026-10-03T23:30:31Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/215"
+  },
+  "216": {
+   "headRefName": "fix/settings-expected",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 216,
+   "state": "OPEN",
+   "title": "settings.test: the five held experiments are expected failures (D466)",
+   "updatedAt": "2026-10-04T07:20:13Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/216"
+  },
+  "217": {
+   "headRefName": "release/m9b",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T01:07:09Z",
+   "number": 217,
+   "state": "MERGED",
+   "title": "Release: m9b-done",
+   "updatedAt": "2026-10-04T01:07:09Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/217"
+  },
+  "218": {
+   "headRefName": "fix/dev-red",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T03:23:17Z",
+   "number": 218,
+   "state": "MERGED",
+   "title": "Fix dev's two red tests: #199 and #192 meeting M9b's maps",
+   "updatedAt": "2026-10-04T03:23:17Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/218"
+  },
+  "219": {
+   "headRefName": "fix/frame-fit",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 219,
+   "state": "OPEN",
+   "title": "The default view fits the map as drawn, snug in what the controls leave",
+   "updatedAt": "2026-10-04T07:20:32Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/219"
+  },
+  "220": {
+   "headRefName": "docs/decisions-split",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 220,
+   "state": "OPEN",
+   "title": "The decisions split by topic (D467)",
+   "updatedAt": "2026-10-04T07:20:09Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/220"
+  },
+  "221": {
+   "headRefName": "cleanup/3-forces-core",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 221,
+   "state": "OPEN",
+   "title": "Coherence cleanup 3: the forces' shared core (no bytes)",
+   "updatedAt": "2026-10-04T07:20:35Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/221"
+  },
+  "222": {
+   "headRefName": "feature/startup-part1",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 222,
+   "state": "OPEN",
+   "title": "Startup part 1, the core half: a project carries its map and opens from it (D367, D455)",
+   "updatedAt": "2026-10-04T07:21:09Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/222"
+  },
+  "223": {
+   "headRefName": "cleanup/4-force-planning",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 223,
+   "state": "OPEN",
+   "title": "Coherence cleanup 4: force planning into the core; one source-group id rule",
+   "updatedAt": "2026-10-04T07:20:51Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/223"
+  },
+  "224": {
+   "headRefName": "investigation/canyon-highlands-96",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 224,
+   "state": "CLOSED",
+   "title": "Investigation: Canyon and Highlands at 96², the causes and a patch",
+   "updatedAt": "2026-10-04T03:41:30Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/224"
+  },
+  "225": {
+   "headRefName": "fix/basin-highlight",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 225,
+   "state": "OPEN",
+   "title": "A source's highlight reads under its own water, in both looks",
+   "updatedAt": "2026-10-04T06:04:20Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/225"
+  },
+  "226": {
+   "headRefName": "cleanup/5-water",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 226,
+   "state": "OPEN",
+   "title": "Coherence cleanup 5: the water (no bytes)",
+   "updatedAt": "2026-10-04T07:20:57Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/226"
+  },
+  "227": {
+   "headRefName": "feature/area-brush",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 227,
+   "state": "OPEN",
+   "title": "The area brush: Timberborn's Terrain as a third shape on Raise and Lower",
+   "updatedAt": "2026-10-04T07:20:43Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/227"
+  },
+  "228": {
+   "headRefName": "fix/stroke-water",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T07:20:01Z",
+   "number": 228,
+   "state": "MERGED",
+   "title": "waterView.spec: the stroke waits for the brush to be out (the stroke-water flake)",
+   "updatedAt": "2026-10-04T07:20:01Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/228"
+  },
+  "229": {
+   "headRefName": "ci/run-less",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T07:15:35Z",
+   "number": 229,
+   "state": "MERGED",
+   "title": "CI runs less: PRs into dev and main, pushes to dev and main, drafts skipped",
+   "updatedAt": "2026-10-04T07:15:36Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/229"
+  },
+  "230": {
+   "headRefName": "cleanup/6-analysis",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 230,
+   "state": "OPEN",
+   "title": "Coherence cleanup 6: analysis and checks (no bytes)",
+   "updatedAt": "2026-10-04T07:21:04Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/230"
+  },
+  "231": {
+   "headRefName": "fix/warmup-ci",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T05:29:06Z",
+   "number": 231,
+   "state": "MERGED",
+   "title": "Fix the warmed renderer's first frame differing from a cold one on CI",
+   "updatedAt": "2026-10-04T05:29:06Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/231"
+  },
+  "232": {
+   "headRefName": "investigation/canyon-highlands-96-report",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T05:30:48Z",
+   "number": 232,
+   "state": "MERGED",
+   "title": "Investigation: Canyon and Highlands at 96², the report (from #224)",
+   "updatedAt": "2026-10-04T05:30:48Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/232"
+  },
+  "233": {
+   "headRefName": "investigation/delta-arms",
+   "isDraft": false,
+   "mergedAt": "2026-10-04T05:53:49Z",
+   "number": 233,
+   "state": "MERGED",
+   "title": "Delta arms: independent river-scale turns (round 2)",
+   "updatedAt": "2026-10-04T05:53:49Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/233"
+  },
+  "234": {
+   "headRefName": "investigation/lake-basin-variety",
+   "isDraft": true,
+   "mergedAt": null,
+   "number": 234,
+   "state": "OPEN",
+   "title": "Lake Basin: varied compositions and adoption patch",
+   "updatedAt": "2026-10-04T05:58:37Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/234"
+  },
+  "235": {
+   "headRefName": "investigation/islands-round-3",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 235,
+   "state": "OPEN",
+   "title": "Islands round 3: the coast (investigation)",
+   "updatedAt": "2026-10-04T07:15:45Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/235"
+  },
+  "237": {
+   "headRefName": "docs/decisions-cleanup",
+   "isDraft": false,
+   "mergedAt": null,
+   "number": 237,
+   "state": "OPEN",
+   "title": "Decisions cleanup: superseded out, renderer merges on green, D468, D469",
+   "updatedAt": "2026-10-04T07:21:02Z",
+   "url": "https://github.com/timbermods/dam-good-maps/pull/237"
   }
  },
  "progressLog": [
   {
-   "createdAt": "2026-10-03T08:02:56Z",
-   "body": "Merged: #187 (62217853, Rust 1.90 and portable.rs in CI, D442 (a)), #186 (properties.test 256² on seed 309), #185 (d0f2e408, the renderer's Naturalize re-meshing, 6 of 6 on its 6-cell check). #189 (the Rust water, wiring only, TypeScript still running) waits for CI. Post-release items 1 and 2 go to the renderer session."
+   "createdAt": "2026-10-04T06:55:13Z",
+   "body": "#225 (basin highlight, renderer session) fails its own test: water-palette.test.ts finds a hard-coded vec3 colour literal in waterMaterial; every water colour must come through the shared palette. It's left to the renderer session, and the queue goes on without it: #229, #228, then the rest brought up to date with dev."
   },
   {
-   "createdAt": "2026-10-03T08:00:35Z",
-   "body": "Parked for Kyler: the roadmap canvas, a standalone planning page on tools/roadmap-canvas (draft #190). It reads ROADMAP, STATUS, PLAN §20, decisions-pending, the *-done tags and GitHub, and shows the steps as a board, the order of work as written, a map of what follows what, the releases, how a change reaches the site, and where the cards drift from the documents. Outside the site and the editor; nothing under src/ changes. Run node tools/roadmap-canvas/extract.mjs, open its index.html. Next: Kyler's look, then whatever the manifest should add or drop."
+   "createdAt": "2026-10-04T06:51:11Z",
+   "body": "Islands round 3 (the coast), investigation finished: #235. The sea is drawn at a third of the side, so its outline is its own, not the rim's rounded square. The rim wanders, ring maps drop to about one in five, the edge layout is rebuilt and atolls are smaller. At 128², all three outcomes on 27 of 30 and every seed has an island to expand to. At 256² the promise slips (all three on 22 of 30, round 2 had 26), while slow settles fall from 17 to 8. Sheets: docs/sheets/islands-round-3-{1,2,3}.png. Next: Kyler judges the sheets and the 256² trade."
   },
   {
-   "createdAt": "2026-10-03T07:36:45Z",
-   "body": "Merged: #182 (sources.spec: the note read twice across its 1.5 s life; one sample now) and #184 (waterView.spec: water on software rendering can take 9–14 s, poll 45 s; the strength note's 1.2 s race fixed) (D341). Open: a third waterView flake near line 144, queued after the quiet window."
+   "createdAt": "2026-10-04T05:59:10Z",
+   "body": "Page session: the settings, option B, built (feature/page, PR #163) - B as built: one 120px panel at the bar's width for every tool. Two rows on the bar's own 11 cells, every setting on whole cells, no empty cells, More gone. Carve, the fullest, sets the height. - Kyler's five fixes: one grid shared by both rows and the bar; no keys in the panel, only in tooltips; Auto's pick outlined (hollow knob, outlined option), the player's filled; names at one brighter 13px size; the rest of B kept. - New controls: Strength on Smooth and Naturalize, Quake's Side, Flatten's Steps (Off, 2, 3, 4), and Turn…"
   },
   {
-   "createdAt": "2026-10-03T07:25:17Z",
-   "body": "#183 merged (5247a7bc): a map's name is stored data set by MapSession.setName(name) (D443): not an operation, no undo; the project file carries it, the .timber name and Your maps follow it; a blank name is refused. The page session can switch over."
+   "createdAt": "2026-10-04T05:58:38Z",
+   "body": "Decision D469 (Kyler, 2026-10-04): badwater mixing with clean water is part of the map's challenge. Badwater streams may join rivers and lakes, including a lake or the main river, and draining off the map on their own is rare. This reverses M9b's containment rules in src/core/land/hazards.ts (D294's channel-without-a-lake rule, the last-stretch rule, item 47). The start still needs clean, pumpable water (D85). The theme critique's badwater-line PR carries the change. It is recorded with D468 once the decisions split (#220) merges, and the next free number becomes D470. Noted on #234: seed…"
   },
   {
-   "createdAt": "2026-10-03T07:14:12Z",
-   "body": "M9b (feature/m9b 4c7223fa): re-pins done, CI green at 49d87d74 (two sea-code bugs fixed: raised shelves left marked as kept water, a sea still rising at 256²). The 840-map measure: 0 failing absolutes at every size; all three outcomes 178/210/211 of 280, down from 220/230/230, all losses in Any, Delta and Islands; Delta misses its water outcome on 5 of 20 (planned river courses partly dry, to trace). The nightly heavy suite found a dev bug (a reopened project loses the dead bushes edits leave standing, D425) and an M9b one (a spring row's source gets a new id after a force edit); both queued…"
+   "createdAt": "2026-10-04T05:31:39Z",
+   "body": "Kyler accepted Delta arms round 2 (#233, f81a9e52): promise, water and straightness 30/30 at 128². #233 is marked ready and merges as an investigation when green. Its patch is adopted (new GENERATOR_VERSION, one re-pin, D308, D148) after the theme critique's badwater-line-and-names PR lands, so the generator re-pins go in one at a time."
   },
   {
-   "createdAt": "2026-10-03T06:58:01Z",
-   "body": "#165 merged (247dd78a): moving water, the Flow view and renderer R1 (D446), on its 6-cell check (6 of 6). Pending #111 superseded. The page session can merge dev."
+   "createdAt": "2026-10-04T04:09:40Z",
+   "body": "The page: the earlier tasks reported, Turn and the fields, and the settings design pass's two options (2026-10-03) Earlier tasks, one line each: - Slow Surprise me presses: the time is the generator's (several layouts; at 256² mostly the start placement and the water). - The page's part, fixed: the 3D renderer is kept from map to map, and the tile index is built when first needed. Opening work at 256² fell from about 0.6 s to 0.26 s. - The generator's part, one line per map: - 256² 4080015677: 25 s, 4 layouts. Start 7.8 s, objects 7.6 s, water 5.8 s. - 256² 609309814: 23.5 s, 10 layouts.…"
   },
   {
-   "createdAt": "2026-10-03T06:01:52Z",
-   "body": "D439–D442 recorded (PLAN §20, CLAUDE, PERFECT, ROADMAP, HANDOFF): speed checks take minutes, Firefox's speed is never measured, the Rust ports' speed gates are dropped, and the Rust adoptions move ahead of the post-release list. Next free: D443."
+   "createdAt": "2026-10-04T03:42:13Z",
+   "body": "The page: Kyler's four fixes and Your maps' menu and counts (2026-10-03) The four fixes (modal with a real Cancel, the page's opening work cut, This source in one line, no mouse focus ring on the map): - The slow presses are the generator's. One line per map: - 256² seed 4080015677: 25 s, 4 layouts. Start 7.8 s, objects 7.6 s, water 5.8 s. - 256² seed 609309814: 23.5 s, 10 layouts. Start 9.0 s, water 7.9 s. - 256² seed 366073264: 14.3 s, 5 layouts. Start 5.6 s, water 4.3 s. - 256² seed 2046707843: 13.9 s, 2 layouts. Start 7.0 s, water 4.3 s. - 128² seed 770509848: 5.3 s, 7 layouts. Start 2.6…"
   },
   {
-   "createdAt": "2026-10-03T05:47:35Z",
-   "body": "D435–D438: the smoothness gate is a 6-cell check (Chrome, discrete GPU, 256², both looks, orbit, brush, force; a clear regression blocks); #165 merges when that check passes on the merged branch; the Rust forces' corpus checks 256² only (Codex, Kyler's PC); new forces are built in Rust on the adopted port, Erode after #158's adoption."
+   "createdAt": "2026-10-04T03:29:58Z",
+   "body": "Merged #218 (f1a87b54), the renderer session's fix for dev's carve and look-high failures. rendererWarmup's CI failure: #231. The renderer shaded a multisampled edge pixel from outside its face under SwiftShader (the roots pattern made it flicker by 5–7). vWorld is now a centroid varying; HighLook.setMap also resets the shadow timer so warm-up shadows can't survive. Tolerance unchanged. For the renderer session: on CI the High look's bakes (occlusion and flow) hadn't arrived 2.5 s after setMap; Baker's onerror drops the worker, and posted jobs then never resolve. CI runs less: #229. Queue:…"
   },
   {
-   "createdAt": "2026-10-03T04:03:23Z",
-   "body": "#181 merged (d54f685e): tools/bench-brush.ts times input-to-frame on the worker path too (Naturalize with brushes-worker.patch). Under load its corrected numbers show the worker patch's land at Size 64 slower than round 4 reported (p50/p95 62/112 ms at 128², 48/192 at 256², against 33/43 and 34/42 without the patch); a quiet re-measure is needed. Also: sources.spec.ts flaked on dev (passed and failed on one commit); its cause is being found (D341)."
+   "createdAt": "2026-10-04T02:25:55Z",
+   "body": "waterView's stroke-water flake: it was the test, not the water. The brush takes the left button only after the page has drawn the tool pick, so on a slow CI page the press came first and panned the camera. Fix: #228; the test waits for the brush to be in hand, and the timeout and check are unchanged. Same failure on dev at c29747ae, 2fb3c2c8 and 3774aaa8. For the page session: a press within about a frame of picking a brush still pans (the tool is set in a useEffect in useViewSync.ts). Also started: CI runs less (Kyler, 2026-10-04), a PR coming."
   },
   {
-   "createdAt": "2026-10-03T03:21:59Z",
-   "body": "#180 merged (3798f253): Your maps entries record the map's size (YourMapEntry.size {w, h} in tiles), filled on every save and once for older entries when the list is next read; for the page session's list."
+   "createdAt": "2026-10-04T01:51:04Z",
+   "body": "Released: m9b-done, exactly m9b-rc1 at df70acce (generator 0.8.0). #217 merged into main as b407656; the deploy and its live check passed (run 37167040403). /preview/ is being republished from feature/page. Site: https://timbermods.github.io/dam-good-maps/ . Next: the post-release list (Dependabot majors D460, D449's core change, D455 (a) with D367 part 1); dev's three red tests (carve and look-high with the renderer session, rendererWarmup with a build agent); then #216 and #212; and the decisions split (#220)."
   },
   {
-   "createdAt": "2026-10-03T02:33:59Z",
-   "body": "### 🤖 Automated Bounty Solution Proposed via AutotaskFlow #### Root Cause Analysis: Processed via high-fidelity verified solver engine (Standard Mode). #### Proposed Code Patch: markdown { \"fixedCode\": \"async function refresh(client) {\\n const res = await client.refreshToken();\\n return res.token;\\n}\", \"explanation\": \"Replaced unhandled callback pattern with standard async/await promise resolution.\", \"pullRequestTitle\": \"fix(auth): resolve unhandled promise rejection in token refresh method\", \"pullRequestBody\": \"## Summary\\nRefactored refresh function to properly await token resolution and…"
+   "createdAt": "2026-10-04T01:48:10Z",
+   "body": "Investigation canyon-highlands-96 done: why Canyon and Highlands miss all three outcomes at 96² and a patch in their own shaping (not applied; for the milestone session after M9b's release). Causes: no river reaches the cutting flow on a small map (four heads share less water), Canyon's course on the lowest bench, lakes setting Highlands' water level, no start on deep-cut rivers, the plan screen's margin. Patch: Canyon keeps two springs and cuts a level deeper, Highlands draws a 128² map's flow, below 128² only. 96² all three: Canyon 15 → 16 (seeds 1–20) and 14 → 17 (21–40), Highlands 10 → 16…"
   },
   {
-   "createdAt": "2026-10-03T02:32:55Z",
-   "body": "### 🤖 Automated Bounty Solution Proposed via AutotaskFlow #### Root Cause Analysis: Processed via high-fidelity verified solver engine (Standard Mode). #### Proposed Code Patch: markdown { \"fixedCode\": \"async function refresh(client) {\\n const res = await client.refreshToken();\\n return res.token;\\n}\", \"explanation\": \"Replaced unhandled callback pattern with standard async/await promise resolution.\", \"pullRequestTitle\": \"fix(auth): resolve unhandled promise rejection in token refresh method\", \"pullRequestBody\": \"## Summary\\nRefactored refresh function to properly await token resolution and…"
+   "createdAt": "2026-10-04T01:40:19Z",
+   "body": "Startup part 1's core half is up: PR #222 (feature/startup-part1 into dev; D367, D455). A project file carries the map as it was saved and opens from it without rebuilding; on reopen the log is replayed once where the checks run and compared with the stored map byte for byte, and undo below the save point works as normal when it matches, stops there when it doesn't. Older files and projects saved with pending water rebuild as before. Tests in tests/contract/storedMap.test.ts; quick suite green locally. Next: CI, then the renderer's half and the page's start of the checks after the first…"
   }
  ],
  "roadmapSections": [
@@ -12601,5 +13069,10 @@
    "file": "ROADMAP.md"
   }
  ],
- "health": []
+ "health": [
+  {
+   "kind": "stale",
+   "text": "STATUS lists #70 as \"#70 draft\" but GitHub says it is merged (M9b)"
+  }
+ ]
 }

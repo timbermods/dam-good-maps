@@ -488,9 +488,10 @@
   }
 
   // ------------------------------------------------------------ render and events
+  const RENDERERS = new Map([['board', renderBoard], ['order', renderOrder], ['map', renderMap], ['releases', renderReleases], ['process', renderProcess], ['health', renderHealth]]);
   function render() {
     renderChrome();
-    ({ board: renderBoard, order: renderOrder, map: renderMap, releases: renderReleases, process: renderProcess, health: renderHealth })[state.view]();
+    (RENDERERS.get(state.view) || renderBoard)();
     renderDrawer();
     writeHash();
   }

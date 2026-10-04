@@ -361,9 +361,13 @@ function escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function dnum(d) { return parseInt(String(d).replace(/\D/g, ''), 10) || 0; }
 function manifestTags(card) { return manifest.milestones.find((m) => m.id === card.id).tags; }
 
+function stripComments(s) {
+  let prev;
+  do { prev = s; s = s.replace(/<!--[\s\S]*?-->/g, ''); } while (s !== prev);
+  return s;
+}
 function stripMd(s) {
-  return String(s || '')
-    .replace(/<!--.*?-->/gs, '')
+  return stripComments(String(s || ''))
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2')
