@@ -1148,6 +1148,15 @@
   cursor: default;
 }
 
+/* a number greyed out (Select's before a selection): the whole plate as faint as a greyed button */
+.set.plate.off {
+  opacity: 0.55;
+}
+
+.set.plate.off .set-range:disabled {
+  opacity: 1;
+}
+
 /* a choice: one segmented look, two options or four, a toggle as Off and On; the player's pick filled, the land's
    (Auto) outlined */
 .set-seg {
@@ -1426,4 +1435,32 @@
 
 .object-window .cell-body .source-readout-label {
   display: none;
+}
+
+/* no text caret and no text selection on the page's controls and labels (Kyler, 2026-10-04): only a real text field
+   (the Name, the Seed, a rename) takes a caret or a selection */
+.editor,
+.dialog-backdrop {
+  -webkit-user-select: none;
+  user-select: none;
+  caret-color: transparent;
+  cursor: default;
+}
+
+.editor input:not([type]),
+.dialog-backdrop input:not([type]),
+.editor input[type="text"],
+.dialog-backdrop input[type="text"],
+.editor input[type="search"],
+.dialog-backdrop input[type="search"],
+.editor input[type="number"],
+.dialog-backdrop input[type="number"],
+.editor textarea,
+.dialog-backdrop textarea,
+.editor [contenteditable="true"],
+.dialog-backdrop [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  caret-color: auto;
+  cursor: text;
 }

@@ -588,3 +588,10 @@ long name had widened its column).
 (Shift+scroll, [ ], F+scroll; 1–10), Quake's side (V), and the object's turn before placing (R). Everything else a key
 or the wheel sets has its control (a brush's Size, Raise/Lower/Flatten's Level, a force's Power and Size, Select's
 Level, the height slice, a source's Strength).
+
+## Two fixes to the bar's settings (2026-10-04)
+
+1. **No text caret, no text selection** on the page's controls and labels (the editor and its dialogs); only real text
+   fields take a caret (`page.css`, the last rule).
+2. **Select keeps one layout:** with nothing selected it shows the same two rows as with a selection, greyed until
+   there is one (DESIGN.md, "Layout 2 as built"). Captures: `docs/design/select-none-*.jpg`, `select-selection-*.jpg`.

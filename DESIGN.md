@@ -385,8 +385,13 @@ refinements and what the mockups left open:
   choice is Meltwater, under "Water". **Try another** (Carve's too, no longer "Try another path") sits beside More in
   cells 10–11. More's details are three cells each (Debris and Flows four, Benches and Steps five), the Floor last.
   A force at work: its status 1–5, Pause 6 (Carve), the keys 7–9, Revert 10–11.
-- **Select with a selection:** its size in cells 7–11 with the keys; its actions take the row above, one per cell:
-  Up 1, Down 1, Level, Flatten, Cut down, Fill up, Delete (its menu opening upward), and over water Max water depth.
+- **Select, one layout with or without a selection** (Kyler, 2026-10-04): row 1 the six shapes (cells 1–6) and the
+  size ("13 × 13 tiles"; "Drag on the map to select" before a selection) in cells 7–11; row 2 Level 1–2, Up 1, Down 1,
+  Flatten, Cut down, Fill up, Delete (its menu opening upward), Max water depth 9–10 and Apply 11, greyed until there
+  is a selection (Max water depth and Apply until it holds water deeper than 1). Selecting changes only what is
+  enabled, never the layout.
+- **No text caret and no text selection** on any control or label (Kyler, 2026-10-04); only a real text field (the
+  Name, the Seed, a rename) takes a caret.
 - **An object's settings leave the bar** (Kyler's sitting, 2026-10-03): they sit in a small window directly above
   the objects list, its edges on the list's, 6px between them (the page's gap between plates), the list's own panel
   look, each name above its control as on the bar. It shows only while an object is picked and its height follows

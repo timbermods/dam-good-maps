@@ -80,7 +80,7 @@ export function NumberSetting(p: {
   const fill = p.max > p.min ? ((p.value - p.min) / (p.max - p.min)) * 100 : 0;
   const words = p.words ?? String(p.value);
   return (
-    <div class={`set plate${p.auto?.on ? " auto" : ""}`} {...tip(p.title, ...(p.keys ?? []))}>
+    <div class={`set plate${p.auto?.on ? " auto" : ""}${p.disabled ? " off" : ""}`} {...tip(p.title, ...(p.keys ?? []))}>
       <div class="set-head">
         <span class="set-label">{p.label}</span>
         <span class="set-right">

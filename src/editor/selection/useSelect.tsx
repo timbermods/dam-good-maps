@@ -376,9 +376,8 @@ export function useSelect(ed: Ed): SelectSlice {
       onBlur: () => setSelectPreview(null),
     });
     const choices = deleteMenu && z ? deleteChoices() : [];
-    // Kyler's option B (2026-10-03): How to select's six shapes on the tools' six cells, icon above its name; beside them
-    // what a drag does, or the selection's size; a selection's Level and actions on the second row, one per cell; keys
-    // only in tooltips (Shift adds, Alt takes away, in the shapes').
+    // Kyler's option B (2026-10-03): How to select's six shapes on the tools' six cells, icon above its name; keys only
+    // in tooltips (Shift adds, Alt takes away, in the shapes').
     const shapes = (
       <span class="segmented shapes" role="group" aria-label="How to select">
         {SELECT_MODES.map(([v, name, hint]) => (
@@ -393,16 +392,9 @@ export function useSelect(ed: Ed): SelectSlice {
         </button>
       </span>
     );
-    if (!z)
-      return (
-        <SettingsGrid
-          label="Selection"
-          groups={[
-            { key: "shapes", row: 1, at: 1, span: 6, rows: 2, node: shapes },
-            { key: "status", row: 1, at: 7, span: 5, rows: 2, centre: true, node: <Words status>Drag on the map</Words> },
-          ]}
-        />
-      );
+    // One layout with or without a selection (Kyler, 2026-10-04): row 1 the shapes and the size; row 2 Level, the
+    // actions, Delete, Max water depth and Apply, greyed until there is a selection (Max water depth and Apply until it
+    // holds water deeper than 1); selecting changes only what is enabled
     const deep = deepest >= 1;
     const act = (key: string, at: number, label: string, title: ReturnType<typeof tip>, what: "raise" | "lower" | "flatten" | "cut" | "fill", run: () => void): Group => ({
       key,
@@ -411,8 +403,7 @@ export function useSelect(ed: Ed): SelectSlice {
       span: 1,
       node: (
         <div class="set">
-
-          <button type="button" class="set-button" {...title} {...way(what)} onClick={run}>
+          <button type="button" class="set-button" disabled={!z} {...title} {...way(what)} onClick={run}>
             {label}
           </button>
         </div>
@@ -420,41 +411,37 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: deep ? 2 : 5, centre: true, node: <Words status>{sizeWords(z)}</Words> },
-      ...(deep
-        ? [
-            {
-              key: "depth",
-              row: 1 as const,
-              at: 9,
-              span: 2,
-              node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={deepest} step={1} onChange={(v) => setMaxDepth(v)} />,
-            },
-            { key: "apply", row: 1 as const, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)} /> },
-          ]
-        : []),
+      { key: "size", row: 1, at: 7, span: 5, centre: true, node: <Words status>{z ? sizeWords(z) : "Drag on the map to select"}</Words> },
       {
         key: "level",
         row: 2,
         at: 1,
-        span: 5,
-        node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} onChange={(v) => setFlattenTo(v)} />,
+        span: 2,
+        node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
-      act("up", 6, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
-      act("down", 7, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
-      act("flatten", 8, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
-      act("cut", 9, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
-      act("fill", 10, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
+      act("up", 3, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
+      act("down", 4, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
+      act("flatten", 5, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
+      act("cut", 6, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
+      act("fill", 7, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
+      {
+        key: "depth",
+        row: 2,
+        at: 9,
+        span: 2,
+        node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
+      },
+      { key: "apply", row: 2, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
         row: 2,
-        at: 11,
+        at: 8,
         span: 1,
         node: (
           <div class="set">
 
             <span class="menu-wrap">
-              <button type="button" class="set-button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
+              <button type="button" class="set-button" disabled={!z} aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
               </button>
               {deleteMenu ? (
