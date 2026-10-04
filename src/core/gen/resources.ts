@@ -58,6 +58,9 @@ export interface ResourceConstraints {
   protect: Uint8Array | null;
   /** Scrap already planned (the obstacle's ruins on a plateau): it counts toward the map's budget. */
   scrapPlaced?: number;
+  /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
+   *  prototypes that still pass it type-check (investigation/generative/proto). */
+  lockedMask?: null;
 }
 
 /** The starting wood a tree of a living grove gives, on average (D164): its species' yield by the

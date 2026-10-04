@@ -42,6 +42,9 @@ export interface ExtrasInput {
   attempt: number;
   /** M9b: the first medium or large relic tries ground the start cannot walk to (D274). */
   relicHigh?: boolean;
+  /** Retired (D253, D270, D336: no locks or keep-outs); always null. Kept only so the frozen
+   *  investigation prototypes that still pass it type-check (investigation/generative/proto). */
+  protect?: null;
 }
 
 /** How many of each object the settings ask for on this map (PLAN §5.4–5.5). */

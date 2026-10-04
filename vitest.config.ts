@@ -6,10 +6,12 @@ import { configDefaults, defineConfig } from "vitest/config";
 // each milestone's full check does.
 //
 // The timeouts only catch a hung test. Under load (four workers, or other batches on the machine) a
-// case can take several times its usual time: the retired drawn rivers at 96² took 17 s alone and over 120 s
+// case can take several times its usual time: the drawn rivers at 96² took 17 s alone and over 120 s
 // beside three other workers (investigation/audit/AUDIT.md, "Baseline").
 const HEAVY = [
   "tests/contract/properties.test.ts", // random edits, undo and redo on every size preset (E1)
+  "tests/contract/rivers.test.ts", // rivers drawn at random on three sizes
+  "tests/contract/reshape.test.ts", // set pieces, lakes and landforms beside every kind of object
   "tests/contract/settings.test.ts", // each setting's batch experiment (M6)
   "tests/contract/firstLand256.test.ts", // the first land shown is the map at 256² (D348)
   "tests/contract/forceEverywhere.heavy.test.ts", // every force at many places on every theme (D356)

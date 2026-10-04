@@ -198,7 +198,7 @@ function attemptOnce(theme: ThemeId, seed: number, size: number, difficulty: Dif
   lap("hazards");
   // map objects on the built ground (relics, geothermal fields, mine sites, thorn belts)
   const walked = startWalkable(base);
-  const objects = planExtras({ spec, base, features: layout, avoid: bad.avoid, candidate: 0, attempt });
+  const objects = planExtras({ spec, base, features: layout, protect: null, avoid: bad.avoid, candidate: 0, attempt });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
     const own = (f: MapObjectFeature) => objectTiles(f, W, H).length;
@@ -213,7 +213,7 @@ function attemptOnce(theme: ThemeId, seed: number, size: number, difficulty: Dif
     base = b2;
   }
   lap("objects");
-  const resources = planResources(spec, base, 0, attempt, { protect: bad.avoid }, []);
+  const resources = planResources(spec, base, 0, attempt, { protect: bad.avoid, lockedMask: null }, []);
   const features = [...layout, ...resources];
   const built = build(features, null);
   lap("resources");
