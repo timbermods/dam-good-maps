@@ -39,7 +39,6 @@ function unevenSpot(s: MapSession, skip: number): [number, number] {
 describe("a badwater source cuts its own spring pool (D290)", () => {
   it("placed on uneven ground: its nine tiles cut down to the lowest, nothing else changed, one step; undo takes both back; the project replays it", async () => {
     await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const [x, y] = unevenSpot(s, 0);
@@ -65,7 +64,6 @@ describe("a badwater source cuts its own spring pool (D290)", () => {
 
   it("a clean source switched to badwater, and a badwater source dragged, cut their pools the same way, each one step", async () => {
     await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const [x, y] = unevenSpot(s, 3);
@@ -101,7 +99,6 @@ describe("a badwater source cuts its own spring pool (D290)", () => {
 
   it("it refuses only at the map's edge and on the start, with one plain reason", async () => {
     await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const st = MapSession.open(decodeProject(ed.project().bytes)).built.start!;
     const edge = ed.applyTool(bad(W - 2, 20), uuid(4));

@@ -49,7 +49,7 @@ function check(name: string, m: WaterModel, opts: WaterSimOptions = {}): Canonic
   const app = canonicalSettle(m, opts);
   const game = (opts.rules ?? "game") === "game";
   const start = prefill(m);
-  const job = encodeCanonicalJob(m, start.depth, start.contamination, { game, edgeSpill: opts.edgeSpill ?? game });
+  const job = encodeCanonicalJob(m, start.depth, start.contamination, { game, edgeSpill: game });
   const wasm = canonicalInWasm(job, m.W * m.H) as CanonicalWater;
   const diffs = [["Rust settle in Wasm", same(app, wasm)]];
   if (exe) diffs.push(["native", same(app, nativeCanonical(exe, m, start, opts))]);

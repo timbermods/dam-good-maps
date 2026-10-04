@@ -25,7 +25,7 @@ export function nativeWaterBinary(): string | null {
 /** One canonical settle job in the native binary. */
 export function nativeCanonical(exe: string, m: WaterModel, start: WaterState, opts: WaterSimOptions = {}): CanonicalWater {
   const game = (opts.rules ?? DEFAULT_WATER_RULES) === "game";
-  const job = encodeCanonicalJob(m, start.depth, start.contamination, { game, edgeSpill: opts.edgeSpill ?? game });
+  const job = encodeCanonicalJob(m, start.depth, start.contamination, { game, edgeSpill: game });
   const framed = new Uint8Array(4 + job.length);
   new DataView(framed.buffer).setUint32(0, job.length, true);
   framed.set(job, 4);

@@ -16,7 +16,7 @@
 // a map converted or built under one keeps being settled with it, `rules` passed explicitly):
 // - evaporation on every active tile, a dry tile that receives water too (the port: wet tiles only);
 // - the spill threshold at the map's edge too, where a floor-0 tile meets the padding (the port
-//   left it out; `edgeSpill`, taken from feature/weather-days' drought run, D303);
+//   left it out; `edgeSpill`, D303);
 // - a partial obstacle (NaturalDam) read from the higher of the two floors up to the ceiled surface
 //   (the port read it at the target's floor only: water from a higher floor passes over it);
 // - the source step sets the old depth too (it only matters beside a partial obstacle).
@@ -58,9 +58,6 @@ export const DEFAULT_WATER_RULES: WaterRules = "game";
 
 export interface WaterSimOptions {
   rules?: WaterRules;
-  /** The spill threshold at the map's edge (D303): the game's rule, on with the game's rules unless
-   *  it is given (feature/weather-days' drought run passes it explicitly). */
-  edgeSpill?: boolean;
 }
 
 /** A water emitter: a WaterSource, BadwaterSource, seep, ... as the tiles it emits into. */
@@ -183,7 +180,7 @@ export class WaterSim {
   readonly rules: WaterRules;
   /** The game's spill threshold at the map's edge too (its padding is an open column, floor 0, never wet:
    *  water on a floor-0 tile at the edge keeps its last 0.1 there, as it would beside a dry tile on the
-   *  same floor). The game's rule (D303); the port left it out. */
+   *  same floor). The game's rule (D303), with the game's rules; the port left it out. */
   readonly edgeSpill: boolean;
   /** The simulation itself, in Rust (rustWater.ts). */
   private readonly rust: RustSim;
@@ -192,7 +189,7 @@ export class WaterSim {
   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
     this.rules = opts.rules ?? DEFAULT_WATER_RULES;
     const game = this.rules === "game";
-    this.edgeSpill = opts.edgeSpill ?? game;
+    this.edgeSpill = game;
     const N = model.W * model.H;
     this.W = model.W;
     this.H = model.H;

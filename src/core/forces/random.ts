@@ -9,12 +9,6 @@ export function hash(seed: number, k: number): number {
   return (Math.imul(x, 0xc2b2ae35) >>> 0) / 4294967296;
 }
 
-export function mixSeed(n: number): number {
-  n = Math.imul(n ^ (n >>> 16), 0x21f0aaad);
-  n = Math.imul(n ^ (n >>> 15), 0x735a2d97);
-  return (n ^ (n >>> 15)) >>> 0;
-}
-
 /** A hash of a height field. */
 export function terrainSeed(h: ArrayLike<number>): number {
   let s = 2166136261;

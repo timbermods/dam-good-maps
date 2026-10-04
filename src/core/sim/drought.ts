@@ -9,7 +9,6 @@ import { clusterSaturation } from "./moisture";
 import { spillLevels } from "./prefill";
 import { TICKS_PER_DAY, DT, type WaterModel } from "./water";
 
-export const EVAPORATION_PER_DAY = 0.0535;
 const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
 
 /** Depth left per tile after `days` of drought, from the settled `depth`. */

@@ -17,7 +17,6 @@ import * as portable from "../math/portable";
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
-import type { WaterState } from "../sim/water";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { clamp, hash, smooth } from "./random";
@@ -465,24 +464,6 @@ export function quake(m: FullForceMap, s: QuakeSettings, i: QuakeIntent): QuakeP
     // planned a slice at a time
   }
   return p;
-}
-
-/** Move the warm water between successive painted plans without duplicating a volume, including when
- *  X reverses the chosen side. */
-export function paintWater(old: FullForceMap, p: QuakePlan, offset: QuakePlan | null): WaterState {
-  const { W, H } = old;
-  const D = new Float64Array(W * H);
-  const C = new Float64Array(D.length);
-  for (let i = 0; i < D.length; i++) {
-    const origin = offset && p.settings.mode === "slide" ? offset.source[i] : i;
-    const bx = origin % W;
-    const by = Math.floor(origin / W);
-    const b = clamp(Math.round(by), 0, H - 1) * W + clamp(Math.round(bx), 0, W - 1);
-    const j = p.settings.mode === "slide" ? clamp(Math.round(by) + p.dy[b], 0, H - 1) * W + clamp(Math.round(bx) + p.dx[b], 0, W - 1) : i;
-    D[j] += old.water.depth[i];
-    C[j] += old.water.depth[i] * old.water.contamination[i];
-  }
-  return { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
 }
 
 /** Eight deterministic fronts: the map at `step` of `steps` (timing and frame rate never enter it). */

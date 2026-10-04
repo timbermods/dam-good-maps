@@ -17,6 +17,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 
 **Batches and measures**
+- `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `lip.ts` `measureLip`, `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
@@ -34,7 +35,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (CLAUDE.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
-**Tests**: tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+**Tests**: most tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`, `tests/unit/portable.test.ts` the maths guard, `tests/unit/smooth.test.ts` the smoothness gate and `tests/unit/ci-changes.test.ts` CI's change filter. Run `npx vitest run tests/unit/retired-terms.test.ts`.
 
 ## Machine setup
 

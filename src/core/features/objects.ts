@@ -15,7 +15,7 @@ import { blockObject, unstableCore, type EntitySpec } from "../format/entities";
 import { hash32, tileHash01 } from "../math/hash";
 import { runsToTiles } from "../math/grid";
 import { entityId } from "./ids";
-import type { MapObjectFeature, MapObjectKind, MapObjectParams } from "./schema";
+import type { MapObjectFeature, MapObjectKind } from "./schema";
 
 /** The template each kind places. */
 export const OBJECT_TEMPLATE: Record<MapObjectKind, string> = {
@@ -192,11 +192,6 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
     if (s && Math.abs(x - s.x) <= s.radius && Math.abs(y - s.y) <= s.radius) add("it is too close to the start");
   }
   return out;
-}
-
-/** The params of a single object at (x, y) facing o. */
-export function singleParams(kind: MapObjectKind, x: number, y: number, o: Orientation, core?: { radius: number; cycles: number }): MapObjectParams {
-  return { kind, placement: { x, y, orientation: o }, ...(core ? { core } : {}) };
 }
 
 // --------------------------------------------------------------------------------- Remove

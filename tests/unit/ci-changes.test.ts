@@ -1,7 +1,9 @@
-// CI skips its heavy suites only for changes that can't affect them (tools/ci-changes.mjs; the rule is in ci.yml's
-// header): documents, LICENSE and package.json's descriptive fields. Code, dependencies and scripts keep the full suite.
+// CI skips suites only for changes that can't affect them (tools/ci-changes.mjs; the rule is in ci.yml's header):
+// documents, LICENSE and package.json's descriptive fields skip everything but the typecheck and the document tests; a
+// change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
+// the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { describe, expect, it } from "vitest";
-import { isDocument, isInvestigation, needsHeavy, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -43,5 +45,40 @@ describe("which changes need the heavy suites", () => {
   it("an unreadable package.json, or one that is new or deleted, is heavy", () => {
     expect(onlyLightFieldsDiffer("{", pkg())).toBe(false);
     expect(needsHeavy(["package.json"], () => null)).toBe(true);
+  });
+});
+
+describe("which suites a change needs", () => {
+  const none = () => null;
+  const all = { heavy: true, suites: true, rust: true };
+  it("documents only: nothing but the document tests", () => {
+    expect(classify(["README.md", "docs/STATUS.md"], none)).toEqual({ heavy: false, suites: false, rust: false });
+  });
+  it("only the editor, the interface and the browser specs (and documents): the browser shards, no other suite", () => {
+    for (const f of ["src/editor/brush.ts", "src/ui/Shelf.tsx", "tests/e2e/shelf.spec.ts"]) expect(isUiOnly(f), f).toBe(true);
+    for (const f of ["src/core/gen/a.ts", "src/main.tsx", "tests/unit/a.test.ts", "playwright.config.ts"]) expect(isUiOnly(f), f).toBe(false);
+    expect(classify(["src/editor/brush.ts", "tests/e2e/brush.spec.ts", "EDITOR_PLAN.md"], none)).toEqual({ heavy: true, suites: false, rust: false });
+  });
+  it("one core file brings the suites back; rust only when the Rust or what wraps it changes", () => {
+    expect(classify(["src/editor/a.ts", "src/core/gen/a.ts"], none)).toEqual({ heavy: true, suites: true, rust: false });
+    // (the app's settle, which the native Rust settle is checked against, wraps the Rust too)
+    for (const f of ["rust/water/src/lib.rs", "tools/rust/check.ts", "rust-toolchain.toml", "src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/sim/water.ts", "src/core/sim/prefill.ts", "src/core/sim/fed.ts", "src/core/math/portable.ts", ".github/workflows/ci.yml"]) {
+      expect(isRustInput(f), f).toBe(true);
+      expect(classify([f], none), f).toEqual(all);
+    }
+    expect(isRustInput("src/core/sim/preview.ts")).toBe(false);
+  });
+  it("dependency changes run everything; a descriptive package.json change is a document", () => {
+    const deps = readWith({ "package.json": [pkg(), pkg({ dependencies: { a: "2" } })] });
+    expect(classify(["package.json", "src/editor/a.ts"], deps)).toEqual(all);
+    const light = readWith({ "package.json": [pkg(), pkg({ license: "Y" })] });
+    expect(classify(["package.json", "src/editor/a.ts"], light)).toEqual({ heavy: true, suites: false, rust: false });
+  });
+  it("a full run turns everything on; a light run (a pull request into dev) never runs the suites or rust", () => {
+    expect(classify(["README.md"], none, "full")).toEqual(all);
+    expect(classify(["rust/a.rs", "src/core/a.ts"], none, "light")).toEqual({ heavy: true, suites: false, rust: false });
+    expect(classify(["README.md"], none, "light")).toEqual({ heavy: false, suites: false, rust: false });
+    expect(classify([], none, "light")).toEqual({ heavy: true, suites: false, rust: false });
+    expect(classify([], none)).toEqual(all);
   });
 });
