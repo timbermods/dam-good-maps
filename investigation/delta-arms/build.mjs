@@ -9,6 +9,7 @@ let after=base;
 const edit=(from,to)=>{if(after.split(from).length!==2)throw Error('Source hook changed: '+from);after=after.replace(from,to);};
 edit('import { distanceFrom }','import { distanceFrom, MinHeap }');
 edit('export function planHydro(',readFileSync(resolve(HERE,'delta-course.ts'),'utf8')+'\nexport function planHydro(');
+edit('    const fan = g.theme === "delta";', '    const fan = g.theme === "delta";\n'+readFileSync(resolve(HERE,'delta-main-bed.ts'),'utf8'));
 edit('    const armBeds:', '    const deltaGround = fan ? h.slice() : null;\n    const armBeds:');
 edit('      const armPath = smoothPath(pts, 1, 1);', '      const armPath = fan && natural ? deltaCourse(p0, [ex, ey], E, W, H, gap, hash32(seed, "delta-course", attempt, a), protect) : smoothPath(pts, 1, 1);');
 edit('const awv = natural ? { ...wanderOf(g, aw), amp: fan ? 2.5 : 1.5, minAmp: 1 } : null;', 'const awv = natural ? (fan ? { ...wanderOf(g, aw), amp: clamp(gap * 0.18, 3.5, 7), minAmp: 2.8, cell: clamp(gap * 1.5, 16, 28), widthVar: 0.5 } : { ...wanderOf(g, aw), amp: 1.5, minAmp: 1 }) : null;');

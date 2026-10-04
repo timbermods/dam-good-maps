@@ -15,8 +15,8 @@ tile, gap, margin, header, row_h = 256, 12, 20, 88, 306
 pair_w = tile * 2 + gap
 sheet = Image.new('RGB', (margin * 2 + 3 * pair_w + 2 * 24, header + 10 * row_h + margin), '#f3f1eb')
 draw = ImageDraw.Draw(sheet)
-draw.text((margin, 12), 'Delta arms — seeds 1–30, 128², default settings', font=title, fill='#252525')
-draw.text((margin, 44), f'Left: dev {BASE[:8]}   |   Right: investigation   |   North up; each map 256 × 256 px', font=font, fill='#333333')
+draw.text((margin, 12), 'Delta arms, round 2 — seeds 1–30, 128², default settings', font=title, fill='#252525')
+draw.text((margin, 44), f'Left: dev {BASE[:8]}   |   Right: round 2   |   North up; each map 256 × 256 px', font=font, fill='#333333')
 rows = []
 for seed in range(1, 31):
     x = margin + ((seed - 1) % 3) * (pair_w + 24)
@@ -29,7 +29,7 @@ for seed in range(1, 31):
                     f'{mode}_mouths': outcome['signature']['mouths'],
                     f'{mode}_straight': data['straight']['pass'],
                     f'{mode}_bank_run': data['straight']['run'], f'{mode}_canal': data['straight']['canal']})
-        label = f'Seed {seed:02} — {"dev" if col == 0 else "after"}'
+        label = f'Seed {seed:02} — {"dev" if col == 0 else "round 2"}'
         draw.text((x + col * (tile + gap), y), label, font=font, fill='#252525')
         image = Image.open(LOCAL / mode / f'{seed}.png').convert('RGB').resize((tile, tile), Image.Resampling.NEAREST)
         sheet.paste(image, (x + col * (tile + gap), y + 24))
@@ -51,7 +51,7 @@ patch = 'diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts\n' + ''.jo
 # Git's diff.suppressBlankEmpty format: blank context lines need no trailing space.
 patch = ''.join('\n' if line == ' \n' else line for line in patch.splitlines(keepends=True))
 (HERE / 'delta-arms.patch').write_text(patch, encoding='utf-8')
-summary = {'base': BASE, 'size': 128, 'seeds': '1–30', 'timings': False}
+summary = {'round': 2, 'base': BASE, 'size': 128, 'seeds': '1–30', 'timings': False}
 for mode in ['before', 'after']:
     summary[mode] = {key: sum(row[f'{mode}_{key}'] for row in rows) for key in ['promise', 'water', 'straight']}
     summary[mode]['misses'] = {key: [r['seed'] for r in rows if not r[f'{mode}_{key}']] for key in ['promise', 'water', 'straight']}
