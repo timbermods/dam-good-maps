@@ -184,6 +184,11 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const channel = Array.from({ length: 6 }, (_, k) => (from[1] + dir * (4 + k)) * W + from[0]);
   const before = await depthAt(page, channel);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  // (the brush takes the map's left button once the page has drawn the click: pressed sooner, on a slow
+  // page, the drag panned the camera, nothing was painted and the water never came. So the press waits
+  // for the brush to be out: over the river it clears the water round it, D212)
+  const wet = await client(page, from[0], from[1] + dir);
+  await expect.poll(async () => (await page.mouse.move(wet.x + 2, wet.y), await page.mouse.move(wet.x, wet.y), clearNear(page))).not.toBeNull();
   const a = await client(page, ...from);
   const b = await client(page, from[0], from[1] + dir * 10);
   await page.mouse.move(a.x, a.y);
