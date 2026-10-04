@@ -12,6 +12,10 @@
 //     here), in Node's WebAssembly and with --engines in each engine, on the golden water fixtures and on
 //     generated maps with and without a stored lake and drained tiles. The scaffolding every later port uses
 //     (D444): native, Node-Wasm, Chromium, Firefox and WebKit give the same bytes.
+//  5. The Rust forces (rust/forces; src/core/forces/rust/forcesWasm.ts, the committed module): every force's
+//     byte fixtures (tools/rust/forces-jobs.ts) give the same packed result natively (forces-batch), in Node's
+//     WebAssembly and with --engines in each engine, and each matches its pin (tools/rust/forces-pins.json,
+//     pinned when the TypeScript forces, tag `ts-forces-final`, gave the same).
 //
 //   npx tsx tools/rust/check.ts [--engines] [--jobs N]
 //
@@ -27,6 +31,9 @@ import { prefill } from "../../src/core/sim/prefill";
 import { canonicalBytesInWasm, decodeCanonical, encodeCanonicalJob } from "../../src/core/sim/rustWater";
 import type { Emitter, WaterModel } from "../../src/core/sim/water";
 import { WATER_WASM } from "../../src/core/sim/waterWasm";
+import { executeInRust } from "../../src/core/forces/rust/bridge";
+import { FORCES_WASM } from "../../src/core/forces/rust/forcesWasm";
+import { forceFixtures, sha256 } from "./forces-jobs";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { assertClean } from "./guard.mjs";
 
@@ -41,6 +48,7 @@ const ENGINES = args.includes("--engines");
 const CRATES = [
   { pkg: "portable-check", lib: "portable_check" },
   { pkg: "water", lib: "water" },
+  { pkg: "forces", lib: "forces" },
 ];
 
 /** The functions in portable_eval's order (rust/portable-check/src/lib.rs). */
@@ -271,6 +279,61 @@ const WATER_IN_PAGE = `async ({ wasm, jobs }) => {
 }`;
 const waterPayload = { wasm: WATER_WASM, jobs: waterJobs.map((j) => Buffer.from(j.job).toString("base64")) };
 
+// 5. the Rust forces: their byte fixtures, the same packed results on every target, as pinned
+const pins = JSON.parse(readFileSync(join(ROOT, "tools/rust/forces-pins.json"), "utf8")) as Record<string, string>;
+const forceJobs = forceFixtures();
+if (forceJobs.length !== Object.keys(pins).length) throw new Error(`the forces' fixtures (${forceJobs.length}) and their pins (${Object.keys(pins).length}) differ: tools/rust/forces-jobs.ts`);
+const nodeForces = forceJobs.map((j) => {
+  const out = executeInRust(j.job);
+  if (sha256(out) !== pins[j.name]) throw new Error(`the Rust forces' ${j.name} differs from its pin (tools/rust/forces-pins.json): a force changed`);
+  return hash53(out);
+});
+const forcesBin = join(RUST, "target/release", process.platform === "win32" ? "forces-batch.exe" : "forces-batch");
+if (!existsSync(forcesBin)) cargo(["build", "--release", "-j", JOBS, "-p", "forces", "--bin", "forces-batch"]);
+{
+  const framed = Buffer.concat(forceJobs.flatMap((j) => [Buffer.from(new Uint32Array([j.job.length]).buffer), Buffer.from(j.job)]));
+  const out = execFileSync(forcesBin, [], { input: framed, maxBuffer: 1 << 30, windowsHide: true });
+  let at = 0;
+  forceJobs.forEach((j, k) => {
+    const len = out.readUInt32LE(at);
+    const got = hash53(new Uint8Array(out.buffer, out.byteOffset + at + 4, len));
+    at += 4 + len;
+    if (got !== nodeForces[k]) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
+  });
+}
+console.log(`the Rust forces: ${forceJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
+
+/** Runs in each page, as plain source: the hashes of the forces' packed results for the jobs (base64), in
+ *  the forces' Wasm (base64), the same hash as hash53. */
+const FORCES_IN_PAGE = `async ({ wasm, jobs }) => {
+  const decode = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const { instance } = await WebAssembly.instantiate(decode(wasm));
+  const x = instance.exports;
+  const out = [];
+  for (const j of jobs) {
+    const job = decode(j);
+    const ptr = x.water_alloc(job.length);
+    new Uint8Array(x.memory.buffer, ptr, job.length).set(job);
+    const lenPtr = x.water_alloc(4);
+    const res = x.forces_execute(ptr, job.length, lenPtr);
+    const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
+    const b = new Uint8Array(x.memory.buffer, res, len);
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < b.length; i++) {
+      h1 = Math.imul(h1 ^ b[i], 2654435761);
+      h2 = Math.imul(h2 ^ b[i], 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    out.push(4294967296 * (2097151 & h2) + (h1 >>> 0));
+    x.water_dealloc(res, len);
+    x.water_dealloc(lenPtr, 4);
+    x.water_dealloc(ptr, job.length);
+  }
+  return out;
+}`;
+const forcesPayload = { wasm: FORCES_WASM, jobs: forceJobs.map((j) => Buffer.from(j.job).toString("base64")) };
+
 if (ENGINES) {
   const playwright = await import("@playwright/test");
   for (const name of ["chromium", "firefox", "webkit"] as const) {
@@ -294,6 +357,11 @@ if (ENGINES) {
         if (h !== nodeWater[k]) throw new Error(`the Rust water differs in ${name}: ${waterJobs[k].name}`);
       });
       console.log(`${name}: the Rust water's ${waterJobs.length} canonical settles, the same bytes`);
+      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as number[];
+      forceHashes.forEach((h, k) => {
+        if (h !== nodeForces[k]) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
+      });
+      console.log(`${name}: the Rust forces' ${forceJobs.length} fixtures, the same bytes`);
     } finally {
       await browser.close();
     }
