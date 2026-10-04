@@ -4,11 +4,11 @@ const path = require('node:path');
 const Module = require('node:module');
 const ts = require('typescript');
 const label = process.argv[2];
-if (!/^(before|after|trial[0-9]+)$/.test(label)) throw Error('Expected before, after or trialN');
+if (!/^(before|after|round2|r3trial[0-9]+)$/.test(label)) throw Error('Expected before, round2, after or r3trialN');
 const lakeFile = path.resolve('src/core/land/lakeBasin.ts');
 require.extensions['.ts'] = (mod, file) => {
-  if (label === 'after' && file === lakeFile) {
-    mod.exports = require('./prototype.ts');
+  if (label !== 'before' && file === lakeFile) {
+    mod.exports = require(label === 'round2' ? './round2.ts' : './prototype.ts');
     return;
   }
   mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {

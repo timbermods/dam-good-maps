@@ -20,12 +20,10 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   const composition = stream(seed, 'lake-basin-composition', g.variation);
   const turn = composition.float();
   const [ux, uy] = unit(turn);
-  const [ox, oy] = unit(composition.float());
-  const displacement = composition.range(0.12, 0.21);
-  const focus: [number, number] = [0.5 + ox * displacement, 0.5 + oy * displacement];
+  const focus: [number, number] = [composition.range(0.35, 0.65), composition.range(0.35, 0.65)];
   const paired = composition.float() < 0.32;
   const aspect = composition.range(1.2, 2.7);
-  const size = side * composition.range(paired ? 0.22 : 0.23, paired ? 0.27 : 0.29)
+  const size = side * composition.range(paired ? 0.24 : 0.26, paired ? 0.27 : 0.30)
     * (side >= 192 ? 0.85 : 1);
 
   g.parts = g.parts.filter(p => p.kind !== 'basin' && p.kind !== 'caldera');
@@ -39,7 +37,7 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
     const separation = composition.range(0.28, 0.38);
     const at: [number, number] = [clamp(focus[0] + ux * separation, 0.28, 0.72),
       clamp(focus[1] + uy * separation, 0.28, 0.72)];
-    hollows.push({ kind: 'isle', at, size: size * composition.range(0.55, 0.75),
+    hollows.push({ kind: 'isle', at, size: size * composition.range(0.70, 0.95),
       height: -rng.range(9.5, 11), turn: turn + composition.range(-0.15, 0.15),
       extra: composition.range(1.2, 2.6), soft: 0 });
   }
@@ -77,49 +75,13 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   // A compact deeper reach inside the main hollow keeps elongated lakes broad enough to
   // dominate their tributaries. It changes the floor, not the drawn outer shoreline.
   g.parts.push({ kind: 'basin', shape: 'round', at: focus, size: side * rng.range(0.18, 0.21),
-    height: -rng.range(3, 4), turn, extra: 0, soft: 0 });
-
-  // Drowned valley relief, not a water outline: smaller hollows along bent valley axes
-  // meet the main depression. Intervening spurs stand above parts of the same floor.
-  // The shared erosion and drainage still decide what floods and where rivers enter.
-  const valleys = stream(seed, 'lake-basin-valleys', g.variation);
-  const branches = valleys.int(3, 6);
-  const axes: number[] = [];
-  for (let k = 0; k < branches; k++) {
-    const bearing = valleys.float();
-    axes.push(bearing);
-    const [vx, vy] = unit(bearing);
-    const reach = valleys.range(0.20, 0.34);
-    const bend = valleys.range(-0.12, 0.12);
-    for (let j = 0; j < 3; j++) {
-      const t = (j + 1) / 3;
-      const at: [number, number] = [clamp(focus[0] + vx * reach * t - vy * bend * t * t, 0.13, 0.87),
-        clamp(focus[1] + vy * reach * t + vx * bend * t * t, 0.13, 0.87)];
-      g.parts.push({ kind: 'isle', at, size: side * valleys.range(0.065, 0.09) * (1.1 - 0.3 * t),
-        height: -valleys.range(3.5, 5.5), turn: bearing + bend * t,
-        extra: valleys.range(1.1, 1.9), soft: 0 });
-    }
-  }
-  axes.sort((a, b) => a - b);
-  const spurs = valleys.int(2, branches + 1);
-  for (let k = 0; k < spurs; k++) {
-    const a = axes[k], b = axes[(k + 1) % branches] + (k + 1 === branches ? 1 : 0);
-    const bearing = (a + b) / 2 + valleys.range(-0.04, 0.04);
-    const [vx, vy] = unit(bearing);
-    const reach = valleys.range(0.14, 0.24);
-    const at: [number, number] = [clamp(focus[0] + vx * reach, 0.15, 0.85),
-      clamp(focus[1] + vy * reach, 0.15, 0.85)];
-    g.parts.push({ kind: 'ridge', at, size: side * valleys.range(0.18, 0.35),
-      height: valleys.range(4, 6), turn: bearing + valleys.range(-0.12, 0.12),
-      extra: side * valleys.range(0.035, 0.065), soft: 0 });
-  }
+    height: -rng.range(1.8, 2.8), turn, extra: 0, soft: 0 });
 
   // The shared drainage chooses tributaries and the outlet. No river, outlet or shoreline is
   // stamped, and no operation runs after land is shown. Keep the lake's outlet load modest.
   if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(2, g.hydro.inflows);
   g.hydro.springs = Math.min(4, Math.max(3, g.hydro.springs));
-  // Modest flow through the bent inlet valleys keeps their shallow reaches readable.
-  g.hydro.flowMul = clamp(g.hydro.flowMul, 1.1, 1.3);
+  g.hydro.flowMul = Math.min(g.hydro.flowMul, 1.1);
   g.hydro.split *= 0.25;
   g.hydro.delta = 0;
   g.hydro.incise = 0;

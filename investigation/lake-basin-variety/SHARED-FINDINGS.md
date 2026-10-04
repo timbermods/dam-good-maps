@@ -1,19 +1,15 @@
-# Shared follow-ups, outside this patch
+# Shared observations, outside the adoption patch
 
-- `src/core/analysis/straight.ts` deliberately excludes broad-water shores (comments at
-  lines 6–9; `channelWidth` default 9). All 30 baseline maps pass its channel limits,
-  including the critique's visibly straight shores. Passing that check therefore does
-  not establish natural lake shores. Keep the visual comparison as the shore verdict;
-  no detector or threshold change is included here.
-- Badwater's stepped/zigzag routes remain visible in the before/after sheet (for example
-  seed 26). The critique already identifies this across themes. They come from shared
-  hazard routing, not the Lake Basin catchment; that work remains separate.
+- `src/core/analysis/straight.ts` excludes broad-water shores (`channelWidth` defaults
+  to 9). Both rounds pass all 30 channel readings. That does not establish natural
+  lake shores; the sheet remains the shore verdict. No detector/threshold change is made.
+- Stepped/zigzag badwater routes remain visible, as in the original critique across
+  themes. They come from shared hazard routing; no shared route change is included.
+- Purple water is contamination, not an unreadable-water failure. The rebased dev tip
+  includes D469, which allows badwater to join rivers/lakes while protecting the start.
+  Round 2's mostly purple seed-29 lake therefore is an observation, not evidence that
+  the shared code is wrong. Round 3's seed 29 has a blue main lake; seed 19 shows mixing
+  near its outlet. Clean-lake quality was not an additional measured gate here.
 
-- The final sheet shows badwater in part of seed 9's lake and most of seed 29's new
-  lake (purple means settled contamination at least 0.05). Both pass readable water.
-  The main lake therefore is not guaranteed clean by that outcome. Source admission,
-  water mixing and the interpretation of the water reading are shared work; this
-  observation does not isolate which policy should change. No shared fix is included.
-
-No new shared-code failure is established by the final allowed outcome run. No shared
-code is changed, and no cross-theme checks were run.
+No new shared-code defect is established by the final requested outcome run. Shared
+code is unchanged; only other-theme genome identity was checked, not their water/maps.

@@ -1,48 +1,45 @@
-# Lake Basin variety
+# Lake Basin variety: round 3
 
-Base: `dev` tip at task start, `65e0aab24742caa7c419349a41a6ef480b603896`.
-Critique read from fetched git commit `aab3626abdacf93e00a050f2998f182efe856dde`:
-Lake Basin section and all four requested captures. No PR was reviewed.
+Rebased round 2 onto `dev` at `2db8f5d36e41f2e085945fda62900f6e01453df3`.
+The original critique came from git (`aab3626abdacf93e00a050f2998f182efe856dde`),
+not a PR review. Round 2's sheet and implementation remain as comparison evidence.
 
-**Change.** Independent seed/sibling draws vary lake position, length, a second hollow and
-one raised winding flank. Warped hollows replace the valley basin's straight side arms;
-existing rivers keep their bends. Warped regional relief, contour jitter and one-level
-preset shores break terrace lines. The hollows cut into the uplands last, so a later mesa
-cannot overwrite them. A small deeper reach keeps long lakes dominant. Round 2's broad
-radial lowland, modest inflow load and buildable surrounds remain the aim. Explicit zero
-Rivers is respected along with D464's settings/sibling entry point and Lakes budget lean.
-All changes are Lake Basin genome shaping before the first land (D348, D370).
+**Change and why.** The main hollow now sits 12–21% of a map width from the centre,
+with variable length and area. Smaller warped hollows follow bent valley axes into it;
+raised, winding ridges between those valleys survive as headlands and sometimes islands.
+The secondary hollow is smaller so the principal lake keeps the centre of gravity.
+A deeper inner reach and a modest 1.1–1.3 inflow multiplier keep that lake and its rivers
+wet. Round 2's radial lowland, shore jitter and curved tributaries remain. Everything is
+Lake Basin genome shaping before `makeField` and the first land (D348, D370), using
+existing terrain parts. No lake/channel mask or shared-code change is included.
 
-**Counts.** Normal preset Lake Basin, 128², seeds 1–30; same `m9b/measures.ts` read-back,
-without speed sampling. Every seed remains in the denominator.
+**Counts.** Normal preset, 128², seeds 1–30, the same `m9b/measures.ts` outcomes read-back.
 
-| Reading | dev tip | after |
+| Reading | round 2 | round 3 |
 | --- | ---: | ---: |
-| Lake Basin promise | 27/30 | 30/30 |
-| Readable water | 28/30 | 30/30 |
-| Both | 26/30 | 30/30 |
+| Lake Basin promise | 30/30 | 30/30 |
+| Readable water | 30/30 | 30/30 |
+| Both | 30/30 | 30/30 |
 | `straight.ts` settled channel limits | 30/30 | 30/30 |
 
-Seeds **12, 15 and 29 now have substantial lakes and meet both outcomes**.
-The five `tests/unit/straight.test.ts` checks pass. [Per-seed readings](counts.csv).
-No other checks or speed measurements were run.
+Largest lake area varies from 9.7% to 33.2% of the map (round 2: 10.5–32.4%).
+Seeds 12, 15 and 29 keep their lakes. The five `straight.test.ts` tests pass;
+180 other-theme genomes (six themes, the same seeds and size) are unchanged.
+[Per-seed readings](counts-r3.csv). No speed measurements or further suites were run.
 
-[Kyler's one sheet](../../docs/sheets/lake-basin-variety-128.jpg): all 30 seeds, dev on the
-left and after on the right, every map 256 px, north up; red marks the start and purple
-marks badwater. The after pictures vary in position, elongation, paired water and shore
-relief rather than repeating the central spokes. The top-down colours are the same
-height/water shading used by the critique; they do not measure fertile or level land.
+[Kyler's sheet](../../docs/sheets/lake-basin-variety-r3-128.jpg): all 30 seeds,
+round 2 left / round 3 right, each map 256 px, north up, red start, purple badwater.
 
-**Still open.** Kyler's visual yes, especially whether cliff flanks, paired lakes and
-buildable shores feel varied enough. Paired hollows can join into one lobed lake; this
-is not a guarantee of two separate lakes for every paired draw. Some stepped shores
-remain. Badwater colours most of seed 29's new lake purple; readability passing does
-not establish a clean lake. Channel straightness excludes broad shores. No 3D, other-size, settings,
-difficulty or sibling batch was run under the requested check limit.
-[Shared follow-ups](SHARED-FINDINGS.md) stay separate and unfixed.
+**Still open.** On a conservative visual reading, **7, 10, 13, 17 and 21 remain central
+rounded blobs: 5/30**. Some have new inlets or an island, but their main bodies still read
+rounded. **25 is also a rounded blob, off-centre.** Bays and headlands are more evident
+elsewhere (for example 2, 11, 18, 22, 24, 26, 28 and 30); this is a visual judgement,
+not a new metric. Some terrace-aligned shore steps remain. Channel straightness does not
+judge broad shores. Buildable/fertile surrounds, 3D, other settings, sizes and siblings
+were not separately measured. Kyler's visual yes remains open.
+[Shared observations](SHARED-FINDINGS.md) are separate and unfixed.
 
-**Hand-back.** Product code is unchanged in this investigation PR.
-[Adoption patch](adoption.patch) changes only `src/core/land/lakeBasin.ts` against the
-pinned dev tip. [INTEGRATION.md](INTEGRATION.md) gives adoption on Kyler's yes and exact
-regeneration commands. Bulk JSON, individual renders and trials stay gitignored in
-`investigation/lake-basin-variety/local/` (D195); no runtime estimate was measured.
+**Hand-back.** Product code stays unchanged in this PR. [adoption.patch](adoption.patch)
+changes only `src/core/land/lakeBasin.ts` against the rebased dev tip.
+[INTEGRATION.md](INTEGRATION.md) gives adoption and regeneration commands.
+Bulk outputs and trials remain ignored in `investigation/lake-basin-variety/local/` (D195).
