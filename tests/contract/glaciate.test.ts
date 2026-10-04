@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import { MapSession } from "../../src/core/doc/session";
-import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
+import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";

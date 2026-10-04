@@ -86,7 +86,6 @@ export const secondDistrict: SetPieceBuilder = {
     required: ["at"],
     properties: { at: POINT_SCHEMA },
   },
-  limits: () => ({ distance: { min: 60, max: 120 }, land: { min: DISTRICT_LAND, max: 65536 } }),
   plan: (req: PlanRecord, ctx: PlanContext) => planDistrict(req, ctx),
   check(plan: PlanRecord, W: number, H: number): string[] {
     const p = plan as unknown as DistrictPlan;

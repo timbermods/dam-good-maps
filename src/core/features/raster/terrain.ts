@@ -14,6 +14,7 @@ import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 import { wantedCount } from "../../water/sourceGroups";
 import * as portable from "../../math/portable";
+import { polyDist } from "../../math/polyline";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -157,13 +158,6 @@ export function rasterizeLake(f: LakeFeature, t: BuildTarget): void {
   }
 }
 
-/** The channel's half-width at arc position s: the river's own, or a gorge's narrows. */
-export function halfAt(f: RiverFeature, narrows: readonly { from: number; to: number; half: number }[], s: number): number {
-  let half = f.params.width / 2;
-  for (const n of narrows) if (s >= n.from && s <= n.to && n.half < half) half = n.half;
-  return half;
-}
-
 /** How much a generated channel's half-width varies along it (land/hydro.ts: up to a third wider
  *  or narrower than the river's own width, plus the tile the carve rounds to). */
 export const CARVED_HALF_SPREAD = 1.35;
@@ -190,7 +184,6 @@ export function markRiverChannel(f: RiverFeature, t: BuildTarget): void {
 export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
   const { heights, channel, W, H } = t;
   const field = t.pathField(f.id);
-  const narrows = t.narrows(f.id);
   const banks = f.params.banks === true;
   // the lakes it flows from or into keep their own floor
   let lakes: Uint8Array | null = null;
@@ -206,7 +199,7 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
   }
   t.forEach((i) => {
     const d = field.d[i];
-    const half = narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2;
+    const half = f.params.width / 2;
     if (d < half) {
       if (!t.writable(i, f)) return;
       heights[i] = bedAt(f.params.bedProfile, field.s[i]);
@@ -219,11 +212,10 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
 }
 
 /** Channel tiles on the map border where the river enters (its sealed mouth, PLAN §7.6). */
-export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField" | "narrows">): number[] {
+export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField">): number[] {
   if (!("edge" in f.params.entry)) return [];
   const field = t.pathField(f.id);
-  const narrows = t.narrows(f.id);
-  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2));
+  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < f.params.width / 2);
 }
 
 /** The mouth's border tiles, `inChannel` saying which border tiles the channel covers. */
@@ -259,23 +251,7 @@ export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
   const half = f.params.width / 2;
   return mouthTilesBy(f, W, H, (i) => {
     const x = i % W;
-    const y = (i - x) / W;
-    let best = Infinity;
-    for (let k = 0; k + 1 < path.length; k++) {
-      const ax = path[k][0];
-      const ay = path[k][1];
-      const vx = path[k + 1][0] - ax;
-      const vy = path[k + 1][1] - ay;
-      const l2 = vx * vx + vy * vy;
-      let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-      if (t < 0) t = 0;
-      else if (t > 1) t = 1;
-      const px = ax + t * vx - x;
-      const py = ay + t * vy - y;
-      const dd = px * px + py * py;
-      if (dd < best) best = dd;
-    }
-    return portable.sqrt(best) < half;
+    return polyDist(x, (i - x) / W, path) < half;
   });
 }
 

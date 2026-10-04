@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { deleteEdit, moveEdit } from "../../src/core/doc/tools";
+import { dependentsOf } from "../../src/core/doc/ops";
+import { moveEdit } from "../../src/core/doc/tools";
 import { session } from "./gateHelpers";
 
 /** The project as a newer generator opens it. */
@@ -40,10 +41,9 @@ describe("a project opened by a newer generator", () => {
 
   it("keeps a generated river the player deleted deleted", () => {
     const s = session(1, 64);
-    const river = s.features.find((f) => f.origin === "generated" && f.kind === "river" && deleteEdit(s, f.id).ok)!;
-    const d = deleteEdit(s, river.id);
-    if (!d.ok) throw new Error("no river to delete");
-    expect(s.applyAll(d.ops, "user", d.label).ok).toBe(true);
+    const river = s.features.find((f) => f.origin === "generated" && f.kind === "river" && !dependentsOf(s.features, f.id).length);
+    if (!river) throw new Error("no river to delete");
+    expect(s.apply({ op: "deleteFeature", params: { id: river.id } }, "user", "Delete river").ok).toBe(true);
     const opened = underNewerGenerator(s);
     // (its source came back)
     expect(content(opened)).toEqual(content(s));

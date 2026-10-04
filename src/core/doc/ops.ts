@@ -62,10 +62,10 @@ export interface OpParams {
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
   /** Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, as
-   *  the core question found it (doc/water.ts `unfedWater`). */
+   *  the core question found it (doc/waterEdits.ts `unfedWater`). */
   removeUnfedWater: RemoveUnfedWaterParams;
   /** Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source, stored
-   *  as a sealed oxbow lake's water is (D216; doc/water.ts `planFill`). */
+   *  as a sealed oxbow lake's water is (D216; doc/waterEdits.ts `planFill`). */
   fillHollow: FillHollowParams;
 }
 

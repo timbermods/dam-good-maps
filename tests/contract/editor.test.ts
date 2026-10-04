@@ -70,7 +70,7 @@ describe("the editor's document in the worker", () => {
     expect(Buffer.from(still.bytes).equals(Buffer.from(edited.bytes))).toBe(true);
 
     // the export check (export profile) and the export
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
     const out = await ed.exportTimber(true);
     expect(out.ok).toBe(true);
@@ -82,7 +82,7 @@ describe("the editor's document in the worker", () => {
     const r = generate(spec);
     await runGenerate(spec);
     ed.refine();
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
     expect(c.warnings).toEqual([]);
     const out = await ed.exportTimber(false);
@@ -107,7 +107,7 @@ describe("the editor's document in the worker", () => {
     expect(open.info.timberName).toBe("dgm-mine.timber");
     expect(open.view.water.count).toBe(r.built.water.filter((d) => d > 0.001).length);
     // since M8 the water and colony checks run on imports too (decisions-pending #9)
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
     expect(c.warnings).toEqual([]);
     const out = await ed.exportTimber(false);

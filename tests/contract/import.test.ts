@@ -11,7 +11,7 @@ import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { planContextOf, planLake } from "../../src/core/doc/tools";
+import { entityProblem, planEntity, type PlannedOps } from "../../src/core/doc/placing";
 import { isObject, num, type JsonObject } from "../../src/core/format/json";
 import { ImportError, normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
@@ -156,16 +156,22 @@ describe("import of the investigation maps (local only)", () => {
     };
     const before = tokens(s.exportTimber().bytes, "WaterColumns");
     const outBefore = tokens(s.exportTimber().bytes, "ColumnOutflows");
-    // a lake on dry ground, away from the caves
+    // a water source on dry ground, away from the caves
     const W = s.size.x;
-    let plan: ReturnType<typeof planLake> | null = null;
+    let plan: PlannedOps | null = null;
+    let at = -1;
     for (let y = 20; y < W - 20 && !plan?.ok; y += 7)
       for (let x = 20; x < W - 20 && !plan?.ok; x += 7) {
         let clear = true;
         for (let dy = -9; dy <= 9 && clear; dy++) for (let dx = -9; dx <= 9; dx++) if (roofed.has((y + dy) * W + x + dx)) clear = false;
-        if (!clear) continue;
-        const p = planLake({ outline: [[x - 3.5, y - 3.5], [x + 3.5, y - 3.5], [x + 3.5, y + 3.5], [x - 3.5, y + 3.5]] }, planContextOf(s), "7a1b2c3d-4444-4222-8333-444455556666");
-        if (p.ok) plan = p;
+        if (!clear || s.built.water[y * W + x] > 0) continue;
+        const req = { template: "WaterSource", x, y, orientation: "Cw0" as const, components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } };
+        if (entityProblem(s, req, null, { level: true })) continue;
+        const p = planEntity(s, req, "7a1b2c3d-4444-4222-8333-444455556666");
+        if (p.ok) {
+          plan = p;
+          at = y * W + x;
+        }
       }
     expect(plan?.ok).toBe(true);
     if (!plan?.ok) return;
@@ -179,10 +185,8 @@ describe("import of the investigation maps (local only)", () => {
         expect(after.t[k * after.plane + i]).toBe(before.t[k * before.plane + i]);
         expect(outAfter.t[k * outAfter.plane + i]).toBe(outBefore.t[k * outBefore.plane + i]);
       }
-    // the new lake has settled water in the file
-    const lakeTile = plan.tiles[Math.floor(plan.tiles.length / 2)];
-    expect(after.t[lakeTile]).not.toBe("0");
-    expect(Number(after.t[lakeTile].split(":")[0])).toBeGreaterThan(0.3);
+    // the new source's water is settled in the file
+    expect(after.t[at]).not.toBe("0");
   });
 
   it.skipIf(saves.length === 0)("saves are refused with a message", () => {

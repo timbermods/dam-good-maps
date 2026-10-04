@@ -114,8 +114,6 @@ describe("URL codec (PLAN §14.5)", () => {
       if (rng() < 0.3) spec.archetype = pick(THEMES);
       if (rng() < 0.2) spec.premise = "gorge-dammed basin";
       if (rng() < 0.2) spec.colonies = { count: pick([2, 3, 4] as const), mod: "timberTogether" };
-      if (rng() < 0.2) spec.setPieces = [{ kind: "waterfall", params: { mode: "standalone", lip: [40, 90], facing: "north", width: 20, drop: 6 } }];
-      if (rng() < 0.2) spec.constraints = { keepOut: [], keep: ["f-abc"] };
       expect(both(spec), JSON.stringify(spec)).toEqual([true, true]);
       const back = decodeSpecFragment("#" + encodeSpecFragment(spec))!;
       if (spec.colonies.count === 1) {
@@ -129,6 +127,17 @@ describe("URL codec (PLAN §14.5)", () => {
         expect(back.spec).toEqual({ ...spec, colonies: { count: 1, mod: "none" } });
       }
     }
+  });
+
+  it("a link from before the cleanup, with set pieces (sp) and constraints (k), opens the same map, the two ignored (D462)", () => {
+    const spec = makeSpec({ seed: 77, theme: "highlands", size: { x: 128, y: 128 } });
+    const plain = encodeSpecFragment(spec);
+    const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString("base64url");
+    const old = `${plain}&sp=${b64([{ kind: "waterfall", params: { mode: "standalone", lip: [40, 90], facing: "north", width: 20, drop: 6 } }])}&k=${b64({ keepOut: [], keep: ["f-abc"] })}`;
+    const d = decodeSpecFragment("#" + old)!;
+    expect(d.problems).toEqual([]);
+    expect(d.spec).toEqual(spec);
+    expect(encodeSpecFragment(d.spec)).toBe(plain);
   });
 
   it("keeps the preset's value for anything it cannot use, and says so", () => {

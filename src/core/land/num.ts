@@ -31,27 +31,6 @@ export function dist(ax: number, ay: number, bx: number, by: number): number {
   return portable.sqrt(dx * dx + dy * dy);
 }
 
-/** Distance from (x, y) to the segment a–b. */
-export function segDist(x: number, y: number, ax: number, ay: number, bx: number, by: number): number {
-  const vx = bx - ax;
-  const vy = by - ay;
-  const l2 = vx * vx + vy * vy;
-  let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-  if (t < 0) t = 0;
-  else if (t > 1) t = 1;
-  return dist(x, y, ax + t * vx, ay + t * vy);
-}
-
-/** Distance from (x, y) to a polyline. */
-export function polyDist(x: number, y: number, pts: readonly (readonly [number, number])[]): number {
-  let best = Infinity;
-  for (let k = 0; k + 1 < pts.length; k++) {
-    const d = segDist(x, y, pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1]);
-    if (d < best) best = d;
-  }
-  return best;
-}
-
 /** The value at fraction `p` of a sorted array (floor index), as the prototype reads percentiles. */
 export function pctSorted(sorted: ArrayLike<number>, p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))))];

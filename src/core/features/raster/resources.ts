@@ -10,7 +10,7 @@ import { hash32, tileHash01 } from "../../math/hash";
 import { runsToTiles } from "../../math/grid";
 import { stream, type Rng } from "../../math/rng";
 import { entityId } from "../ids";
-import { ruinColumns } from "../../resources/baseline";
+import { ruinColumns, saplings } from "../../resources/baseline";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../schema";
 
 /** What resources are placed on. `occupied` is updated as tiles are taken. */
@@ -105,8 +105,7 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround, kept: KeptTiles | 
   const total = weights.reduce((a, b) => a + b, 0);
   const sPlace = hash32(g.seed, f.id, "place");
   const sSpecies = hash32(g.seed, f.id, "species");
-  const sYoung = hash32(g.seed, f.id, "young");
-  const sGrowth = hash32(g.seed, f.id, "growth");
+  const sap = saplings(g.seed, f.id, f.params.youngShare);
   for (const i of runsToTiles(f.params.area, W)) {
     if (i < 0 || i >= g.heights.length) continue;
     const x = i % W;
@@ -140,9 +139,7 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround, kept: KeptTiles | 
     else dead = !moist || poisoned; // auto: official maps store trees on dry soil dead
     if (!take(g, f, i, out, kept)) continue;
     let growth = 1;
-    if (!dead && tileHash01(sYoung, x, y) < f.params.youngShare) {
-      growth = Math.round((0.2 + 0.75 * tileHash01(sGrowth, x, y)) * 1000) / 1000;
-    }
+    if (!dead && sap.young(x, y)) growth = sap.growth(x, y);
     out.entities.push(tree({ id: entityId(f.id, sp, i), owner: f.id, x, y, z: g.heights[i], species: sp, dead, growth }));
   }
   return out;

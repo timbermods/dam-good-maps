@@ -59,7 +59,7 @@ export interface BadwaterAsk {
   /** No badwater within this many tiles of the start: the larger of the Badwater distance setting
    *  and the start rule's (D85, D200). */
   distance: number;
-  /** Tiles no pit or ditch may take (a regeneration's constraints, PLAN §7.0). */
+  /** Tiles no pit or ditch may take (the weir's pool). */
   keepOff?: Uint8Array | null;
   /** The eroded field the land was snapped from (levels, floats): a ditch follows its drainage as
    *  the rivers do. Without it the ditch takes the cheapest way. */

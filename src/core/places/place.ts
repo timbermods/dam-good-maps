@@ -4,10 +4,11 @@
 //
 // A place's data (tools/real-places.ts writes it from the survey's library) holds its heights, water
 // sources, start and planted objects. `buildPlace` turns it into a .timber with the steps and code
-// the generator's own maps go through: the objects as entities with ids hashed from the place, the
-// canonical water settle, soil moisture and contamination on it (build.ts step 10), the world with
-// its settled singletons, metadata and thumbnail (gen/pack.ts `worldOf` and `timberFileOf`, the one
-// path to file bytes), the validator (export profile), and writeTimber. It is a pure function of the
+// the generator's own maps go through (`buildFileFromHeights`, which the probe's test maps share):
+// the objects as entities with ids hashed from the place, the canonical water settle, soil moisture
+// and contamination on it (build.ts step 10; the port's rules until Real places 2, D311), the world
+// with its settled singletons, metadata and thumbnail (gen/pack.ts `worldOf` and `timberFileOf`,
+// the one path to file bytes), the validator (export profile), and writeTimber. It is a pure function of the
 // data, so the file is the same bytes in Node and in every browser.
 
 import { gunzipSync, strFromU8 } from "fflate";
@@ -18,9 +19,11 @@ import { namedFile, timberFileOf, worldOf } from "../gen/pack";
 import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
+import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import { validateMap, type Validation } from "../validate/checks";
+import { failing } from "../validate/report";
 import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES } from "./attribution";
 
 export const PLACE_FORMAT = 1;
@@ -184,24 +187,47 @@ export interface BuiltPlace {
   settle: CanonicalWater;
 }
 
+/** The rules a heightfield map's water and soil are settled with: the game's (the generator's, D298),
+ *  or the port's water with the flat soil (sim/moisture.ts, sim/contamination.ts), which the Real
+ *  places conversions keep until Real places 2 converts them under the game's (D311). */
+export type HeightsRules = "game" | "port";
+
+/** A heightfield map's file from its heights and objects, with the steps the generator's maps go
+ *  through: the canonical settle, the soil on it (build.ts step 10), the world with its settled
+ *  singletons and outflows (gen/pack.ts `worldOf`) and the file around it (`timberFileOf`). Real
+ *  places (`buildPlace`) and the probe's test maps (tools/probe-maps/assemble.ts) are built with it;
+ *  under the game's rules it writes what a generated map with the same ground and objects stores. */
+export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], description: string, rules: HeightsRules = "game"): BuiltPlace {
+  const objects = entities.map(mapObject);
+  const model = waterModel(W, H, heights, objects);
+  let settle: CanonicalWater;
+  let moist: Float64Array;
+  let soil: Float64Array;
+  if (rules === "port") {
+    settle = canonicalSettle(model, { rules: "port" });
+    const barrier = moistureBarrier(W, H, objects);
+    moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
+    soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
+  } else {
+    settle = canonicalSettle(model);
+    const s = gameSoil(W, H, heights, settle.depth, settle.contamination, objects, settle.sat);
+    moist = s.moisture;
+    soil = s.contamination;
+  }
+  const world = worldOf(W, H, heights, entities, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out });
+  const file = timberFileOf(world, heights, description, settle.depth);
+  return { file, heights, model, settle };
+}
+
 /** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. */
 export function buildPlace(p: PlaceData): BuiltPlace {
   if (p.format !== PLACE_FORMAT) throw new Error(`real place format ${String(p.format)} is not ${PLACE_FORMAT}`);
   const { W, H } = p;
   const heights = decodeHeights(p.heights);
   if (heights.length !== W * H) throw new Error(`${p.id}: ${heights.length} heights for ${W}×${H}`);
-  const entities = placeEntities(p, heights);
-  const objects = entities.map(mapObject);
-  const model = waterModel(W, H, heights, objects);
   // (the places were converted under the port's water rules and are settled with them, so the
   // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
-  const settle = canonicalSettle(model, { rules: "port" });
-  const barrier = moistureBarrier(W, H, objects);
-  const moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
-  const soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
-  const world = worldOf(W, H, heights, entities, { floor: heights, depth: settle.depth, contamination: settle.contamination, moisture: moist, soilContamination: soil, sat: settle.sat, out: settle.out });
-  const file = timberFileOf(world, heights, placeDescription(p), settle.depth);
-  return { file, heights, model, settle };
+  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), "port");
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its
@@ -217,7 +243,7 @@ export function validatePlace(b: BuiltPlace): Validation {
 export function placeTimber(p: PlaceData): { bytes: Uint8Array; fileName: string; validation: Validation } {
   const built = buildPlace(p);
   const validation = validatePlace(built);
-  const bad = validation.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate && c.class === "load").map((c) => c.id);
+  const bad = validation.report.checks.filter((c) => failing(c) && c.class === "load").map((c) => c.id);
   if (bad.length) throw new Error(`${p.name} did not pass the file checks: ${bad.join(", ")}`);
   return { bytes: writeTimber(built.file), fileName: placeFileName(p), validation };
 }

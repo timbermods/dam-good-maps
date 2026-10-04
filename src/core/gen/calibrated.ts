@@ -2,6 +2,7 @@
 // from investigation/calibration.json; tests/contract/calibrated.test.ts asserts the two agree.
 
 import { hazardDays } from "../sim/weather";
+import * as portable from "../math/portable";
 
 /** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). The resource rows
  *  (scrap, trees, bushes, ruin field columns) are investigation/official-baselines.json's class
@@ -20,42 +21,9 @@ export const DENSITY = {
 } as const;
 export type DensityKey = keyof typeof DENSITY;
 
-/** log(area) interpolation without Math.log: ln(a) − ln(b) = ln(a/b), and the anchors are fixed,
- *  so the interpolation weight is computed from a deterministic ln of a ratio. */
+/** A density row at a map's size: the size classes' medians joined in ln(area) (`officialPerMap`). */
 export function density(key: DensityKey, area: number): number {
-  const ys = DENSITY[key];
-  const a = Math.max(area, 1);
-  if (a <= SIZE_ANCHORS[0]) return ys[0];
-  for (let i = 1; i < SIZE_ANCHORS.length; i++) {
-    if (a <= SIZE_ANCHORS[i]) {
-      const t = lnDet(a / SIZE_ANCHORS[i - 1]) / lnDet(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
-      return ys[i - 1] + t * (ys[i] - ys[i - 1]);
-    }
-  }
-  return ys[ys.length - 1];
-}
-
-/** Natural log for x in [1, 64] by halving to [1, 2) and the atanh series (basic operations only). */
-export function lnDet(x: number): number {
-  if (x <= 0) throw new Error("lnDet of a non-positive number");
-  let k = 0;
-  while (x >= 2) {
-    x /= 2;
-    k++;
-  }
-  while (x < 1) {
-    x *= 2;
-    k--;
-  }
-  const z = (x - 1) / (x + 1);
-  const z2 = z * z;
-  let term = z;
-  let sum = 0;
-  for (let n = 1; n < 60; n += 2) {
-    sum += term / n;
-    term *= z2;
-  }
-  return 2 * sum + k * 0.6931471805599453;
+  return officialPerMap(DENSITY[key], area);
 }
 
 /** Official ruin column height shares H1…H8 (official-baselines.json `ruins.storeys`, Nomads and
@@ -153,14 +121,15 @@ export const BADWATER_SETTING = {
   high: { sources: 1.5, strength: 1.75 },
 } as const;
 
-/** A per-map official median at `area`: the class medians joined in ln(area), as `density` joins
- *  its rows. */
+/** A per-map official median at `area`: the class medians joined in ln(area) (`density` reads its
+ *  rows through it). Without Math.log: ln(a) − ln(b) = ln(a/b), and the anchors are fixed, so the
+ *  weight is a deterministic ln of a ratio (math/portable.ts `log`). */
 export function officialPerMap(ys: readonly number[], area: number): number {
   const a = Math.max(area, 1);
   if (a <= SIZE_ANCHORS[0]) return ys[0];
   for (let i = 1; i < SIZE_ANCHORS.length; i++) {
     if (a <= SIZE_ANCHORS[i]) {
-      const t = lnDet(a / SIZE_ANCHORS[i - 1]) / lnDet(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
+      const t = portable.log(a / SIZE_ANCHORS[i - 1]) / portable.log(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
       return ys[i - 1] + t * (ys[i] - ys[i - 1]);
     }
   }

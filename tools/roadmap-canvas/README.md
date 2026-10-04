@@ -7,7 +7,9 @@ the steps over time and the releases. It is a reading tool, not part of the site
 ## Open it
 
 Open `tools/roadmap-canvas/index.html` in a browser, straight from disk. Nothing to run or install. It reads everything
-live when it opens and again every 5 minutes while it is visible.
+live when it opens and again every 5 minutes while it is visible. It is also published from `dev` at
+<https://timbermods.github.io/dam-good-maps/roadmap/>, and works on a phone in portrait: one column, the views in two
+rows.
 
 ## Views
 
@@ -41,9 +43,11 @@ items by the words of its heading before any colon, comma or parenthesis, so a n
 here.
 
 **GitHub's limit:** 60 requests an hour per address without a token, shared by every page open on it (both machines,
-when they share a connection). The page reads everything once, then only what changed since (one request per refresh),
-keeps that in the browser between visits, reads each tag's date once, reads nothing while hidden, and slows down when the
-allowance runs low.
+when they share a connection). The page reads everything every hour and only what changed in between (one request per
+refresh), keeps that in the browser between visits, reads each tag's date once, reads nothing while hidden, and slows
+down when the allowance runs low. What needs Kyler comes from GitHub's search on every refresh, which has an allowance of
+its own, so Needs you matches GitHub within one refresh. A request with no answer in 20 seconds is dropped, so a
+refresh always finishes.
 
 **A GitHub token (optional)** lifts that limit and refreshes every 2 minutes: **GitHub token** in the header, paste,
 **Save**; it stays in this browser and goes only to api.github.com. Make it at GitHub → **Settings** → **Developer

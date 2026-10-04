@@ -12,6 +12,7 @@ import { generate, type GenerateResult } from "../gen/generate";
 import { mapName } from "../gen/pack";
 import { encodeSpecFragment, makeSpec, THEME_NAMES, type ThemeId } from "../spec/mapspec";
 import { validateMap } from "../validate/checks";
+import { failing } from "../validate/report";
 
 export const FIRST_VISIT_FORMAT = 1;
 /** Their folder under the site's base, and in the repository under public/. */
@@ -58,11 +59,11 @@ export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: 
 export function firstVisitProblems(r: GenerateResult): string[] {
   const out: string[] = [];
   if (!r.report.passed) {
-    const failed = r.report.checks.filter((c) => !c.ok && !c.advisory && c.severity === "error" && c.applicable !== false).map((c) => c.id);
+    const failed = r.report.checks.filter((c) => failing(c) && c.severity === "error").map((c) => c.id);
     out.push(`its checks fail (${failed.join(", ") || "the report"})`);
   }
   const v = validateMap(readTimber(r.bytes), { profile: "export", designedFor: r.spec.designedFor });
-  const blocking = v.report.checks.filter((c) => !c.ok && c.severity !== "info" && !c.advisory && c.applicable !== false).map((c) => c.id);
+  const blocking = v.report.checks.filter((c) => failing(c) && c.severity !== "info").map((c) => c.id);
   if (blocking.length) out.push(`its file fails ${blocking.join(", ")}`);
   const floor = v.report.checks.find((c) => c.id === "start.wood_floor");
   if (!floor || !floor.ok) out.push("its file misses the starting-logs floor");

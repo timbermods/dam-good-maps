@@ -121,6 +121,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   eye, an approval, work stuck on his side, anything broken), never for progress, green CI or information. One or two lines
   on what's needed, where, and what carries on meanwhile; never wait silently. The toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
   "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%\.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
+  **The `needs-kyler` label is itself a ping:** labelling an issue or PR sends one ntfy notification from GitHub
+  (`.github/workflows/needs-kyler-ping.yml`, the `NTFY_TOPIC` secret Kyler sets), its number and title, its link as the click target.
 - **When CI runs:**
   - a **pull request into `dev`** runs the light set: `test` (typecheck, quick suite, build) and the four browser shards. Not
     while it is a draft; a newer push cancels the run it supersedes;

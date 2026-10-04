@@ -5,6 +5,7 @@
 // Plain functions on plain data: ids come from the caller (the worker names a carve's source).
 
 import type { BuildResult } from "../features/build";
+import { componentsOf } from "../format/entities";
 import { areaDepth } from "../features/raster/brush";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { integrityAt } from "../features/raster/terrain";
@@ -203,7 +204,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
           const e = base.entities.find((g) => g.id === req.source && (g.template === "WaterSource" || g.template === "BadwaterSource"));
           if (!e) throw new Error("That source is gone");
           // (its strength as the page reads it: an imported map's in its raw components)
-          const comps = (e.raw ? (e.raw as { Components?: Record<string, unknown> }).Components ?? {} : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
+          const comps = (componentsOf(e) ?? {}) as Record<string, unknown>;
           const raw = (comps.WaterSource as { SpecifiedStrength?: unknown } | undefined)?.SpecifiedStrength;
           const strength = typeof raw === "number" ? raw : Number((raw as { value?: number } | undefined)?.value ?? 1);
           const from = breakout(W, H, base.heights, base.water.depth, sourceTile(e, W), keep, aimed ? at(aimed) : null);

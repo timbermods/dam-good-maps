@@ -5,10 +5,10 @@
 import { describe, expect, it } from "vitest";
 import { bakeLandforms, BAKE_LABEL } from "../../src/core/doc/bake";
 import { MapSession } from "../../src/core/doc/session";
-import { planContextOf, planLandform } from "../../src/core/doc/tools";
+import { polygonMask } from "../../src/core/features/geometry";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import type { Point } from "../../src/core/features/schema";
+import type { LandformFeature, Point } from "../../src/core/features/schema";
 
 const W = 96;
 
@@ -20,9 +20,14 @@ describe("drawn landforms become terrain (D182)", () => {
     const far = (dx: number): Point => [start.x < W / 2 ? W - 20 + dx : 20 + dx, start.y < W / 2 ? W - 20 : 20];
     const box = (c: Point, r0: number): Point[] => [[c[0] - r0, c[1] - r0], [c[0] + r0, c[1] - r0], [c[0] + r0, c[1] + r0], [c[0] - r0, c[1] + r0]];
     for (const [kind, c, height] of [["hill", far(0), 10], ["canyon", far(-12), 2]] as const) {
-      const p = planLandform({ outline: box(c, 5), kind, edgeStyle: "gentle", height }, planContextOf(s), `f-bake${kind.slice(0, 4)}aaaaaa`.slice(0, 15), "user");
-      expect(p.ok, p.ok ? "" : p.errors.join()).toBe(true);
-      if (p.ok) expect(s.applyAll(p.ops, "user", p.label).ok).toBe(true);
+      // a landform as the old landform tool drew it: its steps start at the lowest ground on its edge
+      const outline = box(c, 5);
+      const mask = polygonMask(outline, W, W);
+      let base = 16;
+      for (let i = 0; i < mask.length; i++) if (mask[i] && (!mask[i - 1] || !mask[i + 1] || !mask[i - W] || !mask[i + W])) base = Math.min(base, s.built.heights[i]);
+      const feature: LandformFeature = { id: `f-bake${kind.slice(0, 4)}aaaaaa`.slice(0, 15), kind: "landform", origin: "user", locked: false, params: { kind, edgeStyle: "gentle", outline, height, base, onGround: true } };
+      const applied = s.applyAll([{ op: "addFeature", params: { feature } }], "user", `Add ${kind}`);
+      expect(applied.ok, applied.errors.join()).toBe(true);
     }
     const land = s.built.heights.slice();
     const generated = s.features.filter((f) => f.kind === "landform" && f.origin === "generated").length;

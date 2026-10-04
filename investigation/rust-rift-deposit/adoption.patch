@@ -1,0 +1,1529 @@
+diff --git a/rust/forces/Cargo.toml b/rust/forces/Cargo.toml
+--- a/rust/forces/Cargo.toml
++++ b/rust/forces/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "forces"
+-description = "The forces of nature (Carve, Craterize, Erupt, Quake, Glaciate), the same bytes as the TypeScript they replaced"
++description = "The forces of nature: portable typed Rust computation and playback records"
+ version.workspace = true
+ edition.workspace = true
+ license.workspace = true
+diff --git a/rust/forces/src/deposit.rs b/rust/forces/src/deposit.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/forces/src/deposit.rs
+@@ -0,0 +1,211 @@
++// Built directly in Rust (D438/D444). Behaviour/look reference: Deposit round 2, approved #114/D364.
++use super::*;
++use super::rift::{noise, result, ride};
++
++pub(super) struct DepositRecords {
++    pub arrival: Vec<f32>, pub channel: Vec<u8>, pub stages: Vec<u8>,
++    pub branches: Vec<Vec<Point>>, pub mouth: Point, pub direction: Point, pub reach: f64,
++    pub placement: u32, pub width: f64,
++    // changed, eroded, deposited, balance, maximumCut, maximumDeposit, channels, wet, buried, carried, donorRadius
++    pub stats: [f64; 11],
++}
++impl DepositRecords {
++    pub fn value(&self) -> V {
++        json!({"arrival":self.arrival.iter().map(|&v|v as f64).collect::<Vec<_>>(),"channel":self.channel,
++            "channelStages":self.stages.chunks(self.channel.len()).map(|c|c.to_vec()).collect::<Vec<_>>(),
++            "mouth":self.mouth.value(),"direction":self.direction.value(),"reach":self.reach,"width":self.width,
++            "placement":["fan","slope","sheet","delta","hollow"][self.placement as usize],
++            "branches":self.branches.iter().map(|b|b.iter().map(Point::value).collect::<Vec<_>>()).collect::<Vec<_>>(),
++            "stats":{"changed":self.stats[0],"eroded":self.stats[1],"deposited":self.stats[2],"balance":self.stats[3],"maximumCut":self.stats[4],"maximumDeposit":self.stats[5],"channels":self.stats[6],"wet":self.stats[7],"buried":self.stats[8],"carried":self.stats[9],"donorRadius":self.stats[10]},"total":40})
++    }
++    pub fn geometry(&self,out:&mut Vec<f64>) {
++        out.extend([self.mouth.x,self.mouth.y,self.direction.x,self.direction.y,self.reach,self.width,self.placement as f64,self.branches.len() as f64]);
++        for branch in &self.branches {out.push(branch.len() as f64);for p in branch {out.extend([p.x,p.y]);}}
++    }
++}
++fn neighbours(m:&Map,i:usize)->[Option<usize>;4] {
++    let x=i%m.w;let y=i/m.w;
++    [if x>0{Some(i-1)}else{None},if x+1<m.w{Some(i+1)}else{None},if y>0{Some(i-m.w)}else{None},if y+1<m.h{Some(i+m.w)}else{None}]
++}
++fn receiving(m:&Map,origin:Point,drawn:bool,floor:u8,power:f64)->(Point,u32) {
++    let h=m.heights[m.at(origin.x,origin.y)];let mut lo=h;let mut hi=h;
++    for y in (-5..=5).step_by(2) {for x in (-5..=5).step_by(2) {let v=m.heights[m.at(origin.x+x as f64,origin.y+y as f64)];lo=lo.min(v);hi=hi.max(v);}}
++    let mut units=0u32;let cut=(0.6+power*4.4).ceil() as u8;
++    for i in 0..m.heights.len() {
++        let v=m.heights[i]; if hypot((i%m.w) as f64-origin.x,(i/m.w) as f64-origin.y)<=48.0&&v>h&&v>floor {units+=(v-floor).min(cut) as u32;}
++    }
++    if units>=round(48.0+power*160.0) as u32 {
++        if m.depth[m.at(origin.x,origin.y)]>0.08{return (origin,3);}
++        if drawn||h-lo<3&&(h as f64)<m.ceiling-1.0{return(origin,if hi-lo<2{2}else{0});}
++    }
++    let mut best=f64::INFINITY;let mut mouth=origin;
++    for i in 0..m.heights.len() {
++        let d=hypot((i%m.w) as f64-origin.x,(i/m.w) as f64-origin.y);let v=m.heights[i];
++        if v as i32>h as i32-2||d>48.0||d<3.0 {continue;}
++        let score=d+v as f64*2.5;if score<best {best=score;mouth=Point{x:(i%m.w) as f64,y:(i/m.w) as f64};}
++    }
++    if best==f64::INFINITY&&hi-lo<2 {
++        // An edge click on a flat needs an upstream apron inside the map, not outside it.
++        let inset=8.0;mouth=Point{x:clamp(origin.x,min(inset,(m.w-1) as f64*0.25),(m.w-1) as f64-min(inset,(m.w-1) as f64*0.25)),y:clamp(origin.y,min(inset,(m.h-1) as f64*0.25),(m.h-1) as f64-min(inset,(m.h-1) as f64*0.25))};
++    }
++    (mouth,if best==f64::INFINITY&&hi-lo<2{2}else if hi<=h{4}else{1})
++}
++fn heading(m:&Map,mouth:Point,last:Point,drawn:bool,reach:f64)->Point {
++    let base=if drawn{portable_math::atan2(last.y-mouth.y,last.x-mouth.x)}else{0.0};let mut best=f64::INFINITY;let mut angle=base;
++    for k in 0..if drawn{9}else{32} {
++        let a=if drawn{base+(k as f64-4.0)*0.075}else{k as f64*std::f64::consts::PI/16.0};let mut score=0.0;
++        for d in [6.0,12.0,20.0] {for side in [-0.22,0.0,0.22] {
++            let x=mouth.x+cos(a+side)*min(d,reach);let y=mouth.y+sin(a+side)*min(d,reach);
++            let i=m.at(x,y);let b=m.at(mouth.x-cos(a)*d,mouth.y-sin(a)*d);
++            score+=m.heights[i] as f64*1.4-m.heights[b] as f64*0.35;
++            if x<0.0||y<0.0||x>=m.w as f64||y>=m.h as f64{score+=8.0;}
++        }}
++        if drawn{score+=(a-base).abs()*80.0;}if score<best{best=score;angle=a;}
++    }
++    Point{x:cos(angle),y:sin(angle)}
++}
++// Reserve the connected native wet outlet, preferring low bed and never a source edge.
++fn outlet(m:&Map,mouth:Point,dir:Point)->Vec<u8> {
++    let n=m.heights.len();let mut mask=vec![0;n];let mut blocked=vec![false;n];
++    for e in &m.entities {if matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep") {for i in m.footprint(e,0){blocked[i]=true;for j in neighbours(m,i).into_iter().flatten(){blocked[j]=true;}}}}
++    let mut first=None;let mut nearest=f64::INFINITY;
++    for i in 0..n {
++        let d=hypot((i%m.w) as f64-mouth.x,(i/m.w) as f64-mouth.y);
++        if d<=4.25&&m.depth[i]>0.08&&d<nearest {first=Some(i);nearest=d;}
++    }
++    let first=match first{Some(i)=>i,None=>return mask};let mut parent=vec![usize::MAX;n];let mut distance=vec![f64::INFINITY;n];let mut heap=ForceHeap::default();
++    distance[first]=0.0;parent[first]=first;heap.push(0.0,first);
++    while let Some((key,i))=heap.pop() {
++        if key!=distance[i]{continue;}let x=i%m.w;let y=i/m.w;
++        if ((x as f64-mouth.x)*dir.x+(y as f64-mouth.y)*dir.y)>6.0&&(x==0||y==0||x==m.w-1||y==m.h-1){
++            let mut j=i;loop{mask[j]=1;if j==first{break;}j=parent[j];}return mask;
++        }
++        for j in neighbours(m,i).into_iter().flatten(){if m.depth[j]<=0.05{continue;}let cost=key+1.0+m.heights[j] as f64*32.0+if blocked[j]{1024.0}else{0.0};if cost<distance[j]{distance[j]=cost;parent[j]=i;heap.push(cost,j);}}
++    }
++    mask
++}
++fn paint(m:&Map,mask:&mut[u8],p:Point,r:f64) {
++    for y in (p.y-r).floor() as i32..=(p.y+r).ceil() as i32 {for x in (p.x-r).floor() as i32..=(p.x+r).ceil() as i32 {
++        if x>=0&&y>=0&&x<m.w as i32&&y<m.h as i32&&hypot(x as f64-p.x,y as f64-p.y)<=r {mask[y as usize*m.w+x as usize]=1;}
++    }}
++}
++struct Offer {i:usize,target:u8,rank:f64,u:f64}
++struct Donor {i:usize,target:u8,rank:f64}
++pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area:&[u8],channels:u32)->Plan {
++    let n=map.heights.len();let power=max(0.025,s.power/100.0);let floor=s.floor.unwrap_or(1.0) as u8;
++    let origin=intent.path[0];let last=*intent.path.last().unwrap();let drawn=intent.path.len()>1&&hypot(last.x-origin.x,last.y-origin.y)>1.0;
++    let (mut mouth,mut placement)=receiving(before,origin,drawn,floor,power);
++    let drawn=drawn&&hypot(last.x-mouth.x,last.y-mouth.y)>1.0;
++    let width=s.size.unwrap_or(14.0+s.power*0.34);
++    // Size is reach; Power changes the material/relief within it (D361). Full Power matches round 2.
++    let reach=if drawn{clamp(hypot(last.x-mouth.x,last.y-mouth.y),4.0,112.0)}else{9.0+width*0.80};
++    let dir=heading(before,mouth,last,drawn,reach);let width=if drawn{max(10.0,reach*0.95)}else{width};
++    let mouth_h=before.heights[map.at(mouth.x,mouth.y)];let wet=(-3..=3).any(|y|(-3..=3).any(|x|before.depth[map.at(mouth.x+x as f64,mouth.y+y as f64)]>0.08));
++    let datum_h=max(mouth_h as f64,if wet{(mouth_h as f64+before.depth[map.at(mouth.x,mouth.y)]).ceil()}else{mouth_h as f64});
++    let outlet=if wet{outlet(before,mouth,dir)}else{vec![0;n]};
++    let spine:Vec<(Point,f64)>=outlet.iter().enumerate().filter(|(_,v)|**v!=0).filter_map(|(i,_)|{let p=Point{x:(i%map.w) as f64,y:(i/map.w) as f64};let d=(p.x-mouth.x)*dir.x+(p.y-mouth.y)*dir.y;if d>=-1.0{Some((p,d))}else{None}}).collect();
++    let count=if channels==1{2}else if channels==2{5}else if width>38.0{4}else{3};
++    let mut branches=vec![];let mut channel=vec![0;n];
++    for b in 0..count {let mut branch=vec![];let steps=(reach*2.0).ceil() as usize;
++        for k in 0..=steps {let u=k as f64/steps as f64;let d=u*reach;let mut spread=(b as f64/(count-1) as f64-0.5)*width*0.85*smooth((u-0.1)/0.9);
++            let wander=(noise(s.seed,d/10.0,400.0+b as f64*51.0)-0.5)*3.0*smooth(u*8.0);let mut p=Point{x:mouth.x+dir.x*d,y:mouth.y+dir.y*d};
++            if wet&&!spine.is_empty(){let base=p;let mut best=f64::INFINITY;for &(q,along) in &spine{let score=(along-d).abs()*4.0+hypot(q.x-base.x,q.y-base.y)*0.1;if score<best{best=score;p=q;}}
++                let mut left=0.0;let mut right=0.0;
++                for side in [-1.0,1.0]{let mut v=0.5;while v<=width*0.48{let x=p.x-dir.y*v*side;let y=p.y+dir.x*v*side;if x<0.0||y<0.0||x>=map.w as f64||y>=map.h as f64||before.heights[map.at(x,y)]>mouth_h{break;}if side<0.0{left=-v;}else{right=v;}v+=0.5;}}
++                spread=(left+(right-left)*b as f64/(count-1) as f64)*0.8*smooth((u-0.04)/0.25);spread=clamp(spread+wander*0.18,left*0.8,right*0.8);
++            }
++            let off=spread+if wet&&!spine.is_empty(){0.0}else{wander};p.x-=dir.y*off;p.y+=dir.x*off;
++            paint(&map,&mut channel,p,if wet{0.85}else{1.15});branch.push(p);
++        }branches.push(branch);
++    }
++    let mut stages=vec![0;n*3];
++    for stage in 0..2{for (b,branch) in branches.iter().enumerate(){for(k,p)in branch.iter().enumerate(){let u=k as f64/(branch.len()-1) as f64;
++        if u>0.16&&if stage==0{b>=(count+1)/2}else{b<count/2}{continue;}
++        let shift=if wet{0.0}else{(noise(s.seed,u*5.0,2500.0+stage as f64*100.0+b as f64*17.0)-0.5)*4.0*smooth(u*5.0)};
++        for d in [-0.5,0.0,0.5]{stages[stage*n+map.at(p.x-dir.y*(shift+d),p.y+dir.x*(shift+d))]=1;}
++    }}}stages[2*n..].copy_from_slice(&channel);
++    let mut distance=vec![u16::MAX;n];let mut queue=vec![];for i in 0..n{if channel[i]!=0{distance[i]=0;queue.push(i);}}
++    let mut at=0;while at<queue.len(){let i=queue[at];at+=1;for j in neighbours(&map,i).into_iter().flatten(){if distance[j]>distance[i]+1{distance[j]=distance[i]+1;queue.push(j);}}}
++    let mut offers=vec![];let mut donors=vec![];let mut expected=0.0;
++    let room_at=|i:usize|if keep.get(i).copied().unwrap_or(0)!=0{0}else{area.get(i).copied().unwrap_or(255)};
++    for i in 0..n {
++        if room_at(i)==0{continue;}let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
++        let along=dx*dir.x+dy*dir.y;let cross=-dx*dir.y+dy*dir.x;let u=along/reach;
++        let lobe=0.72+0.38*noise(s.seed,cross/8.0,900.0)+0.12*noise(s.seed,along/12.0,700.0);
++        let half=3.0+power*6.0+width*0.5*pow(clamp(u,0.0,1.0),0.78)*lobe;
++        let offset=(noise(s.seed,along/12.0,2100.0)-0.5)*width*0.18*smooth(u*4.0);let toe=reach*(0.73+0.31*noise(s.seed,cross/7.0,1100.0));
++        if along>=-3.0&&along<=toe&&(cross-offset).abs()<half{
++            let edge=smooth((half-(cross-offset).abs())/6.0)*smooth((toe-along)/6.0);
++            let datum=datum_h+1.7+power*if placement==2{3.0}else{7.0}-clamp(u,0.0,1.0)*(1.2+power*if placement==2{2.0}else{5.0});
++            let relief=(noise(s.seed,along/17.0+cross/10.0,1400.0)-0.5)*1.35;
++            let mut target=max(h as f64,min(map.ceiling,round(h as f64+max(0.0,datum+relief-h as f64)*edge))) as u8;
++            if channel[i]!=0{target=if wet{target.min(h.max(mouth_h))}else{h.max(target.saturating_sub(1))};}
++            if wet&&channel[i]==0{target=target.min(h.max(mouth_h.saturating_add(1).saturating_add((distance[i] as f64*0.8).floor() as u8)));}
++            if outlet[i]!=0||wet&&before.depth[i]>0.08&&along<3.0{target=h;}
++            if wet&&before.depth[i]>0.08&&(before.depth[i]<0.8||channel[i]!=0){target=target.min(h+1);}
++            target=target.min(h.saturating_add(room_at(i)));
++            if target>h{offers.push(Offer{i,target,rank:u+cross.abs()/max(1.0,half)*0.08+hash(s.seed,i as f64)*0.045,u});}
++        }
++        let back=-along;let upstream=reach*1.5+12.0;let dw=4.0+min(15.0,width*0.27)*smooth(back/12.0);
++        if back>2.0&&back<upstream&&cross.abs()<dw&&h>floor&&h>=mouth_h&&before.depth[i]<=0.05{
++            let want=0.6+power*4.4*(0.65+0.35*smooth((upstream-back)/15.0));let cut=(h-floor).min(want.ceil() as u8).min(room_at(i));
++            expected+=min(cut as f64,want);if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross.abs()/dw*0.18+hash(s.seed,i as f64+70000.0)*0.05});}
++        }
++    }
++    let mut offered=vec![false;n];for o in &offers{offered[o.i]=true;}donors.retain(|d|!offered[d.i]);
++    let mut used=vec![false;n];for d in &donors{used[d.i]=true;}
++    // Only higher shoulders supplement upstream material; a flat still cuts its upstream banks.
++    for i in 0..n{let h=before.heights[i];let d=hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y);
++        if room_at(i)==0||used[i]||offered[i]||h<=floor.max(mouth_h)||d>max(48.0,width)||before.depth[i]>0.05{continue;}
++        let cut=(h-floor).min((0.6+power*4.4).ceil() as u8).min(room_at(i));if cut==0{continue;}
++        donors.push(Donor{i,target:h-cut,rank:1.5+d/max(48.0,width)+hash(s.seed,i as f64)*0.03});used[i]=true;expected+=cut as f64;
++    }
++    // Fully submerged terrain still has upstream sediment; prefer dry donors when available.
++    if donors.is_empty(){for i in 0..n{
++        let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
++        let back=-(dx*dir.x+dy*dir.y);let cross=(-dx*dir.y+dy*dir.x).abs();let upstream=reach*1.5+12.0;
++        if room_at(i)==0||offered[i]||outlet[i]!=0||h<=floor||h<mouth_h||back<=2.0||back>=upstream||cross>4.0+min(15.0,width*0.27){continue;}
++        let cut=(h-floor).min((0.6+power*4.4).ceil() as u8).min(room_at(i));
++        if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross/max(1.0,width)*0.18});used[i]=true;expected+=cut as f64;}
++    }}
++    // At a map edge or capped sector, put the same sediment into the nearest lower hollow.
++    if offers.is_empty()&&!donors.is_empty(){let mut best=f64::INFINITY;let mut center=None;
++        for i in 0..n{let h=before.heights[i];if room_at(i)==0||h>=mouth_h||h as f64>=map.ceiling{continue;}let d=hypot((i%map.w) as f64-origin.x,(i/map.w) as f64-origin.y);let score=d+h as f64*2.0;if score<best{best=score;center=Some(i);}}
++        if let Some(i)=center{mouth=Point{x:(i%map.w) as f64,y:(i/map.w) as f64};placement=4;let radius=4.0+power*10.0;let datum=before.heights[i] as f64+1.0+power*4.0;
++            for j in 0..n{if used[j]||room_at(j)==0||outlet[j]!=0{continue;}let d=hypot((j%map.w) as f64-mouth.x,(j/map.w) as f64-mouth.y);let h=before.heights[j];let target=max(h as f64,min(map.ceiling,round(datum-d/radius*(1.0+power*3.0)))) as u8;let target=target.min(h.saturating_add(room_at(j)));if d<radius&&target>h{offers.push(Offer{i:j,target,rank:d/radius,u:d/radius});offered[j]=true;}}
++        }
++    }
++    let minimum=round(48.0+power*160.0) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
++    if room<minimum||offers.len()<min_area{
++        let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
++        candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
++        for (i,d) in candidates{let h=before.heights[i];if d>max(16.0,width*0.6)||h as f64>=map.ceiling||h as f64>mouth_h as f64+3.0+power*2.0||wet&&before.depth[i]>0.05{continue;}
++            if used[i]{donors.retain(|v|v.i!=i);used[i]=false;}
++            let base=max(mouth_h as f64+2.0,(h as f64+before.depth[i]).ceil()+1.0);let target=min(map.ceiling,max(h as f64+1.0,base+round(power*2.0-d*0.1))) as u8;let target=target.min(h.saturating_add(room_at(i)));
++            offers.push(Offer{i,target,rank:d/max(12.0,reach),u:d/max(12.0,reach)});offered[i]=true;room+=(target-h) as usize;if room>=minimum&&offers.len()>=min_area{break;}
++        }
++    }
++    while room<minimum{let mut grew=false;for o in &mut offers{let h=before.heights[o.i];let cap=min(map.ceiling,min(h as f64+3.0+round(power*5.0),h as f64+room_at(o.i) as f64)) as u8;
++        if o.target>=cap||channel[o.i]!=0||outlet[o.i]!=0{continue;}o.target+=1;room+=1;grew=true;if room>=minimum{break;}}
++        if !grew{break;}
++    }
++    offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
++    let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
++    let budget=capacity.min(supply).min(donor_capacity);let mut remaining=budget;let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
++    for o in &offers{let add=remaining.min((o.target-before.heights[o.i]) as usize);map.heights[o.i]+=add as u8;remaining-=add;
++        if add>0{let x=(o.i%map.w) as f64-mouth.x;let y=(o.i/map.w) as f64-mouth.y;let side=(-x*dir.y+y*dir.x)/max(1.0,width);
++            arrival[o.i]=clamp(0.08+o.u*0.66+0.16*smooth(side*sin(o.u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(o.i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;}
++    }
++    remaining=budget;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}}
++    for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
++    stats[3]=stats[2]-stats[1];debug_assert_eq!(stats[3],0.0);
++    if budget==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
++    map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
++        let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
++        let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};
++        if !held&&dz>=threshold{stats[8]+=1.0;false}else{if dz!=0{stats[9]+=1.0;}true}
++    });
++    ride(before,&mut map);let mut ids=vec![false;before.entities.iter().chain(map.entities.iter()).map(|e|e.id_key).max().unwrap_or(0)+1];
++    for e in &map.entities{ids[e.id_key]=true;}map.fallen.retain(|f|ids.get(f.id_key).copied().unwrap_or(false));
++    result(map,Records::Deposit(Box::new(DepositRecords{arrival,channel,stages,branches,mouth,direction:dir,reach,placement,width,stats})))
++}
+diff --git a/rust/forces/src/lib.rs b/rust/forces/src/lib.rs
+--- a/rust/forces/src/lib.rs
++++ b/rust/forces/src/lib.rs
+@@ -3,6 +3,8 @@
+ use portable as portable_math;
+ #[macro_use]
+ mod json;
++mod rift;
++mod deposit;
+ // Reused from rust-water 2ebeea87, including its validated pointer cache.
+ mod water {
+     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
+@@ -1697,6 +1699,8 @@
+     }
+ }
+ enum Records {
++    Rift(Box<rift::RiftRecords>),
++    Deposit(Box<deposit::DepositRecords>),
+     Glaciate(Box<GlacierPlan>),
+     Carve(Box<CarveRecords>),
+     Footprint {
+@@ -1753,6 +1757,8 @@
+     // Cold, complete diagnostic serialization. Never called by forces_plan.
+     fn value(&self) -> V {
+         let mut out = match &self.records {
++            Records::Rift(r) => r.value(),
++            Records::Deposit(r) => r.value(),
+             Records::Glaciate(r) => r.value(),
+             Records::Carve(r) => r.value(),
+             Records::Footprint { offsets, tiles } => {
+@@ -1807,6 +1813,7 @@
+     baseline: Map,
+     live: Option<Map>,
+     keep: Vec<u8>,
++    area_depth: Vec<u8>,
+     output: Option<Plan>,
+     command: Box<[f64; 44]>,
+     carve_options: CarveOptions,
+@@ -1835,6 +1842,7 @@
+     for key in ["map", "footprints", "keep"] {
+         job.as_object_mut().unwrap().shift_remove(key);
+     }
++    let area_depth = if job["areaDepth"].is_array() { arr(&job["areaDepth"]).iter().map(|v| num(v) as u8).collect() } else { vec![255; map.w * map.h] };
+     let settings = Settings::from(&job["settings"]);
+     let intent = Intent::from(&job["intent"]);
+     let opcode = match s(&job, "verb") {
+@@ -1844,6 +1852,8 @@
+         "quake" => 3.0,
+         "carve" => 4.0,
+         "glaciate" => 5.0,
++        "rift" => 6.0,
++        "deposit" => 7.0,
+         _ => panic!("force not ported"),
+     };
+     let index =
+@@ -1896,6 +1906,9 @@
+         0.0,
+     ]);
+     command[33] = map.w as f64;
++    if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
++    if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
++    if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
+     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
+     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
+     command[35] = index(
+@@ -1913,7 +1926,7 @@
+         path[2 * i] = p.x;
+         path[2 * i + 1] = p.y;
+     }
+-    if opcode >= 4.0 {
++    if opcode == 4.0 || opcode == 5.0 {
+         command[20] = job["intent"]["via"].is_array() as u8 as f64;
+         command[19] = intent.via.len() as f64;
+         for (i, &tile) in intent.via.iter().enumerate() {
+@@ -1936,6 +1949,7 @@
+         source_kind: vec![],
+         live: Some(map),
+         keep,
++        area_depth,
+         output: None,
+         command,
+         carve_options: CarveOptions {
+@@ -2001,7 +2015,7 @@
+         task.id_offsets.push(task.id_bytes.len() as u32);
+     }
+ }
+-const FORCE_ERRORS: [&str; 27] = [
++const FORCE_ERRORS: [&str; 35] = [
+     "",
+     "Invalid impact settings",
+     "Strike on the map",
+@@ -2029,6 +2043,14 @@
+     "a glacier's path is up to 128 tiles on the map",
+     "a glacier's path moves on from each of its tiles to the next",
+     "No room to rise here",
++    "Invalid Rift settings",
++    "Draw the Rift on the map",
++    "the Floor leaves no ground to drop here",
++    "Invalid Deposit settings",
++    "Draw Deposit on the map",
++    "the working area leaves nothing to take sediment from",
++    "the Floor leaves nothing to take sediment from",
++    "the map leaves no room for sediment here",
+ ];
+ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
+     let opcode = c[0] as u32;
+@@ -2174,6 +2196,12 @@
+             }
+             0
+         }
++        6 | 7 => {
++            let settings_error=if opcode==6{27}else{30}; let path_error=if opcode==6{28}else{31};
++            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],4.0,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) || !whole(c[5],0.0,2.0) {return settings_error;}
++            if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return path_error;}
++            0
++        }
+         _ => 11,
+     }
+ }
+@@ -2273,7 +2301,7 @@
+             .chunks_exact(2)
+             .map(|p| Point { x: p[0], y: p[1] })
+             .collect(),
+-        via: if c[0] >= 4.0 {
++        via: if c[0] == 4.0 || c[0] == 5.0 {
+             task.path[..2 * count]
+                 .chunks_exact(2)
+                 .map(|p| p[1] as usize * m.w + p[0] as usize)
+@@ -2284,6 +2312,8 @@
+     };
+     let before = m.clone();
+     let mut p = match c[0] as u32 {
++        7 => deposit::plan(&before,m,&settings,&intent,&task.keep,&task.area_depth,c[5] as u32),
++        6 => rift::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth, c[5] as u32),
+         1 => crater(&before, m, &settings, &intent, &task.keep),
+         2 => eruption(&before, m, &settings, &intent, &task.keep),
+         3 => quake(&before, m, &settings, &intent, &task.keep),
+@@ -2421,6 +2451,8 @@
+     }
+     let g = &mut p.geometry;
+     match &p.records {
++        Records::Rift(r) => r.geometry(g),
++        Records::Deposit(r) => r.geometry(g),
+         Records::Glaciate(r) => {
+             g.extend([
+                 50.0,
+@@ -2773,6 +2805,7 @@
+     pair(d, 3, &m.contamination);
+     pair(d, 4, &m.rock);
+     pair(d, 5, &task.keep);
++    pair(d, 67, &task.area_depth);
+     pair(d, 16, task.command.as_ref());
+     pair(d, 17, &task.path);
+     pair(d, 62, &task.command_bytes);
+@@ -2812,6 +2845,8 @@
+         pair(d, 8, &p.literal.rock_tiles);
+         pair(d, 9, &p.literal.bits);
+         match &p.records {
++            Records::Rift(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
++            Records::Deposit(r) => {pair(d,10,&r.arrival);pair(d,11,&r.channel);pair(d,12,&r.stats);pair(d,25,&r.stages);},
+             Records::Glaciate(r) => {
+                 pair(d, 10, &r.arrival);
+                 pair(d, 11, &r.mask);
+diff --git a/rust/forces/src/rift.rs b/rust/forces/src/rift.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/forces/src/rift.rs
+@@ -0,0 +1,93 @@
++// Built directly in Rust (D438/D444). Behaviour reference: investigation/rift, approved #99.
++use super::*;
++
++pub(super) struct RiftRecords {
++    pub fault: Fault,
++    pub arrival: Vec<f32>,
++    // changed, maximum drop, held at Floor, stepped, sheer, width
++    pub stats: [f64; 6],
++}
++impl RiftRecords {
++    pub fn value(&self) -> V {
++        json!({"fault":self.fault.value(), "arrival":self.arrival.iter().map(|&v|v as f64).collect::<Vec<_>>(),
++            "stats":{"changed":self.stats[0],"drop":self.stats[1],"held":self.stats[2],"stepped":self.stats[3],"sheer":self.stats[4],"width":self.stats[5]},"total":21})
++    }
++    pub fn geometry(&self, out: &mut Vec<f64>) {
++        let f=&self.fault;
++        out.extend([f.length,f.reach,f.lift,f.slide,f.heading.x,f.heading.y,21.0,f.points.len() as f64,f.segments.len() as f64,f.directions.len() as f64]);
++        for p in &f.points {out.extend([p.x,p.y]);}
++        for s in &f.segments {out.extend([s.a.x,s.a.y,s.b.x,s.b.y,s.dx,s.dy,s.length,s.along]);}
++        for p in &f.directions {out.extend([p.x,p.y]);}
++    }
++}
++pub(super) fn noise(seed:f64,t:f64,key:f64)->f64 {
++    let k=t.floor();let a=hash(seed,k+key);let b=hash(seed,k+key+1.0);
++    a+(b-a)*smooth(t-k)
++}
++// Shared empty tape construction. No value/JSON operations on the planning path.
++pub(super) fn result(map:Map,records:Records)->Plan {
++    Plan {raw:Some(map.clone()),map,records,literal:Literal::default(),geometry:vec![],objects:vec![],fallen:vec![],
++        raw_objects:vec![],raw_fallen:vec![],step_objects:vec![],closure_objects:vec![],closure_fallen:vec![],literal_objects:vec![],
++        before:None,before_objects:vec![],before_fallen:vec![]}
++}
++// Vertical transport, never topple trees or create objects. Opaque metadata stays attached by numeric slot.
++pub(super) fn ride(before:&Map,map:&mut Map) {
++    for e in &mut map.entities {
++        let i=e.y as usize*map.w+e.x as usize;
++        let dz=map.heights[i] as f64-before.heights[i] as f64;
++        if dz!=0.0 {e.z+=dz;e.raw_removed=true;}
++    }
++    for f in &mut map.fallen {
++        let i=(f.y.floor() as usize).min(map.h-1)*map.w+(f.x.floor() as usize).min(map.w-1);
++        f.z+=map.heights[i] as f64-before.heights[i] as f64;
++    }
++}
++pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area_depth:&[u8],walls:u32)->Plan {
++    let width=s.size.unwrap_or(10.0+s.power*0.18);
++    let mut path=intent.path.clone();
++    if path.len()==1 || path.windows(2).map(|p|hypot(p[1].x-p[0].x,p[1].y-p[0].y)).sum::<f64>()<min(8.0,width*0.5) {
++        let p=path[0];let angle=hash(s.seed,580.0)*std::f64::consts::PI;let r=max(8.0,width*0.85);
++        let dx=portable_math::cos(angle);let dy=portable_math::sin(angle);
++        path=[-1.0,1.0].iter().map(|&d|Point{x:clamp(p.x+dx*r*d,0.0,map.w as f64-1.0),y:clamp(p.y+dy*r*d,0.0,map.h as f64-1.0)}).collect();
++    }
++    let fault=Fault::new(s,&Intent{path,side:1.0,origin:0.0,end:0.0,via:vec![]});
++    let mut arrival=vec![2.0f32;map.heights.len()];let mut stepped=vec![false;map.heights.len()];
++    let mut stats=[0.0;6];stats[5]=width;
++    // Same full throw as the approved demo; a shallow coherent block at Power zero (D356).
++    let throw=1.25+s.power*0.1125;
++    let floor=s.floor.unwrap_or(1.0) as u8;
++    for i in 0..map.heights.len() {
++        if keep.get(i).copied().unwrap_or(0)!=0 {continue;}
++        let h=before.heights[i];let f=fault.at((i%map.w) as f64,(i/map.w) as f64);
++        let half=width*0.5*(0.80+0.36*noise(s.seed,f.along/19.0,if f.d<0.0{700.0}else{800.0}));
++        // A wide, short stroke still has a middle block; its two end fades must not consume it.
++        let fade=max(0.25,min(max(3.0,width*0.65),fault.length*0.40));
++        let taper=smooth(f.along/fade)*smooth((fault.length-f.along)/fade);
++        let reach=half*(0.35+0.65*portable_math::sqrt(taper));let distance=f.d.abs();
++        if f.end>0.6||distance>=reach||taper<=0.0 {continue;}
++        let level=h.saturating_sub(1) as usize;
++        let hard=before.lava[i]&(1u32<<level)!=0 || before.rock.get(level).copied().unwrap_or(0.0)>0.5;
++        let step=walls==2 || (walls==0&&hard); stepped[i]=step;
++        let edge=(reach-distance)/max(1.0,reach);
++        let wall=if step {if edge<0.13{0.28}else if edge<0.28{0.58}else if edge<0.40{0.82}else{1.0}}else{smooth(edge/0.11)};
++        let tilt=(hash(s.seed,920.0)*2.0-1.0)*f.d/half*0.85;
++        let broken=if hash(s.seed,(f.along/17.0).floor()+1000.0)>0.58{0.9}else{-0.25};
++        let length_tilt=(hash(s.seed,950.0)*2.0-1.0)*(f.along/max(1.0,fault.length)-0.5)*1.8;
++        // At low Power preserve the coherent one-level block instead of random speckled holes.
++        let strength=s.power/100.0;
++        let drop=max(0.0,round((throw+(tilt+broken+length_tilt)*strength)*wall*taper)) as u8;
++        let drop=drop.min(area_depth.get(i).copied().unwrap_or(255));
++        let target=h.saturating_sub(drop);map.heights[i]=target.max(h.min(floor));
++        if target<map.heights[i]{stats[2]+=1.0;}
++        if map.heights[i]!=h {
++            arrival[i]=clamp(0.04+f.along/max(1.0,fault.length)*0.74+distance/half*0.05,0.04,0.85) as f32;
++            stats[0]+=1.0;stats[1]=max(stats[1],(h-map.heights[i]) as f64);
++            stats[if stepped[i]{3}else{4}]+=1.0;
++            // Rock beds drop with the block; relief is never replaced by a level trench.
++            map.lava[i]=(before.lava[i]>>(h-map.heights[i]))&mask(map.heights[i]);
++        }
++    }
++    if stats[0]==0.0 {map.error=29;}
++    ride(before,&mut map);
++    result(map,Records::Rift(Box::new(RiftRecords{fault,arrival,stats})))
++}
+diff --git a/src/core/doc/ops.schema.json b/src/core/doc/ops.schema.json
+--- a/src/core/doc/ops.schema.json
++++ b/src/core/doc/ops.schema.json
+@@ -136,18 +136,18 @@
+       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
+       "properties": {
+         "version": { "const": 1 },
+-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate"] },
++        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"] },
+         "settings": {
+           "type": "object",
+           "required": ["mode", "power", "seed"],
+           "properties": {
+-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow"] },
++            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan"] },
+             "power": { "type": "number", "minimum": 0, "maximum": 100 },
+             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
+             "width": { "type": ["number", "null"], "minimum": 2, "maximum": 24 },
+             "depth": { "type": ["integer", "null"], "minimum": 1, "maximum": 12 },
+-            "walls": { "enum": ["steep", "wide", "terraced"] },
++            "walls": { "enum": ["steep", "wide", "terraced", "auto", "sheer", "stepped"] },
+             "defyGravity": { "type": "boolean" },
+             "dry": { "type": "boolean" },
+             "size": { "type": ["number", "null"], "minimum": 4, "maximum": 180 },
+@@ -160,6 +160,7 @@
+             "ridges": { "type": "boolean" },
+             "scarp": { "enum": ["sheer", "stepped"] },
+             "meltwater": { "type": "boolean" },
++            "channels": { "enum": ["auto", "few", "many"] },
+             "benches": { "enum": ["none", "some", "many"] },
+             "steps": { "enum": ["few", "some", "many"] },
+             "tarn": { "type": "boolean" },
+@@ -175,7 +176,7 @@
+           "properties": {
+             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+-            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
++            "path": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
+             "side": { "enum": [1, -1] },
+             "source": { "type": "string" }
+           }
+diff --git a/src/core/forces/deposit.ts b/src/core/forces/deposit.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/forces/deposit.ts
+@@ -0,0 +1,67 @@
++// Presentation only; the conserved cut/fill, branches and arrival tape are produced in Rust.
++import { snapshotMap, type FullForceMap } from "./force";
++import { footprint } from "./objects";
++import { Staged, type StagedRun, type ForceCue } from "./runs";
++import { planInRust, type DepositRecords } from "./rust/bridge";
++import { forceSettingsProblem } from "./settings";
++import type { Point } from "./quake";
++import { smoothstep } from "../math/clamp";
++import { trimRock } from "./rock";
++
++export interface DepositSettings { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; floor: number; seed: number }
++export interface DepositIntent { path: Point[] }
++export const DEPOSIT_DEFAULTS: DepositSettings = { mode: "fan", power: 70, size: null, channels: "auto", floor: 1, seed: 1 };
++export function validateDeposit(s: DepositSettings): void {
++  const why = forceSettingsProblem("deposit", s as unknown as Record<string, unknown>);
++  if (why) throw new Error(why);
++}
++/** Rust applies Keep, Floor and the working area's depth before balancing sediment. */
++export class DepositRun extends Staged implements StagedRun {
++  readonly verb = "deposit" as const;
++  readonly plan0: DepositRecords;
++  protected readonly stages = 40;
++  protected readonly approach = 0;
++  constructor(before: FullForceMap, readonly settings: DepositSettings, readonly intent: DepositIntent,
++    keep: Uint8Array | null = null, areaDepth: Uint8Array | null = null) {
++    validateDeposit(settings);
++    super(before, keep);
++    this.plan0 = planInRust({ verb: "deposit", map: before, settings, intent, keep, areaDepth });
++  }
++  // An independent weathering/clamping pass would create or destroy the balanced material.
++  protected settle(): void {}
++  final(): FullForceMap | null { return this.planned ? this.plan0.raw : null; }
++  protected show(stage: number): void {
++    const { raw, arrival, channelStages, mouth } = this.plan0;
++    const t = stage / this.stages, out = snapshotMap(this.before);
++    const channels = channelStages[Math.min(2, Math.floor(t * 3))];
++    for (let i = 0; i < arrival.length; i++) if (arrival[i] <= t) {
++      out.heights[i] = Math.round(this.before.heights[i] + (raw.heights[i] - this.before.heights[i]) * smoothstep((t - arrival[i]) / .10));
++      // The temporary channel bed belongs to playback only; the final frame is the full Rust map.
++      if (t < 2 / 3 && channels[i] && raw.heights[i] > this.before.heights[i])
++        out.heights[i] = Math.max(this.before.heights[i], out.heights[i] - 1);
++    }
++    trimRock(out);
++    const after = new Map(raw.entities.map(e => [e.id, e]));
++    out.entities = this.before.entities.flatMap(e => {
++      if (!footprint(this.before, e).some(i => arrival[i] <= t)) return [structuredClone(e)];
++      const final = after.get(e.id);
++      if (!final) return [];
++      const rider=structuredClone(final), i=final.y*raw.W+final.x;
++      rider.z += out.heights[i]-raw.heights[i];
++      return [rider];
++    });
++    out.fallen = this.before.fallen.flatMap(f => {
++      const i = Math.floor(f.y) * raw.W + Math.floor(f.x);
++      const final = raw.fallen.find(g => g.id === f.id);
++      return arrival[i] > t ? [structuredClone(f)] : final ? [{...structuredClone(final),z:final.z+out.heights[i]-raw.heights[i]}] : [];
++    });
++    this.map = stage >= this.stages ? snapshotMap(raw) : out;
++  }
++  cue(): ForceCue {
++    const p = this.plan0.mouth, progress = this.stage / this.stages;
++    const x = Math.max(0, Math.min(this.map.W - 1, Math.round(p.x))), y = Math.max(0, Math.min(this.map.H - 1, Math.round(p.y)));
++    return { verb: "deposit", phase: this.done ? "done" : "advance", progress, x: p.x, y: p.y,
++      z: this.map.heights[y * this.map.W + x], size: this.plan0.width, power: this.settings.power,
++      deposit: { mouth: p, direction: this.plan0.direction, reach: this.plan0.reach, branches: this.plan0.branches } };
++  }
++}
+diff --git a/src/core/forces/keep.ts b/src/core/forces/keep.ts
+--- a/src/core/forces/keep.ts
++++ b/src/core/forces/keep.ts
+@@ -6,6 +6,8 @@
+
+ import { areaDepth } from "../features/raster/brush";
+ import { carveForceParams } from "./carve/result";
++import type { DepositRun } from "./deposit";
++import type { RiftRun } from "./rift";
+ import type { CarveRun } from "./carve/run";
+ import type { CraterRun, EruptRun, QuakeRun, StagedRun } from "./runs";
+ import type { ForceMap } from "./force";
+@@ -26,6 +28,14 @@
+     case "erupt": {
+       const r = run as EruptRun;
+       return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "fissure" && req.path ? { path: pathRecord(req.path) } : {}) } };
++    }
++    case "deposit": {
++      const r = run as DepositRun;
++      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
++    }
++    case "rift": {
++      const r = run as RiftRun;
++      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
+     }
+     case "quake": {
+       const r = run as QuakeRun;
+@@ -85,7 +95,7 @@
+   }
+   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
+   // tile, never in a cliff along its edge
+-  if (request.area) {
++  if (request.area && request.verb !== "rift" && request.verb !== "deposit") { // Rift feathers its terrain before playback in Rust.
+     params = featherForce(params, before.heights, areaDepth(request.area, before.W, before.H));
+     if (!params) return refused("Nothing changed inside the working area");
+   }
+diff --git a/src/core/forces/nature.ts b/src/core/forces/nature.ts
+--- a/src/core/forces/nature.ts
++++ b/src/core/forces/nature.ts
+@@ -139,6 +139,10 @@
+  *  sends no pins, and the base a pinned subset is applied over. */
+ export function autoDetailsOf(verb: Verb): Record<string, null> {
+   switch (verb) {
++    case "rift":
++      return { walls: null };
++    case "deposit":
++      return { channels: null };
+     case "carve":
+       return AUTO_CARVE_DETAILS;
+     case "craterize":
+@@ -161,6 +165,10 @@
+   const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
+   const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
+   switch (req.verb) {
++    case "rift":
++      return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };
++    case "deposit":
++      return { ...req, settings: { ...req.settings, channels: req.settings.channels ?? "auto" } };
+     case "carve":
+       return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+     case "craterize":
+diff --git a/src/core/forces/op.ts b/src/core/forces/op.ts
+--- a/src/core/forces/op.ts
++++ b/src/core/forces/op.ts
+@@ -19,8 +19,8 @@
+
+ export { forceSettingsProblems };
+
+-export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
+-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
++export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
++export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
+
+ /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
+  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
+@@ -36,6 +36,8 @@
+
+ /** A force's settings, as each force's options row sets them (the seed is its personality). */
+ export type ForceSettingsRecord =
++  | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
++  | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
+   | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
+   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
+   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
+@@ -159,11 +161,13 @@
+   const mode = p.settings.mode;
+   if (w.origin && !inMap(w.origin[0], w.origin[1])) return ["the force's point is off the map"];
+   if (w.end && !inMap(w.end[0], w.end[1])) return ["the force's end point is off the map"];
+-  if (w.path && !(w.path.length >= 2 && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return ["a painted line needs 2 to 512 points on the map"];
++  if (w.path && !(w.path.length >= ((p.verb === "rift" || p.verb === "deposit") ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return ["a painted line needs 2 to 512 points on the map"];
++  if (p.verb === "deposit" && !w.path?.length) return ["a deposit needs its origin"];
++  if (p.verb === "rift" && !w.path?.length) return ["a rift needs its fault"];
+   if (p.verb === "quake") {
+     if (!w.path) return ["a quake needs its fault"];
+     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
+-  } else if (!w.origin) return ["a force needs the point it started from"];
++  } else if (p.verb !== "rift" && p.verb !== "deposit" && !w.origin) return ["a force needs the point it started from"];
+   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
+   if ((p.verb === "carve" || p.verb === "craterize" || p.verb === "glaciate") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
+   if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
+@@ -237,10 +241,14 @@
+     case "craterize":
+       return "Craterize";
+     case "erupt":
+-      return p.settings.mode === "fissure" ? "Erupt a fissure" : "Erupt";
++      return (p.settings as { mode?: string }).mode === "fissure" ? "Erupt a fissure" : "Erupt";
+     case "quake":
+-      return p.settings.mode === "slide" ? "Quake: slide" : "Quake: lift";
++      return (p.settings as { mode?: string }).mode === "slide" ? "Quake: slide" : "Quake: lift";
+     case "glaciate":
+       return "Glaciate";
+-  }
+-}
++    case "rift":
++      return "Rift";
++    case "deposit":
++      return "Deposit";
++  }
++}
+diff --git a/src/core/forces/rift.ts b/src/core/forces/rift.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/forces/rift.ts
+@@ -0,0 +1,72 @@
++// Rift presentation only. All geometry, terrain, rock and riders are planned in Rust (D438).
++import { snapshotMap, type FullForceMap } from "./force";
++import { footprint } from "./objects";
++import { Staged, type StagedRun, type ForceCue } from "./runs";
++import { planInRust, type RiftRecords } from "./rust/bridge";
++import { forceSettingsProblem } from "./settings";
++import type { Point } from "./quake";
++import { smoothstep } from "../math/clamp";
++import { transportRock } from "./rock";
++export interface RiftSettings { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; floor: number; seed: number }
++export interface RiftIntent { path: Point[] }
++export const RIFT_DEFAULTS: RiftSettings = { mode: "drop", power: 70, size: null, walls: "auto", floor: 1, seed: 1 };
++export function validateRift(s: RiftSettings): void { const why = forceSettingsProblem("rift", s as unknown as Record<string, unknown>); if (why) throw new Error(why); }
++/** One Rust call, then the ordinary staged playback/keep/history path; no UI dependencies. */
++export class RiftRun extends Staged implements StagedRun {
++  readonly verb = "rift" as const;
++  readonly plan0: RiftRecords;
++  private readonly source: Uint32Array;
++  protected readonly stages = 20;
++  protected readonly approach = 1;
++  constructor(before: FullForceMap, readonly settings: RiftSettings, readonly intent: RiftIntent, keep: Uint8Array | null = null, areaDepth: Uint8Array | null = null) {
++    validateRift(settings);
++    super(before, keep);
++    this.source = Uint32Array.from(before.heights, (_, i) => i);
++    this.plan0 = planInRust({ verb: "rift", map: before, settings, intent, keep, areaDepth });
++  }
++  protected settle(): void {
++    this.finalize?.(this.plan0.raw);
++    // Build touches can weather neighbouring tiles: put them behind the nearest rupture front.
++    const { raw, arrival, fault } = this.plan0;
++    for (let i = 0; i < arrival.length; i++) if (raw.heights[i] !== this.before.heights[i] && arrival[i] > 1) {
++      let near = 0, best = Infinity;
++      for (let k = 0; k < fault.points.length; k++) {
++        const p = fault.points[k], dx = p.x - i % raw.W, dy = p.y - Math.floor(i / raw.W), d = dx * dx + dy * dy;
++        if (d < best) { best = d; near = k; }
++      }
++      arrival[i] = .04 + .74 * near / Math.max(1, fault.points.length - 1);
++    }
++  }
++  final(): FullForceMap | null { return this.planned ? this.plan0.raw : null; }
++  protected show(stage: number): void {
++    const { raw, arrival } = this.plan0;
++    const t = stage / this.stages;
++    const out = snapshotMap(this.before);
++    for (let i = 0; i < arrival.length; i++) if (arrival[i] <= t)
++      out.heights[i] = Math.round(this.before.heights[i] + (raw.heights[i] - this.before.heights[i]) * smoothstep((t - arrival[i]) / .14));
++    transportRock(this.before, out, this.source, true);
++    const after = new Map(raw.entities.map(e => [e.id, e]));
++    out.entities = this.before.entities.flatMap(e => {
++      if (!footprint(this.before, e).some(i => arrival[i] <= t)) return [structuredClone(e)];
++      const final = after.get(e.id); if (!final) return [];
++      const rider=structuredClone(final), i=final.y*raw.W+final.x;
++      rider.z += out.heights[i]-raw.heights[i];return [rider];
++    });
++    out.fallen = raw.fallen.map(f => {
++      const old = this.before.fallen.find(g => g.id === f.id);
++      const i = Math.floor(f.y) * raw.W + Math.floor(f.x);
++      if (old && arrival[i] > t) return structuredClone(old);
++      return {...structuredClone(f),z:f.z+out.heights[i]-raw.heights[i]};
++    });
++    // No water or sources are minted; the ordinary warm simulation continues on the displayed ground.
++    this.map = stage >= this.stages ? snapshotMap(raw) : out;
++  }
++  cue(): ForceCue {
++    const progress = this.stage / this.stages, pts = this.plan0.fault.points;
++    const p = pts[Math.min(pts.length - 1, Math.floor(progress * (pts.length - 1)))];
++    const x = Math.max(0, Math.min(this.map.W - 1, Math.round(p.x))), y = Math.max(0, Math.min(this.map.H - 1, Math.round(p.y)));
++    return { verb: "rift", phase: this.done ? "done" : this.stage ? "crack" : "rumble", progress, x: p.x, y: p.y,
++      z: this.map.heights[y * this.map.W + x], size: this.plan0.stats.width, power: this.settings.power,
++      rift: { path: pts, width: this.plan0.stats.width } };
++  }
++}
+diff --git a/src/core/forces/runs.ts b/src/core/forces/runs.ts
+--- a/src/core/forces/runs.ts
++++ b/src/core/forces/runs.ts
+@@ -49,6 +49,8 @@
+   erupt?: { vents: Point[]; radius: number; fissure: boolean; line: Point[] };
+   /** A quake: its crack as it runs, and whether it slides. */
+   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
++  rift?: { path: Point[]; width: number };
++  deposit?: { mouth: Point; direction: Point; reach: number; branches: Point[][] };
+   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
+   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
+   /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
+@@ -59,7 +61,7 @@
+
+ /** A staged force as the worker drives it. */
+ export interface StagedRun {
+-  readonly verb: "craterize" | "erupt" | "quake" | "glaciate";
++  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
+   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
+   readonly map: FullForceMap;
+   readonly done: boolean;
+diff --git a/src/core/forces/rust/bridge.ts b/src/core/forces/rust/bridge.ts
+--- a/src/core/forces/rust/bridge.ts
++++ b/src/core/forces/rust/bridge.ts
+@@ -79,9 +79,17 @@
+   "a glacier's path is up to 128 tiles on the map",
+   "a glacier's path moves on from each of its tiles to the next",
+   "No room to rise here",
++  "Invalid Rift settings",
++  "Draw the Rift on the map",
++  "the Floor leaves no ground to drop here",
++  "Invalid Deposit settings",
++  "Draw Deposit on the map",
++  "the working area leaves nothing to take sediment from",
++  "the Floor leaves nothing to take sediment from",
++  "the map leaves no room for sediment here",
+ ];
+
+-export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate";
++export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit";
+
+ /** A force to plan: which, the map it starts from, its settings and where (each verb's intent), the
+  *  ground it leaves alone (`keep`, null for none), and a carve's own options (its source's id, the
+@@ -92,6 +100,7 @@
+   settings: object;
+   intent: object;
+   keep: Uint8Array | null;
++  areaDepth?: Uint8Array | null;
+   options?: { sourceId?: string; unleashed?: string | null; bad?: boolean };
+ }
+
+@@ -99,7 +108,7 @@
+  *  fixtures and the native batch binary take it whole. */
+ export function jobBytes(job: RustJob): Uint8Array {
+   const N = job.map.W * job.map.H;
+-  return encode({ ...jobMetadata(job), map: { ...job.map, _plainEntities: plainEntities(job.map.entities) }, keep: job.keep ?? new Uint8Array(N) }, false);
++  return encode({ ...jobMetadata(job), map: { ...job.map, _plainEntities: plainEntities(job.map.entities) }, keep: job.keep ?? new Uint8Array(N), ...(job.areaDepth ? { areaDepth: job.areaDepth } : {}) }, false);
+ }
+
+ function jobMetadata(job: RustJob): Record<string, unknown> {
+@@ -203,7 +212,13 @@
+ }
+
+ /** What the Rust plans, by verb (records.ts), with `raw`: its map before the core's last touches. */
++export interface RiftRecords { raw: RustMap; fault: FaultShape; arrival: Float32Array; stats: { changed: number; drop: number; held: number; stepped: number; sheer: number; width: number }; }
++
++export interface DepositRecords { raw: RustMap; arrival: Float32Array; channel: Uint8Array; channelStages: Uint8Array[]; mouth: Point; direction: Point; reach: number; width: number; placement: "fan" | "slope" | "sheet" | "delta" | "hollow"; branches: Point[][]; stats: { changed: number; eroded: number; deposited: number; balance: number; maximumCut: number; maximumDeposit: number; channels: number; wet: number; buried: number; carried: number; donorRadius: number }; }
++
+ export type RustPlan =
++  | ({ verb: "deposit" } & DepositRecords)
++  | ({ verb: "rift" } & RiftRecords)
+   | ({ verb: "craterize" } & CraterRecords)
+   | ({ verb: "erupt" } & EruptRecords)
+   | ({ verb: "quake" } & QuakeRecords)
+@@ -246,6 +261,7 @@
+     view(3, Float64Array).set(m.water.contamination);
+     view(4, Float64Array).set(m.rockLayers);
+     if (job.keep) view(5, Uint8Array).set(job.keep);
++    if (job.areaDepth) view(67, Uint8Array).set(job.areaDepth);
+     x.forces_checkpoint(task);
+     const error = x.forces_plan(task);
+     if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
+@@ -380,6 +396,13 @@
+   const counted = <T>(count: number, read: () => T): T[] => Array.from({ length: count }, read);
+   let plan: RustPlan;
+   switch (job.verb) {
++    case "deposit": {
++      const mouth=point(), direction=point(), reach=n(), width=n(), placement=(["fan","slope","sheet","delta","hollow"] as const)[n()], count=n();
++      const branches=counted(count,()=>counted(n(),point));
++      const stages=view(25,Uint8Array).slice(); const N=raw.W*raw.H;
++      plan={verb:"deposit",raw,mouth,direction,reach,width,placement,branches,arrival:view(10,Float32Array).slice(),channel:view(11,Uint8Array).slice(),channelStages:[0,1,2].map(k=>stages.slice(k*N,(k+1)*N)),stats:named(view(12,Float64Array),["changed","eroded","deposited","balance","maximumCut","maximumDeposit","channels","wet","buried","carried","donorRadius"]) as DepositRecords["stats"]};
++      break;
++    }
+     case "craterize": {
+       const anatomy = named(counted(15, n), ["x", "y", "W", "H", "edgeInset", "radius", "a", "b", "angle", "glance", "diameter", "depth", "rim", "datum", "floor"]) as unknown as CraterRecords["anatomy"];
+       anatomy.centre = (["auto", "bowl", "peak", "ring", "flat"] as const)[n()];
+@@ -413,6 +436,7 @@
+       plan = { verb: "erupt", raw, anatomy, strength, stats: named(view(12, Float64Array), ["raised", "changed", "flattened", "erased", "hard"]) as EruptRecords["stats"], keep: view(11, Uint8Array).slice(), flows: view(10, Float32Array).slice(), heat: view(13, Uint8Array).slice() };
+       break;
+     }
++    case "rift":
+     case "quake": {
+       const fault = { length: n(), reach: n(), lift: n(), slide: n(), heading: point() } as QuakeRecords["fault"];
+       n(); // (its stages: the core's QuakeRun counts them)
+@@ -422,6 +446,10 @@
+       fault.points = counted(points, point);
+       fault.segments = counted(segments, () => ({ a: point(), b: point(), dx: n(), dy: n(), length: n(), along: n() }));
+       fault.directions = counted(directions, point);
++      if (job.verb === "rift") {
++        plan = { verb: "rift", raw, fault, arrival: view(10, Float32Array).slice(), stats: named(view(12, Float64Array), ["changed", "drop", "held", "stepped", "sheer", "width"]) as RiftRecords["stats"] };
++        break;
++      }
+       plan = {
+         verb: "quake",
+         raw,
+diff --git a/src/core/forces/settings.ts b/src/core/forces/settings.ts
+--- a/src/core/forces/settings.ts
++++ b/src/core/forces/settings.ts
+@@ -98,6 +98,8 @@
+     flags: [],
+     ranges: [],
+   },
++  rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
++  deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a deposit's size is 4 to 64 tiles, or null (it follows Power)" }] },
+   glaciate: {
+     name: "a glacier",
+     choices: { mode: ["flow", "aim"] },
+diff --git a/src/core/forces/start.ts b/src/core/forces/start.ts
+--- a/src/core/forces/start.ts
++++ b/src/core/forces/start.ts
+@@ -12,6 +12,8 @@
+ import { CarveRun, type CarveIntent, type CarveSettings } from "./carve/run";
+ import { edgeAim } from "./carve/edge";
+ import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
++import { DepositRun, type DepositSettings } from "./deposit";
++import { RiftRun, type RiftSettings } from "./rift";
+ import type { CraterSettings } from "./craterize";
+ import { fissureBreadth, type EruptSettings, type Point } from "./erupt";
+ import { plainEntities, type FullForceMap } from "./force";
+@@ -31,6 +33,8 @@
+  *  A5: only its showing; its operation and its land are the same). A painted Lift (`painting`) shows its result as it is painted
+  *  (`forcePaint`), and is kept when the pointer lets go. */
+ export type ForceRequest = (
++  | { verb: "deposit"; settings: DepositSettings; path: Point[]; cut: number | null }
++  | { verb: "rift"; settings: RiftSettings; path: Point[]; cut: number | null }
+   | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
+   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
+   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
+@@ -49,7 +53,7 @@
+   gesture?: number;
+ };
+
+-export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
++export type AnyForceSettings = DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
+ export type ForcePoint = Point;
+
+ /** The open map as a force starts from it: its ground, its objects, the water as it stands
+@@ -185,7 +189,7 @@
+   const inside = req.area ? areaDepth(req.area, W, H) : null;
+   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
+   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
+-  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
++  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
+   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
+   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
+   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
+@@ -258,6 +262,19 @@
+         staged = run;
+         break;
+       }
++      case "deposit": {
++        map = stagedForceMap(base);
++        // Rust budgets material after Keep/Floor/area feathering; never weather or feather its result independently.
++        staged = new DepositRun(map, req.settings, { path: req.path }, keep, inside);
++        break;
++      }
++      case "rift": {
++        map = stagedForceMap(base);
++        const run = new RiftRun(map, req.settings, { path: req.path }, keep, inside);
++        run.finalize = buildTouches(state, base.heights);
++        staged = run;
++        break;
++      }
+       case "quake": {
+         map = stagedForceMap(base);
+         // a click (a tap, no line drawn) makes a short natural fault there, the land choosing its way
+diff --git a/src/render3d/forces.ts b/src/render3d/forces.ts
+--- a/src/render3d/forces.ts
++++ b/src/render3d/forces.ts
+@@ -37,7 +37,7 @@
+
+ /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
+ export interface ForceMoment {
+-  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate";
++  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
+   phase: string;
+   progress: number;
+   x: number;
+diff --git a/tests/contract/deposit.test.ts b/tests/contract/deposit.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/deposit.test.ts
+@@ -0,0 +1,80 @@
++// D342/D444: native-planned force, no page required.
++import { describe, expect, test } from "vitest";
++import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
++import { fixture } from "./forceFixtures";
++import { jobBytes, executeInRust, planInRust } from "../../src/core/forces/rust/bridge";
++import { decode } from "../../src/core/forces/rust/protocol";
++import { forceParamsOf } from "../../src/core/forces/result";
++import { forceProblems } from "../../src/core/forces/op";
++import { planForce } from "../../src/core/forces/start";
++import { keptForceParams } from "../../src/core/forces/keep";
++const path=[{x:30,y:30},{x:53,y:30}];
++const sum=(a:Uint8Array)=>a.reduce((s,v)=>s+v,0);
++const plain=()=>fixture("plain",64);
++describe("Rust Deposit",()=>{
++ test("sediment is taken upstream, a lobed fan keeps channels, and no material is minted",()=>{
++  const m=plain();for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<27?12:7;
++  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40},{path}).finishAll();
++  expect(r.plan0.stats.eroded).toBeGreaterThan(100);expect(r.plan0.stats.deposited).toBe(r.plan0.stats.eroded);
++  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.plan0.stats.balance).toBe(0);
++  expect(r.plan0.branches.length).toBeGreaterThan(1);expect(r.plan0.channelStages).toHaveLength(3);
++  expect(r.plan0.channelStages[0]).not.toEqual(r.plan0.channelStages[1]);
++  expect(new Set(Array.from(r.map.heights.slice(32*64+30,32*64+52))).size).toBeGreaterThan(2);
++  expect(r.map.heights.some((h,i)=>h<m.heights[i]&&i%64<30)).toBe(true);
++ });
++ test("objects ride the current channel bed throughout playback",()=>{
++  const m=plain(),r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40},{path});r.planAll();
++  while(!r.done){r.step();for(const e of r.map.entities){const b=m.entities.find(b=>b.id===e.id)!;
++   expect(e.z).toBe(b.z+r.map.heights[e.y*64+e.x]-m.heights[b.y*64+b.x]);
++  }}
++ });
++ test("Power zero has a visible conserved effect on flat ground, edges and submerged ground",()=>{
++  for(const p of [{x:30,y:30},{x:0,y:0},{x:63,y:63}])for(const wet of [false,true]){
++   const m=plain();if(wet)m.water.depth.fill(.5);
++   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:0,size:64},{path:[p]}).finishAll();
++   expect(r.plan0.stats.changed).toBeGreaterThan(0);expect(r.plan0.stats.deposited).toBeGreaterThan(0);
++   expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
++   expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
++  }
++ });
++ test("Floor, kept tiles and area depth enter the material budget before playback",()=>{
++  const m=plain(),keep=new Uint8Array(4096),area=new Uint8Array(4096);area.fill(1);keep[30*64+30]=1;
++  for(let y=20;y<40;y++)area[y*64+10]=0;
++  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40,floor:8},{path},keep,area).finishAll();
++  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.heights.every((h,i)=>Math.abs(h-m.heights[i])<=area[i])).toBe(true);
++  expect(r.map.heights[30*64+30]).toBe(m.heights[30*64+30]);expect(r.map.heights.every(h=>h>=8)).toBe(true);
++ });
++ test("a native wet outlet is not filled; sources keep their ids, strength and positions",()=>{
++  const m=fixture("river",64),r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:64},{path:[{x:35,y:20},{x:35,y:55}]}).finishAll();
++  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
++  const sources=m.entities.filter(e=>e.template==='WaterSource');expect(r.map.entities.filter(e=>e.template==='WaterSource')).toHaveLength(sources.length);
++  for(const b of sources){const e=r.map.entities.find(e=>e.id===b.id)!;expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.before).toEqual(b.before);}
++  const seen=new Set<number>(),todo=[20*64+35];let outlet=false;
++  while(todo.length){const i=todo.pop()!;if(seen.has(i)||m.water.depth[i]<=.05||r.map.heights[i]>m.heights[i])continue;seen.add(i);if(Math.floor(i/64)===63)outlet=true;
++   for(const j of [i-1,i+1,i-64,i+64])if(j>=0&&j<4096&&Math.abs(j%64-i%64)<=1)todo.push(j);
++  }
++  expect(outlet).toBe(true);
++ });
++ test("final playback is kept exactly, records validate, and typed/packed plans agree",()=>{
++  const m=plain(),r=new DepositRun(m,DEPOSIT_DEFAULTS,{path}).finishAll();expect(r.map).toEqual(r.final());
++  expect(new DepositRun(m,DEPOSIT_DEFAULTS,{path}).finishAll().map).toEqual(r.map);
++  const job={verb:"deposit" as const,map:m,settings:DEPOSIT_DEFAULTS,intent:{path},keep:null};
++  const packed=decode(executeInRust(jobBytes(job))) as any;expect(packed.raw.heights).toEqual(Array.from(planInRust(job).raw.heights));
++  expect(packed.channelStages).toEqual(r.plan0.channelStages.map(s=>Array.from(s)));
++  const op=forceParamsOf(m,r.map,{verb:"deposit",settings:DEPOSIT_DEFAULTS,where:{path:path.map(p=>[p.x,p.y])},cut:null,steps:r.total,reason:"done"})!;
++  expect(forceProblems(op,64,64,22)).toEqual([]);expect(op.source).toBeUndefined();expect(op.sources).toBeUndefined();
++ });
++ test("the core accepts and records Deposit without requesting any object ids",()=>{
++  const m=plain(),state:any={W:64,H:64,pre:m.heights.slice(),protect:new Uint8Array(4096),channel:new Uint8Array(4096)};
++  const p=planForce({base:m,request:{verb:"deposit",settings:DEPOSIT_DEFAULTS,path,cut:null},state,caves:[],newId:()=>{throw Error("Deposit must not request an id");}});
++  expect(p.ok).toBe(true);if(!p.ok)return;p.staged!.finishAll();const kept=keptForceParams({before:p.before,request:p.request,carve:null,staged:p.staged});
++  expect(kept.ok).toBe(true);if(kept.ok&&kept.params)expect(kept.params.verb).toBe("deposit");
++ });
++ test("one-line refusals leave all input bytes unchanged",()=>{
++  const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
++  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");
++  expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:22},{path})).toThrow("the Floor leaves nothing to take sediment from");
++  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path},new Uint8Array(4096).fill(1))).toThrow("the working area leaves nothing to take sediment from");
++  expect(m.heights).toEqual(h);
++ });
++});
+diff --git a/tests/contract/forceSettings.test.ts b/tests/contract/forceSettings.test.ts
+--- a/tests/contract/forceSettings.test.ts
++++ b/tests/contract/forceSettings.test.ts
+@@ -10,6 +10,8 @@
+ import type { ForceMap } from "../../src/core/forces/force";
+ import { GLACIATE_DEFAULTS, glaciateProblem } from "../../src/core/forces/glaciate/model";
+ import { forceSettingsProblems, VERBS, type Verb } from "../../src/core/forces/op";
++import { DEPOSIT_DEFAULTS, validateDeposit } from "../../src/core/forces/deposit";
++import { RIFT_DEFAULTS, validateRift } from "../../src/core/forces/rift";
+ import { QUAKE_DEFAULTS, validateQuake } from "../../src/core/forces/quake";
+ import { FORCE_SETTINGS, POWER_MAX, POWER_MIN, SEED_MAX } from "../../src/core/forces/settings";
+
+@@ -22,6 +24,8 @@
+   erupt: { ...ERUPT_DEFAULTS },
+   quake: { ...QUAKE_DEFAULTS },
+   glaciate: { ...GLACIATE_DEFAULTS },
++  rift: { ...RIFT_DEFAULTS },
++  deposit: { ...DEPOSIT_DEFAULTS },
+ };
+
+ const W = 16;
+@@ -39,6 +43,10 @@
+     }
+   };
+   switch (verb) {
++    case "deposit":
++      return thrown(() => validateDeposit(s as never));
++    case "rift":
++      return thrown(() => validateRift(s as never));
+     case "carve":
+       return thrown(() => new CarveRun(map, s as never, { origin: 5 * W + 5 }));
+     case "craterize":
+diff --git a/tests/contract/rift.test.ts b/tests/contract/rift.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/rift.test.ts
+@@ -0,0 +1,63 @@
++// D444: the new Rust force's core contracts from its first commit.
++import { describe, expect, test } from "vitest";
++import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
++import { fixture } from "./forceFixtures";
++import { jobBytes, executeInRust, planInRust } from "../../src/core/forces/rust/bridge";
++import { decode } from "../../src/core/forces/rust/protocol";
++import { forceParamsOf } from "../../src/core/forces/result";
++import { forceProblems } from "../../src/core/forces/op";
++import { planForce } from "../../src/core/forces/start";
++import { keptForceParams } from "../../src/core/forces/keep";
++const path = [{x:12,y:30},{x:32,y:33},{x:52,y:29}];
++function plain() { const m=fixture("plain",64); m.heights.fill(15); return m; }
++describe("Rust Rift",()=>{
++ test("a broad dropped block keeps the old relief between two faults",()=>{
++  const m=plain();for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=12+Math.floor(x/16);
++  const r=new RiftRun(m,{...RIFT_DEFAULTS,power:100,size:22,walls:"sheer"},{path}).finishAll();
++  expect(r.plan0.stats.changed).toBeGreaterThan(200);expect(r.plan0.stats.drop).toBeGreaterThan(8);
++  expect(r.map.heights[5*64+32]).toBe(m.heights[5*64+32]);
++  expect(new Set(Array.from(r.map.heights.slice(31*64+20,31*64+45))).size).toBeGreaterThan(1);
++  expect(r.map.heights.every((h,i)=>h<=m.heights[i])).toBe(true);
++ });
++ test("a wide short or repeated stroke retains a visible Power-zero middle",()=>{
++  for(const path of [[{x:20,y:20},{x:32,y:45},{x:45,y:32}],[{x:31,y:32},{x:32,y:32}],[{x:32,y:32},{x:32,y:32}]]){
++   const m=plain();const r=new RiftRun(m,{...RIFT_DEFAULTS,power:0,size:64},{path}).finishAll();
++   expect(r.plan0.stats.changed).toBeGreaterThan(8);expect(r.plan0.stats.drop).toBe(1);
++  }
++ });
++ test("Power zero visibly drops land at clicks, edges, water, and max Size",()=>{
++  for(let seed=1;seed<=8;seed++)for(const p of [{x:0,y:0},{x:63,y:63},{x:32,y:32}]){
++   const m=plain();if(seed%2)m.water.depth.fill(.2);
++   const r=new RiftRun(m,{...RIFT_DEFAULTS,power:0,size:64,seed},{path:[p]}).finishAll();
++   expect(r.plan0.stats.changed).toBeGreaterThan(0);expect(r.plan0.stats.drop).toBe(1);
++   expect(r.map.water).toEqual(m.water);expect(r.map.entities.map(e=>e.id)).toEqual(m.entities.map(e=>e.id));
++   expect(r.map.fallen).toEqual(m.fallen);
++  }
++ });
++ test("Floor and kept land are respected, sources ride upright with unchanged strength",()=>{
++  const m=fixture("river",64),keep=new Uint8Array(4096);keep[32*64+32]=1;
++  const r=new RiftRun(m,{...RIFT_DEFAULTS,power:100,size:64,floor:6},{path},keep).finishAll();
++  expect(r.map.heights.every((h,i)=>h>=Math.min(m.heights[i],6))).toBe(true);
++  expect(r.map.heights[32*64+32]).toBe(m.heights[32*64+32]);
++  for(const e of r.map.entities){const b=m.entities.find(b=>b.id===e.id)!;expect(b).toBeDefined();expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.z-b.z).toBe(r.map.heights[e.y*64+e.x]-m.heights[b.y*64+b.x]);if(e.template==='WaterSource')expect(e.before).toEqual(b.before);}
++ });
++ test("no end pop; repeat, typed boundary and packed diagnostics agree; literal record validates",()=>{
++  const m=plain();const r=new RiftRun(m,RIFT_DEFAULTS,{path});r.planAll();while(!r.done)r.step();
++  expect(r.map).toEqual(r.final());expect(new RiftRun(m,RIFT_DEFAULTS,{path}).finishAll().map).toEqual(r.map);
++  const job={verb:"rift" as const,map:m,settings:RIFT_DEFAULTS,intent:{path},keep:null};
++  const packed=decode(executeInRust(jobBytes(job))) as any;
++  expect(packed.raw.heights).toEqual(Array.from(planInRust(job).raw.heights));expect(packed.arrival).toEqual(Array.from(r.plan0.arrival));
++  const op=forceParamsOf(m,r.map,{verb:"rift",settings:RIFT_DEFAULTS,where:{path:path.map(p=>[p.x,p.y])},cut:null,steps:r.total,reason:"done"})!;
++  expect(forceProblems(op,64,64,22)).toEqual([]);expect(op.tiles.length).toBeGreaterThan(0);expect(op.source).toBeUndefined();expect(op.sources).toBeUndefined();
++ });
++ test("core planForce and keptForceParams handle the request without the page",()=>{
++  const m=plain(),state:any={W:64,H:64,pre:m.heights.slice(),protect:new Uint8Array(4096),channel:new Uint8Array(4096)};
++  const p=planForce({base:m,request:{verb:"rift",settings:RIFT_DEFAULTS,path,cut:null,natural:true},state,caves:[],newId:()=>{throw Error("Rift must not request an id");}});
++  expect(p.ok).toBe(true);if(!p.ok)return;p.staged!.finishAll();const kept=keptForceParams({before:p.before,request:p.request,carve:null,staged:p.staged});expect(kept.ok).toBe(true);
++ });
++ test("refusals are one-line reasons and preserve input bytes",()=>{
++  const m=plain(),before=m.heights.slice();expect(()=>new RiftRun(m,{...RIFT_DEFAULTS,power:-1},{path})).toThrow("a rift's power is 0 to 100");
++  expect(()=>new RiftRun(m,RIFT_DEFAULTS,{path:[]})).toThrow("Draw the Rift on the map");
++  expect(()=>new RiftRun(m,{...RIFT_DEFAULTS,floor:22},{path})).toThrow("the Floor leaves no ground to drop here");expect(m.heights).toEqual(before);
++ });
++});
+diff --git a/tests/contract/riftDepositEverywhere.test.ts b/tests/contract/riftDepositEverywhere.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/riftDepositEverywhere.test.ts
+@@ -0,0 +1,19 @@
++// D356's cheap seeded click check, on slopes, flats, a peak, water and map edges.
++import { expect, test } from "vitest";
++import { fixture } from "./forceFixtures";
++import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
++import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
++import { planInRust } from "../../src/core/forces/rust/bridge";
++test("both new Rust forces visibly act at random clicks, including Power 0 at maximum Size",()=>{
++ let seed=734119;const next=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
++ for(const kind of ["plain","river","slide","lake"] as const)for(const power of [0,100]){
++  const m=fixture(kind,64);const clicks=[{x:0,y:0},{x:63,y:63},{x:35,y:45},{x:18,y:30},...Array.from({length:8},()=>({x:Math.floor(next()*64),y:Math.floor(next()*64)}))];
++  for(const p of clicks)for(const size of [4,64])for(const verb of ["rift","deposit"] as const){
++   const settings=verb==="rift"?{...RIFT_DEFAULTS,power,size,seed}:{...DEPOSIT_DEFAULTS,power,size,seed};
++   const plan=planInRust({verb,map:m,settings,intent:{path:[p]},keep:null});
++   expect(plan.stats.changed,`${kind}/${verb}/${power}/${size}/${p.x},${p.y}`).toBeGreaterThanOrEqual(9);
++   expect(plan.raw.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
++   expect(plan.raw.water).toEqual(m.water);
++  }
++ }
++});
+diff --git a/tests/contract/riftDepositOps.test.ts b/tests/contract/riftDepositOps.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/riftDepositOps.test.ts
+@@ -0,0 +1,25 @@
++// Core/worker adoption contract, without any page or interface controls.
++import { expect, test } from "vitest";
++import { MapSession } from "../../src/core/doc/session";
++import { decodeProject } from "../../src/core/doc/document";
++import { makeSpec } from "../../src/core/spec/mapspec";
++import { runGenerate } from "../../src/worker/api";
++import * as ed from "../../src/worker/session";
++import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
++import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
++const sum=(a:Uint8Array)=>a.reduce((s,v)=>s+v,0);
++test("Rift and Deposit keep the exact final frame, undo and reopen; Deposit keeps its material",async()=>{
++ await runGenerate(makeSpec({seed:21,theme:"highlands",size:{x:96,y:96}}));ed.refine();
++ for(const verb of ["rift","deposit"] as const)for(const power of [0,100]){
++  const before=ed.terrainNow().heights.slice();
++  const settings=verb==="rift"?{...RIFT_DEFAULTS,power,size:22}:{...DEPOSIT_DEFAULTS,power,size:40};
++  const request={verb,settings,path:[{x:55,y:30},{x:78,y:54}],cut:null} as ed.ForceRequest;
++  expect(ed.forceStart(request).errors).toEqual([]);let shown=before;
++  for(let k=0;k<80;k++){const frame=ed.forceAdvance(2)!;if(frame.heights)shown=frame.heights.slice();if(frame.done)break;}
++  expect(ed.forceStop().errors).toEqual([]);
++  const after=ed.terrainNow().heights.slice();expect(after).toEqual(shown);expect(after).not.toEqual(before);
++  if(verb==="deposit")expect(sum(after)).toBe(sum(before));
++  const reopened=MapSession.open(decodeProject(ed.project().bytes));expect(reopened.built.heights).toEqual(after);
++  ed.undo();expect(ed.terrainNow().heights).toEqual(before);
++ }
++},120000);
+diff --git a/tests/unit/forcePlayback.test.ts b/tests/unit/forcePlayback.test.ts
+--- a/tests/unit/forcePlayback.test.ts
++++ b/tests/unit/forcePlayback.test.ts
+@@ -22,7 +22,7 @@
+   for (const f of frames.splice(0)) f();
+ }
+
+-type Verb = ForceMoment["verb"];
++type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift effects belong to the page session.
+
+ /** A moment of `verb` at (x, y). */
+ function moment(verb: Verb, phase: string, x: number, y: number, progress = 0): ForceMoment {
+diff --git a/tools/determinism/cases.ts b/tools/determinism/cases.ts
+--- a/tools/determinism/cases.ts
++++ b/tools/determinism/cases.ts
+@@ -18,6 +18,8 @@
+ import { QUAKE_DEFAULTS, clickFault } from "../../src/core/forces/quake";
+ import { GlaciateRun } from "../../src/core/forces/glaciate/run";
+ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
++import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
++import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
+ import { keptForceParams } from "../../src/core/forces/keep";
+ import type { ForceRequest } from "../../src/core/forces/start";
+ import { VERBS } from "../../src/core/forces/op";
+@@ -131,7 +133,7 @@
+   return { tool, strength, size, seed: 927 + k, ...(!target ? { level: 9 } : {}), dabs, ...(k % 2 ? { shape: "square" } : {}), ...(target ? { target: tool === "lower" ? 3 : 15 } : {}) } as any;
+ }
+
+-const verbs = ["carve", "craterize", "erupt", "quake", "glaciate"];
++const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
+
+ function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
+   const n = m.W;
+@@ -147,6 +149,7 @@
+   let run: StagedRun & { planAll(): unknown };
+   let settings: any;
+   let intent: any;
++  const areaDepth = (verb === "rift" || verb === "deposit") && mode ? new Uint8Array(n*n).fill(2) : null;
+   if (verb === "carve") {
+     settings = nature.carveNature({ ...CARVE, mode: mode ? "aim" : "unleash", power, width: size === null ? null : Math.min(24, size / 4), seed, dry: mode === 2 } as any, ground);
+     intent = { origin, ...(mode ? { end } : {}) };
+@@ -166,6 +169,14 @@
+     settings = nature.eruptNature({ ...ERUPT_DEFAULTS, mode: mode ? "fissure" : "vent", power, size, seed } as any, ground);
+     intent = { origin, ...(mode ? { path } : {}) };
+     run = new EruptRun(m, settings, intent);
++  } else if (verb === "deposit") {
++    settings = { ...DEPOSIT_DEFAULTS, power, size, seed };
++    intent = { path: mode ? path : [{ x, y }] };
++    run = new DepositRun(m, settings, intent, null, areaDepth);
++  } else if (verb === "rift") {
++    settings = { ...RIFT_DEFAULTS, power, size, seed };
++    intent = { path: mode ? path : [{ x, y }] };
++    run = new RiftRun(m, settings, intent, null, areaDepth);
+   } else if (verb === "quake") {
+     settings = nature.quakeNature({ ...QUAKE_DEFAULTS, mode: mode ? "slide" : "lift", power, seed } as any, ground);
+     intent = { path, side: seed % 2 ? 1 : -1 };
+@@ -176,14 +187,18 @@
+     run = new GlaciateRun(m, settings, intent) as any;
+   }
+   run.planAll();
++  const frames: { stage: number; map: FullForceMap }[] = [];
++  if (verb === "rift" || verb === "deposit") {
++    while (!run.done) { run.step(); if ([1, Math.floor(run.total/2), run.total].includes(run.shown)) frames.push({ stage: run.shown, map: snapshotMap(run.map) }); }
++  }
+   // (its record as the editor keeps it, from the request it would have sent: forces/keep.ts)
+   const request = (
+-    verb === "quake"
+-      ? { verb, settings, path, side: intent.side, cut: null }
++    (verb === "quake" || verb === "rift" || verb === "deposit")
++      ? { verb, settings, path: intent.path, ...(verb === "quake" ? {side: intent.side} : {}), cut: null }
+       : { verb, settings, origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path } : {}), cut: null }
+   ) as ForceRequest;
+   const kept = keptForceParams({ before: m, request, carve: null, staged: run });
+-  return { map: run.final(), record: kept.ok ? kept.params : null };
++  return { map: run.final(), record: kept.ok ? kept.params : null, frames };
+ }
+
+ function water(m: any, ticks = 24) {
+@@ -203,7 +218,7 @@
+     const grid = !smoke || n === 128;
+     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
+     if (grid) for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
+-    for (const verb of verbs)
++    for (const verb of verbs.filter(v => v !== "rift" && v !== "deposit"))
+       for (const power of grid ? [10, 55, 100] : [55])
+         for (const size of grid ? [null, 12, 48] : [null]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
+     out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? (n === 128 ? 12 : 6) : 120 });
+@@ -218,6 +233,7 @@
+     out.push({ id: `scheduling/${n}`, kind: "scheduling", n });
+     for (const reserve of ["scarce", "plenty"]) if (grid) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
+   }
++  for (const verb of ["rift", "deposit"]) for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/${verb}/${power}/${mode}`, kind: "force", n: 64, verb, power, size: 22, mode });
+   return out;
+ }
+
+@@ -316,6 +332,7 @@
+           const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2);
+           m = f.map;
+           record = f.record;
++          if ("frames" in f && f.frames) for (const frame of f.frames) await add(`${c.id}/${k}/playback/${frame.stage}`, frame.map, record);
+         } catch (e) {
+           if (c.kind !== "mixed" || !String((e as Error).message).includes("uphill")) throw e;
+           record = { rejected: (e as Error).message, seed: 701 + k };
+diff --git a/tools/determinism/run.ts b/tools/determinism/run.ts
+--- a/tools/determinism/run.ts
++++ b/tools/determinism/run.ts
+@@ -27,6 +27,7 @@
+ }
+ const smoke = process.argv.includes("--smoke");
+ const serial = process.argv.includes("--serial");
++const noTimings = process.argv.includes("--no-timings");
+ // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
+ const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
+ const outName = arg("out") ?? (smoke ? "smoke" : "full");
+@@ -105,10 +106,10 @@
+   let list = caseList(smoke);
+   if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
+   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
+-  const t0 = performance.now();
++  const t0 = noTimings ? 0 : performance.now();
+   const slowest: { case: string; seconds: number }[] = [];
+   for (const [index, c] of list.entries()) {
+-    const tc = performance.now();
++    const tc = noTimings ? 0 : performance.now();
+     const responses = await runEngines(
+       Object.entries(engines).map(([name, e]) => async () => {
+         try {
+@@ -123,7 +124,7 @@
+         }
+       }),
+     );
+-    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
++    if (!noTimings) slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
+     const reference = responses[0];
+     for (const other of responses.slice(1)) {
+       if (!other.rows || !reference.rows) continue;
+@@ -141,7 +142,7 @@
+     if (index % 20 === 0 || bad)
+       console.log(`${index + 1}/${list.length} ${c.id}: ${responses.map((r) => (r.rows ? `${r.name} ${r.rows.length}` : `${r.name} ERROR ${r.error?.message}`)).join(", ")}; mismatches ${mismatches.length}`);
+   }
+-  const seconds = Math.round((performance.now() - t0) / 1000);
++  const seconds = noTimings ? null : Math.round((performance.now() - t0) / 1000);
+   const summary = {
+     schema: 1,
+     smoke,
+@@ -159,7 +160,7 @@
+   const errors = Object.values(engines).flatMap((e) => e.errors);
+   for (const m of mismatches.slice(0, 40)) console.error(`MISMATCH ${m.case} ${m.label} (${m.engines.join(" vs ")}): ${m.components.join(", ")}`);
+   for (const e of errors.slice(0, 40)) console.error(`ERROR ${e.case}: ${e.message}`);
+-  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors, ${seconds} s`);
++  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors${noTimings ? "" : `, ${seconds} s`}`);
+   failed = mismatches.length > 0 || errors.length > 0;
+ } finally {
+   await Promise.all(browsers.map((b) => b.close()));
+diff --git a/tools/rust/check.ts b/tools/rust/check.ts
+--- a/tools/rust/check.ts
++++ b/tools/rust/check.ts
+@@ -286,7 +286,7 @@
+ const nodeForces = forceJobs.map((j) => {
+   const out = executeInRust(j.job);
+   if (sha256(out) !== pins[j.name]) throw new Error(`the Rust forces' ${j.name} differs from its pin (tools/rust/forces-pins.json): a force changed`);
+-  return hash53(out);
++  return Buffer.from(out);
+ });
+ const forcesBin = join(RUST, "target/release", process.platform === "win32" ? "forces-batch.exe" : "forces-batch");
+ if (!existsSync(forcesBin)) cargo(["build", "--release", "-j", JOBS, "-p", "forces", "--bin", "forces-batch"]);
+@@ -296,9 +296,9 @@
+   let at = 0;
+   forceJobs.forEach((j, k) => {
+     const len = out.readUInt32LE(at);
+-    const got = hash53(new Uint8Array(out.buffer, out.byteOffset + at + 4, len));
++    const got = out.subarray(at + 4, at + 4 + len);
+     at += 4 + len;
+-    if (got !== nodeForces[k]) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
++    if (!got.equals(nodeForces[k])) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
+   });
+ }
+ console.log(`the Rust forces: ${forceJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
+@@ -318,14 +318,7 @@
+     const res = x.forces_execute(ptr, job.length, lenPtr);
+     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
+     const b = new Uint8Array(x.memory.buffer, res, len);
+-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+-    for (let i = 0; i < b.length; i++) {
+-      h1 = Math.imul(h1 ^ b[i], 2654435761);
+-      h2 = Math.imul(h2 ^ b[i], 1597334677);
+-    }
+-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+-    out.push(4294967296 * (2097151 & h2) + (h1 >>> 0));
++    let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
+     x.water_dealloc(res, len);
+     x.water_dealloc(lenPtr, 4);
+     x.water_dealloc(ptr, job.length);
+@@ -357,9 +350,9 @@
+         if (h !== nodeWater[k]) throw new Error(`the Rust water differs in ${name}: ${waterJobs[k].name}`);
+       });
+       console.log(`${name}: the Rust water's ${waterJobs.length} canonical settles, the same bytes`);
+-      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as number[];
++      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as string[];
+       forceHashes.forEach((h, k) => {
+-        if (h !== nodeForces[k]) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
++        if (!Buffer.from(h, "base64").equals(nodeForces[k])) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
+       });
+       console.log(`${name}: the Rust forces' ${forceJobs.length} fixtures, the same bytes`);
+     } finally {
+diff --git a/tools/rust/forces-jobs.ts b/tools/rust/forces-jobs.ts
+--- a/tools/rust/forces-jobs.ts
++++ b/tools/rust/forces-jobs.ts
+@@ -9,6 +9,7 @@
+ //   npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json    pins the current Rust (a deliberate change)
+
+ import { createHash } from "node:crypto";
++import { decode } from "../../src/core/forces/rust/protocol";
+ import { pathToFileURL } from "node:url";
+ import { FOOTPRINTS } from "../../src/core/format/footprints";
+ import { F } from "../../src/core/format/json";
+@@ -20,7 +21,7 @@
+ import { executeInRust, jobBytes, type RustJob, type RustVerb } from "../../src/core/forces/rust/bridge";
+ import { fixture } from "../../tests/contract/forceFixtures";
+
+-const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate"];
++const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit"];
+
+ /** A plain job: verb, a W × W study, variant k. */
+ function job(verb: RustVerb, n: number, k: number): RustJob {
+@@ -31,6 +32,10 @@
+   const keep = new Uint8Array(n * n);
+   const power = k % 3 === 0 ? 100 : k % 3 === 1 ? 0 : 55;
+   switch (verb) {
++    case "deposit":
++      return { verb, map, keep, settings: { mode: "fan", power, size: k === 2 ? 4 : k % 2 ? 64 : null, channels: ["auto", "few", "many"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
++    case "rift":
++      return { verb, map, keep, settings: { mode: "drop", power, size: k === 2 ? 4 : k % 2 ? 64 : null, walls: ["auto", "sheer", "stepped"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
+     case "carve":
+       return { verb, map, keep, settings: { ...CARVE_DEFAULTS, power: 100, seed: k, mode: k % 2 ? "aim" : "unleash", defyGravity: true }, intent: k % 2 ? { origin, end } : { origin } };
+     case "erupt":
+@@ -108,6 +113,14 @@
+     j.settings = { ...s, power, seed, size: pick([null, 6, 140, 6 + u() * 134]), shape: pick(["steep", "broad"]), summit: pick(["auto", "peak", "crater", "caldera"]), flows: pick(["light", "heavy"]), ridges: u() < 0.5, mode: pick(["vent", "fissure"]), floor: 1 + Math.floor(u() * 22) };
+     j.intent = { origin, path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: 2 + u() * (n - 5), y: 2 + u() * (n - 5) })) };
+   }
++  if (verb === "deposit") {
++    j.settings = { mode: "fan", power, seed, size: pick([null, 4, 64]), channels: pick(["auto", "few", "many"]), floor: 1 };
++    j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
++  }
++  if (verb === "rift") {
++    j.settings = { mode: "drop", power, seed, size: pick([null, 4, 64]), walls: pick(["auto", "sheer", "stepped"]), floor: 1 };
++    j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
++  }
+   if (verb === "quake") {
+     j.settings = { ...s, power, seed, scarp: pick(["sheer", "stepped"]), mode: pick(["lift", "slide"]), floor: 1 + Math.floor(u() * 22) };
+     j.intent = { side: pick([-1, 1]), path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
+@@ -136,6 +149,7 @@
+     j.settings = { ...s, power, seed, size: pick([null, 4, 64, 4 + u() * 60]), mode: aimed ? "aim" : "flow", meltwater: u() < 0.5, benches: pick(["none", "some", "many"]), steps: pick(["few", "some", "many"]), tarn: u() < 0.5, scree: u() < 0.5, floor: 1 + Math.floor(u() * 22) };
+     j.intent = aimed ? { origin, end: end === origin ? (end + 1) % (n * n) : end, ...(via ? { via } : {}) } : { origin };
+   }
++  if ((verb === "rift" || verb === "deposit") && k === 1) j.areaDepth = new Uint8Array(n*n).fill(2);
+   return j;
+ }
+
+@@ -158,6 +172,10 @@
+
+ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+   const pins: Record<string, string> = {};
+-  for (const f of forceFixtures()) pins[f.name] = sha256(executeInRust(f.job));
++  for (const f of forceFixtures()) {
++    const output = executeInRust(f.job);
++    if (/^(rift|deposit) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
++    pins[f.name] = sha256(output);
++  }
+   console.log(JSON.stringify(pins, null, 2));
+ }
+diff --git a/tools/rust/forces-pins.json b/tools/rust/forces-pins.json
+--- a/tools/rust/forces-pins.json
++++ b/tools/rust/forces-pins.json
+@@ -28,5 +28,17 @@
+   "glaciate 64 2": "ad9b09f3255b3b586602c3ca4215ca43f2cb9fa67486ebadbcc76e8be92a3835",
+   "glaciate 64 3": "d5b6f6f7d1689752871fcad1d353760cbfb3480f15fe27ab02d348a5cb67af60",
+   "glaciate 64 odd 0": "4ed24eb87f82a8012719d7f63555866337cc4de5bc58648b317b10f61456016f",
+-  "glaciate 64 odd 1": "21c3fea51d5d55c82363eb405ecaf11a6b51657877f85b61380922144e8943c9"
++  "glaciate 64 odd 1": "21c3fea51d5d55c82363eb405ecaf11a6b51657877f85b61380922144e8943c9",
++  "rift 64 0": "8af6c011aa323a08ca9f613f7132ddc6bd0ae2f447fd54656254cc4843e8a0f7",
++  "rift 64 1": "a0968a368b6aa79becc05c5be815147001881f7020d02ce66bae5556696de2ce",
++  "rift 64 2": "bc11819a850dc60ef2223718c6d412b15b17c80ae6eca1646791f27b1c387153",
++  "rift 64 3": "98147c9f8a99a9345713315a99b14e99b11ee948bee7096b381854294ddd4fe5",
++  "rift 64 odd 0": "ec0d9fc419bb40c3a5a88b76f2d145e3dd9f7132cc7b05db0e738adf9ddaf36c",
++  "rift 64 odd 1": "51dd86ec2b7fbea4b2b36a86b24dc5a9c02d887428dda9003ae09eab579c78bf",
++  "deposit 64 0": "3632fc66df42b021005575722fabe51c992e178b5656c3eed386cd31e032c842",
++  "deposit 64 1": "acdd93c057f5eb862920802b7e7060bb175bfa9238d8a6ccf05b8e5ff62a02ce",
++  "deposit 64 2": "9d0acb76f91ff9ecb1c71c080a080fe08e95acda8c16a1e1268d907c194c8a27",
++  "deposit 64 3": "aeafeef8a3ce0202a92b6c3505fee36d4866931d96d071b27c1ee12e95413fc9",
++  "deposit 64 odd 0": "b691724de00ead6b1fe9175a1c647fdd9052762af0e9ec46f6ce231299d0fa5b",
++  "deposit 64 odd 1": "cf1cd49ea9d522cdec59326899db8419ec7c3fd16bf5289c18ffb20f7b701099"
+ }
