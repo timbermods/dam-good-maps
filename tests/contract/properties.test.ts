@@ -19,7 +19,7 @@ import { randomOp } from "./randomOps";
 
 /** Operations kept in the document's log and replayed on every generation. */
 const LOG_OPS: readonly OpName[] = [
-  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
+  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity",
   "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
 ];
 

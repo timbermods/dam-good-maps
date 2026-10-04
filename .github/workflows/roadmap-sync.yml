@@ -1,0 +1,43 @@
+name: Roadmap sync
+
+# The roadmap canvas (tools/roadmap-canvas/index.html) is published at /roadmap/ by deploy.yml, which
+# takes dev's copy when it builds. A Pages deploy can only run from main, so when dev's copy changes
+# this runs deploy.yml on main again.
+#
+# A deploy replaces the whole site, so /preview/ is kept: deploy.yml writes the preview's branch and
+# commit to /preview/ref.txt, and this passes that commit back as preview_ref, so the preview is
+# rebuilt exactly as it is live (none live: none passed). Nothing happens until main's deploy.yml
+# has the roadmap step, so merging this into dev ahead of a release does no harm.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - tools/roadmap-canvas/**
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Run the deploy on main
+        run: |
+          if ! gh api "repos/$GH_REPO/contents/.github/workflows/deploy.yml?ref=main" --jq .content | base64 -d | grep -q "Add the roadmap canvas from dev"; then
+            echo "main's deploy does not publish the roadmap yet; nothing to do."
+            exit 0
+          fi
+          base="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          sha=$(curl -fsS "$base/preview/ref.txt?t=$(date +%s)" | awk '{print $2}' || true)
+          if printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "Keeping the preview at $sha."
+            gh workflow run deploy.yml --ref main -f "preview_ref=$sha"
+          else
+            echo "No preview is live."
+            gh workflow run deploy.yml --ref main
+          fi

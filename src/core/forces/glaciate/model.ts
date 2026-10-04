@@ -8,6 +8,8 @@
 import * as portable from "../../math/portable";
 import { MinHeap, N8 } from "../../math/grid";
 import type { ForceMap } from "../force";
+import { clamp } from "../random";
+import { forceSettingsProblem, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN } from "../settings";
 
 /** What the row sets (D289: Power, Size, Meltwater; Try another's seed), and the gesture's mode: a
  *  click Flows, a drag Aims (D258; there is no Mode control). */
@@ -98,11 +100,9 @@ export const GLACIATE_DEFAULTS: GlaciateSettings = { mode: "flow", power: 60, si
  *  4's, as deep as it was there, and Glaciate's Power lifts it afterwards (`shallowGlacier`). */
 export const ROUND4_POWER = 60;
 
-/** Size's range in tiles (the row's slider). */
-export const GLACIATE_SIZE_MIN = 4;
-export const GLACIATE_SIZE_MAX = 64;
+/** Size's range in tiles (the row's slider; settings.ts). */
+export { GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN };
 
-export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** The investigation's integer mixer: a number in [0, 1) from a seed and a key. */
 export const noise = (seed: number, i: number) => {
@@ -140,11 +140,8 @@ export function sinuosity(p: Point[]): number {
 /** Why these settings and gesture are not ones the row and the land could give (null when they are). */
 export function glaciateProblem(W: number, H: number, s: GlaciateSettings, intent: GlaciateIntent): string | null {
   const n = W * H;
-  if (!["flow", "aim"].includes(s.mode)) return "a glacier's mode is flow or aim";
-  if (!(Number.isFinite(s.power) && s.power >= 0 && s.power <= 100)) return "a glacier's power is 0 to 100";
-  if (s.size !== null && !(Number.isFinite(s.size) && s.size >= GLACIATE_SIZE_MIN && s.size <= GLACIATE_SIZE_MAX)) return `a glacier's size is ${GLACIATE_SIZE_MIN} to ${GLACIATE_SIZE_MAX} tiles, or null (it follows Power)`;
-  if (typeof s.meltwater !== "boolean") return "a glacier's meltwater is true or false";
-  if (!(Number.isInteger(s.seed) && s.seed >= 0 && s.seed <= 0xffffffff)) return "a glacier's seed is a whole number from 0 to 4294967295";
+  const why = forceSettingsProblem("glaciate", s as unknown as Record<string, unknown>);
+  if (why) return why;
   if (!(Number.isInteger(intent.origin) && intent.origin >= 0 && intent.origin < n)) return "the glacier's head is off the map";
   if (s.mode === "aim" && !(Number.isInteger(intent.end) && intent.end! >= 0 && intent.end! < n && intent.end !== intent.origin)) return "an aimed glacier needs its end on the map";
   if (intent.via !== undefined) {
@@ -153,16 +150,6 @@ export function glaciateProblem(W: number, H: number, s: GlaciateSettings, inten
     const all = [intent.origin, ...intent.via, intent.end];
     if (all.some((i, k) => k > 0 && i === all[k - 1])) return "a glacier's path moves on from each of its tiles to the next";
   }
-  return glaciateDetailsProblem(s as unknown as Record<string, unknown>);
-}
-
-/** Why a glacier's details are not ones its More row could set (null when they are; each may be
- *  absent: round 4's). */
-export function glaciateDetailsProblem(x: Record<string, unknown>): string | null {
-  if (x.benches != null && !["none", "some", "many"].includes(x.benches as string)) return "a glacier's benches are none, some or many";
-  if (x.steps != null && !["few", "some", "many"].includes(x.steps as string)) return "a glacier's steps are few, some or many";
-  if (x.tarn != null && typeof x.tarn !== "boolean") return "a glacier's tarn is true or false";
-  if (x.scree != null && typeof x.scree !== "boolean") return "a glacier's scree is true or false";
   return null;
 }
 

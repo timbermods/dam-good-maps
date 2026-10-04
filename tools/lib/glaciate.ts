@@ -8,7 +8,7 @@ import type { WaterState } from "../../src/core/sim/water";
 import type { FullForceMap } from "../../src/core/forces/force";
 import { entityTiles } from "../../src/core/forces/force";
 import { isPlant } from "../../src/core/forces/objects";
-import { clamp } from "../../src/core/forces/glaciate/model";
+import { clamp } from "../../src/core/forces/random";
 import { N4, planGlaciate, type GlaciatePlan } from "../../src/core/forces/glaciate/plan";
 import type { GlaciateIntent, GlaciateSettings, Valley } from "../../src/core/forces/glaciate/model";
 
@@ -267,8 +267,8 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
 }
 
 /** Plan a glacier, all at once (tests and tools; the worker slices `planGlaciate`). */
-export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
-  const g = planGlaciate(input, settings, intent, valley, finish);
+export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley): GlaciatePlan {
+  const g = planGlaciate(input, settings, intent, valley);
   for (;;) {
     const r = g.next();
     if (r.done) return r.value;

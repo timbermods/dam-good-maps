@@ -2,7 +2,7 @@
 // port of prototype/watersim.py `moisture`, which reproduces the game's saved moisture exactly).
 // The build applies it to the canonical settle (sim/prefill.ts); validation to the same water.
 
-import { MinHeap } from "../math/grid";
+import { MinHeap, N4 } from "../math/grid";
 
 /** Cluster saturation of every wet tile: WN = 1 + wet 8-neighbours, sat = min(8, max(WN, max over
  *  4-neighbours of WN − 1)); 0 on dry tiles. */
@@ -40,7 +40,14 @@ export function clusterSaturation(wet: Uint8Array, W: number, H: number): Uint8A
   return sat;
 }
 
-const DIRS4: readonly [number, number][] = [[0, -1], [-1, 0], [0, 1], [1, 0]];
+/** The game's evaporation modifier of a wet tile from its cluster saturation (1–8): t = 10 − sat,
+ *  0.0595·t² + 0.101·t + 0.72 (a dry tile's is 1). The simulation (water.ts), the file's
+ *  `EvaporationModifiers` (format/world.ts), drought (drought.ts) and a Fill's days (fill.ts) all
+ *  read it from here. */
+export function evapModifier(sat: number): number {
+  const t = 10 - sat;
+  return 0.0595 * (t * t) + 0.101 * t + 0.72;
+}
 
 /** Steady-state moisture per tile. `depth` > 0 marks water; `contamination` 0–1 per tile.
  *  Clean water gets 2·sat; a tile beside water gets range − 6·(levels above the ceiled water
@@ -90,7 +97,7 @@ export function moisture(
         continue;
       }
       let best = 0;
-      for (const [dx, dy] of DIRS4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;

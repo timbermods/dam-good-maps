@@ -13,7 +13,9 @@ import { MinHeap, N8 } from "../../math/grid";
 import { WaterSim } from "../../sim/water";
 import { modelOf } from "../runs";
 import type { GlaciatePlan } from "./plan";
-import { clamp, type Point, type Station } from "./model";
+import type { Point, Station } from "./model";
+import { clamp } from "../random";
+import { smoothstep } from "../../math/clamp";
 
 /** A place the river should visit: a fall's landing or an inflow's entry on the floor, at station
  *  `k`; the bigger the `weight`, the sooner it is chosen. */
@@ -82,11 +84,6 @@ export function* floodsOf(p: GlaciatePlan): Generator<void, { floods: number; ti
     sim.dispose();
   }
 }
-
-const smooth = (v: number) => {
-  v = clamp(v, 0, 1);
-  return v * v * (3 - 2 * v);
-};
 
 /** The unit normal of the trough at station k (left of its way down). */
 export function normalAt(path: readonly Point[], k: number): Point {
@@ -158,10 +155,10 @@ export function riverCourse(
     const a = controls[j];
     const b = controls[j + 1];
     const t = b.s > a.s ? (q.s - a.s) / (b.s - a.s) : 0;
-    const base = a.aim + (b.aim - a.aim) * smooth(t);
+    const base = a.aim + (b.aim - a.aim) * smoothstep(t);
     // round 4's gentle meander, faded out where a visit holds the river
     const gap = Math.min((q.s - a.s) * length, (b.s - q.s) * length);
-    const meander = portable.sin(q.s * 8 + phase) * q.r * 0.35 * portable.sin(Math.PI * q.s) * smooth(gap / 14) * 0.6;
+    const meander = portable.sin(q.s * 8 + phase) * q.r * 0.35 * portable.sin(Math.PI * q.s) * smoothstep(gap / 14) * 0.6;
     const off = within(k, base + meander);
     const nrm = normalAt(path, k);
     return { x: q.x + nrm.x * off, y: q.y + nrm.y * off };

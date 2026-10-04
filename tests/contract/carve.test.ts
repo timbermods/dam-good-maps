@@ -13,9 +13,10 @@ import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" }
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { naturalWidth } from "../../src/core/forces/carve/character";
-import type { CarveParams } from "../../src/core/forces/carve/op";
-import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { CarveRun, DEFAULTS, hardness, mapSeed, modelFor, sourceStrength, type CarveIntent, type CarveSettings } from "../../src/core/forces/carve/run";
+import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
+import { CarveRun, DEFAULTS, hardness, mapSeed, sourceStrength, type CarveIntent, type CarveSettings } from "../../src/core/forces/carve/run";
+import { modelOf } from "../../src/core/forces/runs";
+import type { ForceResultParams } from "../../src/core/forces/op";
 import { protectedGround, STEPS_PER_SECOND, type ForceMap } from "../../src/core/forces/force";
 import { generate } from "../../src/core/gen/generate";
 import { readTimber } from "../../src/core/format/timber";
@@ -105,7 +106,7 @@ describe("the force: every step keeps the rules", () => {
     delete legacy.seed;
     new CarveRun(mountain, Object.freeze(legacy) as CarveSettings, intent);
     expect(legacy.seed).toBeUndefined();
-    for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/Invalid character/);
+    for (const s of [{ width: 0 }, { width: 25 }, { wander: -1 }, { wander: 101 }, { seed: -1 }, { seed: 1.5 }, { seed: 4294967296 }]) expect(() => new CarveRun(mountain, { ...DEFAULTS, ...s }, intent)).toThrow(/^a carve's (width|wander|seed) is /);
     // the start's own ground is a carve's like any other (D257: the editor carries the start)
     const start = mountain.entities.find((e) => e.template === "StartingLocation")!;
     expect(() => new CarveRun(mountain, DEFAULTS, { origin: start.y * 64 + start.x + 1 })).not.toThrow();
@@ -158,10 +159,10 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(high.source).not.toBeNull();
     // a second carve keeps the first one's river: both groups stand
     const another = new CarveRun(high.map, DEFAULTS, { origin: 54 * 64 + 53 }, { sourceId: "second" });
-    const firstIds = high.added;
+    const ids = (r: CarveRun) => r.group.map((g) => g.id);
     const sources = another.map.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
-    expect(sources.length).toBe(firstIds.length + another.added.length);
-    for (const id of [...firstIds, ...another.added]) expect(sources).toContain(id);
+    expect(sources.length).toBe(ids(high).length + ids(another).length);
+    for (const id of [...ids(high), ...ids(another)]) expect(sources).toContain(id);
     expect(sourceStrength(100)).toBe(8);
     expect(sourceStrength(0)).toBe(0.5);
     expect(sourceStrength(95, 2)).toBe(0.5);
@@ -175,13 +176,13 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(total(broad)).toBe(8);
     expect(broad.group.length).toBeGreaterThan(1);
     expect(broad.group[0].tile).toBe(intent.origin);
-    const emitted = (r: CarveRun) => modelFor(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
+    const emitted = (r: CarveRun) => modelOf(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
     expect(emitted(slot)).toBeCloseTo(0.5, 3);
     expect(emitted(broad)).toBeCloseTo(8, 3);
     const dry = complete(mountain, { dry: true, power: 95 });
     expect(dry.source).toBeNull();
-    expect(dry.added).toEqual([]);
-    expect(canonicalSettle(modelFor(dry.map)).depth.every((v) => v === 0)).toBe(true);
+    expect(dry.group).toEqual([]);
+    expect(canonicalSettle(modelOf(dry.map)).depth.every((v) => v === 0)).toBe(true);
     // the water never changes the land it cuts
     expect(Array.from(dry.map.heights)).toEqual(Array.from(high.map.heights));
   });
@@ -331,7 +332,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
   const r = complete(ox, winding, aimed);
   const cut = r.oxbows[0];
   const lake = oxbowLake(r);
-  const model = { ...modelFor(r.map), ...(lake ? { retained: [lake] } : {}) };
+  const model = { ...modelOf(r.map), ...(lake ? { retained: [lake] } : {}) };
   const water = canonicalSettle(model);
 
   it("bends are wider and deeper on the outside, the straights narrower: never a uniform tube", () => {
@@ -364,7 +365,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     expect(lake!.tiles).toEqual(basin.slice().sort((a, b) => a - b));
     expect(cut.neck.every((p) => water.depth[at(p)] > 0.05)).toBe(true);
     // the game's settle from the land and the sources alone would leave the crescent dry
-    const fresh = canonicalSettle(modelFor(r.map));
+    const fresh = canonicalSettle(modelOf(r.map));
     expect(cut.pool.filter((p) => fresh.depth[at(p)] > 1).length).toBeLessThan(cut.pool.filter((p) => water.depth[at(p)] > 1).length / 4);
     // the two-stage settle is exact however it is sliced
     const run = canonicalRun(model);
@@ -375,7 +376,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     const dry = complete(ox, { ...winding, dry: true }, aimed);
     expect(dry.oxbows.length).toBe(1);
     expect(oxbowLake(dry)).toBeNull();
-    expect(canonicalSettle(modelFor(dry.map)).depth.every((v) => v === 0)).toBe(true);
+    expect(canonicalSettle(modelOf(dry.map)).depth.every((v) => v === 0)).toBe(true);
   });
 
   it("an unfed oxbow lake evaporates under the game's rules: correct physics, and nothing refills it", () => {
@@ -401,15 +402,15 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
 // ------------------------------------------------------------------------ the carve in the document
 
 /** A carve run to its end (or `steps` steps) on the session's map, as the operation the editor makes. */
-function carveOp(s: MapSession, settings: Partial<CarveSettings>, origin: [number, number], steps = 1200, extra: Partial<CarveParams> = {}, end?: [number, number]): EditOp & { op: "carve" } {
+function carveOp(s: MapSession, settings: Partial<CarveSettings>, origin: [number, number], steps = 1200, extra: Partial<ForceResultParams> = {}, end?: [number, number]): EditOp & { op: "forceResult" } {
   const m = forceMapOf(s.built);
   const W = m.W;
   const set = { ...DEFAULTS, ...settings };
   const sourceId = "0c0ffee0-0000-4000-8000-" + String(origin[0] * 1000 + origin[1] + (settings.seed ?? 0)).padStart(12, "0");
   const r = new CarveRun(m, set, { origin: origin[1] * W + origin[0], ...(end ? { end: end[1] * W + end[0] } : {}) }, { sourceId });
   for (let k = 0; k < steps && !r.done; k++) r.step();
-  const params = carveParams(m, r, { settings: set, origin, ...(end ? { end } : {}), cut: null })!;
-  return { op: "carve", params: { ...params, ...extra } };
+  const params = carveForceParams(m, r, { settings: set, origin, ...(end ? { end } : {}), cut: null })!;
+  return { op: "forceResult", params: { ...params, ...extra } };
 }
 
 /** A tile well away from the start, on land. */
@@ -490,7 +491,7 @@ describe("a carve in the document (breakage rule)", () => {
     expect(s.history().at(-1)?.label).toBe("Try another path");
     // the same land as the second carve alone on the uncarved map
     const { replaces: _, ...alone } = second.params;
-    expect(probe.apply({ op: "carve", params: alone }, "user").errors).toEqual([]);
+    expect(probe.apply({ op: "forceResult", params: alone }, "user").errors).toEqual([]);
     expect(Array.from(s.built.heights)).toEqual(Array.from(probe.built.heights));
     expect(ids(s)).toEqual(ids(probe));
     // the first carve's own tiles that the second leaves alone are back as they were
@@ -558,7 +559,7 @@ describe("a carve in the document (breakage rule)", () => {
     // the same carve without its kept water: the game's settle from the land and the sources alone
     const bare = MapSession.fromGenerated(r, r.file);
     const { lake: _lake, ...params } = op.params;
-    expect(bare.apply({ op: "carve", params }, "user").errors).toEqual([]);
+    expect(bare.apply({ op: "forceResult", params }, "user").errors).toEqual([]);
     bare.settleCanonical();
     expect(lake.tiles.filter((i) => bare.built.water[i] > 1).length).toBeLessThan(deep / 4);
     // the project file replays it, and the file the game loads holds the lake
@@ -580,37 +581,43 @@ describe("a carve in the document (breakage rule)", () => {
     const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
-    const base: CarveParams = { mode: "unleash", origin: [30, 30], power: 50, wander: 35, width: null, seed: 0, walls: "steep", defyGravity: false, dry: true, steps: 1, reason: "stopped", tiles: [30 * 64 + 30], heights: [2], removed: [] };
-    expect(s.apply({ op: "carve", params: base }).errors).toEqual([]);
+    const base: ForceResultParams = { version: 1, verb: "carve", settings: { mode: "unleash", power: 50, wander: 35, width: null, seed: 0, walls: "steep", defyGravity: false, dry: true }, where: { origin: [30, 30] }, steps: 1, reason: "stopped", tiles: [30 * 64 + 30], heights: [2], removed: [] };
+    const set = (x: object) => ({ settings: { ...base.settings, ...x } as ForceResultParams["settings"] });
+    expect(s.apply({ op: "forceResult", params: base }).errors).toEqual([]);
     s.undo();
-    const bad: Partial<CarveParams>[] = [
-      { origin: [70, 3] },
+    const bad: Partial<ForceResultParams>[] = [
+      { where: { origin: [70, 3] } },
       { tiles: [5, 4], heights: [1, 1] },
       { tiles: [64 * 64], heights: [1] },
       { heights: [40] },
       { tiles: [1, 2], heights: [1] },
       { removed: ["00000000-0000-4000-8000-000000000000"] },
-      { mode: "aim" },
+      set({ mode: "aim" }),
+      set({ width: 1 }),
+      set({ walls: "sheer" }),
       { replaces: 999 },
       { lake: { tiles: [5, 4], floor: [1, 1], depth: [1, 1], contamination: [0, 0] } },
       { lake: { tiles: [5], floor: [1, 2], depth: [1], contamination: [0] } },
       { lake: { tiles: [5], floor: [1], depth: [-1], contamination: [0] } },
       { lake: { tiles: [64 * 64], floor: [1], depth: [1], contamination: [0] } },
     ];
-    for (const b of bad) expect(s.apply({ op: "carve", params: { ...base, ...b } }).errors.length, JSON.stringify(b)).toBeGreaterThan(0);
+    for (const b of bad) expect(s.apply({ op: "forceResult", params: { ...base, ...b } }).errors.length, JSON.stringify(b)).toBeGreaterThan(0);
+    // the carve operation of before D220 is no longer one: a project holding it converts it as it opens
+    expect(s.apply({ op: "carve", params: base } as never).errors.length).toBeGreaterThan(0);
     // the schema agrees with Ajv
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     const validate = ajv.compile(opsSchema);
     const samples: unknown[] = [
+      { op: "forceResult", params: base },
+      { op: "forceResult", params: { ...base, ...set({ width: 6, mode: "aim" }), where: { origin: [30, 30], end: [3, 4] }, source: { id: "11111111-2222-4333-8444-555555555555", x: 1, y: 2, strength: 4.5 }, replaces: 3, cut: 9 } },
+      { op: "forceResult", params: { ...base, ...set({ width: 1 }) } },
+      { op: "forceResult", params: { ...base, ...set({ walls: "sheer" }) } },
+      { op: "forceResult", params: { ...base, source: { id: "x", x: 1, y: 2, strength: 4 } } },
+      { op: "forceResult", params: { ...base, heights: undefined } },
+      { op: "forceResult", params: { ...base, lake: { tiles: [5, 6], floor: [3, 3], depth: [1.25, 0.5], contamination: [0, 0.1] } } },
+      { op: "forceResult", params: { ...base, lake: { tiles: [5], floor: [3], depth: [-1], contamination: [0] } } },
+      { op: "forceResult", params: { ...base, lake: { tiles: [5], floor: [3], depth: [1] } } },
       { op: "carve", params: base },
-      { op: "carve", params: { ...base, width: 6, end: [3, 4], mode: "aim", source: { id: "11111111-2222-4333-8444-555555555555", x: 1, y: 2, strength: 4.5 }, replaces: 3, cut: 9 } },
-      { op: "carve", params: { ...base, width: 1 } },
-      { op: "carve", params: { ...base, walls: "sheer" } },
-      { op: "carve", params: { ...base, source: { id: "x", x: 1, y: 2, strength: 4 } } },
-      { op: "carve", params: { ...base, heights: undefined } },
-      { op: "carve", params: { ...base, lake: { tiles: [5, 6], floor: [3, 3], depth: [1.25, 0.5], contamination: [0, 0.1] } } },
-      { op: "carve", params: { ...base, lake: { tiles: [5], floor: [3], depth: [-1], contamination: [0] } } },
-      { op: "carve", params: { ...base, lake: { tiles: [5], floor: [3], depth: [1] } } },
       { op: "deleteEntities", params: { entities: ["11111111-2222-4333-8444-555555555555"], quiet: true } },
     ];
     for (const v of samples) expect(checkSchema(opsSchema as Record<string, unknown>, v).length === 0, JSON.stringify(v)).toBe(validate(v));

@@ -458,11 +458,11 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
   });
 }
 
-/** `water.badwater_contained` (PLAN §9.5, D57): with a levee on its outlet (the outlet channel's
- *  tiles blocked), every planned badwater basin holds its water below its rim. The water that rises
- *  in it cannot leave the basin (its floor and its two-tile rim) or reach a map edge below the rim's
- *  level. A source never stops, so the levee holds the badwater until the basin is full; what this
- *  proves is that the outlet is the basin's only way out, so the levee is the counterplay. */
+/** `water.badwater_contained` (PLAN §9.5, D57 amended by D469): information, never a failure. Badwater
+ *  mixing with clean water is part of the map's challenge, so a basin's flood may leave it and join a
+ *  river or lake. With a levee on its outlet (the outlet channel's tiles blocked), the check still
+ *  counts the basins whose water would leave below the rim (`basinLeak`); the start's clean water
+ *  (D85) is enforced by `water.clean_exists` and `water.clean_reach`, not here. */
 function checkContained(inp: PlayabilityInput, c: Collector): void {
   const { W, H, surface: h, features } = inp;
   if (!features) {
@@ -483,11 +483,11 @@ function checkContained(inp: PlayabilityInput, c: Collector): void {
   c.add({
     id: "water.badwater_contained",
     class: "playability",
-    ok: leaks.length === 0,
+    ok: true,
     value: leaks.length,
     limit: 0,
     message: leaks.length
-      ? `${leaks.length} of ${counted(basins.length, "badwater basin")} leak below the rim`
+      ? `${leaks.length} of ${counted(basins.length, "badwater basin")} reach past ${leaks.length === 1 ? "its" : "their"} rim (allowed, D469)`
       : `${counted(basins.length, "badwater basin")} ${basins.length === 1 ? "holds its" : "hold their"} water`,
     ...(leaks.length ? { where: { tiles: leaks } } : {}),
   });

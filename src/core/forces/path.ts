@@ -4,13 +4,13 @@
 // pointer into sub-tile points as it moves; a force keeps the path resampled along its length.
 
 import * as portable from "../math/portable";
+import { clamp } from "./random";
 
 export interface PathPoint {
   x: number;
   y: number;
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** A path's length along its points, in tiles. */
 export function pathLength(points: readonly PathPoint[]): number {

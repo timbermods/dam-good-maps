@@ -4,7 +4,8 @@
 // just below their top, wider inside a bend than outside; the operation keeps both settings.
 
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, CarveRun, modelFor } from "../../src/core/forces/carve/run";
+import { DEFAULTS, CarveRun } from "../../src/core/forces/carve/run";
+import { modelOf } from "../../src/core/forces/runs";
 import type { ForceMap } from "../../src/core/forces/force";
 import { forceSettingsProblems } from "../../src/core/forces/op";
 import { canonicalSettle } from "../../src/core/sim/prefill";
@@ -23,7 +24,7 @@ function carve(extra: Partial<typeof DEFAULTS>) {
   const m = slope();
   const r = new CarveRun(m, { ...DEFAULTS, mode: "aim", defyGravity: true, power: 60, width: 4, wander: 40, ...extra }, { origin: 4 * W + 48, end: 92 * W + 40 });
   while (!r.done) r.step();
-  return { m, r, water: canonicalSettle(modelFor(r.map)) };
+  return { m, r, water: canonicalSettle(modelOf(r.map)) };
 }
 
 /** The deepest water over ground the carve cut. */

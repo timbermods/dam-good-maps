@@ -19,8 +19,10 @@ import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
-import { clamp, hash, smooth } from "./random";
+import { clamp, hash } from "./random";
+import { smoothstep } from "../math/clamp";
 import { PathBrush } from "./path";
+import { forceSettingsProblem } from "./settings";
 
 export interface Point {
   x: number;
@@ -51,9 +53,10 @@ export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
 /** How far the shaking reaches from the fault (tiles) at a Power (the editor's ring, D312). */
 export const quakeReach = (power: number) => 14 + power * 0.5;
 
+/** Throws why a quake can't start (its settings, settings.ts; its fault on the land). */
 export function validateQuake(s: QuakeSettings, m: { W: number; H: number }, i: QuakeIntent): void {
-  if (!["lift", "slide"].includes(s.mode) || !["sheer", "stepped"].includes(s.scarp) || !Number.isFinite(s.power) || s.power < 0 || s.power > 100 || !Number.isInteger(s.seed) || s.seed < 0 || s.seed > 0xffffffff)
-    throw Error("Invalid quake settings");
+  const why = forceSettingsProblem("quake", s as unknown as Record<string, unknown>);
+  if (why) throw Error(why);
   if (!i || ![1, -1].includes(i.side) || !Array.isArray(i.path) || i.path.length < 2 || i.path.length > 512 || i.path.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.y < 0 || p.x > m.W - 1 || p.y > m.H - 1))
     throw Error("Draw a fault on the land");
 }
@@ -124,7 +127,7 @@ export class Fault {
       const k = Math.floor(n);
       const a = hash(settings.seed, k + 100) * 2 - 1;
       const b = hash(settings.seed, k + 101) * 2 - 1;
-      const offset = (a + (b - a) * smooth(n - k)) * rough * smooth(t / 5) * smooth((length - t) / 5);
+      const offset = (a + (b - a) * smoothstep(n - k)) * rough * smoothstep(t / 5) * smoothstep((length - t) / 5);
       this.points.push({ x: r.a.x + r.dx * f - r.dy * offset, y: r.a.y + r.dy * f + r.dx * offset });
       if (t === length) break;
     }
@@ -193,7 +196,7 @@ export class Fault {
       // translation. Fade only the outside of that block, never its advertised travel. The opposite
       // bank stays on its original course.
       const reach = Math.max(this.reach, this.length * 1.3, this.slide + 12);
-      const envelope = (1 - smooth((dist - reach) / 12)) * (1 - smooth((f.end - this.slide - 8) / 12));
+      const envelope = (1 - smoothstep((dist - reach) / 12)) * (1 - smoothstep((f.end - this.slide - 8) / 12));
       // Stepped splits the perimeter into benches; even a bank narrower than three tiles gets the
       // full offset at the fault itself.
       const weight = s.scarp === "stepped" ? Math.ceil(envelope * 3) / 3 : envelope;
@@ -211,7 +214,7 @@ export class Fault {
     // The block continues to the map edge for a map-spanning stroke. Fading a long lifted block back
     // down nearby makes an artificial upstream dam, not a scarp.
     const blockReach = Math.max(this.reach, this.length * 1.3);
-    const envelope = (1 - smooth((dist - blockReach * 0.8) / (blockReach * 0.2))) * (1 - smooth(f.end / Math.max(8, this.reach * 0.6)));
+    const envelope = (1 - smoothstep((dist - blockReach * 0.8) / (blockReach * 0.2))) * (1 - smoothstep(f.end / Math.max(8, this.reach * 0.6)));
     const step = s.scarp === "stepped" ? Math.min(1, (Math.floor(dist / 3) + 1) / 3) : 1;
     const tilt = (hash(s.seed, 6) * 2 - 1) * (f.along / this.length - 0.5) * 2.4 + (hash(s.seed, 7) * 2 - 1) * clamp(dist / this.reach, 0, 1) * 1.4;
     let dz = Math.round((side > 0 ? this.lift + tilt : -this.lift * 0.55) * envelope * step);

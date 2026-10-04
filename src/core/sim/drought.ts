@@ -5,11 +5,9 @@
 // surface stays flat. tests/unit/water.test.ts compares this with the simulation run with the
 // sources off (within 5% of the stored volume). prototype/watersim.py `drought_storage` is the same.
 
-import { clusterSaturation } from "./moisture";
+import { clusterSaturation, evapModifier } from "./moisture";
 import { spillLevels } from "./prefill";
-import { TICKS_PER_DAY, DT, type WaterModel } from "./water";
-
-const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
+import { SECONDS_PER_DAY, type WaterModel } from "./water";
 
 /** Depth left per tile after `days` of drought, from the settled `depth`. */
 export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: number): Float64Array {
@@ -72,8 +70,7 @@ export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: nu
   const evap = new Float64Array(area.length);
   for (let i = 0; i < N; i++) {
     if (label[i] < 0) continue;
-    const t = 10 - sat[i];
-    evap[label[i]] += 1e-4 * (0.0595 * (t * t) + 0.101 * t + 0.72) * SECONDS_PER_DAY;
+    evap[label[i]] += 1e-4 * evapModifier(sat[i]) * SECONDS_PER_DAY;
   }
   for (let i = 0; i < N; i++) {
     if (label[i] < 0) continue;

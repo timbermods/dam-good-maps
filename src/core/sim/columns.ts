@@ -9,12 +9,12 @@
 //
 // Objects (the blueprints' `WaterObstacleSpec` and `FinishableHorizontalWaterObstacleSpec`):
 // - Blockage: a full obstacle at its cell;
-// - NaturalDam: a partial obstacle (height limit) 0.65 at its cell;
+// - NaturalDam: a partial obstacle (height limit) 0.65 at its cell (model.ts `NATURAL_DAM_HEIGHT`);
 // - NaturalOverhang2x1–4x1: a full obstacle at the base, a horizontal one at z + 1 over every tile;
 // - BadtideDrain: a full obstacle at the back (0, 0), horizontal obstacles at (0, 1) at z and z + 1,
 //   and a direction limiter at the emitter cell (0, 1, z).
 
-import { objectTile, type MapObject } from "./model";
+import { NATURAL_DAM_HEIGHT, objectTile, type MapObject } from "./model";
 import type { Orientation } from "../format/footprints";
 
 /** Voxel layers of the terrain (the game's 22 + 1). */
@@ -58,7 +58,7 @@ export interface WaterColumns {
 /** Local obstacle layout of the templates that change water columns. */
 const OBSTACLES: Record<string, { full?: [number, number][]; partial?: { at: [number, number]; height: number }; horizontal?: [number, number, number][] }> = {
   Blockage: { full: [[0, 0]] },
-  NaturalDam: { partial: { at: [0, 0], height: 0.65 } },
+  NaturalDam: { partial: { at: [0, 0], height: NATURAL_DAM_HEIGHT } },
   NaturalOverhang2x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1]] },
   NaturalOverhang3x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1], [0, 2, 1]] },
   NaturalOverhang4x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 3, 1]] },

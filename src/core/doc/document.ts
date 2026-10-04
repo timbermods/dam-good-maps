@@ -13,7 +13,9 @@
 // the file (the Python validator reads `spec` and `features`) and checked against the log when the
 // file is opened. `dropRetired` migrates a project file that still holds a lock, a `setLock` or
 // `regenerateRegion` operation, or a "stamp" origin (all removed): they are dropped or converted
-// quietly, and the land they held stays as it was saved.
+// quietly, and the land they held stays as it was saved. `upgradeCarves` turns a project's `carve`
+// operations, from before the forces shared `forceResult` (D220), into that one; they build exactly
+// as they did.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -27,7 +29,9 @@ import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
+import { forceOfCarve, type SavedCarve } from "../forces/op";
 import { replay, type AppliedOp } from "./ops";
+import type { StoredState } from "./stored";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
@@ -116,6 +120,10 @@ export interface MapDocument {
   /** The next operation's `seq`. */
   nextSeq: number;
   meta: DocMeta;
+  /** The map as it was when the project was saved (Startup part 1, D367, D455; stored.ts): the
+   *  session opens from it without rebuilding. Absent in older files and in projects saved while
+   *  their water was still pending, which open by rebuilding. */
+  stored?: StoredState;
 }
 
 export function baseFeaturesOf(doc: MapDocument): Feature[] {
@@ -237,6 +245,24 @@ function dropRetired(raw: Record<string, unknown>): string[] {
   return notes;
 }
 
+/** A project saved before D220 keeps its carves as the `carve` operation: each becomes the forces'
+ *  one operation, `forceResult` (forces/op.ts `forceOfCarve`, the conversion the build always made of
+ *  it), in the log and in a Try another's undo data. Quiet: the map is the same. Mutates `raw`. */
+function upgradeCarves(raw: Record<string, unknown>): void {
+  const upgrade = (op: unknown) => {
+    const o = op as { op?: string; params?: unknown } | null;
+    if (o?.op === "carve" && o.params && typeof o.params === "object") {
+      o.op = "forceResult";
+      o.params = forceOfCarve(o.params as SavedCarve);
+    }
+  };
+  if (!Array.isArray(raw.edits)) return;
+  for (const e of raw.edits as { undo?: { replaced?: { op?: unknown } } }[]) {
+    upgrade(e);
+    upgrade(e?.undo?.replaced?.op);
+  }
+}
+
 /** Open a project file. Version 1 files (M1, M2) hold the spec, the features and the heights; they
  *  open with a base that has no stored map, and the session rebuilds it from the features. */
 export function decodeProject(bytes: Uint8Array): MapDocument {
@@ -254,6 +280,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
   const notes = dropRetired(raw as Record<string, unknown>);
+  upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
   upgradeSpec((raw as { spec?: unknown }).spec);
   // a spec saved before every map had two mine sites may ask for fewer; it opens asking for two
@@ -268,6 +295,8 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
+  // a stored map that is not one (a hand-edited file) is left out: the project opens by rebuilding
+  if ("stored" in doc && (!doc.stored || typeof doc.stored !== "object")) delete doc.stored;
   // a project saved without a stored name opens with the name it has always had (D382)
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
   if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
@@ -310,6 +339,17 @@ export function checkDocument(doc: MapDocument): void {
   if (!jsonEqual(state.features, doc.features)) throw new ProjectError("the project file is damaged: its features do not match its edits");
   const top = doc.edits.reduce((m, e) => Math.max(m, e.seq), 0);
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
+}
+
+/** The document as it stood after its first `edits` operations (the save point of a stored map):
+ *  the log cut there, the features replayed to it. For the replay comparison of a project whose
+ *  log grew since it was opened (D455). */
+export function documentAt(doc: MapDocument, edits: number): MapDocument {
+  if (edits >= doc.edits.length) return doc;
+  const cut = doc.edits.slice(0, edits);
+  const { state } = replay(baseFeaturesOf(doc), cut);
+  const { stored: _s, ...rest } = doc;
+  return { ...rest, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut };
 }
 
 /** A map's name as the player typed it, trimmed; an empty one is refused with a one-line reason (D443). */

@@ -1,4 +1,4 @@
-// Small exact helpers for the land's processes (PLAN §2.1, D15): only + − × ÷, Math.sqrt, floor,
+// Small exact helpers for the land's processes (PLAN §2.1, D15): only + − × ÷, portable.sqrt, floor,
 // round, abs, min and max touch output. Angles come from the 8 flow directions or from the
 // deterministic sine in math/detmath.ts. Ported from the M9 design prototype
 // (investigation/generative/proto/num.ts).
@@ -12,18 +12,6 @@ export const SQRT1_2 = portable.sqrt(0.5);
 export const DIRS8: readonly (readonly [number, number])[] = [
   [1, 0], [SQRT1_2, SQRT1_2], [0, 1], [-SQRT1_2, SQRT1_2], [-1, 0], [-SQRT1_2, -SQRT1_2], [0, -1], [SQRT1_2, -SQRT1_2],
 ];
-
-/** The four side-to-side neighbours. */
-export const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-
-export function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
-export function smoothstep(t: number): number {
-  const u = clamp(t, 0, 1);
-  return u * u * (3 - 2 * u);
-}
 
 /** A smooth bump: 1 at s = 0, 0 from s = 1 on, (1 − s²)². */
 export function bump(s: number): number {
