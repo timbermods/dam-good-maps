@@ -5,7 +5,7 @@
 // as the editor opens it: its settings, seed, land, water and objects; gzip JSON). What makes a map fit to be one, and the
 // making itself, are plain core functions here (D342 (3), (4)): every map passed over says why.
 
-import { decodeProject, encodeProject, generatedDocument } from "../doc/document";
+import { decodeProject } from "../doc/document";
 import { MapSession } from "../doc/session";
 import { readTimber } from "../format/timber";
 import { generate, type GenerateResult } from "../gen/generate";
@@ -72,15 +72,17 @@ export function firstVisitProblems(r: GenerateResult): string[] {
 }
 
 /** Whether a project file reopens as the map it was made from (the same size, land and objects),
- *  and how long opening it took, in ms. */
+ *  from its stored map (D367) and with its replay matching it (D455), and how long opening it took,
+ *  in ms. */
 export function reopensAs(r: GenerateResult, project: Uint8Array): { same: boolean; ms: number } {
   const t0 = performance.now();
-  const b = MapSession.open(decodeProject(project)).built;
+  const s = MapSession.open(decodeProject(project));
   const ms = Math.round(performance.now() - t0);
+  const b = s.built;
   const h = r.built.heights;
   let same = b.W === r.built.W && b.H === r.built.H && b.heights.length === h.length && b.entities.length === r.built.entities.length;
   for (let i = 0; same && i < h.length; i++) if (b.heights[i] !== h[i]) same = false;
-  return { same, ms };
+  return { same: same && s.openedFromStored && s.checkReplay(), ms };
 }
 
 export interface FirstVisitMade {
@@ -107,7 +109,8 @@ export function makeFirstVisit(theme: ThemeId, maxSeeds = 24): { made: FirstVisi
       passedOver.push({ seed, why });
       continue;
     }
-    const project = encodeProject(generatedDocument(r));
+    // (the project file as the editor saves it: with the map stored, so it opens without rebuilding)
+    const project = MapSession.fromGenerated(r).project();
     const back = reopensAs(r, project);
     if (!back.same) {
       passedOver.push({ seed, why: ["its project file reopens as a different map"] });

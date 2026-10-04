@@ -1,6 +1,9 @@
 # Shows a Windows notification on this machine (docs/HANDOFF.md §7, "Pings").
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: ready to restart" -Body "…"
 # A toast through Windows PowerShell's own app id; if toasts aren't available, a tray balloon instead.
+# Then, if $env:USERPROFILE.dgm-ntfy-topic exists, one POST to https://ntfy.sh/<topic> (title in the Title header, body as
+# the message) so it reaches Kyler's phone (D470). The topic is never printed, logged or committed; a missing file or a
+# failed request is silent.
 param(
   [Parameter(Mandatory = $true)][string]$Title,
   [string]$Body = ""
@@ -30,3 +33,16 @@ try {
   $icon.Dispose()
   Write-Output "balloon shown (toast unavailable: $($_.Exception.Message))"
 }
+
+try {
+  $topicFile = Join-Path $env:USERPROFILE '.dgm-ntfy-topic'
+  if (Test-Path -LiteralPath $topicFile) {
+    $topic = (Get-Content -LiteralPath $topicFile -Raw).Trim()
+    if ($topic) {
+      $message = if ($Body) { $Body } else { $Title }
+      $bytes = [System.Text.Encoding]::UTF8.GetBytes($message)
+      $headers = @{ Title = $Title }
+      [void](Invoke-RestMethod -Uri "https://ntfy.sh/$topic" -Method Post -Body $bytes -Headers $headers -ContentType 'text/plain; charset=utf-8' -TimeoutSec 5)
+    }
+  }
+} catch { }

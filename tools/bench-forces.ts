@@ -64,7 +64,6 @@ function time(req: ed.ForceRequest, label: string, size: number): Row | null {
 const rows: Row[] = [];
 for (const W of SIZES) {
   await runGenerate(makeSpec({ seed: SEED, theme: THEME, size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   const s = MapSession.open(decodeProject(ed.project().bytes));
   const st = s.built.start!;

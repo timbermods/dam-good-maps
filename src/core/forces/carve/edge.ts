@@ -6,7 +6,7 @@
 // operation keeps it, so projects replay exactly.
 
 import * as portable from "../../math/portable";
-import { drainage } from "../drainage";
+import { drainage } from "../../land/drainage";
 
 /** How near the edge (tiles) a click is looked at. */
 export const EDGE_NEAR = 8;
@@ -18,7 +18,7 @@ export function runsOffEdge(heights: ArrayLike<number>, W: number, H: number, or
   const d = Math.min(x, y, W - 1 - x, H - 1 - y);
   if (d > EDGE_NEAR) return false;
   if (d === 0) return true;
-  const { rcv } = drainage(heights, W, H, 0.0001);
+  const { rcv } = drainage(heights, W, H, { epsilon: 0.0001 });
   let i = origin;
   for (let k = 0; k <= d + 4; k++) {
     if (rcv[i] < 0) {

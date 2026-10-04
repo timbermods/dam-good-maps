@@ -9,12 +9,12 @@
 //
 // Objects (the blueprints' `WaterObstacleSpec` and `FinishableHorizontalWaterObstacleSpec`):
 // - Blockage: a full obstacle at its cell;
-// - NaturalDam: a partial obstacle (height limit) 0.65 at its cell;
+// - NaturalDam: a partial obstacle (height limit) 0.65 at its cell (model.ts `NATURAL_DAM_HEIGHT`);
 // - NaturalOverhang2x1–4x1: a full obstacle at the base, a horizontal one at z + 1 over every tile;
 // - BadtideDrain: a full obstacle at the back (0, 0), horizontal obstacles at (0, 1) at z and z + 1,
 //   and a direction limiter at the emitter cell (0, 1, z).
 
-import { objectTile, type MapObject } from "./model";
+import { NATURAL_DAM_HEIGHT, objectTile, type MapObject } from "./model";
 import type { Orientation } from "../format/footprints";
 
 /** Voxel layers of the terrain (the game's 22 + 1). */
@@ -23,35 +23,11 @@ export const TERRAIN_LAYERS = 23;
 export const OPEN_CEILING = 34;
 
 /** The terrain the water columns are built from: bit z of `mask[i]` set when voxel z of tile i is
- *  solid (terrain/runs.ts `ColumnTerrain`). */
+ *  solid. */
 export interface VoxelMasks {
   W: number;
   H: number;
   mask: Uint32Array;
-}
-
-/** Voxel masks from a file's voxels (layer-major, index z·N + tile, as world.ts). */
-export function voxelMasks(W: number, H: number, voxels: Uint8Array, layers = TERRAIN_LAYERS): VoxelMasks {
-  const N = W * H;
-  const mask = new Uint32Array(N);
-  for (let z = 0; z < layers && z < TERRAIN_LAYERS; z++) {
-    const bit = 1 << z;
-    const o = z * N;
-    for (let i = 0; i < N; i++) if (voxels[o + i]) mask[i] |= bit;
-  }
-  return { W, H, mask };
-}
-
-/** A file's voxels (layer-major, as world.ts) from voxel masks. */
-export function masksToVoxels(t: VoxelMasks, layers = TERRAIN_LAYERS): Uint8Array {
-  const N = t.W * t.H;
-  const out = new Uint8Array(N * layers);
-  for (let i = 0; i < N; i++) {
-    const m = t.mask[i];
-    if (!m) continue;
-    for (let z = 0; z < layers; z++) if (m & (1 << z)) out[z * N + i] = 1;
-  }
-  return out;
 }
 
 /** Voxel masks of a heightfield: tile i solid from z = 0 to its height. */
@@ -82,17 +58,12 @@ export interface WaterColumns {
 /** Local obstacle layout of the templates that change water columns. */
 const OBSTACLES: Record<string, { full?: [number, number][]; partial?: { at: [number, number]; height: number }; horizontal?: [number, number, number][] }> = {
   Blockage: { full: [[0, 0]] },
-  NaturalDam: { partial: { at: [0, 0], height: 0.65 } },
+  NaturalDam: { partial: { at: [0, 0], height: NATURAL_DAM_HEIGHT } },
   NaturalOverhang2x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1]] },
   NaturalOverhang3x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1], [0, 2, 1]] },
   NaturalOverhang4x1: { full: [[0, 0]], horizontal: [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 3, 1]] },
   BadtideDrain: { full: [[0, 0]], horizontal: [[0, 1, 0], [0, 1, 1]] },
 };
-
-/** Whether a template adds water obstacles (every other object leaves the columns as they are). */
-export function changesWaterColumns(template: string): boolean {
-  return template in OBSTACLES;
-}
 
 /** Flow direction of a drain's limiter, from its orientation: 0 −y, 1 −x, 2 +y, 3 +x. */
 const DIR_OF_ORIENTATION: Record<Orientation, number> = { Cw0: 2, Cw90: 3, Cw180: 0, Cw270: 1 };
@@ -273,27 +244,4 @@ export function terrainColumns(t: VoxelMasks): TerrainColumns {
     }
   }
   return { W, H, N, T, count, floor, ceil };
-}
-
-/** The slot of the column that holds cell z of tile i, or −1 (inside terrain or an obstacle). */
-export function slotAt(wc: WaterColumns, i: number, z: number): number {
-  for (let k = 0; k < wc.count[i]; k++) {
-    const id = k * wc.N + i;
-    if (z < wc.floor[id]) break;
-    if (z < wc.ceil[id]) return k;
-  }
-  return -1;
-}
-
-/** Whether every tile is one open column (a heightfield's water, today's model): the heightfield
- *  simulation (water.ts) then gives the same water, at its speed. */
-export function isOpenField(wc: WaterColumns): boolean {
-  if (wc.L !== 1) return false;
-  for (let i = 0; i < wc.N; i++) if (wc.count[i] !== 1 || wc.ceil[i] !== OPEN_CEILING) return false;
-  return true;
-}
-
-/** A column is roofed when something closes it from above. */
-export function isRoofed(wc: WaterColumns, id: number): boolean {
-  return wc.ceil[id] < OPEN_CEILING;
 }

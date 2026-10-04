@@ -93,7 +93,6 @@ describe("a stroke's water after a force (D244's measurements)", () => {
 
   it("while the water still settles, a stroke that touches no water gets it at the journey's pace, not every frame", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const b = s.built;

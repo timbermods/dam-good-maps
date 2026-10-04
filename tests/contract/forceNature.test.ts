@@ -85,7 +85,6 @@ describe("a force's character from the land and the seed, on Auto until pinned (
 
   it("the editor's force runs with the drawn settings and keeps them; Try another re-rolls only the details still on Auto; a pin sent with it survives; the project replays exactly", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const b = s0.built;
@@ -146,7 +145,6 @@ describe("a force's character from the land and the seed, on Auto until pinned (
 
   it("pinning every value a run drew reproduces that exact result (D309)", async () => {
     await runGenerate(makeSpec({ seed: 24, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
