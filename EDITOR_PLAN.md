@@ -103,7 +103,8 @@ The editor's parts as they are now; their placement and styling are the design p
   (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
   B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
   (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
-  is left; a panel opening or closing never moves the camera by itself (D265).
+  is left: the map as drawn (its edges at their heights, its sides, its hills) fitted snugly, a small even margin
+  all round; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
@@ -699,7 +700,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
@@ -959,7 +962,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
     change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
-    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core

@@ -53,6 +53,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import { BlockGhost, type GhostTile } from "./blockGhost";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -65,7 +66,7 @@ import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
-import { Baker } from "./high/fields";
+import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
@@ -175,6 +176,32 @@ const PITCH_MIN = 0.18;
 /** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
 const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
+/** The even margin a framed map keeps inside the part of the view the page leaves it (CSS pixels). */
+export const FRAME_MARGIN = 12;
+
+/** The map as drawn, for framing: its edges' corners at their ground's height and at the sides' foot
+ *  (three levels below level 0 or its lowest ground), and its ground inside, every few tiles; x, y, z
+ *  in the scene's own axes, three to a point. */
+export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32Array {
+  let lo = 255;
+  for (let i = 0; i < heights.length; i++) if (heights[i] < lo) lo = heights[i];
+  const foot = Math.min(0, lo) - 3;
+  const pts: number[] = [];
+  const at = (x: number, y: number) => heights[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))];
+  const edge = (x: number, y: number, top: number) => pts.push(x, top, -y, x, foot, -y);
+  for (let x = 0; x <= W; x++) {
+    edge(x, 0, Math.max(at(x - 1, 0), at(x, 0)));
+    edge(x, H, Math.max(at(x - 1, H - 1), at(x, H - 1)));
+  }
+  for (let y = 1; y < H; y++) {
+    edge(0, y, Math.max(at(0, y - 1), at(0, y)));
+    edge(W, y, Math.max(at(W - 1, y - 1), at(W - 1, y)));
+  }
+  const step = Math.max(1, Math.round(Math.max(W, H) / 64));
+  for (let y = 0; y < H; y += step) for (let x = 0; x < W; x += step) pts.push(x + 0.5, heights[y * W + x], -(y + 0.5));
+  return Float32Array.from(pts);
+}
+
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
@@ -259,8 +286,6 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
-  /** The renderer's bake worker (the moving water's fields and shapes, High's occlusion). */
-  private bakerOwn: Baker | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -648,9 +673,10 @@ export class MapRenderer {
     return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
   }
 
-  /** The renderer's bake worker, made when first needed. */
+  /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
+   *  view. */
   private get baker(): Baker {
-    return (this.bakerOwn ??= new Baker());
+    return pageBaker();
   }
 
   /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
@@ -1832,6 +1858,17 @@ export class MapRenderer {
   /** The brush under the cursor, as last shown (tests). */
   brushCursorState: BrushCursorState | null = null;
 
+  private blockGhost: BlockGhost | null = null;
+
+  /** The blocks an area stroke will add or take away, while it is dragged (the area brush, the
+   *  game's Terrain): each tile's level before and after; null or none puts them away. */
+  setBlockGhost(tiles: readonly GhostTile[] | null): void {
+    const m = this.map;
+    if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
+    else this.blockGhost?.clear();
+    this.requestRender();
+  }
+
   /** Show the brush under the cursor (null hides it). */
   setBrushCursor(s: BrushCursorState | null): void {
     const m = this.map;
@@ -2057,8 +2094,9 @@ export class MapRenderer {
   /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
    *  the canvas's middle, whatever the view (orbit or top-down) and however big the window; clear of
    *  the page's controls (`setFrameInsets`), in the part of the canvas they leave (a side they would
-   *  leave under a quarter of the canvas is framed whole). The map's four corners are projected; the
-   *  distance scales to fit them and the target moves to centre them. */
+   *  leave under a quarter of the canvas is framed whole). The map as drawn is fitted (its edges at their
+   *  own heights, the sides below them, and the hills inside), snug with FRAME_MARGIN all round: the
+   *  distance scales to fit its box and the target moves to centre it. */
   frameMap(): void {
     const m = this.map;
     if (!m) return;
@@ -2072,18 +2110,24 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const corners: [number, number][] = [[0, 0], [m.W, 0], [0, m.H], [m.W, m.H]];
+    const outline = drawnOutline(m.W, m.H, m.heights);
+    const v = new Vector3();
+    /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
+      this.placeCamera();
+      const cam = this.camera();
       let x0 = Infinity;
       let y0 = Infinity;
       let x1 = -Infinity;
       let y1 = -Infinity;
-      for (const [x, y] of corners) {
-        const p = this.project(x, level, -y);
-        x0 = Math.min(x0, p.x);
-        x1 = Math.max(x1, p.x);
-        y0 = Math.min(y0, p.y);
-        y1 = Math.max(y1, p.y);
+      for (let k = 0; k < outline.length; k += 3) {
+        v.set(outline[k], outline[k + 1], outline[k + 2]).project(cam);
+        const x = ((v.x + 1) / 2) * w;
+        const y = ((1 - v.y) / 2) * h;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
       }
       return { x0, y0, x1, y1 };
     };
@@ -2096,9 +2140,11 @@ export class MapRenderer {
     const top = down ? ins.top : 0;
     const fw = across ? w - ins.left - ins.right : w;
     const fh = down ? h - ins.top - ins.bottom : h;
-    for (let pass = 0; pass < 4; pass++) {
+    // snug, a small even margin all round (D345 B1; Kyler's sitting on Layout 2, 2026-10-03)
+    const room = (n: number) => Math.max(n / 2, n - 2 * FRAME_MARGIN);
+    for (let pass = 0; pass < 6; pass++) {
       let b = box();
-      const s = Math.max((b.x1 - b.x0) / (fw * 0.86), (b.y1 - b.y0) / (fh * 0.86));
+      const s = Math.max((b.x1 - b.x0) / room(fw), (b.y1 - b.y0) / room(fh));
       if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
       b = box();
       const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
@@ -2631,11 +2677,11 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.ring?.dispose();
     this.effects?.dispose();
+    this.blockGhost?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.high?.dispose();
     this.high = null;
-    this.bakerOwn?.dispose();
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();

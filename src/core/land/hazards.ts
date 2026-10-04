@@ -2,9 +2,8 @@
 // rises in a hollow on high ground (a pit dug two levels into the rock, its outline irregular) and
 // drains by its own winding ditch down the slope to a river below the start's water, or to the
 // map's edge, so the colony meets it later, downstream or across the valley, as a threat and a
-// late-game resource. The containment rule is the product's (`water.badwater_contained`): with the
-// outlet blocked, the water rising in the pit cannot leave its rim, so a levee on the ditch is the
-// counterplay. The set piece carries the pit's source, floor and outlet; the pit's own shape is the
+// late-game resource. A levee on the ditch is the counterplay; badwater may join rivers and lakes (D469,
+// `water.badwater_contained` is information). The set piece carries the pit's source, floor and outlet; the pit's own shape is the
 // terrain's, which the generated field holds.
 //
 // Every map gets `count` hollows unless its player chose No badwater (D200), each beyond the

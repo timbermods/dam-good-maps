@@ -651,8 +651,8 @@ where the land's own processes make them. The builder's limits still fix what a 
   as it stands, at least the badwater distance + 14 tiles from the start, the water settled again with them, and a
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
-  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; with the outlet blocked
-  the badwater stays inside the basin (`water.badwater_contained`, §11.3). **Badtide:** every clean source emits
+  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
+  (D469; `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean; the map card says so when the drought reserve is Scarce.
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge
@@ -881,7 +881,7 @@ contamination under 0.05.
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.source_in_flow` | Sources start rivers (D171): no WaterSource or BadwaterSource stands where water from another source comes down to it. Emitters whose tiles touch are one group (a sealed mouth, a cluster at a river's head). Water runs down the spill levels, across a flat toward its way out and never back, and all through a pool. A group is inside a flow when a running group's water reaches one of its sources and its own water does not reach that group back. Design class. |
-| `water.badwater_contained` | With the planned outlet channel's tiles blocked (a levee, §9.5), the water rising in each planned badwater basin cannot leave the basin (its 7×7 floor and two-tile rim) or reach a map edge below the rim's level: the outlet is the basin's only way out, not proof that a levee holds forever (D57, pending Kyler). Not applicable without a basin with a planned outlet. |
+| `water.badwater_contained` | With the planned outlet channel's tiles blocked (a levee, §9.5), the water rising in each planned badwater basin cannot leave the basin (its 7×7 floor and two-tile rim) or reach a map edge below the rim's level: the outlet is the basin's only way out, not proof that a levee holds forever (D57). Information only: badwater may join rivers and lakes, so the count never fails the map (D469). Not applicable without a basin with a planned outlet. |
 | `water.storage_possible` | In place of `water.reservoir` (D111): the start's pump shore is fed by running clean water (at least need ÷ two days) and a dam site, natural pools or levees within 40 tiles hold the need (need × drought reserve, §5.3). Dam sites are sampled (every second clean water tile within 60 tiles of the start, crests 1–3, or 1–4 with Hard's depth rule); natural pools are the water kept through the worst drought (§10); levees raise clean water within 40 tiles 1–3 levels, up to the start's own level, behind a short line of levees. Information the generator prefers, never a reason to reject (#67, D209). Both validators. |
 | `terrain.dam_wall` | (D111, D115) no built ridge that is a dam in all but name, a straight wall across a valley with a gap for the river (`analysis/ridge.ts`). Principle; both validators. |
 
