@@ -1258,7 +1258,9 @@ documented priority-flood pre-fill, with any sealed oxbow lake's stored water, D
 stops on a deterministic test; interactive previews may warm-start, but an export never uses their state.
 **Versions:** a document records its `generatorVersion` and its built base; a newer generator opens it from the
 stored base, exactly, its edits included (a generated feature the log changed leaves the stored base and is
-built as it now says), and no rebuild keeps its edits (D336). Versioned deploys (`/v/<version>/`) keep old share links
+built as it now says), and no rebuild keeps its edits (D336). A project also carries the map as it was saved
+(`stored`, D367): it opens from it without rebuilding, and the log's replay, compared with it once on reopen, decides
+whether undo may go below the save point (D455; EDITOR_PLAN.md, "Undo and redo"). Versioned deploys (`/v/<version>/`) keep old share links
 exact.
 
 ### 19.8 Build order

@@ -468,18 +468,27 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
  *  the editor's worker never waits on a check). It follows this worker's map: the document when
  *  the generation changes, otherwise the log. Without one (Node tests) they run here. */
 export interface ChecksWorker {
-  follow(p: FollowPayload): Promise<InstantCheck | null>;
+  follow(p: FollowPayload): Promise<FollowResult>;
   check(version: number, onProgress?: (p: CheckProgress) => void): Promise<ReplicaCheck | null>;
 }
 
 /** What the replica needs to follow the open map. */
 export interface FollowPayload {
   version: number;
-  /** The whole document, when the generation changed (or the replica has none yet). */
+  /** The whole document, when the generation changed (or the replica has none yet). With its
+   *  stored map (`doc.stored`) while the editor's map still owes D455's replay comparison: the
+   *  replica, which opens by rebuilding, compares and answers `stored`. */
   doc?: MapDocument;
   /** Otherwise: keep the first `keep` operations of the replica's log and apply `add`. */
   keep: number;
   add: AppliedOp[];
+}
+
+/** The replica's answer to `follow`: the instant checks, and D455's verdict when the document
+ *  came with its stored map: whether its log replayed with this code gives that map, byte for byte. */
+export interface FollowResult {
+  instant: InstantCheck | null;
+  stored?: "same" | "differs";
 }
 
 /** The replica's check, with the canonical water it settled (for this worker to put in place). */
@@ -509,7 +518,9 @@ function syncChecks(): void {
   const seqs = log.map((o) => o.seq);
   let p: FollowPayload;
   if (!followed || followed.gen !== s.generationKey) {
-    p = { version, doc: s.document, keep: 0, add: [] };
+    // (a map opened from its stored map, its replay not yet compared: the replica compares, D455)
+    const stored = s.storedState;
+    p = { version, doc: stored ? { ...s.document, stored } : s.document, keep: 0, add: [] };
   } else {
     let keep = 0;
     while (keep < seqs.length && keep < followed.seqs.length && seqs[keep] === followed.seqs[keep]) keep++;
@@ -518,8 +529,10 @@ function syncChecks(): void {
   followed = { gen: s.generationKey, seqs };
   const v = version;
   void c.follow(p).then(
-    (instant) => {
-      if (instant && v === version && session === s) listener?.({ kind: "instant", version: v, instant });
+    (r) => {
+      // (the verdict holds whatever was edited since: it is about the map as saved)
+      if (r.stored !== undefined && session === s) s.confirmReplay(r.stored === "same");
+      if (r.instant && v === version && session === s) listener?.({ kind: "instant", version: v, instant: r.instant });
     },
     () => {
       // the replica lost track: send the whole document next time
@@ -530,10 +543,14 @@ function syncChecks(): void {
 
 // the replica's side (the checks worker)
 
-/** Follow the editor's map (the checks worker's replica), and run the instant checks on it. */
-export function follow(p: FollowPayload): InstantCheck | null {
+/** Follow the editor's map (the checks worker's replica), and run the instant checks on it. The
+ *  replica opens by rebuilding (the log replayed with this code): with a document that came with
+ *  its stored map, that replay is D455's comparison, answered as `stored`. */
+export function follow(p: FollowPayload): FollowResult {
+  let stored: FollowResult["stored"];
   if (p.doc) {
-    const s = MapSession.open(p.doc);
+    const s = MapSession.open(p.doc, { rebuild: true });
+    if (p.doc.stored) stored = MapSession.replayMatchesStored(p.doc, s.built) ? "same" : "differs";
     s.setWaterMode("defer");
     session = s;
     sent = null;
@@ -545,7 +562,7 @@ export function follow(p: FollowPayload): InstantCheck | null {
   }
   version = p.version;
   lastCheck = null;
-  return instantCheck(need());
+  return { instant: instantCheck(need()), ...(stored ? { stored } : {}) };
 }
 
 /** The background check on the replica, with the canonical water it settled. */
@@ -1290,6 +1307,13 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
   if (lastCheck && lastCheck.version === version && !s.waterPending) return { check: lastCheck, view: {}, info: sessionInfo(s), waterSettled: !waterSettling() };
   const t0 = performance.now();
   let view: ViewUpdate = {};
+  // a map opened from its stored map, with no checks worker to replay its log: the replay here,
+  // once (a full build), before the checks; undo below the save point waits on it (D455)
+  if (s.replayPending) {
+    await breathe();
+    if (!current()) return null;
+    s.checkReplay();
+  }
   if (s.waterPending) {
     const run = s.canonicalRun();
     const w = await settleInSlices(run.model, current, onProgress);

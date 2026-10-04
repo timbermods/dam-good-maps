@@ -51,6 +51,9 @@ describe("project files (PLAN §19.6)", () => {
     expect(doc.nextSeq).toBe(3);
     const reopened = MapSession.open(doc);
     expect(sha(reopened.exportTimber().bytes)).toBe(sha(s.exportTimber().bytes));
+    // (it opened from its stored map: undo goes below the save point once the log's replay is
+    // compared with it, D455; tests/contract/storedMap.test.ts)
+    expect(reopened.checkReplay()).toBe(true);
     expect(reopened.history().map((h) => h.label)).toEqual(["Raise terrain", "Add forest"]);
     while (reopened.undo());
     expect(sha(reopened.exportTimber().bytes)).toBe(sha(r.bytes));
