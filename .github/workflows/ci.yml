@@ -247,3 +247,11 @@ jobs:
           path: .scratch/determinism/smoke/*.json
           if-no-files-found: ignore
           retention-days: 7
+      # (a fresh Wasm that differs from the committed one, to compare)
+      - uses: actions/upload-artifact@v7
+        if: failure() && needs.changes.outputs.rust == 'true'
+        with:
+          name: rust-wasm
+          path: rust/target/embed/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: ignore
+          retention-days: 7
