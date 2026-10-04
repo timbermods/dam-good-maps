@@ -12,9 +12,8 @@
 // than the difficulty's badwater distance is dropped for the next best (three settles at most).
 // Resources and mine sites never move water, so that settle is the map's settle after them too.
 
-import { reachAt, walkDistance } from "../analysis/walk";
+import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import type { EntitySpec } from "../format/entities";
-import { slopeHighSide } from "../format/footprints";
 import { entityTiles } from "../features/edits";
 import { fitProblems, rasterizeObjects } from "../features/objects";
 import type { MapObjectFeature } from "../features/schema";
@@ -25,7 +24,7 @@ import { soilContamination as soilOf } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture as moistureOf } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WALK_BLOCKERS, WET } from "../validate/playability";
+import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WET } from "../validate/playability";
 import { badwaterBudget, pickBadwaterSprings, springEntities, type BadwaterSetting, type BadwaterSpring } from "./badwater";
 import { baselineEntities, pickMineSite, planBaseline, type BaselinePlan, type MineSpot, type ResourceSettings } from "./baseline";
 
@@ -82,20 +81,8 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   const owner = inp.owner ?? "resources";
   // what the map's objects take, where walking is blocked, and the slopes' links
   const taken = new Uint8Array(N);
-  const walkBlocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const e of inp.entities) {
-    for (const [x, y] of entityTiles(e)) {
-      if (x < 0 || y < 0 || x >= W || y >= H) continue;
-      taken[y * W + x] = 1;
-      if (WALK_BLOCKERS.has(e.template)) walkBlocked[y * W + x] = 1;
-    }
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  for (const e of inp.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken[y * W + x] = 1;
+  const { blocked: walkBlocked, links } = walkWorld(inp.entities, W, H);
   // nothing on the start's 3×3 or its door's row
   for (let y = start.y - 2; y <= start.y + 2; y++) for (let x = start.x - 2; x <= start.x + 2; x++) if (x >= 0 && y >= 0 && x < W && y < H) taken[y * W + x] = 1;
   const startMask = new Uint8Array(N);

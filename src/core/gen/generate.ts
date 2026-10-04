@@ -35,16 +35,14 @@ import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
-import { pumpShoreDistance, reachAt, startWaterShore, walkDistance } from "../analysis/walk";
+import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, type BuildResult, type GeneratedField, type LockedLayer } from "../features/build";
 import { previewSettle } from "../sim/preview";
 import type { FieldCache } from "../features/target";
-import { entityTiles } from "../features/edits";
 import { featureId } from "../features/ids";
 import { objectTiles } from "../features/objects";
 import type { Feature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
-import { slopeHighSide } from "../format/footprints";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
@@ -71,7 +69,7 @@ import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, rulesFor, WALK_BLOCKERS, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -675,12 +673,21 @@ function playFacts(r: GenerateResult): PlayFacts {
   };
 }
 
-/** Why an attempt failed: the stage it stopped at (no map was planned), else the blocking checks. */
+/** The reason a failed attempt records when the generator's own straightness stage turned the map
+ *  down (D209, `analysis/straight.ts`). A generator stage's reason in a check id's shape, not a
+ *  check: no check emits it, and the validator never measures straightness, so imported and edited
+ *  maps are never held to it. It stays as written: `GenerateResult.failures` carries it to the
+ *  tools and the determinism record. */
+const STRAIGHT_STAGE_REASON = "water.straight_channel";
+
+/** Why an attempt failed: the stage it stopped at (no map was planned), else the blocking checks,
+ *  with the reason of a stage that turned a built map down (`STRAIGHT_STAGE_REASON`; the height
+ *  limit's is its check's id, `terrain.max_height`). */
 function failedIds(r: GenerateResult): string[] {
   const s = r.info.stage;
   if (s !== "built" && s !== "checks" && s !== "ruler-straight channel" && s !== "above 16") return [s];
   const ids = r.report.checks.filter((c) => blocks("generate", c)).map((c) => c.id);
-  if (s === "ruler-straight channel") ids.push("water.straight_channel");
+  if (s === "ruler-straight channel") ids.push(STRAIGHT_STAGE_REASON);
   if (s === "above 16") ids.push("terrain.max_height");
   return ids;
 }
@@ -855,19 +862,7 @@ function springsInFlow(hy: Hydro, W: number): number {
 function startWalk(b: BuildResult, wetBlocks: boolean): Float64Array | null {
   if (!b.start) return null;
   const { W, H } = b;
-  const blocked = new Uint8Array(W * H);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (e.template === "Slope") {
-      const [dx, dy] = slopeHighSide(e.orientation);
-      const hx = e.x + dx;
-      const hy = e.y + dy;
-      if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-      continue;
-    }
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
-  }
-  if (wetBlocks) for (let i = 0; i < W * H; i++) if (b.water[i] > 0.05) blocked[i] = 1;
+  const { blocked, links } = walkWorld(b.entities, W, H, wetBlocks ? { wet: b.water } : {});
   return walkDistance(b.heights, W, H, blocked, links, b.start, wetBlocks ? 4 * (W + H) : undefined);
 }
 
@@ -1077,53 +1072,23 @@ function startWalkable(b: BuildResult): number {
 function startWalksTo(b: BuildResult, x: number, y: number): boolean {
   if (!b.start) return false;
   const { W, H } = b;
-  const blocked = new Uint8Array(W * H);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (e.template === "Slope") {
-      const [dx, dy] = slopeHighSide(e.orientation);
-      const hx = e.x + dx;
-      const hy = e.y + dy;
-      if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-      continue;
-    }
-    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
-  }
+  const { blocked, links } = walkWorld(b.entities, W, H);
   return Number.isFinite(walkDistance(b.heights, W, H, blocked, links, b.start, 4 * (W + H))[y * W + x]);
 }
 
 /** The walk regions of the built map (same level, and the built slopes). */
 function walkLabels(b: BuildResult): Int32Array {
   const { W, H } = b;
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([e.y * W + e.x, hy * W + hx]);
-  }
-  return walkRegions(b.heights, W, H, null, links);
+  return walkRegions(b.heights, W, H, null, walkWorld(b.entities, W, H, { blockers: false }).links);
 }
 
 /** Whether (x, y) is on ground the colony walks to from the start (same level, and the built slopes). */
 function walkableFromStart(b: BuildResult, x: number, y: number): boolean {
   if (!b.start) return false;
   const { W, H } = b;
-  const links: [number, number][] = [];
   // (round the objects that block walking, as the colony walks: D333, a second district's site cut
   // off by a thorn belt or ruins read as joined)
-  const blocked = new Uint8Array(W * H);
-  for (const e of b.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) blocked[ty * W + tx] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  const { blocked, links } = walkWorld(b.entities, W, H);
   const labels = walkRegions(b.heights, W, H, blocked, links);
   const root = labels[b.start.y * W + b.start.x];
   return root >= 0 && root === labels[y * W + x];

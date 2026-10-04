@@ -5,13 +5,13 @@
 // principles terrain.edge_wall and terrain.dam_wall, and `validateFile`, which adds the playability
 // class (playability.ts) on the map's canonically settled water.
 
-import { FOOTPRINTS, OCC, ORIENTATIONS, slopeHighSide, startEntranceTile, worldBlocks, type Orientation, type Placement } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, slopeHighSide, startEntranceTile, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import { isObject, num, type JsonObject } from "../format/json";
 import { placementOf } from "../format/entities";
 import { EDITOR_MAX_HEIGHT, floorsOf, GAME_MAX_HEIGHT, GAME_VERSION, MAX_OBJECT_Z, storedWater, surfaceOf } from "../format/world";
 import type { TimberFile } from "../format/timber";
 import type { Feature } from "../features/schema";
-import { EDGE_BAND, EDGE_INSIDE, EDGE_NAMES, EDGE_RISE, EDGE_SHARE, edgeRuleApplies, edgeWalls, type EdgeName } from "../analysis/edges";
+import { EDGE_BAND, EDGE_INSIDE, EDGE_NAMES, EDGE_RISE, EDGE_SHARE, edgeRise, edgeRuleApplies, edgeTile, edgeWalls, type EdgeName } from "../analysis/edges";
 import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
@@ -197,21 +197,11 @@ function lowerTheWall(h: ArrayLike<number>, W: number, H: number, edges: readonl
   for (const name of edges) {
     const e = EDGE_NAMES.indexOf(name);
     const L = e < 2 ? W : H;
-    const at = (p: number, d: number): [number, number] => (e === 0 ? [p, d] : e === 1 ? [p, H - 1 - d] : e === 2 ? [d, p] : [W - 1 - d, p]);
     for (let p = 0; p < L; p++) {
-      let band = 0;
-      for (let d = 0; d < EDGE_BAND; d++) {
-        const [x, y] = at(p, d);
-        band = Math.max(band, h[y * W + x]);
-      }
-      let inside = 0;
-      for (let d = EDGE_BAND; d < EDGE_BAND + EDGE_INSIDE; d++) {
-        const [x, y] = at(p, d);
-        inside = Math.max(inside, h[y * W + x]);
-      }
+      const { band, inside } = edgeRise(h, W, H, e, p);
       if (band - inside < EDGE_RISE) continue;
       for (let d = 0; d < EDGE_BAND; d++) {
-        const [x, y] = at(p, d);
+        const [x, y] = edgeTile(e, W, H, p, d);
         const i = y * W + x;
         if (h[i] > inside) to.set(i, Math.min(to.get(i) ?? inside, inside));
       }
@@ -300,7 +290,6 @@ function unsupportedVoxels(file: TimberFile, stackTops: Set<number>): number {
 interface EntityScan {
   occupied: Map<number, number>;
   stackTops: Set<number>;
-  startCells: number[];
   placements: Placement[];
 }
 
@@ -412,7 +401,7 @@ function checkEntities(file: TimberFile, c: Collector, surface: Uint8Array): Ent
   });
   const overlap = startCells.filter((k) => occupied.has(k)).length;
   c.add({ id: "start.clear", class: "load", ok: overlap === 0, value: overlap, limit: 0, message: overlap ? `Objects cover ${counted(overlap, "tile")} of the start` : "Nothing covers the start" });
-  return { occupied, stackTops, startCells, placements };
+  return { occupied, stackTops, placements };
 }
 
 // ---------------------------------------------------------------------------------- slopes and start
@@ -556,5 +545,3 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
 export function validateFile(file: TimberFile, opts: ValidateOptions): ValidationReport {
   return validateMap(file, opts).report;
 }
-
-export { OCC };

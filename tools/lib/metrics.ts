@@ -12,6 +12,7 @@ import type { ValidationReport } from "../../src/core/validate/report";
 import type { PlayabilityAnalysis } from "../../src/core/validate/playability";
 import { components } from "../../src/core/analysis/regions";
 import { startBench } from "../../src/core/analysis/metrics";
+import { fallsOf } from "../../src/core/analysis/vertical";
 
 /** The calibration's wet depth (investigation/calibration.json `method.wet_depth`). */
 const CAL_WET = 0.1;
@@ -199,17 +200,11 @@ export function measure(m: Measurable): MapMetrics {
   const bs = components(basin, W, H, false);
   const basins20 = bs.sizes.filter((s) => s >= 20).length;
   // falls: neighbouring wet tiles whose surfaces differ by 1.5 or more (analyze_maps.py)
+  // (`fallsOf`, whose wet tiles are CAL_WET's)
   const fall = new Uint8Array(N);
+  for (const f of fallsOf(h, water, W, H, 1.5)) fall[f.i] = 1;
   let wet = 0;
-  for (let i = 0; i < N; i++) {
-    if (!(water[i] >= CAL_WET)) continue;
-    wet++;
-    const x = i % W;
-    const y = (i - x) / W;
-    const s = h[i] + water[i];
-    const nb = [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1];
-    for (const n of nb) if (n >= 0 && water[n] >= CAL_WET && s - (h[n] + water[n]) >= 1.5) fall[i] = 1;
-  }
+  for (let i = 0; i < N; i++) if (water[i] >= CAL_WET) wet++;
   const falls = components(fall, W, H, true).sizes.length;
 
   // ---- storage near the start

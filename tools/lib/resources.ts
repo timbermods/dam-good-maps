@@ -14,8 +14,9 @@
 //   0 on a rise.
 
 import * as portable from "../../src/core/math/portable";
-import { FOOTPRINTS, worldBlocks } from "../../src/core/format/footprints";
+import { FOOTPRINTS, startMiddleTile, worldBlocks } from "../../src/core/format/footprints";
 import { JsonFloat } from "../../src/core/format/json";
+import { isDead } from "../../src/core/analysis/wood";
 import type { TimberFile } from "../../src/core/format/timber";
 import { storedSoil, storedWater, surfaceOf } from "../../src/core/format/world";
 import { isDelayed, mapObjects, objectTile, specifiedStrength, type MapObject } from "../../src/core/sim/model";
@@ -124,8 +125,10 @@ export interface ResourceMeasures {
   start: { x: number; y: number } | null;
 }
 
-const isDead = (o: MapObject) => (o.components.LivingNaturalResource as { IsDead?: boolean } | undefined)?.IsDead === true;
-/** A sapling: Growable.GrowthProgress below 1 (a float parses as a JsonFloat; missing means grown). */
+/** A sapling: Growable.GrowthProgress below 1 (a float parses as a JsonFloat; missing means grown).
+ *  Not `analysis/wood.ts` `isSapling`: that one also reads the older {"Value": …} wrapper and takes
+ *  a non-finite progress for grown, where this reads the wrapper as grown and −Infinity as a
+ *  sapling; this measure's numbers stay as they were. */
 const isYoung = (o: MapObject) => {
   const g = o.components.Growable as { GrowthProgress?: unknown } | undefined;
   const p = g?.GrowthProgress;
@@ -285,16 +288,10 @@ export function sourceLowness(heights: ArrayLike<number>, W: number, H: number, 
   return lownessAt(heights, W, H, cx, cy, o.z);
 }
 
-/** The centre tile of a StartingLocation's 3×3. */
+/** The centre tile of a StartingLocation's 3×3 (`startMiddleTile`). */
 export function startCentreOf(o: MapObject): { x: number; y: number } {
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, o).filter((b) => b.localZ === 0);
-  let sx = 0;
-  let sy = 0;
-  for (const b of cells) {
-    sx += b.x;
-    sy += b.y;
-  }
-  return { x: Math.round(sx / cells.length), y: Math.round(sy / cells.length) };
+  const [x, y] = startMiddleTile(o);
+  return { x, y };
 }
 
 /** A map file's ground as it stores it: the top of each column, the water standing on it, its soil
@@ -344,7 +341,7 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
       const i = o.y * W + o.x;
       const s = t as MapTree;
       bySpecies[s].total++;
-      const dead = isDead(o);
+      const dead = isDead(o.components);
       if (dead) {
         bySpecies[s].dead++;
         if (!(moisture[i] > 0)) deadOnDry++;
@@ -360,7 +357,7 @@ export function measureResources(g: ResourceGroundInput): ResourceMeasures {
     } else if (t === "BlueberryBush") {
       if (!on(o)) continue;
       bushTiles.push(o.y * W + o.x);
-      if (!isDead(o)) bushLiving++;
+      if (!isDead(o.components)) bushLiving++;
     } else if (t.startsWith("RuinColumnH")) {
       const h = Number(t.slice(11));
       if (!(h >= 1 && h <= 8)) continue;
