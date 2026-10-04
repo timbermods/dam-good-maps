@@ -25,16 +25,16 @@ import { terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
-import { entityJson, rawEntity } from "../format/entities";
+import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { mixedSimulationSingletons, settledSimulationSingletons, storedOutflows, storedSoil, storedWater, type WorldModel } from "../format/world";
+import { storedOutflows, storedSoil, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { fileName as timberFileName, namedFile, toTimberFile } from "../gen/pack";
+import { builtWater, fileName as timberFileName, namedFile, toTimberFile, worldOf } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -935,14 +935,10 @@ export class MapSession {
     const { x: W, y: H } = this.size;
     const w = b.file.world;
     const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
-    let singletons = w.singletons;
-    if (!built.waterFromFile) {
-      // under roofs (caves, tunnels, overhangs) the file's own water is kept: the heightfield
-      // model cannot simulate it (EDITOR_PLAN §6); everywhere else the settled water is written
-      if (b.terrain.columns.size) singletons = withSettledWater(w.singletons, W, H, built, new Set(b.terrain.columns.keys()));
-      else singletons = withSettledWater(w.singletons, W, H, built);
-    }
-    const world: WorldModel = { ...w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), singletons, entities: built.entities.map(entityJson) };
+    // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
+    // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
+    const roofed = b.terrain.columns.size ? new Set(b.terrain.columns.keys()) : null;
+    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), roofed });
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
     let metadata = parse(this.gen.base.metadata) as JsonObject;
@@ -1093,19 +1089,6 @@ function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
-}
-
-/** An imported map's singletons with the settled water, moisture and contamination of a
- *  heightfield map (one slot per tile), every other singleton as it was. With `roofed`, the tiles
- *  under roofs keep the file's own water and soil (every slot; world.ts mixedSimulationSingletons). */
-function withSettledWater(singletons: JsonObject, W: number, H: number, b: BuildResult, roofed?: ReadonlySet<number>): JsonObject {
-  const st = { floor: b.heights, depth: b.water, contamination: b.contamination, moisture: b.moisture, soilContamination: b.soilContamination, sat: b.settle.sat, out: b.settle.out };
-  const s = roofed ? mixedSimulationSingletons(singletons, W, H, st, roofed) : settledSimulationSingletons(W, H, st);
-  const keys = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
-  const out: JsonObject = {};
-  for (const k in singletons) out[k] = keys.includes(k) ? s[k] : singletons[k];
-  for (const k of keys) if (!(k in out)) out[k] = s[k];
-  return out;
 }
 
 /** A stored field as the build takes it. */
