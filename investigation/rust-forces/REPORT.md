@@ -1,36 +1,18 @@
-# Rust forces — round 3
+# Rust forces
 
-**NOT READY** — 256² only (D437); Firefox included (D440); speed gates dropped (D441). No performance benchmarks. Product files unchanged.
-Oracle: dev 4799800ff4cc14093de8aabf68aa0e7385c32248. Ported current sealed-basin stopping/remaining-volume rule, unfed-water removal and second canonical settle, and carried-object collisions with the start/standing kept slopes. Shared portable.rs unchanged.
+**Not ready for adoption: two unchanged product Carve tests fail.** Based on cleanup/4-force-planning a516e43d; groups 1–4 are not yet on dev (f1a87b54).
 
-Pilot 7.04 min; matrix projected 1.80 h, actual pending. Existing suites/replays are additional. See [SCHEDULE.md](SCHEDULE.md).
+M9b game water/edge spill and the six-day settle are enabled; current sealed lakes restore or relevel exactly. Group 4 supplies core request/result assembly and stable source-group IDs. The retired edge hook is removed. Shared portable arithmetic and AGPL-3.0-or-later are retained. Product source is unchanged.
 
-| Force at 256² | Native | Node-Wasm | Chromium | Firefox | WebKit |
-|---|---:|---:|---:|---:|---:|
-| footprint | 20 | 20 | 5 | 5 | 5 |
-| craterize | 20 | 20 | 5 | 5 | 5 |
-| erupt | 20 | 20 | 5 | 5 | 5 |
-| quake | 20 | 20 | 5 | 5 | 5 |
-| carve | 20 | 20 | 5 | 5 | 5 |
-| glaciate | 20 | 20 | 5 | 5 | 5 |
+- CI Rust build/guard/engine checks: PASS, 47,063 math vectors and 19 water fixtures.
+- CI engine smoke: PASS, 183 cases / 610 checkpoints per target, zero differences.
+- Quick suite: 1,479 passed, 2 failed; typecheck/build PASS.
+- Existing force suites against native/Node-Wasm Rust: 215 passed, 2 failed (32 files).
+- Browser force suites: 93 passed across Chromium, Firefox and WebKit; 3 optional benchmark tests skipped.
+- Core host: 15 fixed cases PASS, including natural settings, working areas and painted Lift. Fixed full-result/export fixtures: 2 per force per target PASS.
 
-Required: 2,000 native and Node-Wasm, 500 each browser per force: 33,000 target checks. Identity failure payloads retained: 0; each fix is recorded in [IDENTITY-FIXES.md](IDENTITY-FIXES.md). Refused inputs match exactly (0 paired native/Node cases).
+Both failures are in carveBornAsItCuts.test.ts:93 (121 wet-cut tiles at both midpoint and end) and :112 (null frame). The unchanged TypeScript reproduces the first failure in isolation; the complete unchanged quick suite reproduces both. Assertions were not weakened. acceptance.mjs: NOT READY, ciQuickSuite and forceSuitesAgainstRust.
 
-- postM9bOracle: OPEN
-- portableArithmetic: PASS
-- carve: PASS
-- glaciate: PASS
-- allWaterAndPlaybackRecords: PASS
-- existingTestsAgainstRust: OPEN
-- thousandsPerForcePerSizePerTarget: OPEN
-- existingCrossEngineDeterminism: OPEN
-- completeIntegrationAdapter: OPEN
-- productExportBytes: PASS
+One binding fix preserves empty rock-layer arrays (previously Wasm padded zeros and Carve differed); used-ID fixture sets and diagnostic byte comparisons were corrected. Details: IDENTITY-FIXES.md.
 
-acceptance.mjs: NOT READY — postM9bOracle, existingTestsAgainstRust, thousandsPerForcePerSizePerTarget, existingCrossEngineDeterminism, completeIntegrationAdapter.
-
-Full authorization withdrawn: no matrix or full suites started tonight. Wait for M9b on dev and a newly named window. [M9B-PREP.md](M9B-PREP.md): 2–4 hours estimated for re-pin/audit, game defaults, guards and a new pilot if the inspected head remains unchanged; refresh the projection then.
-
-Whole-machine pilot CPU: mean 15.0%, peak 34.9%; includes other sessions.
-
-Regenerate: [INTEGRATION.md](INTEGRATION.md). Large bundles, Wasm, executables, maps, exports, IR, failures and corpora stay in ignored local/round3-dev256/ (D195). ts-forces-final and TypeScript deletion belong to the adoption session; this investigation creates no tag.
+No pilot, matrix, window or timing study remains. Regeneration/adoption: INTEGRATION.md; compact evidence: adoption-evidence.json. Bulk outputs stay ignored under local/adoption/ (D195). The milestone session fixes the two baseline failures, lands the cleanup groups and adopts on dev with full CI.

@@ -1,24 +1,18 @@
 {
-  "oracle": "4799800ff4cc14093de8aabf68aa0e7385c32248",
-  "previousOracle": "4aab909e23016902cbbe6ffaeddeece786176ab3",
-  "pinnedAt": "2026-10-02T23:12:00-07:00",
-  "method": "git fetch --no-tags origin dev; inspect full src/core and src/worker diff from previous oracle; trace force imports",
+  "oracle": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "previousOracle": "4799800ff4cc14093de8aabf68aa0e7385c32248",
+  "method": "Rebase own investigation clone onto cleanup/4-force-planning; audit merged M9b and groups 1\u20134 by source diff.",
   "portChanges": [
-    "D413: sealedBasins closed/drying, rest-volume normalization, stop immediately on sealed-only evaporation, closedBasins at last check",
-    "D385/D387 canonicalRun: remove unfed water by source/kept-seed connectivity, preserve flows/ticks and re-settle once; D413 restore closed basins from prefill",
-    "D425 literalOf: moved objects landing on StartingLocation footprint or still-standing kept slopes are removed in original order"
+    "Game-water and edge-spill defaults; six-day first settle, four-day drain settle and 300-tick glacier probe unchanged.",
+    "Exact merged sealed-lake restoration/releveling, adopted Rust water implementation adapted to force types.",
+    "D5 source-group member identifiers and collisions with standing/used IDs.",
+    "Group 4 core planning/result assembly; remove edgeSources/edgeLeaks hook."
   ],
   "unchanged": [
-    "portable Rust source and guard hashes",
-    "TypeScript portable maths",
-    "force planners, playback and footprint transform apart from result.ts",
-    "water numerical substeps and model.ts",
-    "prefill numerical start and flow/spill algorithms",
-    "product package.json and package-lock.json",
-    "format writer and world/export serialization"
+    "Shared portable arithmetic."
   ],
-  "otherDiff": "Generated-resource lifetime/source-group stable ids, brush/weather, document/library and worker updates are executed by the current TS input/finalization/presentation/export oracle; no additional Rust force computation change. Slopes slopeTiles/slopeStands added as literalOf dependency.",
-  "diffArtifact": "local/dev-core-worker.diff",
-  "result": "Current dev changes ported; 1% 256-square pilot and strict native/Wasm guards pass; adoption waits for M9b and full corpus",
-  "postM9bMerged": false
+  "otherDiff": "Game soil and export/finalization use current core host.",
+  "diffArtifact": "local/adoption/group4.diff",
+  "result": "Port and local byte checks pass; adoption blocked by two existing product Carve suite failures. No corpus or timing gates.",
+  "postM9bMerged": true
 }

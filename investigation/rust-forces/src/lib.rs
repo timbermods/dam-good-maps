@@ -1439,10 +1439,14 @@ struct Map {
     fallen: Vec<Fallen>,
     base: std::sync::Arc<V>,
     ceiling: f64,
+    initial_rock_len: usize,
+    used_ids: std::collections::HashSet<std::sync::Arc<str>>,
 }
 impl Map {
     fn from(v: &V, fp: &V) -> Self {
         let mut m = Self {
+            initial_rock_len: v["_rockLength"].as_f64().map_or(arr(&v["rockLayers"]).len(), |v| v as usize),
+            used_ids: arr(&v["usedIds"]).iter().filter_map(|v| v.as_str().map(Into::into)).collect(),
             error: 0,
             next_id: std::cell::Cell::new(0),
             next_slot: std::cell::Cell::new(0),
@@ -1467,7 +1471,7 @@ impl Map {
                     .filter(|(k, _)| {
                         !matches!(
                             k.as_str(),
-                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities"
+                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities" | "_rockLength"
                         )
                     })
                     .map(|(k, v)| (k.clone(), v.clone()))
@@ -2370,7 +2374,7 @@ pub fn plan(task: &mut Job) {
             &before,
             m,
             &GlacierSettings {
-                finish: c[21] == 0.0,
+                finish: true,
                 power: c[1],
                 size: if c[2].is_nan() { 30.0 } else { c[2] },
                 seed: c[3] as u32,
@@ -2722,7 +2726,7 @@ fn output_views(task: &mut Job) {
             r.group.len() as f64,
             r.closure.is_some() as u8 as f64,
             r.oxbows.len() as f64,
-            r.edge_leaks.len() as f64,
+            0.0, // Reserved ABI slot; the retired edge hook has no records.
             r.oxbow_basin.len() as f64,
             r.unleashed
                 .as_ref()
@@ -2770,9 +2774,6 @@ fn output_views(task: &mut Job) {
                     g.extend([l.x, l.y, l.width]);
                 }
             }
-        }
-        for q in &r.edge_leaks {
-            g.extend([q.x, q.y]);
         }
         g.extend(r.oxbow_basin.iter().map(|&v| v as f64));
         if let Some(r) = &r.retained {
@@ -3071,7 +3072,7 @@ pub unsafe extern "C" fn forces_create(p: *const u8, len: usize) -> *mut Job {
     m.lava.resize(n, 0);
     m.depth.resize(n, 0.0);
     m.contamination.resize(n, 0.0);
-    m.rock.resize(23, 0.0);
+    m.rock.resize(m.initial_rock_len, 0.0);
     task.keep.resize(n, 0);
     describe(&mut task);
     Box::into_raw(Box::new(task))
@@ -4541,7 +4542,6 @@ struct CarveState {
     head: CarveHead,
     closure: Option<Map>,
     group: Vec<PlacedWater>,
-    edge_leaks: Vec<Point>,
     removed: Vec<(usize, usize)>,
     occupants: Option<Vec<Vec<usize>>>,
     removed_keys: Vec<bool>,
@@ -4664,7 +4664,6 @@ impl CarveState {
             head,
             closure: None,
             group: vec![],
-            edge_leaks: vec![],
             removed: vec![],
             occupants: None,
             removed_keys: vec![],
@@ -4730,7 +4729,7 @@ impl CarveState {
                     occupied[i] = 1;
                 }
             }
-            let row = clean_source_row(
+            let (row, wanted) = clean_source_row(
                 before,
                 x as usize,
                 y as usize,
@@ -4747,20 +4746,18 @@ impl CarveState {
             } else {
                 vec![(origin, strength)]
             };
+            let mut taken_ids = before.used_ids.clone();
+            taken_ids.extend(before.entities.iter().map(|e| e.id.clone()));
+            taken_ids.insert(r.source_id.clone().into());
             r.group = row
                 .iter()
-                .map(|&(tile, strength)| PlacedWater {
+                .map(|&(tile, strength)| { let id = if tile == origin { r.source_id.clone().into() } else { group_member_id(&r.source_id, tile, origin, r.map.w, wanted.max(row.len()), &taken_ids) }; taken_ids.insert(id.clone()); PlacedWater {
                     id_key: usize::MAX,
                     slot: 0,
-                    id: if tile == origin {
-                        r.source_id.clone().into()
-                    } else {
-                        force_guid(&[r.source_id.clone(), "carve-source".into(), tile.to_string()])
-                            .into()
-                    },
+                    id,
                     tile,
                     strength,
-                })
+                }})
                 .collect();
             r.group.sort_by_key(|g| g.id.as_ref() != r.source_id);
             let mut slot = r
@@ -5245,7 +5242,7 @@ fn clean_source_row(
     seed: u32,
     mut flow: Point,
     occupied: &[u8],
-) -> Vec<(usize, f64)> {
+) -> (Vec<(usize, f64)>, usize) {
     // sourceGroups.flowAt: an explicit zero vector falls back to the edge,
     // then the surrounding ground. These force callers supply no outflow.
     if flow.x == 0.0 && flow.y == 0.0 {
@@ -5311,7 +5308,7 @@ fn clean_source_row(
     let a = y * m.w + x;
     let z = m.heights[a];
     if occupied[a] != 0 {
-        return vec![];
+        return (vec![], wanted as usize);
     }
     let axes = if flow.x.abs() > flow.y.abs() {
         vec![(0, 1)]
@@ -5372,7 +5369,7 @@ fn clean_source_row(
             rem -= 1.0;
         }
     }
-    (-lo..=hi)
+    let sources = (-lo..=hi)
         .enumerate()
         .map(|(j, k)| {
             (
@@ -5380,7 +5377,8 @@ fn clean_source_row(
                 shares[j] / 1000.0,
             )
         })
-        .collect()
+        .collect();
+    (sources, wanted as usize)
 }
 impl CarveState {
     fn plan_deposit(&mut self) {
@@ -5655,27 +5653,6 @@ impl CarveState {
             } else {
                 self.shape_river()
             };
-            if !self.planning && !self.group.is_empty() {
-                for g in &self.group {
-                    let x = g.tile % self.map.w;
-                    let y = g.tile / self.map.w;
-                    let level = self.map.heights[g.tile];
-                    let mut leak = false;
-                    for yy in y.saturating_sub(2)..=(y + 2).min(self.map.h - 1) {
-                        for xx in x.saturating_sub(2)..=(x + 2).min(self.map.w - 1) {
-                            if xx == 0 || yy == 0 || xx == self.map.w - 1 || yy == self.map.h - 1 {
-                                leak |= self.map.heights[yy * self.map.w + xx] <= level;
-                            }
-                        }
-                    }
-                    if leak {
-                        self.edge_leaks.push(Point {
-                            x: x as f64,
-                            y: y as f64,
-                        });
-                    }
-                }
-            }
             if !shaped.is_empty() {
                 for &i in &shaped {
                     self.map.lava[i] &= mask(self.map.heights[i]);
@@ -5939,7 +5916,6 @@ struct CarveRecords {
     step_metrics: Vec<f64>,
     step_object_changes: Vec<f64>,
     oxbows: Vec<CarveOxbow>,
-    edge_leaks: Vec<Point>,
     oxbow_basin: Vec<usize>,
     retained: Option<RetainedWater>,
     unleashed: Option<String>,
@@ -6021,7 +5997,7 @@ impl CarveRecords {
         "rawChanges":self.raw_offsets.windows(2).map(|w|self.raw_changes[w[0] as usize..w[1] as usize].to_vec()).collect::<Vec<_>>(),
         "stepMetrics":self.step_metrics.chunks_exact(14).map(carve_metrics_value).collect::<Vec<_>>(),
         "stepObjectChanges":self.step_object_changes.chunks_exact(5).map(|v|json!({"step":v[0],"id":self.initial_entities.iter().find(|e|e.slot==v[1] as u32).unwrap().id.as_ref(),"x":v[2],"y":v[3],"z":v[4]})).collect::<Vec<_>>(),
-        "oxbows":self.oxbows.iter().map(carve_oxbow_value).collect::<Vec<_>>(),"edgeLeaks":self.edge_leaks.iter().map(Point::value).collect::<Vec<_>>(),"oxbowBasin":self.oxbow_basin,"retained":self.retained.as_ref().map(|r|json!({"tiles":r.tiles,"floor":r.floor,"depth":r.depth,"contamination":r.contamination})),"unleashedId":self.unleashed,"badwater":self.bad,
+        "oxbows":self.oxbows.iter().map(carve_oxbow_value).collect::<Vec<_>>(),"oxbowBasin":self.oxbow_basin,"retained":self.retained.as_ref().map(|r|json!({"tiles":r.tiles,"floor":r.floor,"depth":r.depth,"contamination":r.contamination})),"unleashedId":self.unleashed,"badwater":self.bad,
         "removedAt":self.removed.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"goneSpread":self.spread.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"group":self.group.iter().map(|g|json!({"id":g.id.as_ref(),"tile":g.tile,"strength":g.strength})).collect::<Vec<_>>(),"closure":self.closure.as_ref().map(Map::value),"strengthDepth":self.strength_depth})
     }
 }
@@ -6195,7 +6171,6 @@ fn carve(
         step_metrics,
         step_object_changes,
         oxbows: run.oxbows,
-        edge_leaks: run.edge_leaks,
         oxbow_basin,
         retained,
         unleashed: run.options.unleashed,
@@ -6319,15 +6294,15 @@ fn force_canonical_settle(model: &ForceWaterModel, retained: Option<&RetainedWat
             model.emitters.clone(),
             d,
             c,
-            false,
-            false,
+            true,
+            true,
         )
     };
     let mut sim = new_sim(start_d.clone(), start_c.clone());
     let mut sealed = retained.map_or_else(Vec::new, |r| r.tiles.clone());
     sealed.sort_unstable();
     sealed.dedup();
-    sim.settle(4.0, 128, 0.005, 0.005, &sealed);
+    sim.settle(6.0, 128, 0.005, 0.005, &sealed);
     let n = model.w * model.h;
     let mut fed = vec![false; n];
     let mut queue = Vec::with_capacity(n);
@@ -6404,15 +6379,8 @@ fn force_canonical_settle(model: &ForceWaterModel, retained: Option<&RetainedWat
         sim.ticks = ticks;
         sim.settle(4.0, 128, 0.005, 0.005, &sealed);
     }
-    if let Some(closed) = sim.closed_basins().map(<[bool]>::to_vec) {
-        for i in 0..n {
-            if closed[i] {
-                sim.d[i] = start_d[i];
-                sim.c[i] = start_c[i];
-                sim.out[4 * i..4 * i + 4].fill(0.0);
-            }
-        }
-    }
+    let closed = sim.closed_basins().map(<[bool]>::to_vec);
+    force_keep_sealed(&mut sim, model, &seeds, closed.as_deref(), &start_d, &start_c);
     sim
 }
 fn force_water_model(m: &Map) -> ForceWaterModel {
@@ -7845,6 +7813,7 @@ fn glacier_once(
     let mut out = GlacierPlan {
         map: {
             let mut m = before.clone();
+            m.used_ids.extend(before.entities.iter().map(|e| e.id.clone()));
             for e in &mut m.entities {
                 e.plain = true;
                 if e.new_source.is_some() {
@@ -8250,6 +8219,16 @@ fn glacier_once(
     );
     out
 }
+fn group_member_id(anchor: &str, tile: usize, origin: usize, w: usize, n: usize, taken: &std::collections::HashSet<std::sync::Arc<str>>) -> std::sync::Arc<str> {
+    let along = tile as isize % w as isize - origin as isize % w as isize + tile as isize / w as isize - origin as isize / w as isize;
+    let place = along.rem_euclid(n as isize);
+    if place == 0 { return anchor.into(); }
+    let mut args = vec![anchor.to_owned(), "sourceGroup".into(), place.to_string()];
+    let mut id = force_guid(&args);
+    let mut k = 1;
+    while taken.contains(id.as_str()) { args.truncate(3); args.push(k.to_string()); id = force_guid(&args); k += 1; }
+    id.into()
+}
 fn glacier_source_id(
     out: &GlacierPlan,
     s: &GlacierSettings,
@@ -8264,7 +8243,7 @@ fn glacier_source_id(
             serial.to_string(),
         ]);
         *serial += 1;
-        if !out.map.entities.iter().any(|e| e.id.as_ref() == id) {
+        if !out.map.used_ids.contains(id.as_str()) && !out.map.entities.iter().any(|e| e.id.as_ref() == id) {
             return id.into();
         }
     }
@@ -8301,8 +8280,8 @@ fn glacier_floods(p: &GlacierPlan) -> (usize, usize) {
         m.emitters,
         p.map.depth.clone(),
         p.map.contamination.clone(),
-        false,
-        false,
+        true,
+        true,
     );
     let count = |s: &water::Sim| {
         (0..s.n)
@@ -8431,7 +8410,7 @@ fn glacier_add_group(
     serial: &mut usize,
 ) {
     let w = out.map.w;
-    let row = clean_source_row(
+    let (row, wanted) = clean_source_row(
         &out.map,
         i % w,
         i / w,
@@ -8450,17 +8429,17 @@ fn glacier_add_group(
         return;
     }
     let anchor = glacier_source_id(out, s, intent, serial);
+    let n = wanted.max(row.len());
+    let mut ids = out.map.used_ids.clone();
+    ids.extend(out.map.entities.iter().map(|e| e.id.clone()));
+    ids.insert(anchor.clone());
     for (at, strength) in row {
         let id = if at == i {
             anchor.clone()
         } else {
-            force_guid(&[
-                anchor.to_string(),
-                (at % w).to_string(),
-                (at / w).to_string(),
-            ])
-            .into()
+            group_member_id(&anchor, at, i, w, n, &ids)
         };
+        ids.insert(id.clone());
         glacier_add_source(out, at, strength, id);
         taken[at] = 1;
     }
@@ -11239,4 +11218,203 @@ fn literal(before: &Map, after: &Map) -> Literal {
         felled,
         object_rows,
     }
+}
+
+const FORCE_REST: f64 = 0.01;
+fn force_keep_sealed(sim: &mut water::Sim, model: &ForceWaterModel, lake: &[bool], closed: Option<&[bool]>, start_depth: &[f64], start_contamination: &[f64]) -> bool {
+    let Some(closed) = closed else { return false };
+    let (w, h, n) = (model.w, model.h, model.w * model.h);
+    let floor = &model.floor;
+    let mut seen = vec![0u8; n];
+    let mut queue: Vec<usize> = Vec::with_capacity(n);
+    let mut any = false;
+    for s in 0..n {
+        if !closed[s] || seen[s] != 0 {
+            continue;
+        }
+        seen[s] = 1;
+        queue.clear();
+        queue.push(s);
+        let mut head = 0;
+        while head < queue.len() {
+            let c = queue[head];
+            head += 1;
+            let x = c % w;
+            let y = c / w;
+            if y > 0 && closed[c - w] && seen[c - w] == 0 {
+                seen[c - w] = 1;
+                queue.push(c - w);
+            }
+            if x > 0 && closed[c - 1] && seen[c - 1] == 0 {
+                seen[c - 1] = 1;
+                queue.push(c - 1);
+            }
+            if y < h - 1 && closed[c + w] && seen[c + w] == 0 {
+                seen[c + w] = 1;
+                queue.push(c + w);
+            }
+            if x < w - 1 && closed[c + 1] && seen[c + 1] == 0 {
+                seen[c + 1] = 1;
+                queue.push(c + 1);
+            }
+        }
+        let mut tiles = queue.clone();
+        tiles.sort_unstable();
+        let mut volume = 0.0;
+        let mut bad = 0.0;
+        let mut rests = true;
+        let mut top = f64::NEG_INFINITY;
+        let mut bottom = f64::INFINITY;
+        for &i in &tiles {
+            let d = if lake[i] { start_depth[i] } else { 0.0 };
+            if !(d > 0.0) {
+                continue;
+            }
+            volume += d;
+            bad += d * start_contamination[i];
+            let surface = floor[i] + d;
+            if surface > top {
+                top = surface;
+            }
+            if surface < bottom {
+                bottom = surface;
+            }
+            let x = i % w;
+            let y = i / w;
+            for k in 0..4 {
+                if !rests {
+                    break;
+                }
+                let nb = match k {
+                    0 => (y > 0).then(|| i - w),
+                    1 => (x > 0).then(|| i - 1),
+                    2 => (y < h - 1).then(|| i + w),
+                    _ => (x < w - 1).then(|| i + 1),
+                };
+                let Some(nb) = nb else { continue };
+                if lake[nb] && start_depth[nb] > 0.0 {
+                    continue;
+                }
+                let moves = if floor[nb] == floor[i] { d > 0.1 } else { surface > floor[nb] + FORCE_REST };
+                if moves {
+                    rests = false;
+                }
+            }
+        }
+        if top - bottom > FORCE_REST {
+            rests = false;
+        }
+        let level = if rests || !(volume > 0.0) {
+            None
+        } else {
+            let seeds: Vec<usize> = tiles.iter().copied().filter(|&i| lake[i]).collect();
+            Some(force_level_into(model, &seeds, volume))
+        };
+        for &i in &tiles {
+            let d = if rests && lake[i] { start_depth[i] } else { 0.0 };
+            sim.d[i] = d;
+            sim.c[i] = if d > 0.0 { start_contamination[i] } else { 0.0 };
+            for k in 0..4 {
+                sim.out[4 * i + k] = 0.0;
+            }
+        }
+        if let Some(level) = level {
+            let share = if volume > 0.0 { bad / volume } else { 0.0 };
+            for (i, d) in level {
+                sim.d[i] = d;
+                sim.c[i] = if lake[i] && start_depth[i] > 0.0 { start_contamination[i] } else { share };
+                for k in 0..4 {
+                    sim.out[4 * i + k] = 0.0;
+                }
+            }
+        }
+        any = true;
+    }
+    any
+}
+
+
+/// A heap entry ordered by key, then tile, smallest first (math/grid.ts `MinHeap`'s order).
+#[derive(PartialEq)]
+struct ForceLakeEntry(f64, usize);
+impl Eq for ForceLakeEntry {}
+impl PartialOrd for ForceLakeEntry {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
+impl Ord for ForceLakeEntry {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        o.0.total_cmp(&self.0).then(o.1.cmp(&self.1))
+    }
+}
+
+/// prefill.ts `levelInto`: `volume` poured into the hollow round `seeds`, levelled flat.
+fn force_level_into(m: &ForceWaterModel, seeds: &[usize], volume: f64) -> Vec<(usize, f64)> {
+    let (w, h) = (m.w, m.h);
+    let n = w * h;
+    let eff = |i: usize| m.floor[i] + m.dam.as_ref().map_or(0.0, |d| if d[i] >= 0.0 { d[i] } else { 0.0 });
+    let mut queued = vec![0u8; n];
+    let mut heap = std::collections::BinaryHeap::new();
+    for &i in seeds {
+        queued[i] = 1;
+        heap.push(ForceLakeEntry(eff(i), i));
+    }
+    let mut added: Vec<usize> = Vec::new();
+    let mut pass: Vec<f64> = Vec::new();
+    let mut count = 0.0;
+    let mut sum = 0.0;
+    let mut at = f64::NEG_INFINITY;
+    let mut level = f64::INFINITY;
+    let mut edge = f64::INFINITY;
+    while let Some(ForceLakeEntry(p, c)) = heap.pop() {
+        if p > at {
+            if edge < f64::INFINITY {
+                level = edge;
+                break;
+            }
+            if count > 0.0 && count * p - sum >= volume {
+                level = (volume + sum) / count;
+                break;
+            }
+            at = p;
+        }
+        let x = c % w;
+        let y = c / w;
+        if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+            edge = p;
+        }
+        added.push(c);
+        pass.push(p);
+        count += 1.0;
+        sum += eff(c);
+        for k in 0..4 {
+            let nb = match k {
+                0 => (y > 0).then(|| c - w),
+                1 => (x > 0).then(|| c - 1),
+                2 => (y < h - 1).then(|| c + w),
+                _ => (x < w - 1).then(|| c + 1),
+            };
+            let Some(nb) = nb else { continue };
+            if queued[nb] != 0 {
+                continue;
+            }
+            queued[nb] = 1;
+            let e = eff(nb);
+            heap.push(ForceLakeEntry(if e > p { e } else { p }, nb));
+        }
+    }
+    if level == f64::INFINITY {
+        level = if edge < f64::INFINITY { edge } else if count > 0.0 { (volume + sum) / count } else { 0.0 };
+    }
+    let mut out: Vec<(usize, f64)> = Vec::new();
+    for k in 0..added.len() {
+        let i = added[k];
+        let d = level - eff(i);
+        if pass[k] < level && d > 0.0 {
+            out.push((i, d));
+        }
+    }
+    out.sort_unstable_by_key(|e| e.0);
+    out
 }

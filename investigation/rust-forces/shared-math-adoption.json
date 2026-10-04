@@ -1,14 +1,9 @@
 {
-  "studyCommit": "bce327772f27b33e202c2d18b41100ca8dac13c1",
-  "patchSha256": "343987768dc6169191df5e8a154924f8ad67f8487d81121570243aad4f51d4e7",
-  "portableSha256": "edf1f14816968f1600d223ebd6295ba1e3e79aa0279582f6871ba5af32d859f7",
-  "guardSha256": "3d20eef37cf9654fecc8c9df7bc525e72154ffe185f7f58eb8aa2e46eb325ebd",
-  "scope": "Only rust-forces hunks adapted to the current typed source; shared path resolved by build.rs because edits outside rust-forces are forbidden.",
-  "changes": [
-    "Remove seven duplicated transcendental helpers and hypot implementation",
-    "Shared portable::hypot, sqrt and floating rem",
-    "Native x86-64-v2 and target-feature=-fma",
-    "Shared source/IR/assembly/unstripped Wasm guard"
-  ],
+  "source": "rust/portable/src/lib.rs",
+  "guard": "tools/rust/guard.mjs",
+  "oracle": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "portableSha256": "10ccff7e29fcd5d1dd0ec992e2c860423c77bf4f6e0a7aab0ceb513df123e0dd",
+  "guardSha256": "32ba64deb358b12e7d71c0e09cf55bd07d6205be2e28fe06eb552e2a93b25146",
+  "scope": "One adopted shared source; no private arithmetic copy or arithmetic edits. Strict source, native/Wasm IR, assembly and unstripped Wasm guards.",
   "license": "AGPL-3.0-or-later"
 }

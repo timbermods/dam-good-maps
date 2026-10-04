@@ -1,3 +1,5 @@
+**Historical only. Retired adoption/timing instructions: D453/D454. Do not rerun measurements.** Full historical measurement JSON is archived under ignored `local/adoption/historical/`; the tracked JSON files contain only archive hashes. Recover existing evidence from commit `1aed14e7` with Python `subprocess.check_output(["git","show","1aed14e7:investigation/rust-forces/measurement-evidence.json"])` and `Path("local/adoption/historical/measurement-evidence.json").write_bytes(...)`, or the diagnostic filename. This reads old results without running timings.
+
 # Repeated planning measurements
 
 Milliseconds: **median / worst**, five repetitions after five warm-ups. Two full-Power modes per force; Auto Size for Craterize and Erupt. Footprints use 256 calls per browser sample to avoid Firefox clock quantization. All samples, CPU load and pinned source/binary hashes are in `measurement-evidence.json`; raw logs remain ignored.

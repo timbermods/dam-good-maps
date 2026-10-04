@@ -1,21 +1,15 @@
-# After M9b merges
+# M9b port (preparation retired)
 
-**Prepared, not enabled. Full authorization is withdrawn.** Current-dev pilot evidence is diagnostic; it cannot satisfy adoption after the water changes.
+M9b is merged and released. The oracle is group 4 (`a516e43d`), including M9b and cleanup groups 1–3.
 
-Inspected source head: `feature/m9b` **1179614bfbc137535801f31dea69614e1edb3922**. Merge base with pinned dev `4799800ff4cc14093de8aabf68aa0e7385c32248`: **181cecd3a7b9f1dbd73a47e4bb56ab07976ef7c3**. Read source diffs, not GitHub PRs. Full source differences are ignored `local/m9b-sim-water.diff`, `local/m9b-force-deps.diff` and `local/m9b-water-since-reused.diff`; regenerate with `git diff <merge-base> <M9b-head> -- src/core/sim src/core/water` and the corresponding force/format/math/worker paths.
-
-| Change reaching the operation | Rust work / adoption work |
+| Result-reachable change | Implementation |
 |---|---|
-| DEFAULT_WATER_RULES becomes game; game evaporation on all active tiles, edge spill, higher-floor partial obstacles and source old-depth update | Numerical branches already reused from rust-water, based on M9b `e292cefe`. Enable game + edge-spill booleans in force_canonical_settle and glacier_floods after the merged oracle is pinned. |
-| Faster active/wet-neighbour/evaporation-cache bookkeeping and exact dry/stale-outflow shortcuts | Already in the reused Rust kernel. No arithmetic rewrite. M9b water.ts since `e292cefe` adds kept-water metadata and D413, not another numerical substep change. |
-| Six-day initial canonical settle | Prepared patch changes the first force_canonical_settle cap 4 → 6. DRAIN_DAYS stays 4 for its second settle. Glaciate's short 300-tick flood probe stays 300. |
-| canonicalRun / withoutUnfed propagate simulator options; D413 closes/restores sealed water | Current-dev port already removes unfed water, constructs a fresh simulator with preserved out/ticks, and restores closed basins. The closure used to construct both simulators will preserve the enabled game options. Force models carry their optional oxbow lake, not document drain history. Document kept-water composition remains in the TS host. |
-| New gameSoil, height masks/water columns, soil3d and game soil defaults | Used by features/build finalization, stored/exported singleton fields and resource placement, rather than the force planner's numeric map contract. Refresh the TS host/oracle, dependencies and existing-suite/replay capture after merge. Do not add a competing Rust soil implementation to this force crate. Audit the resulting export and document history through the full existing suites. |
-| edgeLip / outletWear; generation/source placement and new map inputs | Helpers are active in generation. At the inspected head forces still see EDGE_LIP=null in water/edgeSources.ts; Carve/Glaciate only record edgeLeaks. Do not change force terrain prematurely. Recheck the hook at the actual merged dev head and port it if then connected. |
-| Force plans, portable maths, literal results, footprints and writer | No diff between current dev and inspected M9b head in src/core/forces, src/core/math or src/core/format. D425 is common to both and ported tonight. Worker/generation/document/build input changes stay in current TS host adapters and are included when rebundling/replaying. Merge resolution may add changes: the merged diff decides. |
+| Game water, evaporation, edge spill, active/wet bookkeeping and partial obstacles | Reused typed rust-water kernel; game + edge flags enabled. |
+| Canonical settle | Six-day first cap, four-day drain cap; exact unfed removal and current sealed-lake restoration/releveling. |
+| Glaciate flood probe | Game + edge flags enabled; existing 300-tick probe. |
+| Soil, water columns, resource placement and exported singletons | Current core build/finalization and product writers in the TypeScript host. |
+| Source groups | Group 4's shared member-ID rule and standing/used-ID collision checks. |
+| Force request/result assembly | Core planForce, fullForceMapOf, natureOf, forceRecordOf and keptForceParams. |
+| Edge hook | Removed (D462). edgeLip does not reach forces. |
 
-`post-m9b-defaults.patch` is a small **unapplied** patch for the two simulator defaults and first settle cap. Its contexts pass `git apply --check --ignore-space-change post-m9b-defaults.patch` against this source (Windows checkout line endings). Applying it tonight would break identity against current dev; enabling it waits for the merged dev oracle. Shared portable.rs is unchanged.
-
-After merge: fetch dev, verify M9b ancestry, record the actual dev SHA and `postM9bMerged=true` in baseline-check.json; diff tonight's oracle to it over all src/core and src/worker. Apply/audit the prepared defaults and any additional reachable change. Re-export a separate ignored oracle and install its exact lock, rebuild native/Wasm, run verify-ir and strict guards, run a new 1% 256² pilot with one worker, then recompute and publish the projection. Only a newly named window permits the full 8-worker, 25-case-shard matrix and following existing suites. RUN-AUTHORIZATION.json currently blocks full runs.
-
-**Estimate: 2–4 hours** for re-pin/source audit, defaults/options verification, rebuild/guards and the new pilot if the inspected M9b source is unchanged. This is an engineering estimate, not a measured duration; new merge changes or an exact identity failure extend it. Tonight's pilot took **422.459 s**; its pre-M9b matrix model is **1.80 h** (range 1.65–1.87 h), with additional existing suites not timed. Recompute the projection from the post-M9b pilot; these costs cannot be assumed for game water.
+The defaults patch has been applied. No pilot, matrix, timing projection or window remains (D453/D454). See INTEGRATION.md for adoption and local checks. Source diff evidence is ignored local/adoption/group4.diff; regenerate with git diff 4799800f a516e43d -- src/core src/worker rust.

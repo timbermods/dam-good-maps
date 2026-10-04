@@ -1,10 +1,10 @@
 import {existsSync,readFileSync} from 'node:fs';
-import {resolve,dirname} from 'node:path';
+import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {HERE,hash} from './common.mjs';
-export const portablePath=resolve(process.env.DGM_PORTABLE_MATH??resolve(HERE,'../portable-math/portable.rs'));
-if(!existsSync(portablePath))throw Error('Set DGM_PORTABLE_MATH to the one shared portable-math/portable.rs');
+export const portablePath=resolve(process.env.DGM_PORTABLE_MATH??resolve(HERE,'../../rust/portable/src/lib.rs'));
+if(!existsSync(portablePath))throw Error('Set DGM_PORTABLE_MATH to the adopted shared rust/portable/src/lib.rs');
 export const portableSha256=hash(readFileSync(portablePath));
-export const guardPath=resolve(dirname(portablePath),'rust-guard.mjs');
+export const guardPath=resolve(process.env.DGM_RUST_GUARD??resolve(HERE,'../../tools/rust/guard.mjs'));
 export const {assertClean}=await import(pathToFileURL(guardPath).href);
 export const guardSha256=hash(readFileSync(guardPath));

@@ -1,5 +1,12 @@
-# Round 3 identity fixes
+# Exact identity fixes
 
-Oracle refresh before the pilot: current dev `4799800ff4cc14093de8aabf68aa0e7385c32248`. Ported sealed-basin remaining-volume/early-stop/closed masks, canonical unfed-water removal and second settle, and held start/standing-slope carried-object removals. These are deliberate upstream changes, not tolerance adjustments. Shared portable.rs unchanged.
+Historical round-3 pilot evidence is retired (D453/D454).
 
-The current-dev 1% pilot passed: 20 native + 20 Node-Wasm and 5 per browser, per force at 256² (330 target checks). Zero identity errors, so no pilot correction or tolerance was needed. Exact failure inputs/expected/actual bytes, if any, remain under ignored local/round3-dev256/ and each computation fix will be recorded here.
+Current oracle: cleanup/4-force-planning a516e43d, after merged M9b.
+
+- Wasm cold arena creation previously expanded absent rock layers to 23 zeros, while native preserved an empty array; Carve differed (68 vs 74 steps). Preserve the exact supplied rock-layer length in both targets. The cold descriptor uses the codec's binary64 numeric representation.
+- Used-ID sets were absent from cold fixture import. Encode their ordered contents and use typed ID sets for source collision checks. Compare diagnostic bytes directly for native/typed reconstruction; no tolerance or normalization of numbers.
+- Group 4's source member IDs, starting/used-ID collision protection, finished Glaciate planning and removed edge hook replace their stale upstream versions.
+- M9b defaults and the current sealed-lake relevel/restoration algorithm replace the stale oracle behavior. Shared portable arithmetic is unchanged.
+
+Failure inputs/results stay under ignored local/adoption/. Existing-suite native failures now retain unique input/expected/actual files by input hash. Product-only suite failures are reported separately; product source stays read-only.

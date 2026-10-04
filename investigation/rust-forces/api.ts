@@ -11,7 +11,7 @@ import {EruptPlan, ERUPT_DEFAULTS} from './local/checkout/src/core/forces/erupt'
 import {QuakePlan, QUAKE_DEFAULTS} from './local/checkout/src/core/forces/quake';
 import {GlaciateRun} from './local/checkout/src/core/forces/glaciate/run';
 import {GLACIATE_DEFAULTS} from './local/checkout/src/core/forces/glaciate/model';
-import {makePlan} from './local/checkout/src/core/forces/glaciate/plan';
+import {planGlaciate} from './local/checkout/src/core/forces/glaciate/plan';
 import {footprint} from './local/checkout/src/core/forces/objects';
 import {plainEntities,snapshotMap} from './local/checkout/src/core/forces/force';
 import {literalOf} from './local/checkout/src/core/forces/result';
@@ -40,13 +40,13 @@ export function job(verb:string,n=128,k=0):any {
 }
 export function reference(j:any):any {
  if(j.verb==='glaciate'){
-  const p=makePlan(j.map,j.settings,j.intent,undefined,j.options?.finish!==false),raw=snapshotMap(p.map),run=new GlaciateRun(j.map,j.settings,j.intent,j.keep) as any;run.settle(p);
+  const gen=planGlaciate(j.map,j.settings,j.intent);let next=gen.next();while(!next.done)next=gen.next();const p=next.value,raw=snapshotMap(p.map),run=new GlaciateRun(j.map,j.settings,j.intent,j.keep) as any;run.settle(p);
   const {path,reference,streamPath,arrival,mask,floor,nearest,stream,fan,retained,basins,hanging,metrics,finished,joins}=p;
   return {raw,map:p.map,path,reference,streamPath,arrival,mask,floor,nearest,stream,fan,retained,basins,hanging,metrics,finished,joins,total:50};
  }
  if(j.verb==='carve'){
   const r=new CarveRun(j.map,j.settings,j.intent,{...j.options,keep:j.keep}),p=new CarvePlay(r);const initialEntities=j.trace===false?[]:structuredClone(r.map.entities),rawChanges=[new Int32Array(0)],stepMetrics=j.trace===false?[]:[structuredClone(r.metrics)],stepObjectChanges:any[]=[],riders=new Set([...r.group.map(w=>w.id),r.unleashedId]),positions=new Map(r.map.entities.filter(e=>riders.has(e.id)).map(e=>[e.id,[e.x,e.y,e.z]])),step=r.step.bind(r);if(j.trace!==false)r.step=()=>{const c=step();rawChanges.push(Int32Array.from(c.flatMap(i=>[i,r.map.heights[i]])));stepMetrics.push(structuredClone(r.metrics));for(const e of r.map.entities){if(!riders.has(e.id))continue;const before=positions.get(e.id)!;if(before[0]!==e.x||before[1]!==e.y||before[2]!==e.z){stepObjectChanges.push({step:r.metrics.steps,id:e.id,x:e.x,y:e.y,z:e.z});positions.set(e.id,[e.x,e.y,e.z]);}}return c;};p.plan(Infinity);
-  return {raw:r.map,map:r.map,metrics:r.metrics,total:p.total,changes:(p as any).changes,heads:(p as any).heads,lengths:(p as any).lengths,path:r.path,removedAt:[...r.removedAt],goneSpread:[...(p as any).goneSpread],group:r.group,closure:r.closure,strengthDepth:r.strengthDepth,retained:oxbowLake(r),...(j.trace===false?{}:{initialEntities,rawChanges,stepMetrics,stepObjectChanges,oxbows:r.oxbows,edgeLeaks:r.edgeLeaks,oxbowBasin:oxbowBasin(r),unleashedId:r.unleashedId,badwater:r.badwater})};
+  return {raw:r.map,map:r.map,metrics:r.metrics,total:p.total,changes:(p as any).changes,heads:(p as any).heads,lengths:(p as any).lengths,path:r.path,removedAt:[...r.removedAt],goneSpread:[...(p as any).goneSpread],group:r.group,closure:r.closure,strengthDepth:r.strengthDepth,retained:oxbowLake(r),...(j.trace===false?{}:{initialEntities,rawChanges,stepMetrics,stepObjectChanges,oxbows:r.oxbows,oxbowBasin:oxbowBasin(r),unleashedId:r.unleashedId,badwater:r.badwater})};
  }
  if(j.verb==='footprint')return j.map.entities.map((e:any)=>footprint(j.map,e,j.margin??0));
  if(j.verb==='erupt'){
@@ -125,4 +125,49 @@ export function exportedBytes(j:any,map:any,orderedEntities?:any[]):Uint8Array {
  const es=(orderedEntities??map.entities).map((e:any)=>revive(e,originals.get(e.id))),N=j.map.W*j.map.H,zero=new Float64Array(N);
  const world={gameVersion:GAME_VERSION,timestamp:'2026-01-01 00:00:00',sizeX:j.map.W,sizeY:j.map.H,layers:23,voxels:voxelsFromHeights(Uint8Array.from(map.heights),j.map.W,j.map.H),singletons:settledSimulationSingletons(j.map.W,j.map.H,{floor:Uint8Array.from(map.heights),depth:map.water.depth,contamination:map.water.contamination,moisture:zero,soilContamination:zero,sat:zero}),entities:es.map(entityJson)};
  return writeTimber({metadata:mapMetadata(j.map.W,j.map.H,'Rust force identity fixture'),thumbnail:null,versionTxt:GAME_VERSION+'\r\n',world,extraFiles:[]});
+}
+
+// Group 4 owns request resolution and result assembly. The Rust host drives these
+// functions; it does not duplicate worker gesture/nature/Keep/source rules.
+export {planForce,fullForceMapOf,stagedForceMap,buildTouches} from './local/checkout/src/core/forces/start';
+export {forceRecordOf,keptForceParams} from './local/checkout/src/core/forces/keep';
+export {natureOf} from './local/checkout/src/core/forces/nature';
+export function attachRustPlan(selected:any, rust:any):any {
+ if(!selected.ok)return selected;
+ const run=selected.carve??selected.staged,before=selected.before,verb=selected.request.verb;
+ const j={verb,map:before,plainEntities:plainEntities(before.entities),settings:run.settings,intent:run.intent,keep:run.keep??new Uint8Array(before.W*before.H),footprints:FOOTPRINTS,options:verb==='carve'?{sourceId:run.sourceId,unleashed:run.unleashedId,bad:run.badwater}:{}};
+ const task=rust.create(j);let out:any;try{task.plan();out=clonePlan(typedPlan(task,j));}finally{task.dispose();}
+ if(verb==='carve'){
+  let at=0;run.map.entities=out.initialEntities;run.group=out.group;
+  run.step=()=>{if(at>=out.total)return [];const k=++at,c=out.rawChanges[k];for(let t=0;t<c.length;t+=2){run.map.heights[c[t]]=c[t+1];if(run.map.lava)run.map.lava[c[t]]&=(1<<c[t+1])-1;}
+   Object.assign(run.metrics,out.stepMetrics[k]);run.head=out.heads[k];run.path=out.path.slice(0,out.lengths[k]);
+   const removed=new Map(out.removedAt);run.map.entities=run.map.entities.filter((e:any)=>(removed.get(e.id)??Infinity)>k);for(const change of out.stepObjectChanges)if(change.step===k){const e=run.map.entities.find((e:any)=>e.id===change.id);if(e)Object.assign(e,{x:change.x,y:change.y,z:change.z});}
+   if(k===out.total){run.map=out.map;run.removedAt=new Map(out.removedAt);run.closure=out.closure;run.oxbows=out.oxbows;run.metrics=out.metrics;}
+   return Array.from(c).filter((_:any,t:number)=>t%2===0);
+  };
+ }else if(verb==='glaciate'){
+  run.planFor=()=>{if(!run.planned)run.settle({...out,map:out.raw,before,settings:run.settings,intent:run.intent});return true;};
+ }else{
+  const p=run.plan0;Object.assign(p,{map:out.raw,stats:out.stats,...(out.anatomy?{anatomy:out.anatomy}:{}),...(out.keep?{keep:out.keep}:{}),...(out.strength!==undefined?{strength:out.strength}:{}),...(out.flows?{flows:out.flows}:{})});
+  if(verb==='quake'){Object.assign(p.fault,out.fault);Object.assign(p,{arrival:out.arrival,dx:out.dx,dy:out.dy,source:out.source});run.extras0=out.extras;}
+  if(verb==='craterize')run.arrival=out.arrival;
+  if(verb==='erupt')run.mask=out.heat;
+  let shownReady=false;Object.defineProperty(p,'planned',{get:()=>shownReady});p.advance=()=>{shownReady=true;return true;};
+  run.__rustAttachedPlan=p;
+  const corePlanFor=run.__corePlanFor??run.planFor;run.__corePlanFor=corePlanFor;
+  run.planFor=function(budget:number){if(this.plan0!==p)attachRustPlan(selected,rust);return corePlanFor.call(this,budget);};
+ }
+ return selected;
+}
+import {typedResult as typedPlan} from './typed-result';
+
+import {planForce as corePlanForce} from './local/checkout/src/core/forces/start';
+function clonePlan(v:any):any {if(v instanceof JsonFloat)return v;if(ArrayBuffer.isView(v))return (v as any).slice();if(Array.isArray(v))return v.map(clonePlan);if(v&&typeof v==='object'){if(v instanceof Set)return new Set(v);return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clonePlan(x)]));}return v;}
+export function planRustForce(input:Parameters<typeof corePlanForce>[0],rust:any){
+ // Painted Lift plans inside core planForce. Install its typed planner while the
+ // synchronous core call constructs/drives it; restore the independent TS oracle.
+ const proto=QuakeRun.prototype as any,original=proto.planFor;
+ if(input.request.verb==='quake'&&input.request.painting)proto.planFor=function(budget:number){this.__corePlanFor=original;attachRustPlan({ok:true,request:input.request,before:this.before,carve:null,staged:this},rust);return this.planFor(budget);};
+ let selected:any;try{selected=corePlanForce(input);}finally{proto.planFor=original;}
+ return selected.ok&&selected.staged&&selected.staged.__rustAttachedPlan===selected.staged.plan0?selected:attachRustPlan(selected,rust);
 }

@@ -1,6 +1,6 @@
 {
-  "baseline": "4799800ff4cc14093de8aabf68aa0e7385c32248",
-  "rustWater": "2ebeea87c55d5f728c735d79a6d24bde78999db7",
+  "baseline": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "scope": "D453/D454: CI byte checks and existing force suites; no corpus, pilot, timing or window gates.",
   "implemented": [
     "footprint",
     "craterize",
@@ -9,28 +9,18 @@
     "carve",
     "glaciate"
   ],
-  "sizes": [
-    256
-  ],
-  "requiredCounts": {
-    "native": 2000,
-    "node-wasm": 2000,
-    "chromium": 500,
-    "firefox": 500,
-    "webkit": 500
-  },
-  "performance": "Speed gates dropped by D441. No performance timings or quiet-window requirement.",
   "gates": {
-    "postM9bOracle": false,
+    "ciRustBuild": true,
+    "ciRustEngines": true,
+    "ciEngineSmoke": true,
+    "ciQuickSuite": false,
+    "typecheck": true,
+    "build": true,
     "portableArithmetic": true,
-    "carve": true,
-    "glaciate": true,
-    "allWaterAndPlaybackRecords": true,
-    "existingTestsAgainstRust": false,
-    "thousandsPerForcePerSizePerTarget": false,
-    "existingCrossEngineDeterminism": false,
-    "completeIntegrationAdapter": false,
-    "productExportBytes": true
+    "coreHostAdapter": true,
+    "forceSuitesAgainstRust": false,
+    "forceBrowserSuites": true,
+    "forceNativeWasmFixtures": true
   },
-  "adoption": "blocked"
+  "adoption": "blocked: ciQuickSuite, forceSuitesAgainstRust"
 }

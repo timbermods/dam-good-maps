@@ -1,6 +1,4 @@
 {
-  "fullMatrix": false,
-  "postMatrixSuites": false,
-  "reason": "Kyler withdrew tonight's full-run authorization. Adoption requires dev after M9b merges, a new build/pilot/projection, and a newly named window.",
-  "pilot": "The authorized current-dev 256² 1% pilot has completed. No workload remains scheduled."
+  "retired": true,
+  "reason": "D453/D454: no window, pilot, corpus, matrix or timing gate."
 }

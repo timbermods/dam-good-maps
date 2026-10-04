@@ -1,20 +1,2 @@
-import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {makeJobs,jobCounts,simulate,eligible} from './plan-matrix.mjs';
-import {REQUIRED_COUNTS,FORCES,SIZES,validateCounts} from './acceptance.mjs';
-assert.deepEqual(SIZES,[256]);
-const costs=JSON.parse(readFileSync(new URL('./pilot-shard-costs.json',import.meta.url))),rates=Object.fromEntries(costs.rows.map(r=>[`${r.target}/${r.verb}/${r.size}`,r.secondsPerCase]));
-const jobs=makeJobs(2000,500,25,rates),counts=jobCounts(jobs),seen=new Set();
-for(const j of jobs){assert.equal(j.size,256);for(let k=j.start;k<j.start+j.count;k++){const id=`${j.target}/${j.verb}/${j.size}/${k}`;assert.ok(!seen.has(id),'Overlapping shard '+id);seen.add(id);}}
-assert.equal(seen.size,21000);assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),33000);assert.equal(Object.keys(counts).length,30);
-for(const [target,n]of Object.entries(REQUIRED_COUNTS))for(const v of FORCES)for(const size of SIZES)assert.equal(counts[`${target}/${v}/${size}`],n);
-const model=simulate(jobs);assert.equal(model.completed,840);assert.equal(model.maxActive,8);
-assert.equal(eligible({size:256,target:'firefox'},Array(2).fill({size:256,target:'firefox'})),false);
-assert.equal(eligible({size:256,target:'webkit'},Array(8).fill({size:256,target:'native'})),false);
-const plan=JSON.parse(readFileSync(new URL('./parallel-plan.json',import.meta.url)));
-assert.deepEqual(plan.sizes,[256]);assert.equal(plan.machineAssignments.length,1);assert.equal(plan.machineAssignments[0].share,1);
-assert.equal(plan.machineAssignments[0].targetChecks,33000);assert.equal(plan.machineAssignments[0].shards,840);
-assert.equal(plan.parts.reduce((n,p)=>n+p.requiredTargetChecks,0),33000);
-assert.ok(Math.abs(plan.parts.reduce((n,p)=>n+p.pilotSeconds,0)-costs.pilotSeconds)<10);
-assert.throws(()=>validateCounts([{random:true,nativeChecked:true,nodeWasmChecked:true,verb:'footprint',size:128,k:0}],[]));
-console.log('Static plan PASS: exactly 30 cells at 256², 33,000 target checks, no overlapping case IDs, 840 shards, Firefox included.');
+// Retired by D453/D454. Adoption uses CI byte checks and existing force suites.
+throw new Error('Retired: no corpus, pilot, matrix, projection, timing or window gate. See INTEGRATION.md.');

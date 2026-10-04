@@ -15,7 +15,7 @@ export function encode(value:any,canonical=true):Uint8Array {
  const byte=(v:number)=>{reserve(1);data[at++]=v;};
  const u32=(v:number)=>{reserve(4);view.setUint32(at,v,true);at+=4;};
  const str=(v:string)=>{const bytes=encoder.encode(v);u32(bytes.length);reserve(bytes.length);data.set(bytes,at);at+=bytes.length;};
- function write(v:any){if(v===null){byte(0);}else if(typeof v==='boolean'){byte(v?2:1);}else if(typeof v==='number'){byte(3);reserve(8);view.setFloat64(at,v,true);at+=8;}else if(typeof v==='string'){byte(4);str(v);}else if(Array.isArray(v)||ArrayBuffer.isView(v)){byte(5);u32(v.length);for(const x of v)write(x);}else if(v&&typeof v==='object'){const keys=Object.keys(v).filter(k=>v[k]!==undefined);if(canonical)keys.sort();byte(6);u32(keys.length);for(const k of keys){str(k);const raw=rawFloats.get(v)?.[k];if(raw){byte(3);reserve(8);data.set(raw,at);at+=8;}else write(v[k]);}}else throw Error('Unsupported protocol type '+typeof v);}
+ function write(v:any){if(v===null){byte(0);}else if(typeof v==='boolean'){byte(v?2:1);}else if(typeof v==='number'){byte(3);reserve(8);view.setFloat64(at,v,true);at+=8;}else if(typeof v==='string'){byte(4);str(v);}else if(Array.isArray(v)||ArrayBuffer.isView(v)||v instanceof Set){byte(5);u32(v instanceof Set?v.size:v.length);for(const x of v)write(x);}else if(v&&typeof v==='object'){const keys=Object.keys(v).filter(k=>v[k]!==undefined);if(canonical)keys.sort();byte(6);u32(keys.length);for(const k of keys){str(k);const raw=rawFloats.get(v)?.[k];if(raw){byte(3);reserve(8);data.set(raw,at);at+=8;}else write(v[k]);}}else throw Error('Unsupported protocol type '+typeof v);}
  write(value);return data.slice(0,at);
 }
 export function decode(bytes:Uint8Array):any {let at=0;const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),u32=()=>{const n=v.getUint32(at,true);at+=4;return n;},str=()=>{const n=u32(),s=new TextDecoder().decode(bytes.subarray(at,at+n));at+=n;return s;};function read():any {switch(bytes[at++]){case 0:return null;case 1:return false;case 2:return true;case 3:{const n=v.getFloat64(at,true);at+=8;return n;}case 4:return str();case 5:return Array.from({length:u32()},read);case 6:{const o:any={};for(let n=u32();n--;){const k=str();o[k]=read();}return o;}default:throw Error('Protocol tag');}}const out=read();if(at!==bytes.length)throw Error('Trailing output');return out;}
@@ -41,7 +41,7 @@ export async function bridge(wasm:BufferSource){
      +(settings.debris==='heavy'),+!!settings.rays,+(['aim','fissure','slide'].includes(settings.mode)),+(settings.shape==='steep'),
      verb==='erupt'?index(settings.summit,['auto','peak','crater','caldera']):0,+(settings.flows==='heavy'),+!!settings.ridges,+(settings.scarp==='stepped'),
      intent.origin??NaN,intent.end??NaN,intent.side??NaN,margin,path.length]);
-    c[20]=+(intent.via!==undefined);c[21]=+(verb==='glaciate'&&options.finish===false);c[39]=0;
+    c[20]=+(intent.via!==undefined);c[21]=0;c[39]=0;
     if(verb==='carve') {const bytes=view(62,Uint8Array);bytes.set(sourceBytes!,0);bytes.set(unleashedBytes!,sourceBytes!.length);c.set([1,sourceBytes!.length,unleashedBytes!.length,+!!options.bad,+(options.sourceId!=null)+2*+(options.unleashed!=null)],39);c.set([settings.wander??35,settings.width??NaN,settings.depth??NaN,settings.banks??0,settings.riverDepth??NaN,+(settings.walls==='wide'),+!!settings.defyGravity,+!!settings.dry,+!!settings.layers],24);const via=intent.via??[],W=c[33];c[19]=via.length;if(via.length*2>xy.length)throw Error('Path exceeds arena capacity');for(let i=0;i<via.length;i++){xy[i*2]=via[i]%W;xy[i*2+1]=Math.floor(via[i]/W);}}
     if(verb==='glaciate'){c.set([+settings.meltwater,index(settings.benches??'some',['none','some','many']),index(settings.steps??'some',['few','some','many']),+(settings.tarn??true),+(settings.scree??true)],34);const via=intent.via??[],W=c[33];c[19]=via.length;if(via.length*2>xy.length)throw Error('Path exceeds arena capacity');for(let i=0;i<via.length;i++){xy[i*2]=via[i]%W;xy[i*2+1]=Math.floor(via[i]/W);}}
     for(let i=0;i<path.length;i++){xy[i*2]=path[i].x;xy[i*2+1]=path[i].y;}
@@ -60,7 +60,7 @@ export async function bridge(wasm:BufferSource){
  // Retained-map entry point: numerical arrays never enter the generic codec,
  // including during map creation. Metadata is imported once per map.
  run.create=(j:any)=>{
-  const metadata={...j,map:{...j.map,_plainEntities:j.plainEntities??j.map.entities,heights:[],lava:[],rockLayers:[],water:{depth:[],contamination:[]}},keep:[]};
+  const metadata={...j,map:{...j.map,_plainEntities:j.plainEntities??j.map.entities,_rockLength:j.map.rockLayers.length,heights:[],lava:[],rockLayers:[],water:{depth:[],contamination:[]}},keep:[]};
   const bytes=encode(metadata,false),task=handle(transfer(bytes,p=>e.forces_create(p,bytes.length)),j);
   try{const m=task.map,n=j.map.W*j.map.H;
    for(const a of [j.map.heights,j.map.lava,j.map.water.depth,j.map.water.contamination,j.keep])if(a.length!==n)throw Error('Invalid numeric map shape');
