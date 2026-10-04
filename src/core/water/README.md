@@ -131,3 +131,11 @@ returns the new ground, the tiles cut and the path, or null. The generator calls
 whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
 the water still rising (9, then 17 tiles, the first that settles, a cut of at most 200 tiles);
 `tests/unit/outletWear.test.ts`.
+
+# A spring by the start (`springSites.ts`, D330)
+
+`springCandidates(ground, rule, tries, walkTo, keep?)` is where a spring by a start without water may go: dry, free
+ground off the start's 5×5 within the rule's walk less 4, in a riverbed or a hollow, a riverbed first, then the deeper
+hollow, then the shorter walk, each place 6 tiles from the others. The generator's `springByStart` (on a shown land)
+and `doc/waterFix.ts` (on a map as edited) both use it, each with its own walk, filters (the generator: off the edge,
+under the start's pad), tries (3 and 6) and strengths.

@@ -40,7 +40,7 @@ import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { clamp } from "../math/clamp";
 import { REACH as STORY_REACH } from "../analysis/story";
@@ -283,7 +283,7 @@ function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wan
     const [px, py] = pts[k];
     if (!inside(px, py)) continue;
     let bottom = levelAt(px, py);
-    for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) bottom = Math.min(bottom, levelAt(px + ox, py + oy));
+    for (const [ox, oy] of N4) bottom = Math.min(bottom, levelAt(px + ox, py + oy));
     const room = (sgn: number) => {
       let r = 0;
       for (let t = 1; t <= R; t++) {
@@ -584,7 +584,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         if (h[i] < h[low] || (h[i] === h[low] && i < low)) low = i;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -601,7 +601,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const x = i % W;
         const y = (i - x) / W;
         let edge = false;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -613,7 +613,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const x = head % W;
         const y = (head - x) / W;
         let upT = -1;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -847,7 +847,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

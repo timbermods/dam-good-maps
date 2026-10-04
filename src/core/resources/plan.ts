@@ -12,7 +12,7 @@
 // than the difficulty's badwater distance is dropped for the next best (three settles at most).
 // Resources and mine sites never move water, so that settle is the map's settle after them too.
 
-import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
+import { walkWorld } from "../analysis/walk";
 import type { EntitySpec } from "../format/entities";
 import { entityTiles } from "../features/edits";
 import { fitProblems, rasterizeObjects } from "../features/objects";
@@ -24,9 +24,9 @@ import { soilContamination as soilOf } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture as moistureOf } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, WET } from "../validate/playability";
+import { BAD, bandScale, EXTRA_BANDS, FLOOD_MARGIN, nearWater, WET } from "../validate/playability";
 import { badwaterBudget, pickBadwaterSprings, springEntities, type BadwaterSetting, type BadwaterSpring } from "./badwater";
-import { baselineEntities, pickMineSite, planBaseline, type BaselinePlan, type MineSpot, type ResourceSettings } from "./baseline";
+import { baselineEntities, pickMineSite, planBaseline, startWalkField, type BaselinePlan, type MineSpot, type ResourceSettings } from "./baseline";
 
 export interface MapResourcesInput {
   W: number;
@@ -124,19 +124,11 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
 
   // ---- mine sites: the generator's rule (gen/extras.ts): flat dry ground with a level ring, out of
   //      flood reach, in the band from the start, reachable first; never fewer than one where any fits
-  const blocked = new Uint8Array(N);
-  const margin = FLOOD_MARGIN + 1;
+  const blocked = nearWater(water, W, H, FLOOD_MARGIN + 1);
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
     if (taken[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3 || sd[i] < 8) blocked[i] = 1;
-    if (water[i] > WET)
-      for (let dy = -margin; dy <= margin; dy++)
-        for (let dx = -margin; dx <= margin; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-        }
   }
   const regions = walkRegions(h, W, H, walkBlocked, links);
   const root = regions[start.y * W + start.x];
@@ -171,9 +163,7 @@ export function planMapResources(inp: MapResourcesInput): MapResources {
   });
 
   // ---- the resources, near the start first: the colony's walk from the start (slopes allowed)
-  const d = walkDistance(h, W, H, walkBlocked, links, start);
-  const walk = new Float64Array(N);
-  for (let i = 0; i < N; i++) walk[i] = reachAt(d, W, H, i);
+  const walk = startWalkField(h, W, H, inp.entities, start);
   const plan = planBaseline({
     ground: { W, H, heights: h, water, moisture: moistureNow, soilContamination: soilNow, taken },
     settings: inp.settings,

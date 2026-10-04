@@ -8,6 +8,6 @@ The deterministic base the other folders build on: random numbers, hashing, nois
 - Grids are row-major: index = `y * W + x`, x east, y north.
 - Changing any function here changes maps: re-pin (D308).
 
-**Start from**: `rng.ts` `stream`, `Rng`; `hash.ts` `hash32`, `hash128`; `noise.ts` `fbm`; `detmath.ts` `sinDet`, `cosDet`, `expDet`; `portable.ts`; `grid.ts` (the neighbour tables `N4` and `N8`, `distanceFrom`, `levelRegions`, `MinHeap`); `clamp.ts` `clamp`, `smoothstep` (the forces keep their own `clamp`, `forces/random.ts`).
+**Start from**: `rng.ts` `stream`, `Rng`; `hash.ts` `hash32`, `hash128`; `noise.ts` `fbm`; `detmath.ts` `sinDet`, `cosDet`, `expDet`; `portable.ts` (`log` is the generator's ln too: `gen/calibrated.ts`'s size curves and the resource budgets read it); `polyline.ts` `polyDist`; `grid.ts` (the neighbour tables `N4` and `N8`, `distanceFrom`, `levelRegions`, `MinHeap`); `clamp.ts` `clamp`, `smoothstep` (the forces keep their own `clamp`, `forces/random.ts`).
 
 **Tests**: `tests/unit/math.test.ts`. Run `npx vitest run tests/unit/math.test.ts`.

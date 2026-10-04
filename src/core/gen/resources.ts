@@ -9,17 +9,15 @@
 import * as portable from "../math/portable";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
-import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
 import { TREE_LOGS, type EntitySpec } from "../format/entities";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
-import { hash32, tileHash01 } from "../math/hash";
 import { cosDet, expDet, sinDet } from "../math/detmath";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
-import { growGroveAt, growPatchAt, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, type BaselineGround } from "../resources/baseline";
+import { growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
   W: number;
@@ -41,16 +39,8 @@ export interface Ground {
  *  walk (PLAN §5.6, D85, D164). Null without a start. */
 function walkFromStart(g: Ground): Float64Array | null {
   if (!g.start || !g.entities) return null;
-  const { W, H } = g;
-  const { blocked, links } = walkWorld(g.entities, W, H);
-  const d = walkDistance(g.heights, W, H, blocked, links, g.start);
-  const out = new Float64Array(W * H);
-  for (let i = 0; i < W * H; i++) out[i] = reachAt(d, W, H, i);
-  return out;
+  return startWalkField(g.heights, g.W, g.H, g.entities, g.start);
 }
-
-/** Near the start, food and wood go within this walk: the requirements count 20 (D85). */
-const NEAR_WALK = 20;
 
 /** What resources keep off: the badwater hollows' ground (land/hazards.ts `avoid`), and the scrap
  *  planned already. */
@@ -63,19 +53,6 @@ export interface ResourceConstraints {
   lockedMask?: null;
 }
 
-/** The starting wood a tree of a living grove gives, on average (D164): its species' yield by the
- *  species mix (a draw of Succulent grows the heaviest of the other three, as `growGrove` does),
- *  times the share of its trees grown (a sapling's logs are not there yet). */
-export function logsPerTree(mix: MapSpec["settings"]["resources"]["speciesMix"]): number {
-  const w = [mix.pine, mix.birch, mix.oak, mix.succulent];
-  const logs = [TREE_LOGS.Pine, TREE_LOGS.Birch, TREE_LOGS.Oak];
-  const heavy = { Pine: 0, Birch: 1, Oak: 2 }[livingSpecies(w)];
-  const total = w[0] + w[1] + w[2] + w[3];
-  let sum = 0;
-  for (let k = 0; k < 3; k++) sum += (w[k] + (k === heavy ? w[3] : 0)) * logs[k];
-  return (total > 0 ? sum / total : TREE_LOGS.Pine) * (1 - FOREST.youngShare);
-}
-
 /** The start rules' targets for what the generator places near the start (PLAN §5.6): a little
  *  above each minimum the validator enforces, so a map meets its requirements on the first
  *  attempt. The generator never aims below a minimum (D85): starting wood aims at 1.35 × Minimum
@@ -83,7 +60,7 @@ export function logsPerTree(mix: MapSpec["settings"]["resources"]["speciesMix"])
  *  takes with the species mix. */
 export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; bushes: number; ruinsClear: number } {
   const r = spec.settings.start.rules;
-  const perTree = logsPerTree(spec.settings.resources.speciesMix);
+  const perTree = woodPerTree(spec.settings.resources.speciesMix);
   const wood = Math.max(Math.ceil(FOREST.nearStart.minLiving * perTree), Math.ceil(1.35 * r.woodWithin20));
   return {
     wood,
@@ -340,7 +317,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // total), in groves on moist ground, at most on a quarter of it, and living succulents on dry
   // ground by the mix; each grove one species. `keep` trees are kept back for the start's own
   // planting
-  const succulents = Math.round((budget.living * mixW.succulent) / Math.max(1, mixW.pine + mixW.birch + mixW.oak + mixW.succulent));
+  const succulents = succulentsOf(budget, spec.settings.resources);
   let succulentsPlanted = 0;
   const baseGroves = (keep: number, keepOut: Uint8Array | null = null) => {
     let moistRoom = 0;
@@ -387,7 +364,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     let nearWood = near.wood;
     let tight = false;
     let dense = false;
-    const perTree = logsPerTree(spec.settings.resources.speciesMix);
+    const perTree = woodPerTree(spec.settings.resources.speciesMix);
     if (nearWalk) {
       let room = 0;
       for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
@@ -729,11 +706,11 @@ function besideTiles(from: Uint8Array | Float64Array, W: number, H: number, reac
 function grownLogs(seed: number, W: number, id: string, tiles: readonly number[], sp: string, living: boolean, moist: Uint8Array, within: Uint8Array | null): number {
   const logs = LOGS_PER_TREE_SPECIES[sp] ?? 0;
   if (!logs) return 0;
-  const sYoung = hash32(seed, id, "young");
+  const young = saplings(seed, id).young;
   let n = 0;
   for (const i of tiles) {
     if (within && !within[i]) continue;
-    if (living && moist[i] && tileHash01(sYoung, i % W, (i - (i % W)) / W) < FOREST.youngShare) continue;
+    if (living && moist[i] && young(i % W, (i - (i % W)) / W)) continue;
     n += logs;
   }
   return n;
@@ -848,12 +825,4 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
     if (got >= want) break;
   }
   return out;
-}
-
-/** The species a living grove takes when the draw gave Succulent: the heaviest of the others,
- *  Pine when all three weigh nothing. */
-function livingSpecies(w: readonly number[]): "Pine" | "Birch" | "Oak" {
-  if (w[1] > w[0] && w[1] >= w[2]) return "Birch";
-  if (w[2] > w[0] && w[2] > w[1]) return "Oak";
-  return "Pine";
 }
