@@ -67,6 +67,9 @@ describe("which suites a change needs", () => {
       expect(classify([f], none), f).toEqual(all);
     }
     expect(isRustInput("src/core/sim/preview.ts")).toBe(false);
+    // (the forces' Wasm and what wraps it, and the maps their byte fixtures stand on)
+    for (const f of ["src/core/forces/rust/bridge.ts", "src/core/forces/rust/forcesWasm.ts", "tests/contract/forceFixtures.ts", "tools/rust/forces-pins.json"]) expect(isRustInput(f), f).toBe(true);
+    expect(isRustInput("src/core/forces/runs.ts")).toBe(false);
   });
   it("dependency changes run everything; a descriptive package.json change is a document", () => {
     const deps = readWith({ "package.json": [pkg(), pkg({ dependencies: { a: "2" } })] });

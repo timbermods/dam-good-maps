@@ -57,3 +57,9 @@ The Rust water: `npx tsx tools/rust/build.ts [--native] [--check]` rebuilds its 
 (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts` runs a process's canonical
 settles natively (`tools/batch.ts` by default, `--wasm` to opt out); `npx tsx tools/rust/water-identity.ts`
 checks the native settle against the app's, three ways (in CI).
+
+The Rust forces (D381): `tools/rust/build.ts` rebuilds their committed Wasm too (`src/core/forces/rust/forcesWasm.ts`)
+and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixtures (`tools/rust/forces-jobs.ts`)
+natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
+the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
+`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.

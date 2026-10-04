@@ -193,6 +193,9 @@ jobs:
   # job runs (D381): the committed Wasm equals a fresh build; its canonical settle gives the same bytes natively,
   # in Node's WebAssembly and in each engine; and the native settle gives the app's (tools/rust/water-identity.ts).
   # It runs only when the Rust or what wraps it changes (tools/ci-changes.mjs, isRustInput), and on every full run.
+  # The Rust forces (D381, #158): their committed Wasm equals a fresh build, and every force's byte fixtures give
+  # the same packed results natively, in Node's WebAssembly and in each engine, each as pinned
+  # (tools/rust/forces-jobs.ts, forces-pins.json).
   engines:
     name: engines and rust
     needs: changes
@@ -200,7 +203,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -228,13 +231,13 @@ jobs:
       - name: The same results in every engine (the short list)
         if: needs.changes.outputs.suites == 'true'
         run: npx tsx tools/determinism/run.ts --smoke
-      - name: The committed Rust water matches a fresh build; the native batch binary
+      - name: The committed Rust Wasm (water and forces) matches a fresh build; the native batch binaries
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/build.ts --check --native
       - name: The native Rust settle gives the app's bytes (golden fixtures under both rules, every theme, stored water)
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native
-      - name: The Rust maths guard, strict builds, the same bits as portable.ts and the same water in every engine
+      - name: The Rust maths guard, strict builds, the same bits as portable.ts, the same water and forces in every engine
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/check.ts --engines
       - uses: actions/upload-artifact@v7
@@ -242,5 +245,13 @@ jobs:
         with:
           name: determinism-smoke
           path: .scratch/determinism/smoke/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+      # (a fresh Wasm that differs from the committed one, to compare)
+      - uses: actions/upload-artifact@v7
+        if: failure() && needs.changes.outputs.rust == 'true'
+        with:
+          name: rust-wasm
+          path: rust/target/embed/wasm32-unknown-unknown/release/*.wasm
           if-no-files-found: ignore
           retention-days: 7

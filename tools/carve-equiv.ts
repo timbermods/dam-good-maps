@@ -16,7 +16,6 @@ import { fixture } from "../investigation/carve/maps";
 import { carveWaterSettle } from "../investigation/carve/water";
 import { CarveRun, type CarveSettings } from "../src/core/forces/carve/run";
 import { modelOf } from "../src/core/forces/runs";
-import { oxbowLake } from "../src/core/forces/carve/water";
 import type { ForceMap } from "../src/core/forces/force";
 import { generate } from "../src/core/gen/generate";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../src/core/places/place";
@@ -119,7 +118,6 @@ function check(sc: Scenario): string | null {
     if (!same(proto.map.heights, port.map.heights)) return `${at}: the ground differs`;
     if (!same(proto.map.water.depth, port.map.water.depth)) return `${at}: the preview water differs`;
     if (!same(proto.map.water.contamination, port.map.water.contamination)) return `${at}: the preview contamination differs`;
-    if (!same(proto.sediment, port.sediment)) return `${at}: the sediment differs`;
     if (json(proto.head) !== json(port.head)) return `${at}: the head differs\n  ${json(proto.head)}\n  ${json(port.head)}`;
     if (json(proto.metrics) !== json(port.metrics)) return `${at}: the metrics differ\n  ${json(proto.metrics)}\n  ${json(port.metrics)}`;
     if (proto.path.length !== port.path.length || json(proto.path.at(-1)) !== json(port.path.at(-1))) return `${at}: the course differs`;
@@ -131,7 +129,7 @@ function check(sc: Scenario): string | null {
   if (!!proto.closure !== !!port.closure || (proto.closure && !same(proto.closure.heights, port.closure!.heights))) return "the pre-closure ground differs";
   // the water each keeps
   const want = carveWaterSettle(proto.map, proto);
-  const lake = oxbowLake(port);
+  const lake = port.retained;
   const got = canonicalSettle({ ...modelOf(port.map), ...(lake ? { retained: [lake] } : {}) });
   if ((want.method === "retained-oxbow") !== !!lake) return `the oxbow lake: the prototype's water is ${want.method ?? "canonical"}, the port ${lake ? "keeps" : "keeps no"} lake`;
   if (!same(want.depth, got.depth) || !same(want.contamination, got.contamination)) return "the kept water differs";

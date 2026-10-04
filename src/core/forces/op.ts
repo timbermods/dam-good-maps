@@ -70,7 +70,7 @@ export interface ForceResultParams {
    *  anchor (core/water/sourceGroups.ts), the strength shared (absent on carves from before); Glaciate's
    *  springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
   sources?: { id: string; x: number; y: number; strength: number }[];
-  /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/water.ts). */
+  /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/run.ts `retained`). */
   lake?: RetainedWater;
   /** Try another: the force (its operation's seq) this one replaces. */
   replaces?: number;

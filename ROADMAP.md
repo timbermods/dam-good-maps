@@ -39,8 +39,9 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **The water switch** (#212, D442 (b), D452): WaterSim in Rust everywhere, batch jobs native, the TypeScript water tagged
   and deleted. Next, now that M9b is on `dev`; it and cleanup group 5 touch `src/core/sim/water.ts`, so whichever merges
   second rebases.
-- **The Rust forces** (#158, D400, D453): adopted after cleanup group 4, when CI's byte-identity checks and the suites
-  pass against the Rust. Then the analysis (#157) and the checks (#207), after the cleanup's groups 5 and 6.
+- **The Rust forces** (#158, D400, D453): adopted on `feature/rust-forces` (its PR into `dev`): the planners are Rust
+  (`rust/forces`), byte-identical to the TypeScript computation they replaced (tag `ts-forces-final`, then deleted); their
+  byte fixtures run in CI's `rust` job. Then the analysis (#157) and the checks (#207), after the cleanup's groups 5 and 6.
 
 **3. The generator queue**, one re-pin at a time (D148, D308)
 
@@ -144,11 +145,10 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 - **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
   after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
   descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
-- **The Rust forces** (#158, D400, D453): round 2's speed is accepted. Adoption follows (D442 (c)) when CI's byte-identity
-  checks (D366, three engines) and the existing suites pass against the Rust, under D381; Codex's step after M9b is only the
-  re-pin, the rebuild and those checks. There is no identity corpus. New forces (Erode first)
-  are then built directly in Rust on the adopted port, never in TypeScript first (D438). Round 1's lesson applies to every port: share the map in typed memory, one call per
-  operation, never serialized.
+- **The Rust forces** (#158, D400, D453): adopted (D442 (c)): the planners are Rust (`rust/forces`); the core keeps the
+  request, Keep, the build's last touches, the record and the showing; the TypeScript computation is tag `ts-forces-final`
+  and deleted. New forces (Erode first) are built directly in Rust on it, never in TypeScript first (D438). Round 1's lesson
+  applies to every port: share the map in typed memory, one call per operation, never serialized.
 - **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
   every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
   Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
@@ -164,7 +164,7 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces (#158, a draft; its re-pin and rebuild after cleanup group 4). The dam sketch engine is merged as an
+**Still with Codex:** the dam sketch engine is merged as an
 investigation, rounds 1 (#159) and 2 (#166), not adopted, no round 3 before the release (D392, D403; see its section
 below).
 

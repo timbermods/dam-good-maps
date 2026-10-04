@@ -21,7 +21,6 @@ import { protectedGround, STEPS_PER_SECOND, type ForceMap } from "../../src/core
 import { generate } from "../../src/core/gen/generate";
 import { readTimber } from "../../src/core/format/timber";
 import { storedWater } from "../../src/core/format/world";
-import { oxbowBasin, oxbowLake } from "../../src/core/forces/carve/water";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
 import { SETTLE_DAYS, TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
@@ -256,8 +255,9 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(Array.from(a.map.heights)).toEqual(Array.from(b.map.heights));
     expect(a.path).toEqual(b.path);
     expect(Array.from(a.map.heights)).not.toEqual(Array.from(c.map.heights));
-    expect(Array.from(a.character.rock)).toEqual(Array.from(c.character.rock));
-    expect(a.character.knobs).toEqual(c.character.knobs);
+    // (the river's hard rock cores come from the map alone)
+    expect(Array.from(a.records.rock)).toEqual(Array.from(c.records.rock));
+    expect(a.records.knobs).toEqual(c.records.knobs);
   });
 
   it("smooth reaches narrow into rapids, with real whole-level falls", () => {
@@ -294,7 +294,8 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     const gap = (s: (typeof fork)[number]) => Math.hypot(s.lanes[0].x - s.lanes[1].x, s.lanes[0].y - s.lanes[1].y);
     const widest = fork.reduce((a, b) => (gap(a) > gap(b) ? a : b));
     expect(gap(widest)).toBeGreaterThan(widest.lanes[0].width * 2);
-    for (const k of r.character.knobs) expect(r.map.heights[k.y * 96 + k.x]).toBe(m.heights[k.y * 96 + k.x]);
+    expect(r.records.knobs.length).toBeGreaterThan(0);
+    for (const k of r.records.knobs) expect(r.map.heights[k.y * 96 + k.x]).toBe(m.heights[k.y * 96 + k.x]);
     const seen = new Set([largeAim.origin]);
     const queue = [largeAim.origin];
     for (let n = 0; n < queue.length; n++) {
@@ -331,7 +332,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
   const at = (p: { x: number; y: number }) => Math.round(p.y) * 96 + Math.round(p.x);
   const r = complete(ox, winding, aimed);
   const cut = r.oxbows[0];
-  const lake = oxbowLake(r);
+  const lake = r.retained;
   const model = { ...modelOf(r.map), ...(lake ? { retained: [lake] } : {}) };
   const water = canonicalSettle(model);
 
@@ -342,8 +343,8 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     // the outer bank is deeper and cut further out than the inner one
     expect(bends.filter((p) => sample(p, 2) < sample(p, -2)).length).toBeGreaterThanOrEqual(bends.length * 0.8);
     expect(bends.filter((p) => sample(p, 4) < sample(p, -4)).length).toBeGreaterThanOrEqual(bends.length * 0.7);
-    // broad bends, contracting straights
-    const ratios = r.path.map((p, k) => ({ bend: Math.abs(p.bend), ratio: p.width / r.character.width(k * 1.35) }));
+    // broad bends, contracting straights (its Width set: the stations' widths against it)
+    const ratios = r.path.map((p) => ({ bend: Math.abs(p.bend), ratio: p.width / winding.width! }));
     const mean = (a: typeof ratios) => a.reduce((v, p) => v + p.ratio, 0) / a.length;
     expect(mean(ratios.filter((p) => p.bend > 0.8))).toBeGreaterThan(mean(ratios.filter((p) => p.bend < 0.15)) * 1.4);
   });
@@ -356,10 +357,10 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     expect(cut.pool.filter((p) => water.depth[at(p)] > 1).length).toBeGreaterThan(12);
     for (const b of cut.bars) {
       expect(water.depth[at(b)]).toBe(0);
-      expect(r.sediment[at(b)]).toBeGreaterThan(0);
+      expect(r.records.sediment[at(b)]).toBeGreaterThan(0);
       expect(r.map.heights[at(b)]).toBeGreaterThanOrEqual(b.level);
     }
-    const basin = oxbowBasin(r);
+    const basin = r.records.oxbowBasin;
     expect(basin.length).toBeGreaterThan(70);
     expect(cut.pool.every((p) => basin.includes(at(p)))).toBe(true);
     expect(lake!.tiles).toEqual(basin.slice().sort((a, b) => a - b));
@@ -375,7 +376,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     // a dry canyon keeps no water
     const dry = complete(ox, { ...winding, dry: true }, aimed);
     expect(dry.oxbows.length).toBe(1);
-    expect(oxbowLake(dry)).toBeNull();
+    expect(dry.retained).toBeNull();
     expect(canonicalSettle(modelOf(dry.map)).depth.every((v) => v === 0)).toBe(true);
   });
 

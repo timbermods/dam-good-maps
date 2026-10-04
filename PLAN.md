@@ -106,6 +106,10 @@ Node:
     (`rust-toolchain.toml`) and strict floating point (no FMA, no libm). `tools/rust/check.ts` audits the
     Rust source, its optimized IR, assembly and Wasm, and compares every function with `portable.ts` bit
     for bit, natively and in Chromium, Firefox and WebKit; CI's `rust` job runs it.
+  - The forces are planned in Rust (`rust/forces`, D381): one call per force, byte for byte the TypeScript
+    it replaced (tag `ts-forces-final`); their byte fixtures give the same results natively, in Node and in
+    each engine (CI's `rust` job). The request, Keep, the build's last touches, the record and the showing stay
+    in TypeScript (`src/core/forces/README.md`).
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.

@@ -34,6 +34,7 @@ are as of 2026-10-04 and move.
 | Coherence cleanup 2, one flood | `cleanup/2-one-flood` | #214 | none | Trimmed to its no-bytes commit (Kyler's call, #243); merges after 1 |
 | Coherence cleanup 3 to 7 | `cleanup/3-forces-core` to `cleanup/7-planners` | #221, #223, #226, #230, #241 | none | In order after 2; #230 still needs its investigation-import fix |
 | Rust water switch | `feature/rust-water-switch` | #212 | `-rust` | Next after the cleanup's group 5 or ahead of it, whichever merges first; the other rebases |
+| The Rust forces adopted (#158, D381) | `feature/rust-forces` | its own | `-rforces` | Planners in Rust, the TypeScript computation tag `ts-forces-final` and deleted; after #212 |
 | Startup part 1, the core half | `feature/startup-part1` | #222 | none | CI running; D367, D455 |
 | CI merge queue | `ci/merge-queue` | #238 | none | CI running |
 | Badwater joins rivers and lakes | `fix/badwater-contained-d469` | #245 | none | First of the generator queue (D469); one re-pin |
@@ -50,7 +51,7 @@ are as of 2026-10-04 and move.
 
 | PR | Investigation | State |
 |---|---|---|
-| #158 | rust-forces | Draft; adopted after cleanup group 4 when CI's byte-identity checks and the suites pass (D453) |
+| #158 | rust-forces | Adopted on `feature/rust-forces` (planners in Rust; the TypeScript computation tag `ts-forces-final`, deleted) |
 | #244 | river-valley-sheets | Waits on Kyler (`needs-kyler`) |
 | #211 | theme-critique | CI red; its badwater PR is #245 |
 | #210 | islands-round-2 | Islands round 2; the work continues in #235 |
