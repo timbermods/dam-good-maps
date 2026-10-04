@@ -62,7 +62,8 @@ import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSou
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
+import { changedWaterChunks, lowerByTile, meshWaterChunk, type WaterMeshData } from "./waterMesh";
+import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
@@ -951,6 +952,12 @@ export class MapRenderer {
     const t0 = performance.now();
     this.clearMap();
     this.waterQueue.clear();
+    // (the last map's water still with the worker is never drawn on this one)
+    this.waterVersion++;
+    this.waterFloor = this.waterVersion;
+    this.drawnWater.clear();
+    this.waterReady.clear();
+    this.mesherOwn?.clear();
     const { W, H, heights } = v;
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
@@ -1126,10 +1133,14 @@ export class MapRenderer {
   }
 
   private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
-    const key = `${cx},${cy}`;
-    const old = this.water.get(key);
     const m = this.map!;
-    const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy), this.waterVersion);
+  }
+
+  /** A water chunk's mesh on the scene, made on the water of `version`. */
+  private drawWater(key: string, d: WaterMeshData, version: number): number {
+    const old = this.water.get(key);
+    this.drawnWater.set(key, version);
     this.meshFalls(key, d.falls, d.fallCount);
     const arrays: ChunkArrays = {
       quads: d.quads,
@@ -1139,6 +1150,7 @@ export class MapRenderer {
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
       ],
+      sphere: d.sphere ?? null,
     };
     if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
@@ -1338,10 +1350,15 @@ export class MapRenderer {
     const changed = changedWaterChunks(m.W, m.H, m.surface, surface, m.surface.lower.length, surface.lower.length);
     m.water = water;
     m.surface = surface;
+    this.waterVersion++;
     const lower = lowerByTile(surface, water);
-    // (a stroke's chunks still waiting are meshed now too, on this water)
+    // (a stroke's chunks still waiting, or with the worker, are meshed now too, on this water)
     for (const key of this.waterQueue) changed.add(key);
+    for (const key of this.waterReady.keys()) changed.add(key);
+    for (const key of this.mesherOwn?.asked.keys() ?? []) changed.add(key);
     this.waterQueue.clear();
+    this.waterReady.clear();
+    this.mesherOwn?.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
@@ -1362,6 +1379,16 @@ export class MapRenderer {
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
+  /** The map's water's version: one more each time it is replaced. */
+  private waterVersion = 0;
+  /** The oldest version a chunk from the worker may show (the map's first water). */
+  private waterFloor = 0;
+  /** The water's version each drawn water chunk was meshed on. */
+  private readonly drawnWater = new Map<string, number>();
+  /** Chunks the water worker meshed, waiting for a frame to draw them (the newest of each). */
+  private readonly waterReady = new Map<string, { version: number; data: WaterMeshData }>();
+  /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
+  private mesherOwn: WaterMesher | null = null;
 
   /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
    *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
@@ -1375,9 +1402,10 @@ export class MapRenderer {
     if (!m) return 0;
     const surface = surfaceWater(m.W, m.H, water);
     if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
-    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0);
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0, true);
     m.water = water;
     m.surface = surface;
+    this.waterVersion++;
     for (const key of changed) this.waterQueue.add(key);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
@@ -1392,33 +1420,74 @@ export class MapRenderer {
     this.lightRows.touch(a.sx0, a.sy0, a.sx1, a.sy1);
   }
 
-  /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
+  /** The worker's water, made when first wanted (none where workers can't start: the page's thread). */
+  private get mesher(): WaterMesher | null {
+    this.mesherOwn ??= new WaterMesher(
+      (key, version, data) => {
+        // (older than the water already drawn there, or the last map's: dropped)
+        if (version < this.waterFloor || version <= (this.drawnWater.get(key) ?? -1)) return;
+        this.waterReady.set(key, { version, data });
+        this.requestRender();
+      },
+      (keys) => {
+        for (const k of keys) this.waterQueue.add(k);
+        this.requestRender();
+      },
+    );
+    return this.mesherOwn.working ? this.mesherOwn : null;
+  }
+
+  /** A stroke's water: the chunks the worker has meshed drawn for at most `budget` ms, and the ones
+   *  still to mesh sent to it, nearest the view's middle first; without the worker, meshed here for
+   *  at most `budget` ms. */
   private drainWater(budget: number): void {
     const m = this.map;
     if (!m) {
       this.waterQueue.clear();
+      this.waterReady.clear();
       return;
     }
     const t0 = performance.now();
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
-    const keys = [...this.waterQueue].map((k) => {
-      const [cx, cy] = k.split(",").map(Number);
-      return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
-    });
-    keys.sort((a, b) => a.d - b.d);
-    let baked = false;
-    for (const { k, cx, cy } of keys) {
-      if (baked && performance.now() - t0 > budget) break;
+    const nearest = (keys: Iterable<string>) =>
+      [...keys]
+        .map((k) => {
+          const [cx, cy] = k.split(",").map(Number);
+          return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
+        })
+        .sort((a, b) => a.d - b.d);
+    let done = false;
+    for (const { k, cx, cy } of nearest(this.waterReady.keys())) {
+      if (done && performance.now() - t0 > budget) break;
+      const r = this.waterReady.get(k)!;
+      this.waterReady.delete(k);
+      if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
+      this.drawWater(k, r.data, r.version);
+      this.waterTiles(m, cx, cy);
+      done = true;
+    }
+    if (!this.waterQueue.size) return;
+    const mesher = this.mesher;
+    if (mesher) {
+      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest(this.waterQueue).map((c) => c.k));
+      this.waterQueue.clear();
+      return;
+    }
+    for (const { k, cx, cy } of nearest(this.waterQueue)) {
+      if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
       this.meshWater(cx, cy, null);
-      // the ground under it: its tile data (the water over each top)
-      if (this.tileTex) {
-        tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
-        this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
-      }
-      baked = true;
+      this.waterTiles(m, cx, cy);
+      done = true;
     }
+  }
+
+  /** The ground's tile data under a water chunk drawn anew (the water over each top). */
+  private waterTiles(m: MapState, cx: number, cy: number): void {
+    if (!this.tileTex) return;
+    tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1857,6 +1926,8 @@ export class MapRenderer {
 
   /** The brush under the cursor, as last shown (tests). */
   brushCursorState: BrushCursorState | null = null;
+  /** The brush moved since it was last laid on the ground. */
+  private cursorStale = false;
 
   private blockGhost: BlockGhost | null = null;
 
@@ -1879,7 +1950,8 @@ export class MapRenderer {
       if (!s) return;
       this.cursor = new BrushCursor(this.scene);
     }
-    this.cursor.set(s, m.heights, m.W, m.H);
+    // (laid on the ground once a frame, however many times the pointer moved: renderNow)
+    this.cursorStale = true;
     this.requestRender();
   }
 
@@ -2203,10 +2275,14 @@ export class MapRenderer {
   renderNow(): void {
     if (this.disposed) return;
     this.flushTerrain();
-    // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
-    if (this.waterQueue.size) {
+    if (this.cursorStale && this.cursor && this.map) {
+      this.cursorStale = false;
+      this.cursor.set(this.brushCursorState, this.map.heights, this.map.W, this.map.H);
+    }
+    // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
+    if (this.waterQueue.size || this.waterReady.size) {
       this.drainWater(WATER_MESH_BUDGET_MS);
-      if (this.waterQueue.size) this.requestRender();
+      if (this.waterQueue.size || this.waterReady.size) this.requestRender();
     }
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
@@ -2674,6 +2750,7 @@ export class MapRenderer {
     this.clearMap();
     this.retiredMotion?.dispose();
     this.retiredMotion = null;
+    this.mesherOwn?.dispose();
     this.cursor?.dispose();
     this.ring?.dispose();
     this.effects?.dispose();
