@@ -3,8 +3,8 @@
 > **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
 
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision and how it works now, taken from
-Kyler's decisions (`PLAN.md` §20: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
-reference. Where anything here conflicts with `PLAN.md` §20, §20 wins. The next screen is
+Kyler's decisions (`docs/decisions/`: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
+reference. Where anything here conflicts with `docs/decisions/`, the decisions win. The next screen is
 [docs/UI-BRIEF.md](docs/UI-BRIEF.md)'s ("The page is the editor", D330; a separate page session owns that design):
 where this document describes the screen and the brief differs, the brief wins. What was superseded, the detailed
 text this document condensed (at D390) and the deferred Claude integration's design are in
@@ -256,9 +256,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 
@@ -638,7 +636,7 @@ flags them if they reappear anywhere else (D188).
 ## Working rules
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
-  entry. Record deviations and decisions in `PLAN.md` §20.
+  entry. Record deviations and decisions in `docs/decisions/` (its index says how).
 - The editor must never export a file that breaks the game. Load problems block export; playability and design
   problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only

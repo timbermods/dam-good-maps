@@ -142,7 +142,7 @@ if (process.argv.includes("--write")) {
 if (process.argv.includes("--check")) {
   const pinned = readFileSync(OUT, "utf8");
   if (pinned !== text) {
-    console.error(`src/core/data/log-floor.json differs from the installed game (${version}): run with --write, and record the new floor in PLAN §20`);
+    console.error(`src/core/data/log-floor.json differs from the installed game (${version}): run with --write, and record the new floor in docs/decisions/`);
     process.exit(1);
   }
   console.log("the pinned floor matches the installed game");

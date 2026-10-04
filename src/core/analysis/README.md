@@ -10,10 +10,11 @@ Measures a finished map: reachability, walking distance, water storage, wood, re
 **Start from**
 - `walk.ts` `walkDistance`: how far a beaver walks from the start (D85).
 - `wood.ts` `treeLogs`: logs per tree, for the starting-wood count (D164).
-- `metrics.ts` `measure`: a map against the targets its settings map to.
+- `metrics.ts` `startBench` (the map card's bench); `measure`, a map against the targets its settings map to, is `tools/lib/metrics.ts`.
+- `vertical.ts` `reachWalk` (walking distance over the whole map), `fallsOf` (surface drops between wet tiles).
 - `straight.ts` `straightness`, `tooStraight`: ruler-straight channels (D209).
 - `edges.ts` (edge walls, D151), `ridge.ts` `damWalls` (D111), `sources.ts` `sourcesInFlow` (D171), `mechanics.ts` (maps a steady-state settle cannot show).
-- `startPlanting.ts` (how the start's planting is spread, D252), `storage.ts` (water storage near the start).
+- `storage.ts` (water storage near the start). How the start's planting is spread (D252) is measured by `tools/lib/startPlanting.ts`.
 - `legend.ts` `legendItems`, `legendTiles` and `levers.ts` `leverMarks`, `reachText`: the map card's legend row and numbers (D330; the levers are M9b's, D325).
 
-**Tests**: `tests/contract/` (cardNumbers, edges, mechanics, sources, start, startPlanting, narrows, resources, settings) and `tests/unit/` (straight, wood, startWater). Run `npx vitest run tests/unit/straight.test.ts`, or `npm run test:quick` for all.
+**Tests**: `tests/contract/` (cardNumbers, edges, mechanics, sources, start, narrows, resources, settings; `startPlanting` runs `tools/lib/startPlanting.ts`) and `tests/unit/` (straight, wood, startWater). Run `npx vitest run tests/unit/straight.test.ts`, or `npm run test:quick` for all.

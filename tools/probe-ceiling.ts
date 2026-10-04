@@ -190,7 +190,6 @@ async function editAll(dir: string): Promise<void> {
     },
   };
 
-  ed.setEditorWaterMode("defer");
   for (const p of PLANS) {
     const t0 = Date.now();
     prefix = p.id;

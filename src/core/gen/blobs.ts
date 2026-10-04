@@ -108,18 +108,3 @@ export function pickSeeds(rng: Rng, weight: Float64Array | Uint8Array, W: number
   }
   return seeds;
 }
-
-/** Log-normal group sizes around a median with a heavy tail, summing to about `total`. */
-export function groupSizes(rng: Rng, total: number, median: number, cap: number): number[] {
-  const sizes: number[] = [];
-  let sum = 0;
-  while (sum < total) {
-    let s = Math.floor(rng.logNormal(median, 0.9));
-    s = Math.max(3, Math.min(cap, s));
-    const left = total - sum;
-    s = left >= 3 ? Math.min(s, left) : 3;
-    sizes.push(s);
-    sum += s;
-  }
-  return sizes;
-}

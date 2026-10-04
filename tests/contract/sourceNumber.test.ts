@@ -23,7 +23,6 @@ function strengthIn(v: EntityView, x: number, y: number): number | undefined {
 describe("a source's one number (D368 (4))", () => {
   it("every notch's new strength reaches the page's copy of the objects, alone and in a row", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;

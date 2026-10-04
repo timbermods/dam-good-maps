@@ -195,7 +195,6 @@ describe("brushes and water sources (D249)", () => {
     // (the map the other tests use: the first with a dry spot)
     const seed = Number(session().s.spec?.seed ?? 3);
     await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const [x, y] = spot(open())!;

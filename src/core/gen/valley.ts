@@ -1,20 +1,14 @@
 // What remains of the valley planner that M9a replaced (the generator grows the field now,
-// gen/generate.ts). Two things stay because others still use them:
-// - `startWalkable`, the planner's count of dry land the colony walks to from the start, which
-//   design version 2's prototypes (investigation/generative/proto and v2, their generate.ts) import;
-// - `PlanConflict`, the error a planner threw when it could not keep its layout off the player's
-//   features; branches written against the old planners import it (feature/live-editing's
-//   session.ts, through gen/riverValley.ts). Nothing on dev throws it: the generator reports that
-//   case as a refusal ("no layout fits").
+// gen/generate.ts): `startWalkable`, the planner's count of dry land the colony walks to from the
+// start. Only design version 2's prototypes import it (investigation/generative/proto and v2, their
+// generate.ts), and the type-checked tools that run them (tools/carve-equiv.ts, tools/erupt-compare.ts,
+// through investigation/carve/maps.ts and investigation/erupt/maps.ts) need it to compile.
 
 import { walkRegions } from "../analysis/regions";
 import type { BuildResult } from "../features/build";
 import { entityTiles } from "../features/edits";
 import { slopeHighSide } from "../format/footprints";
 import { WALK_BLOCKERS } from "../validate/playability";
-
-/** A planner could not keep its layout off the player's features, locks and keep-out areas. */
-export class PlanConflict extends Error {}
 
 /** Dry tiles the colony walks on from the start: same level, the built slopes, round the objects
  *  that block walking (the `start.reach` rule of the playability checks). */

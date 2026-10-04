@@ -13,8 +13,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { snapshotMap, type FullForceMap } from "../src/core/forces/force";
 import { GLACIATE_DEFAULTS } from "../src/core/forces/glaciate/model";
-import { measureGlaciate } from "../src/core/forces/glaciate/measure";
-import { makePlan } from "../src/core/forces/glaciate/plan";
+import { measureGlaciate } from "./lib/glaciate";
+import { makePlan } from "./lib/glaciate";
 import { modelOf } from "../src/core/forces/runs";
 import { canonicalSettle } from "../src/core/sim/prefill";
 

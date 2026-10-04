@@ -7,7 +7,7 @@ Finished steps (M1–M8, Map look, Real places, Start and edge rules, Resources,
 Save to Timberborn, M9a), the overview and release points as they stood, and the full M12 plan are in
 [docs/archive/roadmap.md](docs/archive/roadmap.md). What is in flight (branches, PRs, which session owns them) is in
 [docs/STATUS.md](docs/STATUS.md); how to start and how things are run, in [docs/HANDOFF.md](docs/HANDOFF.md); the
-decisions in force, in [PLAN.md §20](PLAN.md#20-editor-decisions).
+decisions in force, in [docs/decisions/](docs/decisions/README.md).
 
 ## The order of work
 
@@ -297,7 +297,7 @@ Not yet scheduled.
 ## The parity batch (D337–D339) and Crop map to selection (D340)
 
 After the post-release list, on `build-light` (Sonnet 5.5, high), on its own branch ([#95](https://github.com/timbermods/dam-good-maps/pull/95)).
-The decisions in PLAN §20 are the spec; every item matches the game's rules, footprints and defaults from its data, never
+The decisions in docs/decisions/ are the spec; every item matches the game's rules, footprints and defaults from its data, never
 guesses, with an original model in both looks, a label in Markers, exact save and load, and a sample in the next probe batch.
 - **D337, the game's fluid editing tools:** Water Seep and Badwater Seep (2×2, stopping while the water over them is deeper
   than 0.8 m), Aquifer (3×3) and Ancient Aquifer Drill, Badtide Drain (1×2), a start delay for every origin but aquifers,

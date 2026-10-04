@@ -27,7 +27,7 @@ import { DROUGHT, OFFICIAL_LAYOUT, officialRange, REACH_MIN, RESERVE, reservoirN
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
-import { gameSoil, type SoilRules } from "../sim/soil";
+import { gameSoil } from "../sim/soil";
 import type { CanonicalWater } from "../sim/prefill";
 import { SETTLE_DAYS, TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
@@ -131,8 +131,6 @@ export interface PlayabilityInput {
   features: readonly Feature[] | null;
   /** Entity ids in object order, for `where` and fixes. */
   ids?: readonly string[];
-  /** The soil rules (sim/soil.ts; the default when absent, D308). */
-  soilRules?: SoilRules;
   /** The editor's: the first tile of each mine site that was out of the colony's reach when the map
    *  was opened (`mineSitesCutAt`). Given, `resources.mine_site` is advisory and also fails on a site
    *  an edit has left out of reach since (D368 (10)); absent (the generator, the oracle, Real places),
@@ -308,7 +306,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
   checkContained(inp, c);
 
   // the soil rules (D298: the game's own), as the build has them
-  const soil = gameSoil(W, H, h, D, C, objects, undefined, inp.soilRules);
+  const soil = gameSoil(W, H, h, D, C, objects);
   const M = soil.moisture;
   const SC = soil.contamination;
   const analysis: PlayabilityAnalysis = {
@@ -933,7 +931,7 @@ function checkStart(
     const kept = droughtStorage(model, D, rules.droughtDays);
     const Cd = new Float64Array(N);
     for (let i = 0; i < N; i++) Cd[i] = kept[i] > 0 ? C[i] : 0;
-    const Md = gameSoil(W, H, h, kept, Cd, objects, undefined, inp.soilRules).moisture;
+    const Md = gameSoil(W, H, h, kept, Cd, objects).moisture;
     const thirsty: string[] = [];
     let thirstyCount = 0;
     objects.forEach((o, k) => {

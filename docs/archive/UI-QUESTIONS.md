@@ -2,7 +2,7 @@
 
 The open design questions and known constraints for Kyler's question-and-answer round on the combined page (feedback
 item 23, D326). Nothing of the page is built until that round is held and Kyler approves the written UI brief that comes
-from it. The decisions are in [PLAN.md §20](../../PLAN.md#20-editor-decisions); the plan is in
+from it. The decisions are in [PLAN.md §20](../decisions/README.md); the plan is in
 [EDITOR_PLAN.md](../../EDITOR_PLAN.md) (§7, §8) and [ROADMAP.md](../../ROADMAP.md) ("The page is the editor"). Feedback item numbers
 are in [the forces-preview feedback](feedback/2026-09-28-forces-preview.md) and
 [the build order](feedback/2026-09-29-build-order.md).

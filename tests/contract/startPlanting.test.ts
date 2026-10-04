@@ -9,7 +9,7 @@
 // starting-logs floor (D224, D227).
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { startPlantingSpread, type StartPlantingSpread } from "../../src/core/analysis/startPlanting";
+import { startPlantingSpread, type StartPlantingSpread } from "../../tools/lib/startPlanting";
 import type { Feature } from "../../src/core/features/schema";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
