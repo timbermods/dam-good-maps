@@ -118,7 +118,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 - **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his
   eye, an approval, work stuck on his side, anything broken), never for progress, green CI or information. One or two lines
   on what's needed, where, and what carries on meanwhile; never wait silently. The toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
-  "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
+  "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%\.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
 - **When CI runs:** on pull requests into `dev` and `main`, and pushes to `dev` and `main`, not on other branches or tags; a
   newer push cancels the run it supersedes (never on `main` or a release PR). A draft PR gets no CI until it is marked ready.
   A change that only touches documents, `investigation/`, `LICENSE` or `package.json`'s descriptive fields skips the heavy
