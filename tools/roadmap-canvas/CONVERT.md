@@ -40,11 +40,12 @@ are the shape to fill. Work on a new branch. Do not change the product's code.
 
 3. `docs/STATUS.md`: where things stand now, rewritten at every stop (no history): `## Released` (the latest tags and
    dates), `## In flight` with the table `| Work | Branch | PR | Worktree | State |` (one row per step being built;
-   the State cell in plain words, using `parked`, `merged into dev` or `superseded` where true), `## Waiting for
-   <Owner>` as a numbered list, and, if there is one, `## The release gate`.
+   the State cell in plain words, using `parked`, `merged into dev` or `superseded` where true), and, if there is one,
+   `## The release gate`. What waits for the owner is not listed here: see 4.
 
-4. `docs/decisions-pending.md` (optional): defaults chosen without the owner, as the template's table, with
-   `The next pending number is #<n>.`
+4. **What waits for the owner:** each question, and each default chosen without the owner, as a small GitHub issue
+   with the question in a few lines, labelled `needs-kyler` (the owner's equivalent, named in `CONFIG.labels`); a pull
+   request waiting on the owner carries the label itself.
 
 5. `docs/PERFECT.md` (optional but valuable): what done-well means, `##` sections, a short paragraph and a few bullets
    each. Ask the owner for it rather than inventing it; leave it out if they have not said.

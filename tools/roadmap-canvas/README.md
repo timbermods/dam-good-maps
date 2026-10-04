@@ -11,12 +11,11 @@ live when it opens and again every 5 minutes while it is visible.
 
 ## Views
 
-- **Needs you:** every open pull request and issue labelled `needs-kyler` (its title, which session, its latest comment or
-  else its text, a link), the items in STATUS's "Waiting for Kyler" and "Decisions open for Kyler", and the defaults in
-  `docs/decisions-pending.md` still pending. One line when nothing needs him.
-- **In flight:** open pull requests grouped as needs you (`needs-kyler`), approved and waiting to merge (`approved`), held
-  (`hold`), investigations (`investigation/` branches) and the rest; what merged in the last 24 hours; the latest messages
-  on the open issue titled "Coordination".
+- **Needs you:** every open pull request and issue labelled `needs-kyler`: its title, which session, its latest comment
+  or else its text, a link. One line when nothing needs him.
+- **In flight:** open pull requests grouped as approved and waiting to merge (`approved`), held (`hold`), investigations
+  (`investigation/` branches) and the rest; what merged in the last 24 hours; the latest messages on the open
+  issue titled "Coordination".
 - **Board:** a card per `##` section of ROADMAP.md and per `*-done` tag no section claims, in columns Released · Built,
   not released · In flight · Planned, in order · Ongoing · Parked or deferred · Later. Click a card for its details.
 - **Order of work:** ROADMAP's "The order of work" as written, each item tied to the cards it names.
@@ -28,7 +27,7 @@ live when it opens and again every 5 minutes while it is visible.
 
 | Source | Read from |
 |---|---|
-| `ROADMAP.md`, `docs/STATUS.md`, `docs/decisions-pending.md`, `docs/PERFECT.md` | `dev`, on raw.githubusercontent.com |
+| `ROADMAP.md`, `docs/STATUS.md`, `docs/PERFECT.md` | `dev`, on raw.githubusercontent.com |
 | The decisions | `docs/decisions/README.md` and the topic files it links, when it exists on `dev`; else `PLAN.md` §20 |
 | Pull requests, issues, labels, comments, tags | GitHub's public API, without a token |
 

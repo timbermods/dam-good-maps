@@ -72,7 +72,6 @@
   .pr { grid-template-columns: 52px minmax(0, 1fr) 210px 44px 44px; }
   .merged { grid-template-columns: 52px minmax(0, 1fr) 44px; }
   .msg { grid-template-columns: minmax(0, 1fr) 44px; }
-  .pend { grid-template-columns: 52px minmax(0, 1fr); }
   .kind { display: inline-block; width: 44px; font-size: .72rem; color: var(--muted); }
   .draft { font-size: .74rem; color: var(--muted); }
 
@@ -179,7 +178,6 @@ const CONFIG = {
     status: 'docs/STATUS.md',
     decisionsIndex: 'docs/decisions/README.md', // read first; when it is missing, the plan's section below
     plan: 'PLAN.md', planSection: /^## 20\. /m,
-    pending: 'docs/decisions-pending.md',
     perfect: 'docs/PERFECT.md',
   },
   decisionPrefix: 'D',
@@ -425,29 +423,13 @@ const CONFIG = {
     const rows = [];
     for (const s of sections) for (const t of s.tables) if (t.header.includes('Work')) rows.push(...t.rows);
     if (!rows.length) notes.push(`${CONFIG.paths.status}: no table with a Work column.`);
-    const nothing = (s) => !s || /^nothing\b/i.test((s.paragraphs[0] || '') + (s.items.length ? '' : ''));
-    const waitingSecs = sections.filter((s) => /^(Waiting for|Decisions open for)/i.test(s.heading));
-    if (!waitingSecs.length) notes.push(`${CONFIG.paths.status}: no "Waiting for ${CONFIG.owner}" section.`);
-    const waiting = [];
-    for (const s of waitingSecs) {
-      if (nothing(s) && !s.items.length) continue;
-      if (s.items.length) waiting.push(...s.items.map((i) => ({ section: s.heading, text: i.text })));
-      else waiting.push(...s.paragraphs.map((p) => ({ section: s.heading, text: p })));
-    }
     const sess = find(/sessions/i);
     const sessions = (sess ? sess.items : []).map((i) => {
       const m = (i.bolds[0] || '').match(/^(?:The\s+)?(.+?)\s+session$/i);
       return { name: m ? m[1].toLowerCase() : (i.bolds[0] || '').toLowerCase(), raw: i.text };
     }).filter((s) => s.name);
     const gate = find(/release gate/i), queue = find(/queue|^Queued/i);
-    return { rows, waiting, sessions, gate: gate ? gate.paragraphs : [], gateHeading: gate?.heading || '', queue: queue ? queue.items.map((i) => i.text) : [], queueHeading: queue?.heading || '' };
-  }
-
-  function parsePending(md, notes) {
-    const rows = parseTables(md.split('\n')).filter((t) => t.header.includes('Status')).flatMap((t) => t.rows);
-    if (!rows.length) notes.push(`${CONFIG.paths.pending}: no table with a Status column.`);
-    return rows.filter((r) => /^\s*pending/i.test(stripMd(r.Status)) && !/superseded/i.test(r.Status))
-      .map((r) => ({ n: stripMd(r['#']), step: stripMd(r.Milestone || ''), question: trim(stripMd(r.Question || ''), 260) }));
+    return { rows, sessions, gate: gate ? gate.paragraphs : [], gateHeading: gate?.heading || '', queue: queue ? queue.items.map((i) => i.text) : [], queueHeading: queue?.heading || '' };
   }
 
   function parsePerfect(md, notes) {
@@ -503,7 +485,7 @@ const CONFIG = {
   // The raw texts, kept in this browser so the page opens at once; a document that can't be read keeps last time's.
   async function readDocs(last) {
     const notes = [];
-    const keys = ['roadmap', 'status', 'pending', 'perfect'];
+    const keys = ['roadmap', 'status', 'perfect'];
     const [results, decisions] = await Promise.all([Promise.all(keys.map((k) => readText(CONFIG.paths[k]))), readDecisions(notes)]);
     const texts = {};
     results.forEach((r, i) => {
@@ -517,8 +499,7 @@ const CONFIG = {
     const t = raw.texts;
     return {
       roadmap: t.roadmap ? parseRoadmap(t.roadmap, notes) : { order: { intro: '', phases: [], closing: '', entries: [] }, steps: [] },
-      status: t.status ? parseStatus(t.status, notes) : { rows: [], waiting: [], sessions: [], gate: [], queue: [] },
-      pending: t.pending ? parsePending(t.pending, notes) : [],
+      status: t.status ? parseStatus(t.status, notes) : { rows: [], sessions: [], gate: [], queue: [] },
       perfect: t.perfect ? parsePerfect(t.perfect, notes) : [],
       decisions: raw.decisions || { byNumber: {} },
       notes: unique(notes),
@@ -673,7 +654,7 @@ const CONFIG = {
       const texts = [gh?.last?.[i.n]?.body, i.body].filter(Boolean);
       for (const t of texts) {
         const lines = stripComments(t).trim().split('\n').map((l) => l.trim()).filter(Boolean);
-        const sig = (lines[lines.length - 1] || '').match(/^[—–-]{1,2}\s*(?:the\s+)?([\w .-]{2,40}?)(?:\s+session)?\.?$/i);
+        const sig = (lines[lines.length - 1] || '').replace(/\s*\([^)]*\)\s*$/, '').match(/^[—–-]{1,2}\s*(?:the\s+)?([\w .-]{2,40}?)(?:\s+session)?\.?$/i);
         if (sig) return sig[1].toLowerCase();
         const from = (lines[0] || '').match(/^From (?:the )?([\w .-]{2,30}?)(?: session)?:/i);
         if (from) return from[1].toLowerCase();
@@ -752,9 +733,8 @@ const CONFIG = {
   function viewNeeds() {
     const L = CONFIG.labels;
     const needs = M.items.filter((i) => i.state === 'open' && i.labels.includes(L.needs)).sort((a, b) => new Date(b.updated) - new Date(a.updated));
-    const pending = docsState.pending, waiting = docsState.status.waiting;
     const ghRead = !!ghState.syncedAt || Object.keys(ghState.items || {}).length;
-    if (ghRead && !needs.length && !pending.length && !waiting.length) return `<p class="empty">Nothing needs you.</p>`;
+    if (!needs.length) return `<p class="empty">${ghRead ? 'Nothing needs you.' : 'Reading GitHub…'}</p>`;
     const row = (i) => {
       const last = ghState.last?.[i.n];
       const text = last?.body || i.body;
@@ -763,23 +743,13 @@ const CONFIG = {
         <span class="dim cut" title="${esc(M.headOf(i.n))}">${esc(M.sessionOf(i) || (i.pr ? 'pull request' : 'issue'))}</span>
         <span class="age" title="${esc(new Date(last?.at || i.updated).toLocaleString())}">${age(last?.at || i.updated)}</span></div>`;
     };
-    return `<div class="cols">
-      <section class="panel"><h2>Labelled ${esc(L.needs)} <span class="n">${needs.length}</span></h2>
-        ${needs.length ? `<div class="rows">${needs.map(row).join('')}</div>` : `<p class="empty">${ghRead ? 'None.' : 'Reading GitHub…'}</p>`}</section>
-      <div class="stack">
-        <section class="panel"><h2>Waiting in STATUS <span class="n">${waiting.length}</span></h2>
-          ${waiting.length ? `<ol>${waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : '<p class="empty">None.</p>'}
-          <p class="dim">${link(docUrl(CONFIG.paths.status), esc(CONFIG.paths.status))}</p></section>
-        <section class="panel"><h2>Defaults to confirm <span class="n">${pending.length}</span></h2>
-          ${pending.length ? `<div class="rows">${pending.map((p) => `<div class="row pend"><span class="num">#${esc(p.n)}</span><div><b>${esc(p.step)}</b> <span class="dim">${esc(p.question)}</span></div></div>`).join('')}</div>` : '<p class="empty">None.</p>'}
-          <p class="dim">${link(docUrl(CONFIG.paths.pending), esc(CONFIG.paths.pending))}</p></section>
-      </div></div>`;
+    return `<section class="panel"><h2>Labelled ${esc(L.needs)} <span class="n">${needs.length}</span></h2>
+      <div class="rows">${needs.map(row).join('')}</div></section>`;
   }
 
   function viewFlight() {
     const L = CONFIG.labels;
     const groups = [
-      ['Needs you', (l) => l.has(L.needs)],
       ['Approved, waiting to merge', (l) => l.has(L.approved) && !l.has(L.hold)],
       ['Held', (l) => l.has(L.hold)],
       ['Investigations', (l, i) => /^investigation\//.test(M.headOf(i.n))],

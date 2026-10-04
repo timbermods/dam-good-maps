@@ -15,9 +15,8 @@ branch named in `CONFIG` and from GitHub's public API.
 | File | Required | What it holds |
 |---|---|---|
 | `ROADMAP.md` | yes | **"The order of work"**, then one `##` section per open step. |
-| `docs/STATUS.md` | yes | Where things stand now: released, the sessions, in flight (a table), waiting for the owner, the release gate, the queue. Rewritten, never appended. |
+| `docs/STATUS.md` | yes | Where things stand now: released, the sessions, in flight (a table), the release gate, the queue. Rewritten, never appended. |
 | `docs/decisions/` or `PLAN.md` | yes | The **decisions in force**: an index and one file per topic, or one section of the plan. |
-| `docs/decisions-pending.md` | no | Defaults a session chose while the owner was away, until the owner rules on them. |
 | `docs/PERFECT.md` | no | The yardstick: what "done well" means, as `##` sections. Shown under the next release. |
 
 Plain Markdown. Links, bold and backticks are stripped on reading. The first paragraph of a section is its summary on
@@ -121,10 +120,6 @@ Rules the canvas relies on:
 
 1. ...
 
-## Waiting for <Owner>      <!-- heading starts with "Waiting for" -->
-
-1. **<thing>**: <what the owner must do or decide>.
-
 ## The release gate         <!-- optional; heading contains "release gate" -->
 
 <what must be true before the next release>
@@ -138,8 +133,6 @@ Rules:
 - The sessions section (any heading containing "sessions") has one bullet per session, led by `**The <name> session**`
   and naming its branches and pull requests; the canvas uses it to say which session a pull request is from, after a
   signature line (`— milestone session`) on the item itself.
-- "Waiting for <Owner>" and "Decisions open for <Owner>" list what the owner must do or decide; a section that starts
-  "Nothing" is empty.
 - "The release gate" (a heading containing "release gate") and the queue (a heading containing "queue") are shown under
   the next release.
 
@@ -170,12 +163,7 @@ Rules:
 - Decisions are the vocabulary: steps, STATUS rows and order items cite them (`D387`), and the canvas shows each cited
   decision's text on hover.
 
-### 1.4 docs/decisions-pending.md (optional)
-
-A table with columns `#`, `Milestone`, `Question`, `Default chosen`, `Why`, `Status`; rows whose Status starts with
-`pending` are open, unless it says superseded.
-
-### 1.5 Tags and releases
+### 1.4 Tags and releases
 
 Every released step has a git tag `<step>-done` (the suffix is configurable) on the commit that shipped it; that
 commit's date is the release date. A tag no section cites is a released card of its own.
@@ -183,7 +171,7 @@ commit's date is the release date. A tag no section cites is a released card of 
 ## 2. Labels and the Coordination issue
 
 - `needs-kyler` (in `CONFIG.labels`): everything waiting on the owner carries it, a pull request or a small issue with the
-  question in a few lines. Its latest comment is shown, so a report or question goes in a comment (or the issue's text),
+  question in a few lines, a default chosen without the owner included; it is the only thing the first view lists. Its latest comment is shown, so a report or question goes in a comment (or the issue's text),
   short, ending with a signature line naming the session.
 - `approved` and `hold` group the open pull requests; branches starting `investigation/` are investigations.
 - The open issue titled "Coordination" (`CONFIG.coordinationTitle`, found by title) holds the messages between sessions;

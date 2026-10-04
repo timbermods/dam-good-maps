@@ -24,11 +24,6 @@ Latest: `m1-done` (<date>). Every released step's tag: `git tag -l '*-done'`.
 
 1. <what comes next, in order>.
 
-## Waiting for <Owner>
-
-1. **<Thing>:** <what the owner must do or decide>.
-2. **Defaults to overrule:** `docs/decisions-pending.md`.
-
 ## The release gate (D8)
 
 <What must be true before the next release, and what of it is done.>
