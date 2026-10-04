@@ -12,7 +12,8 @@
 
 import type { EditOp } from "../../../src/core/doc/ops";
 import type { MapSession } from "../../../src/core/doc/session";
-import { carryStartOps, cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, startCentre, type PlannedEdit } from "../../../src/core/doc/tools";
+import { carryStartOps, cornerFor, deleteEdit, landformTop, moveEdit, objectsOnNewGround, planContextOf, planLake, planLandform, planPiece, planRiver, replacePatch, type PlannedEdit } from "../../../src/core/doc/tools";
+import { startMiddleTile } from "../../../src/core/format/footprints";
 import { applyBrush, BRUSH_MAX_LEVEL, BRUSH_TOOLS, MAX_DABS, type BrushParams, type BrushTool } from "../../../src/core/features/raster/brush";
 import { polygonMask } from "../../../src/core/features/geometry";
 import { fmix32 } from "../../../src/core/math/hash";
@@ -1551,7 +1552,7 @@ function expandMoveStart(s: MapSession, conv: Conversation, step: Extract<Step, 
   let resolved: Record<string, unknown> = {};
   const orientation = step.facing ? ({ south: "Cw0", west: "Cw90", north: "Cw180", east: "Cw270" } as const)[step.facing] : undefined;
   const e0 = s.built.entities.find((g) => g.template === "StartingLocation");
-  const here: [number, number] | null = feat ? [feat.params.position[0], feat.params.position[1]] : e0 ? startCentre(e0.x, e0.y, e0.orientation) : null;
+  const here: [number, number] | null = feat ? [feat.params.position[0], feat.params.position[1]] : e0 ? startMiddleTile({ x: e0.x, y: e0.y, orientation: e0.orientation }) : null;
   if (step.to === undefined) {
     if (!here) return fail(step, ["this map has no start to turn"]);
     to = here;

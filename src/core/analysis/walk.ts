@@ -254,3 +254,31 @@ export function startWaterShore(
   }
   return { distance, tile, puddle: puddle < distance ? puddle : Infinity };
 }
+
+/** The water rule before Kyler's amendment of 2026-09-25 (D153): the walk on the start's own level
+ *  (`flat`, `walkDistance` without links) to the nearest shore tile on that level (`level`) that
+ *  touches a tile of `water`. No check uses it; the landscapes survey and Pick a place
+ *  (investigation/landscapes/lib/convert.ts, investigation/pickplace/convert.ts) still place
+ *  real-place starts with it. */
+export function shoreDistance(flat: Float64Array, h: ArrayLike<number>, W: number, H: number, water: Uint8Array, level: number): { distance: number; tile: number } {
+  let best = Infinity;
+  let tile = -1;
+  for (let i = 0; i < W * H; i++) {
+    if (!water[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let k = 0; k < 4; k++) {
+      let n: number;
+      if (k === 0) n = x > 0 ? i - 1 : -1;
+      else if (k === 1) n = x + 1 < W ? i + 1 : -1;
+      else if (k === 2) n = y > 0 ? i - W : -1;
+      else n = y + 1 < H ? i + W : -1;
+      if (n < 0 || h[n] !== level) continue;
+      if (flat[n] < best) {
+        best = flat[n];
+        tile = i;
+      }
+    }
+  }
+  return { distance: best, tile };
+}

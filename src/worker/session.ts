@@ -1127,7 +1127,6 @@ function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
   return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
 }
 
-/** The middle of the map's start, from its feature or its StartingLocation. */
 /** Whether a failing check was already failing, over the same things, when the map was opened. */
 function existedBefore(c: CheckResult, before: Validation): boolean {
   const o = before.report.checks.find((x) => x.id === c.id);
