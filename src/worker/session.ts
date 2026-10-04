@@ -2149,14 +2149,27 @@ export function flowForceWater(ticks: number): Float64Array | null {
   return w.sim.D.slice();
 }
 
+/** How fast a force's own water flows: substeps a second (two game minutes a second), whatever the map's
+ *  size or the machine, so a carve's breakthrough drains its sheet at a pace the eye follows rather than at
+ *  once (#247). A machine that can't keep up flows as fast as it can, never catching up in a burst. */
+const FORCE_WATER_PACE = 400;
+
 async function runForceWater(token: number): Promise<void> {
   let last = 0;
+  let owed = 0;
+  let at = performance.now();
   for (;;) {
     const w = forceWater;
     if (!w || token !== forceWaterToken || force !== w.force || w.force.session !== session) return;
+    const now = performance.now();
+    // (at most a tenth of a second's water owed: a stall is never made up at once)
+    owed = Math.min(owed + ((now - at) / 1000) * FORCE_WATER_PACE, FORCE_WATER_PACE / 10);
+    at = now;
     if (forceWaterFlows(w)) {
-      const t0 = performance.now();
-      while (performance.now() - t0 < WATER_SLICE_MS) w.sim.run(2);
+      while (owed >= 2 && performance.now() - now < WATER_SLICE_MS) {
+        w.sim.run(2);
+        owed -= 2;
+      }
       if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
         last = performance.now();
         const D = w.sim.D;
@@ -2167,8 +2180,9 @@ async function runForceWater(token: number): Promise<void> {
           listener({ kind: "water", version, water: waterOf(w.force.session, { depth: D, contamination: w.sim.C, out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
         }
       }
-    }
-    await breathe();
+    } else owed = 0;
+    // (ahead of the pace: wait a few milliseconds rather than spin)
+    await (owed < 2 ? new Promise<void>((r) => setTimeout(r, 4)) : breathe());
   }
 }
 
