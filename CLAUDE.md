@@ -61,7 +61,8 @@ maps the documents.
 - **Everything that needs Kyler carries `needs-kyler`,** so one GitHub list shows it all: the PR if there is one; otherwise a
   small issue with the question in a few lines, closed once he has answered. Codex PRs ready for his verdict get it too.
 - **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.
-- **Pings** only when Kyler's attention is needed, never for progress: `tools/notify.ps1` (toast, and his phone).
+- **Pings** only when Kyler's attention is needed, never for progress: the `needs-kyler` label pings his phone from GitHub;
+  `tools/notify.ps1` adds a toast on this machine.
 - A decision gets a number only when it's a rule that constrains future work. Full version: `docs/HANDOFF.md`.
 
 ## Standing rules
