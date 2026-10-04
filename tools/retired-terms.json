@@ -1,5 +1,5 @@
 {
-  "about": "Names of retired features (Kyler, PLAN.md §20 D188 (3); docs/README.md, 'Retired terms'). tests/unit/retired-terms.test.ts, in CI's quick suite, fails when one reappears in a living document, the interface text or the editor code. Matching ignores case, ** and backticks, hyphens and underscores, and line breaks, splits camelCase, and takes simple plurals (tool, tools; brush, brushes). Add a term when a feature is retired.",
+  "about": "Names of retired features (Kyler, D188 (3) in docs/decisions/how-we-work.md; docs/README.md, 'Retired terms'). tests/unit/retired-terms.test.ts, in CI's quick suite, fails when one reappears in a living document, the interface text or the editor code. Matching ignores case, ** and backticks, hyphens and underscores, and line breaks, splits camelCase, and takes simple plurals (tool, tools; brush, brushes). Add a term when a feature is retired.",
   "terms": [
     { "term": "landform tool", "retired": "D182", "instead": "the brushes: hills, plateaus, ridges and valleys come from painting" },
     { "term": "river tool", "retired": "D184", "instead": "smart Lower and the shelf's sources" },
@@ -116,8 +116,8 @@
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],
   "code": { "dirs": ["src"], "files": ["index.html"], "extensions": [".ts", ".tsx", ".css"] },
+  "decisionLog": { "dir": "docs/decisions", "index": "README.md", "why": "the decision log is history: its topic files may name retired features; the index is checked" },
   "allowedSections": [
-    { "file": "PLAN.md", "heading": "## 20. Editor decisions", "why": "the decision log is history" },
     { "file": "EDITOR_PLAN.md", "heading": "# Part 3: superseded", "why": "it names what must not come back" }
   ],
   "markers": {
