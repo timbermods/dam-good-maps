@@ -98,6 +98,8 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
     flags: [],
     ranges: [],
   },
+  rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
+  deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a deposit's size is 4 to 64 tiles, or null (it follows Power)" }] },
   glaciate: {
     name: "a glacier",
     choices: { mode: ["flow", "aim"] },
