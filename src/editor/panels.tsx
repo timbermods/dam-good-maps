@@ -30,7 +30,7 @@ export const LAYER_NAMES: Record<LayerKind, string> = {
 /** What the water layer on the map shows, in a line or two. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
   let text = "";
-  if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
+  if (kind === "badwater") text = "Badwater: dark brown · Contaminated soil: light brown";
   else if (kind === "roofed")
     text = layers.roofed.length
       ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`
@@ -51,23 +51,23 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
 export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
   const k = p.steps.reduce((best, f, j) => (Math.abs(f - p.value) < Math.abs(p.steps[best] - p.value) ? j : best), 0);
   return (
-    <>
-      <label class="slider-field" title="Blocks of water a second">
-        {p.label ?? "Strength"}
-        <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
-        <output>{p.value} water/s</output>
-      </label>
-      {p.value > OFFICIAL_FLOW ? <p class="note">Stronger than any official map.</p> : null}
-    </>
+    <label class="slider-field" title="Blocks of water a second">
+      <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-label={p.label ?? "Strength"} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
+      <output>{p.value} water/s</output>
+    </label>
   );
 }
+
+/** A strength past the official maps' strongest source. */
+export const STRONGER_WORDS = "Stronger than any official map";
+export const strongerThanOfficial = (v: number) => v > OFFICIAL_FLOW;
 
 /** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
  *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and
  *  not the row. Highlighted: it is the source being changed. */
-export function SourceReadout(p: { label: string; words: string }) {
+export function SourceReadout(p: { label: string; words: string; plain?: boolean }) {
   return (
-    <span class="source-readout" role="status" aria-label={p.label} data-source-readout>
+    <span class={`source-readout${p.plain ? " plain" : ""}`} role="status" aria-label={p.label} data-source-readout>
       <span class="source-readout-label">{p.label}</span> <output>{p.words}</output>
     </span>
   );
@@ -179,7 +179,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
     <ul>
       {items.map((c) => (
         <li key={c.id + c.message}>
-          {c.message[0].toUpperCase() + c.message.slice(1)} <code>{c.id}</code>
+          {c.message[0].toUpperCase() + c.message.slice(1)}
           {actions && c.fix?.length ? (
             <>
               {" "}

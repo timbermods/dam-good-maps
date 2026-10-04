@@ -12,6 +12,7 @@ import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
 import { BAD, LOWERS, MOVING, RAISES } from "../tools";
 import { tip } from "../../ui/Tooltip";
+import { CellRow, type Cell } from "../TopBar";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 
@@ -34,7 +35,7 @@ export function useSelect(ed: Ed): SelectSlice {
     api, info, mirror, renderer, ready, tool, setMessage, selecting, setSelecting, selectingRef, selection,
     setSelectionTick, selectionTick, setSelectDraw, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, feel, setShapeNote, infoRef, run, brushTool, brushRef, brushToolRef, pickTop, pickShelf, pointerAt,
-    notePointer, flashNote, coverAt, deleteOn, deleteGround
+    notePointer, flashNote, coverAt, deleteOn, deleteGround, shelf
   } = ed;
 
   // ------------------------------------------------------------------------------ the Select tool
@@ -110,29 +111,57 @@ export function useSelect(ed: Ed): SelectSlice {
       live = false;
     };
   }, [deleteMenu, selectionTick, info.version]);
-  // the Select tool takes the map's left button while it is open and no brush or force is out
+  // the Select tool takes the map's left button whenever nothing else is in hand (a press on a source, the start
+  // or an object still picks it up: the view asks those first)
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !selecting || brushTool || tool) return;
+    if (!r || !selecting || brushTool || tool || shelf) return;
     const t = selectTool(selection.current, selectHost());
+    // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
+    Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
+    // Select is the resting tool. A press on a source or the start is left to the pointer, as before Select was
+    // always in hand (a click picks a source, Ctrl+click adds one to a row; their drags move them); a drag that
+    // starts on an object marks an area, and a plain click picks the object (a drag then moves it). With a
+    // selection open, Select takes every press, as it always did.
+    const down = t.down.bind(t);
+    const up = t.up.bind(t);
+    let press: { x: number; y: number } | null = null;
+    t.down = (hit, ev) => {
+      if (hit && !selection.current.count && (ed.targetAt(hit.x, hit.y) || (ed.startHere && Math.max(Math.abs(hit.x - ed.startHere.x), Math.abs(hit.y - ed.startHere.y)) <= 1))) return false;
+      press = { x: ev.clientX, y: ev.clientY };
+      return down(hit, ev);
+    };
+    t.up = (hit, ev) => {
+      up(hit, ev);
+      const p = press;
+      press = null;
+      if (!p || Math.abs(ev.clientX - p.x) + Math.abs(ev.clientY - p.y) >= 4 || ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      // a plain click: on an object it picks it; on the land it does what the pointer's click does there
+      const g = hit ? ed.grabObjectRef.current(hit, true) : null;
+      if (g) {
+        g.down(hit, ev);
+        g.up(hit, ev);
+      } else r.onClick?.(hit, ev);
+    };
     r.tool = t;
     return () => {
       if (r.tool === t) r.tool = null;
       if (!brushToolRef.current) r.setBrushCursor(null);
     };
-  }, [selecting, brushTool, tool, ready]);
+  }, [selecting, brushTool, tool, shelf, ready]);
   /** Open the Select tool (its button, M): the brush or force out goes back, the selection stays. */
   function openSelect() {
     pickTop(null);
     pickShelf(null);
     setSelecting((m) => m ?? "rect");
   }
+  /** Esc, X: the selection goes; Select stays in hand. */
   function closeSelect() {
     setDeleteMenu(false);
     setSelectPreview(null);
     setFlattenTo(null);
     selection.current.clear();
-    setSelecting(null);
+    setSelecting((m) => m ?? "rect");
     setSelectDraw(null);
     setSelectionTick((n) => n + 1);
   }
@@ -331,8 +360,10 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   function selectRow() {
     if (!selecting && !selection.current.count) return null;
-    // (with a brush or a force out, only the chip)
-    if (brushTool || tool) return null;
+    // (with a brush, a force or an object out, only the chip; an object picked on the map shows no row above the bar:
+    // its settings are in its own window, Kyler's sitting, 2026-10-03)
+    if (brushTool || tool || shelf) return null;
+    if (!selection.current.count && (ed.picked || ed.pickedObject)) return null;
     void selectionTick;
     const z = selection.current.size();
     const level = Math.max(0, Math.min(BRUSH_MAX_LEVEL, flattenTo ?? selectLowest()));
@@ -345,50 +376,107 @@ export function useSelect(ed: Ed): SelectSlice {
       onBlur: () => setSelectPreview(null),
     });
     const choices = deleteMenu && z ? deleteChoices() : [];
-    return (
-      <div class="bar-group">
-        <span class="bar-status" role="status">
-          {z ? sizeWords(z) : "Select: drag on the map (Shift adds, Alt takes away)"}
-        </span>
-        <span class="segmented" role="group" aria-label="How to select">
+    // Layout 2 (Kyler, 2026-10-03): How to select on the tools' six cells, one shape per cell, icon above its name;
+    // on the forces' five, with no heading, what a drag does, Shift and Alt as key caps (or the selection's size).
+    // A selection's actions take the row above, one per cell. No close button: Esc or X closes it.
+    const keys = (
+      <span class="sel-keys">
+        <kbd class="cap">Shift</kbd> adds · <kbd class="cap">Alt</kbd> takes away
+      </span>
+    );
+    const shapes: Cell = {
+      key: "shapes",
+      at: 1,
+      span: 6,
+      label: "How to select",
+      node: (
+        <span class="segmented shapes" role="group" aria-label="How to select">
           {SELECT_MODES.map(([v, name, hint]) => (
             <button type="button" class="icon-button" key={v} aria-label={name} aria-pressed={(selecting ?? "rect") === v} title={`${name}: ${hint}`} onClick={() => setSelecting(v)}>
               <ModeIcon mode={v} />
+              <span class="icon-word">{name}</span>
             </button>
           ))}
           <button type="button" class="icon-button" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
             <WholeMapIcon />
+            <span class="icon-word">Whole map</span>
           </button>
         </span>
-        {z ? (
-          <>
+      ),
+    };
+    const status: Cell = {
+      key: "status",
+      at: 7,
+      span: 5,
+      centre: true,
+      node: (
+        <span class="bar-status sel-status">
+          <span class="sel-line" role="status">
+            {z ? sizeWords(z) : "Drag on the map"}
+          </span>
+          {keys}
+        </span>
+      ),
+    };
+    const button = (key: string, at: number, node: ComponentChildren, span = 1): Cell => ({ key, at, span, node });
+    const actions: Cell[] = z
+      ? [
+          button(
+            "up",
+            1,
             <button type="button" {...tip("Raise the selection one level", "Up")} {...way("raise")} onClick={() => selectAction("raise")}>
               Up 1
-            </button>
+            </button>,
+          ),
+          button(
+            "down",
+            2,
             <button type="button" {...tip("Lower the selection one level", "Down")} {...way("lower")} onClick={() => selectAction("lower")}>
               Down 1
-            </button>
-            <label {...tip("The level", "Ctrl+click", "Shift+scroll")}>
-              Level
+            </button>,
+          ),
+          {
+            key: "level",
+            at: 3,
+            span: 1,
+            label: "Level",
+            node: (
               <input
                 type="number"
                 aria-label="Level"
+                {...tip("The level", "Ctrl+click", "Shift+scroll")}
                 min={0}
                 max={BRUSH_MAX_LEVEL}
                 step={1}
                 value={level}
                 onInput={(e) => setFlattenTo(Math.max(0, Math.min(BRUSH_MAX_LEVEL, Math.round(Number((e.target as HTMLInputElement).value) || 0))))}
               />
-            </label>
+            ),
+          },
+          button(
+            "flatten",
+            4,
             <button type="button" title="Set the area to this level" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
               Flatten
-            </button>
+            </button>,
+          ),
+          button(
+            "cut",
+            5,
             <button type="button" title="Cut the ground above this level" {...way("cut")} onClick={() => selectAction("cut", level)}>
               Cut down
-            </button>
+            </button>,
+          ),
+          button(
+            "fill",
+            6,
             <button type="button" title="Fill the ground below this level" {...way("fill")} onClick={() => selectAction("fill", level)}>
               Fill up
-            </button>
+            </button>,
+          ),
+          button(
+            "delete",
+            7,
             <span class="menu-wrap">
               <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
@@ -423,27 +511,36 @@ export function useSelect(ed: Ed): SelectSlice {
                   )}
                 </ul>
               ) : null}
-            </span>
-            {deepest >= 1 ? (
-              <>
-                <label title="The deepest the water may be">
-                  water
-                  <input type="number" aria-label="Max water depth" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />
-                </label>
-                <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
-                  Max water depth
-                </button>
-              </>
-            ) : null}
-          </>
-        ) : null}
-        <button type="button" class="linkish" aria-label="Close the selection" {...tip("Close", "Esc", "X")} onClick={closeSelect}>
-          ×
-        </button>
+            </span>,
+          ),
+          ...(deepest >= 1
+            ? [
+                {
+                  key: "depth",
+                  at: 8,
+                  span: 1,
+                  label: "Water",
+                  node: <input type="number" aria-label="Max water depth" title="The deepest the water may be" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />,
+                },
+                button(
+                  "max-depth",
+                  9,
+                  <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
+                    Max water depth
+                  </button>,
+                  2,
+                ),
+              ]
+            : []),
+        ]
+      : [];
+    return (
+      <div class="cell-stack" role="group" aria-label="Selection">
+        <CellRow label="Shapes" cells={[shapes, status]} />
+        {actions.length ? <CellRow label="Actions" cells={actions} /> : null}
       </div>
     );
   }
-
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */
   function objectFootprints(): number[][] {
     const e = mirror.current.entities;

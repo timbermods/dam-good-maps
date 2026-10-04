@@ -25,6 +25,7 @@ import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
 import { readPng, writeGif, type Rgba } from "./gif";
 import { encodePng } from "./png";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -66,9 +67,7 @@ async function open(page: Page, base: string, fragment: string): Promise<void> {
   await page.evaluate(() => localStorage.setItem("dgm.forces", JSON.stringify({ glaciate: { benches: "some", steps: "some", tarn: true, scree: true } })));
   await page.goto("about:blank");
   await page.goto(`${base}${fragment}`);
-  await page.getByText(/All \d+ checks passed|checks? (to look at|failed)/).first().waitFor({ timeout: 400_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await waitForEditor(page, 400_000);
   await page.getByRole("button", { name: "No more hints" }).click({ timeout: 3000 }).catch(() => undefined);
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
   await page.evaluate("window.dgmEditor.idle()");

@@ -10,6 +10,7 @@
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -22,11 +23,8 @@ const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture())
 /** The start's middle, now. */
 const startAt = async (page: Page) => ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
-async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -60,12 +58,13 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
   const far = await page.evaluate(
     ([s0, s1]) => {
       const m = window.dgm3d!.renderer.mapState()!;
-      // (below the rows over the map, which grow with the force picked: a force's options and its More take
-      // more than the two rows and the first-run hints)
-      const below = (document.querySelector(".brush-bar-wrap")?.getBoundingClientRect().bottom ?? 200) + 110;
+      // (clear of the top row, and of the bar with its settings, which grow upward with the force picked: its More
+      // takes further rows, and the first-run hints sit above them)
+      const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
+      const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - (document.querySelector('.tool-settings [aria-label$=" details"]') ? 20 : 140);
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
-        return p.y > below && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+        return p.y > below && p.y < above && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       let best: [number, number] = [0, 0];
       let score = -Infinity;
@@ -92,7 +91,7 @@ async function settled(page: Page) {
 }
 
 test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
@@ -194,7 +193,7 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
   });
-  await refine(page);
+  await openTopDown(page);
   const { far } = await places(page);
   const onMap = (x: number, y: number) =>
     page.evaluate(([a, b]) => {
@@ -247,7 +246,7 @@ test("clicked quickly (D378): the next force plays in full from its first moment
 });
 
 test("Craterize's More (D309): closed by default, its details on Auto (select, segmented and toggle controls); a pin survives Try another", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("button", { name: "More" }).click();
@@ -274,7 +273,7 @@ test("Craterize's More (D309): closed by default, its details on Auto (select, s
 });
 
 test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mode); each one step; undo takes it back", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("0");
   const row = page.getByRole("group", { name: "Erupt options" });
   // its row: Power and Size, and a More button (its shape, summit, flows and ridges from the land and
@@ -315,7 +314,7 @@ test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mod
 });
 
 test("Erupt near the ceiling (D226): it completes under it; again on its summit it rises on the flank, with no preview on the land (D258)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("0");
   // (its summit is the land's and the seed's now, D289)
   const { far } = await places(page);
@@ -357,7 +356,7 @@ test("Erupt near the ceiling (D226): it completes under it; again on its summit 
 });
 
 test("Quake: a painted Lift follows the stroke and is kept when let go; V flips the side (X was its key before D323 item 16); a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
   // its row: its one choice, Lift or Slide, then Power (its line sets its length), and a More button
@@ -411,7 +410,7 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");
@@ -460,7 +459,7 @@ test("Craterize is click-only (D368 (7)): a drag draws no line and makes one cra
 
 test("the forces with reduced motion: the same land, no camera moving", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await refine(page);
+  await openTopDown(page);
   const { far } = await places(page);
   const view = () => page.evaluate(() => window.dgm3d!.renderer.getView());
   await page.keyboard.press("8");
@@ -489,7 +488,7 @@ test("the forces with reduced motion: the same land, no camera moving", async ({
 });
 
 test("the camera moves only when the player moves it (D265): no Follow anywhere, and a carve leaves the view where it was", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("button", { name: "Follow" })).toHaveCount(0);
   await page.keyboard.press("7");
   const row = page.getByRole("group", { name: "Carve options" });
@@ -512,7 +511,7 @@ test("the camera moves only when the player moves it (D265): no Follow anywhere,
 });
 
 test("a force keeps its own pace whatever the water's speed (D266)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("8");
   await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
@@ -539,7 +538,7 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
 
 // Kyler's forces sitting, part 1 (PLAN §20 D312)
 test("a force's size at the cursor (D312): a faint ring whose radius follows Power and Size, for every force with a Size; Quake only a small marker (D368 (2))", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const { far } = await places(page);
   const hover = async () => {
     const p = await client(page, far[0], far[1]);
@@ -584,7 +583,7 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
 });
 
 test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc drops it; let go, the river carves along it as one step", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("7");
   await page.getByRole("group", { name: "Carve options" }).getByRole("slider", { name: "Power" }).fill("40");
   const { far } = await places(page);
@@ -617,7 +616,7 @@ test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc dro
 });
 
 test("Erupt's terrain is final in about two seconds (D312); its effects may linger, the player acts at once", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("0");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
   const { far } = await places(page);

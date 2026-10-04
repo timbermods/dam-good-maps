@@ -3,9 +3,10 @@
 // by the worker, is the one painted, byte for byte; undo and redo show at once; Esc cancels a
 // stroke with no trace; Shift inverts; Ctrl+click takes the land's level as the target (D322); [ ]
 // size, and Shift+wheel the strength of Smooth and Naturalize (D196; the height brushes' target,
-// D322); the stroke is still there after a reload (the autosave).
+// D322); the stroke is still there after a reload (Your maps keeps it).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -35,10 +36,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const W = (await info(page)).W;
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
@@ -129,7 +127,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await page.keyboard.press("Escape");
   await expect(bar.getByRole("button", { name: "Smooth brush (4)" })).toHaveAttribute("aria-pressed", "false");
 
-  // the strokes are kept: a reload opens the map with them (the autosave)
+  // the strokes are kept: a reload opens the map with them (from Your maps)
   i = await info(page);
   const kept = await heights(page);
   await page.waitForTimeout(2500);
@@ -144,10 +142,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   // the 3D view, turned and tilted
   await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0.7, pitch: 0.8 }));
   const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
@@ -162,7 +157,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   expect(await view()).toBe(turned);
 
   // a fast drag across the map: down, two moves, up, with no waits between
-  const box = (await page.locator(".view3d canvas").boundingBox())!;
+  const box = (await page.locator(".view3d > canvas").boundingBox())!;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   let n = await count();
@@ -179,7 +174,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   n = await count();
   await page.evaluate(
     ([x, y]) => {
-      const c = document.querySelector(".view3d canvas")!;
+      const c = document.querySelector(".view3d > canvas")!;
       const ev = (type: string, px: number, buttons: number) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "mouse", isPrimary: true, clientX: px, clientY: y, button: 0, buttons });
       c.dispatchEvent(ev("pointerdown", x - 120, 1));
       c.dispatchEvent(ev("pointermove", x, 1));

@@ -126,12 +126,12 @@ describe("the ground's colours", () => {
     expect(lum(wallColor(16))).toBeGreaterThan(lum(wallColor(0)));
   });
 
-  it("the legend says what each colour means, for soil and for height colours", () => {
+  it("the legend names each colour, for soil and for height colours", () => {
     const soil = legendEntries("moisture").map((e) => e.label);
-    expect(soil).toEqual(["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead"]);
+    expect(soil).toEqual(["Moist ground", "Dry ground", "Contaminated ground", "Water", "Badwater", "Walls", "Dead trees"]);
     const height = legendEntries("height").map((e) => e.label);
-    expect(height[0]).toBe("Ground by height: low to high");
-    expect(height).not.toContain("Moist ground: plants grow");
+    expect(height[0]).toBe("Ground height");
+    expect(height).not.toContain("Moist ground");
     expect(legendEntries("moisture")[1].swatch).toContain(cssColor(GROUND.dry));
     expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(DEAD_TREE));
   });

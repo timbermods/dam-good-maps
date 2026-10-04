@@ -9,7 +9,7 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { waterFix, type WaterFix } from "../core/doc/waterFix";
-import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
+import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import {
@@ -266,6 +266,14 @@ export function setViews(views: SavedView[]): SessionInfo {
   const s = need();
   s.setViews(views);
   return sessionInfo(s);
+}
+
+/** Rename the map (D443): stored data set by the core, never an operation or an undo step; a blank name is
+ *  refused with the core's one-line reason. */
+export function setName(name: string): { result: NameResult; info: SessionInfo } {
+  const s = need();
+  const result = s.setName(name);
+  return { result, info: sessionInfo(s) };
 }
 
 // ------------------------------------------------------------------------------------ the view

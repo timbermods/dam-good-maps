@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Layout 2 mockups</title>
+<style>
+  :root { --bg: #f4f6f3; --ink: #1a211a; --muted: #5a665c; --rule: #d3dad2; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1a211a; --ink: #e8efe6; --muted: #9fac9f; --rule: #34433a; } }
+  :root[data-theme="dark"] { --bg: #1a211a; --ink: #e8efe6; --muted: #9fac9f; --rule: #34433a; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 1800px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: var(--muted); max-width: 70ch; }
+  h3 { font-size: 0.95rem; margin: 18px 0 8px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 10px; padding-top: 12px; border-top: 1px solid var(--rule); }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  figure { margin: 0; }
+  figure a { display: block; }
+  img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; }
+  figcaption { margin-top: 6px; font-size: 0.85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Layout 2: round 8 and the build</h1>
+  <p class="lede">River Valley 4242 at 128×128, the High look, at 1920×1080 and 2560×1440: the design to build. The Map Generator button opens the 352px map generation panel. On the map: the Show toggles as checkbox rows at the top left, Legend last, its full legend under them when ticked; the water controls in one row at the top middle; the camera group, the height slice, Slow forces and the sound at the top right; the objects as a menu at the bottom right, always shown, one per row with no headings; the minimap, the coordinates and the readout at the bottom left; one bar at the bottom middle with the held tool's settings above it on the bar's cells. Click a picture for full size. What doesn't fit is listed in DESIGN.md, "Layout 2 mockups". <strong>Built (2026-10-03):</strong> each mockup now has the build beside it, the same map and state; the map's name is the one M9b gives it (Standing Stone), and the legend shows the objects with the objects menu's pictures at one row height. DESIGN.md, "Layout 2 as built", says what the mockups left open.</p>
+
+  <h2>The settings design pass (2026-10-03): two options, for Kyler to pick</h2>
+  <p class="lede">Every tool's settings above the bar: today, then option A (three rows, a fixed 176px) and option B (two rows, a fixed 120px), at the bar's exact width, the same height for every tool. One look per kind: a number is a slider with its value at the right of its name; a choice is one segmented look (toggles as Off and On); Auto is one small word in the same place on every control that has it; no dropdowns. More is gone: every force setting always shows. New controls: Smooth's and Naturalize's Strength, Quake's Side, and the area brush as the fourth Brush choice on Raise and Lower. Carve, the fullest tool (nine settings and Try another), sets both heights.</p>
+  <h3>Select</h3>
+  <div class="row">
+    <figure><a href="settings-select-1920x1080.jpg"><img src="settings-select-1920x1080.jpg" alt="Select's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-select-2560x1440.jpg"><img src="settings-select-2560x1440.jpg" alt="Select's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Select, with a selection</h3>
+  <div class="row">
+    <figure><a href="settings-selection-1920x1080.jpg"><img src="settings-selection-1920x1080.jpg" alt="Select, with a selection's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-selection-2560x1440.jpg"><img src="settings-selection-2560x1440.jpg" alt="Select, with a selection's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Raise</h3>
+  <div class="row">
+    <figure><a href="settings-raise-1920x1080.jpg"><img src="settings-raise-1920x1080.jpg" alt="Raise's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-raise-2560x1440.jpg"><img src="settings-raise-2560x1440.jpg" alt="Raise's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Lower</h3>
+  <div class="row">
+    <figure><a href="settings-lower-1920x1080.jpg"><img src="settings-lower-1920x1080.jpg" alt="Lower's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-lower-2560x1440.jpg"><img src="settings-lower-2560x1440.jpg" alt="Lower's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Flatten</h3>
+  <div class="row">
+    <figure><a href="settings-flatten-1920x1080.jpg"><img src="settings-flatten-1920x1080.jpg" alt="Flatten's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-flatten-2560x1440.jpg"><img src="settings-flatten-2560x1440.jpg" alt="Flatten's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Smooth</h3>
+  <div class="row">
+    <figure><a href="settings-smooth-1920x1080.jpg"><img src="settings-smooth-1920x1080.jpg" alt="Smooth's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-smooth-2560x1440.jpg"><img src="settings-smooth-2560x1440.jpg" alt="Smooth's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Naturalize</h3>
+  <div class="row">
+    <figure><a href="settings-naturalize-1920x1080.jpg"><img src="settings-naturalize-1920x1080.jpg" alt="Naturalize's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-naturalize-2560x1440.jpg"><img src="settings-naturalize-2560x1440.jpg" alt="Naturalize's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Carve</h3>
+  <div class="row">
+    <figure><a href="settings-carve-1920x1080.jpg"><img src="settings-carve-1920x1080.jpg" alt="Carve's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-carve-2560x1440.jpg"><img src="settings-carve-2560x1440.jpg" alt="Carve's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Craterize</h3>
+  <div class="row">
+    <figure><a href="settings-craterize-1920x1080.jpg"><img src="settings-craterize-1920x1080.jpg" alt="Craterize's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-craterize-2560x1440.jpg"><img src="settings-craterize-2560x1440.jpg" alt="Craterize's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Erupt</h3>
+  <div class="row">
+    <figure><a href="settings-erupt-1920x1080.jpg"><img src="settings-erupt-1920x1080.jpg" alt="Erupt's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-erupt-2560x1440.jpg"><img src="settings-erupt-2560x1440.jpg" alt="Erupt's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Quake</h3>
+  <div class="row">
+    <figure><a href="settings-quake-1920x1080.jpg"><img src="settings-quake-1920x1080.jpg" alt="Quake's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-quake-2560x1440.jpg"><img src="settings-quake-2560x1440.jpg" alt="Quake's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>Glaciate</h3>
+  <div class="row">
+    <figure><a href="settings-glaciate-1920x1080.jpg"><img src="settings-glaciate-1920x1080.jpg" alt="Glaciate's settings today, A and B at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: today, A, B</figcaption></figure>
+    <figure><a href="settings-glaciate-2560x1440.jpg"><img src="settings-glaciate-2560x1440.jpg" alt="Glaciate's settings today, A and B at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: today, A, B</figcaption></figure>
+  </div>
+  <h3>The object window's Turn, and the panel's fields showing their whole values</h3>
+  <div class="row">
+    <figure><a href="layout2-built-turn-1920x1080.jpg"><img src="layout2-built-turn-1920x1080.jpg" alt="turn at 1920x1080" loading="lazy"></a><figcaption>1920×1080: Turn</figcaption></figure>
+    <figure><a href="layout2-built-turn-2560x1440.jpg"><img src="layout2-built-turn-2560x1440.jpg" alt="turn at 2560x1440" loading="lazy"></a><figcaption>2560×1440: Turn</figcaption></figure>
+    <figure><a href="layout2-built-fields-1920x1080.jpg"><img src="layout2-built-fields-1920x1080.jpg" alt="fields at 1920x1080" loading="lazy"></a><figcaption>1920×1080: a ten-digit seed and a long name</figcaption></figure>
+    <figure><a href="layout2-built-fields-2560x1440.jpg"><img src="layout2-built-fields-2560x1440.jpg" alt="fields at 2560x1440" loading="lazy"></a><figcaption>2560×1440: a ten-digit seed and a long name</figcaption></figure>
+  </div>
+
+  <h2>Your maps' menu and the counts (2026-10-03)</h2>
+  <h3>The menu on a map in Your maps</h3>
+  <div class="row">
+    <figure><a href="layout2-built-mapmenu-1920x1080.jpg"><img src="layout2-built-mapmenu-1920x1080.jpg" alt="The menu on a map in Your maps at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-mapmenu-2560x1440.jpg"><img src="layout2-built-mapmenu-2560x1440.jpg" alt="The menu on a map in Your maps at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+  <h3>A map renamed in place</h3>
+  <div class="row">
+    <figure><a href="layout2-built-rename-1920x1080.jpg"><img src="layout2-built-rename-1920x1080.jpg" alt="A map renamed in place at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-rename-2560x1440.jpg"><img src="layout2-built-rename-2560x1440.jpg" alt="A map renamed in place at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+  <h3>The counts under On this map</h3>
+  <div class="row">
+    <figure><a href="layout2-built-counts-1920x1080.jpg"><img src="layout2-built-counts-1920x1080.jpg" alt="The counts under On this map at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-counts-2560x1440.jpg"><img src="layout2-built-counts-2560x1440.jpg" alt="The counts under On this map at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+
+  <h2>Kyler's four fixes (2026-10-03)</h2>
+  <h3>A map being made: the dialog and its Cancel</h3>
+  <div class="row">
+    <figure><a href="layout2-built-making-1920x1080.jpg"><img src="layout2-built-making-1920x1080.jpg" alt="A map being made: the dialog and its Cancel at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-making-2560x1440.jpg"><img src="layout2-built-making-2560x1440.jpg" alt="A map being made: the dialog and its Cancel at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+  <h3>A water source picked on the map: This source in one line</h3>
+  <div class="row">
+    <figure><a href="layout2-built-fixes-map-source-1920x1080.jpg"><img src="layout2-built-fixes-map-source-1920x1080.jpg" alt="A water source picked on the map: This source in one line at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-fixes-map-source-2560x1440.jpg"><img src="layout2-built-fixes-map-source-2560x1440.jpg" alt="A water source picked on the map: This source in one line at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+
+  <h2>After Kyler's sitting (2026-10-03): the object window and the bottom-left group</h2>
+  <h3>A water source picked from the list</h3>
+  <div class="row">
+    <figure><a href="layout2-built-sitting-1-list-source-1920x1080.jpg"><img src="layout2-built-sitting-1-list-source-1920x1080.jpg" alt="A water source picked from the list at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-sitting-1-list-source-2560x1440.jpg"><img src="layout2-built-sitting-1-list-source-2560x1440.jpg" alt="A water source picked from the list at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+  <h3>A water source picked on the map</h3>
+  <div class="row">
+    <figure><a href="layout2-built-sitting-2-map-source-1920x1080.jpg"><img src="layout2-built-sitting-2-map-source-1920x1080.jpg" alt="A water source picked on the map at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-sitting-2-map-source-2560x1440.jpg"><img src="layout2-built-sitting-2-map-source-2560x1440.jpg" alt="A water source picked on the map at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+  <h3>The Legend on, the bottom-left group under it</h3>
+  <div class="row">
+    <figure><a href="layout2-built-sitting-3-legend-1920x1080.jpg"><img src="layout2-built-sitting-3-legend-1920x1080.jpg" alt="The Legend on, the bottom-left group under it at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080</figcaption></figure>
+    <figure><a href="layout2-built-sitting-3-legend-2560x1440.jpg"><img src="layout2-built-sitting-3-legend-2560x1440.jpg" alt="The Legend on, the bottom-left group under it at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440</figcaption></figure>
+  </div>
+
+  <h2>1. The panel open, Select in hand</h2>
+  <div class="row">
+    <figure><a href="layout2-1-panel-open-select-1920x1080.jpg"><img src="layout2-1-panel-open-select-1920x1080.jpg" alt="The panel open, Select in hand at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: panel open: mockup</figcaption></figure>
+    <figure><a href="layout2-built-1-panel-open-select-1920x1080.jpg"><img src="layout2-built-1-panel-open-select-1920x1080.jpg" alt="The panel open, Select in hand, as built, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: as built</figcaption></figure>
+    <figure><a href="layout2-1-panel-open-select-2560x1440.jpg"><img src="layout2-1-panel-open-select-2560x1440.jpg" alt="The panel open, Select in hand at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: panel open: mockup</figcaption></figure>
+    <figure><a href="layout2-built-1-panel-open-select-2560x1440.jpg"><img src="layout2-built-1-panel-open-select-2560x1440.jpg" alt="The panel open, Select in hand, as built, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: as built</figcaption></figure>
+  </div>
+
+  <h2>2. Water source picked: its row lit</h2>
+  <div class="row">
+    <figure><a href="layout2-2-object-water-source-1920x1080.jpg"><img src="layout2-2-object-water-source-1920x1080.jpg" alt="Water source picked: its row lit at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: panel closed: mockup</figcaption></figure>
+    <figure><a href="layout2-built-2-object-water-source-1920x1080.jpg"><img src="layout2-built-2-object-water-source-1920x1080.jpg" alt="Water source picked: its row lit, as built, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: as built</figcaption></figure>
+    <figure><a href="layout2-2-object-water-source-2560x1440.jpg"><img src="layout2-2-object-water-source-2560x1440.jpg" alt="Water source picked: its row lit at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: panel closed: mockup</figcaption></figure>
+    <figure><a href="layout2-built-2-object-water-source-2560x1440.jpg"><img src="layout2-built-2-object-water-source-2560x1440.jpg" alt="Water source picked: its row lit, as built, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: as built</figcaption></figure>
+  </div>
+  <h2>3. Legend ticked: the full legend under the Show column</h2>
+  <div class="row">
+    <figure><a href="layout2-3-legend-1920x1080.jpg"><img src="layout2-3-legend-1920x1080.jpg" alt="Legend ticked at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: panel closed: mockup</figcaption></figure>
+    <figure><a href="layout2-built-3-legend-1920x1080.jpg"><img src="layout2-built-3-legend-1920x1080.jpg" alt="Legend ticked, as built, at 1920 by 1080" loading="lazy"></a><figcaption>1920×1080: as built</figcaption></figure>
+    <figure><a href="layout2-3-legend-2560x1440.jpg"><img src="layout2-3-legend-2560x1440.jpg" alt="Legend ticked at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: panel closed: mockup</figcaption></figure>
+    <figure><a href="layout2-built-3-legend-2560x1440.jpg"><img src="layout2-built-3-legend-2560x1440.jpg" alt="Legend ticked, as built, at 2560 by 1440" loading="lazy"></a><figcaption>2560×1440: as built</figcaption></figure>
+  </div>
+</main>
+</body>
+</html>

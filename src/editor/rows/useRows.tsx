@@ -3,8 +3,8 @@
 import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
-import { newId, sourceStrengths, sourceStrengthWords } from "../features";
-import { SourceReadout, StrengthSlider } from "../panels";
+import { newId, shortStrengthWords, sourceStrengths, sourceStrengthWords } from "../features";
+import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial } from "../panels";
 import type { ShelfOptions } from "../shelfItems";
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
@@ -13,14 +13,23 @@ import { GlaciateRow } from "../ForceRows";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
 import type { Verb } from "../../core/forces/op";
 import { FORCES } from "../TopBar";
+import type { ObjectPanel } from "../ObjectWindow";
+
+/** An object's four turns before it is placed (R steps through them): its facing on the map. */
+const TURNS: [number, string, string][] = [
+  [0, "0°", "Face it the first way"],
+  [1, "90°", "Turn it a quarter"],
+  [2, "180°", "Turn it half way round"],
+  [3, "270°", "Turn it three quarters"],
+];
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
 
 export interface RowsSlice {
   pickTile: (x: number, y: number) => void;
-  pickedRow: () => { label: string; content: ComponentChildren } | null;
-  shelfRow: () => { label: string; content: ComponentChildren } | null;
+  pickedRow: () => ObjectPanel | null;
+  shelfRow: () => ObjectPanel | null;
   forceRow: () => ComponentChildren;
 }
 
@@ -36,7 +45,7 @@ export function useRows(ed: Ed): RowsSlice {
   /** A source clicked (D196): it is picked, with its strength and its water in the row beneath the
    *  top bar. */
   function pickTile(x: number, y: number) {
-    void enqueue(() => api.entitiesAt(x, y)).then((list) => {
+    void ed.entitiesOn(x, y).then((list) => {
       const sources = list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
       setPicked(sources.length ? { x, y, list: sources } : null);
     });
@@ -87,31 +96,32 @@ export function useRows(ed: Ed): RowsSlice {
     const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
     return s ? sourceStrengthWords(s) : `${pickedStrength(e)} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
   }
-  /** The row beneath the top bar for a picked source: its strength, its water, Remove. */
-  function pickedRow(): { label: string; content: ComponentChildren } | null {
+  /** The object window's groups for a picked source or object (Layout 2, Kyler's sitting, 2026-10-03): a source's
+   *  strength, its water, Unleash and its Power, Remove; an object's Delete; each with Put it down. */
+  function pickedRow(): ObjectPanel | null {
     if (pickedObject && !picked) {
       const o = pickedObject;
       const name = o.template === "UndergroundRuins" ? "Mine site" : o.template.replace(/([a-z])([A-Z])/g, "$1 $2");
       return {
         label: `${name}, selected`,
-        content: (
-          <>
-            <span class="bar-status">Drag it to move it</span>
-            <button
-              type="button"
-              {...tip("Delete it", "Delete")}
-              onClick={() => {
-                setPickedObject(null);
-                void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
-              }}
-            >
-              Delete
-            </button>
-            <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPickedObject(null)}>
-              ×
-            </button>
-          </>
-        ),
+        onClose: () => setPickedObject(null),
+        groups: [
+          {
+            key: "delete",
+            node: (
+              <button
+                type="button"
+                {...tip("Delete it", "Delete")}
+                onClick={() => {
+                  setPickedObject(null);
+                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
+                }}
+              >
+                Delete
+              </button>
+            ),
+          },
+        ],
       };
     }
     const e = picked?.list[0];
@@ -119,62 +129,108 @@ export function useRows(ed: Ed): RowsSlice {
     const bad = e.template === "BadwaterSource";
     const steps = bad ? BADWATER_STRENGTHS : SOURCE_STRENGTHS;
     const strength = pickedStrength(e);
+    const again = info.forceAgain === "carve" && lastUnleash.current === e.id;
     return {
       label: `${bad ? "Badwater" : "Water"} source, selected`,
-      content: (
-        <>
-          <label {...tip("Water a second", "Ctrl+scroll over it")}>
-            Strength
-            <select aria-label="Strength" value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
+      onClose: () => setPicked(null),
+      groups: [
+        {
+          key: "strength",
+          label: "Strength",
+          node: (
+            <select aria-label="Strength" {...tip("Water a second", "Ctrl+scroll over it")} value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
               {[...new Set([...steps, strength])]
                 .sort((a, b) => a - b)
                 .map((v) => (
                   <option key={v} value={String(v)}>
-                    {v} water/s
+                    {Number(v.toFixed(2))} water/s
                   </option>
                 ))}
             </select>
-          </label>
-          <SourceReadout label="This source" words={pickedWords(e)} />
-          <label title="Clean water or badwater">
-            Water
-            <select aria-label="Water" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
+          ),
+        },
+        { key: "readout", label: "This source", node: <SourceReadout plain label="This source" words={shortStrengthWords(pickedWords(e))} /> },
+        {
+          key: "water",
+          label: "Water",
+          node: (
+            <select aria-label="Water" title="Clean water or badwater" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
               <option value="clean">Clean</option>
               <option value="bad">Badwater</option>
             </select>
-          </label>
-          <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
-            Remove
-          </button>
-          <span class="bar-divider" aria-hidden="true" />
-          <button
-            type="button"
-            class="unleash-button"
-            {...tip("Carve a river from it", "U")}
-            onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)}
-            onClick={() => unleash(e)}
-          >
-            Unleash
-          </button>
-          <label class="slider-field" title="How hard its river cuts">
-            Power
-            <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
-            <output>{powerWord(unleashPower)}</output>
-          </label>
-          {info.forceAgain === "carve" && lastUnleash.current === e.id ? (
-            <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
-              Try another
-            </button>
-          ) : null}
-          <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPicked(null)}>
-            ×
-          </button>
-        </>
-      ),
+          ),
+        },
+        {
+          key: "power",
+          label: "Power",
+          node: (
+            <label class="slider-field" title="How hard its river cuts">
+              <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
+              <output>{powerWord(unleashPower)}</output>
+            </label>
+          ),
+        },
+        {
+          key: "act",
+          node: (
+            <>
+              <button type="button" class="unleash-button" {...tip("Carve a river from it", "U")} onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)} onClick={() => unleash(e)}>
+                Unleash
+              </button>
+              <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
+                Remove
+              </button>
+            </>
+          ),
+        },
+        ...(again
+          ? [
+              {
+                key: "again",
+                node: (
+                  <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
+                    Try another
+                  </button>
+                ),
+              },
+            ]
+          : []),
+      ],
     };
   }
-  /** The row beneath the top bar for the shelf's object: its own options, if it has any. */
-  function shelfRow(): { label: string; content: ComponentChildren } | null {
+  /** The object window's groups for the object picked in the list: its own options, if it has any, and its Turn (R)
+   *  where it turns: every setting a key changes has its control. */
+  function shelfRow(): ObjectPanel | null {
+    const p = shelfOwn();
+    if (!shelf?.turns) return p;
+    const turnGroup = {
+      key: "turn",
+      label: "Turn",
+      node: (
+        <div class="segmented" role="group" aria-label="Turn">
+          {TURNS.map(([k, word, title]) => (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={ed.turn === k}
+              {...tip(title, "R")}
+              onClick={() => {
+                ed.turnRef.current = k;
+                ed.setTurn(k);
+                const at = ed.shelfTile.current;
+                if (at) ed.shelfHover(at[0], at[1]);
+              }}
+            >
+              {word}
+            </button>
+          ))}
+        </div>
+      ),
+    };
+    return { label: p?.label ?? `${shelf.name} options`, groups: [...(p?.groups ?? []), turnGroup] };
+  }
+  /** The object's own options in its window, if it has any. */
+  function shelfOwn(): ObjectPanel | null {
     if (!shelf) return null;
     if (shelf.source) {
       const bad = shelf.source === "bad";
@@ -183,43 +239,52 @@ export function useRows(ed: Ed): RowsSlice {
       // the strength of the next one (over a placed source, Ctrl+scroll sets its own, D322)
       return {
         label: `${shelf.name} options`,
-        content: (
-          <>
-            <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />
-            {pointedWords ? <SourceReadout label="Pointing at" words={pointedWords} /> : null}
-          </>
-        ),
+        groups: [
+          {
+            key: "next",
+            label: "Next source",
+            node: <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
+          },
+          ...(pointedWords ? [{ key: "pointing", label: "Pointing at", node: <SourceReadout plain label="Pointing at" words={shortStrengthWords(pointedWords)} /> }] : []),
+          ...(strongerThanOfficial(value) ? [{ key: "note", node: <span class="bar-status note">{STRONGER_WORDS}</span> }] : []),
+        ],
       };
     }
     if (shelf.id === "ruin")
       return {
         label: "Ruin options",
-        content: (
-          <label title="How tall the ruin is">
-            Height
-            <select aria-label="Height" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
-                <option key={k} value={String(k)}>
-                  {k} {k === 1 ? "level" : "levels"}
-                </option>
-              ))}
-            </select>
-          </label>
-        ),
+        groups: [
+          {
+            key: "height",
+            label: "Height",
+            node: (
+              <select aria-label="Height" title="How tall the ruin is" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
+                  <option key={k} value={String(k)}>
+                    {k} {k === 1 ? "level" : "levels"}
+                  </option>
+                ))}
+              </select>
+            ),
+          },
+        ],
       };
     if (shelf.id === "relic")
       return {
         label: "Relic options",
-        content: (
-          <label title="How big the relic is">
-            Size
-            <select aria-label="Size" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
-          </label>
-        ),
+        groups: [
+          {
+            key: "size",
+            label: "Size",
+            node: (
+              <select aria-label="Size" title="How big the relic is" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            ),
+          },
+        ],
       };
     return null;
   }

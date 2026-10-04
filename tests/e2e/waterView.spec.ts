@@ -1,5 +1,5 @@
 // Water is never an object, and the ways to see it (PLAN §20 D196, D197, D212): clicking water
-// picks nothing; the hover readout gives its depth, bed and badwater; T or Clear water make all of
+// picks nothing; the hover readout gives its depth, bed and badwater; T or See-through make all of
 // it see-through, and a brush over water clears the water round it (on dry land it stays as it
 // is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets a soft brush's strength; a source is
 // always findable (its marker with a source picked on the shelf, and the sources feeding the water
@@ -7,6 +7,7 @@
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -39,10 +40,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // the water, where three rivers join on most maps)
   // (seed 8 at 20% of its river on M9b's maps, D148: the water joins up, so past the
   // first third of seed 8 three source groups feed a spot; at 0.1 to 0.3 of its path, one does)
-  await page.goto("./#s=8&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=8&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const W = i.W;
@@ -68,8 +66,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("t");
   await expect.poll(() => clear(page)).toBe(true);
-  await expect(page.getByRole("button", { name: "Clear water" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Clear water" }).click();
+  await expect(page.getByRole("checkbox", { name: "See-through" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("checkbox", { name: "See-through" }).click();
   await expect.poll(() => clear(page)).toBe(false);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
   await page.mouse.move(mp.x + 2, mp.y);
@@ -112,15 +110,18 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.keyboard.up("Alt");
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
   await expect(widget.locator("output")).toHaveText("∞");
-  // the widget: a step down, one up, and back to the whole world; Esc never resets it
+  // the widget (Kyler, 2026-10-03: ▾ value ▴ only): the first step down from the whole world goes to the map's highest
+  // ground less one, as the game steps, then one lower, one up, and a click on the value is back to the whole world;
+  // Esc never resets it
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 2);
   await widget.getByRole("button", { name: "Raise the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
-  await widget.getByRole("button", { name: "Show every layer" }).click();
+  await widget.locator("output").click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 
   // a source picked on the shelf: every source shows its marker with its strength

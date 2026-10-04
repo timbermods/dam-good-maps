@@ -20,7 +20,7 @@ export function header(ed: Ed, props: EditorProps) {
       canRedo={info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
-      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
+      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}
@@ -29,8 +29,11 @@ export function header(ed: Ed, props: EditorProps) {
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       onHistory={() => setShowHistory(!showHistory)}
-      onBack={() => props.onBack(info)}
+      name={props.name}
+      onRename={props.onRename}
       onAnother={props.onAnother ? () => props.onAnother!(info) : undefined}
+      drawerOpen={props.drawerOpen}
+      onDrawer={() => props.onDrawer(!props.drawerOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
     />
   );

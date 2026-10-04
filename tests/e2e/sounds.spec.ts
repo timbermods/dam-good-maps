@@ -4,6 +4,7 @@
 // accent; a force's sounds stop at once on Esc.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,10 +18,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   page.on("request", (r) => {
     if (/\/sounds\/juice-2\//.test(r.url())) fetched.push(r.url());
   });
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.waitForTimeout(800);
   // (the editor open, nothing asked of it yet: no recording fetched)
   expect(fetched).toEqual([]);

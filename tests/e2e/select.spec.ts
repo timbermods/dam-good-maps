@@ -1,5 +1,5 @@
-// The Select tool and the working area (PLAN §20 D254, D259, D261, D264), through the page. Select
-// has its own button on the bar; its shapes are Rectangle, Circle, Freehand, Brush and Wand. A
+// The Select tool and the working area (PLAN §20 D254, D259, D261, D264), through the page. Select is
+// in hand whenever nothing else is (it has its own button on the bar); its shapes are Rectangle, Circle, Freehand, Brush and Wand. A
 // circle set to a level changes exactly its tiles, in one undo step; Ctrl+click takes a tile's level
 // as the target. While a selection is open it is the working area: a brush stroke changes nothing
 // outside it (and eases to its edge), with the Select row a chip beside the brush. The Wand takes a
@@ -9,6 +9,7 @@
 // water.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { centreOn, openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,11 +18,8 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selection());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page) {
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page) {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 }
@@ -31,9 +29,11 @@ async function dryAt(page: Page, room = 8): Promise<[number, number]> {
   return page.evaluate((r) => {
     const m = window.dgm3d!.renderer.mapState()!;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+    // (clear of the controls, with room above the bar's settings for a selection's actions row, which opens there)
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
-      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
     for (let y = r + 4; y < m.H - r - 4; y += 2)
       for (let x = r + 4; x < m.W - r - 4; x += 2) {
@@ -71,9 +71,9 @@ async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = fal
 }
 
 test("Select: its button and shapes; a circle set to a level changes exactly its tiles, one step; Ctrl+click takes a level; the working area keeps a stroke inside, with the row a chip", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  await bar.getByRole("button", { name: "Select (M)" }).click();
+  await expect(bar.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
   await expect(row).toBeVisible();
   // the marking modes are icons, each named, Whole map among them (D323 items 6 and 43, D345 B8)
@@ -150,23 +150,23 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
     const edge = [i - 1, i + 1, i - W, i + W].some((j) => !inCircle.has(j));
     if (edge) expect(Math.abs(h2[i] - h0[i]), `edge tile (${x}, ${y})`).toBeLessThanOrEqual(1);
   }
-  // Esc clears it, and the tools are free at once
+  // Esc clears it, and the tools are free at once (the brush stays out)
   await page.keyboard.press("Escape");
   await expect(page.locator(".select-chip")).toHaveCount(0);
   expect(await selection(page)).toEqual([]);
 });
 
 test("the Wand (D261): a river's visible water and no bank tile; land at its level; a Raise across it changes no bank; Flatten sets its bed", async ({ page }) => {
-  await refine(page);
-  await page.keyboard.press("m");
+  await openTopDown(page);
   const row = page.getByRole("group", { name: "Selection" });
   await row.getByRole("button", { name: "Wand" }).click();
-  // a river tile where the map takes the pointer
+  // a river tile where the map takes the pointer (with room above the bar for a selection's actions row)
   const r = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
-      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
     for (let y = 10; y < m.H - 10; y++) for (let x = 10; x < m.W - 10; x++) if (m.surface.depth[y * m.W + x] > 0.3 && onMap(x, y)) return [x, y] as [number, number];
     return null;
@@ -238,8 +238,7 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
 });
 
 test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothing at or below it changed; Fill up raises only the ground below", async ({ page }) => {
-  await refine(page);
-  await page.keyboard.press("m");
+  await openTopDown(page);
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");
@@ -268,7 +267,7 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
 });
 
 test("Delete sources (D315): removes only the water or badwater source in the selection, one undo step; its water drains after", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const sourceCount = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
@@ -305,8 +304,8 @@ test("Delete sources (D315): removes only the water or badwater source in the se
   expect(await waterNear(one.x, one.y)).toBeGreaterThan(0.01);
 
   // select a small box around it and Delete sources: only that source goes
-  await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
+  await centreOn(page, one.x, one.y);
   const a = await client(page, one.x - 3, one.y - 3);
   const b = await client(page, one.x + 3, one.y + 3);
   await page.mouse.move(a.x, a.y);
@@ -331,7 +330,7 @@ test("Delete sources (D315): removes only the water or badwater source in the se
 });
 
 test("Delete sources (D315, folded into the Delete menu by D323), the whole map (Ctrl+A): clears every source; undo restores them all", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const sourceCount = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
@@ -343,7 +342,6 @@ test("Delete sources (D315, folded into the Delete menu by D323), the whole map 
   const n0 = await sourceCount();
   expect(n0).toBeGreaterThan(0);
 
-  await page.keyboard.press("m");
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
   await deleteFrom(page, row, /^Water sources/);

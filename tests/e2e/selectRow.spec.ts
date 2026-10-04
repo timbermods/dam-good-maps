@@ -1,10 +1,11 @@
 // The Select row and the single-key shortcuts (PLAN §20 D323, feedback items 6, 16, 43, 1 and 44):
 // the marking modes as icons, Whole map, Raise and Lower one level a click (and Up and Down), a level
 // number starting at the selection's lowest with Flatten, Cut down and Fill up acting at once, no
-// Dig out, hover previews; Z undoes, C redoes, X closes the selection; Quake's side flips on V;
+// Dig out, hover previews; Z undoes, C redoes, X clears the selection; Quake's side flips on V;
 // Clear everything in the ⋯ menu; a map without a start says so and the save refuses.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, openFileMenu } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -13,11 +14,8 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selection());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page) {
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page) {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
 }
@@ -33,8 +31,8 @@ async function box(page: Page, from: [number, number], to: [number, number]) {
 }
 
 test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level starting at the lowest, no Dig out (items 6 and 43)", async ({ page }) => {
-  await refine(page);
-  await page.keyboard.press("m");
+  await openTopDown(page);
+  // (Select is in hand from the start)
   const row = page.getByRole("group", { name: "Selection" });
   // no old buttons
   await expect(row.getByRole("button", { name: "Dig out" })).toHaveCount(0);
@@ -46,7 +44,6 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   const h0 = await heights(page);
   await page.keyboard.press("Escape");
   // a small box: the level number starts at its lowest ground
-  await page.keyboard.press("m");
   const c: [number, number] = [40, 40];
   await box(page, [c[0] - 3, c[1] - 3], [c[0] + 3, c[1] + 3]);
   const W = 96;
@@ -96,16 +93,17 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await row.getByRole("button", { name: "Up 1" }).hover();
   const hovered = await page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
   expect(hovered).toBeGreaterThan(before);
-  // X closes the selection, as Esc does
+  // X clears the selection, as Esc does, and Select stays in hand
   await page.mouse.move(5, 5);
   await page.keyboard.press("x");
-  await expect(row).toHaveCount(0);
+  await expect.poll(() => selection(page)).toEqual([]);
+  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
   expect(await selection(page)).toEqual([]);
   void W;
 });
 
 test("Clear everything, a map without a start, and Z and C (items 44 and 16)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const objects = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
@@ -116,8 +114,7 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
   const h0 = await heights(page);
   const n0 = (await labels(page)).length;
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Clear everything" }).click();
+  await (await openFileMenu(page)).getByRole("menuitem", { name: "Clear everything" }).click();
   await idle(page);
   await expect.poll(async () => (await labels(page)).length).toBe(n0 + 1);
   expect((await labels(page)).at(-1)).toBe("Clear everything");
@@ -152,17 +149,24 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
 });
 
-test("four rows, top to bottom: the view bar, the tools, the forces, then the active tool's settings (item 9, structure only; the forces in their clusters by prominence, D352)", async ({ page }) => {
-  await refine(page);
+test("one bar at the bottom: Select, the five brushes, a hairline, the forces in their clusters' order (D352), and the held tool's settings directly above it (Layout 2, structure only)", async ({ page }) => {
+  await openTopDown(page);
   await page.keyboard.press("1");
-  const y = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!.y;
-  const view = page.getByRole("button", { name: "Top-down" });
+  const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
-  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Select"]);
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
   expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  const ys = [await y(view), await y(tools), await y(forces), await y(options)];
-  expect(ys).toEqual([...ys].sort((a, b) => a - b));
-  expect(new Set(ys).size).toBe(4);
+  // the hairline between the tools and the forces
+  const naturalize = await box(tools.getByRole("button", { name: /^Naturalize/ }));
+  const carve = await box(tools.getByRole("button", { name: /^Carve/ }));
+  const sep = await box(page.locator(".tool-bar .tool-sep"));
+  expect(sep.x).toBeGreaterThan(naturalize.x + naturalize.width);
+  expect(sep.x + sep.width).toBeLessThan(carve.x);
+  // the settings above the bar, the camera's controls above them all
+  const bar = await box(tools);
+  const row = await box(options);
+  expect(row.y + row.height).toBeLessThanOrEqual(bar.y);
+  expect((await box(page.getByRole("button", { name: "Top-down" }))).y).toBeLessThan(row.y);
 });

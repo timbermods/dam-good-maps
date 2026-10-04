@@ -7,6 +7,7 @@
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -20,11 +21,8 @@ const note = (page: Page) => page.locator(".shape-note");
     when it timed out between them (it lasts about a second), and hang the poll that asked. */
 const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
-async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -75,12 +73,12 @@ async function spot(page: Page): Promise<[number, number]> {
 }
 
 test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   const size = row.locator(".size-control output");
-  const power = row.locator(".slider-field").filter({ hasText: "Power" }).locator("output");
+  const power = row.locator('label.slider-field:has(input[aria-label="Power"])').locator("output");
   // numbers: Power's, and Size's on Auto as "Auto (n)"
   await expect(power).toHaveText(/^\d+$/);
   await expect(size).toHaveText(/^Auto \(\d+\)$/);
@@ -132,7 +130,7 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await page.keyboard.press("7");
   const carve = page.getByRole("group", { name: "Carve options" });
   await expect(carve.locator(".size-control output")).toHaveText(/^Auto \([\d.]+\)$/);
-  await expect(carve.locator(".slider-field").filter({ hasText: "Power" }).locator("output")).toHaveText(/^\d+$/);
+  await expect(carve.locator('label.slider-field:has(input[aria-label="Power"])').locator("output")).toHaveText(/^\d+$/);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
@@ -145,7 +143,7 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
 });
 
 test("A3, A4: every drawn gesture is a band of its width along the line with no ring, and Esc while it is drawn cancels it, nothing starting; a painted Lift goes back at once", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
@@ -215,7 +213,7 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
 });
 
 test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const before = await heights(page);
   await page.keyboard.press("9");
@@ -265,7 +263,7 @@ test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it hig
 
 test("D368 (1): one key habit for every tool: F with the mouse and { } set Size; [ ] set Power on every force, strength on Smooth and Naturalize, and nothing on Raise, Lower and Flatten", async ({ page }) => {
   test.setTimeout(240_000);
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   const far = await client(page, at[0] + 7, at[1]);
@@ -379,7 +377,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
 
 test("D368 (11): F held and the wheel set the strength: Power on every force, strength on Smooth and Naturalize, nothing on Raise, Lower and Flatten; the number beside the pointer; plain scroll still zooms", async ({ page }) => {
   test.setTimeout(240_000);
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });

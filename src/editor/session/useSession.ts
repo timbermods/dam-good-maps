@@ -136,8 +136,6 @@ export interface SessionSlice {
   dotOpen: boolean;
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
   setSaving: Dispatch<StateUpdater<{ kind: "timberborn" | "download"; progress: CheckProgress | null } | null>>;
-  noticesOpen: boolean;
-  setNoticesOpen: Dispatch<StateUpdater<boolean>>;
   viewTick: number;
   setViewTick: Dispatch<StateUpdater<number>>;
   setFit: Dispatch<StateUpdater<{ tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null>>;
@@ -229,7 +227,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** The layer the world is cut at (Alt+scroll, Alt+click), or null. */
   const [sliceLevel, setSliceLevel] = useState<number | null>(null);
   /** The Select tool (D184): open with M or a Ctrl+drag; its way of picking tiles. */
-  const [selecting, setSelecting] = useState<SelectMode | null>(null);
+  // Select is always in hand (Kyler's choice at the v4 verdict): held when a map opens, and whatever is put down
+  // returns to it
+  const [selecting, setSelecting] = useState<SelectMode | null>("rect");
   const selectingRef = useRef(selecting);
   selectingRef.current = selecting;
   const selection = useRef(new Selection(info.W, info.H));
@@ -310,11 +310,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** The quiet dot's list is open; a save in progress (D184). */
   const [dotOpen, setDotOpen] = useState(false);
   const [saving, setSaving] = useState<{ kind: "timberborn" | "download"; progress: CheckProgress | null } | null>(null);
-  const [noticesOpen, setNoticesOpen] = useState(true);
-  // (the quiet line opens again when the last badwater spring goes, D213)
-  useEffect(() => {
-    if (info.badwaterRemoved) setNoticesOpen(true);
-  }, [info.badwaterRemoved]);
   const [viewTick, setViewTick] = useState(0);
   // the footprint under the pointer (an object from the shelf) and the source clicked (D196)
   const [fit, setFit] = useState<{ tiles: number[]; problem: string | null; level?: number; status?: StartStatus | "pending" } | null>(null);
@@ -534,8 +529,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, setWeather, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
-    firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving, noticesOpen,
-    setNoticesOpen, viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
+    firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
+    viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
     optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, applyUpdate, applyView
   };

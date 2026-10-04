@@ -7,6 +7,7 @@
 // varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -19,11 +20,8 @@ const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture())
 const view = (page: Page) => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -54,7 +52,7 @@ async function settled(page: Page) {
 }
 
 test("Glaciate's row is Power, Size, Meltwater, Try another and More (D289, D309); its details closed by default", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await expect(page.getByRole("button", { name: /^Glaciate/ })).toBeVisible();
   await page.keyboard.press("-");
   const row = page.getByRole("group", { name: "Glaciate options" });
@@ -80,7 +78,7 @@ test("Glaciate's row is Power, Size, Meltwater, Try another and More (D289, D309
 });
 
 test("Glaciate's More (D309): its benches, steps, tarn and scree, each on Auto; after a run each shows what it drew; a pin survives Try another", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("-");
   const row = page.getByRole("group", { name: "Glaciate options" });
   await row.getByRole("button", { name: "More" }).click();
@@ -112,7 +110,7 @@ test("Glaciate's More (D309): its benches, steps, tarn and scree, each on Auto; 
 });
 
 test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Ctrl+Z takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("-");
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
@@ -169,7 +167,7 @@ test("a click Flows at once, the camera still (D265); kept as one step exactly a
 });
 
 test("a drag draws its path (D321, item 41): only the line drawn, no route or footprint on the land; let go, it grinds along it (D258)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("-");
   const at = await high(page);
   const dx = at[0] < 48 ? 1 : -1;
@@ -192,7 +190,7 @@ test("a drag draws its path (D321, item 41): only the line drawn, no route or fo
 });
 
 test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D321's item 29)", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("-");
   const at = await high(page);
   const timed = async (speed: string) => {
@@ -221,7 +219,7 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
 });
 
 test("Glaciate's size at the cursor (D312): a faint ring of its width, its Size alone (D368 (3): Power is how deep, never how wide); no route or outline", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   await page.keyboard.press("-");
   const row = page.getByRole("group", { name: "Glaciate options" });
   const at = await high(page);

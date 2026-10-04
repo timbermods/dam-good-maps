@@ -10,6 +10,7 @@
 // size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -39,6 +40,12 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
     ([s0, s1, rr, avoid]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const w = m.W;
+      // (where the map shows, clear of the controls over it, with room above the bar for a tool's settings)
+      const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
+      const shows = (x: number, y: number) => {
+        const p = window.dgmEditor!.tileToClient(x, y);
+        return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+      };
       for (let y = rr + 2; y < m.H - rr - 2; y++)
         for (let x = rr + 2; x < w - rr - 2; x++) {
           if (Math.hypot(x - s0, y - s1) < 16 || avoid.some(([ax, ay]) => Math.hypot(x - ax, y - ay) < 2 * rr + 4)) continue;
@@ -47,7 +54,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
           let ok = true;
           for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr && ok; dx++) if (m.heights[(y + dy) * w + x + dx] !== h0 || m.surface.depth[(y + dy) * w + x + dx] > 0) ok = false;
           for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= rr + 2 && Math.abs(m.entities.y[k] - y) <= rr + 2) ok = false;
-          if (ok) return [x, y] as [number, number];
+          if (ok && [[0, 0], [-rr - 2, -rr - 2], [rr + 2, -rr - 2], [-rr - 2, rr + 2], [rr + 2, rr + 2]].every(([dx, dy]) => shows(x + dx, y + dy))) return [x, y] as [number, number];
         }
       return null;
     },
@@ -55,7 +62,7 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
   );
 }
 
-test("the top bar and the brush kit: options, the target level, straight lines, terraces, Smooth with no walkable option, Level lines in the view bar, Select", async ({ page }) => {
+test("the bar and the brush kit: options, the target level, straight lines, terraces, Smooth with no walkable option, Lines in the Show column, Select", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -66,24 +73,21 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   // only two, and 0.7.0's 4242 for none. Seed 34 on M9b's maps: its two flat pits once filled with
   // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
   // stays)
-  await page.goto("./#s=34&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=34&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
-  // the top bar: the five brushes, Select and the forces (no Remove, D288), and a row with only the
-  // picked tool's options; the sources are on the shelf, first, then the start (D212, D226's order)
+  // the bar: Select, the five brushes and the forces (no Remove, D288), and above it only the held tool's
+  // settings; the objects menu in Layout 2's order: the start, then the sources (Kyler, 2026-10-03)
   const bar = page.getByRole("toolbar", { name: "Tools" });
   for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Select (M)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
   await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Water source (6)", "Badwater source", "Start", "Pine", "Birch", "Oak", "Berry bush", "Ruin"]);
+  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
-  // the forces, all five ready (D216, D219, D291), in their own row under the tools (D323, item 9)
+  // the forces, all five ready (D216, D219, D291), in the bar after the tools
   const forces = page.getByRole("group", { name: "Forces" });
   for (const name of ["Carve (7)", "Craterize (8)", "Quake (9)", "Erupt (0)", "Glaciate (-)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
   // F and R do nothing with no brush or object out: the old camera zoom on R and F is gone (D212;
@@ -118,12 +122,12 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await expect(lowerRow.getByLabel("In steps")).toHaveCount(0);
   await expect(lowerRow.getByLabel("Level lines")).toHaveCount(0);
 
-  // level lines: a view switch beside Height colours (D248), the same with a brush out or none
-  const view = page.getByRole("group", { name: "View" });
-  const levelLines = view.getByRole("button", { name: "Level lines" });
-  await expect(levelLines).toHaveAttribute("aria-pressed", "false");
-  const viewWords = (await view.getByRole("button").allTextContents()).map((t) => t.trim());
-  expect(viewWords.indexOf("Level lines")).toBe(viewWords.indexOf("Height colours") + 1);
+  // level lines: a view switch, Lines, right under Heights in the Show column (D248), the same with a brush out or none
+  const view = page.getByRole("group", { name: "Show" });
+  const levelLines = view.getByRole("checkbox", { name: "Lines" });
+  await expect(levelLines).toHaveAttribute("aria-checked", "false");
+  const viewWords = (await view.getByRole("checkbox").allTextContents()).map((t) => t.trim());
+  expect(viewWords.indexOf("Lines")).toBe(viewWords.indexOf("Heights") + 1);
   await levelLines.click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(true);
   // the brush put away: level lines stay
@@ -354,14 +358,15 @@ test("the top bar and the brush kit: options, the target level, straight lines, 
   await idle(page);
   expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
   await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);
-  // Shift adds, and Esc closes it
+  // Shift adds, and Esc clears it (Select stays in hand)
   await page.keyboard.down("Shift");
   const q2 = await client(page, c0[0] + 3, c0[1]);
   await page.mouse.click(q2.x, q2.y);
   await page.keyboard.up("Shift");
   await expect(sel.getByRole("status")).toHaveText("7 × 5 tiles (31)");
   await page.keyboard.press("Escape");
-  await expect(sel).toHaveCount(0);
+  expect(await page.evaluate(() => window.dgmEditor!.selection())).toEqual([]);
+  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
 
   // Ctrl+drag with a brush out selects too: the brush stays out, and the Select row is a chip
   // beside it (D259: one row at a time)
