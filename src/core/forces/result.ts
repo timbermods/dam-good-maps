@@ -1,5 +1,5 @@
 // What a force left, as the document keeps it (op.ts `forceResult`): the literal difference between
-// the map it started from and the map it made. The four forces share this; a carve adds its source and
+// the map it started from and the map it made. The five forces share this; a carve adds its source and
 // its sealed lake (carve/result.ts).
 
 import * as portable from "../math/portable";

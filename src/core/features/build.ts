@@ -259,6 +259,9 @@ export function toMapObject(e: EntitySpec): MapObject {
   return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, components: { ...(e.before ?? {}), ...e.components } };
 }
 
+/** The water model of a map's ground and objects (a force's map, the build's base). */
+export const modelOf = (m: { W: number; H: number; heights: Uint8Array; entities: readonly EntitySpec[] }): WaterModel => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
+
 // ----------------------------------------------------------------------------------------- caches
 
 interface TerrainCache {
@@ -1276,7 +1279,7 @@ const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string 
 function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel; emitters: string } {
   let bm = baseModels.get(base);
   if (!bm) {
-    const m = waterModel(W, H, base.heights, base.entities.map(toMapObject));
+    const m = modelOf({ W, H, heights: base.heights, entities: base.entities });
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }

@@ -52,6 +52,12 @@ export interface WarmState {
   water: CanonicalWater;
 }
 
+/** The water a sim holds now, on `model`, as a state a later settle warm-starts from (the preview's
+ *  as it stands, a force's as it shows): not settled, its outflows kept. */
+export function warmState(model: WaterModel, sim: WaterSim): WarmState {
+  return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+}
+
 /** The tiles whose water the edit may have changed: their floor or dam, their emitters, and
  *  WARM_MARGIN tiles round them (a mask), or null when the models differ in size. */
 export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
@@ -344,7 +350,7 @@ export class PreviewJob {
   /** The water as it stands now: a newer edit warm-starts from it, so the water keeps flowing. */
   state(): WarmState {
     const sim = this.sim;
-    return { model: this.model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+    return warmState(this.model, sim);
   }
 }
 
