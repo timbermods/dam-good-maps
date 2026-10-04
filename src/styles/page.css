@@ -281,9 +281,8 @@
   z-index: 2;
   top: 10px;
   left: 10px;
-  /* (8px above the bottom-left group at its tallest: the minimap, 168px, the readout and the coordinates, 32px each,
-     one gap of 6px between each) */
-  bottom: calc(10px + 168px + 6px + 32px + 6px + 32px + 8px);
+  /* (8px above the minimap at its tallest, 168px; the coordinates and the readout sit beside it) */
+  bottom: calc(10px + 168px + 8px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -301,7 +300,8 @@
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
-  width: max-content;
+  /* one width with the legend and the key under it (Kyler, 2026-10-04: nothing reaches past the column) */
+  width: 190px;
   gap: 6px;
 }
 
@@ -345,25 +345,38 @@
   height: 12px;
 }
 
-/* an overlay's legend beside its row while it is on */
-.show-item > .overlay-legend,
-.show-item > .layer-legend {
-  position: absolute;
-  top: 0;
-  left: calc(100% + 6px);
-  bottom: auto;
-  width: max-content;
-  max-width: 420px;
-  z-index: 3;
+/* the column's key, under it at its width while Legend is off: Heights' ramp and an overlay's caption (with Legend
+   ticked, the caption heads the legend, which holds Heights' own line) */
+.show-key {
+  flex: none;
+  box-sizing: border-box;
+  width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 0.8rem;
 }
 
-.overlay-legend {
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--overlay);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--rule);
-  font-size: 0.85rem;
+.show-key .layer-legend,
+.legend-panel .key-caption .layer-legend {
+  position: static;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+.legend-panel .key-caption {
+  margin: 0 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .overlay-legend .ol-head {
@@ -371,7 +384,8 @@
 }
 
 .overlay-legend .ol-ramp {
-  width: 180px;
+  width: 100%;
+  box-sizing: border-box;
   height: 12px;
   border-radius: 3px;
   border: 1px solid var(--rule);
@@ -697,8 +711,14 @@
   bottom: 10px;
 }
 
+/* the coordinates over the readout, beside the minimap at its foot (Kyler, 2026-10-04), so they show with a panel open
+   or closed; the readout never reaches the bar (520px from the left at 1920×1080) */
 .editor-view .readout {
-  bottom: calc(10px + var(--minimap-h, 168px) + 6px);
+  left: calc(10px + 168px + 6px);
+  bottom: 10px;
+  max-width: 330px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   height: 32px;
   box-sizing: border-box;
   display: flex;
@@ -709,8 +729,8 @@
 
 .editor-view .coords {
   position: absolute;
-  left: 10px;
-  bottom: calc(10px + var(--minimap-h, 168px) + 6px + 32px + 6px);
+  left: calc(10px + 168px + 6px);
+  bottom: calc(10px + 32px + 6px);
   height: 32px;
   box-sizing: border-box;
   display: flex;
@@ -1289,14 +1309,15 @@
 
 /* ==== the map generator and Your maps over the map (Kyler's pick, A, the sheet, 2026-10-04) ==== */
 
-/* one 640px panel at the left, on the page's margin, over whatever is on the map while it is open; it starts 10px
+/* one 640px panel at the left, beside the Show column, over the map while it is open; it starts 10px
    under the top row (the water row reaches over a 640px panel at 1920×1080), ends 10px above the bar's settings (the
    bar reaches under it there too) and sits centred in the room between them; at 2560×1440 the room runs down to the
    bar itself. The room is an even number of pixels, so a centred panel of even height sits on whole pixels */
 .gen {
   position: absolute;
   z-index: 8;
-  left: 10px;
+  /* beside the Show column, one gap to its right: nothing hides when it opens (Kyler, 2026-10-04) */
+  left: calc(10px + 190px + 6px);
   top: calc(10px + 32px + 10px);
   bottom: calc(10px + 62px + 6px + 120px + 10px + 1px);
   height: fit-content;
@@ -1673,13 +1694,6 @@
   margin-left: -4px;
 }
 
-/* covered by an open panel: the Show column, the coordinates and the readout give way while it is open, so nothing
-   shows half under it (the minimap stays clear of it below) */
-.editor.drawer-open .show-stack,
-.editor.drawer-open .editor-view .coords,
-.editor.drawer-open .readout {
-  visibility: hidden;
-}
 
 /* the water row's Speed: its name, then its four speeds as one segmented choice */
 .editor-view .water-bar > .water-speed {
@@ -1711,4 +1725,13 @@
 /* (Your maps fills its panel even before its first map has joined) */
 .maps-panel .your-maps {
   min-height: 100%;
+}
+
+/* (the key's lines on whole pixels) */
+.show-key {
+  line-height: 16px;
+}
+
+.show-key .ol-head {
+  margin: 0 0 4px;
 }

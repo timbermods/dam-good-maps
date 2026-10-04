@@ -41,6 +41,8 @@ export interface View3DProps {
   class?: string;
   /** More view buttons beside the camera's (the editor's **Clear water**). */
   viewButtons?: ComponentChildren;
+  /** A water overlay's caption while it is on (the Show column's key, under the column). */
+  caption?: ComponentChildren;
   /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
    *  switches (Slow forces, Sound). */
   cornerLevel?: ComponentChildren;
@@ -422,23 +424,7 @@ export function View3D(props: View3DProps) {
   };
   const toggles = column ? (
     <>
-      <ShowRow
-        on={ground === "height"}
-        onToggle={toggleGround}
-        tip={tip("Colour the ground by height")}
-        legend={
-          range ? (
-            <div class="overlay-legend" role="note">
-              <p class="ol-head">Ground height</p>
-              <div class="ol-ramp" style={{ background: heightSwatch }} />
-              <div class="ol-ends">
-                <span>Low {range[0]}</span>
-                <span>High {range[1]}</span>
-              </div>
-            </div>
-          ) : null
-        }
-      >
+      <ShowRow on={ground === "height"} onToggle={toggleGround} tip={tip("Colour the ground by height")}>
         Heights
       </ShowRow>
       {props.besideHeight}
@@ -512,10 +498,28 @@ export function View3D(props: View3DProps) {
                 Legend
               </ShowRow>
             </div>
+            {/* the column's key, under it at its width (Kyler, 2026-10-04: nothing reaches past the column, so the map
+                generator opens beside it): the legend while Legend is ticked, an overlay's caption at its top (the
+                legend holds Heights' own line); or, with Legend off, the overlays' captions alone */}
             {legendOpen ? (
               <aside class="legend-panel in-column" id={legendId} aria-label="Legend">
+                {props.caption ? <div class="key-caption">{props.caption}</div> : null}
                 {legendBody}
               </aside>
+            ) : (ground === "height" && range) || props.caption ? (
+              <div class="show-key" role="note" aria-label="Key">
+                {ground === "height" && range ? (
+                  <div class="overlay-legend">
+                    <p class="ol-head">Ground height</p>
+                    <div class="ol-ramp" style={{ background: heightSwatch }} />
+                    <div class="ol-ends">
+                      <span>Low {range[0]}</span>
+                      <span>High {range[1]}</span>
+                    </div>
+                  </div>
+                ) : null}
+                {props.caption}
+              </div>
             ) : null}
           </div>
           <div class="view3d-corner" role="group" aria-label="Camera and switches">

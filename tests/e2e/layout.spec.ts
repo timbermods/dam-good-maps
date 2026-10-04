@@ -1,8 +1,8 @@
 // The editor's layout, Layout 2 (DESIGN.md, "Layout 2 mockups (2026-10-03): the design to build"), at the two sizes
 // it is designed for, 1920×1080 and 2560×1440: with the map generator's panel closed and open, the legend off and
-// on, and each Show toggle on, no two pieces of chrome overlap (the open panel lies over the map, clear of every
-// control still showing; the Show column, the coordinates and the readout give way under it; opening it moves
-// nothing, Kyler, 2026-10-04); the map's info sits at the window's centre; the
+// on, and each Show toggle on, no two pieces of chrome overlap (the open panel lies over the map beside the Show
+// column, clear of every control; opening it hides and moves nothing, Kyler, 2026-10-04); the map's info sits at the
+// window's centre; the
 // pieces keep to their places (the Show column and the bottom-left group at the map's left, the camera group and the objects
 // menu at its right, the water row and the bar centred in it, the objects menu's foot level with the bar's); the
 // held tool's settings sit on the bar's own cells at its exact width; ticking a toggle moves nothing; the legend
@@ -21,7 +21,7 @@ const PANEL = 640;
 const MARGIN = 10;
 
 /** The pieces of chrome that must never overlap one another. */
-const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".gen", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
+const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".gen", ".show-column", ".legend-panel", ".show-key", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
 
 interface Box {
   name: string;
@@ -171,18 +171,19 @@ async function check(page: Page, w: number, state: string) {
     same(column.l, map.l + MARGIN, `the Show column on the map's left margin (${state})`);
     same(column.t, map.t + MARGIN, `the Show column at the map's top margin (${state})`);
   }
-  // the bottom-left group: the coordinates, the readout, then the minimap at the foot, level with the bar's, all on
-  // the left margin, one gap between them (Kyler's sitting, 2026-10-03)
+  // the bottom-left group: the minimap at the foot, level with the bar's, on the left margin; beside it, one gap to its
+  // right (at its widest, 168px), the readout at the foot and the coordinates one gap above it (Kyler, 2026-10-04)
   const minimap = find(".editor-view .minimap");
   same(minimap.l, map.l + MARGIN, `the minimap on the map's left margin (${state})`);
   same(map.b - minimap.b, MARGIN, `the minimap on the map's foot margin (${state})`);
-  let groupTop = minimap.t;
+  const groupTop = minimap.t;
+  let foot = minimap.b;
   for (const name of [".readout", ".coords"]) {
     const b = bs.find((x) => x.name === name);
     if (!b) continue;
-    same(b.l, map.l + MARGIN, `${name} on the map's left margin (${state})`);
-    same(groupTop - b.b, 6, `${name} one gap above the group (${state})`);
-    groupTop = b.t;
+    same(b.l, map.l + MARGIN + 168 + 6, `${name} beside the minimap (${state})`);
+    same(foot - b.b, name === ".readout" ? 0 : 6, `${name} at the foot, the coordinates one gap above the readout (${state})`);
+    foot = b.t;
   }
   const legend = bs.find((b) => b.name === ".legend-panel");
   if (legend && column) {
@@ -237,13 +238,13 @@ for (const [w, h] of SIZES) {
           const settings = before.find((b) => b.name === ".tool-settings")!;
           const [map] = await boxes(page, [".editor-view .view3d"]);
           same(d.r - d.l, PANEL, `the panel's one width (${state})`);
-          same(d.l, map.l + MARGIN, `the panel on the map's left margin (${state})`);
+          const column = before.find((b) => b.name === ".show-column")!;
+          same(d.l, column.r + 6, `the panel beside the Show column, one gap to its right (${state})`);
           expect(d.t, `the panel under the top row (${state})`).toBeGreaterThanOrEqual(water.b + MARGIN - 0.5);
           expect(d.b, `the panel above the bar's settings (${state})`).toBeLessThanOrEqual(settings.t - MARGIN + 0.5);
           expect(d.t % 1, `the panel on a whole pixel (${state})`).toBe(0);
           for (const b of closed[String(legend)]) {
             const a = before.find((x) => x.name === b.name);
-            if (!a && [".show-column", ".legend-panel", ".coords", ".readout"].some((s) => b.name.startsWith(s))) continue;
             expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} keeps its place when the panel opens (${state})`).toBe(true);
           }
         }
@@ -344,8 +345,8 @@ test("the fullest legend fits at 1920×1080 above the bottom-left group, with Un
   // with Under roofs the column has one row more (this map has none, so the legend starts one row higher here)
   const roofs = m.rows === 8 ? 0 : m.rowH + m.gap;
   const fullest = (clean + 1 + marked) * m.row + m.pad;
-  // the bottom-left group at its tallest: a square map's minimap, 168px, the readout and the coordinates, 32px each,
-  // a 6px gap between each; the legend stops 8px above it
-  const groupTop = m.minimap.bottom - 168 - 6 - 32 - 6 - 32;
+  // the bottom-left group at its tallest: a square map's minimap, 168px (the readout and the coordinates beside it),
+  // the legend stops 8px above it
+  const groupTop = m.minimap.bottom - 168;
   expect(m.top + roofs + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends 8px above the bottom-left group or higher`).toBeLessThanOrEqual(groupTop - 8 + 0.5);
 });

@@ -33,7 +33,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
   if (kind === "badwater") text = "Badwater: dark brown · Contaminated soil: light brown";
   else if (kind === "roofed")
     text = layers.roofed.length
-      ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`
+      ? "Violet tiles: under caves or overhangs, their water approximate"
       : "No caves or overhangs on this map.";
   return (
     <div class="layer-legend" role="status">

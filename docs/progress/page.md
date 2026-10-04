@@ -627,3 +627,12 @@ retired terms. Captures: `docs/design/generator-{closed,open}-{1920x1080,2560x14
 Tests: full browser suite 129 of 131 (dev's look-high highlight failure; the 256² water timing test hit its limit
 while the unit suite ran alongside and passed alone). Unit quick suite: `carveBornAsItCuts.test.ts`'s two tests fail
 on feature/page's commit before this build too (no core file changed here); for the milestone session.
+
+## Nothing hides when a panel opens (Kyler, 2026-10-04)
+
+dev merged into feature/page (a2010cd4: the Rust water and forces on /preview/). Then: the map generator and Your
+maps open beside the Show column (6px right of it) instead of at the window's edge, and nothing hides. The Show
+column, the key under it and the legend are one width (190px); the overlays' captions moved from beside their rows
+into that key (with Legend ticked, a caption heads the legend). The coordinates and the readout sit beside the minimap
+at its foot. Under roofs' caption is shorter, so it fits the column. `layout.spec.ts` now requires every piece to keep
+its place and show when a panel opens.

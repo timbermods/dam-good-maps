@@ -164,7 +164,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   **Heights** (the ground by height; its own legend beside it while on: "Ground height", the ramp, the map's lowest
   and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
   and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Under roofs** (where the map has roofed water; each with its caption beside it while on), then **Legend**,
+  and **Under roofs** (where the map has roofed water; each with its caption under the column while on), then **Legend**,
   last. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
@@ -198,10 +198,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   centred in the map area, each floating on its own: the status (plain text over the sky), **Pause water** (Play
   water while paused), Speed, Skip, Replay, Drought and Badtide (§5); one unavailable (Pause water, Skip and Replay
   while the water is settled) has a fainter plate and fainter words.
-- **The bottom left,** one group on the page's margin: the tile under the pointer's coordinates ("X 60 · Y 66 · Z
-  10", the game's order), the readout, then **the minimap** (D205) at the foot, level with the bar's, always shown: a
+- **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
   small top-down view of the whole map, refreshed after edits settle, with an outline of what the camera sees;
-  click or drag on it to move there.
+  click or drag on it to move there. Beside it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the
+  game's order) over the readout, showing whether a panel is open or not.
 - **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land rises, a puff of dust
   when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts, each force's own
   moment), with Codex's second-round sounds (#64: recorded CC0 foley; a bed for as long as a stroke changes the

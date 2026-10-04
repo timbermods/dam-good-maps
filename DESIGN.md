@@ -402,14 +402,15 @@ refinements and what the mockups left open:
   row is for the tools only: an object picked shows no row above the bar (Select's own row gives way while one is
   picked on the map). "Drag it to move it" is gone. At 1920×1080 a source picked on the map takes 267px (303 with
   Try another), clear of the camera group.
-- **The overlays' captions** sit beside their rows while on: Heights' "Ground height" with the ramp and the map's
-  lowest and highest level; Badwater's and Under roofs' one-line captions.
+- **The overlays' captions** (Kyler, 2026-10-04: nothing reaches past the Show column) sit under the column, at its
+  width, in the legend's place: with Legend off, a small key holds Heights' "Ground height" with the ramp and the
+  map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the overlay's caption
+  heads the legend (which holds Heights' own line). The Show column, the key and the legend are one width, 190px.
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
-- **The bottom-left group** (Kyler's sitting, 2026-10-03): the coordinates, the readout under them, then the minimap
-  at the foot, on the page's 10px margin, the minimap's bottom level with the bar's and the objects list's; each
-  plate 32px, 6px between them, so nothing moves as they show. At its tallest (a square map's 168px minimap) its top
-  is 254px above the map's foot, where the minimap's top was before, so the fullest legend still fits at 1920×1080
-  with the same 437px.
+- **The bottom-left group** (Kyler, 2026-10-04): the minimap at the foot, on the page's 10px margin, its bottom level
+  with the bar's and the objects list's; beside it, 6px right of its widest (168px), the readout at the foot and the
+  coordinates 6px above it, 32px plates, so they show whether a panel is open or not. The readout stops at 330px, short
+  of the bar. The legend has the room down to 8px above the minimap's tallest top.
 - **The map generator lies over the map** (Kyler, 2026-10-04): opening it never resizes the map. The panel sits at
   the window's left edge, vertically centred between the header (10px below it) and the bar (11px above it, so the
   room is an even number of pixels and a centred panel sits on whole pixels), over whatever is there while it is open.
@@ -420,7 +421,8 @@ refinements and what the mockups left open:
   reaches plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
 - **The map generator, A, the sheet** (Kyler's pick of two structures, 2026-10-04, with his changes; the mockups of A
   and B are on [docs/design/layout2.html](docs/design/layout2.html)): one panel, 640px at both sizes (a third of the
-  window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, its corners rounded.
+  window at 2560×1440 would only stretch the sliders), beside the Show column, 6px to its right (Kyler, 2026-10-04:
+  nothing hides when it opens; opening and closing changes nothing on screen but the panel), its corners rounded.
   It starts 10px under the top row (the water row reaches over a 640px panel at 1920×1080) and ends at least 10px
   above the bar's settings (the bar reaches under it there), centred in that room on whole pixels; at 2560×1440 the
   room runs down to the bar itself. 748px tall at both sizes: at 1920×1080 it ends 13px above the bar's settings.
@@ -435,7 +437,7 @@ refinements and what the mockups left open:
 - **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header beside Map Generator (one
   of the two open at a time, each button lit while its panel is open), in the generator's exact box: four to a row,
   scrolling inside when there are more. The header has no tabs on the window's edge; the left side's controls stay on
-  the 10px margin. While a panel is open, the Show column, the coordinates and the readout give way under it.
+  the 10px margin, and nothing hides while a panel is open.
 - **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's
   words ("Water settled", "Water flowing… 40%") take one width, right-aligned, so nothing beside them moves.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a

@@ -19,7 +19,7 @@ import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
 import { header } from "./header";
 import { topBar } from "./topBar";
-import { cornerButtons, hoverHandler, levelLinesButton, viewButtons } from "./viewControls";
+import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
 
 export function editorView(ed: Ed, props: EditorProps) {
   const {
@@ -53,6 +53,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               keepView={props.keepView}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
+              caption={layerCaption(ed)}
               cornerLevel={<LayerWidget level={sliceLevel} highest={() => renderer.current?.topHiding() ?? 0} onSet={(level) => renderer.current?.setSlice(level)} />}
               cornerBelow={cornerButtons(ed)}
 

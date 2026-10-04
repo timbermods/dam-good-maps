@@ -22,8 +22,8 @@ export function levelLinesButton(ed: Ed) {
   );
 }
 
-/** The Show column's rows after Flow: See-through, Badwater, and Under roofs where the map has roofs; an overlay's
- *  caption sits beside its row while it is on. */
+/** The Show column's rows after Flow: See-through, Badwater, and Under roofs where the map has roofs (an overlay's
+ *  caption shows under the column, `layerCaption`). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater, waterLayers, layer, setLayer } = ed;
 
@@ -33,12 +33,18 @@ export function viewButtons(ed: Ed) {
         See-through
       </ShowRow>
       {(["badwater", ...(waterLayers?.roofed.length ? (["roofed"] as const) : [])] as LayerKind[]).map((k) => (
-        <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(`Show ${LAYER_NAMES[k].toLowerCase()}`)} legend={waterLayers ? <LayerLegend kind={k} layers={waterLayers} /> : null}>
+        <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(`Show ${LAYER_NAMES[k].toLowerCase()}`)}>
           {OVERLAY_WORDS[k]}
         </ShowRow>
       ))}
     </>
   );
+}
+
+/** The water overlay's caption while one is on (Badwater, Under roofs), for the key under the Show column. */
+export function layerCaption(ed: Ed) {
+  const { waterLayers, layer } = ed;
+  return layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
 }
 
 export function cornerButtons(ed: Ed) {
