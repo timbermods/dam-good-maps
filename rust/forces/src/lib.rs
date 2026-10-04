@@ -1,6 +1,8 @@
 // The forces of nature (PLAN §20 D381, #158): Carve, Craterize, Erupt, Quake and Glaciate, planned
 // byte for byte as the TypeScript they replaced (tag `ts-forces-final`). AGPL-3.0-or-later.
 use portable as portable_math;
+#[macro_use]
+mod json;
 // Reused from rust-water 2ebeea87, including its validated pointer cache.
 mod water {
     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
@@ -978,7 +980,7 @@ mod water {
     }
 }
 
-use serde_json::{json, Value as V};
+use json::V;
 use std::collections::{HashMap, HashSet};
 const PI: f64 = 3.141592653589793;
 fn max(a: f64, b: f64) -> f64 {
@@ -1648,7 +1650,7 @@ impl Reader<'_> {
             }
             6 => {
                 let n = self.u32();
-                let mut m = serde_json::Map::new();
+                let mut m = json::Map::new();
                 for _ in 0..n {
                     let k = self.text();
                     m.insert(k, self.value());

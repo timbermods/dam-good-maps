@@ -16,4 +16,3 @@ path = "src/main.rs"
 
 [dependencies]
 portable = { path = "../portable" }
-serde_json = { version = "=1.0.145", features = ["preserve_order", "float_roundtrip"] }
