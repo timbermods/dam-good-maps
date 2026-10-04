@@ -23,7 +23,7 @@ import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type Base
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
-import { entityTiles } from "../features/edits";
+import { placedEntity, entityTiles } from "../features/edits";
 import { limitRuns, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -50,6 +50,8 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
+import { FLUIDS } from "../data/parity";
+import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
@@ -588,6 +590,8 @@ export class MapSession {
     return out.sort((a, b) => a.seq - b.seq);
   }
 
+  get nextSeq(): number { return this.seqNext; }
+
   /** The steps undo can take back and redo bring back (the steps below the save point, once the
    *  replay differed, are not listed: the map as saved is the earliest state, D455). */
   history(): HistoryItem[] {
@@ -631,6 +635,11 @@ export class MapSession {
       }
     }
     const errors = validateOp(op, {
+      templateOf: (id) => this.cur.entities.find((e) => e.id === id)?.template,
+      componentsOf: (id) => {
+        const e = this.cur.entities.find((e) => e.id === id);
+        return e ? (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown> : undefined;
+      },
       state: this.st,
       W,
       H,
@@ -656,6 +665,7 @@ export class MapSession {
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
@@ -681,7 +691,7 @@ export class MapSession {
     const now = this.cur.heights;
     const rects: [number, number, number, number][] = [];
     for (const e of this.cur.entities) {
-      if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+      if (!FLUIDS[e.template]?.tiles) continue;
       const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
       const tiles = cells.map(([x, y]) => y * W + x);
       if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
@@ -715,7 +725,7 @@ export class MapSession {
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = this.check(op);
+      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
@@ -734,6 +744,35 @@ export class MapSession {
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
+    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+  }
+
+  /** A player's scatter placement: validate all literal placements, then one rebuild and one undo step. */
+  applyBatch(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const fail = (reason: string): ApplyResult => ({ ok: false, errors: [reason], applied: [], dirty: null });
+    if (!ops.length) return fail("there are no objects to place");
+    const { x: W, y: H } = this.size;
+    const ids = new Set<string>();
+    const taken = new Set<number>();
+    for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
+    for (const op of ops) {
+      if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");
+      const errors = this.check(op);
+      if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+      if (ids.has(op.params.id)) return fail("two objects in the placement have the same id");
+      ids.add(op.params.id);
+      const p = op.params;
+      const e = placedEntity(p, this.cur.heights[p.y * W + p.x]);
+      for (const [x, y] of entityTiles(e)) {
+        const i = y * W + x;
+        if (taken.has(i)) return fail("another object stands in the placement's footprint");
+        taken.add(i);
+      }
+    }
+    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    this.cur = this.rebuilt();
+    this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
+    this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 

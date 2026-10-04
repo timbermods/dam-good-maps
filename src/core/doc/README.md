@@ -32,3 +32,5 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
+
+**Map-editor object parity (D337–D339)**: `objectOps.ts` gives defaults, component patches, options and marker notes; `placing.ts` plans player placement; `paint.ts` plans explicit scatter placement, recorded as literal entities in one undo step. `blast.ts` answers `blastInfo` and `explosionAfter` without changing the session. Terrain brushes and forces never invoke these placement paths. Partial option changes are validated against the resulting components, with a one-line refusal. Historical no-component BadwaterSource operations keep strength 1; new planned placement writes the game default 3 explicitly.

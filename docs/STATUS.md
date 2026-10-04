@@ -27,16 +27,17 @@ label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-
 
 ## In flight
 
-Worktrees are beside the main clone (`C:UserskramscodeDamGoodMaps-<name>`). Merge order is the queue below. States are
+Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`). Merge order is the queue below. States are
 as of 2026-10-04 and move.
 
 | Work | Branch | PR | State |
 |---|---|---|---|
-| The page | `feature/page` | #163 | Ready, `approved`; review and merge |
+| The page | `feature/page` | #163 | Ready, labelled `approved` (Kyler to confirm); 5 CI checks failing; review and merge once green |
 | Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
 | Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | Back for another round (Canyon 27's gorge, Highlands 2 and 23 bare, a camera-pitch sheet); generator 0.9.0, renumbers if it merges second |
-| Parity core (D337–D339) | `feature/parity-core` | #269 | `needs-kyler`: four game-fidelity changes move existing bytes (#270) |
-| Rift and Deposit in Rust | `feature/rift-deposit` | none yet | Adopting #268's investigation (merged) |
+| Parity core (D337–D339) | `feature/parity-core` | #269 | `approved` (#270: all four game-fidelity changes, the seep cap with its seep_pit re-pin); merging |
+| Rift and Deposit in Rust | `feature/rift-deposit` | none yet | Being adopted from #268's patch; the page adds the controls after |
+| Three core fixes | `fix/core-findings` | none yet | In progress: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
 | Islands round 4 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
 | Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
