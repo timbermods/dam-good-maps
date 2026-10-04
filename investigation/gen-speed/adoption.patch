@@ -1,0 +1,201 @@
+diff --git a/src/core/analysis/ridge.ts b/src/core/analysis/ridge.ts
+--- a/src/core/analysis/ridge.ts
++++ b/src/core/analysis/ridge.ts
+@@ -120,6 +120,8 @@ export function damWalls(h: ArrayLike<number>, W: number, H: number, depth: Arra
+           } else if (++miss > 1) break;
+         }
+         sides.push(pts);
++        // No second side can make an insufficient first side into a wall.
++        if (pts.length < 6) break;
+       }
+       if (sides[0].length < 6 || sides[1].length < 6) continue;
+       const all = [...sides[0], ...sides[1]];
+diff --git a/src/core/land/minePads.ts b/src/core/land/minePads.ts
+--- a/src/core/land/minePads.ts
++++ b/src/core/land/minePads.ts
+@@ -421,6 +421,8 @@ export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayL
+       if (cx > x1) x1 = cx;
+       if (cy < y0) y0 = cy;
+       if (cy > y1) y1 = cy;
++      // The answer is monotone for one/two sites; more squares cannot undo it.
++      if (opts.want <= 1 || (opts.want === 2 && (x1 - x0 >= APART || y1 - y0 >= APART))) break;
+     }
+     if (!n) continue;
+     if (opts.want <= 1) out[i] = 1;
+diff --git a/src/core/gen/settler.ts b/src/core/gen/settler.ts
+--- a/src/core/gen/settler.ts
++++ b/src/core/gen/settler.ts
+@@ -49,6 +49,8 @@ export type DroughtPolicy = "off" | "prefer" | "require";
+ export const BANK_FOOT = 800;
+
+ export interface SettlerOptions {
++  /** Only for repeated picks before terrain/water changes; no cross-attempt cache. */
++  prepared?: StartPreparation;
+   avoid?: Uint8Array | null;
+   /** Whether a start may need its ground levelled (a 5×5 within a level, or the last resort's pad
+    *  and path to the shore); false on a shown land, where only a start that needs no levelling
+@@ -216,18 +218,12 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
+   return d;
+ }
+
+-export function pickStart(
+-  h: Uint8Array,
+-  W: number,
+-  H: number,
++/** Read-only fields for picks on identical terrain/water. Discard before either changes.
++ * Avoid masks, scores, random draws and candidate walks remain private to each pick. */
++export function prepareStart(h: Uint8Array, W: number, H: number,
+   water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; moisture: ArrayLike<number> },
+   hydro: Pick<Hydro, "water" | "lakes" | "falls" | "rivers">,
+-  prefs: number[],
+-  rng: Rng,
+-  waterRule: number,
+-  opts: SettlerOptions = {},
+-): StartPick | null {
+-  const avoid = opts.avoid ?? null;
++  waterRule: number, opts: SettlerOptions = {}) {
+   const N = W * H;
+   const D = water.depth;
+   const walk = shoreWalkFrom(h, W, H, D, water.contamination, waterRule);
+@@ -288,8 +284,15 @@ export function pickStart(
+         if (x >= 0 && y >= 0 && x < W && y < H) springT[y * W + x] = 1;
+       }
+   const dSpring = distanceFrom(springT, W, H);
+-  const sorted = Array.from(h).sort((a, b) => a - b);
+-  const medianLevel = sorted[N >> 1];
++  // Heights are Uint8: count levels without changing the upper median.
++  const counts = new Uint32Array(256);
++  for (let i = 0; i < N; i++) counts[h[i]]++;
++  let medianLevel = 0;
++  let seen = 0;
++  for (; medianLevel < 256; medianLevel++) {
++    seen += counts[medianLevel];
++    if (seen > (N >> 1)) break;
++  }
+   const margin = Math.max(8, Math.round(Math.min(W, H) * 0.08));
+   // stored water within 40 tiles (a box of 81), from a summed-area table of what the drought keeps
+   let storeSum: Float64Array | null = null;
+@@ -299,6 +302,26 @@ export function pickStart(
+     for (let y = 0; y < H; y++)
+       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
+   }
++  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum };
++}
++
++export type StartPreparation = ReturnType<typeof prepareStart>;
++
++export function pickStart(
++  h: Uint8Array,
++  W: number,
++  H: number,
++  water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; moisture: ArrayLike<number> },
++  hydro: Pick<Hydro, "water" | "lakes" | "falls" | "rivers">,
++  prefs: number[],
++  rng: Rng,
++  waterRule: number,
++  opts: SettlerOptions = {},
++): StartPick | null {
++  const avoid = opts.avoid ?? null;
++  const N = W * H;
++  const D = water.depth;
++  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+   const storedNear = (x: number, y: number): number => {
+     if (!storeSum) return 0;
+     const x0 = Math.max(0, x - 40);
+diff --git a/src/core/gen/intentions.ts b/src/core/gen/intentions.ts
+--- a/src/core/gen/intentions.ts
++++ b/src/core/gen/intentions.ts
+@@ -27,7 +27,7 @@ export interface IntentionResult {
+ const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
+ /** The land and water the settler scores places on, for the intentions' preferences. */
+-export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
++export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, kept9?: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
+   const N = W * H;
+   const joinT = new Uint8Array(N);
+   for (const r of hy.rivers) {
+@@ -41,7 +41,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
+   for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
+   const sorted = Array.from(h).sort((a, b) => a - b);
+   // clean bodies of 60+ tiles, their surface and what a 9-day drought leaves
+-  const kept = droughtStorage(waterModel(W, H, h, []), D, 9);
++  const kept = kept9 ?? droughtStorage(waterModel(W, H, h, []), D, 9);
+   const lab = new Int32Array(N).fill(-1);
+   const lakes: SettlerView["lakes"] = [];
+   for (let s0 = 0; s0 < N; s0++) {
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -90,7 +90,7 @@ import { ruinColumns } from "../resources/baseline";
+ import { tilesToRuns } from "../math/grid";
+ import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
+ import type { SetPieceFeature } from "../features/schema";
+-import { dryStart, padFloods, pickStart, type DroughtPolicy, type StartPick } from "./settler";
++import { dryStart, padFloods, pickStart, prepareStart, type DroughtPolicy, type StartPick } from "./settler";
+
+ export type { IntentionResult };
+
+@@ -1475,16 +1475,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+   // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
+   // levelling is part of shaping the land; never on a shown land, D348)
+   let allowLevel = true;
+-  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null): StartPick | null => {
++  let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
++  const settlerOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight = 1, near: { x: number; y: number } | null = null, reusePlanned = false): StartPick | null => {
+     // (Islands' start on its main island, D370)
+     avoid = islandStartAvoid(g, avoid);
+-    const model = waterModel(W, H, h, []);
+-    const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
+-    const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
+-    const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
++    let data = reusePlanned ? plannedStart : null;
++    if (!data) {
++      const model = waterModel(W, H, h, []);
++      const kept = policy === "off" ? null : droughtStorage(model, D, FIRST_DROUGHT_DAYS);
++      const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
++      const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M, DROUGHT[spec.designedFor].days === 9 ? storage.kept : undefined) : null;
++      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage });
++      data = { kept, storage, view, prepared };
++      if (reusePlanned) plannedStart = data;
++    }
++    const { kept, storage, view, prepared } = data;
+     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
+     const rng = stream(seed, "settler2", attempt, salt);
+-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel });
++    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel });
+   };
+   const levelStart = (p: StartPick) => {
+     if (!p.levelled) return;
+@@ -1635,7 +1643,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+     const prepared: StartPick[] = [];
+     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
+     allowLevel = !from;
+-    guess = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 0, avoidOf(null));
++    const heldMoist = moisture(h, held, zero, W, H, null);
++    guess = settlerOn(held, zero, heldMoist, 0, avoidOf(null), 1, null, true);
+     allowLevel = true;
+     if (!from) {
+       if (!guess && !lastAttempt) return fail("no start", null, true);
+@@ -1645,18 +1654,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+       if (guess && !lastAttempt && opts.secondStart !== false) {
+         const off = avoidOf(null);
+         markTried(off, guess, W, H);
+-        second = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 5, off);
++        second = settlerOn(held, zero, heldMoist, 5, off, 1, null, true);
+         if (!second) return fail("one place for a start", null, true);
+         // (and the places after it, apart from each other: every start a shown land may fall back
+         // on has its pad ready, levelled now if it needs it, D373 (3))
+         markTried(off, second, W, H);
+         for (let k = 0; k < PREPARED_MORE; k++) {
+-          const more = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 9 + k, off);
++          const more = settlerOn(held, zero, heldMoist, 9 + k, off, 1, null, true);
+           if (!more) break;
+           prepared.push(more);
+           markTried(off, more, W, H);
+         }
+       }
++      // The shared fields expire before any levelling or mine-pad shaping.
++      plannedStart = null;
+       // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
+       // is shown rather than failing every attempt on it)
+       if (!lastAttempt && edgeRuleApplies(W, H) && edgeWalls(h, W, H).some((e) => e.share >= EDGE_SHARE)) return fail("an edge wall", null, true);

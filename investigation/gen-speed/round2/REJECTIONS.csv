@@ -1,0 +1,305 @@
+theme,size,variant,reason,count
+any,96,after,one place for a start,13
+any,96,after,no start,33
+any,96,after,no room for the mine sites,8
+any,96,after,water story (planned),21
+any,96,after,a river's water leaves its course,6
+any,96,after,a river's head under a lake,4
+any,96,after,a sea over its shelf,7
+any,96,after,source in a flow,3
+any,96,after,no rivers,5
+any,96,after,terrain.dam_wall,1
+any,96,round2,one place for a start,14
+any,96,round2,no start,33
+any,96,round2,no room for the mine sites,8
+any,96,round2,water story (planned),21
+any,96,round2,a river's water leaves its course,6
+any,96,round2,a river's head under a lake,4
+any,96,round2,a sea over its shelf,7
+any,96,round2,source in a flow,3
+any,96,round2,no rivers,5
+any,96,round2,terrain.dam_wall,1
+any,96,round2,mine pair (pre-fill),1
+riverValley,96,after,promise (planned),9
+riverValley,96,after,a river's water leaves its course,26
+riverValley,96,after,water story (planned),16
+riverValley,96,after,no start,5
+riverValley,96,after,one place for a start,3
+riverValley,96,after,no room for the mine sites,4
+riverValley,96,after,a river's head under a lake,3
+riverValley,96,round2,promise (planned),9
+riverValley,96,round2,a river's water leaves its course,30
+riverValley,96,round2,water story (planned),17
+riverValley,96,round2,no start,5
+riverValley,96,round2,one place for a start,3
+riverValley,96,round2,mine pair (pre-fill),4
+riverValley,96,round2,no room for the mine sites,4
+riverValley,96,round2,a river's head under a lake,3
+canyon,96,after,promise (planned),102
+canyon,96,after,water story (planned),28
+canyon,96,after,a river's head under a lake,15
+canyon,96,after,no start,194
+canyon,96,after,a river's water leaves its course,3
+canyon,96,after,one place for a start,44
+canyon,96,after,no room for the mine sites,24
+canyon,96,after,source in a flow,3
+canyon,96,after,no rivers,6
+canyon,96,after,terrain.dam_wall,2
+canyon,96,after,ruler-straight channel,2
+canyon,96,round2,promise (planned),111
+canyon,96,round2,source in a flow,3
+canyon,96,round2,water story (planned),38
+canyon,96,round2,a river's head under a lake,10
+canyon,96,round2,no start,118
+canyon,96,round2,one place for a start,28
+canyon,96,round2,a river's water leaves its course,4
+canyon,96,round2,no rivers,4
+canyon,96,round2,no room for the mine sites,12
+canyon,96,round2,mine pair (pre-fill),2
+canyon,96,round2,ruler-straight channel,1
+highlands,96,after,no rivers,5
+highlands,96,after,promise (planned),160
+highlands,96,after,no start,211
+highlands,96,after,one place for a start,50
+highlands,96,after,a river's water leaves its course,26
+highlands,96,after,water story (planned),30
+highlands,96,after,terrain.dam_wall,3
+highlands,96,after,ruler-straight channel,2
+highlands,96,after,no room for the mine sites,12
+highlands,96,after,a river's head under a lake,16
+highlands,96,after,source in a flow,3
+highlands,96,round2,no rivers,5
+highlands,96,round2,promise (planned),161
+highlands,96,round2,no start,220
+highlands,96,round2,one place for a start,51
+highlands,96,round2,a river's water leaves its course,26
+highlands,96,round2,water story (planned),30
+highlands,96,round2,terrain.dam_wall,3
+highlands,96,round2,ruler-straight channel,2
+highlands,96,round2,no room for the mine sites,12
+highlands,96,round2,a river's head under a lake,16
+highlands,96,round2,source in a flow,3
+highlands,96,round2,mine pair (pre-fill),2
+lakeBasin,96,after,promise (planned),56
+lakeBasin,96,after,a river's water leaves its course,31
+lakeBasin,96,after,no room for the mine sites,6
+lakeBasin,96,after,a river's head under a lake,13
+lakeBasin,96,after,no start,25
+lakeBasin,96,after,no rivers,6
+lakeBasin,96,after,one place for a start,15
+lakeBasin,96,after,water story (planned),5
+lakeBasin,96,round2,promise (planned),60
+lakeBasin,96,round2,a river's water leaves its course,37
+lakeBasin,96,round2,no room for the mine sites,8
+lakeBasin,96,round2,a river's head under a lake,14
+lakeBasin,96,round2,no start,34
+lakeBasin,96,round2,no rivers,6
+lakeBasin,96,round2,one place for a start,18
+lakeBasin,96,round2,mine pair (pre-fill),4
+lakeBasin,96,round2,water story (planned),6
+delta,96,after,a river's head under a lake,69
+delta,96,after,no place for badwater,5
+delta,96,after,a river's water leaves its course,3
+delta,96,round2,a river's head under a lake,69
+delta,96,round2,no place for badwater,5
+delta,96,round2,a river's water leaves its course,3
+islands,96,after,no room for the mine sites,1
+islands,96,round2,no room for the mine sites,1
+islands,96,round2,mine pair (pre-fill),2
+any,128,after,water story (planned),19
+any,128,after,one place for a start,10
+any,128,after,no start,16
+any,128,after,source in a flow,4
+any,128,after,a river's water leaves its course,25
+any,128,after,a sea over its shelf,9
+any,128,after,no room for the mine sites,2
+any,128,after,no rivers,2
+any,128,after,a river's head under a lake,1
+any,128,after,ruler-straight channel,1
+any,128,round2,water story (planned),19
+any,128,round2,one place for a start,10
+any,128,round2,no start,16
+any,128,round2,source in a flow,4
+any,128,round2,a river's water leaves its course,25
+any,128,round2,a sea over its shelf,9
+any,128,round2,no room for the mine sites,2
+any,128,round2,no rivers,2
+any,128,round2,a river's head under a lake,1
+any,128,round2,ruler-straight channel,1
+riverValley,128,after,water story (planned),18
+riverValley,128,after,a river's water leaves its course,21
+riverValley,128,after,a river's head under a lake,4
+riverValley,128,after,one place for a start,3
+riverValley,128,after,no start,4
+riverValley,128,after,source in a flow,2
+riverValley,128,after,no rivers,1
+riverValley,128,after,promise (planned),3
+riverValley,128,round2,water story (planned),18
+riverValley,128,round2,a river's water leaves its course,21
+riverValley,128,round2,a river's head under a lake,4
+riverValley,128,round2,one place for a start,3
+riverValley,128,round2,no start,4
+riverValley,128,round2,source in a flow,2
+riverValley,128,round2,no rivers,1
+riverValley,128,round2,promise (planned),3
+canyon,128,after,promise (planned),86
+canyon,128,after,water story (planned),29
+canyon,128,after,no start,136
+canyon,128,after,no rivers,8
+canyon,128,after,ruler-straight channel,4
+canyon,128,after,one place for a start,39
+canyon,128,after,no room for the mine sites,13
+canyon,128,after,a river's head under a lake,13
+canyon,128,after,source in a flow,1
+canyon,128,after,a river's water leaves its course,8
+canyon,128,after,terrain.dam_wall,1
+canyon,128,round2,promise (planned),79
+canyon,128,round2,no start,102
+canyon,128,round2,water story (planned),32
+canyon,128,round2,no rivers,8
+canyon,128,round2,one place for a start,35
+canyon,128,round2,a river's water leaves its course,7
+canyon,128,round2,source in a flow,4
+canyon,128,round2,no room for the mine sites,6
+canyon,128,round2,a river's head under a lake,12
+canyon,128,round2,terrain.dam_wall,2
+highlands,128,after,promise (planned),127
+highlands,128,after,no start,95
+highlands,128,after,one place for a start,30
+highlands,128,after,a river's water leaves its course,18
+highlands,128,after,water story (planned),30
+highlands,128,after,a river's head under a lake,9
+highlands,128,after,ruler-straight channel,2
+highlands,128,after,source in a flow,2
+highlands,128,after,terrain.dam_wall,2
+highlands,128,after,no room for the mine sites,1
+highlands,128,round2,promise (planned),127
+highlands,128,round2,no start,95
+highlands,128,round2,one place for a start,30
+highlands,128,round2,a river's water leaves its course,18
+highlands,128,round2,water story (planned),30
+highlands,128,round2,a river's head under a lake,9
+highlands,128,round2,ruler-straight channel,2
+highlands,128,round2,source in a flow,2
+highlands,128,round2,terrain.dam_wall,2
+highlands,128,round2,no room for the mine sites,1
+lakeBasin,128,after,a river's water leaves its course,45
+lakeBasin,128,after,no start,20
+lakeBasin,128,after,a river's head under a lake,5
+lakeBasin,128,after,one place for a start,18
+lakeBasin,128,after,promise (planned),51
+lakeBasin,128,after,water story (planned),5
+lakeBasin,128,after,terrain.dam_wall,1
+lakeBasin,128,after,source in a flow,1
+lakeBasin,128,after,no rivers,4
+lakeBasin,128,round2,a river's water leaves its course,45
+lakeBasin,128,round2,no start,20
+lakeBasin,128,round2,a river's head under a lake,5
+lakeBasin,128,round2,one place for a start,18
+lakeBasin,128,round2,promise (planned),51
+lakeBasin,128,round2,water story (planned),5
+lakeBasin,128,round2,terrain.dam_wall,1
+lakeBasin,128,round2,source in a flow,1
+lakeBasin,128,round2,no rivers,4
+delta,128,after,a river's head under a lake,45
+delta,128,after,no place for badwater,11
+delta,128,after,a river's water leaves its course,3
+delta,128,round2,a river's head under a lake,45
+delta,128,round2,no place for badwater,11
+delta,128,round2,a river's water leaves its course,3
+any,256,after,a river's water leaves its course,12
+any,256,after,a sea over its shelf,7
+any,256,after,no start,10
+any,256,after,water story (planned),12
+any,256,after,ruler-straight channel,1
+any,256,after,a river's head under a lake,5
+any,256,after,one place for a start,3
+any,256,after,terrain.dam_wall,1
+any,256,after,source in a flow,2
+any,256,after,no rivers,1
+any,256,round2,a river's water leaves its course,12
+any,256,round2,a sea over its shelf,7
+any,256,round2,no start,10
+any,256,round2,water story (planned),12
+any,256,round2,ruler-straight channel,1
+any,256,round2,a river's head under a lake,5
+any,256,round2,one place for a start,3
+any,256,round2,terrain.dam_wall,1
+any,256,round2,source in a flow,2
+any,256,round2,no rivers,1
+riverValley,256,after,a river's water leaves its course,45
+riverValley,256,after,ruler-straight channel,3
+riverValley,256,after,water story (planned),10
+riverValley,256,after,terrain.dam_wall,1
+riverValley,256,after,a river's head under a lake,1
+riverValley,256,after,source in a flow,1
+riverValley,256,after,one place for a start,1
+riverValley,256,round2,a river's water leaves its course,45
+riverValley,256,round2,ruler-straight channel,3
+riverValley,256,round2,water story (planned),10
+riverValley,256,round2,terrain.dam_wall,1
+riverValley,256,round2,a river's head under a lake,1
+riverValley,256,round2,source in a flow,1
+riverValley,256,round2,one place for a start,1
+canyon,256,after,promise (planned),36
+canyon,256,after,no start,41
+canyon,256,after,water story (planned),11
+canyon,256,after,a river's water leaves its course,9
+canyon,256,after,a river's head under a lake,1
+canyon,256,after,no room for the mine sites,1
+canyon,256,after,terrain.dam_wall,7
+canyon,256,after,one place for a start,17
+canyon,256,after,ruler-straight channel,6
+canyon,256,after,no rivers,2
+canyon,256,after,source in a flow,2
+canyon,256,round2,promise (planned),36
+canyon,256,round2,no start,40
+canyon,256,round2,water story (planned),11
+canyon,256,round2,terrain.dam_wall,7
+canyon,256,round2,one place for a start,17
+canyon,256,round2,ruler-straight channel,6
+canyon,256,round2,a river's water leaves its course,6
+canyon,256,round2,no rivers,2
+canyon,256,round2,source in a flow,2
+highlands,256,after,a river's water leaves its course,18
+highlands,256,after,water story (planned),11
+highlands,256,after,promise (planned),51
+highlands,256,after,one place for a start,5
+highlands,256,after,no start,26
+highlands,256,after,terrain.dam_wall,1
+highlands,256,after,no room for the mine sites,1
+highlands,256,after,a river's head under a lake,1
+highlands,256,round2,a river's water leaves its course,18
+highlands,256,round2,water story (planned),11
+highlands,256,round2,promise (planned),51
+highlands,256,round2,one place for a start,5
+highlands,256,round2,no start,26
+highlands,256,round2,terrain.dam_wall,1
+highlands,256,round2,no room for the mine sites,1
+highlands,256,round2,a river's head under a lake,1
+lakeBasin,256,after,a river's water leaves its course,58
+lakeBasin,256,after,promise (planned),51
+lakeBasin,256,after,no place for badwater,1
+lakeBasin,256,after,source in a flow,1
+lakeBasin,256,after,one place for a start,9
+lakeBasin,256,after,no start,6
+lakeBasin,256,after,no rivers,3
+lakeBasin,256,after,water story (planned),1
+lakeBasin,256,after,ruler-straight channel,3
+lakeBasin,256,after,terrain.dam_wall,1
+lakeBasin,256,round2,a river's water leaves its course,60
+lakeBasin,256,round2,promise (planned),49
+lakeBasin,256,round2,no place for badwater,1
+lakeBasin,256,round2,source in a flow,2
+lakeBasin,256,round2,one place for a start,8
+lakeBasin,256,round2,no start,5
+lakeBasin,256,round2,no rivers,3
+lakeBasin,256,round2,water story (planned),1
+lakeBasin,256,round2,ruler-straight channel,3
+lakeBasin,256,round2,terrain.dam_wall,1
+delta,256,after,no place for badwater,15
+delta,256,after,a river's head under a lake,3
+delta,256,round2,no place for badwater,15
+delta,256,round2,a river's head under a lake,3
+islands,256,after,no start,6
+islands,256,round2,no start,6

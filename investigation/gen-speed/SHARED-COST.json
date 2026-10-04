@@ -1,0 +1,77 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "theme": "lakeBasin",
+  "size": 256,
+  "seed": 7,
+  "source": "investigation/lake-basin/round2-shared-evidence.json at e292cefe",
+  "sourceCpu": {
+    "droughtStorageMs": 282,
+    "pickStartMs": 937
+  },
+  "note": "Peer CPU observations are single-run evidence; repeated latency and load are reported by the full matrix. Input hashing here is excluded from timing evidence.",
+  "byteIdentical": true,
+  "candidate": {
+    "analysis/ridge.ts": {
+      "before": "7ccc4d5e110f5c55bad5031d60ae650a787d4a34582512c42141d70131593135",
+      "after": "c6d551be22d91c1d8c680ca3b19bdce8c9dd148d8044943982b417d913fb4055"
+    },
+    "land/minePads.ts": {
+      "before": "176896309bb7ce6c06c0c79f3df06b924fdeeaa3a65516a549daab05f5a4a6f2",
+      "after": "c89b521ca465008adcc85285040a0dc4787de2e097ad495546135851883d8cf4"
+    },
+    "gen/settler.ts": {
+      "before": "458bab1c363d0c24dde103bd8d144cb9bbc2deb7e8c0054fa9fb10a91106f6a9",
+      "after": "ea38790bbf1e141866ffbfcbcc69975d195f84b3191c9ca8dd08a52b138855fd"
+    },
+    "gen/intentions.ts": {
+      "before": "17eaf6cc4d51570ff50ef68049e087506a407a226fe2cf1482322346720412c1",
+      "after": "9ecfbcafef55c89d1281d72cc85a65d0ce2503f4ad2cea917b288aaeb4165839"
+    },
+    "gen/generate.ts": {
+      "before": "7f3b3af212d85c60d93d7dcdd43bcc6d3f1b362150486b65a1d484a7cc0a873e",
+      "after": "043448ee1a8bc249260506fc343147f74235bcc78fabd07fd4bafb51807fc99c"
+    }
+  },
+  "rows": [
+    {
+      "variant": "before",
+      "droughtCalls": 12,
+      "distinctDroughtInputs": 2,
+      "pickStartCalls": 4,
+      "prepareStartCalls": 0,
+      "groups": [
+        {
+          "signature": "de4af7341e4b1d7db4ed78cc21d0bc37f8ba7f05cd5429e1ed75dc8dc9ad6e7c",
+          "days": 3,
+          "calls": 4
+        },
+        {
+          "signature": "5a83663f3fa591365f4125af9195e53c847dc1c00064a41c62fa8f47a22480c0",
+          "days": 9,
+          "calls": 8
+        }
+      ],
+      "completeState": "a21d77286cdd7d8632519ad6ff706b7bbe0ecc323306fe06352a262cd2ed3355"
+    },
+    {
+      "variant": "after",
+      "droughtCalls": 2,
+      "distinctDroughtInputs": 2,
+      "pickStartCalls": 4,
+      "prepareStartCalls": 1,
+      "groups": [
+        {
+          "signature": "de4af7341e4b1d7db4ed78cc21d0bc37f8ba7f05cd5429e1ed75dc8dc9ad6e7c",
+          "days": 3,
+          "calls": 1
+        },
+        {
+          "signature": "5a83663f3fa591365f4125af9195e53c847dc1c00064a41c62fa8f47a22480c0",
+          "days": 9,
+          "calls": 1
+        }
+      ],
+      "completeState": "a21d77286cdd7d8632519ad6ff706b7bbe0ecc323306fe06352a262cd2ed3355"
+    }
+  ]
+}

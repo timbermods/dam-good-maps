@@ -1,0 +1,36 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "files": {
+    "analysis/ridge.ts": {
+      "before": "7ccc4d5e110f5c55bad5031d60ae650a787d4a34582512c42141d70131593135",
+      "after": "c6d551be22d91c1d8c680ca3b19bdce8c9dd148d8044943982b417d913fb4055"
+    },
+    "land/minePads.ts": {
+      "before": "176896309bb7ce6c06c0c79f3df06b924fdeeaa3a65516a549daab05f5a4a6f2",
+      "after": "c89b521ca465008adcc85285040a0dc4787de2e097ad495546135851883d8cf4"
+    },
+    "gen/settler.ts": {
+      "before": "458bab1c363d0c24dde103bd8d144cb9bbc2deb7e8c0054fa9fb10a91106f6a9",
+      "after": "ea38790bbf1e141866ffbfcbcc69975d195f84b3191c9ca8dd08a52b138855fd"
+    },
+    "gen/intentions.ts": {
+      "before": "17eaf6cc4d51570ff50ef68049e087506a407a226fe2cf1482322346720412c1",
+      "after": "9ecfbcafef55c89d1281d72cc85a65d0ce2503f4ad2cea917b288aaeb4165839"
+    },
+    "gen/generate.ts": {
+      "before": "7f3b3af212d85c60d93d7dcdd43bcc6d3f1b362150486b65a1d484a7cc0a873e",
+      "after": "043448ee1a8bc249260506fc343147f74235bcc78fabd07fd4bafb51807fc99c"
+    }
+  },
+  "waterSha256": "0b84b96e90d6f267d09bd93ec3e492e4b77e13614fbd2ea47134c7a72d63b15f",
+  "dependencies": {
+    "fflate": "0.8.3",
+    "three": "0.186.0",
+    "preact": "10.29.8",
+    "esbuild": "0.28.2",
+    "vite": "8.3.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1",
+    "playwright": "1.63.0"
+  }
+}

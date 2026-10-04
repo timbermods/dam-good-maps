@@ -1,0 +1,2584 @@
+{
+  "contracts": {
+    "passed": 49,
+    "failed": 3,
+    "skipped": 2,
+    "newFailures": 0,
+    "existingFailures": [
+      "drawn rivers drain and keep their water: 128², seed 12, 6 rivers each river drains to an edge, a river or a lake, carries water all along, and its mouth holds",
+      "drawn rivers drain and keep their water: 96², seed 11, 8 rivers each river drains to an edge, a river or a lake, carries water all along, and its mouth holds",
+      "the resource baseline (Kyler, 2026-09-25) generated maps carry the official amounts for their size, living trees only, in groves with clearings and patches (item 26; D148)"
+    ],
+    "rawSha256": {
+      "round2-final-tests.json": "ee232e29f4454971753637038d4b442c48761722b1b3b5e41a0b05e785e33ade",
+      "round2-resource-control.json": "d2901a21100141845cab8f8cea99038afa9d2141de58e2617f7061070763006a",
+      "round2-rivers-control.json": "9f73c7f704b98429647dcf040717d8ae90392504a182614ed8041a12ac6c3abd"
+    }
+  },
+  "dependencyVersions": {
+    "fflate": "0.8.3",
+    "preact": "10.29.8",
+    "@preact/signals": "2.11.2",
+    "comlink": "4.4.2",
+    "three": "0.186.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  },
+  "patches": {
+    "round1": "833228e21f7baad3224f97ed3fa84a48d120837a738815834712306afc2f14eb",
+    "round2": "93302007229f7cee305dae8daa6be390df4478a51ceb995c3c734a5f912a95f5"
+  },
+  "baselineRawSha256": {
+    "96": "56193fe35eb5ed20b7d64d65ff492ee0d7cee2540c267fa2f52528c6309a9431",
+    "128": "dfefd686e15bbb8d4b7d834e28061aee75a09d938bec3b5aa37531747e1e6f42",
+    "256": "0179ba0a76fbc85a4bac48d126912c7b386fd853d7883eb5c8f9eff8cec7c331"
+  },
+  "inputs": 840,
+  "repetitions": 3,
+  "generations": 5040,
+  "repeatStateChecks": 3360,
+  "crossEngineStateChecks": 2520,
+  "candidateFailures": 0,
+  "candidateChangedTiles": 0,
+  "candidateCallbacks": 1,
+  "outcomeGates": 21,
+  "passedOutcomeGates": 21,
+  "checks": [
+    {
+      "theme": "any",
+      "size": 96,
+      "seed": 31,
+      "beforePassed": false,
+      "afterPassed": true,
+      "beforeChanged": 0,
+      "afterChanged": 0,
+      "beforeMet": false,
+      "afterMet": true
+    },
+    {
+      "theme": "islands",
+      "size": 96,
+      "seed": 4,
+      "beforePassed": false,
+      "afterPassed": true,
+      "beforeChanged": 0,
+      "afterChanged": 0,
+      "beforeMet": false,
+      "afterMet": true
+    },
+    {
+      "theme": "riverValley",
+      "size": 256,
+      "seed": 39,
+      "beforePassed": true,
+      "afterPassed": true,
+      "beforeChanged": 107,
+      "afterChanged": 0,
+      "beforeMet": true,
+      "afterMet": true
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 256,
+      "seed": 24,
+      "beforePassed": true,
+      "afterPassed": true,
+      "beforeChanged": 122,
+      "afterChanged": 0,
+      "beforeMet": false,
+      "afterMet": false
+    }
+  ],
+  "cells": [
+    {
+      "theme": "any",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 35,
+        "promise": 39,
+        "water": 35,
+        "standout": 39,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 36,
+        "promise": 40,
+        "water": 36,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [
+        31
+      ],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1.225,
+        "worst": 5,
+        "total": 49
+      },
+      "afterRedraws": {
+        "mean": 1.25,
+        "worst": 5,
+        "total": 50
+      },
+      "beforeRefused": {
+        "mean": 2.525,
+        "worst": 13,
+        "total": 101
+      },
+      "afterRefused": {
+        "mean": 2.575,
+        "worst": 13,
+        "total": 103
+      },
+      "firstLand": {
+        "before": {
+          "median": 517,
+          "worst": 2722,
+          "observations": 117
+        },
+        "after": {
+          "median": 437,
+          "worst": 1477,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1349,
+          "worst": 7792,
+          "observations": 117
+        },
+        "after": {
+          "median": 1138,
+          "worst": 3134,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1002,
+          "worst": 6930,
+          "observations": 117
+        },
+        "after": {
+          "median": 889,
+          "worst": 2512,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1265.5,
+          "worst": 6532,
+          "observations": 120
+        },
+        "after": {
+          "median": 1109.5,
+          "worst": 2952,
+          "observations": 120
+        },
+        "medianInputSaving": 0.09933865509313078
+      },
+      "load": {
+        "before": {
+          "medianMean": 96.6893969390693,
+          "worst": 100,
+          "missing": 8
+        },
+        "after": {
+          "medianMean": 67.76775834145764,
+          "worst": 100,
+          "missing": 14
+        }
+      }
+    },
+    {
+      "theme": "riverValley",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 34,
+        "promise": 37,
+        "water": 36,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 34,
+        "promise": 36,
+        "water": 37,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.725,
+        "worst": 5,
+        "total": 29
+      },
+      "afterRedraws": {
+        "mean": 0.8,
+        "worst": 5,
+        "total": 32
+      },
+      "beforeRefused": {
+        "mean": 1.65,
+        "worst": 11,
+        "total": 66
+      },
+      "afterRefused": {
+        "mean": 1.875,
+        "worst": 11,
+        "total": 75
+      },
+      "firstLand": {
+        "before": {
+          "median": 389.5,
+          "worst": 2597,
+          "observations": 120
+        },
+        "after": {
+          "median": 329.5,
+          "worst": 1783,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1040.5,
+          "worst": 4520,
+          "observations": 120
+        },
+        "after": {
+          "median": 933,
+          "worst": 2804,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 795.5,
+          "worst": 4321,
+          "observations": 120
+        },
+        "after": {
+          "median": 707,
+          "worst": 2300,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 930,
+          "worst": 4095,
+          "observations": 120
+        },
+        "after": {
+          "median": 883,
+          "worst": 2734,
+          "observations": 120
+        },
+        "medianInputSaving": 0.10677607513593673
+      },
+      "load": {
+        "before": {
+          "medianMean": 97.59268053244395,
+          "worst": 100,
+          "missing": 11
+        },
+        "after": {
+          "medianMean": 69.20396800716847,
+          "worst": 100,
+          "missing": 16
+        }
+      }
+    },
+    {
+      "theme": "canyon",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 26,
+        "promise": 32,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 28,
+        "promise": 31,
+        "water": 35,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 5.225,
+        "worst": 15,
+        "total": 209
+      },
+      "afterRedraws": {
+        "mean": 2.55,
+        "worst": 11,
+        "total": 102
+      },
+      "beforeRefused": {
+        "mean": 10.575,
+        "worst": 35,
+        "total": 423
+      },
+      "afterRefused": {
+        "mean": 8.275,
+        "worst": 33,
+        "total": 331
+      },
+      "firstLand": {
+        "before": {
+          "median": 1010.5,
+          "worst": 5200,
+          "observations": 120
+        },
+        "after": {
+          "median": 758.5,
+          "worst": 2923,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1957.5,
+          "worst": 5820,
+          "observations": 120
+        },
+        "after": {
+          "median": 1467.5,
+          "worst": 3493,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1661,
+          "worst": 5554,
+          "observations": 120
+        },
+        "after": {
+          "median": 1191.5,
+          "worst": 3247,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1586.5,
+          "worst": 4125,
+          "observations": 120
+        },
+        "after": {
+          "median": 1390.5,
+          "worst": 3422,
+          "observations": 120
+        },
+        "medianInputSaving": 0.14043260176734756
+      },
+      "load": {
+        "before": {
+          "medianMean": 96.73882499599023,
+          "worst": 100,
+          "missing": 5
+        },
+        "after": {
+          "medianMean": 69.68720694267367,
+          "worst": 100,
+          "missing": 3
+        }
+      }
+    },
+    {
+      "theme": "highlands",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 21,
+        "promise": 25,
+        "water": 31,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 23,
+        "promise": 25,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 6.85,
+        "worst": 14,
+        "total": 274
+      },
+      "afterRedraws": {
+        "mean": 6.975,
+        "worst": 14,
+        "total": 279
+      },
+      "beforeRefused": {
+        "mean": 12.95,
+        "worst": 34,
+        "total": 518
+      },
+      "afterRefused": {
+        "mean": 13.275,
+        "worst": 34,
+        "total": 531
+      },
+      "firstLand": {
+        "before": {
+          "median": 1462.5,
+          "worst": 5530,
+          "observations": 120
+        },
+        "after": {
+          "median": 1258,
+          "worst": 3329,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 2155.5,
+          "worst": 7706,
+          "observations": 120
+        },
+        "after": {
+          "median": 1837.5,
+          "worst": 3875,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1907,
+          "worst": 6837,
+          "observations": 120
+        },
+        "after": {
+          "median": 1686,
+          "worst": 3556,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1929.5,
+          "worst": 4297,
+          "observations": 120
+        },
+        "after": {
+          "median": 1773,
+          "worst": 3781,
+          "observations": 120
+        },
+        "medianInputSaving": 0.09855113999650211
+      },
+      "load": {
+        "before": {
+          "medianMean": 96.23616571304827,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 69.12182859379153,
+          "worst": 100,
+          "missing": 1
+        }
+      }
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 23,
+        "promise": 26,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 24,
+        "promise": 27,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 2.125,
+        "worst": 7,
+        "total": 85
+      },
+      "afterRedraws": {
+        "mean": 2.45,
+        "worst": 10,
+        "total": 98
+      },
+      "beforeRefused": {
+        "mean": 3.925,
+        "worst": 14,
+        "total": 157
+      },
+      "afterRefused": {
+        "mean": 4.675,
+        "worst": 23,
+        "total": 187
+      },
+      "firstLand": {
+        "before": {
+          "median": 580.5,
+          "worst": 2053,
+          "observations": 120
+        },
+        "after": {
+          "median": 556,
+          "worst": 2264,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1588.5,
+          "worst": 6655,
+          "observations": 120
+        },
+        "after": {
+          "median": 1382.5,
+          "worst": 5384,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1253.5,
+          "worst": 6444,
+          "observations": 120
+        },
+        "after": {
+          "median": 1068,
+          "worst": 5212,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1367,
+          "worst": 5797,
+          "observations": 120
+        },
+        "after": {
+          "median": 1312,
+          "worst": 5360,
+          "observations": 120
+        },
+        "medianInputSaving": 0.07757816856417998
+      },
+      "load": {
+        "before": {
+          "medianMean": 97.34837608324358,
+          "worst": 100,
+          "missing": 2
+        },
+        "after": {
+          "medianMean": 68.02500151506257,
+          "worst": 100,
+          "missing": 2
+        }
+      }
+    },
+    {
+      "theme": "delta",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 35,
+        "promise": 40,
+        "water": 40,
+        "standout": 35,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 35,
+        "promise": 40,
+        "water": 40,
+        "standout": 35,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.6,
+        "worst": 3,
+        "total": 24
+      },
+      "afterRedraws": {
+        "mean": 0.6,
+        "worst": 3,
+        "total": 24
+      },
+      "beforeRefused": {
+        "mean": 1.925,
+        "worst": 9,
+        "total": 77
+      },
+      "afterRefused": {
+        "mean": 1.925,
+        "worst": 9,
+        "total": 77
+      },
+      "firstLand": {
+        "before": {
+          "median": 265,
+          "worst": 844,
+          "observations": 120
+        },
+        "after": {
+          "median": 220.5,
+          "worst": 586,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1082.5,
+          "worst": 2880,
+          "observations": 120
+        },
+        "after": {
+          "median": 880.5,
+          "worst": 2205,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 768,
+          "worst": 2079,
+          "observations": 120
+        },
+        "after": {
+          "median": 625.5,
+          "worst": 1971,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 945.5,
+          "worst": 2078,
+          "observations": 120
+        },
+        "after": {
+          "median": 867.5,
+          "worst": 1891,
+          "observations": 120
+        },
+        "medianInputSaving": 0.08274790134615123
+      },
+      "load": {
+        "before": {
+          "medianMean": 97.05053934916329,
+          "worst": 100,
+          "missing": 8
+        },
+        "after": {
+          "medianMean": 68.7545759454099,
+          "worst": 100,
+          "missing": 9
+        }
+      }
+    },
+    {
+      "theme": "islands",
+      "size": 96,
+      "beforeOutcomes": {
+        "all": 39,
+        "promise": 39,
+        "water": 39,
+        "standout": 39,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 40,
+        "promise": 40,
+        "water": 40,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [
+        4
+      ],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "afterRedraws": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "beforeRefused": {
+        "mean": 0.025,
+        "worst": 1,
+        "total": 1
+      },
+      "afterRefused": {
+        "mean": 0.075,
+        "worst": 1,
+        "total": 3
+      },
+      "firstLand": {
+        "before": {
+          "median": 242,
+          "worst": 547,
+          "observations": 117
+        },
+        "after": {
+          "median": 201.5,
+          "worst": 403,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 3088,
+          "worst": 7197,
+          "observations": 117
+        },
+        "after": {
+          "median": 2541.5,
+          "worst": 4374,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 2288,
+          "worst": 4680,
+          "observations": 117
+        },
+        "after": {
+          "median": 1892,
+          "worst": 3056,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 2680,
+          "worst": 6390,
+          "observations": 120
+        },
+        "after": {
+          "median": 2476.5,
+          "worst": 3609,
+          "observations": 120
+        },
+        "medianInputSaving": 0.09834873188405802
+      },
+      "load": {
+        "before": {
+          "medianMean": 97.01090958038012,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 69.62150821095949,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "any",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 33,
+        "promise": 40,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 33,
+        "promise": 40,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1,
+        "worst": 5,
+        "total": 40
+      },
+      "afterRedraws": {
+        "mean": 1,
+        "worst": 5,
+        "total": 40
+      },
+      "beforeRefused": {
+        "mean": 2.225,
+        "worst": 9,
+        "total": 89
+      },
+      "afterRefused": {
+        "mean": 2.225,
+        "worst": 9,
+        "total": 89
+      },
+      "firstLand": {
+        "before": {
+          "median": 609,
+          "worst": 2811,
+          "observations": 120
+        },
+        "after": {
+          "median": 674.5,
+          "worst": 3198,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1814,
+          "worst": 4982,
+          "observations": 120
+        },
+        "after": {
+          "median": 1816,
+          "worst": 5301,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1388.5,
+          "worst": 4402,
+          "observations": 120
+        },
+        "after": {
+          "median": 1477.5,
+          "worst": 4695,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1742.5,
+          "worst": 4688,
+          "observations": 120
+        },
+        "after": {
+          "median": 1703,
+          "worst": 4813,
+          "observations": 120
+        },
+        "medianInputSaving": -0.010638230018330197
+      },
+      "load": {
+        "before": {
+          "medianMean": 87.97162742603697,
+          "worst": 99.71207038074287,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 93.60976190068982,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "riverValley",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 35,
+        "promise": 38,
+        "water": 37,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 35,
+        "promise": 38,
+        "water": 37,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.675,
+        "worst": 6,
+        "total": 27
+      },
+      "afterRedraws": {
+        "mean": 0.675,
+        "worst": 6,
+        "total": 27
+      },
+      "beforeRefused": {
+        "mean": 1.4,
+        "worst": 14,
+        "total": 56
+      },
+      "afterRefused": {
+        "mean": 1.4,
+        "worst": 14,
+        "total": 56
+      },
+      "firstLand": {
+        "before": {
+          "median": 455.5,
+          "worst": 2443,
+          "observations": 120
+        },
+        "after": {
+          "median": 476.5,
+          "worst": 4125,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1665,
+          "worst": 5921,
+          "observations": 120
+        },
+        "after": {
+          "median": 1712,
+          "worst": 5913,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1185.5,
+          "worst": 5509,
+          "observations": 120
+        },
+        "after": {
+          "median": 1231,
+          "worst": 5471,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1609.5,
+          "worst": 5655,
+          "observations": 120
+        },
+        "after": {
+          "median": 1593.5,
+          "worst": 5547,
+          "observations": 120
+        },
+        "medianInputSaving": -0.009629382365758943
+      },
+      "load": {
+        "before": {
+          "medianMean": 88.01728653554221,
+          "worst": 99.71161812676498,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 92.79388236829277,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "canyon",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 31,
+        "promise": 36,
+        "water": 32,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 33,
+        "promise": 34,
+        "water": 39,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 4.225,
+        "worst": 13,
+        "total": 169
+      },
+      "afterRedraws": {
+        "mean": 2.2,
+        "worst": 6,
+        "total": 88
+      },
+      "beforeRefused": {
+        "mean": 8.45,
+        "worst": 31,
+        "total": 338
+      },
+      "afterRefused": {
+        "mean": 7.175,
+        "worst": 20,
+        "total": 287
+      },
+      "firstLand": {
+        "before": {
+          "median": 1478.5,
+          "worst": 5933,
+          "observations": 120
+        },
+        "after": {
+          "median": 1439,
+          "worst": 4169,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 2797,
+          "worst": 6602,
+          "observations": 120
+        },
+        "after": {
+          "median": 2644,
+          "worst": 7626,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 2329.5,
+          "worst": 6279,
+          "observations": 120
+        },
+        "after": {
+          "median": 2219.5,
+          "worst": 7012,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 2617,
+          "worst": 6328,
+          "observations": 120
+        },
+        "after": {
+          "median": 2367.5,
+          "worst": 5641,
+          "observations": 120
+        },
+        "medianInputSaving": 0.024582156523004828
+      },
+      "load": {
+        "before": {
+          "medianMean": 88.03290392663499,
+          "worst": 99.7119033280638,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 93.50215053170936,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "highlands",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 30,
+        "promise": 31,
+        "water": 35,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 30,
+        "promise": 31,
+        "water": 35,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 4.8,
+        "worst": 12,
+        "total": 192
+      },
+      "afterRedraws": {
+        "mean": 4.8,
+        "worst": 12,
+        "total": 192
+      },
+      "beforeRefused": {
+        "mean": 7.9,
+        "worst": 26,
+        "total": 316
+      },
+      "afterRefused": {
+        "mean": 7.9,
+        "worst": 26,
+        "total": 316
+      },
+      "firstLand": {
+        "before": {
+          "median": 1691.5,
+          "worst": 5034,
+          "observations": 120
+        },
+        "after": {
+          "median": 1773,
+          "worst": 5662,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 2513.5,
+          "worst": 5661,
+          "observations": 120
+        },
+        "after": {
+          "median": 2657.5,
+          "worst": 6549,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 2259,
+          "worst": 5334,
+          "observations": 120
+        },
+        "after": {
+          "median": 2387.5,
+          "worst": 6102,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 2406.5,
+          "worst": 5469,
+          "observations": 120
+        },
+        "after": {
+          "median": 2484.5,
+          "worst": 5485,
+          "observations": 120
+        },
+        "medianInputSaving": -0.012661781940046857
+      },
+      "load": {
+        "before": {
+          "medianMean": 87.69817102142372,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 92.74451924597733,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 26,
+        "promise": 33,
+        "water": 29,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 26,
+        "promise": 33,
+        "water": 29,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1.95,
+        "worst": 8,
+        "total": 78
+      },
+      "afterRedraws": {
+        "mean": 1.95,
+        "worst": 8,
+        "total": 78
+      },
+      "beforeRefused": {
+        "mean": 3.75,
+        "worst": 15,
+        "total": 150
+      },
+      "afterRefused": {
+        "mean": 3.75,
+        "worst": 15,
+        "total": 150
+      },
+      "firstLand": {
+        "before": {
+          "median": 930,
+          "worst": 2922,
+          "observations": 120
+        },
+        "after": {
+          "median": 957.5,
+          "worst": 3484,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 2248,
+          "worst": 8882,
+          "observations": 120
+        },
+        "after": {
+          "median": 2379.5,
+          "worst": 9704,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1769,
+          "worst": 8432,
+          "observations": 120
+        },
+        "after": {
+          "median": 1745.5,
+          "worst": 9206,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 2156,
+          "worst": 8438,
+          "observations": 120
+        },
+        "after": {
+          "median": 2234,
+          "worst": 8812,
+          "observations": 120
+        },
+        "medianInputSaving": -0.0225496891616922
+      },
+      "load": {
+        "before": {
+          "medianMean": 87.52843182486635,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 93.26193632422708,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "delta",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 33,
+        "promise": 40,
+        "water": 40,
+        "standout": 33,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 33,
+        "promise": 40,
+        "water": 40,
+        "standout": 33,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.425,
+        "worst": 2,
+        "total": 17
+      },
+      "afterRedraws": {
+        "mean": 0.425,
+        "worst": 2,
+        "total": 17
+      },
+      "beforeRefused": {
+        "mean": 1.475,
+        "worst": 7,
+        "total": 59
+      },
+      "afterRefused": {
+        "mean": 1.475,
+        "worst": 7,
+        "total": 59
+      },
+      "firstLand": {
+        "before": {
+          "median": 308,
+          "worst": 1019,
+          "observations": 120
+        },
+        "after": {
+          "median": 328.5,
+          "worst": 1184,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 1779.5,
+          "worst": 3941,
+          "observations": 120
+        },
+        "after": {
+          "median": 1922.5,
+          "worst": 5072,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 1303,
+          "worst": 3506,
+          "observations": 120
+        },
+        "after": {
+          "median": 1349.5,
+          "worst": 4715,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 1672,
+          "worst": 3578,
+          "observations": 120
+        },
+        "after": {
+          "median": 1718.5,
+          "worst": 4031,
+          "observations": 120
+        },
+        "medianInputSaving": -0.01672270037654655
+      },
+      "load": {
+        "before": {
+          "medianMean": 87.67844284640853,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 93.65191624495344,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "islands",
+      "size": 128,
+      "beforeOutcomes": {
+        "all": 40,
+        "promise": 40,
+        "water": 40,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 40,
+        "promise": 40,
+        "water": 40,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "afterRedraws": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "beforeRefused": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "afterRefused": {
+        "mean": 0,
+        "worst": 0,
+        "total": 0
+      },
+      "firstLand": {
+        "before": {
+          "median": 304,
+          "worst": 471,
+          "observations": 120
+        },
+        "after": {
+          "median": 323,
+          "worst": 568,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 4676,
+          "worst": 10690,
+          "observations": 120
+        },
+        "after": {
+          "median": 4984,
+          "worst": 9589,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 3927,
+          "worst": 5137,
+          "observations": 120
+        },
+        "after": {
+          "median": 4208,
+          "worst": 6175,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 4461.5,
+          "worst": 9312,
+          "observations": 120
+        },
+        "after": {
+          "median": 4492,
+          "worst": 9032,
+          "observations": 120
+        },
+        "medianInputSaving": -0.028331039779717404
+      },
+      "load": {
+        "before": {
+          "medianMean": 87.5224880201572,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 93.07269113120324,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "any",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 34,
+        "promise": 40,
+        "water": 34,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 34,
+        "promise": 40,
+        "water": 34,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.65,
+        "worst": 4,
+        "total": 26
+      },
+      "afterRedraws": {
+        "mean": 0.65,
+        "worst": 4,
+        "total": 26
+      },
+      "beforeRefused": {
+        "mean": 1.35,
+        "worst": 8,
+        "total": 54
+      },
+      "afterRefused": {
+        "mean": 1.35,
+        "worst": 8,
+        "total": 54
+      },
+      "firstLand": {
+        "before": {
+          "median": 2834,
+          "worst": 13123,
+          "observations": 120
+        },
+        "after": {
+          "median": 2621.5,
+          "worst": 10103,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 8539.5,
+          "worst": 55199,
+          "observations": 120
+        },
+        "after": {
+          "median": 8497.5,
+          "worst": 41185,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 7261.5,
+          "worst": 53861,
+          "observations": 120
+        },
+        "after": {
+          "median": 7126.5,
+          "worst": 39908,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 8124.5,
+          "worst": 52625,
+          "observations": 120
+        },
+        "after": {
+          "median": 8241.5,
+          "worst": 40078,
+          "observations": 120
+        },
+        "medianInputSaving": 0.011231175160595797
+      },
+      "load": {
+        "before": {
+          "medianMean": 82.74946225291653,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 82.10842079684352,
+          "worst": 99.71078221780559,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "riverValley",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 32,
+        "promise": 38,
+        "water": 34,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 32,
+        "promise": 38,
+        "water": 34,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.525,
+        "worst": 4,
+        "total": 21
+      },
+      "afterRedraws": {
+        "mean": 0.525,
+        "worst": 4,
+        "total": 21
+      },
+      "beforeRefused": {
+        "mean": 1.55,
+        "worst": 8,
+        "total": 62
+      },
+      "afterRefused": {
+        "mean": 1.55,
+        "worst": 8,
+        "total": 62
+      },
+      "firstLand": {
+        "before": {
+          "median": 2301.5,
+          "worst": 8551,
+          "observations": 120
+        },
+        "after": {
+          "median": 2141,
+          "worst": 9206,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 7670.5,
+          "worst": 45821,
+          "observations": 120
+        },
+        "after": {
+          "median": 7365,
+          "worst": 44671,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 6438.5,
+          "worst": 44563,
+          "observations": 120
+        },
+        "after": {
+          "median": 6256,
+          "worst": 43634,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 7227.5,
+          "worst": 44329,
+          "observations": 120
+        },
+        "after": {
+          "median": 7250,
+          "worst": 42844,
+          "observations": 120
+        },
+        "medianInputSaving": 0.0037542274349338656
+      },
+      "load": {
+        "before": {
+          "medianMean": 83.51704434290053,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 81.41642021687154,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "canyon",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 32,
+        "promise": 36,
+        "water": 36,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 32,
+        "promise": 37,
+        "water": 35,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1.65,
+        "worst": 7,
+        "total": 66
+      },
+      "afterRedraws": {
+        "mean": 1.625,
+        "worst": 7,
+        "total": 65
+      },
+      "beforeRefused": {
+        "mean": 3.325,
+        "worst": 17,
+        "total": 133
+      },
+      "afterRefused": {
+        "mean": 3.175,
+        "worst": 16,
+        "total": 127
+      },
+      "firstLand": {
+        "before": {
+          "median": 3849,
+          "worst": 19311,
+          "observations": 120
+        },
+        "after": {
+          "median": 3931.5,
+          "worst": 18609,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 8201,
+          "worst": 24298,
+          "observations": 120
+        },
+        "after": {
+          "median": 8087.5,
+          "worst": 22042,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 7046.5,
+          "worst": 21901,
+          "observations": 120
+        },
+        "after": {
+          "median": 6875.5,
+          "worst": 19766,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 7828.5,
+          "worst": 23797,
+          "observations": 120
+        },
+        "after": {
+          "median": 7797,
+          "worst": 20891,
+          "observations": 120
+        },
+        "medianInputSaving": 0.00891642671993137
+      },
+      "load": {
+        "before": {
+          "medianMean": 82.5837161074985,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 82.44201627373523,
+          "worst": 99.71078221780559,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "highlands",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 34,
+        "promise": 35,
+        "water": 37,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 34,
+        "promise": 35,
+        "water": 37,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1.775,
+        "worst": 5,
+        "total": 71
+      },
+      "afterRedraws": {
+        "mean": 1.775,
+        "worst": 5,
+        "total": 71
+      },
+      "beforeRefused": {
+        "mean": 2.85,
+        "worst": 10,
+        "total": 114
+      },
+      "afterRefused": {
+        "mean": 2.85,
+        "worst": 10,
+        "total": 114
+      },
+      "firstLand": {
+        "before": {
+          "median": 4264,
+          "worst": 12189,
+          "observations": 120
+        },
+        "after": {
+          "median": 4010,
+          "worst": 12665,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 8574,
+          "worst": 31624,
+          "observations": 120
+        },
+        "after": {
+          "median": 7918.5,
+          "worst": 20025,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 7554.5,
+          "worst": 25465,
+          "observations": 120
+        },
+        "after": {
+          "median": 6972,
+          "worst": 15422,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 7859,
+          "worst": 28172,
+          "observations": 120
+        },
+        "after": {
+          "median": 7570.5,
+          "worst": 18969,
+          "observations": 120
+        },
+        "medianInputSaving": 0.006830838154677499
+      },
+      "load": {
+        "before": {
+          "medianMean": 82.77909882795062,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 81.97379331137546,
+          "worst": 99.90383106093267,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "lakeBasin",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 23,
+        "promise": 26,
+        "water": 32,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 24,
+        "promise": 28,
+        "water": 33,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 1.725,
+        "worst": 7,
+        "total": 69
+      },
+      "afterRedraws": {
+        "mean": 1.575,
+        "worst": 6,
+        "total": 63
+      },
+      "beforeRefused": {
+        "mean": 3.35,
+        "worst": 15,
+        "total": 134
+      },
+      "afterRefused": {
+        "mean": 3.325,
+        "worst": 15,
+        "total": 133
+      },
+      "firstLand": {
+        "before": {
+          "median": 4422.5,
+          "worst": 14891,
+          "observations": 120
+        },
+        "after": {
+          "median": 4232.5,
+          "worst": 12721,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 11345,
+          "worst": 48309,
+          "observations": 120
+        },
+        "after": {
+          "median": 11763.5,
+          "worst": 53187,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 9601,
+          "worst": 46185,
+          "observations": 120
+        },
+        "after": {
+          "median": 9447.5,
+          "worst": 51982,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 10867.5,
+          "worst": 45656,
+          "observations": 120
+        },
+        "after": {
+          "median": 11429.5,
+          "worst": 50765,
+          "observations": 120
+        },
+        "medianInputSaving": 0.0075601429875225
+      },
+      "load": {
+        "before": {
+          "medianMean": 83.62573933272267,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 81.47191624872548,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "delta",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 34,
+        "promise": 39,
+        "water": 40,
+        "standout": 35,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 34,
+        "promise": 39,
+        "water": 40,
+        "standout": 35,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.075,
+        "worst": 1,
+        "total": 3
+      },
+      "afterRedraws": {
+        "mean": 0.075,
+        "worst": 1,
+        "total": 3
+      },
+      "beforeRefused": {
+        "mean": 0.45,
+        "worst": 3,
+        "total": 18
+      },
+      "afterRefused": {
+        "mean": 0.45,
+        "worst": 3,
+        "total": 18
+      },
+      "firstLand": {
+        "before": {
+          "median": 1192,
+          "worst": 3952,
+          "observations": 120
+        },
+        "after": {
+          "median": 1126,
+          "worst": 4519,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 6125,
+          "worst": 10710,
+          "observations": 120
+        },
+        "after": {
+          "median": 5850.5,
+          "worst": 9872,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 4622.5,
+          "worst": 8317,
+          "observations": 120
+        },
+        "after": {
+          "median": 4716,
+          "worst": 8196,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 5773.5,
+          "worst": 9250,
+          "observations": 120
+        },
+        "after": {
+          "median": 5711,
+          "worst": 9469,
+          "observations": 120
+        },
+        "medianInputSaving": 0.013254207110853122
+      },
+      "load": {
+        "before": {
+          "medianMean": 84.13110248455348,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 81.61656142191225,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    },
+    {
+      "theme": "islands",
+      "size": 256,
+      "beforeOutcomes": {
+        "all": 40,
+        "promise": 40,
+        "water": 40,
+        "standout": 40,
+        "total": 40
+      },
+      "afterOutcomes": {
+        "all": 40,
+        "promise": 40,
+        "water": 40,
+        "standout": 40,
+        "total": 40
+      },
+      "beforeFailures": [],
+      "afterFailures": [],
+      "beforeRedraws": {
+        "mean": 0.025,
+        "worst": 1,
+        "total": 1
+      },
+      "afterRedraws": {
+        "mean": 0.025,
+        "worst": 1,
+        "total": 1
+      },
+      "beforeRefused": {
+        "mean": 0.15,
+        "worst": 3,
+        "total": 6
+      },
+      "afterRefused": {
+        "mean": 0.15,
+        "worst": 3,
+        "total": 6
+      },
+      "firstLand": {
+        "before": {
+          "median": 1200,
+          "worst": 2661,
+          "observations": 120
+        },
+        "after": {
+          "median": 1168.5,
+          "worst": 2734,
+          "observations": 120
+        }
+      },
+      "settledReturn": {
+        "before": {
+          "median": 20499.5,
+          "worst": 32504,
+          "observations": 120
+        },
+        "after": {
+          "median": 20241.5,
+          "worst": 24658,
+          "observations": 120
+        }
+      },
+      "waterStart": {
+        "before": {
+          "median": 19310.5,
+          "worst": 30188,
+          "observations": 120
+        },
+        "after": {
+          "median": 19051,
+          "worst": 23002,
+          "observations": 120
+        }
+      },
+      "cpu": {
+        "before": {
+          "median": 19836.5,
+          "worst": 24281,
+          "observations": 120
+        },
+        "after": {
+          "median": 19524,
+          "worst": 23640,
+          "observations": 120
+        },
+        "medianInputSaving": 0.008079946067746369
+      },
+      "load": {
+        "before": {
+          "medianMean": 81.72642748212779,
+          "worst": 100,
+          "missing": 0
+        },
+        "after": {
+          "medianMean": 81.61596736847928,
+          "worst": 100,
+          "missing": 0
+        }
+      }
+    }
+  ],
+  "browserCells": [
+    {
+      "theme": "any",
+      "firstLand": {
+        "before": {
+          "median": 2571.199999988079,
+          "worst": 2696.599999964237
+        },
+        "after": {
+          "median": 2857.899999976158,
+          "worst": 3372.100000023842
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 5773.199999988079,
+          "worst": 6147.699999988079
+        },
+        "after": {
+          "median": 7189.300000011921,
+          "worst": 7392.800000011921
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 6753.899999976158,
+          "worst": 7489
+        },
+        "after": {
+          "median": 7846.5,
+          "worst": 8077.399999976158
+        }
+      }
+    },
+    {
+      "theme": "riverValley",
+      "firstLand": {
+        "before": {
+          "median": 2120.7999999523163,
+          "worst": 2604.699999988079
+        },
+        "after": {
+          "median": 2199.2999999523163,
+          "worst": 2203.699999988079
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 12875.100000023842,
+          "worst": 14535.199999988079
+        },
+        "after": {
+          "median": 13284.899999976158,
+          "worst": 14294.599999964237
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 13475.300000011921,
+          "worst": 15109.5
+        },
+        "after": {
+          "median": 13926,
+          "worst": 14901.299999952316
+        }
+      }
+    },
+    {
+      "theme": "canyon",
+      "firstLand": {
+        "before": {
+          "median": 4769.699999988079,
+          "worst": 6038.199999988079
+        },
+        "after": {
+          "median": 4782.400000035763,
+          "worst": 5218.099999964237
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 11048.5,
+          "worst": 11369.5
+        },
+        "after": {
+          "median": 11162.399999976158,
+          "worst": 11438.600000023842
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 11723.599999964237,
+          "worst": 11976.800000011921
+        },
+        "after": {
+          "median": 11785.399999976158,
+          "worst": 12112.699999988079
+        }
+      }
+    },
+    {
+      "theme": "highlands",
+      "firstLand": {
+        "before": {
+          "median": 2042.800000011921,
+          "worst": 2333.600000023842
+        },
+        "after": {
+          "median": 1895,
+          "worst": 2198.100000023842
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 6145.5,
+          "worst": 6688.800000011921
+        },
+        "after": {
+          "median": 5702.400000035763,
+          "worst": 6292.800000011921
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 6731.200000047684,
+          "worst": 7349.5
+        },
+        "after": {
+          "median": 6259.400000035763,
+          "worst": 6912
+        }
+      }
+    },
+    {
+      "theme": "lakeBasin",
+      "firstLand": {
+        "before": {
+          "median": 2757,
+          "worst": 2977.699999988079
+        },
+        "after": {
+          "median": 2620.800000011921,
+          "worst": 3488.399999976158
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 8842.899999976158,
+          "worst": 8890.699999988079
+        },
+        "after": {
+          "median": 7963.5,
+          "worst": 9836.800000011921
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 9589.199999988079,
+          "worst": 9618.100000023842
+        },
+        "after": {
+          "median": 8666.699999988079,
+          "worst": 10509.899999976158
+        }
+      }
+    },
+    {
+      "theme": "delta",
+      "firstLand": {
+        "before": {
+          "median": 1414,
+          "worst": 1416.4000000357628
+        },
+        "after": {
+          "median": 1226.9000000357628,
+          "worst": 1338
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 7773.400000035763,
+          "worst": 7884.600000023842
+        },
+        "after": {
+          "median": 7478.800000011921,
+          "worst": 8128.5
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 8267.100000023842,
+          "worst": 8365.100000023842
+        },
+        "after": {
+          "median": 7959.5,
+          "worst": 8627.299999952316
+        }
+      }
+    },
+    {
+      "theme": "islands",
+      "firstLand": {
+        "before": {
+          "median": 1527.5999999642372,
+          "worst": 1767.2000000476837
+        },
+        "after": {
+          "median": 1451.1000000238419,
+          "worst": 1512.6000000238419
+        }
+      },
+      "settled": {
+        "before": {
+          "median": 22852.599999964237,
+          "worst": 23209.100000023842
+        },
+        "after": {
+          "median": 20239.19999998808,
+          "worst": 22180.19999998808
+        }
+      },
+      "editable": {
+        "before": {
+          "median": 23501.19999998808,
+          "worst": 23766.700000047684
+        },
+        "after": {
+          "median": 20851.5,
+          "worst": 22753.19999998808
+        }
+      }
+    }
+  ],
+  "uiFailures": [],
+  "manifest": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "cpus": [
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+      "AMD Ryzen 7 9800X3D 8-Core Processor           "
+    ],
+    "memory": 66146570240,
+    "workers": 4,
+    "bundle": {
+      "after": "a1816abdaf14c224f96af938a0b491fb5e980724212b350d7520034833cc6cfe",
+      "round2": "8ad12837280bf2856c6a6e294e5f7d042eb52a8cb8061096705534867920130d"
+    },
+    "sizes": [
+      96,
+      128,
+      256
+    ],
+    "themes": [
+      "any",
+      "riverValley",
+      "canyon",
+      "highlands",
+      "lakeBasin",
+      "delta",
+      "islands"
+    ],
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40
+    ],
+    "reps": 3,
+    "variants": [
+      "after",
+      "round2"
+    ],
+    "reusedControl": {
+      "prefix": "round2-final",
+      "rawSha256": "4fd4fd7377544c2aa643ae157c7258aedc8ea57d42417e6fb3966e81220a6452",
+      "manifestSha256": "fc6530a30d7108441650c752702e87a49c1c9c02afda0620ce13bd2e733e1128",
+      "bundle": "a1816abdaf14c224f96af938a0b491fb5e980724212b350d7520034833cc6cfe"
+    }
+  },
+  "browserManifest": {
+    "bundleSha256": "6f7a8d2d5839c0da2dbc66a943d8f1b93a51e92848f9a3b3071f5134b4be522f",
+    "engines": {
+      "chromium": "145.0.7632.6",
+      "firefox": "146.0.1",
+      "webkit": "26.0"
+    },
+    "node": "v24.19.0"
+  },
+  "rawFiles": {
+    "round2-adopted.jsonl": "a90a987a5df6145e46c9a6eaf278f407bfb832eabc3371baf34c2e78d4176b15",
+    "round2-adopted-manifest.json": "5493e5cc8e9faaf8e54743da6386b314b5959cc5dc5fa39c43376bbaca02347f",
+    "round2-browsers.jsonl": "ad010fedaa065b91248076ca13fef193b71fd6d9dd7890d7572740f70b76ce44",
+    "round2-browsers-manifest.json": "7a483ebfe2f2d92a4b467620cd2098486cd83fafdc3e7deac6b5c131d9a3d5e5",
+    "round2-browser-ui.jsonl": "badec77f207cf2c51e9e31e6fdf436d365017cd35356c7e1bef02ebc6414eb19",
+    "round2-browser-ui-manifest.json": "09c752d1cda67ae0bc42050adc5d4c3fd5bde03645e14fef595a15c71d6ef9ef"
+  },
+  "harness": {
+    "build.mjs": "1a9f9d17af8b4bbfe031a556dfeef83dfcf658a6f30ce83257be9d974373d0a1",
+    "identity.mjs": "4ea1f785b26ce9958cdcb756e4774fa876088cbce632082cfc4111777e0deac5",
+    "trace.mjs": "2f43c8c9f003a1a73a7a73fcbd711ecbab1d020aab83b56bc492313fecaf2b87",
+    "browser.mjs": "7262a67007b690fc77b40ce87557772e2b61ca47c686f837a4a024721cc76d84",
+    "prepare-browser.mjs": "ad43d9277d11fd5151ac02729229e1084d052d19a302270c4bf6a91f29c52340",
+    "round2/worker.mjs": "1908feeeb1e049f9d65d5553633e76ca6a9327c9e9c08c9456550bc9d9f7b68c",
+    "round2/matrix.mjs": "fc5317b435055e98d4026c3cb1ea04ac0f4af27b8b420786c065146b088771b7",
+    "round2/browsers.mjs": "fee78e2b31c9746f26956f79fca13285faad17fc296ad952f2d5b012c83a2225",
+    "round2/prototype.mjs": "362748451dd117e6f33fe0256d552ba4b186bdae5a8260937b40b0ca191ed6bf",
+    "round2/make-patch.mjs": "3554359e37f3a5b3575aeae115573e702824741eddba06dc8fbcd48c346a68a0",
+    "round2/summarize.mjs": "4814a2448de0991aa27de3137dae1f7bda9b3d933bae8c87b7507d32aa769f0a",
+    "round2/contact-sheet.py": "26e662404f714c56377faa25be2a0f44f7d355f6d2ad297fbe8463760786e130",
+    "typecheck.mjs": "fb31c813818a1c44c74ecbee6e6dfa0ccb86dfd86af6cabdd531663836be2f71",
+    "tests.config.mjs": "1ac64d35222d67fc101c4b3fb844f338c2cd90490109b30a2522dec01835c647"
+  }
+}
