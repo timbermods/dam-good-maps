@@ -60,7 +60,7 @@ The editor:
 - The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
-- A new source's water flows at once. The settings above the bar set its strength.
+- A new source's water flows at once. The window above the objects sets its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
 - Point at an object or a source and press **Delete** to remove it. The start stays.

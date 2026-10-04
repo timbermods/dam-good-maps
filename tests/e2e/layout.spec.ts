@@ -1,7 +1,7 @@
 // The editor's layout, Layout 2 (DESIGN.md, "Layout 2 mockups (2026-10-03): the design to build"), at the two sizes
 // it is designed for, 1920×1080 and 2560×1440: with the map generator's panel closed and open, the legend off and
 // on, and each Show toggle on, no two pieces of chrome overlap; the map's info sits at the window's centre; the
-// pieces keep to their places (the Show column and the minimap at the map's left, the camera group and the objects
+// pieces keep to their places (the Show column and the bottom-left group at the map's left, the camera group and the objects
 // menu at its right, the water row and the bar centred in it, the objects menu's foot level with the bar's); the
 // held tool's settings sit on the bar's own cells at its exact width; ticking a toggle moves nothing; the legend
 // never scrolls and the fullest one fits above the minimap; every control stands on a solid background, and its
@@ -19,7 +19,7 @@ const PANEL = 352;
 const MARGIN = 10;
 
 /** The pieces of chrome that must never overlap one another. */
-const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".editor-view .minimap", ".coords", ".readout"];
+const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
 /** What keeps its place at the map's right when the panel opens. */
 const RIGHT = [".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".objects-menu"];
 /** What moves with the map's left edge when the panel opens. */
@@ -157,13 +157,23 @@ async function check(page: Page, w: number, state: string) {
   const column = find(".show-column");
   same(column.l, map.l + MARGIN, `the Show column on the map's left margin (${state})`);
   same(column.t, map.t + MARGIN, `the Show column at the map's top margin (${state})`);
+  // the bottom-left group: the coordinates, the readout, then the minimap at the foot, level with the bar's, all on
+  // the left margin, one gap between them (Kyler's sitting, 2026-10-03)
   const minimap = find(".editor-view .minimap");
   same(minimap.l, map.l + MARGIN, `the minimap on the map's left margin (${state})`);
-  same(map.b - minimap.b, 86, `the minimap 86px from the map's foot (${state})`);
+  same(map.b - minimap.b, MARGIN, `the minimap on the map's foot margin (${state})`);
+  let groupTop = minimap.t;
+  for (const name of [".readout", ".coords"]) {
+    const b = bs.find((x) => x.name === name);
+    if (!b) continue;
+    same(b.l, map.l + MARGIN, `${name} on the map's left margin (${state})`);
+    same(groupTop - b.b, 6, `${name} one gap above the group (${state})`);
+    groupTop = b.t;
+  }
   const legend = bs.find((b) => b.name === ".legend-panel");
   if (legend) {
     same(legend.l, column.l, `the legend's left edge is the column's (${state})`);
-    expect(minimap.t - legend.b, `the legend ends at least 8px above the minimap (${state})`).toBeGreaterThanOrEqual(8 - 0.5);
+    expect(groupTop - legend.b, `the legend ends at least 8px above the bottom-left group (${state})`).toBeGreaterThanOrEqual(8 - 0.5);
     const scroll = await page.locator(".legend-panel").evaluate((e) => e.scrollHeight - e.clientHeight);
     expect(scroll, `the legend never scrolls (${state})`).toBeLessThanOrEqual(1);
   }
@@ -247,13 +257,46 @@ for (const [w, h] of SIZES) {
       }
       await page.keyboard.press("Escape");
     }
+    // an object's settings in its window directly above the objects list, on its edges, one gap between; no row above
+    // the bar for it (Kyler's sitting, 2026-10-03): picked in the list, and picked on the map
+    const objectWindow = async (state: string) => {
+      const [win] = await boxes(page, [".object-window"]);
+      const [list] = await boxes(page, [".objects-menu"]);
+      expect(win, `the object window (${state})`).toBeTruthy();
+      same(win.l, list.l, `the window's left edge is the list's (${state})`);
+      same(win.r, list.r, `the window's right edge is the list's (${state})`);
+      same(list.t - win.b, 6, `one gap between the window and the list (${state})`);
+      const corner = await boxes(page, [".view3d-corner"]);
+      expect(win.t, `the window clear of the camera group (${state})`).toBeGreaterThan(corner[0].b);
+    };
+    const listBox = (await boxes(page, [".objects-menu"]))[0];
     await page.getByRole("button", { name: "Water source (6)" }).click();
-    await onTheCells(page, "Water source");
+    await objectWindow("a water source picked in the list");
+    await expect(page.locator(".tool-settings")).toHaveCount(0);
     await page.keyboard.press("Escape");
+    const onMap = await page.evaluate(() => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      const e = m.entities;
+      for (let k = 0; k < e.count; k++)
+        if (e.templates[e.template[k]] === "WaterSource") {
+          const c = window.dgmEditor!.tileToClient(e.x[k], e.y[k]);
+          if (document.elementFromPoint(c.x, c.y)?.tagName === "CANVAS") return c;
+        }
+      return null;
+    });
+    if (onMap) {
+      await page.mouse.click(onMap.x, onMap.y);
+      await expect(page.getByRole("group", { name: "Water source, selected" })).toBeVisible();
+      await objectWindow("a water source picked on the map");
+      await expect(page.locator(".tool-settings")).toHaveCount(0);
+      await page.keyboard.press("Escape");
+    }
+    // the list never moved
+    expect((await boxes(page, [".objects-menu"]))[0]).toEqual(listBox);
   });
 }
 
-test("the fullest legend fits at 1920×1080 above the minimap, with Under roofs in the Show column, without scrolling", async ({ page }) => {
+test("the fullest legend fits at 1920×1080 above the bottom-left group, with Under roofs in the Show column, without scrolling", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page);
@@ -282,7 +325,8 @@ test("the fullest legend fits at 1920×1080 above the minimap, with Under roofs 
   // with Under roofs the column has one row more (this map has none, so the legend starts one row higher here)
   const roofs = m.rows === 8 ? 0 : m.rowH + m.gap;
   const fullest = (clean + 1 + marked) * m.row + m.pad;
-  // the minimap's tallest is 168px (a square map's); the legend stops 8px above it
-  const minimapTop = m.minimap.bottom - 168;
-  expect(m.top + roofs + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends 8px above the minimap or higher`).toBeLessThanOrEqual(minimapTop - 8 + 0.5);
+  // the bottom-left group at its tallest: a square map's minimap, 168px, the readout and the coordinates, 32px each,
+  // a 6px gap between each; the legend stops 8px above it
+  const groupTop = m.minimap.bottom - 168 - 6 - 32 - 6 - 32;
+  expect(m.top + roofs + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends 8px above the bottom-left group or higher`).toBeLessThanOrEqual(groupTop - 8 + 0.5);
 });

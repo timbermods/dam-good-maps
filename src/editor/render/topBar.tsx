@@ -7,7 +7,7 @@ import type { Ed } from "../ed";
 
 export function topBar(ed: Ed) {
   const {
-    brushTool, tool, forcer, forceRow, unleashRow, shelfRow, pickedRow, firstRun, setFirstRun, brush, info, pickTop,
+    brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
     setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef
   } = ed;
 
@@ -17,7 +17,7 @@ export function topBar(ed: Ed) {
       force={tool}
       forceAtWork={!!forcer.current?.running}
       forceRow={forceRow()}
-      row={unleashRow() ?? shelfRow() ?? pickedRow()}
+      row={unleashRow()}
       hints={
         <FirstRun
           done={firstRun}

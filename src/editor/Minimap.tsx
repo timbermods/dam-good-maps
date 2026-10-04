@@ -59,6 +59,14 @@ export function Minimap(p: MinimapProps) {
     };
   }, [p.stamp, p.W, p.H]);
 
+  // the view reads its height from --minimap-h: the readout and the coordinates stand on it (Layout 2)
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const view = box.current?.parentElement;
+    view?.style.setProperty("--minimap-h", `${h}px`);
+    return () => view?.style.removeProperty("--minimap-h");
+  }, [h]);
+
   const outline = p.renderer ? p.renderer.groundFootprint() : [];
   void p.viewTick;
   const pts = outline.map(([x, y]) => `${(x * scale).toFixed(1)},${((p.H - y) * scale).toFixed(1)}`).join(" ");
@@ -75,6 +83,7 @@ export function Minimap(p: MinimapProps) {
 
   return (
     <div
+      ref={box}
       class="minimap"
       role="img"
       aria-label="Minimap: the whole map from above; click or drag to move the camera there"

@@ -7,6 +7,7 @@ import { LEGEND_TEMPLATES } from "../shelfItems";
 import { measureInsets } from "../view/insets";
 import { Drawer } from "../Drawer";
 import { Shelf } from "../Shelf";
+import { ObjectWindow } from "../ObjectWindow";
 import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
 import { ForceFloor } from "../TopBar";
@@ -58,7 +59,11 @@ export function editorView(ed: Ed, props: EditorProps) {
               {startHintTag()}
               {topBar(ed)}
               {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} /> : null}
-              <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+              {/* the objects: the picked one's window directly above the list, the list never moving */}
+              <div class="objects-dock">
+                <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />
+                <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
+              </div>
               <Minimap
                 W={info.W}
                 H={info.H}

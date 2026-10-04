@@ -549,3 +549,15 @@ minimap, never scrolling). What the mockups left open is in DESIGN.md, "Layout 2
   bar and the brush kit…" (now "the bar and the brush kit…, Lines in the Show column"), selectRow's "four rows…"
   (now "one bar at the bottom…"), viewAndHeader's top-right test (now the three-column grid), legend.spec's Legend
   test. The tests that expected every generated map to be called "River Valley" read the name M9b gives it.
+
+## Kyler's sitting on Layout 2 as built (2026-10-03): three changes
+
+1. **The bottom-left group:** the coordinates, the readout, then the minimap at the foot, level with the bar's and the
+   objects list's; 32px plates, 6px apart. Its top at its tallest is where the minimap's top was, so the fullest legend
+   still fits at 1920×1080 (437px, unchanged).
+2. **Object settings leave the bar** for a window directly above the objects list, on its edges, 6px between; an object
+   picked shows no row above the bar (Select's row gives way while one is picked on the map).
+3. **The insets** take the window (with the list) and the bottom-left group (the minimap reaches furthest left).
+
+`layout.spec.ts` checks the group, the window's edges and gap in both pickings, no row above the bar, and the list
+never moving. Full browser suite: 130 of 131; the one is dev's own look-high highlight failure (reported before).

@@ -378,15 +378,28 @@ refinements and what the mockups left open:
   A force at work: its status 1–5, Pause 6 (Carve), the keys 7–9, Revert 10–11.
 - **Select with a selection:** its size in cells 7–11 with the keys; its actions take the row above, one per cell:
   Up 1, Down 1, Level, Flatten, Cut down, Fill up, Delete (its menu opening upward), and over water Max water depth.
-- **An object's settings:** a source on the shelf: Next source 1–3, Pointing at 4–6; a source picked on the map:
-  Strength 1–2, This source 3–4, Water 5–6, Remove 7, Unleash 8, its Power 9–10, Put it down (×) 11; a picked
-  object: "Drag it to move it" 1–4, Delete 5, × 11; a ruin's Height and a relic's Size 1–3.
+- **An object's settings leave the bar** (Kyler's sitting, 2026-10-03): they sit in a small window directly above
+  the objects list, its edges on the list's, 6px between them (the page's gap between plates), the list's own panel
+  look, each name above its control as on the bar. It shows only while an object is picked and its height follows
+  what that object has; the list never moves. Picked in the list: a source's Next source and Pointing at; a ruin's
+  Height; a relic's Size. Picked on the map: a source's Strength, This source, Water, Power (Unleash's), then Unleash
+  and Remove side by side and, after an unleash, Try another; a picked object's Delete. Put it down (×) sits on the
+  first name's line at the window's right, or after the controls where the first has no name. The bar's settings
+  row is for the tools only: an object picked shows no row above the bar (Select's own row gives way while one is
+  picked on the map). "Drag it to move it" is gone. At 1920×1080 a source picked on the map takes 267px (303 with
+  Try another), clear of the camera group.
 - **The overlays' captions** sit beside their rows while on: Heights' "Ground height" with the ramp and the map's
   lowest and highest level; Badwater's and Under roofs' one-line captions.
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
+- **The bottom-left group** (Kyler's sitting, 2026-10-03): the coordinates, the readout under them, then the minimap
+  at the foot, on the page's 10px margin, the minimap's bottom level with the bar's and the objects list's; each
+  plate 32px, 6px between them, so nothing moves as they show. At its tallest (a square map's 168px minimap) its top
+  is 254px above the map's foot, where the minimap's top was before, so the fullest legend still fits at 1920×1080
+  with the same 437px.
 - **The panel narrows the map area** rather than covering it, so the camera's insets are the top row (the water row
-  and the camera group), the Show column, the bar with its settings and the objects menu, each as far as it reaches
-  plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
+  and the camera group), the Show column and the bottom-left group (the left: whichever reaches further), the bar
+  with its settings, and the objects list with a picked object's window, each as far as it reaches plus 8px
+  (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
 
 **The build (2026-10-02, after the v8 verdict; Kyler's answers to the handoff's questions, 2026-10-02):**

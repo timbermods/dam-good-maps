@@ -454,8 +454,9 @@
   z-index: 2;
   top: 10px;
   left: 10px;
-  /* (the minimap's top, 86px up and 168px tall at most, less 8px) */
-  bottom: calc(86px + 168px + 8px);
+  /* (8px above the bottom-left group at its tallest: the minimap, 168px, the readout and the coordinates, 32px each,
+     one gap of 6px between each) */
+  bottom: calc(10px + 168px + 6px + 32px + 6px + 32px + 8px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -764,14 +765,23 @@
 }
 
 /* ---- bottom right: the objects, a menu always shown, one per row (its picture, then its name); its right edge on
-   the page's margin, its bottom level with the bar's */
-.editor-view .objects-menu {
+   the page's margin, its bottom level with the bar's; the picked object's window directly above it on its edges,
+   one plate's gap between, growing upward so the list never moves */
+.objects-dock {
   position: absolute;
   right: 10px;
   bottom: 10px;
   z-index: 2;
-  box-sizing: border-box;
   width: 166px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.object-window,
+.editor-view .objects-menu {
+  box-sizing: border-box;
+  width: 100%;
   padding: 6px;
   border: 1px solid var(--rule);
   border-radius: 8px;
@@ -822,22 +832,73 @@
   color: var(--accent-ink);
 }
 
-/* ---- bottom left: the minimap, under it the coordinates (in the readout's plate), then the readout */
+/* the object window: the list's panel look; each setting's name above its control, as on the bar */
+.object-window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ow-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ow-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cell-body.ow-body {
+  min-height: 30px;
+}
+
+.ow-close {
+  flex: none;
+  padding: 0 2px;
+  line-height: 15px;
+  font-size: 1rem;
+}
+
+/* ---- bottom left, one group on the page's margin: the coordinates, the readout, then the minimap at the foot,
+   level with the bar's and the objects list's; one plate height and one gap, so nothing moves as they show */
 .editor-view .minimap {
-  bottom: 86px;
+  bottom: 10px;
+}
+
+.editor-view .readout {
+  bottom: calc(10px + var(--minimap-h, 168px) + 6px);
+  height: 32px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 .editor-view .coords {
   position: absolute;
   left: 10px;
-  bottom: 48px;
-  padding: 5px 10px;
+  bottom: calc(10px + var(--minimap-h, 168px) + 6px + 32px + 6px);
+  height: 32px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: 6px;
   background: var(--overlay);
   box-shadow: var(--shadow);
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+.editor-view .coords[hidden] {
+  display: none;
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
@@ -1105,4 +1166,18 @@
 /* the first steps' hints sit above the bar's settings */
 .tool-dock > .first-run {
   align-self: center;
+}
+
+/* a source's strength in the window: the highlighted readout at the window's width */
+.ow-body .source-readout {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
+.ow-body .source-readout output {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
 }

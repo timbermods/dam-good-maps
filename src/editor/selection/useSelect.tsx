@@ -360,8 +360,10 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   function selectRow() {
     if (!selecting && !selection.current.count) return null;
-    // (with a brush, a force or an object out, only the chip)
+    // (with a brush, a force or an object out, only the chip; an object picked on the map shows no row above the bar:
+    // its settings are in its own window, Kyler's sitting, 2026-10-03)
     if (brushTool || tool || shelf) return null;
+    if (!selection.current.count && (ed.picked || ed.pickedObject)) return null;
     void selectionTick;
     const z = selection.current.size();
     const level = Math.max(0, Math.min(BRUSH_MAX_LEVEL, flattenTo ?? selectLowest()));

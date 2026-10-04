@@ -12,15 +12,16 @@ import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork,
 import { GlaciateRow } from "../ForceRows";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
 import type { Verb } from "../../core/forces/op";
-import { FORCES, type Cell } from "../TopBar";
+import { FORCES } from "../TopBar";
+import type { ObjectPanel } from "../ObjectWindow";
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
 
 export interface RowsSlice {
   pickTile: (x: number, y: number) => void;
-  pickedRow: () => { label: string; cells: Cell[] } | null;
-  shelfRow: () => { label: string; cells: Cell[] } | null;
+  pickedRow: () => ObjectPanel | null;
+  shelfRow: () => ObjectPanel | null;
   forceRow: () => ComponentChildren;
 }
 
@@ -87,20 +88,18 @@ export function useRows(ed: Ed): RowsSlice {
     const s = k >= 0 ? sourceStrengths(groupsRef.current, strengthOfEntity, k) : null;
     return s ? sourceStrengthWords(s) : `${pickedStrength(e)} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
   }
-  /** The row above the bar for a picked source: its strength, its water, Remove, Unleash. */
-  function pickedRow(): { label: string; cells: Cell[] } | null {
+  /** The object window's groups for a picked source or object (Layout 2, Kyler's sitting, 2026-10-03): a source's
+   *  strength, its water, Unleash and its Power, Remove; an object's Delete; each with Put it down. */
+  function pickedRow(): ObjectPanel | null {
     if (pickedObject && !picked) {
       const o = pickedObject;
       const name = o.template === "UndergroundRuins" ? "Mine site" : o.template.replace(/([a-z])([A-Z])/g, "$1 $2");
       return {
         label: `${name}, selected`,
-        cells: [
-          { key: "what", at: 1, span: 4, centre: true, node: <span class="bar-status">Drag it to move it</span> },
+        onClose: () => setPickedObject(null),
+        groups: [
           {
             key: "delete",
-            at: 5,
-            span: 1,
-            centre: true,
             node: (
               <button
                 type="button"
@@ -111,17 +110,6 @@ export function useRows(ed: Ed): RowsSlice {
                 }}
               >
                 Delete
-              </button>
-            ),
-          },
-          {
-            key: "down",
-            at: 11,
-            span: 1,
-            centre: true,
-            node: (
-              <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPickedObject(null)}>
-                ×
               </button>
             ),
           },
@@ -136,11 +124,10 @@ export function useRows(ed: Ed): RowsSlice {
     const again = info.forceAgain === "carve" && lastUnleash.current === e.id;
     return {
       label: `${bad ? "Badwater" : "Water"} source, selected`,
-      cells: [
+      onClose: () => setPicked(null),
+      groups: [
         {
           key: "strength",
-          at: 1,
-          span: 2,
           label: "Strength",
           node: (
             <select aria-label="Strength" {...tip("Water a second", "Ctrl+scroll over it")} value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
@@ -148,17 +135,15 @@ export function useRows(ed: Ed): RowsSlice {
                 .sort((a, b) => a - b)
                 .map((v) => (
                   <option key={v} value={String(v)}>
-                    {v} water/s
+                    {Number(v.toFixed(2))} water/s
                   </option>
                 ))}
             </select>
           ),
         },
-        { key: "readout", at: 3, span: 2, label: "This source", node: <SourceReadout label="This source" words={pickedWords(e)} /> },
+        { key: "readout", label: "This source", node: <SourceReadout label="This source" words={pickedWords(e)} /> },
         {
           key: "water",
-          at: 5,
-          span: 2,
           label: "Water",
           node: (
             <select aria-label="Water" title="Clean water or badwater" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
@@ -168,29 +153,7 @@ export function useRows(ed: Ed): RowsSlice {
           ),
         },
         {
-          key: "remove",
-          at: 7,
-          span: 1,
-          node: (
-            <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
-              Remove
-            </button>
-          ),
-        },
-        {
-          key: "unleash",
-          at: 8,
-          span: 1,
-          node: (
-            <button type="button" class="unleash-button" {...tip("Carve a river from it", "U")} onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)} onClick={() => unleash(e)}>
-              Unleash
-            </button>
-          ),
-        },
-        {
           key: "power",
-          at: 9,
-          span: 2,
           label: "Power",
           node: (
             <label class="slider-field" title="How hard its river cuts">
@@ -200,27 +163,35 @@ export function useRows(ed: Ed): RowsSlice {
           ),
         },
         {
-          key: "down",
-          at: 11,
-          span: 1,
+          key: "act",
           node: (
-            <span class="cell-end">
-              {again ? (
-                <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
-                  Try another
-                </button>
-              ) : null}
-              <button type="button" class="linkish" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => setPicked(null)}>
-                ×
+            <>
+              <button type="button" class="unleash-button" {...tip("Carve a river from it", "U")} onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)} onClick={() => unleash(e)}>
+                Unleash
               </button>
-            </span>
+              <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
+                Remove
+              </button>
+            </>
           ),
         },
+        ...(again
+          ? [
+              {
+                key: "again",
+                node: (
+                  <button type="button" onClick={() => unleashAgain(e)} title="Another course, same source">
+                    Try another
+                  </button>
+                ),
+              },
+            ]
+          : []),
       ],
     };
   }
-  /** The row beneath the top bar for the shelf's object: its own options, if it has any. */
-  function shelfRow(): { label: string; cells: Cell[] } | null {
+  /** The object window's groups for the object picked in the list: its own options, if it has any. */
+  function shelfRow(): ObjectPanel | null {
     if (!shelf) return null;
     if (shelf.source) {
       const bad = shelf.source === "bad";
@@ -229,36 +200,32 @@ export function useRows(ed: Ed): RowsSlice {
       // the strength of the next one (over a placed source, Ctrl+scroll sets its own, D322)
       return {
         label: `${shelf.name} options`,
-        cells: [
+        groups: [
           {
             key: "next",
-            at: 1,
-            span: 3,
             label: "Next source",
             node: <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
           },
-          ...(pointedWords ? [{ key: "pointing", at: 4, span: 3, label: "Pointing at", node: <SourceReadout label="Pointing at" words={pointedWords} /> }] : []),
-          ...(strongerThanOfficial(value) ? [{ key: "note", at: 7, span: 5, centre: true, node: <span class="bar-status note">{STRONGER_WORDS}</span> }] : []),
+          ...(pointedWords ? [{ key: "pointing", label: "Pointing at", node: <SourceReadout label="Pointing at" words={pointedWords} /> }] : []),
+          ...(strongerThanOfficial(value) ? [{ key: "note", node: <span class="bar-status note">{STRONGER_WORDS}</span> }] : []),
         ],
       };
     }
     if (shelf.id === "ruin")
       return {
         label: "Ruin options",
-        cells: [
+        groups: [
           {
             key: "height",
-            at: 1,
-            span: 3,
             label: "Height",
             node: (
-            <select aria-label="Height" title="How tall the ruin is" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
-                <option key={k} value={String(k)}>
-                  {k} {k === 1 ? "level" : "levels"}
-                </option>
-              ))}
-            </select>
+              <select aria-label="Height" title="How tall the ruin is" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
+                  <option key={k} value={String(k)}>
+                    {k} {k === 1 ? "level" : "levels"}
+                  </option>
+                ))}
+              </select>
             ),
           },
         ],
@@ -266,18 +233,16 @@ export function useRows(ed: Ed): RowsSlice {
     if (shelf.id === "relic")
       return {
         label: "Relic options",
-        cells: [
+        groups: [
           {
             key: "size",
-            at: 1,
-            span: 3,
             label: "Size",
             node: (
-            <select aria-label="Size" title="How big the relic is" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
+              <select aria-label="Size" title="How big the relic is" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
             ),
           },
         ],

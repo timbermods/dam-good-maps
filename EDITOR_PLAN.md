@@ -103,14 +103,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     Glaciate's Meltwater) · Try another and More 2. **More** opens upward inside the panel: its details take
     further rows of the same grid above the first, three cells each, the Floor last; the bar never moves. A force
     at work: its status, Pause (Carve), the keys and Revert.
-  - An object: a source's Next source 3 (and Pointing at); a source picked on the map: Strength, This source,
-    Water, Remove, Unleash and its Power; a ruin's Height, a relic's Size.
+  An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
   margin, the foot level with the bar's): one object per row, its picture then its name, in this order: **Start**,
   **Water source**, **Badwater source** (two items, D212), Natural dam, **Pine**, **Birch**, **Oak**, **Berry
   bush**, Ruin, Mine site, Relic, Slope, Thorns, Blockage, Geothermal field, each picture a small render in the
-  map's look. Picking one lights its row in the mint, as the bar lights a tool.
+  map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
+  small window directly above the list, on its edges, showing only while an object is picked (its height follows
+  what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
+  Pointing at, a ruin's Height, a relic's Size; picked on the map, a source's Strength, This source, Water, Power,
+  Unleash, Remove and Try another, an object's Delete, each with Put it down (×).
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
@@ -163,7 +166,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it): a three-column grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
   whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
-  far the top row, the Show column, the bar with its settings and the objects menu reach into the view
+  far the top row, the Show column and the bottom-left group, the bar with its settings and the objects list with a
+  picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
   by itself (D265).
@@ -181,9 +185,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   centred in the map area, each floating on its own: the status (plain text over the sky), **Pause water** (Play
   water while paused), Speed, Skip, Replay, Drought and Badtide (§5); one unavailable (Pause water, Skip and Replay
   while the water is settled) has a fainter plate and fainter words.
-- **The minimap** (D205) at the bottom left, always shown: a small top-down view of the whole map, refreshed after
-  edits settle, with an outline of what the camera sees; click or drag on it to move there. Under it the tile under
-  the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
+- **The bottom left,** one group on the page's margin: the tile under the pointer's coordinates ("X 60 · Y 66 · Z
+  10", the game's order), the readout, then **the minimap** (D205) at the foot, level with the bar's, always shown: a
+  small top-down view of the whole map, refreshed after edits settle, with an outline of what the camera sees;
+  click or drag on it to move there.
 - **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land rises, a puff of dust
   when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts, each force's own
   moment), with Codex's second-round sounds (#64: recorded CC0 foley; a bed for as long as a stroke changes the
@@ -516,9 +521,9 @@ Make a valley, drop a source, and there's a river.
   fill as a second cue; ordinary Lower keeps the white ring (readable over water, badwater, every ground and in
   colour-blind views, D198).
 - **Water source and Badwater source** (D212): after the Start in the objects menu. Click to place, and the water spreads at
-  once; the settings above the bar set the next one's strength; Ctrl+scroll over any source sets its strength
+  once; the object window above the objects list sets the next one's strength; Ctrl+scroll over any source sets its strength
   (strong waterfalls allowed, with a friendly note past the official range); drag to move. **One strength number
-  everywhere** (D361, item 6; D368 (4)): the settings above the bar show the strength of the source being pointed
+  everywhere** (D361, item 6; D368 (4)): the object window shows the strength of the source being pointed
   at or selected, the same as its marker's label and the scroll's note, live while scrolling; in a row of sources
   it says which the scroll changes ("this source 0.25 · row 1 water/s"); with nothing pointed at, the slider is the
   next source's (`sourceStrengths`, `sourceStrengthWords`, `strengthReader`; `tests/e2e/sources.spec.ts`). A click on
