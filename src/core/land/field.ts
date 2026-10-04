@@ -246,7 +246,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       // (round 4: the coast's warp and wobble are a 14-tile island's at most, in tiles: grown with a
       // larger island, a 256² island's coast swung 9–14 tiles, past the strait of 4–7 its neighbours
       // and the shore keep, and joined them; the detail per tile stays as at 128²)
-      const wob = Math.min(p.size, 14);
+      // (an island a strait off the shore (`calm`) keeps a calmer coast, a fifth the wobble, so its
+      // strait stays one: at the full wobble it was fused or out of reach as often as not)
+      const wob = Math.min(p.size, 14) * (p.calm ? 0.2 : 1);
       each((x, y, i) => {
         const wx = 0.38 * wob * fbm(s + 1, x, y, cell, 2);
         const wy = 0.38 * wob * fbm(s + 2, x, y, cell, 2);
@@ -313,31 +315,33 @@ export interface Field {
 }
 
 /** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
- *  tile, so the sea keeps a rim of land; below 0 on a lobe, lifted) to 1 inside the rim (D417): the rim's inner line is a
- *  rounded square (no square corners), its distance from the edge wandering from 2.5% of the side
- *  to 7.5%, with narrow headlands reaching up to 3% further in, and broad lobes of mainland where addSea
- *  drew them (round 4), its fall to the sea 2% (a cliff) to 5% of the side. */
+ *  tile, so the sea keeps a rim of land; below 0 on a lobe, lifted) to 1 inside it: a lip of land 6–10
+ *  tiles wide at any size (round 5), falling to the sea over 2–4 tiles, and broad lobes of mainland
+ *  where addSea drew them (round 4). */
 function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[]): number {
   const side = Math.min(W, H);
   const ex = Math.min(x, W - 1 - x);
   const ey = Math.min(y, H - 1 - y);
-  const rc = 0.2 * side;
+  const rc = 6;
   const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
   const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
   const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
-  // (round 4, D417: the rim's inner line wanders from 2.5% of the side to 7.5%, never a single row,
-  // whose level set the sea's; the broad land is its lobes'. Round 3's 3–11% stood in the way of the
-  // islands nearest the rim, and joined them to the shore.)
-  const base = side * (0.025 + 0.05 * t + 0.03 * head);
-  const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
+  // (round 5, D427: where the sea meets an edge, the land between is a lip, 6–10 tiles at any size,
+  // just enough to hold the water, so the sea reads as running on to the edge; the mainland is the
+  // lobes'. Round 4's 2.5–7.5% of the side, with lobes on every side, framed the sea on all four: the
+  // ring D427 rejected. Narrower, 2–6 tiles, a river's way out across it cut its bed to the sea's
+  // floor beside it and the sea drained on a third of the lands.)
+  const base = 6 + 2 * t + 2 * head;
+  const fall = 2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
   let k = smoothstep((e - base) / fall);
   if (!lobes || !lobes.length) return k;
   // (round 4, D417: and the rim's broad lobes of mainland, which addSea placed clear of the islands,
   // each its edge's own band reaching in, the rim's land the union of the four edges' bands, so no
   // seam runs down a corner's diagonal; their flanks wander along the edge and their reach by ±30%
-  // with the noise, 6 tiles at most (the detail per tile as at 128²), so a lobe's coast bends in bays
-  // and points, never its profile's straight flank)
-  const wob = 0.07 * fbm(s + 53, x, y, 0.1 * side, 3);
+  // with the noise, 6 tiles at most (the detail per tile as at 128², and an island a strait off the
+  // coast stays a strait off it), so a lobe's coast bends in bays and points, never its profile's
+  // straight flank or front)
+  const wob = 0.09 * fbm(s + 53, x, y, 0.1 * side, 3);
   const swing = fbm(s + 59, x, y, 0.08 * side, 2);
   const fx = x / (W - 1);
   const fy = y / (H - 1);
@@ -349,11 +353,11 @@ function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: 
     k = Math.min(k, kE);
     lift = Math.max(lift, (1 - kE) * Math.min(1, lobe / 0.08));
   }
-  // (round 4: a lobe's land is lifted by up to 0.7 of the sea's depth, high ground that ends in a cliff
-  // over the sea: the land falls toward the sea's middle (the radial tilt), and a lobe reaching a third
-  // of the side in stood below the spill the thin rim sets, and flooded; lifted 0.3, it stood a level
-  // over the water, a flat the islands near it joined across. The spill stays the thin rim's.)
-  return k - 0.7 * lift;
+  // (a lobe's land is lifted by up to a quarter of the sea's depth, ground over the water that ends in a
+  // fall to it. Round 4 lifted it 0.7 against the radial tilt, which sank a lobe reaching in below the
+  // spill; round 5's open sea lies level (addSea), and lifted 0.7 an island near the coast was joined to
+  // it by ground too high for the strait pass to part.)
+  return k - 0.25 * lift;
 }
 
 /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */

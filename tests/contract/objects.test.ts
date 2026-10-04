@@ -77,9 +77,8 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out where it
   // would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for one, then seed
-  // 2, whose Lake Basin has none on D333's maps, D148; Islands seed 1 since Islands round 4, whose seed 3
-  // finds no start with three mine sites, D148)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 1 : 3) => {
+  // 2, whose Lake Basin has none on D333's maps, D148)
+  const everyObject = (theme: ThemeId, seed = 3) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";

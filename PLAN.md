@@ -542,11 +542,13 @@ The presets are §6's; there is no per-theme layout planner and no table of name
 D278); the named premises that became intentions are in design version 2 §6 (`docs/archive/m9-design.md`) and D274.
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
-draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea fills the map inside a
-narrow rim whose line wanders, and broad lobes of the mainland, most at the corners, reach into it, so the coast is land
-and channels and the sea runs on to the rim between them; an inland sea in a ring of land on about one sea map in seven
-(D423, D427). Islands grow with the map, their straits kept in tiles, the game's reach (D429); its start may stand on an
-island that holds what it needs (D410, D411), not required (D429). Delta's river
+draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea is most of the map
+and runs to the edges on two or three sides, held there by a lip of land a few tiles wide; the mainland stands on one
+side or two, its coast lobed in bays and points; an inland sea in a ring of land on about one sea map in eleven (D423,
+D427). Islands' lake budget is its water cap (D369), so the sea is never cut to fit half the map. Islands grow with the
+map and vary: a large one with arms and a long coast, smaller ones down from it, some long and thin, their straits kept
+in tiles, and one a strait off the shore, the game's reach (D429); its start may stand on an island that holds what it
+needs (D410, D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
 narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
