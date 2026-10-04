@@ -34,7 +34,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
   the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns the
   decisions' numbering, STATUS and HANDOFF.
-- **The page session** (Fable 5.1, high; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
+- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
 - **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release items 1 and 2 on
@@ -95,6 +95,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     any green PR that isn't hold or needs-kyler. A PR that changes what a player sees, hears or feels (a theme, a force, the
     page, sound, wording) needs approved; one with nothing human-facing (internals, CI, Rust ports, cleanup, docs,
     investigations) merges on review and green CI.
+  - *At every merge pass:* anything that no longer needs Kyler loses `needs-kyler`; a PR this session adopts or supersedes
+    is closed with a line saying why; an answered question's issue is closed.
   - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
     collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
     its branches, it doesn't use the issue.

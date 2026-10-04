@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+@AGENTS.md
+
 > **Kyler's standing rule on checks, above every other (PLAN §20, D454):** no excessive tests, timings or validation, only
 > when genuinely necessary or when Kyler asks. Speed is judged by Kyler using the product. What stays: CI and the nightly
 > suite, checks that catch real bugs, and a real check that the change works before reporting it done. Before adding any
