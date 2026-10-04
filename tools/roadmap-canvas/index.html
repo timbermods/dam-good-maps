@@ -7,511 +7,1010 @@
 <title>Roadmap</title>
 <style>
   :root {
-    --bg: #f6f3ee; --panel: #ffffff; --ink: #1f2328; --muted: #5f6b7a; --line: #e3ddd3; --accent: #b4642b; --accent-ink: #fff;
-    --shadow: 0 1px 2px rgba(20, 15, 10, .06), 0 6px 18px rgba(20, 15, 10, .06);
-    --released: #2f8f5b; --on-dev: #3b9f8a; --in-flight: #d9822b; --planned: #5b6fa8; --ongoing: #7a8594; --parked: #8b7aa8; --deferred: #8b7aa8; --later: #9aa3ad;
+    --bg: #f6f3ee; --panel: #ffffff; --ink: #1f2328; --muted: #5f6b7a; --line: #e3ddd3; --accent: #b4642b;
+    --shadow: 0 1px 2px rgba(20, 15, 10, .06), 0 4px 12px rgba(20, 15, 10, .05);
+    --released: #2f8f5b; --on-dev: #3b9f8a; --in-flight: #d9822b; --planned: #5b6fa8; --ongoing: #7a8594; --parked: #8b7aa8; --later: #9aa3ad;
+    --needs: #c9a300; --approved: #2f8f5b; --hold: #b60205;
     --radius: 10px; font-size: 15px;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #171a1f; --panel: #1f242b; --ink: #e7e4de; --muted: #9aa3ad; --line: #2e353e; --accent: #e0945a; --accent-ink: #1a1a1a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35); }
+    :root:not([data-theme="light"]) { --bg: #171a1f; --panel: #1f242b; --ink: #e7e4de; --muted: #9aa3ad; --line: #2e353e; --accent: #e0945a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3); }
   }
-  :root[data-theme="dark"] { --bg: #171a1f; --panel: #1f242b; --ink: #e7e4de; --muted: #9aa3ad; --line: #2e353e; --accent: #e0945a; --accent-ink: #1a1a1a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35); }
+  :root[data-theme="dark"] { --bg: #171a1f; --panel: #1f242b; --ink: #e7e4de; --muted: #9aa3ad; --line: #2e353e; --accent: #e0945a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3); }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
-  body { background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.4; display: flex; flex-direction: column; min-height: 100vh; }
+  body { background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.4; display: flex; flex-direction: column; overflow: hidden; }
   a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 12px 16px 0; }
-  header h1 { font-size: 1.15rem; margin: 0; font-weight: 650; letter-spacing: .01em; }
-  header .meta { color: var(--muted); font-size: .8rem; }
-  .tabs { display: flex; gap: 2px; flex-wrap: wrap; }
-  .tabs button { padding: 7px 12px; border-radius: 8px 8px 0 0; color: var(--muted); border-bottom: 2px solid transparent; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; background: color-mix(in srgb, var(--line) 55%, transparent); padding: 1px 4px; border-radius: 4px; }
+
+  /* Header: name, views, time, theme */
+  header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; column-gap: 28px; padding: 0 20px; border-bottom: 1px solid var(--line); flex: none; }
+  header h1 { font-size: 1.05rem; margin: 0; padding: 14px 0 12px; font-weight: 650; white-space: nowrap; }
+  .tabs { display: flex; gap: 4px; min-width: 0; }
+  .tabs button { height: 44px; padding: 0 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
   .tabs button:hover { color: var(--ink); }
-  .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
-  .tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-  .tools input { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); width: 240px; }
-  .btn { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: .85rem; }
+  .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .tabs button span { display: inline-block; font-weight: 600; }
+  .side { display: flex; align-items: center; gap: 14px; height: 44px; }
+  .meta { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 9.5em; text-align: right; }
+  .btn { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font-size: .84rem; white-space: nowrap; }
   .btn:hover { border-color: var(--accent); }
-  .stats { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 0; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px; min-width: 96px; }
-  .stat b { display: block; font-size: 1.25rem; font-weight: 650; line-height: 1.2; }
-  .stat span { color: var(--muted); font-size: .75rem; }
-  .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; align-items: center; font-size: .8rem; color: var(--muted); }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: .78rem; color: var(--ink); }
-  .chip.off { opacity: .45; }
-  .chip .dot, .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--c, #888); flex: none; }
-  main { flex: 1; padding: 14px 16px 24px; min-height: 0; }
-  main.dimmed { padding: 0; }
-  .hint { color: var(--muted); font-size: .85rem; margin: 0 0 10px; }
-  .hint code, code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: color-mix(in srgb, var(--line) 50%, transparent); padding: 1px 5px; border-radius: 4px; }
+  #theme { width: 7.5em; }
+
+  .notes { flex: none; padding: 0 20px; }
+  .notes p { margin: 8px 0 0; font-size: .84rem; color: var(--ink); padding: 6px 10px; border-radius: 7px; background: color-mix(in srgb, var(--in-flight) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--in-flight) 40%, var(--line)); }
+
+  .frame { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+  .frame.with-drawer { grid-template-columns: minmax(0, 1fr) 460px; }
+  main { overflow: auto; padding: 16px 20px 28px; min-width: 0; }
+  .empty { color: var(--muted); font-size: .9rem; margin: 0; }
+
+  /* Panels and lists */
+  .cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+  .stack { display: grid; gap: 16px; min-width: 0; }
+  @media (max-width: 1100px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+  .panel h2 { font-size: .95rem; margin: 0 0 6px; display: flex; align-items: baseline; gap: 8px; }
+  .panel h2 .n { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .panel h3 { font-size: .78rem; margin: 14px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .panel ul, .panel ol { padding-left: 20px; margin: 4px 0; }
+  .panel li { margin: 4px 0; font-size: .88rem; }
+
+  .rows { display: grid; }
+  .row { display: grid; align-items: baseline; column-gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: .88rem; min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .row > * { min-width: 0; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+  .dim { color: var(--muted); font-size: .8rem; }
+  .cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .age { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); font-size: .8rem; }
+  .need { grid-template-columns: 52px minmax(0, 1fr) 150px 44px; }
+  .need .title { font-weight: 600; }
+  .snip { color: var(--ink); font-size: .84rem; margin-top: 4px; overflow-wrap: anywhere; }
+  .snip .q { color: var(--muted); }
+  .pr { grid-template-columns: 52px minmax(0, 1fr) 210px 44px 44px; }
+  .merged { grid-template-columns: 52px minmax(0, 1fr) 44px; }
+  .msg { grid-template-columns: minmax(0, 1fr) 44px; }
+  .pend { grid-template-columns: 52px minmax(0, 1fr); }
+  .kind { display: inline-block; width: 44px; font-size: .72rem; color: var(--muted); }
+  .draft { font-size: .74rem; color: var(--muted); }
+
+  /* Status dots and chips */
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--c, #888); flex: none; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: .78rem; color: var(--ink); white-space: nowrap; }
+  .chip:hover { border-color: var(--accent); text-decoration: none; }
+  .tag { background: color-mix(in srgb, var(--line) 60%, transparent); padding: 1px 6px; border-radius: 5px; white-space: nowrap; font-size: .74rem; color: var(--ink); }
+  a.tag:hover { text-decoration: none; outline: 1px solid var(--accent); }
+  .tag.open::before, .tag.merged::before, .tag.closed::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+  .tag.open::before { background: #3fa34d; } .tag.merged::before { background: #8250df; } .tag.closed::before { background: #999; }
+  .dref { color: var(--muted); font-size: .74rem; cursor: help; border-bottom: 1px dotted var(--muted); }
 
   /* Board */
-  .board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
-  .col { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; min-height: 120px; }
-  .col h2 { font-size: .9rem; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
-  .col h2 .n { color: var(--muted); font-weight: 500; }
-  .col p.hint { font-size: .75rem; margin-bottom: 10px; }
-  .card { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--lane, #888); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; box-shadow: var(--shadow); display: block; transition: transform .08s; }
-  .card:hover { transform: translateY(-1px); border-color: var(--accent); border-left-color: var(--lane); }
-  .card.sel { outline: 2px solid var(--accent); }
-  .card.faded { opacity: .3; }
-  .card .t { font-weight: 600; font-size: .9rem; line-height: 1.3; }
+  .board { display: grid; grid-template-columns: repeat(7, minmax(220px, 1fr)); gap: 12px; align-items: start; min-width: 1600px; }
+  .col { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+  .col h2 { font-size: .86rem; margin: 2px 2px 10px; display: flex; align-items: center; gap: 8px; }
+  .col h2 .n { color: var(--muted); font-weight: 500; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .card { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; box-shadow: var(--shadow); display: block; }
+  .card:hover { border-color: var(--accent); border-left-color: var(--c); }
+  .card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .card .t { font-weight: 600; font-size: .88rem; line-height: 1.3; }
   .card .s { color: var(--muted); font-size: .78rem; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card .m { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; font-size: .72rem; color: var(--muted); }
-  .tag { background: color-mix(in srgb, var(--line) 60%, transparent); padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
-  .tag.pr { font-variant-numeric: tabular-nums; }
-  .pr-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: 1px; }
-  .pr-OPEN { background: #3fa34d; } .pr-MERGED { background: #8250df; } .pr-CLOSED { background: #c33; } .pr-draft { background: #999; } .pr- { background: #bbb; }
+  .card .m { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .card .m:empty { display: none; }
 
-  /* Order */
+  /* Order of work */
   .order { max-width: 1100px; }
-  .order .intro { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; font-size: .9rem; color: var(--muted); margin-bottom: 14px; }
-  .phase { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px 6px; margin-bottom: 14px; box-shadow: var(--shadow); }
-  .phase h2 { margin: 0 0 4px; font-size: 1rem; display: flex; align-items: baseline; gap: 10px; }
-  .phase h2 .num { color: var(--accent); font-weight: 700; }
-  .phase .pi { color: var(--muted); font-size: .85rem; margin: 0 0 8px; }
-  .items { list-style: none; padding: 0; margin: 0; }
-  .items li { padding: 6px 0 6px 12px; border-left: 2px solid var(--line); margin: 4px 0 4px 6px; }
-  .items li .it { font-weight: 600; font-size: .9rem; }
-  .items li .tx { color: var(--muted); font-size: .82rem; margin-top: 2px; }
-  .items li.deep .it { font-weight: 500; }
-  .items .links { display: inline-flex; gap: 5px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }
-  .cardlink { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-size: .74rem; }
+  .phase { margin-bottom: 14px; }
+  .phase h2 { font-size: 1rem; }
+  .phase h2 .k { color: var(--accent); font-weight: 700; }
+  .phase .pi { color: var(--muted); font-size: .85rem; margin: 0 0 6px; }
+  .items { list-style: none; padding: 0 !important; margin: 0; }
+  .items li { padding: 5px 0 5px 12px; border-left: 2px solid var(--line); margin: 4px 0 4px 6px; }
+  .items .it { font-weight: 600; font-size: .9rem; }
+  .items .deep > .it { font-weight: 500; }
+  .items .tx { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .links { display: inline-flex; gap: 5px; flex-wrap: wrap; margin-left: 6px; vertical-align: 1px; }
+  .cardlink { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-size: .74rem; font-weight: 500; white-space: nowrap; }
   .cardlink:hover { border-color: var(--accent); }
-  .dref { color: var(--muted); font-size: .72rem; margin-left: 4px; cursor: help; border-bottom: 1px dotted var(--muted); }
 
   /* Map */
-  .mapwrap { position: relative; height: calc(100vh - 215px); min-height: 440px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .maptools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-left: auto; font-size: .78rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .mapwrap { height: calc(100vh - 170px); min-height: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
   .mapwrap svg { width: 100%; height: 100%; display: block; cursor: grab; user-select: none; }
   .mapwrap svg.grabbing { cursor: grabbing; }
-  .mapwrap .legend { position: absolute; left: 10px; bottom: 10px; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .74rem; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
-  .mapwrap .ctl { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
   .node { cursor: pointer; }
-  .node rect.box { fill: var(--bg); stroke: var(--lane); stroke-width: 1.2; }
+  .node rect.box { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
   .node:hover rect.box, .node.sel rect.box { stroke: var(--accent); stroke-width: 2; }
   .node text { font-size: 12px; fill: var(--ink); pointer-events: none; }
   .node text.sub { font-size: 10px; fill: var(--muted); }
   .node.faded { opacity: .22; }
-  .edge { fill: none; stroke: var(--muted); stroke-opacity: .35; stroke-width: 1.3; }
+  .edge { fill: none; stroke: var(--muted); stroke-opacity: .4; stroke-width: 1.3; }
   .edge.up { stroke: var(--accent); stroke-opacity: .95; stroke-width: 2; }
   .edge.down { stroke: var(--planned); stroke-opacity: .95; stroke-width: 2; }
-  .edge.faded { stroke-opacity: .06; }
-  .lanebg { fill: var(--lane); fill-opacity: .045; }
-  .labelbg { fill: var(--panel); fill-opacity: .85; }
-  .lanelabel { font-size: 11px; font-weight: 600; fill: var(--lane); letter-spacing: .04em; text-transform: uppercase; }
+  .edge.faded { stroke-opacity: .07; }
   .colhead { font-size: 11px; fill: var(--muted); }
   .colhead.now { fill: var(--in-flight); font-weight: 700; }
   .colline { stroke: var(--line); stroke-dasharray: 3 4; }
 
-  /* Releases, Process, Health */
-  .two { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
-  .panel h2 { font-size: 1rem; margin: 0 0 8px; }
-  .panel h3 { font-size: .85rem; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-  .panel ul, .drawer ul { padding-left: 18px; margin: 4px 0; }
-  .panel li, .drawer li { margin: 3px 0; font-size: .88rem; }
-  .rel { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; font-size: .88rem; }
+  /* Releases */
+  .rel { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 12px; font-size: .88rem; align-items: baseline; }
   .rel .d { color: var(--muted); font-variant-numeric: tabular-nums; }
   .rel .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .flow { overflow-x: auto; }
-  .flow svg { display: block; min-width: 900px; width: 100%; height: 190px; }
-  .pnode rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; cursor: pointer; }
-  .pnode.on rect, .pnode:hover rect { stroke: var(--accent); stroke-width: 2; }
-  .pnode text { font-size: 12px; fill: var(--ink); pointer-events: none; }
-  .pnode text.k { font-weight: 700; fill: var(--accent); font-size: 14px; }
-  .parrow { stroke: var(--muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
-  .parrow.side { stroke-dasharray: 4 4; }
-  .pside { font-size: 11px; fill: var(--muted); }
-  .health li.kind-stale { color: var(--in-flight); }
-  table.cov { border-collapse: collapse; width: 100%; font-size: .82rem; }
-  table.cov th, table.cov td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  table.cov th { color: var(--muted); font-weight: 600; }
-  .ok { color: var(--released); } .no { color: var(--muted); }
-  .log { font-size: .84rem; } .log li { margin: 6px 0; } .log time { color: var(--muted); font-size: .76rem; display: block; }
 
   /* Drawer */
-  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.12); overflow-y: auto; padding: 16px 18px 28px; transform: translateX(102%); transition: transform .18s ease; z-index: 20; }
-  .drawer.open { transform: none; }
-  .drawer .close { position: absolute; right: 10px; top: 8px; font-size: 1.3rem; color: var(--muted); padding: 4px 8px; }
-  .drawer h2 { margin: 0 34px 6px 0; font-size: 1.1rem; line-height: 1.3; }
+  .drawer { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 14px 18px 28px; min-width: 0; }
+  .drawer .head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+  .drawer h2 { margin: 4px 0 6px; font-size: 1.08rem; line-height: 1.3; }
   .drawer .status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; color: #fff; background: var(--c); }
   .drawer .why { color: var(--muted); font-size: .8rem; margin: 6px 0 0; }
-  .drawer h3 { font-size: .78rem; margin: 16px 0 5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .drawer h3 { font-size: .76rem; margin: 16px 0 5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .drawer p { margin: 4px 0; font-size: .9rem; }
-  .drawer .row { display: flex; flex-wrap: wrap; gap: 6px; }
-  .drawer .kv { display: grid; grid-template-columns: 90px 1fr; gap: 3px 10px; font-size: .85rem; }
-  .drawer .kv span:first-child { color: var(--muted); }
-  details summary { cursor: pointer; color: var(--muted); font-size: .82rem; }
-  .dec { font-size: .82rem; margin: 3px 0; } .dec b { font-weight: 600; }
-  @media (max-width: 720px) { header { padding: 10px 12px 0; } main { padding: 12px; } .tools input { width: 150px; } .mapwrap { height: 70vh; } }
+  .drawer ul { padding-left: 18px; margin: 4px 0; } .drawer li { margin: 3px 0; font-size: .87rem; }
+  .drawer .line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .drawer .kv { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 3px 10px; font-size: .85rem; }
+  .drawer .kv span:nth-child(odd) { color: var(--muted); }
+  .dec { font-size: .82rem; margin: 6px 0; } .dec b { font-weight: 600; }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><h1>Roadmap</h1><div class="meta" id="meta"></div></div>
+  <h1 id="name">Roadmap</h1>
   <nav class="tabs" id="tabs" aria-label="Views"></nav>
-  <div class="tools">
-    <input id="search" type="search" placeholder="Search steps, decisions, PRs…" aria-label="Search">
-    <button class="btn" id="theme" title="Toggle light and dark">◐</button>
-  </div>
+  <div class="side"><span class="meta" id="meta">Reading…</span><button class="btn" id="theme"></button></div>
 </header>
-<div class="stats" id="stats"></div>
-<div class="filters" id="filters"></div>
-<main id="main"></main>
-<aside id="drawer" class="drawer" aria-label="Details"></aside>
-<script src="data.js"></script>
+<div class="notes" id="notes"></div>
+<div class="frame" id="frame"><main id="main"></main><aside id="drawer" class="drawer" hidden aria-label="Details"></aside></div>
 <script>
+// The roadmap canvas (tools/roadmap-canvas/README.md). Everything is read live when the page opens and every few
+// minutes after: the documents from the branch below on raw.githubusercontent.com, the pull requests, issues, comments
+// and tags from GitHub's public API, without a token. GitHub allows 60 requests an hour per address without one, shared
+// by every page open on it, so GitHub is read incrementally (one request per refresh once loaded), its state is kept
+// in this browser between visits, and nothing is read while the page is hidden.
+const CONFIG = {
+  project: 'Dam Good Maps',
+  owner: 'Kyler',
+  repo: 'timbermods/dam-good-maps',
+  branch: 'dev',
+  paths: {
+    roadmap: 'ROADMAP.md',
+    status: 'docs/STATUS.md',
+    decisionsIndex: 'docs/decisions/README.md', // read first; when it is missing, the plan's section below
+    plan: 'PLAN.md', planSection: /^## 20\. /m,
+    pending: 'docs/decisions-pending.md',
+    perfect: 'docs/PERFECT.md',
+  },
+  decisionPrefix: 'D',
+  tagSuffix: '-done',
+  labels: { needs: 'needs-kyler', approved: 'approved', hold: 'hold' },
+  coordinationTitle: 'Coordination',
+  refreshMinutes: 5,
+};
+
 (() => {
-  const D = window.ROADMAP_DATA;
+  'use strict';
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  if (!D) {
-    $('#main').innerHTML = '<div class="panel"><h2>No data yet</h2><p>Run <code>node tools/roadmap-canvas/extract.mjs</code> from the repository, then reload this page.</p></div>';
-    return;
+  const unique = (a) => [...new Set(a)];
+  const escRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const DP = escRe(CONFIG.decisionPrefix);
+  const RAW = `https://raw.githubusercontent.com/${CONFIG.repo}/${CONFIG.branch}/`;
+  const API = `https://api.github.com/repos/${CONFIG.repo}`;
+  const WEB = `https://github.com/${CONFIG.repo}`;
+  const HOUR = 3600e3, DAY = 24 * HOUR;
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked: keep going without it */ } },
+  };
+  document.title = `${CONFIG.project} roadmap`;
+  $('#name').textContent = `${CONFIG.project} roadmap`;
+
+  // ================================================================ text helpers
+  function trim(s, n) {
+    s = String(s || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= n) return s;
+    const cut = s.slice(0, n);
+    return cut.slice(0, Math.max(cut.lastIndexOf(' '), n - 30)).trim() + '…';
+  }
+  function stripComments(s) { let p; do { p = s; s = s.replace(/<!--[\s\S]*?-->/g, ''); } while (s !== p); return s; }
+  function stripMd(s) {
+    return stripComments(String(s || ''))
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2')
+      .replace(/`([^`]*)`/g, '$1')
+      .replace(/\s+/g, ' ').trim();
+  }
+  const decRe = () => new RegExp(`(?<![A-Za-z0-9])${DP}(\\d{1,4})(?![0-9])`, 'g');
+  const decisionsIn = (s) => unique([...String(s || '').matchAll(decRe())].map((m) => CONFIG.decisionPrefix + m[1]));
+  const tagsIn = (s) => unique([...String(s || '').matchAll(new RegExp('`([a-z0-9-]+' + escRe(CONFIG.tagSuffix) + ')`', 'g'))].map((m) => m[1]));
+  function numbersIn(s) {
+    // "#123" or ".../pull/123", never a pending-decision number ("[#2](docs/decisions-pending.md)", "pending #83").
+    const cleaned = String(s || '').replace(/\[#\d+\]\([^)]*decisions-pending[^)]*\)/g, '').replace(/pending[^.;\n]*?#\d+(?:[–-]#?\d+)?/gi, '');
+    return unique([...cleaned.matchAll(/(?:#|pull\/|issues\/)(\d{1,5})\b/g)].map((m) => +m[1]));
+  }
+  const STOP = new Set('the a an and or of to for in on as by with its it is at from into than then'.split(' '));
+  const words = (s) => stripMd(s).toLowerCase().replace(/[’']s\b/g, '').replace(/[’'"“”]/g, '').split(/[^a-z0-9-]+/).map((w) => w.replace(/^-+|-+$/g, '')).filter((w) => w && !STOP.has(w));
+
+  // Markdown in a comment, as a few lines of HTML: bold, code, links, bullets, #numbers.
+  function mdLite(md, max = 700) {
+    let text = stripComments(String(md || '')).replace(/\r/g, '').replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '[image]($2)').trim();
+    if (text.length > max) text = text.slice(0, max).replace(/\s+\S*$/, '') + ' …';
+    const inline = (s) => esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/(^|[\s(])#(\d{1,5})\b/g, `$1<a href="${WEB}/issues/$2" target="_blank" rel="noopener">#$2</a>`);
+    return text.split('\n').filter((l, i, a) => l.trim() || (i > 0 && a[i - 1].trim())).map((l) => {
+      const b = l.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/);
+      if (b) return '• ' + inline(b[1]);
+      const h = l.match(/^#{1,6}\s+(.*)$/);
+      if (h) return '<b>' + inline(h[1]) + '</b>';
+      if (/^\s*>/.test(l)) return '<span class="q">' + inline(l.replace(/^\s*>\s?/, '')) + '</span>';
+      return inline(l);
+    }).join('<br>');
+  }
+  const fmtDate = (d) => d ? new Date(d.length === 10 ? d + 'T12:00:00' : d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
+  const fmtTime = (t) => new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  function age(t) {
+    const m = Math.max(0, (Date.now() - new Date(t).getTime()) / 60e3);
+    if (m < 60) return Math.floor(m) + 'm';
+    if (m < 48 * 60) return Math.floor(m / 60) + 'h';
+    return Math.floor(m / 1440) + 'd';
   }
 
-  // ------------------------------------------------------------ data
-  const SRC = D.sources || {}, OWNER = D.project?.owner || 'the owner', NAME = D.project?.name || 'The project';
-  document.title = `${NAME} roadmap`; $('.brand h1').textContent = `${NAME} roadmap`;
-  const cards = D.milestones;
-  const byId = new Map(cards.map((c) => [c.id, c]));
-  const lanes = new Map(D.lanes.map((l) => [l.id, l]));
+  // ================================================================ Markdown structure
+  function splitSections(md) {
+    const out = [];
+    let cur = { level: 0, heading: '', lines: [], start: 1 };
+    let fence = false;
+    md.split('\n').forEach((line, i) => {
+      if (/^\s*```/.test(line)) fence = !fence;
+      const m = !fence && line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+      if (m) { out.push(cur); cur = { level: m[1].length, heading: m[2].trim(), lines: [], start: i + 1 }; }
+      else cur.lines.push(line);
+    });
+    out.push(cur);
+    return out;
+  }
+  function splitParagraphs(lines) {
+    const out = []; let cur = [];
+    for (const l of lines) { if (!l.trim()) { if (cur.length) out.push(cur.join(' ')); cur = []; } else cur.push(l.trim()); }
+    if (cur.length) out.push(cur.join(' '));
+    return out;
+  }
+  function parseList(lines) {
+    const rootItems = [], stack = [];
+    let inList = false;
+    for (const raw of lines) {
+      const m = raw.match(/^(\s*)(?:[-*]|\d+\.)\s+(.*)$/);
+      if (m) {
+        inList = true;
+        const indent = m[1].length, item = { raw: m[2], children: [] };
+        while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+        (stack.length ? stack[stack.length - 1].item.children : rootItems).push(item);
+        stack.push({ indent, item });
+      } else if (inList && raw.trim() && /^\s+/.test(raw) && stack.length) {
+        stack[stack.length - 1].item.raw += ' ' + raw.trim();
+      } else if (raw.trim()) { inList = false; stack.length = 0; }
+    }
+    const finish = (item) => {
+      const text = stripMd(item.raw);
+      const bolds = [...item.raw.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => stripMd(m[1]).replace(/[:;,.]$/, ''));
+      const title = bolds[0] || trim(text.split(/[:;(]/)[0], 90);
+      const lead = text.split(/[:;]|\.\s/)[0].replace(/\([^)]*\)/g, '');
+      return { title, bolds, lead, text, decisions: decisionsIn(item.raw), prs: numbersIn(item.raw), children: item.children.map(finish), cards: [] };
+    };
+    return rootItems.map(finish);
+  }
+  const flattenItem = (item) => item.children.length ? `${item.text} (${item.children.map((c) => c.text).join('; ')})` : item.text;
+  const walk = (items, fn, trail = []) => { for (const it of items) { fn(it, trail); walk(it.children, fn, [...trail, it.title]); } };
+
+  // A ROADMAP section in plain data: summary, Delivers, Blocking, Information, effort, decisions, PRs, tags.
+  function describeSection(sec) {
+    const text = sec.lines.join('\n');
+    const paragraphs = splitParagraphs(sec.lines);
+    const firstPara = paragraphs.find((p) => !/^\s*(?:[-*]|\d+\.)\s/.test(p) && !/^\|/.test(p) && !/^---/.test(p) && !/^```/.test(p)) || '';
+    const headed = (label) => {
+      const re = new RegExp(`^(\\s*)(?:[-*]\\s+)?(?:\\*\\*)?${label}\\b[^:*]*(?:\\*\\*)?:?\\s*(.*)$`, 'i');
+      const lines = sec.lines;
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(re);
+        if (!m) continue;
+        const indent = m[1].length, isListItem = /^\s*[-*]\s/.test(lines[i]);
+        const inline = stripMd(m[2].replace(/^\*\*\s*/, ''));
+        const rest = []; let sawList = false;
+        for (let j = i + 1; j < lines.length; j++) {
+          const l = lines[j];
+          if (!l.trim()) continue;
+          const ind = l.match(/^\s*/)[0].length, isItem = /^\s*(?:[-*]|\d+\.)\s/.test(l);
+          if (isItem) { if (isListItem ? ind <= indent : ind < indent) break; sawList = true; rest.push(l); continue; }
+          if (/^\s*\*\*[A-Z]/.test(l) && ind <= indent) break;
+          if (sawList && ind > 0) { rest.push(l); continue; }
+          if (!sawList && !isListItem && !inline) { rest.push(l); continue; }
+          break;
+        }
+        const sub = sawList ? parseList(rest).map(flattenItem) : (rest.length ? [trim(stripMd(rest.join(' ')), 600)] : []);
+        const out = inline ? [inline, ...sub] : sub;
+        if (out.length) return out;
+      }
+      return [];
+    };
+    return {
+      heading: sec.heading, start: sec.start,
+      summary: trim(stripMd(firstPara), 460),
+      delivers: headed('Delivers'), blocking: headed('Blocking'), information: headed('Information'),
+      effort: stripMd((text.match(/\*\*Effort:?\*\*:?\s*([^.\n]+)/i) || [])[1] || ''),
+      inGame: stripMd((text.match(/\*\*In-game check:?\*\*:?\s*(.*?)(?:\s*\*\*Effort|\n|$)/i) || [])[1] || ''),
+      decisions: decisionsIn(sec.heading + '\n' + text), prs: numbersIn(text), tags: tagsIn(sec.heading + '\n' + text),
+      branches: unique([...text.matchAll(/`((?:feature|fix|investigation|docs|tools|cleanup|ci)\/[\w./-]+)`/g)].map((m) => m[1])),
+      leads: paragraphs.map((p) => p.match(/^\*\*([^*]+)\*\*\s*(.*)$/)).filter(Boolean).map((m) => ({ title: stripMd(m[1]).replace(/[:.,;]$/, ''), text: trim(stripMd(m[2]), 300) }))
+        .filter((l) => !/^(Delivers|Blocking|Information|Acceptance|Effort|In-game check|Release|Status)/i.test(l.title)),
+    };
+  }
+  const anchorFor = (h) => stripMd(h).toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+
+  // "The order of work": phases (**1. Title**) with their intro and nested items, then the closing paragraph.
+  function parseOrder(sec) {
+    const phases = [], intro = [], closing = [];
+    let cur = null, afterBlank = false;
+    for (const line of sec.lines) {
+      const m = line.match(/^\*\*(\d+)\.\s+(.+?)\*\*\s*(.*)$/);
+      if (m) { cur = { n: +m[1], title: stripMd(m[2]).replace(/[.:]$/, ''), introLines: [m[3]], itemLines: [], cards: [] }; phases.push(cur); afterBlank = false; continue; }
+      if (!cur) { intro.push(line); continue; }
+      const isItem = /^\s*(?:[-*]|\d+\.)\s/.test(line);
+      if (cur.itemLines.length && afterBlank && line.trim() && !isItem && !/^\s/.test(line)) { closing.push(line); continue; }
+      if (closing.length) { closing.push(line); continue; }
+      if (isItem || cur.itemLines.length) cur.itemLines.push(line); else cur.introLines.push(line);
+      afterBlank = !line.trim();
+    }
+    for (const p of phases) {
+      p.items = parseList(p.itemLines);
+      p.intro = trim(stripMd(p.introLines.join(' ')), 700);
+      p.decisions = decisionsIn(p.title + ' ' + p.introLines.join(' '));
+      delete p.introLines; delete p.itemLines;
+    }
+    // Every phase and item in reading order, for placing the cards.
+    const entries = [];
+    for (const p of phases) {
+      entries.push({ node: p, phase: p, trail: [], names: words(p.title), all: words(p.title), decisions: p.decisions });
+      walk(p.items, (it, trail) => entries.push({ node: it, phase: p, trail, names: words([it.title, ...it.bolds, it.lead].join(' | ')), bolds: [it.title, ...it.bolds, it.lead].map(words), decisions: it.decisions }));
+    }
+    return { intro: trim(stripMd(intro.join(' ')), 900), phases, closing: trim(stripMd(closing.join(' ')), 500), entries };
+  }
+
+  function parseTables(lines) {
+    const tables = []; let cur = null;
+    for (const l of lines) {
+      if (/^\s*\|/.test(l)) {
+        const cells = l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+        if (!cur) { cur = { header: cells, rows: [] }; continue; }
+        if (cells.every((c) => /^:?-+:?$/.test(c))) continue;
+        const obj = {}; cur.header.forEach((h, i) => { obj[h] = cells[i] || ''; }); cur.rows.push(obj);
+      } else if (cur) { tables.push(cur); cur = null; }
+    }
+    if (cur) tables.push(cur);
+    return tables;
+  }
+
+  // ================================================================ the documents
+  function parseRoadmap(md, notes) {
+    const secs = splitSections(md);
+    const orderSec = secs.find((s) => s.level === 2 && /^The order of work/i.test(s.heading));
+    let order = { intro: '', phases: [], closing: '', entries: [] };
+    if (!orderSec) notes.push(`${CONFIG.paths.roadmap}: no "The order of work" section.`);
+    else { order = parseOrder(orderSec); if (!order.phases.length) notes.push(`${CONFIG.paths.roadmap}: "The order of work" has no numbered phases.`); }
+    // A step is a ## section with everything under it, its ### sub-steps included.
+    const whole = [];
+    for (const s of secs) {
+      if (s.level === 2) whole.push({ ...s, lines: [...s.lines] });
+      else if (s.level > 2 && whole.length) whole[whole.length - 1].lines.push('#'.repeat(s.level) + ' ' + s.heading, ...s.lines);
+    }
+    const steps = whole.filter((s) => !/^(The order of work|How the work is judged)/i.test(s.heading)).map(describeSection);
+    if (!steps.length) notes.push(`${CONFIG.paths.roadmap}: no step sections.`);
+    return { order, steps };
+  }
+
+  function parseStatus(md, notes) {
+    const sections = splitSections(md).filter((s) => s.level >= 2).map((s) => ({
+      heading: s.heading,
+      paragraphs: splitParagraphs(s.lines).filter((p) => !/^\|/.test(p) && !/^\s*(?:[-*]|\d+\.)\s/.test(p) && !/^\*\*[^*]+\*\*:?$/.test(p)).map(stripMd),
+      items: parseList(s.lines),
+      tables: parseTables(s.lines),
+    }));
+    const find = (re) => sections.find((s) => re.test(s.heading));
+    const rows = [];
+    for (const s of sections) for (const t of s.tables) if (t.header.includes('Work')) rows.push(...t.rows);
+    if (!rows.length) notes.push(`${CONFIG.paths.status}: no table with a Work column.`);
+    const nothing = (s) => !s || /^nothing\b/i.test((s.paragraphs[0] || '') + (s.items.length ? '' : ''));
+    const waitingSecs = sections.filter((s) => /^(Waiting for|Decisions open for)/i.test(s.heading));
+    if (!waitingSecs.length) notes.push(`${CONFIG.paths.status}: no "Waiting for ${CONFIG.owner}" section.`);
+    const waiting = [];
+    for (const s of waitingSecs) {
+      if (nothing(s) && !s.items.length) continue;
+      if (s.items.length) waiting.push(...s.items.map((i) => ({ section: s.heading, text: i.text })));
+      else waiting.push(...s.paragraphs.map((p) => ({ section: s.heading, text: p })));
+    }
+    const sess = find(/sessions/i);
+    const sessions = (sess ? sess.items : []).map((i) => {
+      const m = (i.bolds[0] || '').match(/^(?:The\s+)?(.+?)\s+session$/i);
+      return { name: m ? m[1].toLowerCase() : (i.bolds[0] || '').toLowerCase(), raw: i.text };
+    }).filter((s) => s.name);
+    const gate = find(/release gate/i), queue = find(/queue|^Queued/i);
+    return { rows, waiting, sessions, gate: gate ? gate.paragraphs : [], gateHeading: gate?.heading || '', queue: queue ? queue.items.map((i) => i.text) : [], queueHeading: queue?.heading || '' };
+  }
+
+  function parsePending(md, notes) {
+    const rows = parseTables(md.split('\n')).filter((t) => t.header.includes('Status')).flatMap((t) => t.rows);
+    if (!rows.length) notes.push(`${CONFIG.paths.pending}: no table with a Status column.`);
+    return rows.filter((r) => /^\s*pending/i.test(stripMd(r.Status)) && !/superseded/i.test(r.Status))
+      .map((r) => ({ n: stripMd(r['#']), step: stripMd(r.Milestone || ''), question: trim(stripMd(r.Question || ''), 260) }));
+  }
+
+  function parsePerfect(md, notes) {
+    const out = splitSections(md).filter((s) => s.level === 2).map((s) => ({ heading: s.heading, anchor: anchorFor(s.heading) }));
+    if (!out.length) notes.push(`${CONFIG.paths.perfect}: no sections.`);
+    return out;
+  }
+
+  // Decisions: "- **D123** (with …): text" bullets under "### Topic" headings.
+  function readDecisionLines(md, file, into) {
+    let topic = '';
+    for (const line of md.split('\n')) {
+      const h = line.match(/^###\s+(.+)$/);
+      if (h) { topic = stripMd(h[1]); continue; }
+      const d = line.match(new RegExp(`^- \\*\\*(${DP}\\d+)\\*\\*\\s*(.*)$`));
+      if (d) into[d[1]] = { topic, file, text: trim(stripMd(d[2]).replace(/^\((?:with|amends|tightens)[^)]*\)\s*/, '').replace(/^[:(]\s*/, ''), 420) };
+    }
+  }
+  async function readDecisions(notes) {
+    const byNumber = {};
+    const idx = await readText(CONFIG.paths.decisionsIndex, true);
+    if (idx.ok) {
+      const files = unique([...idx.text.matchAll(/^##\s+\[[^\]]+\]\(([^)]+\.md)\)/gm)].map((m) => m[1]));
+      const dir = CONFIG.paths.decisionsIndex.replace(/[^/]*$/, '');
+      const shorts = {};
+      for (const m of idx.text.matchAll(new RegExp(`^- (${DP}\\d+):\\s*(.+)$`, 'gm'))) shorts[m[1]] = m[2].trim();
+      const texts = await Promise.all(files.map((f) => readText(dir + f)));
+      texts.forEach((t, i) => { if (t.ok) readDecisionLines(t.text, dir + files[i], byNumber); else notes.push(`${dir + files[i]} couldn't be read.`); });
+      for (const [d, s] of Object.entries(shorts)) if (byNumber[d]) byNumber[d].short = s;
+      if (!Object.keys(byNumber).length) notes.push(`${CONFIG.paths.decisionsIndex}: no decisions found.`);
+      return { byNumber, label: dir, file: CONFIG.paths.decisionsIndex };
+    }
+    const plan = await readText(CONFIG.paths.plan);
+    if (!plan.ok) { notes.push(`${CONFIG.paths.plan} couldn't be read.`); return { byNumber, label: CONFIG.paths.plan, file: CONFIG.paths.plan }; }
+    const start = plan.text.search(CONFIG.paths.planSection);
+    if (start < 0) { notes.push(`${CONFIG.paths.plan}: no decisions section.`); return { byNumber, label: CONFIG.paths.plan, file: CONFIG.paths.plan }; }
+    const body = plan.text.slice(start);
+    const heading = (body.match(/^#+\s+(.*)$/m) || [])[1] || '';
+    const end = body.slice(1).search(/^## /m);
+    readDecisionLines(end > 0 ? body.slice(0, end + 1) : body, CONFIG.paths.plan, byNumber);
+    if (!Object.keys(byNumber).length) notes.push(`${CONFIG.paths.plan}: no decisions found in its decisions section.`);
+    return { byNumber, label: `${CONFIG.paths.plan} §${(heading.match(/^(\d+)/) || [])[1] || ''}`, file: CONFIG.paths.plan, anchor: anchorFor(heading) };
+  }
+
+  async function readText(path, quiet) {
+    try {
+      const r = await fetch(RAW + path, { cache: 'no-cache' });
+      if (!r.ok) return { ok: false, status: r.status };
+      return { ok: true, text: (await r.text()).replace(/\r\n/g, '\n') };
+    } catch (e) { return { ok: false, status: 0, quiet }; }
+  }
+
+  // The raw texts, kept in this browser so the page opens at once; a document that can't be read keeps last time's.
+  async function readDocs(last) {
+    const notes = [];
+    const keys = ['roadmap', 'status', 'pending', 'perfect'];
+    const [results, decisions] = await Promise.all([Promise.all(keys.map((k) => readText(CONFIG.paths[k]))), readDecisions(notes)]);
+    const texts = {};
+    results.forEach((r, i) => {
+      if (!r.ok) notes.push(`${CONFIG.paths[keys[i]]} couldn't be read${r.status ? ` (${r.status})` : ''}.`);
+      texts[keys[i]] = r.ok ? r.text : last?.texts?.[keys[i]] || '';
+    });
+    return { v: 1, texts, decisions: Object.keys(decisions.byNumber).length ? decisions : last?.decisions || decisions, notes };
+  }
+  function parseDocs(raw) {
+    const notes = [...(raw.notes || [])];
+    const t = raw.texts;
+    return {
+      roadmap: t.roadmap ? parseRoadmap(t.roadmap, notes) : { order: { intro: '', phases: [], closing: '', entries: [] }, steps: [] },
+      status: t.status ? parseStatus(t.status, notes) : { rows: [], waiting: [], sessions: [], gate: [], queue: [] },
+      pending: t.pending ? parsePending(t.pending, notes) : [],
+      perfect: t.perfect ? parsePerfect(t.perfect, notes) : [],
+      decisions: raw.decisions || { byNumber: {} },
+      notes: unique(notes),
+    };
+  }
+
+  // ================================================================ GitHub, without a token
+  const rate = { remaining: null, reset: 0 };
+  class RateLimited extends Error {}
+  const RESERVE = 8; // requests left for the other machine and a reload
+  async function api(path) {
+    if (rate.remaining !== null && rate.remaining <= RESERVE && Date.now() < rate.reset) throw new RateLimited();
+    const r = await fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } });
+    const rem = r.headers.get('x-ratelimit-remaining'), reset = r.headers.get('x-ratelimit-reset');
+    if (rem !== null) rate.remaining = +rem;
+    if (reset !== null) rate.reset = +reset * 1000;
+    if ((r.status === 403 || r.status === 429) && rate.remaining === 0) throw new RateLimited();
+    if (!r.ok) throw new Error(`GitHub answered ${r.status} for ${path.split('?')[0]}`);
+    return r.json();
+  }
+  const slim = (i) => ({
+    n: i.number, title: i.title, pr: !!i.pull_request, draft: !!i.draft, state: i.state, labels: (i.labels || []).map((l) => l.name),
+    comments: i.comments, updated: i.updated_at, created: i.created_at, closed: i.closed_at, merged: i.pull_request?.merged_at || null,
+    url: i.html_url, body: String(i.body || '').slice(0, 2400),
+  });
+  const slimComment = (c) => ({ at: c.created_at, body: String(c.body || '').slice(0, 2400), url: c.html_url });
+
+  async function syncGitHub(gh) {
+    const now = Date.now();
+    if (!gh.syncedAt || now - gh.syncedAt > 20 * HOUR) {
+      const items = {};
+      for (let page = 1; page <= 3; page++) {
+        const open = await api(`/issues?state=open&per_page=100&page=${page}`);
+        for (const i of open) items[i.number] = slim(i);
+        if (open.length < 100) break;
+      }
+      const closed = await api(`/issues?state=closed&sort=updated&direction=desc&per_page=100&since=${new Date(now - DAY).toISOString()}`);
+      for (const i of closed) items[i.number] = slim(i);
+      gh.items = items;
+    } else {
+      const upd = await api(`/issues?state=all&sort=updated&direction=desc&per_page=100&since=${new Date(gh.syncedAt - 5 * 60e3).toISOString()}`);
+      for (const i of upd) gh.items[i.number] = slim(i);
+      if (upd.length === 100) { gh.syncedAt = 0; return; } // too much changed: read everything next time
+    }
+    gh.syncedAt = now;
+    for (const [n, i] of Object.entries(gh.items)) if (i.state === 'closed' && now - new Date(i.closed).getTime() > DAY) delete gh.items[n];
+
+    // Head branches never change, so each is read once.
+    gh.heads ||= {};
+    const missing = Object.values(gh.items).filter((i) => i.pr && i.state === 'open' && !gh.heads[i.n]);
+    if (missing.length > 2) for (const p of await api('/pulls?state=open&per_page=100')) gh.heads[p.number] = p.head.ref;
+    else for (const i of missing) gh.heads[i.n] = (await api(`/pulls/${i.n}`)).head.ref;
+
+    // The latest comment on everything labelled needs-kyler, and the Coordination issue's latest messages, read again
+    // only when their comment count changes.
+    gh.last ||= {};
+    for (const i of Object.values(gh.items)) {
+      if (i.state !== 'open' || !i.labels.includes(CONFIG.labels.needs) || !i.comments || gh.last[i.n]?.count === i.comments) continue;
+      const [c] = await api(`/issues/${i.n}/comments?per_page=1&page=${i.comments}`);
+      gh.last[i.n] = { count: i.comments, ...(c ? slimComment(c) : {}) };
+    }
+    const coord = Object.values(gh.items).find((i) => !i.pr && i.state === 'open' && i.title.trim().toLowerCase() === CONFIG.coordinationTitle.toLowerCase());
+    gh.coord = coord ? coord.n : null;
+    if (coord && coord.comments && gh.coordMsgs?.count !== coord.comments) {
+      const pages = Math.ceil(coord.comments / 5);
+      let list = await api(`/issues/${coord.n}/comments?per_page=5&page=${pages}`);
+      if (list.length < 5 && pages > 1) list = [...await api(`/issues/${coord.n}/comments?per_page=5&page=${pages - 1}`), ...list];
+      gh.coordMsgs = { count: coord.comments, list: list.slice(-5).reverse().map(slimComment) };
+    }
+
+    // Tags every half hour; each release tag's date (its commit's) read once and kept.
+    if (!gh.tagsAt || now - gh.tagsAt > HOUR / 2) {
+      gh.tags = (await api('/tags?per_page=100')).filter((t) => t.name.endsWith(CONFIG.tagSuffix)).map((t) => ({ name: t.name, sha: t.commit.sha }));
+      gh.tagsAt = now;
+    }
+    gh.tagDates ||= {};
+    const undated = unique((gh.tags || []).filter((t) => !gh.tagDates[t.name]).map((t) => t.sha));
+    for (const sha of undated.slice(0, 12)) {
+      if (rate.remaining !== null && rate.remaining <= RESERVE + 12) break;
+      const date = (await api(`/git/commits/${sha}`)).committer.date;
+      for (const t of gh.tags) if (t.sha === sha) gh.tagDates[t.name] = date;
+    }
+  }
+
+  // ================================================================ the model: cards, groups, sessions
   const STATUS = {
     released: { name: 'Released', color: 'var(--released)' },
     'on-dev': { name: 'Built, not released', color: 'var(--on-dev)' },
     'in-flight': { name: 'In flight', color: 'var(--in-flight)' },
-    planned: { name: 'Planned', color: 'var(--planned)' },
+    planned: { name: 'Planned, in order', color: 'var(--planned)' },
     ongoing: { name: 'Ongoing', color: 'var(--ongoing)' },
-    parked: { name: 'Parked', color: 'var(--parked)' },
-    deferred: { name: 'Deferred', color: 'var(--deferred)' },
+    parked: { name: 'Parked or deferred', color: 'var(--parked)' },
     later: { name: 'Later', color: 'var(--later)' },
   };
-  const groupOf = (s) => (s === 'deferred' ? 'parked' : s);
-  for (const c of cards) c.leadsTo = [];
-  for (const c of cards) for (const id of c.after || []) byId.get(id)?.leadsTo.push(c.id);
-  const seq = (a, b) => a.sequence - b.sequence;
-  const repoUrl = D.repo.remote ? `https://github.com/${D.repo.remote}` : '';
-  const docUrl = (file, anchor) => repoUrl ? `${repoUrl}/blob/dev/${file}${anchor ? '#' + anchor : ''}` : '';
-  const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-  const fmtDateTime = (d) => new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const humanTag = (name) => { const s = name.slice(0, -CONFIG.tagSuffix.length).replace(/-/g, ' '); return s.replace(/^m(\d+\w?)\b/i, 'M$1').replace(/^./, (c) => c.toUpperCase()); };
+  const slug = (s) => stripMd(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  // The words that name a step: its heading before any colon, comma, full stop or parenthesis.
+  const nameWords = (heading) => words(stripMd(heading).replace(/\([^)]*\)/g, '').split(/[:,]|\.\s/)[0]);
+  const names = (keyWords, ws) => keyWords.length && keyWords.every((w) => ws.includes(w));
 
-  // ------------------------------------------------------------ state (in the URL hash)
-  const VIEWS = [['board', 'Board'], ['order', 'Order of work'], ['map', 'Map'], ['releases', 'Releases'], ['process', 'How it works'], ['health', 'Health']];
-  const state = { view: 'board', card: null, q: '', lanes: new Set(lanes.keys()), statuses: new Set(Object.keys(STATUS)), pnode: 'kyler' };
+  function build(docs, gh) {
+    const items = Object.values(gh?.items || {});
+    const byNumber = new Map(items.map((i) => [i.n, i]));
+    const tags = (gh?.tags || []).map((t) => ({ ...t, date: gh.tagDates?.[t.name] || '' }));
+    const tagNames = new Set(tags.map((t) => t.name));
+    const open = items.filter((i) => i.pr && i.state === 'open');
+    const headOf = (n) => gh?.heads?.[n] || '';
+    const order = docs.roadmap.order;
+    for (const e of order.entries) e.node.cards = [];
+    const cards = [];
+    const claimedTags = new Set();
+
+    for (const s of docs.roadmap.steps) {
+      const key = nameWords(s.heading);
+      const card = { id: 'step-' + slug(s.heading), title: stripMd(s.heading), section: s, summary: s.summary, decisions: [...s.decisions], tags: s.tags, orderRefs: [], rank: Infinity };
+      // Where the order of work names it: by its words in an item's title, bold spans or lead; else by a decision its heading cites.
+      order.entries.forEach((e, idx) => {
+        const hit = e.bolds ? e.bolds.some((ws) => names(key, ws)) : names(key, e.names);
+        if (hit) { card.orderRefs.push(e); e.node.cards.push(card.id); if (card.rank === Infinity) card.rank = idx; }
+      });
+      if (card.rank === Infinity) {
+        const hd = decisionsIn(s.heading);
+        const idx = order.entries.findIndex((e) => e.decisions.some((d) => hd.includes(d)));
+        if (idx >= 0) card.rank = idx;
+      }
+      const prs = new Set(s.prs);
+      for (const e of card.orderRefs) for (const n of e.node.prs || []) prs.add(n);
+      // Its STATUS rows: by a PR or branch the section names, or by the step's name in the Work cell.
+      card.rows = docs.status.rows.filter((r) => {
+        const rowPrs = numbersIn(r.PR), branch = stripMd(r.Branch || '');
+        return rowPrs.some((n) => prs.has(n)) || (branch && s.branches.includes(branch)) || names(words(r.Work), words(s.heading)) || names(key, words(r.Work));
+      });
+      for (const r of card.rows) for (const n of numbersIn(r.PR)) prs.add(n);
+      card.branches = unique([...s.branches, ...card.rows.map((r) => stripMd(r.Branch || '')).filter(Boolean)]);
+      for (const p of open) if (card.branches.includes(headOf(p.n))) prs.add(p.n);
+      card.prs = [...prs].filter((n) => n !== gh?.coord).sort((a, b) => b - a);
+      card.tags.forEach((t) => claimedTags.add(t));
+      Object.assign(card, statusOf(card, s, tagNames, byNumber, headOf));
+      cards.push(card);
+    }
+    for (const t of tags) {
+      if (claimedTags.has(t.name)) continue;
+      cards.push({ id: 'tag-' + t.name, title: humanTag(t.name), tags: [t.name], status: 'released', why: `Tag ${t.name}`, releasedOn: t.date, prs: [], decisions: [], orderRefs: [], rank: Infinity, summary: '' });
+    }
+    for (const c of cards) if (c.status === 'released' && !c.releasedOn) c.releasedOn = tags.filter((t) => c.tags.includes(t.name)).map((t) => t.date).sort().pop() || '';
+    const byId = new Map(cards.map((c) => [c.id, c]));
+    const planned = cards.filter((c) => c.status === 'planned').sort((a, b) => a.rank - b.rank);
+    planned.forEach((c, i) => { c.prev = planned[i - 1]?.id; c.next = planned[i + 1]?.id; });
+
+    // Who a pull request or issue is from: a signature line ("— milestone session"), the sessions in STATUS, or its branch.
+    const sessionOf = (i) => {
+      const texts = [gh?.last?.[i.n]?.body, i.body].filter(Boolean);
+      for (const t of texts) {
+        const lines = stripComments(t).trim().split('\n').map((l) => l.trim()).filter(Boolean);
+        const sig = (lines[lines.length - 1] || '').match(/^[—–-]{1,2}\s*(?:the\s+)?([\w .-]{2,40}?)(?:\s+session)?\.?$/i);
+        if (sig) return sig[1].toLowerCase();
+        const from = (lines[0] || '').match(/^From (?:the )?([\w .-]{2,30}?)(?: session)?:/i);
+        if (from) return from[1].toLowerCase();
+      }
+      const head = headOf(i.n);
+      const hit = docs.status.sessions.find((s) => (head && s.raw.includes(head)) || new RegExp(`#${i.n}\\b`).test(s.raw));
+      if (hit) return hit.name;
+      if (/^investigation\//.test(head)) return 'Codex';
+      if (/^dependabot\//.test(head)) return 'Dependabot';
+      return '';
+    };
+    return { cards, byId, tags, items, open, headOf, sessionOf, byNumber };
+  }
+
+  function statusOf(card, s, tagNames, byNumber, headOf) {
+    const h = s.heading;
+    if (/\b(parked|deferred)\b/i.test(h)) return { status: 'parked', why: `${CONFIG.paths.roadmap}: ${/parked/i.test(h) ? 'parked' : 'deferred'}` };
+    if (/^Later\b/i.test(h)) return { status: 'later', why: CONFIG.paths.roadmap };
+    if (/^Housekeeping\b/i.test(h)) return { status: 'ongoing', why: CONFIG.paths.roadmap };
+    if (s.tags.length && s.tags.every((t) => tagNames.has(t))) return { status: 'released', why: `Tag ${s.tags.join(', ')}` };
+    const states = card.rows.map((r) => stripMd(r.State).toLowerCase()).join(' | ');
+    if (/\bparked\b/.test(states)) return { status: 'parked', why: `${CONFIG.paths.status}: parked` };
+    // An open investigation a section cites is research toward it, not the step being built.
+    const openPrs = card.prs.filter((n) => byNumber.get(n)?.state === 'open' && byNumber.get(n)?.pr && !/^investigation\//.test(headOf(n)));
+    if (card.rows.length && /\bmerged\b|on `?dev`?/.test(states) && !openPrs.length) return { status: 'on-dev', why: `${CONFIG.paths.status}: on ${CONFIG.branch}` };
+    if (card.rows.length) return { status: 'in-flight', why: `${CONFIG.paths.status}: in flight` };
+    if (openPrs.length) return { status: 'in-flight', why: `Open: ${openPrs.map((n) => '#' + n).join(', ')}` };
+    if (s.tags.some((t) => tagNames.has(t))) return { status: 'in-flight', why: `Part released: ${s.tags.filter((t) => tagNames.has(t)).join(', ')}` };
+    return { status: 'planned', why: card.rank < Infinity ? 'In the order of work' : 'Not yet in the order of work' };
+  }
+
+  // ================================================================ state
+  const VIEWS = [['needs', 'Needs you'], ['flight', 'In flight'], ['board', 'Board'], ['order', 'Order of work'], ['map', 'Map'], ['releases', 'Releases']];
+  const ui = { view: 'needs', card: null };
+  let rawDocs = store.get('rc-docs-v1'), docsState = null, ghState = store.get('rc-github-v1') || {}, ghNote = '', M = null, mapView = null, readAt = 0;
+  if (rawDocs?.v === 1 && rawDocs.texts) docsState = parseDocs({ ...rawDocs, notes: [] }); else rawDocs = null;
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
-    if (p.get('view') && VIEWS.some(([v]) => v === p.get('view'))) state.view = p.get('view');
-    state.card = p.get('card') && byId.has(p.get('card')) ? p.get('card') : null;
-    state.q = p.get('q') || '';
+    if (VIEWS.some(([v]) => v === p.get('view'))) ui.view = p.get('view');
+    ui.card = p.get('card') || null;
   }
   function writeHash() {
-    const p = new URLSearchParams();
-    p.set('view', state.view);
-    if (state.card) p.set('card', state.card);
-    if (state.q) p.set('q', state.q);
+    const p = new URLSearchParams(); p.set('view', ui.view); if (ui.card) p.set('card', ui.card);
     history.replaceState(null, '', '#' + p.toString());
   }
-  readHash();
-  $('#search').value = state.q;
 
-  // ------------------------------------------------------------ matching (search and filters)
-  function matches(c) {
-    if (!state.lanes.has(c.lane) || !state.statuses.has(c.status)) return false;
-    if (!state.q) return true;
-    const q = state.q.toLowerCase();
-    const hay = [c.id, c.title, c.summary, c.statusReason, (c.decisions || []).join(' '), (c.tags || []).map((t) => t.name).join(' '),
-      (c.prs || []).map((p) => '#' + p.number + ' ' + (p.title || '')).join(' '), c.branch, (c.children || []).map((k) => k.title).join(' ')].join(' ').toLowerCase();
-    return hay.includes(q);
-  }
-  const anyFilter = () => state.q || state.lanes.size !== lanes.size || state.statuses.size !== Object.keys(STATUS).length;
+  // ================================================================ shared pieces
+  const link = (url, text, cls = '') => `<a ${cls ? `class="${cls}" ` : ''}href="${esc(url)}" target="_blank" rel="noopener">${text}</a>`;
+  const docUrl = (file, anchor) => `${WEB}/blob/${CONFIG.branch}/${file}${anchor ? '#' + anchor : ''}`;
+  const itemUrl = (n) => `${WEB}/issues/${n}`;
+  const statusDot = (s) => `<span class="dot" style="--c:${STATUS[s]?.color || '#888'}"></span>`;
+  const prTag = (n) => {
+    const i = M.byNumber.get(n);
+    const st = i ? (i.merged ? 'merged' : i.state === 'open' ? 'open' : 'closed') : '';
+    return link(itemUrl(n), '#' + n, `tag ${st}`).replace('<a ', `<a title="${esc(i ? i.title + ' · ' + (i.draft && st === 'open' ? 'draft' : st) : 'Open on GitHub')}" `);
+  };
+  const decRef = (d) => {
+    const t = docsState.decisions.byNumber[d];
+    return `<span class="dref" title="${esc(t ? (t.short ? t.short + ': ' : '') + t.text : 'Not in force')}">${esc(d)}</span>`;
+  };
+  const cardLink = (id) => { const c = M.byId.get(id); return c ? `<button class="cardlink" data-card="${esc(id)}">${statusDot(c.status)}${esc(shortTitle(c))}</button>` : ''; };
+  const shortTitle = (c) => trim(c.title.replace(/\s*\((?:[^()]*\d[^()]*)\)\s*/g, ' ').replace(/^(M\d+[ab]?)[.:]\s+/, '$1 · '), 70);
+  const labelsOf = (i) => new Set(i.labels);
 
-  // ------------------------------------------------------------ shared pieces
-  const laneStyle = (c) => `--lane:${lanes.get(c.lane)?.color || '#888'}`;
-  const statusDot = (s) => `<span class="dot" style="--c:${STATUS[s]?.color || '#888'}" title="${esc(STATUS[s]?.name || s)}"></span>`;
-  const prChip = (p) => `<a class="tag pr" href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.title || '')}${p.state ? ' · ' + p.state.toLowerCase() + (p.isDraft ? ' draft' : '') : ''}"><span class="pr-dot pr-${p.isDraft && p.state === 'OPEN' ? 'draft' : esc(p.state || '')}"></span>#${p.number}</a>`;
-  const cardLink = (id) => { const c = byId.get(id); return c ? `<button class="cardlink" data-card="${esc(id)}" style="${laneStyle(c)}">${statusDot(c.status)}${esc(shortTitle(c))}</button>` : ''; };
-  const shortTitle = (c) => c.title.replace(/^(M\d+[ab]?)\.\s+/, '$1 · ');
-  const decRef = (d) => { const t = D.decisions.byNumber[d]; return `<span class="dref" title="${esc(t ? t.topic + ': ' + t.text : 'Not in force (superseded or completed; see docs/archive/decisions.md)')}">${esc(d)}</span>`; };
-  const decRefs = (ds, max = 8) => (ds || []).slice(0, max).map(decRef).join(' ') + ((ds || []).length > max ? `<span class="dref">+${ds.length - max}</span>` : '');
-
-  function renderCardEl(c) {
-    const tag = (c.tags || []).find((t) => t.exists) || (c.tags || [])[0];
-    const faded = anyFilter() && !matches(c) ? ' faded' : '';
-    const sel = state.card === c.id ? ' sel' : '';
-    return `<button class="card${faded}${sel}" data-card="${esc(c.id)}" style="${laneStyle(c)}" title="${esc(lanes.get(c.lane)?.name || '')}">
-      <div class="t">${statusDot(c.status)} ${esc(shortTitle(c))}</div>
-      <div class="s">${esc(c.summary || c.statusReason || '')}</div>
-      <div class="m">
-        ${tag ? `<span class="tag" title="${tag.exists ? 'released ' + tag.date : 'the tag it will get'}">${tag.exists ? '🏷 ' : '○ '}${esc(tag.name)}${tag.exists ? ' · ' + fmtDate(tag.date) : ''}</span>` : ''}
-        ${(c.prs || []).slice(0, 3).map(prChip).join('')}${(c.prs || []).length > 3 ? `<span class="tag">+${c.prs.length - 3} PRs</span>` : ''}
-        ${(c.children || []).length ? `<span class="tag">${c.children.length} items</span>` : ''}
-        ${(c.decisions || []).length ? `<span class="tag" title="${esc(c.decisions.join(', '))}">${c.decisions.length} D</span>` : ''}
-      </div></button>`;
+  function cardEl(c) {
+    const tag = c.tags?.[0];
+    const released = tag && M.tags.some((t) => t.name === tag);
+    return `<button class="card${ui.card === c.id ? ' sel' : ''}" data-card="${esc(c.id)}" style="--c:${STATUS[c.status].color}">
+      <div class="t">${esc(shortTitle(c))}</div>
+      ${c.summary ? `<div class="s">${esc(c.summary)}</div>` : ''}
+      <div class="m">${tag ? `<span class="tag">${esc(tag)}${released && c.releasedOn ? ' · ' + esc(fmtDate(c.releasedOn)) : ''}</span>` : ''}${(c.prs || []).slice(0, 3).map(prTag).join('')}${(c.prs || []).length > 3 ? `<span class="tag">+${c.prs.length - 3}</span>` : ''}</div>
+    </button>`;
   }
 
-  // ------------------------------------------------------------ header, stats, filters
-  function renderChrome() {
-    const g = D.github;
-    $('#meta').innerHTML = `From <code>${esc(D.repo.branch)}@${esc(D.repo.commit)}</code> (${esc(D.repo.commitDate)}), generated ${esc(fmtDateTime(D.generatedAt))}${g.available ? ', with GitHub' : ', <span title="' + esc(g.note) + '">without GitHub</span>'}. Generator ${esc(D.repo.version)}.`;
-    $('#tabs').innerHTML = VIEWS.map(([v, n]) => `<button data-view="${v}" class="${state.view === v ? 'on' : ''}">${n}</button>`).join('');
-    const s = D.stats;
-    const stat = (b, l, t = '') => `<div class="stat" title="${esc(t)}"><b>${esc(b)}</b><span>${esc(l)}</span></div>`;
-    $('#stats').innerHTML = [
-      stat(s.released, 'released', `Steps with a <step>${D.tagSuffix} tag`),
-      stat(s['on-dev'], 'built, not released', 'Merged into dev, waiting for the next release'),
-      stat(s['in-flight'], 'in flight', 'On a branch or being built now'),
-      stat(s.planned, 'planned', 'In the order of work, not started'),
-      stat((s.parked || 0) + (s.deferred || 0) + (s.later || 0), 'parked, deferred, later'),
-      stat(s.decisionsInForce, `decisions in force · next ${s.nextDecision}`, '${SRC.decisionsLabel}'),
-      stat(s.pendingOpen, `defaults waiting for ${OWNER} · next ${s.nextPending}`, '${SRC.pending}'),
-      s.openPrs !== null ? stat(`${s.openPrs}`, `open PRs · ${s.openDraftPrs} drafts`, 'GitHub, at generation time') : '',
-      stat(s.lastRelease ? fmtDate(s.lastRelease.date) : '—', `last release · ${s.lastRelease ? s.lastRelease.name : ''}`, 'The newest *-done tag'),
-    ].join('');
-    const showFilters = state.view === 'board' || state.view === 'map';
-    $('#filters').innerHTML = !showFilters ? '' : `Lanes: ${D.lanes.map((l) => `<button class="chip ${state.lanes.has(l.id) ? '' : 'off'}" data-lane="${l.id}"><span class="dot" style="--c:${l.color}"></span>${esc(l.name)}</button>`).join('')}
-      &nbsp; Status: ${Object.entries(STATUS).map(([k, v]) => `<button class="chip ${state.statuses.has(k) ? '' : 'off'}" data-status="${k}"><span class="dot" style="--c:${v.color}"></span>${v.name}</button>`).join('')}
-      ${anyFilter() ? '<button class="chip" data-reset="1">reset</button>' : ''}`;
-  }
-
-  // ------------------------------------------------------------ views
-  function renderBoard() {
-    const groups = D.statusGroups.map((g) => ({ ...g, cards: cards.filter((c) => groupOf(c.status) === g.id).sort(seq) }));
-    $('#main').innerHTML = `<p class="hint">Every card is a step from ${SRC.roadmap}, in the roadmap's order inside each column. Click one for what it delivers, what blocks it, where it stands and what it follows. Status comes from the tags, ${SRC.status} and GitHub.</p>
-      <div class="board">${groups.map((g) => `<section class="col"><h2>${esc(g.name)} <span class="n">${g.cards.length}</span></h2><p class="hint">${esc(g.hint)}</p>${g.cards.map(renderCardEl).join('') || '<p class="hint">Nothing here.</p>'}</section>`).join('')}</div>`;
-  }
-
-  function renderOrder() {
-    const o = D.order;
-    const item = (it, depth) => `<li class="${depth ? 'deep' : ''}"><span class="it">${esc(it.title)}</span>${it.cards.length ? `<span class="links">${it.cards.map(cardLink).join('')}</span>` : ''}${decRefs(it.decisions, 4) ? ' ' + decRefs(it.decisions, 4) : ''}
-      ${it.text && it.text !== it.title ? `<div class="tx">${esc(it.text.length > 360 ? it.text.slice(0, 360) + '…' : it.text)}</div>` : ''}
-      ${it.children.length ? `<ol class="items">${it.children.map((k) => item(k, depth + 1)).join('')}</ol>` : ''}</li>`;
-    $('#main').innerHTML = `<div class="order">
-      <p class="hint">${SRC.roadmap}'s "The order of work", as written on <code>${esc(D.repo.branch)}</code>, with each item tied to its card. Where either plan orders things differently, the roadmap wins.</p>
-      ${o.intro ? `<div class="intro">${esc(o.intro)}</div>` : ''}
-      ${o.phases.map((p) => `<section class="phase"><h2><span class="num">${p.n}</span> ${esc(p.title)} ${p.cards.length ? `<span class="links">${p.cards.map(cardLink).join('')}</span>` : ''}</h2>
-        ${p.intro ? `<p class="pi">${esc(p.intro)}</p>` : ''}
-        ${p.items.length ? `<ol class="items">${p.items.map((it) => item(it, 0)).join('')}</ol>` : ''}</section>`).join('')}
-      ${o.closing ? `<div class="intro">${esc(o.closing)}</div>` : ''}
-    </div>`;
-  }
-
-  // The map: columns are time (release dates), then now, then the planned order; rows are lanes; arrows are what follows what.
-  let mapView = null;
-  function renderMap() {
-    const NW = 176, NH = 40, GX = 46, GY = 8, LEFT = 150, TOP = 46, LANE_PAD = 16;
-    const dates = [...new Set(cards.filter((c) => c.status === 'released' && c.releasedOn).map((c) => c.releasedOn))].sort();
-    const cols = dates.map((d) => ({ key: d, label: fmtDate(d), kind: 'date' }));
-    const nowCol = cols.push({ key: 'now', label: 'Now', kind: 'now' }) - 1;
-    const planned = cards.filter((c) => c.status === 'planned').sort(seq);
-    const plannedCol = new Map();
-    planned.forEach((c, i) => { plannedCol.set(c.id, cols.length); cols.push({ key: 'p' + i, label: i === 0 ? 'Next, in order →' : '', kind: 'planned' }); });
-    const tailCols = { ongoing: cols.push({ key: 'ongoing', label: 'Ongoing' }) - 1, parked: cols.push({ key: 'parked', label: 'Parked / deferred' }) - 1, later: cols.push({ key: 'later', label: 'Later' }) - 1 };
-    const colOf = (c) => {
-      if (c.status === 'released') return Math.max(0, dates.indexOf(c.releasedOn));
-      if (c.status === 'on-dev' || c.status === 'in-flight') return nowCol;
-      if (c.status === 'planned') return plannedCol.get(c.id);
-      if (c.status === 'ongoing') return tailCols.ongoing;
-      if (c.status === 'later') return tailCols.later;
-      return tailCols.parked;
+  // ================================================================ views
+  function viewNeeds() {
+    const L = CONFIG.labels;
+    const needs = M.items.filter((i) => i.state === 'open' && i.labels.includes(L.needs)).sort((a, b) => new Date(b.updated) - new Date(a.updated));
+    const pending = docsState.pending, waiting = docsState.status.waiting;
+    const ghRead = !!ghState.syncedAt || Object.keys(ghState.items || {}).length;
+    if (ghRead && !needs.length && !pending.length && !waiting.length) return `<p class="empty">Nothing needs you.</p>`;
+    const row = (i) => {
+      const last = ghState.last?.[i.n];
+      const text = last?.body || i.body;
+      return `<div class="row need"><span class="num">${link(i.url, '#' + i.n)}</span>
+        <div><div class="title">${link(i.url, esc(i.title))}</div>${text ? `<div class="snip">${mdLite(text)}</div>` : ''}</div>
+        <span class="dim cut" title="${esc(M.headOf(i.n))}">${esc(M.sessionOf(i) || (i.pr ? 'pull request' : 'issue'))}</span>
+        <span class="age" title="${esc(new Date(last?.at || i.updated).toLocaleString())}">${age(last?.at || i.updated)}</span></div>`;
     };
-    // Stack nodes per (lane, column); lane heights follow the tallest stack.
-    const laneIds = D.lanes.map((l) => l.id);
-    const cells = new Map();
-    for (const c of [...cards].sort(seq)) { const k = c.lane + '|' + colOf(c); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(c); }
-    const laneRows = laneIds.map((id) => Math.max(1, ...[...cells.entries()].filter(([k]) => k.startsWith(id + '|')).map(([, v]) => v.length)));
-    const laneTop = []; let y = TOP;
-    laneRows.forEach((rows, i) => { laneTop[i] = y; y += LANE_PAD + rows * (NH + GY) + LANE_PAD - GY; });
-    const totalH = y, totalW = LEFT + cols.length * (NW + GX);
+    return `<div class="cols">
+      <section class="panel"><h2>Labelled ${esc(L.needs)} <span class="n">${needs.length}</span></h2>
+        ${needs.length ? `<div class="rows">${needs.map(row).join('')}</div>` : `<p class="empty">${ghRead ? 'None.' : 'Reading GitHub…'}</p>`}</section>
+      <div class="stack">
+        <section class="panel"><h2>Waiting in STATUS <span class="n">${waiting.length}</span></h2>
+          ${waiting.length ? `<ol>${waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : '<p class="empty">None.</p>'}
+          <p class="dim">${link(docUrl(CONFIG.paths.status), esc(CONFIG.paths.status))}</p></section>
+        <section class="panel"><h2>Defaults to confirm <span class="n">${pending.length}</span></h2>
+          ${pending.length ? `<div class="rows">${pending.map((p) => `<div class="row pend"><span class="num">#${esc(p.n)}</span><div><b>${esc(p.step)}</b> <span class="dim">${esc(p.question)}</span></div></div>`).join('')}</div>` : '<p class="empty">None.</p>'}
+          <p class="dim">${link(docUrl(CONFIG.paths.pending), esc(CONFIG.paths.pending))}</p></section>
+      </div></div>`;
+  }
+
+  function viewFlight() {
+    const L = CONFIG.labels;
+    const groups = [
+      ['Needs you', (l) => l.has(L.needs)],
+      ['Approved, waiting to merge', (l) => l.has(L.approved) && !l.has(L.hold)],
+      ['Held', (l) => l.has(L.hold)],
+      ['Investigations', (l, i) => /^investigation\//.test(M.headOf(i.n))],
+      ['Other open pull requests', () => true],
+    ];
+    const placed = new Set();
+    const lists = groups.map(([name, test]) => {
+      const list = M.open.filter((i) => !placed.has(i.n) && test(labelsOf(i), i)).sort((a, b) => b.n - a.n);
+      list.forEach((i) => placed.add(i.n));
+      return [name, list];
+    });
+    const row = (i) => `<div class="row pr"><span class="num">${link(i.url, '#' + i.n)}</span><span class="cut" title="${esc(i.title)}">${link(i.url, esc(i.title))}</span>
+      <span class="dim cut" title="${esc(M.headOf(i.n))}">${esc(M.headOf(i.n))}</span><span class="draft">${i.draft ? 'draft' : ''}</span><span class="age" title="Updated ${esc(new Date(i.updated).toLocaleString())}">${age(i.updated)}</span></div>`;
+    const merged = M.items.filter((i) => i.pr && i.merged && Date.now() - new Date(i.merged).getTime() < DAY).sort((a, b) => new Date(b.merged) - new Date(a.merged));
+    const coord = ghState.coord ? M.byNumber.get(ghState.coord) : null;
+    const msgs = ghState.coordMsgs?.list || [];
+    const ghRead = !!ghState.syncedAt || Object.keys(ghState.items || {}).length;
+    return `<div class="cols">
+      <div class="stack">${lists.map(([name, list]) => `<section class="panel"><h2>${esc(name)} <span class="n">${list.length}</span></h2>
+        ${list.length ? `<div class="rows">${list.map(row).join('')}</div>` : `<p class="empty">${ghRead ? 'None.' : 'Reading GitHub…'}</p>`}</section>`).join('')}</div>
+      <div class="stack">
+        <section class="panel"><h2>Merged in the last 24 hours <span class="n">${merged.length}</span></h2>
+          ${merged.length ? `<div class="rows">${merged.map((i) => `<div class="row merged"><span class="num">${link(i.url, '#' + i.n)}</span><span class="cut" title="${esc(i.title)}">${link(i.url, esc(i.title))}</span><span class="age">${age(i.merged)}</span></div>`).join('')}</div>` : `<p class="empty">${ghRead ? 'None.' : 'Reading GitHub…'}</p>`}</section>
+        <section class="panel"><h2>${coord ? link(coord.url, esc(coord.title)) : esc(CONFIG.coordinationTitle)} <span class="n">${coord ? coord.comments : ''}</span></h2>
+          ${msgs.length ? `<div class="rows">${msgs.map((m) => `<div class="row msg"><div class="snip">${mdLite(m.body, 320)}</div><span class="age">${link(m.url, age(m.at))}</span></div>`).join('')}</div>` : `<p class="empty">${!ghRead ? 'Reading GitHub…' : coord ? 'No messages.' : `No open issue titled "${esc(CONFIG.coordinationTitle)}".`}</p>`}</section>
+      </div></div>`;
+  }
+
+  function viewBoard() {
+    const cols = Object.entries(STATUS).map(([k, v]) => {
+      let list = M.cards.filter((c) => c.status === k);
+      if (k === 'released') list.sort((a, b) => (b.releasedOn || '').localeCompare(a.releasedOn || ''));
+      else list.sort((a, b) => a.rank - b.rank);
+      return `<section class="col"><h2>${statusDot(k)}${esc(v.name)}<span class="n">${list.length}</span></h2>${list.map(cardEl).join('') || '<p class="empty">None.</p>'}</section>`;
+    });
+    return `<div class="board">${cols.join('')}</div>`;
+  }
+
+  function viewOrder() {
+    const o = docsState.roadmap.order;
+    if (!o.phases.length) return `<p class="empty">No order of work.</p>`;
+    // An item's text after its title, when it starts with it.
+    const rest = (it) => (it.text.startsWith(it.title) ? it.text.slice(it.title.length).replace(/^[\s:;,.)]+/, '') : it.text);
+    const refs = (ds, max = 4) => (ds || []).slice(0, max).map(decRef).join(' ');
+    const item = (it, depth) => `<li class="${depth ? 'deep' : ''}"><span class="it">${esc(it.title)}</span>${it.cards.length ? `<span class="links">${unique(it.cards).map(cardLink).join('')}</span>` : ''} ${refs(it.decisions)}
+      ${rest(it) ? `<div class="tx">${esc(trim(rest(it), 360))}</div>` : ''}
+      ${it.children.length ? `<ul class="items">${it.children.map((k) => item(k, depth + 1)).join('')}</ul>` : ''}</li>`;
+    return `<div class="order">
+      ${o.intro ? `<p class="dim" style="margin:0 0 14px">${esc(o.intro)}</p>` : ''}
+      ${o.phases.map((p) => `<section class="panel phase"><h2><span class="k">${p.n}</span> ${esc(p.title)}${p.cards.length ? `<span class="links">${unique(p.cards).map(cardLink).join('')}</span>` : ''}</h2>
+        ${p.intro ? `<p class="pi">${esc(p.intro)}</p>` : ''}
+        ${p.items.length ? `<ul class="items">${p.items.map((it) => item(it, 0)).join('')}</ul>` : ''}</section>`).join('')}
+      ${o.closing ? `<p class="dim">${esc(o.closing)}</p>` : ''}</div>`;
+  }
+
+  // The map: released steps by date, then now, then the planned steps in the order of work, then the rest.
+  function viewMap() {
+    const NW = 184, NH = 40, GX = 44, GY = 8, LEFT = 20, TOP = 44;
+    const cols = [];
+    const released = M.cards.filter((c) => c.status === 'released');
+    const dates = unique(released.map((c) => (c.releasedOn || '').slice(0, 10))).sort();
+    for (const d of dates) cols.push({ label: d ? fmtDate(d) : 'Released', cards: released.filter((c) => (c.releasedOn || '').slice(0, 10) === d) });
+    const nowIdx = cols.push({ label: 'Now', now: true, cards: M.cards.filter((c) => c.status === 'in-flight' || c.status === 'on-dev').sort((a, b) => a.rank - b.rank) }) - 1;
+    const planned = M.cards.filter((c) => c.status === 'planned').sort((a, b) => a.rank - b.rank);
+    planned.forEach((c, i) => cols.push({ label: i === 0 ? 'Next, in order' : '', cards: [c] }));
+    for (const k of ['ongoing', 'parked', 'later']) { const list = M.cards.filter((c) => c.status === k); if (list.length) cols.push({ label: STATUS[k].name, cards: list }); }
     const pos = new Map();
-    for (const [k, list] of cells) { const [lane, col] = k.split('|'); const li = laneIds.indexOf(lane); list.forEach((c, i) => pos.set(c.id, { x: LEFT + col * (NW + GX), y: laneTop[li] + LANE_PAD + i * (NH + GY) })); }
-    const edges = [];
-    for (const c of cards) for (const a of c.after || []) if (pos.has(a)) edges.push({ from: a, to: c.id });
-    const path = (e) => { const s = pos.get(e.from), t = pos.get(e.to); const x1 = s.x + NW, y1 = s.y + NH / 2, x2 = t.x, y2 = t.y + NH / 2; const dx = Math.max(30, (x2 - x1) / 2); return x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${x1},${y1} C${x1 + 40},${y1} ${x2 - 40},${y2} ${x2},${y2}`; };
-    const trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
-    const svg = `
-      <g id="viewport">
-        ${laneIds.map((id, i) => `<g style="--lane:${lanes.get(id).color}"><rect class="lanebg" x="0" y="${laneTop[i]}" width="${totalW}" height="${laneRows[i] * (NH + GY) + 2 * LANE_PAD - GY}"></rect></g>`).join('')}
-        ${cols.map((col, i) => `<line class="colline" x1="${LEFT + i * (NW + GX) - GX / 2}" y1="${TOP - 10}" x2="${LEFT + i * (NW + GX) - GX / 2}" y2="${totalH}"></line><text class="colhead ${col.kind === 'now' ? 'now' : ''}" x="${LEFT + i * (NW + GX)}" y="${TOP - 18}">${esc(col.label)}</text>`).join('')}
-        <text class="colhead" x="${LEFT}" y="16">Released, by date</text>
-        <g id="edges">${edges.map((e) => `<path class="edge" data-from="${e.from}" data-to="${e.to}" d="${path(e)}"></path>`).join('')}</g>
-        <g id="nodes">${cards.map((c) => { const p = pos.get(c.id); const faded = anyFilter() && !matches(c) ? ' faded' : ''; const sel = state.card === c.id ? ' sel' : '';
-          return `<g class="node${faded}${sel}" data-card="${esc(c.id)}" transform="translate(${p.x},${p.y})" style="--lane:${lanes.get(c.lane).color}"><title>${esc(c.title)} — ${esc(STATUS[c.status]?.name || c.status)}</title>
-            <rect class="box" width="${NW}" height="${NH}" rx="7"></rect><rect x="0" y="0" width="4" height="${NH}" rx="2" fill="${lanes.get(c.lane).color}"></rect>
-            <circle cx="${NW - 12}" cy="12" r="5" fill="${STATUS[c.status]?.color || '#888'}"></circle>
-            <text x="11" y="17">${esc(trunc(shortTitle(c), 25))}</text><text class="sub" x="11" y="31">${esc(trunc(c.status === 'released' ? ((c.tags || []).find((t) => t.exists)?.name || 'released') : (c.prs?.length ? c.prs.map((p) => '#' + p.number).slice(0, 3).join(' ') + (c.branch ? ' · ' + c.branch : '') : (c.branch || STATUS[c.status]?.name || '')), 30))}</text></g>`; }).join('')}</g>
-      </g>
-      <g id="lanelabels">${laneIds.map((id, i) => `<g style="--lane:${lanes.get(id).color}"><rect class="labelbg" x="0" y="${laneTop[i] + 6}" width="${LEFT - 24}" height="20" rx="4"></rect><text class="lanelabel" x="10" y="${laneTop[i] + 20}">${esc(lanes.get(id).name)}</text></g>`).join('')}</g>`;
-    $('#main').innerHTML = `<p class="hint">Left to right: the released steps by date, then what is in flight now, then the planned steps in the roadmap's order; each row is a lane. Arrows show what a step follows. Hover a step to light what it waits for (orange) and what waits for it (blue); drag to pan, wheel to zoom.</p>
-      <div class="mapwrap"><svg id="map" data-w="${totalW}" data-h="${totalH}" data-now="${LEFT + nowCol * (NW + GX)}">${svg}</svg>
-      <div class="ctl"><button class="btn" id="fit">Fit</button><button class="btn" id="zin">+</button><button class="btn" id="zout">−</button></div>
-      <div class="legend">${Object.entries(STATUS).filter(([k]) => k !== 'deferred').map(([k, v]) => `<span><span class="dot" style="--c:${v.color}"></span> ${v.name}</span>`).join('')}</div></div>`;
-    wireMap();
+    cols.forEach((col, ci) => col.cards.forEach((c, ri) => pos.set(c.id, { x: LEFT + ci * (NW + GX), y: TOP + ri * (NH + GY) })));
+    const W = LEFT * 2 + cols.length * (NW + GX), H = TOP + Math.max(1, ...cols.map((c) => c.cards.length)) * (NH + GY) + 20;
+    const edges = planned.slice(1).map((c, i) => ({ from: planned[i].id, to: c.id }));
+    const path = (e) => { const s = pos.get(e.from), t = pos.get(e.to); const x1 = s.x + NW, y1 = s.y + NH / 2, x2 = t.x, y2 = t.y + NH / 2, dx = Math.max(20, (x2 - x1) / 2); return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`; };
+    const cut = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+    const sub = (c) => c.status === 'released' ? (c.tags[0] || '') : c.prs.length ? c.prs.slice(0, 3).map((n) => '#' + n).join(' ') : STATUS[c.status].name;
+    const svg = `<g id="viewport">
+      ${cols.map((col, i) => `<line class="colline" x1="${LEFT + i * (NW + GX) - GX / 2}" y1="${TOP - 26}" x2="${LEFT + i * (NW + GX) - GX / 2}" y2="${H}"></line><text class="colhead${col.now ? ' now' : ''}" x="${LEFT + i * (NW + GX)}" y="${TOP - 14}">${esc(col.label)}</text>`).join('')}
+      <g>${edges.map((e) => `<path class="edge" data-from="${e.from}" data-to="${e.to}" d="${path(e)}"></path>`).join('')}</g>
+      <g>${M.cards.filter((c) => pos.has(c.id)).map((c) => { const p = pos.get(c.id);
+        return `<g class="node${ui.card === c.id ? ' sel' : ''}" data-card="${esc(c.id)}" transform="translate(${p.x},${p.y})"><title>${esc(c.title)}</title>
+          <rect class="box" width="${NW}" height="${NH}" rx="7"></rect><rect width="4" height="${NH}" rx="2" fill="${STATUS[c.status].color}"></rect>
+          <text x="12" y="17">${esc(cut(shortTitle(c), 27))}</text><text class="sub" x="12" y="31">${esc(cut(sub(c), 32))}</text></g>`; }).join('')}</g></g>`;
+    return `<div class="maptools"><button class="btn" id="fit" title="Fit the whole map">Fit</button><button class="btn" id="zin" title="Zoom in (wheel up)">Zoom in</button><button class="btn" id="zout" title="Zoom out (wheel down)">Zoom out</button>
+      <div class="legend">${Object.entries(STATUS).map(([k, v]) => `<span>${statusDot(k)}${esc(v.name)}</span>`).join('')}</div></div>
+      <div class="mapwrap"><svg id="map" data-w="${W}" data-h="${H}" data-now="${LEFT + nowIdx * (NW + GX)}">${svg}</svg></div>`;
   }
   function wireMap() {
-    const svg = $('#map'), vp = $('#viewport');
+    const svg = $('#map'); if (!svg) return;
+    const vp = $('#viewport');
     const W = +svg.dataset.w, H = +svg.dataset.h, NOW = +svg.dataset.now;
     const size = () => { const r = svg.parentElement.getBoundingClientRect(); svg.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); return r; };
-    const r0 = size();
+    const apply = () => vp.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`);
     const fit = () => { const r = size(); const k = Math.min(r.width / W, r.height / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 0 }; apply(); };
-    const start = () => { const r = size(); const k = Math.max(.6, Math.min(1, (r.height - 8) / H)); mapView = { k, x: Math.min(0, r.width * .42 - NOW * k), y: 0 }; apply(); };
-    const labels = $('#lanelabels');
-    const apply = () => { vp.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`); labels.setAttribute('transform', `translate(0,${mapView.y}) scale(${mapView.k})`); };
-    if (!mapView) start(); else apply();
-    window.addEventListener('resize', () => { if (state.view === 'map') size(); }, { passive: true });
+    size();
+    if (!mapView) { const r = size(); const k = Math.max(.6, Math.min(1, (r.height - 8) / H)); mapView = { k, x: Math.min(0, r.width * .4 - NOW * k), y: 0 }; }
+    apply();
     let drag = null;
     svg.addEventListener('pointerdown', (e) => { if (e.target.closest('.node')) return; drag = { x: e.clientX, y: e.clientY, ox: mapView.x, oy: mapView.y }; svg.classList.add('grabbing'); svg.setPointerCapture(e.pointerId); });
-    svg.addEventListener('pointermove', (e) => { if (!drag) return; mapView.x = drag.ox + (e.clientX - drag.x); mapView.y = drag.oy + (e.clientY - drag.y); apply(); });
+    svg.addEventListener('pointermove', (e) => { if (!drag) return; mapView.x = drag.ox + e.clientX - drag.x; mapView.y = drag.oy + e.clientY - drag.y; apply(); });
     svg.addEventListener('pointerup', () => { drag = null; svg.classList.remove('grabbing'); });
-    svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(); const px = e.clientX - r.left, py = e.clientY - r.top; const f = e.deltaY < 0 ? 1.12 : 1 / 1.12; const k2 = Math.min(4, Math.max(.3, mapView.k * f)); mapView.x = px - (px - mapView.x) * (k2 / mapView.k); mapView.y = py - (py - mapView.y) * (k2 / mapView.k); mapView.k = k2; apply(); }, { passive: false });
-    $('#fit').onclick = fit;
-    $('#zin').onclick = () => { mapView.k = Math.min(4, mapView.k * 1.25); apply(); };
-    $('#zout').onclick = () => { mapView.k = Math.max(.3, mapView.k / 1.25); apply(); };
-    // Hover: ancestors (what it waits for) and descendants (what waits for it).
-    const edgesEls = [...svg.querySelectorAll('.edge')], nodeEls = [...svg.querySelectorAll('.node')];
-    const clear = () => { edgesEls.forEach((e) => e.classList.remove('up', 'down', 'faded')); nodeEls.forEach((n) => n.classList.remove('hl')); if (!anyFilter()) nodeEls.forEach((n) => n.classList.remove('faded')); };
-    const walk = (id, dir, acc) => { const c = byId.get(id); for (const n of (dir === 'up' ? c.after || [] : c.leadsTo)) if (!acc.has(n)) { acc.add(n); walk(n, dir, acc); } return acc; };
+    svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(); const px = e.clientX - r.left, py = e.clientY - r.top; const k2 = Math.min(3, Math.max(.25, mapView.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); mapView.x = px - (px - mapView.x) * (k2 / mapView.k); mapView.y = py - (py - mapView.y) * (k2 / mapView.k); mapView.k = k2; apply(); }, { passive: false });
+    const zoom = (f) => { const r = size(); const cx = r.width / 2, cy = r.height / 2; const k2 = Math.min(3, Math.max(.25, mapView.k * f)); mapView.x = cx - (cx - mapView.x) * (k2 / mapView.k); mapView.y = cy - (cy - mapView.y) * (k2 / mapView.k); mapView.k = k2; apply(); };
+    $('#fit').onclick = fit; $('#zin').onclick = () => zoom(1.25); $('#zout').onclick = () => zoom(1 / 1.25);
+    // Hover: what comes before a planned step (orange) and after it (blue), along the order of work.
+    const edges = [...svg.querySelectorAll('.edge')], nodes = [...svg.querySelectorAll('.node')];
+    const chain = (id, dir) => { const out = new Set(); let c = M.byId.get(id); while (c && c[dir]) { out.add(c[dir]); c = M.byId.get(c[dir]); } return out; };
     svg.addEventListener('pointerover', (e) => {
       const n = e.target.closest('.node'); if (!n) return;
-      const id = n.dataset.card; const up = walk(id, 'up', new Set()), down = walk(id, 'down', new Set());
-      const keep = new Set([id, ...up, ...down]);
-      nodeEls.forEach((el) => el.classList.toggle('faded', !keep.has(el.dataset.card)));
-      edgesEls.forEach((el) => { const a = el.dataset.from, b = el.dataset.to; const isUp = keep.has(b) && up.has(a) && (up.has(b) || b === id); const isDown = keep.has(a) && down.has(b) && (down.has(a) || a === id); el.classList.toggle('up', isUp); el.classList.toggle('down', isDown); el.classList.toggle('faded', !isUp && !isDown); });
+      const id = n.dataset.card, c = M.byId.get(id);
+      if (c.status !== 'planned') return;
+      const up = chain(id, 'prev'), down = chain(id, 'next'), keep = new Set([id, ...up, ...down]);
+      nodes.forEach((el) => el.classList.toggle('faded', !keep.has(el.dataset.card)));
+      edges.forEach((el) => { const a = el.dataset.from, b = el.dataset.to; const isUp = up.has(a); const isDown = down.has(b); el.classList.toggle('up', isUp); el.classList.toggle('down', isDown); el.classList.toggle('faded', !isUp && !isDown); });
     });
-    svg.addEventListener('pointerout', (e) => { if (e.target.closest('.node') && !svg.contains(e.relatedTarget?.closest?.('.node'))) clear(); });
-    svg.addEventListener('pointerleave', clear);
+    svg.addEventListener('pointerleave', () => { nodes.forEach((el) => el.classList.remove('faded')); edges.forEach((el) => el.classList.remove('up', 'down', 'faded')); });
+    svg.addEventListener('pointerout', (e) => { if (e.target.closest('.node') && !e.relatedTarget?.closest?.('.node')) { nodes.forEach((el) => el.classList.remove('faded')); edges.forEach((el) => el.classList.remove('up', 'down', 'faded')); } });
   }
 
-  function renderReleases() {
+  function viewReleases() {
     const byDate = new Map();
-    for (const t of D.tags) { if (!byDate.has(t.date)) byDate.set(t.date, []); byDate.get(t.date).push(t); }
-    const cardForTag = (name) => cards.find((c) => (c.tags || []).some((t) => t.name === name));
-    const gate = cards.find((c) => c.kind === 'gate');
-    const next = cards.filter((c) => c.status === 'in-flight' || c.status === 'on-dev').sort(seq);
-    const untagged = D.statusGroups.find((g) => g.id === 'released') && cards.filter((c) => c.status === 'released' && !(c.tags || []).some((t) => t.exists));
-    $('#main').innerHTML = `<div class="two">
-      <section class="panel"><h2>Released so far</h2><p class="hint">Each tag is one release: a tag on dev's green commit, a merge PR into main, the deploy and the live check. Click a step for its card.</p>
-        <div class="rel">${[...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([d, tags]) => `<div class="d">${esc(fmtDate(d))}</div><div class="tags">${tags.map((t) => { const c = cardForTag(t.name); return c ? cardLink(c.id).replace('</button>', ` <span class="tag">${esc(t.name)}</span></button>`) : `<span class="tag">${esc(t.name)}</span>`; }).join('')}</div>`).join('')}</div>
-        ${untagged?.length ? `<h3>Released inside another step</h3><ul>${untagged.map((c) => `<li>${cardLink(c.id)} <span class="hint">${esc(c.statusNote || '')}</span></li>`).join('')}</ul>` : ''}
-        <h3>Not yet released, with their tags</h3><ul>${cards.filter((c) => c.status !== 'released' && (c.tags || []).length).sort(seq).map((c) => `<li>${cardLink(c.id)} <span class="tag">${esc(c.tags[0].name)}</span></li>`).join('')}</ul>
+    for (const t of M.tags) { const d = (t.date || '').slice(0, 10); if (!byDate.has(d)) byDate.set(d, []); byDate.get(d).push(t); }
+    const cardFor = (name) => M.cards.find((c) => (c.tags || []).includes(name));
+    const next = M.cards.filter((c) => c.status === 'in-flight' || c.status === 'on-dev').sort((a, b) => a.rank - b.rank);
+    const st = docsState.status;
+    const ghRead = !!ghState.tagsAt;
+    return `<div class="cols">
+      <section class="panel"><h2>Released <span class="n">${M.tags.length}</span></h2>
+        ${M.tags.length ? `<div class="rel">${[...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([d, tags]) => `<span class="d">${esc(d ? fmtDate(d) : '—')}</span><div class="tags">${tags.map((t) => { const c = cardFor(t.name); return c ? `<button class="cardlink" data-card="${esc(c.id)}">${statusDot('released')}${esc(t.name)}</button>` : `<span class="tag">${esc(t.name)}</span>`; }).join('')}</div>`).join('')}</div>` : `<p class="empty">${ghRead ? 'None.' : 'Reading GitHub…'}</p>`}
+        <h3>Not yet released</h3>${(() => { const list = M.cards.filter((c) => c.status !== 'released' && (c.tags || []).length); return list.length ? `<ul>${list.sort((a, b) => a.rank - b.rank).map((c) => `<li>${cardLink(c.id)} ${c.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join(' ')}</li>`).join('')}</ul>` : '<p class="empty">None.</p>'; })()}
       </section>
       <section class="panel"><h2>The next release</h2>
-        ${gate ? `<p>${esc(gate.statusText || gate.summary || '')}</p>` : ''}
-        <h3>In flight or built, in the roadmap's order</h3><ul>${next.map((c) => `<li>${cardLink(c.id)} <span class="hint">${esc(c.statusRows?.[0] ? (c.statusRows[0].cells.State || '').replace(/[`*]/g, '') : c.statusReason)}</span></li>`).join('')}</ul>
-        ${D.status.waiting.length ? `<h3>Waiting for ${OWNER}</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
-        ${D.status.queued.length ? `<h3>Queued next (${SRC.status})</h3><ol>${D.status.queued.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
-        ${D.pending.open ? `<h3>Defaults ${OWNER} can overrule (${D.pending.open})</h3><ul>${D.pending.rows.filter((r) => /pending/i.test(r.status)).map((r) => `<li><b>#${esc(r.n)}</b> ${esc(r.milestone)}: ${esc(r.question)}</li>`).join('')}</ul>` : ''}
+        ${st.gate.length ? `<h3>${esc(st.gateHeading.replace(/\s*\(.*\)$/, ''))}</h3>${st.gate.map((p) => `<p style="margin:4px 0;font-size:.88rem">${esc(p)}</p>`).join('')}` : ''}
+        <h3>In flight or built</h3>${next.length ? `<ul>${next.map((c) => `<li>${cardLink(c.id)}</li>`).join('')}</ul>` : '<p class="empty">None.</p>'}
+        ${st.queue.length ? `<h3>${esc(st.queueHeading)}</h3><ol>${st.queue.map((q) => `<li>${esc(trim(q, 300))}</li>`).join('')}</ol>` : ''}
+        ${docsState.perfect.length ? `<h3>What perfect means</h3><div class="line" style="display:flex;flex-wrap:wrap;gap:6px">${docsState.perfect.map((p) => link(docUrl(CONFIG.paths.perfect, p.anchor), esc(p.heading), 'chip')).join('')}</div>` : ''}
       </section></div>`;
   }
 
-  function renderProcess() {
-    const P = D.process, nodes = P.nodes, W = 150, H = 54, GAP = 28, X0 = 20, Y0 = 50;
-    const idx = (id) => nodes.findIndex((n) => n.id === id);
-    const statOf = (n) => ({
-      decisions: `${D.stats.decisionsInForce} in force · next ${D.stats.nextDecision} · ${D.stats.pendingOpen} defaults pending`,
-      order: `${D.order.phases.length} phases · ${D.stats.planned} planned steps`,
-      sessions: D.status.sessions ? `${D.status.sessions.items.length} sessions` : '',
-      prs: D.stats.openPrs !== null ? `${D.stats.openPrs} open · ${D.stats.openDraftPrs} drafts` : 'GitHub not read',
-      waiting: `${D.status.waiting.length} items waiting`,
-      tags: `${D.stats.doneTags} tags`,
-      release: D.stats.lastRelease ? `last ${fmtDate(D.stats.lastRelease.date)}` : '',
-      log: D.github.progressLogCount ? `${D.github.progressLogCount} entries on #${SRC.progressIssue}` : '',
-    })[n.stat] || '';
-    const svg = `<svg viewBox="0 0 ${X0 * 2 + nodes.length * (W + GAP)} 190"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"></path></marker></defs>
-      ${nodes.map((n, i) => `<g class="pnode ${state.pnode === n.id ? 'on' : ''}" data-pnode="${n.id}" transform="translate(${X0 + i * (W + GAP)},${Y0})"><rect width="${W}" height="${H}" rx="9"></rect><text class="k" x="12" y="22">${i + 1}</text><text x="30" y="22">${esc(n.title.length > 18 ? n.title.slice(0, 17) + '…' : n.title)}</text><text x="12" y="42" class="pside">${esc(statOf(n))}</text></g>
-        ${i < nodes.length - 1 ? `<path class="parrow" d="M${X0 + i * (W + GAP) + W},${Y0 + H / 2} L${X0 + (i + 1) * (W + GAP) - 2},${Y0 + H / 2}"></path>` : ''}`).join('')}
-      ${(P.sideFlows || []).map((f, j) => { const a = idx(f.from), b = idx(f.to); const xa = X0 + a * (W + GAP) + W / 2, xb = X0 + b * (W + GAP) + W / 2; const yy = Y0 + H + 36 + j * 34; return `<path class="parrow side" d="M${xa},${Y0 + H} C${xa},${yy} ${xb},${yy} ${xb},${Y0 + H + 2}"></path><text class="pside" x="${(xa + xb) / 2}" y="${yy - 4 + (j ? 0 : 0)}" text-anchor="middle">${esc(f.label.length > 110 ? f.label.slice(0, 108) + '…' : f.label)}</text>`; }).join('')}</svg>`;
-    const cur = nodes.find((n) => n.id === state.pnode) || nodes[0];
-    $('#main').innerHTML = `<p class="hint">${esc(P.summary)} Click a box.</p>
-      <div class="panel flow">${svg}</div>
-      <div class="two" style="margin-top:14px">
-        <section class="panel"><h2>${esc(cur.title)}</h2><p>${esc(cur.text)}</p>${statOf(cur) ? `<p class="hint">Now: ${esc(statOf(cur))}</p>` : ''}
-          ${cur.id === 'decide' ? `<h3>Decisions by topic (${SRC.decisionsLabel})</h3><ul>${D.decisions.topics.map((t) => `<li>${esc(t.name)}: <b>${t.count}</b></li>`).join('')}</ul>` : ''}
-          ${cur.id === 'sessions' && D.status.sessions ? `<h3>The sessions (${SRC.status})</h3><ul>${D.status.sessions.items.map((s) => `<li>${esc(s.text.length > 300 ? s.text.slice(0, 300) + '…' : s.text)}</li>`).join('')}</ul>` : ''}
-          ${cur.id === 'roadmap' ? `<h3>The phases</h3><ol>${D.order.phases.map((p) => `<li>${esc(p.title)}${p.cards.length ? ' ' + p.cards.map(cardLink).join(' ') : ''} <span class="hint">${p.items.length} items</span></li>`).join('')}</ol>` : ''}
-          ${cur.id === 'review' ? `<h3>What perfect means (${SRC.yardstick})</h3><ul>${D.perfect.map((s) => `<li><b>${esc(s.heading)}</b>${s.text ? ': ' + esc(s.text.length > 160 ? s.text.slice(0, 160) + '…' : s.text) : ''}</li>`).join('')}</ul>` : ''}
-          ${cur.id === 'tag' || cur.id === 'release' ? `<h3>Release points</h3><p class="hint">Released: ${D.tags.map((t) => t.name).join(', ')}.</p><p class="hint">Still to come: ${cards.filter((c) => c.status !== 'released' && (c.tags || []).length).sort(seq).map((c) => c.tags[0].name).join(', ')}.</p>` : ''}
-          ${cur.id === 'review' && D.status.waiting.length ? `<h3>Waiting for ${OWNER} now</h3><ol>${D.status.waiting.map((w) => `<li>${esc(w.text)}</li>`).join('')}</ol>` : ''}
-          ${cur.id === 'pr' && D.stats.openPrs !== null ? `<h3>Open pull requests</h3><ul>${Object.values(D.prs).filter((p) => p.state === 'OPEN').sort((a, b) => b.number - a.number).map((p) => `<li>${prChip(p)} ${esc(p.title)}</li>`).join('')}</ul>` : ''}
-        </section>
-        <section class="panel"><h2>The Progress log, latest first</h2>${D.progressLog.length ? `<ul class="log">${D.progressLog.map((e) => `<li><time>${esc(fmtDateTime(e.createdAt))}</time>${esc(e.body)}</li>`).join('')}</ul>${D.github.progressLogUrl ? `<p class="hint"><a href="${esc(D.github.progressLogUrl)}" target="_blank" rel="noopener">All ${D.github.progressLogCount} entries on GitHub</a></p>` : ''}` : `<p class="hint">${esc(D.github.note || 'Not read.')}</p>`}</section>
-      </div>`;
-  }
-
-  function renderHealth() {
-    const cov = cards.map((c) => `<tr><td>${cardLink(c.id)}</td><td>${c.section ? `<span class="ok">${esc(c.section.file)}</span><br><span class="hint">${esc(c.section.heading)}</span>` : '<span class="no">none</span>'}</td>
-      <td>${(c.tags || []).length ? c.tags.map((t) => `<span class="${t.exists ? 'ok' : 'no'}">${esc(t.name)}${t.exists ? ' ' + t.date : ''}</span>`).join('<br>') : '<span class="no">—</span>'}</td>
-      <td>${c.statusRows?.length ? c.statusRows.map((r) => `<span class="ok">${esc((r.cells.Work || r.cells.Investigation || '').replace(/[`*]/g, ''))}</span>`).join('<br>') : '<span class="no">—</span>'}</td>
-      <td>${(c.prs || []).map(prChip).join(' ') || '<span class="no">—</span>'}</td><td>${esc(c.statusReason || '')}</td></tr>`).join('');
-    $('#main').innerHTML = `<div class="two">
-      <section class="panel health"><h2>Drift between the cards and the documents</h2><p class="hint">What extract.mjs noticed: ROADMAP sections, tags or STATUS rows no card covers, and STATUS rows GitHub contradicts. Fix the manifest or the document.</p>
-        ${D.health.length ? `<ul>${D.health.map((h) => `<li class="kind-${esc(h.kind)}"><b>${esc(h.kind)}</b>: ${esc(h.text)}</li>`).join('')}</ul>` : '<p class="ok">Nothing: every section, tag and STATUS row has a card.</p>'}
-        <h3>Sources</h3><ul>
-          <li>${SRC.roadmap}: ${D.roadmapSections.length} sections; the order of work has ${D.order.phases.length} phases.</li>
-          <li>${SRC.status}: ${D.status.sections.length} sections, ${D.status.waiting.length} items waiting for ${OWNER}.</li>
-          <li>${SRC.decisionsLabel}: ${D.stats.decisionsInForce} decisions in force across ${D.decisions.topics.length} topics; next ${D.stats.nextDecision}.</li>
-          <li>git: ${D.tags.length} release tags; data from ${esc(D.repo.branch)}@${esc(D.repo.commit)} (dev at ${esc(D.repo.devCommit || '?')}).</li>
-          <li>GitHub: ${D.github.available ? `${Object.keys(D.prs).length} pull requests, ${D.github.progressLogCount || 0} Progress log entries` : esc(D.github.note)}.</li>
-        </ul></section>
-      <section class="panel"><h2>Coverage</h2><p class="hint">Where each card's facts come from.</p><div style="overflow-x:auto"><table class="cov"><thead><tr><th>Card</th><th>Section</th><th>Tag</th><th>STATUS row</th><th>PRs</th><th>Status from</th></tr></thead><tbody>${cov}</tbody></table></div></section>
-    </div>`;
-  }
-
-  // ------------------------------------------------------------ drawer
-  function renderDrawer() {
-    const el = $('#drawer');
-    const c = state.card && byId.get(state.card);
-    if (!c) { el.classList.remove('open'); el.innerHTML = ''; return; }
-    const s = c.section, lane = lanes.get(c.lane);
-    const list = (title, items) => items?.length ? `<h3>${title}</h3><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
-    const rows = (c.statusRows || []).map((r) => `<div class="kv">${Object.entries(r.cells).filter(([k]) => k !== 'Work' && k !== 'Investigation').map(([k, v]) => `<span>${esc(k)}</span><span>${esc(v.replace(/[`*]/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1'))}</span>`).join('')}</div>`).join('');
-    const child = (k) => `<li>${k.cardId ? cardLink(k.cardId) : `<b>${esc(k.title)}</b>`}${k.prs?.length ? ' ' + k.prs.map(prChip).join(' ') : ''}${(k.cards || []).filter((id) => id !== c.id).map((id) => ' ' + cardLink(id)).join('')}${k.text && k.text !== k.title ? `<div class="hint" style="margin:2px 0 0">${esc(k.text.length > 260 ? k.text.slice(0, 260) + '…' : k.text)}</div>` : ''}</li>`;
-    el.innerHTML = `<button class="close" aria-label="Close">×</button>
-      <h2>${esc(c.title)}</h2>
-      <div class="row"><span class="status" style="--c:${STATUS[c.status]?.color}">${esc(STATUS[c.status]?.name || c.status)}${c.releasedOn ? ' · ' + esc(fmtDate(c.releasedOn)) + (c.dateInferred ? ' (about)' : '') : ''}</span><span class="chip"><span class="dot" style="--c:${lane?.color}"></span>${esc(lane?.name || c.lane)}</span><span class="chip">${esc(c.kind)}</span></div>
-      <p class="why">${esc(c.statusReason || '')}</p>
+  function drawer() {
+    const el = $('#drawer'), c = ui.card && M?.byId.get(ui.card);
+    $('#frame').classList.toggle('with-drawer', !!c);
+    el.hidden = !c;
+    if (!c) { el.innerHTML = ''; return; }
+    const s = c.section;
+    const list = (title, xs) => xs?.length ? `<h3>${title}</h3><ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+    const D = docsState.decisions.byNumber;
+    el.innerHTML = `<div class="head"><h2>${esc(c.title)}</h2><button class="btn" data-close="1" title="Close (Esc)">Close</button></div>
+      <div class="line"><span class="status" style="--c:${STATUS[c.status].color}">${esc(STATUS[c.status].name)}${c.releasedOn ? ' · ' + esc(fmtDate(c.releasedOn)) : ''}</span></div>
+      <p class="why">${esc(c.why || '')}</p>
       ${c.summary ? `<p>${esc(c.summary)}</p>` : ''}
-      ${c.statusNote && c.statusNote !== c.summary ? `<p class="hint">${esc(c.statusNote)}</p>` : ''}
-      ${(c.tags || []).length ? `<h3>Tag</h3><div class="row">${c.tags.map((t) => `<span class="tag" title="${esc(t.subject || '')}">${t.exists ? '🏷 ' : '○ '}${esc(t.name)}${t.exists ? ' · ' + t.date : ' · not yet'}</span>`).join('')}</div>` : ''}
-      ${rows ? `<h3>Where it stands (${SRC.status})</h3>${rows}` : ''}
-      ${c.branch && !rows ? `<h3>Branch</h3><p><code>${esc(c.branch)}</code></p>` : ''}
-      ${(c.prs || []).length ? `<h3>Pull requests</h3><div class="row">${c.prs.map((p) => `<span>${prChip(p)} <span class="hint">${esc(p.title || '')}</span></span>`).join('<br>')}</div>` : ''}
+      ${c.tags?.length ? `<h3>Tag</h3><div class="line">${c.tags.map((t) => { const x = M.tags.find((y) => y.name === t); return x ? link(`${WEB}/tree/${t}`, esc(t) + (x.date ? ' · ' + esc(fmtDate(x.date)) : ''), 'tag') : `<span class="tag">${esc(t)} · not yet</span>`; }).join('')}</div>` : ''}
+      ${c.rows?.length ? `<h3>Where it stands</h3>${c.rows.map((r) => `<div class="kv">${Object.entries(r).filter(([k]) => k !== 'Work').map(([k, v]) => `<span>${esc(k)}</span><span>${esc(stripMd(v))}</span>`).join('')}</div>`).join('<hr style="border:0;border-top:1px solid var(--line)">')}` : ''}
+      ${c.prs?.length ? `<h3>Pull requests</h3><ul>${c.prs.map((n) => `<li>${prTag(n)} ${esc(M.byNumber.get(n)?.title || '')}</li>`).join('')}</ul>` : ''}
       ${s ? `${list('Delivers', s.delivers)}${list('Blocking', s.blocking)}${list('Information', s.information)}${s.effort || s.inGame ? `<div class="kv" style="margin-top:10px">${s.effort ? `<span>Effort</span><span>${esc(s.effort)}</span>` : ''}${s.inGame ? `<span>In-game check</span><span>${esc(s.inGame)}</span>` : ''}</div>` : ''}` : ''}
-      ${c.orderText && c.orderText !== c.summary ? `<h3>In the order of work</h3><p>${esc(c.orderText)}</p>` : ''}
-      ${(c.orderRefs || []).length ? `<h3>Place in the order</h3><ul>${c.orderRefs.map((r) => `<li>${r.phase}. ${esc(r.phaseTitle)}${r.trail.length ? ' › ' + esc(r.trail.join(' › ')) : ''}</li>`).join('')}</ul>` : ''}
-      ${(c.children || []).length ? `<h3>Items (${c.children.length})</h3><ul>${c.children.map(child).join('')}</ul>` : ''}
-      ${(c.after || []).length || c.leadsTo.length ? `<h3>Follows / leads to</h3><div class="row">${(c.after || []).map(cardLink).join('')}</div>${c.leadsTo.length ? `<p class="hint" style="margin:8px 0 4px">Leads to</p><div class="row">${c.leadsTo.map(cardLink).join('')}</div>` : ''}` : ''}
-      ${(c.decisions || []).length ? `<h3>Decisions (${c.decisions.length})</h3><details><summary>${esc(c.decisions.slice(0, 12).join(', '))}${c.decisions.length > 12 ? '…' : ''}</summary>${c.decisions.map((d) => { const t = D.decisions.byNumber[d]; return `<p class="dec"><b>${esc(d)}</b> ${t ? `<span class="hint">${esc(t.topic)}</span><br>${esc(t.text)}` : '<span class="hint">not in force: superseded or completed (docs/archive/decisions.md)</span>'}</p>`; }).join('')}</details>` : ''}
-      ${(c.mentionedPrs || []).length ? `<details style="margin-top:10px"><summary>Also mentioned: ${c.mentionedPrs.length} pull requests</summary><div class="row" style="margin-top:6px">${c.mentionedPrs.map(prChip).join('')}</div></details>` : ''}
-      <h3>Read</h3><div class="row">${s && docUrl(s.file, s.anchor) ? `<a class="chip" href="${esc(docUrl(s.file, s.anchor))}" target="_blank" rel="noopener">${esc(s.file)} › ${esc(s.heading.length > 40 ? s.heading.slice(0, 40) + '…' : s.heading)}</a>` : ''}${docUrl(SRC.status) ? `<a class="chip" href="${esc(docUrl(SRC.status))}" target="_blank" rel="noopener">${esc(SRC.status)}</a>` : ''}${docUrl(SRC.decisions) ? `<a class="chip" href="${esc(docUrl(SRC.decisions, D.decisions.anchor))}" target="_blank" rel="noopener">${esc(SRC.decisionsLabel)}</a>` : ''}</div>`;
-    el.classList.add('open');
+      ${s && !s.delivers.length && s.leads.length ? list('Items', s.leads.map((l) => l.title + (l.text ? ': ' + l.text : ''))) : ''}
+      ${c.orderRefs?.length ? `<h3>In the order of work</h3><ul>${c.orderRefs.map((e) => `<li>${e.phase.n}. ${esc(e.phase.title)}${e.node !== e.phase ? ' › ' + esc([...e.trail, e.node.title].join(' › ')) : ''}</li>`).join('')}</ul>` : ''}
+      ${c.decisions?.length ? `<h3>Decisions <span class="n">${c.decisions.length}</span></h3>${c.decisions.map((d) => `<p class="dec"><b>${esc(d)}</b> ${D[d] ? `${D[d].short ? esc(D[d].short) + ' · ' : ''}<span class="dim">${esc(D[d].topic)}</span><br>${esc(D[d].text)}` : '<span class="dim">Not in force</span>'}</p>`).join('')}` : ''}
+      <h3>Read</h3><div class="line">${s ? link(docUrl(CONFIG.paths.roadmap, anchorFor(s.heading)), esc(CONFIG.paths.roadmap), 'chip') : ''}${link(docUrl(CONFIG.paths.status), esc(CONFIG.paths.status), 'chip')}</div>`;
   }
 
-  // ------------------------------------------------------------ render and events
-  const RENDERERS = new Map([['board', renderBoard], ['order', renderOrder], ['map', renderMap], ['releases', renderReleases], ['process', renderProcess], ['health', renderHealth]]);
+  // ================================================================ render
+  const RENDER = { needs: viewNeeds, flight: viewFlight, board: viewBoard, order: viewOrder, map: viewMap, releases: viewReleases };
   function render() {
-    renderChrome();
-    (RENDERERS.get(state.view) || renderBoard)();
-    renderDrawer();
+    $('#tabs').innerHTML = VIEWS.map(([v, n]) => `<button data-view="${v}" class="${ui.view === v ? 'on' : ''}"><span>${n}</span></button>`).join('');
+    const notes = [...(docsState?.notes || []), ...(ghNote ? [ghNote] : [])];
+    $('#notes').innerHTML = notes.map((n) => `<p>${esc(n)}</p>`).join('');
+    if (!docsState) { $('#main').innerHTML = '<p class="empty">Reading…</p>'; return; }
+    M = build(docsState, ghState);
+    if (ui.card && !M.byId.has(ui.card)) ui.card = null;
+    const main = $('#main'), dr = $('#drawer');
+    const keep = { main: main.scrollTop, mainX: main.scrollLeft, drawer: dr.scrollTop };
+    main.innerHTML = RENDER[ui.view]();
+    if (ui.view === 'map') wireMap();
+    drawer();
+    main.scrollTop = keep.main; main.scrollLeft = keep.mainX; dr.scrollTop = keep.drawer;
     writeHash();
   }
+  function meta() {
+    $('#meta').textContent = readAt ? `Updated ${fmtTime(readAt)}` : 'Reading…';
+  }
+
+  // ================================================================ refresh
+  let busy = false, lastRun = 0;
+  async function refresh() {
+    if (busy) return;
+    busy = true; lastRun = Date.now();
+    try {
+      rawDocs = await readDocs(rawDocs);
+      docsState = parseDocs(rawDocs);
+      store.set('rc-docs-v1', { ...rawDocs, notes: [] });
+      ghNote = '';
+      try {
+        await syncGitHub(ghState);
+      } catch (e) {
+        ghNote = e instanceof RateLimited
+          ? `GitHub's hourly limit is used up; it is read again at ${fmtTime(rate.reset)}.`
+          : `GitHub couldn't be read: ${e.message}.`;
+      }
+      store.set('rc-github-v1', ghState);
+      readAt = Date.now();
+    } finally { busy = false; }
+    render(); meta();
+  }
+  // Every few minutes while the page is visible; slower when GitHub's allowance runs low.
+  function due() {
+    const low = rate.remaining !== null && rate.remaining < 20;
+    return Date.now() - lastRun >= CONFIG.refreshMinutes * 60e3 * (low ? 3 : 1);
+  }
+  setInterval(() => { if (document.visibilityState === 'visible' && due()) refresh(); }, 30e3);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && due()) refresh(); });
+
+  // ================================================================ events
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-view],[data-card],[data-lane],[data-status],[data-reset],[data-pnode],.drawer .close');
+    const t = e.target.closest('[data-view],[data-card],[data-close]');
     if (!t) return;
-    if (t.dataset.view) { state.view = t.dataset.view; render(); }
-    else if (t.dataset.card) { state.card = state.card === t.dataset.card && t.classList.contains('card') ? null : t.dataset.card; render(); }
-    else if (t.dataset.lane) { const l = t.dataset.lane; if (e.shiftKey) { state.lanes = new Set([l]); } else state.lanes.has(l) ? state.lanes.delete(l) : state.lanes.add(l); render(); }
-    else if (t.dataset.status) { const s = t.dataset.status; if (e.shiftKey) { state.statuses = new Set([s]); } else state.statuses.has(s) ? state.statuses.delete(s) : state.statuses.add(s); render(); }
-    else if (t.dataset.reset) { state.q = ''; $('#search').value = ''; state.lanes = new Set(lanes.keys()); state.statuses = new Set(Object.keys(STATUS)); render(); }
-    else if (t.dataset.pnode) { state.pnode = t.dataset.pnode; render(); }
-    else if (t.classList.contains('close')) { state.card = null; render(); }
+    if (t.dataset.view) { ui.view = t.dataset.view; $('#main').scrollTop = 0; render(); }
+    else if (t.dataset.card) { ui.card = ui.card === t.dataset.card && t.classList.contains('card') ? null : t.dataset.card; render(); }
+    else if (t.dataset.close) { ui.card = null; render(); }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.card) { state.card = null; render(); } });
-  let st; $('#search').addEventListener('input', (e) => { clearTimeout(st); st = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 120); });
-  $('#theme').addEventListener('click', () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('rc-theme', r.dataset.theme); } catch {} });
-  try { const t = localStorage.getItem('rc-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.card) { ui.card = null; render(); } });
   window.addEventListener('hashchange', () => { readHash(); render(); });
+  window.addEventListener('resize', () => { if (ui.view === 'map' && $('#map')) { const r = $('#map').parentElement.getBoundingClientRect(); $('#map').setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); } }, { passive: true });
+  const themeBtn = $('#theme');
+  const isDark = () => { const r = document.documentElement; return r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
+  const themeLabel = () => { themeBtn.textContent = isDark() ? 'Light theme' : 'Dark theme'; themeBtn.title = isDark() ? 'Switch to the light theme' : 'Switch to the dark theme'; };
+  themeBtn.addEventListener('click', () => { const t = isDark() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('rc-theme', t); themeLabel(); });
+  { const t = store.get('rc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeLabel);
+  themeLabel();
+
+  readHash();
   render();
+  refresh();
 })();
 </script>
 </body>

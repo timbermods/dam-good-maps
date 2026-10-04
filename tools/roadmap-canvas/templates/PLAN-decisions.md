@@ -1,4 +1,4 @@
-<!-- The decisions section of PLAN.md. Keep the heading stable; name it in manifest.json's config.sources.decisionsSection. -->
+<!-- The decisions section of PLAN.md. Keep the heading stable; it is CONFIG.paths.planSection in index.html. -->
 
 ## 9. Decisions
 

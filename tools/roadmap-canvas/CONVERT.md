@@ -2,10 +2,11 @@
 
 Paste everything below the line into a Claude session in the other repository, with the project's existing plan
 (a document, issues, a README section, notes) in the working directory or attached. It produces the documents
-[SPEC.md](SPEC.md) describes and a `manifest.json`, copies the canvas in, and checks the result.
+[SPEC.md](SPEC.md) describes, sets the canvas's settings, and checks the result. The repository must be public on
+GitHub: the canvas reads it from there, without a token.
 
 Before pasting: copy `tools/roadmap-canvas/` from Dam Good Maps into the other repository (the same path is simplest;
-any path works), delete its `data.js` and `data.json`, and keep `SPEC.md`, `CONVERT.md` and `templates/` with it.
+any path works), with `SPEC.md`, `CONVERT.md` and `templates/`.
 
 ---
 
@@ -16,7 +17,7 @@ are the shape to fill. Work on a new branch. Do not change the product's code.
 **What to produce**
 
 1. `PLAN.md` (keep the existing plan's substance; if a plan file already exists, keep its name and add the decisions
-   section to it, naming its heading in the manifest's `config.sources.decisionsSection`):
+   section to it, its heading matched by `CONFIG.paths.planSection` in `index.html`):
    - the product and its principles, as they are;
    - one **decisions section** (`## N. Decisions`): every choice the owner has already made that governs the work,
      numbered `D1`, `D2`, … in the order they were made, grouped under `###` topics, one bullet each
@@ -51,14 +52,10 @@ are the shape to fill. Work on a new branch. Do not change the product's code.
 6. **Tags:** list the steps already shipped and tag their commits `<step>-done` (annotated, dated by the commit), or
    give the owner the exact `git tag` commands to run if you cannot find the commits.
 
-7. `tools/roadmap-canvas/manifest.json`, from `templates/manifest.json`: `config` (the project's name, the owner's
-   name, the paths, the decisions section's heading regex, the Progress log issue number if one exists, the decision
-   prefix and tag suffix); 4 to 9 `lanes` that partition the work by area; one card per step or group with `id`,
-   `title`, `lane`, `kind`, `tags`, `roadmap` (a regex that matches exactly one heading), `after` (what it follows),
-   and, where they exist, `branch`, `prs`, `statusMatch`, `order` keywords, `orderBlock`, `parent`, `status` with a
-   `statusNote`. Keep `statusGroups` as in the template. Rewrite `process` in the project's own words: the eight
-   nodes (decide, roadmap, sessions, pr, review, tag, release, record) describe how a change travels from the owner's
-   decision to a release here; keep the ids.
+7. **The canvas's settings:** the `CONFIG` block at the top of `tools/roadmap-canvas/index.html`'s script: the project's
+   name, the owner's name, the repository (`owner/name`) and the branch the documents live on, the paths, the
+   decisions section's heading, the decision prefix and tag suffix. Create the labels `needs-kyler` (or the owner's
+   equivalent, named in `CONFIG.labels`), `approved` and `hold`.
 
 **Rules**
 
@@ -71,8 +68,8 @@ are the shape to fill. Work on a new branch. Do not change the product's code.
 
 **Check, then report**
 
-Run `node tools/roadmap-canvas/extract.mjs` (add `--offline` if `gh` is not logged in) and fix every `missing` note
-and every ROADMAP section, tag or STATUS row on no card. Open `tools/roadmap-canvas/index.html`: the Board, the Order
-of work and the Health view should read as the owner would describe the project. Report in a few lines: the counts the
-extractor printed, the decisions you recorded at conversion for the owner to confirm, and any tag commands they must
-run.
+Push the branch the canvas reads (or point `CONFIG.branch` at yours) and open `tools/roadmap-canvas/index.html`. Fix every
+line it shows at the top about a document. The Board and the Order of work should read as the owner would describe the
+project: every step in the right column, each phase tied to the cards it names. Report in a few lines: the steps,
+phases and decisions the page shows, the decisions you recorded at conversion for the owner to confirm, and any tag
+commands they must run.

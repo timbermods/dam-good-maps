@@ -1,29 +1,27 @@
 # The planning interface
 
-What a project's planning documents must look like for the roadmap canvas to read them. Follow it and the canvas
-works unchanged in any repository: copy `tools/roadmap-canvas/` in, write a `manifest.json`, run the extractor.
+What a project's planning documents must look like for the roadmap canvas to read them. Follow it and the canvas works
+unchanged in any public GitHub repository: copy `tools/roadmap-canvas/index.html` in, set its `CONFIG` block (the
+project's name, the repository and branch, the paths, the decision prefix, the tag suffix, the labels) and open it.
 [CONVERT.md](CONVERT.md) is the prompt that turns an existing plan into this shape.
 
-The shape is the one Dam Good Maps grew into: **a plan** that describes the product and holds **the decisions in
-force**, **a roadmap** that orders **the steps** (milestones and smaller steps) and says what each delivers and what
-blocks it, **a status page** rewritten at every stop, and **a tag per released step**. The canvas never writes; it only
-reads these, plus git and GitHub.
+The shape is the one Dam Good Maps grew into: **the decisions in force**, numbered; **a roadmap** that orders **the
+steps** and says what each delivers and what blocks it; **a status page** rewritten at every stop; **a tag per release**;
+and **labels** on pull requests and issues for what needs the owner. The canvas never writes; it reads these from the
+branch named in `CONFIG` and from GitHub's public API.
 
 ## 1. The documents
 
-Five files, four of them required. Paths are the defaults; `manifest.json`'s `config.sources` can move any of them.
-
 | File | Required | What it holds |
 |---|---|---|
-| `ROADMAP.md` | yes | The open steps, one `##` section each, and **"The order of work"**. |
-| `docs/STATUS.md` | yes | Where things stand now: released, in flight (tables), waiting for the owner, queued. Rewritten, never appended. |
-| `PLAN.md` | yes | The product, and one section holding the **decisions in force** (`## 20. Editor decisions` in Dam Good Maps; any heading, named in the config). |
+| `ROADMAP.md` | yes | **"The order of work"**, then one `##` section per open step. |
+| `docs/STATUS.md` | yes | Where things stand now: released, the sessions, in flight (a table), waiting for the owner, the release gate, the queue. Rewritten, never appended. |
+| `docs/decisions/` or `PLAN.md` | yes | The **decisions in force**: an index and one file per topic, or one section of the plan. |
 | `docs/decisions-pending.md` | no | Defaults a session chose while the owner was away, until the owner rules on them. |
-| `docs/archive/roadmap.md` | no | Finished steps' sections, moved verbatim out of ROADMAP when released. |
-| `docs/PERFECT.md` | no | The yardstick: what "done well" means, as `##` sections. Shown in "How it works". |
+| `docs/PERFECT.md` | no | The yardstick: what "done well" means, as `##` sections. Shown under the next release. |
 
-Plain Markdown. Links, bold and backticks are stripped on reading. Keep one idea per sentence; the first paragraph of a
-section is its summary on the card (about 460 characters are shown).
+Plain Markdown. Links, bold and backticks are stripped on reading. The first paragraph of a section is its summary on
+the card. A document that can't be read or no longer has the shape below shows one line on the page saying which.
 
 ### 1.1 ROADMAP.md
 
@@ -72,21 +70,25 @@ section is its summary on the card (about 460 characters are shown).
 **<Item>**: ...
 ```
 
-Rules the extractor relies on:
+Rules the canvas relies on:
 
 - **Phases** in "The order of work" are bold lines `**N. Title**`. Everything until the next phase is that phase: an
   intro paragraph, then a list. Items are list lines (`-`, `*` or `1.`); nesting is by indentation; a wrapped line is
-  indented. An item's **title** is its first bold span (else its text up to the first colon or parenthesis).
-- **Steps** are `##` sections (sub-steps `###`). Anything after "The order of work" that is not "How the work is judged"
-  is a step or a group of steps, and the Health view says so if no card covers it.
+  indented. An item's **title** is its first bold span (else its text up to the first colon or parenthesis). A paragraph
+  after the last phase's list closes the section.
+- **Steps** are `##` sections, their `###` sub-steps included. Every `##` section after "The order of work" except "How
+  the work is judged" is a card. There is no list of cards to keep: a new section is a new card.
+- **A step's name** is its heading's words before any colon, comma or parenthesis (`The page is the editor`, `M9b`,
+  `Startup`). The order of work names a step by using all those words in an item's title, a bold span or its lead; a
+  heading's decision (`(D371)`) places a step the words don't. STATUS rows name it the same way, or by a pull request or
+  branch the section cites.
 - **Delivers**, **Blocking**, **Information**: a bold label (`**Delivers**`) followed by a list, or a bulleted label
   (`- Blocking:` or `- **Blocking:**`) followed by nested bullets, or an inline `**Blocking:** text`. **Effort** and
   **In-game check** are inline `**Label:** value`.
 - **Decisions** are cited as `D123` (the prefix is configurable). **Pull requests** as `#45`. **Tags** in backticks as
-  `` `name-done` `` (the suffix is configurable).
-- A step **parked** or **deferred** says so in its heading: `## Real places, second round (parked, D319)`.
-- Groups of smaller things ("Later", "Follow-ups") are a `##` section of paragraphs that each start with a bold lead
-  (`**A Rift force** (...): ...`) or of bullets; the canvas lists the leads as the group's items.
+  `` `name-done` `` (the suffix is configurable); a step whose tags all exist is released.
+- A step **parked** or **deferred** says so in its heading: `## Real places, second round (parked, D319)`. `## Later`
+  and `## Housekeeping` are their own columns.
 
 ### 1.2 docs/STATUS.md
 
@@ -130,14 +132,22 @@ Rules the extractor relies on:
 
 Rules:
 
-- A table whose header has a **Work** column is the in-flight table; its **Branch**, **PR** and **State** cells tie
-  rows to cards (by branch, by PR number, or by a regex on the Work cell). The **State** cell decides the card's
-  status when its words include `parked`, `superseded`, `redundant`, `merged` (into dev), or none of these (in flight).
-- A table with an **Investigation** column lists outside work (Codex's, a contractor's) by PR; a card with
-  `"statusTable": "Investigation"` shows its rows as items.
-- "Waiting for …" is a numbered list; each item's text is shown as is.
+- A table whose header has a **Work** column is the in-flight table; its **Branch**, **PR** and **State** cells tie rows
+  to steps. The **State** cell decides a step's status when its words include `parked`, `merged` (into dev) or neither
+  (in flight).
+- The sessions section (any heading containing "sessions") has one bullet per session, led by `**The <name> session**`
+  and naming its branches and pull requests; the canvas uses it to say which session a pull request is from, after a
+  signature line (`— milestone session`) on the item itself.
+- "Waiting for <Owner>" and "Decisions open for <Owner>" list what the owner must do or decide; a section that starts
+  "Nothing" is empty.
+- "The release gate" (a heading containing "release gate") and the queue (a heading containing "queue") are shown under
+  the next release.
 
-### 1.3 The decisions section (PLAN.md)
+### 1.3 The decisions
+
+Either `docs/decisions/README.md`, an index whose `## [Topic](topic.md)` headings link one file per topic, each line
+`- D470: a short title`; or one section of `PLAN.md` (`## 20. Editor decisions` here; `CONFIG.paths.planSection`). The
+canvas reads the index first and falls back to the plan.
 
 ```markdown
 ## 20. Editor decisions
@@ -155,94 +165,40 @@ Rules:
 
 Rules:
 
-- One `##` section (its heading matched by `config.sources.decisionsSection`, default `^## 20\. `), `###` topics inside,
-  one bullet per decision: `- **D<n>** <text>`. Numbers never move; a decision that is superseded or completed leaves
-  this section for an archive (so "in force" is simply "present here").
-- The next free number appears once as `next free number (D447` or `next is **D447**`.
+- `###` topics, one bullet per decision: `- **D<n>** <text>`. Numbers never move; a decision that is superseded or
+  completed leaves for an archive, so "in force" is simply "present here".
 - Decisions are the vocabulary: steps, STATUS rows and order items cite them (`D387`), and the canvas shows each cited
   decision's text on hover.
 
 ### 1.4 docs/decisions-pending.md (optional)
 
-A table with columns `#`, `Milestone`, `Question`, `Default chosen`, `Why`, `Status`; rows whose Status contains
-`pending` are open. One line says `The next pending number is #155.`
+A table with columns `#`, `Milestone`, `Question`, `Default chosen`, `Why`, `Status`; rows whose Status starts with
+`pending` are open, unless it says superseded.
 
 ### 1.5 Tags and releases
 
-Every released step has a lightweight or annotated git tag `<step>-done` (the suffix is configurable) on the commit that
-shipped it. The tag's date is the release date. A step that shipped inside another step has no tag; its card says so
-(`"status": "released"` with a `statusNote`).
+Every released step has a git tag `<step>-done` (the suffix is configurable) on the commit that shipped it; that
+commit's date is the release date. A tag no section cites is a released card of its own.
 
-## 2. manifest.json: the cards
+## 2. Labels and the Coordination issue
 
-The manifest is the only hand-kept file of the canvas. It names the project's lanes and one card per step, and how to
-find each card's facts in the documents. Keep it high level: a card per step or group, never per bullet.
-
-```json
-{
-  "config": {
-    "project": { "name": "My Project", "owner": "Kyler" },
-    "sources": {
-      "roadmap": "ROADMAP.md", "archive": "docs/archive/roadmap.md", "status": "docs/STATUS.md",
-      "decisions": "PLAN.md", "decisionsSection": "^## 20\\. ", "decisionsLabel": "PLAN.md §20",
-      "pending": "docs/decisions-pending.md", "yardstick": "docs/PERFECT.md", "progressIssue": 57
-    },
-    "decisionPrefix": "D", "tagSuffix": "-done"
-  },
-  "lanes": [ { "id": "core", "name": "Core", "color": "#2f8f5b" } ],
-  "milestones": [
-    { "id": "m1", "title": "M1. ...", "lane": "core", "kind": "milestone", "tags": ["m1-done"], "roadmap": "^M1\\.", "after": [] },
-    { "id": "m2", "title": "M2. ...", "lane": "core", "kind": "milestone", "tags": ["m2-done"], "roadmap": "^M2\\.",
-      "branch": "feature/m2", "prs": [12], "statusMatch": "^M2\\b", "order": ["m2"], "after": ["m1"] }
-  ],
-  "statusGroups": [ "...as in templates/manifest.json..." ],
-  "process": { "summary": "...", "nodes": [ "...8 nodes, ids decide, roadmap, sessions, pr, review, tag, release, record..." ], "sideFlows": [] }
-}
-```
-
-Card fields:
-
-| Field | Meaning |
-|---|---|
-| `id` | Short, stable, used in `after` and in URLs. |
-| `title` | As the owner says it. `M9b. Composition and variety` shows as `M9b · Composition and variety`. |
-| `lane` | One of `lanes[].id`: the row on the map and the stripe on the card. |
-| `kind` | `milestone`, `step`, `group` (a section of smaller things), `gate` (a release gate). |
-| `tags` | The tag(s) the step gets; the first is the release tag. Exists → released, with its date. |
-| `roadmap` | A regex matched against `##`/`###` headings, live ROADMAP first, then the archive. |
-| `orderBlock` | A regex matched against a phase or item title in "The order of work"; its items become the card's items. |
-| `order` | Keywords (lowercase substrings) that the order's item titles or bold spans use for this card. |
-| `branch`, `prs` | Its branch and its own PRs. GitHub's state of these decides in-flight (open) or built-not-released (merged). |
-| `statusMatch` | A regex on the STATUS in-flight table's Work cell. |
-| `statusTable` | `"Investigation"`: the rows of that STATUS table become the card's items. |
-| `statusSection` | A regex on a STATUS heading whose paragraphs become the card's summary. |
-| `after` | The cards this one follows (the map's arrows, "Follows / leads to"). |
-| `parent` | A group card this one belongs to. |
-| `status`, `statusNote` | A fixed status (`released` without a tag, `in-flight`, `parked`, `deferred`, `later`, `ongoing`) and why. |
-| `summary`, `decisions` | Overrides for a card with no section (a summary; decisions it cites). |
-
-**Status, derived in this order:** its release tag exists → **released**; the manifest fixes a status → that; a STATUS
-row says parked / superseded / merged / else → **parked** / **parked** / **on-dev** / **in-flight**; its heading says
-deferred or parked → **parked**; one of its PRs is open → **in-flight**, merged → **on-dev**; else **planned**.
-
-**Order:** released cards by date; then by their first mention in "The order of work" (phase, then item); children of a
-group follow their parent; the rest keep the manifest's order.
+- `needs-kyler` (in `CONFIG.labels`): everything waiting on the owner carries it, a pull request or a small issue with the
+  question in a few lines. Its latest comment is shown, so a report or question goes in a comment (or the issue's text),
+  short, ending with a signature line naming the session.
+- `approved` and `hold` group the open pull requests; branches starting `investigation/` are investigations.
+- The open issue titled "Coordination" (`CONFIG.coordinationTitle`, found by title) holds the messages between sessions;
+  its latest five are shown.
 
 ## 3. What makes it work well
 
 - **Decisions are numbered once and cited everywhere.** A step, a STATUS row or an order item that cites `D387` lights
-  up with that decision's text. Without decisions, the canvas is only a list.
+  up with that decision's text.
 - **ROADMAP's order of work is the single order.** The canvas shows it as written; don't keep a second order anywhere.
-- **STATUS is rewritten, never appended.** History goes to the Progress log issue (`config.sources.progressIssue`), one
-  comment per finish, release or park; the canvas shows the latest comments.
-- **A tag per release.** The release history, dates and "built, not released" all come from `git tag` plus `merged`.
-- **Finished steps move to the archive verbatim,** so the released cards keep their text and ROADMAP stays short.
-- **Headings are stable.** The manifest finds sections by heading regex; renaming a heading means updating the card's
-  `roadmap` (the Health view points at the orphan).
+- **STATUS is rewritten, never appended.** History goes elsewhere (a Progress log issue).
+- **A tag per release.** The release history and dates come from the tags.
+- **Headings are stable.** Steps are found by their heading's words; renaming a heading is renaming the step.
 
 ## 4. Checking a conversion
 
-Run `node tools/roadmap-canvas/extract.mjs` and read its output: the counts (cards, tags, phases, STATUS rows, decisions
-in force) and the health notes. Then open the Health view. A good conversion has: every ROADMAP section covered by a
-card; every tag on a card; every STATUS row on a card; each order phase's items tied to cards; decisions in force above
-zero with a next free number; and no `missing` note for a required file.
+Open `index.html`. A good conversion shows no line at the top about a document; every step on the Board in the column
+the owner would put it; each phase of the Order of work tied to the cards it names; and decisions' text on hover.
