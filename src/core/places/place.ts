@@ -21,6 +21,7 @@ import { moisture } from "../sim/moisture";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import { validateMap, type Validation } from "../validate/checks";
+import { failing } from "../validate/report";
 import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES } from "./attribution";
 
 export const PLACE_FORMAT = 1;
@@ -217,7 +218,7 @@ export function validatePlace(b: BuiltPlace): Validation {
 export function placeTimber(p: PlaceData): { bytes: Uint8Array; fileName: string; validation: Validation } {
   const built = buildPlace(p);
   const validation = validatePlace(built);
-  const bad = validation.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate && c.class === "load").map((c) => c.id);
+  const bad = validation.report.checks.filter((c) => failing(c) && c.class === "load").map((c) => c.id);
   if (bad.length) throw new Error(`${p.name} did not pass the file checks: ${bad.join(", ")}`);
   return { bytes: writeTimber(built.file), fileName: placeFileName(p), validation };
 }

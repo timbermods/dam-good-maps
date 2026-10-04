@@ -18,15 +18,13 @@ import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
 import { components, walkRegions } from "../../src/core/analysis/regions";
+import { walkWorld } from "../../src/core/analysis/walk";
 import type { BuildResult } from "../../src/core/features/build";
-import { entityTiles } from "../../src/core/features/edits";
 import { pathField, polygonMask } from "../../src/core/features/geometry";
 import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
-import { slopeHighSide } from "../../src/core/format/footprints";
 import { levelRegions } from "../../src/core/math/grid";
-import { WALK_BLOCKERS } from "../../src/core/validate/playability";
 
 const uuid = (k: number) => `0b8e9a64-${String(1000 + k)}-4c2d-9e1f-2a3b4c5d6e7f`;
 
@@ -314,14 +312,7 @@ describe("generated maps: every new object passes the placement emulation (ROADM
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */
 function walkFromStart(b: BuildResult): { labels: Int32Array; root: number } {
   const { W, H } = b;
-  const blocked = new Uint8Array(W * H);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) blocked[y * W + x] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    links.push([e.y * W + e.x, (e.y + dy) * W + e.x + dx]);
-  }
+  const { blocked, links } = walkWorld(b.entities, W, H);
   const labels = walkRegions(b.heights, W, H, blocked, links);
   return { labels, root: labels[b.start!.y * W + b.start!.x] };
 }

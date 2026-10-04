@@ -4,7 +4,7 @@
 // asks that the land lets the player store a drought's water near the start, not that the map holds
 // its water (D152):
 // 1. running water: the clean water the start's pump shore touches is part of a body fed by clean
-//    sources of at least need ÷ (2 × 460) blocks per second, so it refills the colony's drought need
+//    sources of at least need ÷ (2 × `STORAGE_DAY_SECONDS`) blocks per second, so it refills the colony's drought need
 //    in two game days;
 // 2. storage is possible within 40 tiles of the start by any one of: a straight dam whose reservoir
 //    holds the need (the validator's dam sampling); natural water kept through the drought; or
@@ -16,31 +16,27 @@
 // the design prototype (investigation/generative/proto/storage.ts).
 
 import type { Emitter } from "../sim/water";
+import { components } from "./regions";
+import { WATER_BODY } from "./walk";
 
-/** A game day in seconds of water flow (the simulator's day). */
-export const SECONDS_PER_DAY = 460;
+/** The storage rule's game day, in seconds of water flow: prototype/storage.py's 460, which the
+ *  oracle compares against (the simulator's own day is 460.8, `sim/drought.ts`). */
+export const STORAGE_DAY_SECONDS = 460;
 
-/** Clean strength feeding the water body that `tile` belongs to (4-connected, any depth). */
+/** Clean strength feeding the water body that `tile` belongs to (4-connected over `WATER_BODY`; the
+ *  tile itself counts whatever its depth). */
 export function runningFlow(W: number, H: number, depth: ArrayLike<number>, emitters: readonly Emitter[], tile: number): number {
   const N = W * H;
-  const body = new Uint8Array(N);
-  const q = [tile];
-  body[tile] = 1;
-  for (let k = 0; k < q.length; k++) {
-    const i = q[k];
-    const x = i % W;
-    const y = (i - x) / W;
-    const nb = [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1];
-    for (const j of nb) {
-      if (j < 0 || body[j] || !(depth[j] > 0.001)) continue;
-      body[j] = 1;
-      q.push(j);
-    }
-  }
+  const mask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (depth[i] > WATER_BODY) mask[i] = 1;
+  mask[tile] = 1;
+  const { labels } = components(mask, W, H);
+  const own = labels[tile];
+  const body = (c: number) => labels[c] === own;
   let running = 0;
   for (const e of emitters) {
     if (e.contamination > 0 || !(e.strength > 0)) continue;
-    if (e.cells.some((c) => body[c])) running += e.strength;
+    if (e.cells.some(body)) running += e.strength;
   }
   return running;
 }

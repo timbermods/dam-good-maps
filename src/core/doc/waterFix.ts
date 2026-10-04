@@ -12,12 +12,9 @@
 // start that the colony walks to (a dry riverbed first, else a hollow), tried in turn on a copy of the
 // map and settled, the first that works kept.
 
-import { reachAt, walkDistance } from "../analysis/walk";
-import { entityTiles } from "../features/edits";
-import { slopeHighSide } from "../format/footprints";
+import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { hash32 } from "../math/hash";
-import { WALK_BLOCKERS } from "../validate/playability";
-import type { CheckResult } from "../validate/report";
+import { failing, type CheckResult } from "../validate/report";
 import { placeSourceGroup } from "../water/sourceGroups";
 import { decodeProject } from "./document";
 import type { EditOp } from "./ops";
@@ -40,11 +37,11 @@ export interface WaterFix {
 }
 
 /** The checks that fail and matter (advisory ones are information: a drought's berries may dry out). */
-const failing = (checks: readonly CheckResult[]) => new Set(checks.filter((c) => !c.ok && c.applicable !== false && !c.approximate && !c.advisory).map((c) => c.id));
+const failingIds = (checks: readonly CheckResult[]) => new Set(checks.filter(failing).map((c) => c.id));
 
 /** The fix for the map as edited, or null (see the file's header). `s` is left as it was. */
 export function waterFix(s: MapSession, opts: { tries?: number } = {}): WaterFix | null {
-  const before = failing(s.validate("export").report.checks);
+  const before = failingIds(s.validate("export").report.checks);
   const wanted = SPRING_FIXES.filter((id) => before.has(id));
   if (!wanted.length) return null;
   const b = s.built;
@@ -52,18 +49,7 @@ export function waterFix(s: MapSession, opts: { tries?: number } = {}): WaterFix
   const N = W * H;
   if (!b.start) return null;
   // the colony's walk from the start, over the map's own ground and slopes
-  const blocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const e of b.entities) {
-    if (e.template === "Slope") {
-      const [dx, dy] = slopeHighSide(e.orientation);
-      const hx = e.x + dx;
-      const hy = e.y + dy;
-      if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && hx >= 0 && hy >= 0 && hx < W && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-      continue;
-    }
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
-  }
+  const { blocked, links } = walkWorld(b.entities, W, H);
   const walk = walkDistance(b.heights, W, H, blocked, links, b.start);
   const rule = s.effectiveSpec()?.settings.start.rules.waterWithin ?? 20;
   // candidate places: dry ground the colony reaches within the rule's walk, off the start's 5×5, in a
@@ -110,7 +96,7 @@ export function waterFix(s: MapSession, opts: { tries?: number } = {}): WaterFix
       const trial = MapSession.open(decodeProject(doc));
       if (trial.applyAll(ops, "user", "Add a spring by the start").errors.length) continue;
       trial.settleCanonical();
-      const after = failing(trial.validate("export").report.checks);
+      const after = failingIds(trial.validate("export").report.checks);
       const fixed = wanted.filter((id) => !after.has(id));
       // (it makes the start's water pass, and makes nothing else fail)
       if (!fixed.includes("start.water") && wanted.includes("start.water")) continue;

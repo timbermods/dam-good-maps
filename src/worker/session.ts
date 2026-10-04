@@ -28,7 +28,6 @@ import {
   replacePatch,
   withObjectsOnNewGround,
   cornerFor,
-  startCentre,
   type LakeRequest,
   type PlannedEdit,
   type RiverRequest,
@@ -68,7 +67,7 @@ import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
-import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
+import { blocks, failing, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
 import type { CarveRun } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
@@ -877,7 +876,7 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
   const items: CheckItem[] = [];
   const at = entityPositions(s);
   for (const c of v.report.checks) {
-    if (c.ok || c.applicable === false || c.advisory) continue;
+    if (!failing(c)) continue;
     const item = itemOf(c, s);
     if (region) item.here = inRegion(c.where, region, at);
     items.push(item);
@@ -1106,7 +1105,7 @@ function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
     fix = fix.length ? [{ ...fix[0], label }, ...fix.slice(1)] : undefined;
   }
   if (!fix && s && START_FIXABLE.has(c.id)) {
-    const at = startAt(s);
+    const at = startMiddle(s);
     const ops = at ? moveStartNear(s, at[0], at[1]) : null;
     if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start to the nearest good spot" : "" }) as FixOp);
   }
@@ -1129,13 +1128,6 @@ function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
 }
 
 /** The middle of the map's start, from its feature or its StartingLocation. */
-function startAt(s: MapSession): [number, number] | null {
-  const f = s.features.find((g) => g.kind === "start");
-  if (f && f.kind === "start") return [f.params.position[0], f.params.position[1]];
-  const e = s.built.entities.find((g) => g.template === "StartingLocation");
-  return e ? startCentre(e.x, e.y, e.orientation) : null;
-}
-
 /** Whether a failing check was already failing, over the same things, when the map was opened. */
 function existedBefore(c: CheckResult, before: Validation): boolean {
   const o = before.report.checks.find((x) => x.id === c.id);
@@ -1634,7 +1626,7 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   const s = need();
   const f = s.features.find((g) => g.kind === "start");
   if (f && f.kind === "start") {
-    const at = startAt(s)!;
+    const at = startMiddle(s)!;
     const moves = x !== at[0] || y !== at[1];
     if (!orientation || orientation === f.params.orientation) return moveFeature(f.id, x - at[0], y - at[1]);
     // turned too (the shelf's R): one step

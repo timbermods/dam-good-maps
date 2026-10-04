@@ -43,6 +43,7 @@ import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom } from "../math/grid";
 import { DIRS8 } from "./num";
 import { clamp } from "../math/clamp";
+import { REACH as STORY_REACH } from "../analysis/story";
 
 export interface Lake {
   tiles: number[];
@@ -76,10 +77,9 @@ export interface HydroOptions {
   protect?: Uint8Array | null;
 }
 
-/** The story's reach (analysis/story.ts `REACH`), as a share of the map's side, and the share of the
- *  map the planned courses aim to bring within it (D333 (3): the story asks for 35% of the dry land
- *  near clean water; the courses are lines, their water a little wider). */
-const STORY_REACH = 0.14;
+/** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
+ *  analysis/story.ts `REACH`, a share of the map's side; D333 (3): the story asks for 35% of the dry
+ *  land near clean water; the courses are lines, their water a little wider). */
 const REACH_WANT = 0.45;
 
 const MIN_WIDTH = 2.4;
