@@ -44,9 +44,14 @@ const copy = (m: ProtoMap): ProtoMap => ({ ...m, heights: m.heights.slice(), ent
 function erupt(m: ProtoMap, steps: { settings: Settings; intent: Intent }[], editor: boolean): ProtoMap {
   let map = copy(m);
   for (const s of steps) {
-    const p = editor ? new EruptPlan(map as unknown as FullForceMap, s.settings as EruptSettings, s.intent) : new ProtoPlan(map, s.settings, s.intent);
-    while (!p.advance(8)) {
-      // a few rows at a time
+    let p: { map: { heights: Uint8Array; lava: Uint32Array } };
+    if (editor) p = new EruptPlan(map as unknown as FullForceMap, s.settings as EruptSettings, s.intent);
+    else {
+      const q = new ProtoPlan(map, s.settings, s.intent);
+      while (!q.advance(8)) {
+        // a few rows at a time
+      }
+      p = q;
     }
     map = { ...map, heights: p.map.heights.slice(), lava: p.map.lava.slice() };
   }

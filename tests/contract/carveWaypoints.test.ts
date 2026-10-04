@@ -16,7 +16,6 @@ const W = 96;
 describe("Carve through waypoints (D312)", () => {
   it("passes near each waypoint, keeps them in its operation and in Try another, and replays exactly", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;

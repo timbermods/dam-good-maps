@@ -16,7 +16,7 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
 **Start from**
 - `generate.ts` `generate`.
 - `settler.ts` `pickStart` (the start rules); `intentions.ts` (checks on the finished map); `resources.ts` `planResources`; `extras.ts` `planExtras` (mine sites, relics, thorns); `weir.ts` `planWeir`.
-- `layout.ts` (settings to targets); `calibrated.ts` (official-map targets, mirrors `prototype/calibrated.py`); `pack.ts` `toTimberFile` (the one path to file bytes).
-- `riverValley.ts` and `valley.ts` are remnants kept for `PlanConflict` and `startWalkable`.
+- `valley.ts` is a remnant: `startWalkable`, kept only for the frozen design prototypes the equivalence tools import.
+- `calibrated.ts` (official-map targets, mirrors `prototype/calibrated.py`); `pack.ts` `worldOf` (the one path to file bytes, PLAN §19.7: the generator's `toTimberFile`, Real places' `buildPlace` and an opened map's export all write their world through it; `tools/probe-maps/assemble.ts` still assembles its own, and `tools/waterfall-gallery.ts` its soil, until they move onto it).
 
 **Tests**: `tests/contract/` (calibrated, parity, share, resources, badwater, outflows, start) and `tests/e2e/determinism.spec.ts`. Batches: `tools/batch.ts`, `tools/batches.ts`. Run `npx vitest run tests/contract/calibrated.test.ts`.

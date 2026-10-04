@@ -818,8 +818,8 @@ def basin_leak(p, h, X, Y):
 
 
 def _contained(rep, h, features, X, Y):
-    """water.badwater_contained (PLAN §9.5, D57): with its outlet blocked, every planned badwater
-    basin holds its water below its rim."""
+    """water.badwater_contained (PLAN §9.5, D57 amended by D469): information, never a failure
+    (badwater may join rivers and lakes); counts the basins whose water leaves below the rim."""
     if features is None:
         rep.add("water.badwater_contained", True, "needs the map's planned badwater basins (imported maps have none)",
                 na=True)
@@ -831,7 +831,7 @@ def _contained(rep, h, features, X, Y):
         rep.add("water.badwater_contained", True, "no badwater basin with a planned outlet on this map", na=True)
         return
     leaks = [l for l in (basin_leak(p, h, X, Y) for p in basins) if l]
-    rep.add("water.badwater_contained", not leaks, f"{len(leaks)} of {len(basins)} badwater basins leak below their rim",
+    rep.add("water.badwater_contained", True, f"{len(leaks)} of {len(basins)} badwater basins reach past their rim (allowed, D469)",
             len(leaks), 0)
 
 

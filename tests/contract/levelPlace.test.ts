@@ -70,7 +70,6 @@ function slopedSpot(g: Ground, tiles: (x: number, y: number) => [number, number]
 
 async function fresh(seed = 4) {
   await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
 }
 

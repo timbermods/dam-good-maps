@@ -23,7 +23,6 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // round's flow moved the map, investigation/canyon-highlands-96)
   it("Highlands 64², seed 3: the dry level tile (44, 10), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const t = 10 * W + 44;
     const b = open().built;

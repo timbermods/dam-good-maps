@@ -31,7 +31,6 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
   it("Highlands 64², seed 3: a Quake Slide clicked at (22, 15) carries the start; Try another leaves the start's ground alone, so the start stays at (16, 15) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const orig = startMiddle(open())!;
     expect(orig).toEqual([16, 15]);

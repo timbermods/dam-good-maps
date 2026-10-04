@@ -1,10 +1,9 @@
 // Glaciate's floor for Kyler's sitting (PLAN §20 D246, D292): each of the investigation's cases that
 // the editor can make (Canyon 10 at 128², click 22,22; Kyler's cross-valley Aim there, 24,80 to
 // 96,36; Highlands 7 at 256², click 150,20), made in the editor as a player makes it, from the same
-// camera: the land before, the glacier with the floor's water as round 4 left it, and the glacier with
-// the floor's water finished (the river led to its falls and inflows), both with round 4's details
-// pinned (D309). Each case is one picture: an
-// oblique view above and a top-down view below, the three side by side. Small files under
+// camera: the land before, and the glacier with the floor's water finished (the river led to its falls
+// and inflows) and round 4's details pinned (D309). Each case is one picture: an oblique view above and
+// a top-down view below, the two side by side. Small files under
 // docs/progress/glaciate/ (D195: a few MB at most), and a GIF of the two acts from a still camera.
 //
 //   npx tsx tools/capture-glaciate.ts [--out docs/progress/glaciate] [--port 4291] [--only canyon]
@@ -15,8 +14,7 @@
 //
 //   npx tsx tools/capture-glaciate.ts --power-size --out docs/progress/forces --port 4227
 //
-// The site is built twice from this checkout as the preview builds it (the forces show): as it is,
-// and with VITE_GLACIATE_ROUND4=1 (the floor's water left as round 4 left it: the "before" of D292).
+// The site is built from this checkout as the preview builds it (the forces show).
 // The installed Chrome draws on the GPU; the water is let settle (Skip) before each picture.
 
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
@@ -214,15 +212,11 @@ async function powerSize(): Promise<void> {
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true });
   if (POWER_SIZE) return powerSize();
-  const sites: { name: string; outDir: string; port: number }[] = [
-    { name: "round4", outDir: resolve(".scratch/capture-glaciate-round4"), port: PORT + 1 },
-    { name: "finished", outDir: resolve(".scratch/capture-glaciate-site"), port: PORT },
-  ];
+  const sites: { name: string; outDir: string; port: number }[] = [{ name: "finished", outDir: resolve(".scratch/capture-glaciate-site"), port: PORT }];
   const servers = [];
   process.env.DGM_BASE = "/";
   for (const s of sites) {
     console.log(`building the site (${s.name})…`);
-    process.env.VITE_GLACIATE_ROUND4 = s.name === "round4" ? "1" : "";
     await build({ mode: "e2e", base: "/", logLevel: "warn", build: { outDir: s.outDir, emptyOutDir: true } });
     servers.push(await preview({ base: "/", build: { outDir: s.outDir }, preview: { port: s.port, strictPort: true }, logLevel: "warn" }));
   }
@@ -278,12 +272,12 @@ async function main(): Promise<void> {
         pics[s.name] = { oblique, top: half(await shot(page)) };
       }
       const g = grid([
-        [pics.before.oblique, pics.round4.oblique, pics.finished.oblique],
-        [pics.before.top, pics.round4.top, pics.finished.top],
+        [pics.before.oblique, pics.finished.oblique],
+        [pics.before.top, pics.finished.top],
       ]);
       const file = join(OUT, `${c.id}-floor.png`);
       writeFileSync(file, encodePng(g.rgb, g.width, g.height));
-      console.log(`${file}: ${(statSync(file).size / 1024).toFixed(0)} KB (before · round 4 · finished; oblique above, top-down below)`);
+      console.log(`${file}: ${(statSync(file).size / 1024).toFixed(0)} KB (before · finished; oblique above, top-down below)`);
     }
   } finally {
     await browser.close();

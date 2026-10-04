@@ -32,8 +32,6 @@ import { stringify } from "../src/core/format/json";
 import {
   buildPlace,
   decodeHeights,
-  encodeHeights,
-  encodeTiles,
   placeEntities,
   placeFileName,
   validatePlace,
@@ -44,6 +42,7 @@ import {
   type PlaceIndex,
   type PlaceIndexEntry,
 } from "../src/core/places/place";
+import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { writeTimber } from "../src/core/format/timber";
 import { namedFile } from "../src/core/gen/pack";
 import { shadeTiles } from "../src/core/render/shade";

@@ -7,11 +7,11 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
-import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
+import { CRATER_DEFAULTS, impact } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
-import { strength } from "../../src/core/forces/strength";
+import { fixture } from "./forceFixtures";
 import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 
@@ -93,11 +93,14 @@ describe("Size sets the reach, Power the strength within it (D361 (3))", () => {
     }, 120_000);
 
   it("the strength rule: full at Power 100 and at Power's own size, the square root of the natural share at Power 0", () => {
-    expect(strength(100, 180, 6)).toBe(1);
-    expect(strength(0, null, 6)).toBe(1);
-    expect(strength(0, 6, 6)).toBe(1);
-    expect(strength(0, 180, 6)).toBeCloseTo(Math.sqrt(6 / 180), 6);
-    expect(strength(50, 180, 48)).toBeGreaterThan(strength(0, 180, 48));
+    // (an impact's: Power 0 gives a 6-tile crater, Power 50 a 48-tile one)
+    const plain = fixture("plain", 64);
+    const strength = (power: number, size: number | null) => impact(plain, { ...CRATER_DEFAULTS, power, size }, { origin: 32 * 64 + 32 }).strength;
+    expect(strength(100, 180)).toBe(1);
+    expect(strength(0, null)).toBe(1);
+    expect(strength(0, 6)).toBe(1);
+    expect(strength(0, 180)).toBeCloseTo(Math.sqrt(6 / 180), 6);
+    expect(strength(50, 180)).toBeGreaterThan(strength(0, 180));
   });
 });
 

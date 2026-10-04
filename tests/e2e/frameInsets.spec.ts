@@ -29,6 +29,64 @@ const mapBox = (page: Page) =>
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), w: r.canvas.clientWidth, h: r.canvas.clientHeight };
   });
 
+/** The map as drawn on the canvas (its edges at their heights and its sides' foot, its ground inside):
+ *  its box, as the renderer fits it (renderer.ts `drawnOutline`). */
+const drawnBox = (page: Page) =>
+  page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    let lo = 255;
+    for (let i = 0; i < m.heights.length; i++) lo = Math.min(lo, m.heights[i]);
+    const foot = Math.min(0, lo) - 3;
+    const at = (x: number, y: number) => m.heights[Math.min(m.H - 1, Math.max(0, y)) * m.W + Math.min(m.W - 1, Math.max(0, x))];
+    const pts: number[][] = [];
+    for (let x = 0; x <= m.W; x++)
+      for (const y of [0, m.H]) {
+        const t = Math.max(at(x - 1, Math.min(y, m.H - 1)), at(x, Math.min(y, m.H - 1)));
+        pts.push([x, t, -y], [x, foot, -y]);
+      }
+    for (let y = 1; y < m.H; y++)
+      for (const x of [0, m.W]) {
+        const t = Math.max(at(Math.min(x, m.W - 1), y - 1), at(Math.min(x, m.W - 1), y));
+        pts.push([x, t, -y], [x, foot, -y]);
+      }
+    const step = Math.max(1, Math.round(Math.max(m.W, m.H) / 64));
+    for (let y = 0; y < m.H; y += step) for (let x = 0; x < m.W; x += step) pts.push([x + 0.5, m.heights[y * m.W + x], -(y + 0.5)]);
+    const ps = pts.map(([x, y, z]) => r.project(x, y, z));
+    const xs = ps.map((p) => p.x);
+    const ys = ps.map((p) => p.y);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), w: r.canvas.clientWidth, h: r.canvas.clientHeight };
+  });
+
+/** The even margin a framed map keeps (renderer.ts FRAME_MARGIN). */
+const MARGIN = 12;
+
+test("the default view fits the map as drawn snugly into what the controls leave, a small even margin all round (Layout 2's sitting)", async ({ page }) => {
+  await open(page);
+  // Layout 2's insets at this size, roughly: the water row, the Show column, the bar with its settings, the objects menu
+  const insets = { top: 114, left: 139, bottom: 238, right: 184 };
+  expect(await page.evaluate((i) => window.dgm3d!.renderer.setFrameInsets(i), insets)).toBeNull();
+  for (const step of ["reset", "orbit"]) {
+    await page.evaluate((s) => (s === "reset" ? window.dgm3d!.renderer.resetView() : window.dgm3d!.renderer.setMode("orbit")), step);
+    const b = await drawnBox(page);
+    const m = { l: b.x0 - insets.left, t: b.y0 - insets.top, r: b.w - insets.right - b.x1, b: b.h - insets.bottom - b.y1 };
+    // inside, centred: even margins either way, the tighter way the small margin itself
+    for (const k of ["l", "t", "r", "b"] as const) expect(m[k], `${step}: ${k}`).toBeGreaterThanOrEqual(MARGIN - 1.5);
+    expect(Math.abs(m.l - m.r), `${step}: even across`).toBeLessThanOrEqual(2);
+    expect(Math.abs(m.t - m.b), `${step}: even down`).toBeLessThanOrEqual(2);
+    expect(Math.min(m.l, m.t), `${step}: snug`).toBeLessThanOrEqual(MARGIN + 1.5);
+  }
+  // and with none set, snug in the whole view
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 });
+    r.resetView();
+  });
+  const b = await drawnBox(page);
+  expect(Math.min(b.x0, b.y0, b.w - b.x1, b.h - b.y1)).toBeGreaterThanOrEqual(MARGIN - 1.5);
+  expect(Math.min(Math.max(b.x0, b.w - b.x1), Math.max(b.y0, b.h - b.y1))).toBeLessThanOrEqual(MARGIN + 1.5);
+});
+
 test("framing keeps the map clear of the page's controls; setting them never moves the camera", async ({ page }) => {
   await open(page);
   expect(await page.evaluate(() => window.dgm3d!.renderer.frameInsets)).toEqual({ top: 0, left: 0, bottom: 0, right: 0 });

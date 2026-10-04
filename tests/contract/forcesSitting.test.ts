@@ -23,7 +23,6 @@ const hash = (h: Uint8Array) => createHash("sha256").update(h).digest("hex");
 
 async function fresh(seed = 3) {
   await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   return MapSession.open(decodeProject(ed.project().bytes)).built;
 }
