@@ -19,7 +19,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
+import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -159,6 +159,7 @@ export class MapSession {
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
   private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
+  private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
   /** Things the player should know about how the document was opened. */
@@ -928,7 +929,7 @@ export class MapSession {
     const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
     // (a frozen generation takes the field too: the features read back from it, so one the player
     // changed is not carved again unless its shape changed, and a tall map's top)
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, this.keepsSlopes() ? this.generatedSlopes() : null, mode !== "import" ? this.generatedResources() : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, this.keepsSlopes() ? this.generatedSlopes() : null, mode !== "import" ? this.generatedResources() : null, mode !== "import" ? this.generatedSprings() : null);
   }
 
   /** Whether the build keeps the generation's slopes (`generatedSlopes`), live or frozen: a
@@ -992,6 +993,35 @@ export class MapSession {
     return tiles;
   }
 
+  /** Where the generation placed each spring's row of sources (a river's head, a lake's spring),
+   *  with their ids, from the map it stored: an edited map keeps that row, its count and its ids,
+   *  whatever an edit does round it (a Quake carrying the start off ground its row could grow onto;
+   *  D368 (10), D314: no edit or force adds a source). Only for the features the player has not
+   *  changed; null for a document that stored no owners. */
+  generatedSprings(): ReadonlyMap<string, readonly KeptSource[]> | null {
+    const c = this.springsCache;
+    if (c && c.key === this.gen.base && sameItems(c.features, this.st.features)) return c.rows;
+    let all = c && c.key === this.gen.base ? c.all : null;
+    if (!all && this.gen.base.owners) {
+      all = new Map();
+      for (const f of this.gen.baseFeatures) if ((f.kind === "river" && "spring" in f.params.entry) || (f.kind === "lake" && "spring" in f.params.inflow)) all.set(f.id, []);
+      const W = this.gen.base.sizeX;
+      for (const e of this.baseStuff().layer.entities) if (e.template === "WaterSource") all.get(e.owner)?.push({ tile: e.y * W + e.x, id: e.id });
+    }
+    let rows: Map<string, KeptSource[]> | null = null;
+    if (all) {
+      const base = new Map(this.gen.baseFeatures.map((f) => [f.id, f]));
+      rows = new Map();
+      for (const f of this.st.features) {
+        const kept = all.get(f.id);
+        const b = base.get(f.id);
+        if (kept?.length && b && (b === f || JSON.stringify(b.params) === JSON.stringify(f.params))) rows.set(f.id, kept);
+      }
+    }
+    this.springsCache = { key: this.gen.base, features: [...this.st.features], all, rows };
+    return rows;
+  }
+
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
    *  so incremental rebuilds see it unchanged). A feature read back from the field that the player
    *  has since changed is the field's no longer: it is built as the feature says. */
@@ -1014,8 +1044,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null, generatedSprings: BuildInput["generatedSprings"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), ...(generatedSprings ? { generatedSprings } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live

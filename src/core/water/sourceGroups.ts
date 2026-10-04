@@ -380,6 +380,12 @@ export function placeSourceGroup(req: SourceGroupRequest, ground: SourceGroundIn
   return placeRow(req, ground, G);
 }
 
+/** A clean row of `n` sources sharing `total` as the rule shares it, each at most the game's cap: the
+ *  strengths of a row kept as it was placed (a generated spring's, features/build.ts). */
+export function rowStrengths(total: number, n: number): number[] {
+  return strengthsFor(total, n, MAX_STRENGTH_PER_TILE).each;
+}
+
 /** Tiles every source of a group takes (for the caller's `occupied` before the next group). */
 export function groupTiles(group: SourceGroup): number[] {
   return group.sources.flatMap((s) => s.tiles);

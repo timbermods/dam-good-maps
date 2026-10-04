@@ -25,7 +25,7 @@ import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
 import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
-import { groupIds, groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
+import { groupIds, groupTiles, placeSourceGroup, rowStrengths, shareEqually, type GroupedSource } from "../water/sourceGroups";
 import { hash32 } from "../math/hash";
 import { DERIVED_SLOPES, entityId, RIM_SLOPES } from "./ids";
 import { keptSlopes, placeSlopes, slopeStands, slopeTiles, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
@@ -148,6 +148,17 @@ export interface BuildInput {
    *  or alive (D404), nothing is added (D368 (10); raster/resources.ts `KeptTiles`). Absent for the
    *  generator's own build, which places them. */
   generatedResources?: ReadonlyMap<string, KeptTiles> | null;
+  /** Each spring's row of sources as the generation placed it (a river's head, a lake's spring; from
+   *  its stored map, by feature id): an edited map keeps that row, its count and its ids, standing on
+   *  the ground as it is now, whatever an edit does round it (D368 (10), D314). Absent for the
+   *  generator's own build, which places them. */
+  generatedSprings?: ReadonlyMap<string, readonly KeptSource[]> | null;
+}
+
+/** A source of a spring's row as the generation placed it: its tile and its id. */
+export interface KeptSource {
+  tile: number;
+  id: string;
 }
 
 export interface BuildResult {
@@ -710,6 +721,16 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       strength = "spring" in f.params.inflow ? f.params.inflow.spring : 0;
     }
     if (at === null || !(strength > 0)) continue;
+    // (an edited generated map keeps the row the generation placed, its count and its ids, on the
+    // ground as it is now: placed again, it could grow onto ground an edit freed round it, the start
+    // a Quake carried away, a source the edit added, D368 (10))
+    const kept = input.generatedSprings?.get(f.id);
+    if (kept?.length) {
+      const share = rowStrengths(strength, kept.length);
+      springs.set(f.id, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: heights[i], strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
+      for (const { tile } of kept) reserved[tile] = 1;
+      continue;
+    }
     const req = { kind: "water" as const, x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) };
     // (a generated feature's row is placed on the ground as generated, so it keeps its sources
     // through edits: an edit that left one a level off its anchor took it away, and the next edit

@@ -800,8 +800,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
-  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
-  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
+  generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
+  stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
+  ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
