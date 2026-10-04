@@ -87,7 +87,8 @@ class WaterSim:
                 for k in range(4):
                     if not self.inside[k][y, x]:
                         self.wall[k][y, x] = True
-        self.seep_on = [True] * len(self.sources)
+        # a seep starts off, as the game's does: it turns on at the first tick only below its restart depth
+        self.seep_on = [not s.get("depth_limit") for s in self.sources]
         self.ticks = 0
         self.steady_ticks = None      # see settle()
 
@@ -174,6 +175,23 @@ class WaterSim:
             if not self.seep_on[i]:
                 continue
             add = DT * src["strength"] * strength_scale / len(src["tiles"])
+            if add < 0:
+                # a sink (D337) removes its own kind, floored at dry (the game's UpdateContaminationFromWaterChange)
+                for (y, x) in src["tiles"]:
+                    d0 = self.D[y, x]
+                    if not d0 > 0:
+                        continue
+                    if self.game:
+                        self.Dold[y, x] = d0
+                    d1 = d0 + add
+                    if d1 > 0:
+                        c1 = (self.C[y, x] * d0 + src.get("contamination", 0.0) * add) / d1
+                        self.C[y, x] = 0.0 if c1 < 0 else 1.0 if c1 > 1 else c1
+                        self.D[y, x] = d1
+                    else:
+                        self.C[y, x] = 0.0
+                        self.D[y, x] = 0.0
+                continue
             if not add > 0:
                 continue
             for (y, x) in src["tiles"]:

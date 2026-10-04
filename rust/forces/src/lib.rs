@@ -160,7 +160,8 @@ mod water {
                 pos: vec![usize::MAX; n],
                 settle_closed: None,
             };
-            s.seep = vec![1; s.emitters.len()];
+            // a seep starts off, as the game's does (rust/water sim.rs)
+            s.seep = s.emitters.iter().map(|e| if e.limit.is_some() { 0 } else { 1 }).collect();
             s.validate_shape();
             for i in 0..n {
                 let x = i % w;
@@ -313,6 +314,27 @@ mod water {
                     continue;
                 }
                 let add = (DT * src.strength * scale) / src.cells.len() as f64;
+                if add < 0.0 {
+                    // a sink (D337), as rust/water sim.rs
+                    for &i in &src.cells {
+                        let d0 = self.d[i];
+                        if !(d0 > 0.0) {
+                            continue;
+                        }
+                        if self.game {
+                            self.old[i] = d0;
+                        }
+                        let d1 = d0 + add;
+                        if d1 > 0.0 {
+                            self.c[i] = clamp((self.c[i] * d0 + src.contamination * add) / d1, 0.0, 1.0);
+                            self.d[i] = d1;
+                        } else {
+                            self.c[i] = 0.0;
+                            self.d[i] = 0.0;
+                        }
+                    }
+                    continue;
+                }
                 if !(add > 0.0) {
                     continue;
                 }
