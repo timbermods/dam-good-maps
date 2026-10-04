@@ -1,11 +1,68 @@
-# Islands, rounds 3 and 4: the coast, and islands that read as islands
+# Islands, rounds 3 to 5: the coast, and islands that read as islands
 
-Rounds 2 to 4 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148).
+Rounds 2 to 5 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148).
 [islands.patch](islands.patch) is the whole change against dev's tip, Islands' own shaping only: `land/genome.ts`
-`addSea`, the sea and isle cases and `rimKeep` in `land/field.ts`, the Islands-gated blocks of `gen/generate.ts`,
-`land/islands.ts`. Every map is shaped before the first land is shown (D348, D370).
+`addSea` and Islands' lake budget, the sea and isle cases and `rimKeep` in `land/field.ts`, the Islands-gated blocks
+of `gen/generate.ts`, `land/islands.ts`. Every map is shaped before the first land is shown (D348, D370).
 
-## Round 4: what changed, and the fault each answers
+## Round 5: what changed, and the fault each answers
+
+1. **A sea cut out of a band of land framing all four sides** (the ring D427 rejected). On open maps the sea runs to
+   the map's edges on two or three sides, held there by a lip of land 6–10 tiles wide at any size, and the mainland
+   stands on one side, or two side by side, as three or four lobes a side of different reach, so its coast bends in
+   bays and points. Rings only for the scatter and the atolls, one draw in four of theirs (a chain or two islands in
+   a ring's small sea fused into one in a moat).
+2. **The sea most of the map.** Islands' lake budget is its water cap, 0.70 (`lakeMost` in `leanGenome`); every
+   other theme, and Any's sea maps, keep half the map.
+3. **Islands of much the same size, evenly spaced.** A large island is a dome with one to three arms turned their
+   own ways, a long irregular coast; the rest come down from it by about a sixth each to 7 tiles at 128², one in
+   three long and thin (1.9–2.7); the chain's islands long along its arc.
+4. **Faults found on the way, each fixed in Islands' shaping.**
+   - A sea draining whole: a river's way out across a 2–6 tile lip cut its bed to the sea's floor beside it. Hence
+     the 6–10 tile lip.
+   - Dry flats joining islands to the shore: the floor's noise stood a level over the sea where the sea was shallow,
+     and the radial tilt raised the floor toward the edges to the lip's height. The sea is now 4 levels deeper and
+     the open sea's floor lies level.
+   - Islands joined to the shore by ground too high for the strait pass: the lobes' lift is now a quarter of the
+     sea's depth.
+   - Islands out of reach with the sea this large: one island a strait off the shore, the mainland's or the lip's,
+     with a calm coast (two on larger maps, at 3 and 7 tiles).
+   - 96² crowded: the margins in tiles shrink with the map under 128².
+
+## The counts, round 4 → round 5
+
+Kyler's measure ([reach.ts](reach.ts): an island of 150+ tiles apart from the start's land, clear of the map's
+edges, reached across at most 8 tiles of water at a time). Islands, seeds 1–30.
+
+| Size | No island to expand to | Attempts, mean | Wet share, median | Ring maps |
+|---|---|---|---|---|
+| 96² | 14 → 8 | 5.8 → 5.8 | 0.45 → 0.44 | 3 → 1 |
+| 128² | 0 → 1 (23: its nearest island touches the map's edge) | 4.5 → 3.3 | 0.47 → 0.46 | 2 → 2 |
+| 256² | 1 → 0 | 2.6 → 3.0 | 0.42 → 0.49 | 2 → 2 |
+
+M9b's measure (`investigation/m9b/measures.ts`):
+
+| Size | All three outcomes | Promise missed | Water story missed | Not passed | Settle over 4 days (a reading) |
+|---|---|---|---|---|---|
+| 96² | 23 → 29 | 6 → 1 | 2 → 0 | 0 → 0 | 0 → 0 |
+| 128² | 28 → 30 | 1 → 0 | 1 → 0 | 0 → 0 | 0 → 2 |
+| 256² | 28 → 28 | 1 → 0 | 1 → 2 | 0 → 0 | 14 → 10 |
+
+No map at any size is without a start. Sheets, round 4 left and round 5 right, north up, start marked: 128²
+[1–10](../../docs/sheets/islands-round-5-128-1.png), [11–20](../../docs/sheets/islands-round-5-128-2.png),
+[21–30](../../docs/sheets/islands-round-5-128-3.png); 256² scaled to 256 px
+[1–10](../../docs/sheets/islands-round-5-256-1.png), [11–20](../../docs/sheets/islands-round-5-256-2.png),
+[21–30](../../docs/sheets/islands-round-5-256-3.png).
+
+## Round 5, still short by seed
+
+- **Still several islands of much the same size and shape:** 128² 15, 20, 25; 256² 4, 12, 22, 26.
+- **Still closed in by land:** 128² 5, 17, 19; 256² 18 and 30 (ring maps).
+- **The lip meets each open edge in a straight line**, 6–10 tiles in: the sea running to the edge, as asked.
+  Narrower drained the sea on a third of the lands.
+- At 128² the pale lip reads as a thin band; at 256² it is a hair.
+
+## Round 4 (kept as the base): what changed, and the fault each answers
 
 1. **One picture, Lake Basin's** (a rounded inland sea with a few dots in it). On open maps the sea now fills
    the map inside a narrow rim. The rim's broad lobes of mainland reach into it, most at the corners, so the
@@ -33,7 +90,7 @@ Rounds 2 to 4 are product code on this branch (Kyler, 2026-10-04), merged with d
    and a flat sea drains whole (a shared cause, below). `addSea` reads the land it drew on a coarse grid and
    lets the lobes reach further until about 44% is left to the sea.
 
-## The counts, rounds 2, 3 and 4
+## Round 4's counts, rounds 2, 3 and 4
 
 Kyler's measure ([reach.ts](reach.ts): an island of 150+ tiles apart from the start's land, reached across at
 most 8 tiles of water at a time). Islands, seeds 1–30.
@@ -59,7 +116,7 @@ dev's tip before round 2, for reference: no island at 96/128/256² on 23, 12 and
 [1–10](../../docs/sheets/islands-round-4-256-1.png), [11–20](../../docs/sheets/islands-round-4-256-2.png),
 [21–30](../../docs/sheets/islands-round-4-256-3.png).
 
-## Still short, by seed
+## Round 4, still short by seed
 
 - **Read as a lake with islands** (a rounded sea closed in by land, broad water round big islands): 128² 6, 7,
   12, 16, 20; 256² 3, 9, 20, 22, 26, 29 (20, 22 and 29 central, a big island in a round sea).
@@ -74,13 +131,14 @@ dev's tip before round 2, for reference: no island at 96/128/256² on 23, 12 and
 
 ## Shared causes, listed, not fixed
 
-- **The lake budget is clamped to half the map** (`genome.ts`, `leanGenome`), below Islands' water cap (0.70).
-  A sea over it has its sill cut; round 4 keeps the sea's bowl under it by growing the lobes.
+- **The lake budget is clamped to half the map** (`genome.ts`, `leanGenome`). Round 5 gives Islands its own, its
+  water cap (0.70), as Kyler asked; every other theme keeps the clamp.
 - **A lake over its budget is cut to its floor** (`hydro.ts`, `hollow`): a flat-floored sea over budget drains
   whole, not to a smaller sea. Round 2's shared causes stand (the outlet cut below its sill, the outlet carving
   under a sea's shelf, a shown land kept though its start fails).
-- **The page's Flatten disagrees with its operation over deep water**: Islands 96² seed 5, stroke 7 of the brush
-  test, four sea tiles a level apart. Kept as an expected failure naming it (`tests/contract/brush.test.ts`).
+- **The page's Flatten disagrees with its operation over deep water**: found on round 4's land (2fd5de44, Islands
+  96² seed 5, stroke 7 of the brush test, four sea tiles a level apart). Round 5's lands no longer reproduce it, so
+  the test is plain again; it is filed as a task of its own with that reproduction.
 - **The probe runner failed on dev**: `src/core/sim/rustWater.ts`'s top-level `module` clashed with CommonJS's.
   Fixed here (`investigation/probe/run.cjs`), since M9b's measure needs it.
 
@@ -90,11 +148,14 @@ Large results stay in `local/` (D195). `sh run-reach.sh <size> <tag>` writes `lo
 `node summarise.cjs <tags>` prints the first table. M9b's measure: `node investigation/probe/run.cjs
 ../m9b/measures.ts --themes islands --seeds 1-30 --size <size> --jobs 4 --out <file>.jsonl`, then `python
 investigation/m9b/summary.py <file>.jsonl`. Pictures: `sh run-look.sh <size> <dir>`, `python grid.py <dir> <png>`
-(a quick grid) and `python montage.py <left> <right> <prefix> "<title>" 10 "round 3 | round 4"` (the sheets).
+(a quick grid) and `python montage.py <left> <right> <prefix> "<title>" 10 "round 4 | round 5"` (the sheets).
 Diagnostics: `edges.ts` (the square-ish trace), `parts.ts`, `why-attempts.ts`, `sea-settled.ts`. `fates.ts` (what
 became of each island on each planned land) and `attempts-look.ts` read the planned land, which needs a temporary
 line just after the promise screen's `keeps` in `attemptOnce` (gen/generate.ts), removed before committing:
-`if (process.env.DGM_WHY) (globalThis as any).__plan = { heights: hLand, water: est, W, H };`.
+`if (process.env.DGM_WHY) (globalThis as any).__plan = { heights: hLand, water: est, W, H };`. With the same line
+and a second one logging the promise's parts (`console.log("  plan", g.seaLayout, JSON.stringify({ islands, mainBody,
+apart, water }) ...)`), `sh drains-all.sh 128` counts the planned seas that drain and why lands miss the promise,
+over the first three lands of seeds 1–30: the quick reading round 5 was tuned on.
 
 ## Round 3, in short
 

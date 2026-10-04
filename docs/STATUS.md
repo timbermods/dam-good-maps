@@ -39,7 +39,7 @@ as of 2026-10-04 and move.
 | Rift and Deposit in Rust | `feature/rift-deposit` | none yet | Being adopted from #268's patch; the page adds the controls after |
 | Three core fixes | `fix/core-findings` | none yet | In progress: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
-| Islands round 4 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
+| Islands round 5 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
 | Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
 | Theme critique | `investigation/theme-critique` | #211 | The report; its badwater PR is #265 |
 | Islands round 2 | `investigation/islands-round-2` | #210 | The work continues in #235 |
@@ -59,7 +59,7 @@ as of 2026-10-04 and move.
    parity core's adoption (#269, waiting on Kyler, #270). The forces crate keeps its own copy of the water kernel, to be shared.
 2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
    (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
-   Highlands height (#261) is back for another round; Islands round 4 (#235) waits on Kyler's eye (needs-kyler).
+   Highlands height (#261) is back for another round; Islands round 5 (#235) waits on Kyler's eye (needs-kyler).
 3. The page (#163), then the area brush's toggle (the brush, #227, is merged) and the page's startup half: a project
    autosaved while its water is pending carries no stored map, so the page should autosave again once the water settles
    (the "settled" event; D367, D455).
