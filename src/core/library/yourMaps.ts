@@ -118,10 +118,3 @@ export interface YourMapsStore {
   remove(id: string): Promise<Removed | null>;
   restore(r: Removed): Promise<StoreResult>;
 }
-
-/** A new entry's id. */
-export function newMapId(): string {
-  const a = new Uint32Array(2);
-  crypto.getRandomValues(a);
-  return `m${a[0].toString(36)}${a[1].toString(36)}`;
-}

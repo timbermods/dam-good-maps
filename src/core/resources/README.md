@@ -7,6 +7,6 @@ How much of each resource a map carries, and where: trees, berry bushes, scrap, 
 - Every map has at least one permanent badwater source unless the player chose "No badwater" (D200).
 - The generator (`gen/resources.ts`) and Real places share this baseline.
 
-**Start from**: `budget.ts` `resourceBudget`; `baseline.ts` `planGroves` (placement); `badwater.ts` `badwaterBudget`; `measure.ts` (measures any map alike); `plan.ts` `planMapResources` (the baseline on a map the generator did not plan).
+**Start from**: `budget.ts` `resourceBudget`; `baseline.ts` `planGroves` (placement); `badwater.ts` `badwaterBudget`; `measure.ts` (`MAP_TREES`, `lownessAt`; the measures of any map alike are `tools/lib/resources.ts`); `plan.ts` `planMapResources` (the baseline on a map the generator did not plan).
 
 **Tests**: `tests/contract/resources.test.ts`, `tests/contract/badwater.test.ts`. Run `npx vitest run tests/contract/resources.test.ts`.

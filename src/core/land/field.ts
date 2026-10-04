@@ -17,7 +17,8 @@ import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import { drainage } from "./drainage";
-import { bump, clamp, DIRS8, dist, polyDist, smoothstep, unit } from "./num";
+import { bump, DIRS8, dist, polyDist, unit } from "./num";
+import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import type { Genome, Part } from "./genome";
 

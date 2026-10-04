@@ -94,7 +94,6 @@ describe("nothing pops in after a force's animation (D368 (9))", () => {
   const gestures: Gesture[] = [];
   beforeAll(async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const b = MapSession.open(decodeProject(ed.project().bytes)).built;
     const st = b.start!;

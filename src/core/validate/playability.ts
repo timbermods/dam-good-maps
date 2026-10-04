@@ -27,7 +27,7 @@ import { DROUGHT, OFFICIAL_LAYOUT, officialRange, REACH_MIN, RESERVE, reservoirN
 import { distanceFrom } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
 import { moistureBarrier, specifiedStrength, type MapObject } from "../sim/model";
-import { gameSoil, type SoilRules } from "../sim/soil";
+import { gameSoil } from "../sim/soil";
 import type { CanonicalWater } from "../sim/prefill";
 import { SETTLE_DAYS, TICKS_PER_DAY, waterSteady, type WaterModel } from "../sim/water";
 import { asksForBadwater } from "../resources/badwater";
@@ -131,8 +131,6 @@ export interface PlayabilityInput {
   features: readonly Feature[] | null;
   /** Entity ids in object order, for `where` and fixes. */
   ids?: readonly string[];
-  /** The soil rules (sim/soil.ts; the default when absent, D308). */
-  soilRules?: SoilRules;
   /** The editor's: the first tile of each mine site that was out of the colony's reach when the map
    *  was opened (`mineSitesCutAt`). Given, `resources.mine_site` is advisory and also fails on a site
    *  an edit has left out of reach since (D368 (10)); absent (the generator, the oracle, Real places),
@@ -308,7 +306,7 @@ export function checkPlayability(inp: PlayabilityInput, c0: Collector): Playabil
   checkContained(inp, c);
 
   // the soil rules (D298: the game's own), as the build has them
-  const soil = gameSoil(W, H, h, D, C, objects, undefined, inp.soilRules);
+  const soil = gameSoil(W, H, h, D, C, objects);
   const M = soil.moisture;
   const SC = soil.contamination;
   const analysis: PlayabilityAnalysis = {
@@ -460,11 +458,11 @@ function checkMines(objects: readonly MapObject[], W: number, H: number, reach: 
   });
 }
 
-/** `water.badwater_contained` (PLAN §9.5, D57): with a levee on its outlet (the outlet channel's
- *  tiles blocked), every planned badwater basin holds its water below its rim. The water that rises
- *  in it cannot leave the basin (its floor and its two-tile rim) or reach a map edge below the rim's
- *  level. A source never stops, so the levee holds the badwater until the basin is full; what this
- *  proves is that the outlet is the basin's only way out, so the levee is the counterplay. */
+/** `water.badwater_contained` (PLAN §9.5, D57 amended by D469): information, never a failure. Badwater
+ *  mixing with clean water is part of the map's challenge, so a basin's flood may leave it and join a
+ *  river or lake. With a levee on its outlet (the outlet channel's tiles blocked), the check still
+ *  counts the basins whose water would leave below the rim (`basinLeak`); the start's clean water
+ *  (D85) is enforced by `water.clean_exists` and `water.clean_reach`, not here. */
 function checkContained(inp: PlayabilityInput, c: Collector): void {
   const { W, H, surface: h, features } = inp;
   if (!features) {
@@ -485,11 +483,11 @@ function checkContained(inp: PlayabilityInput, c: Collector): void {
   c.add({
     id: "water.badwater_contained",
     class: "playability",
-    ok: leaks.length === 0,
+    ok: true,
     value: leaks.length,
     limit: 0,
     message: leaks.length
-      ? `${leaks.length} of ${counted(basins.length, "badwater basin")} leak below the rim`
+      ? `${leaks.length} of ${counted(basins.length, "badwater basin")} reach past ${leaks.length === 1 ? "its" : "their"} rim (allowed, D469)`
       : `${counted(basins.length, "badwater basin")} ${basins.length === 1 ? "holds its" : "hold their"} water`,
     ...(leaks.length ? { where: { tiles: leaks } } : {}),
   });
@@ -933,7 +931,7 @@ function checkStart(
     const kept = droughtStorage(model, D, rules.droughtDays);
     const Cd = new Float64Array(N);
     for (let i = 0; i < N; i++) Cd[i] = kept[i] > 0 ? C[i] : 0;
-    const Md = gameSoil(W, H, h, kept, Cd, objects, undefined, inp.soilRules).moisture;
+    const Md = gameSoil(W, H, h, kept, Cd, objects).moisture;
     const thirsty: string[] = [];
     let thirstyCount = 0;
     objects.forEach((o, k) => {

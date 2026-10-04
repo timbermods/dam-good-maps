@@ -38,8 +38,9 @@ function farFromStart(s: MapSession): [number, number] {
 }
 
 async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[] }> {
+  // (a force an earlier test left at work, failing part way, goes first)
+  ed.forceCancel();
   await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));
@@ -87,8 +88,10 @@ describe("Carve's river is born as it cuts (D371)", () => {
       f = show(ed.forceAdvance(STEPS_PER_SECOND));
       seen.push(wetCut(ground, land, ed.flowForceWater(120)!));
     }
-    // the river is in its channel while the carve is still at work, and more of it as the cut goes on
-    const mid = seen[Math.floor(seen.length / 2)];
+    // the river is in its channel while the carve is still cutting, and more of it as the cut goes on
+    // (halfway through the cut itself: a carve can finish cutting well before its showing ends)
+    const cutAll = seen.at(-1)!.cut;
+    const mid = seen.find((q) => q.cut >= cutAll / 2)!;
     expect(mid.cut).toBeGreaterThan(20);
     expect(mid.wet).toBeGreaterThan(0);
     expect(seen.at(-1)!.wet).toBeGreaterThan(mid.wet);

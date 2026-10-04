@@ -7,10 +7,9 @@
 // level, where that parts the island from the mainland; where it doesn't (a ridge joins them, or the
 // island is the mainland's own), nothing changes.
 
-import { edgeSpill } from "./levels";
+import { edgeSpill } from "./drainage";
 import * as portable from "../math/portable";
-
-const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+import { N4 } from "../math/grid";
 
 /** Dry land (over `S`), labelled by 4-connected mass, and which masses touch the map's edge (the
  *  shore holding the sea; D432: on an open map the sea reaches the edge and the shore is several). */

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { snapshotMap } from "../../src/core/forces/force";
-import { Fault, QUAKE_DEFAULTS, quake } from "../../src/core/forces/quake";
+import { QUAKE_DEFAULTS, quake, type Point } from "../../src/core/forces/quake";
 import { EruptRun } from "../../src/core/forces/runs";
 import { fixture } from "./forceFixtures";
 
@@ -21,19 +21,24 @@ const L = [
 
 describe("curved faults and fissures (D327)", () => {
   it("Slide moves each part of the ground the way the drawn line runs there; a straight fault its one heading", () => {
-    const f = new Fault({ ...QUAKE_DEFAULTS, mode: "slide", power: 80 }, { path: L, side: 1 });
+    // how far each tile's ground moved, on a plain
+    const slide = (path: Point[]) => {
+      const p = quake(snapshotMap(fixture("plain", 96)), { ...QUAKE_DEFAULTS, mode: "slide", power: 80 }, { path, side: 1 });
+      return (x: number, y: number) => ({ dx: p.dx[y * 96 + x], dy: p.dy[y * 96 + x] });
+    };
+    const f = slide(L);
     // on the side that moves (side 1: south of the east-running leg, west of the south-running one),
     // beside the first leg the ground slides east, beside the second, south
-    const east = f.movement(30, 34);
-    const south = f.movement(56, 70);
+    const east = f(30, 34);
+    const south = f(56, 70);
     expect(Math.abs(east.dx)).toBeGreaterThan(Math.abs(east.dy));
     expect(Math.abs(south.dy)).toBeGreaterThan(Math.abs(south.dx));
     expect(Math.sign(east.dx)).toBe(1);
     expect(Math.sign(south.dy)).toBe(1);
     // a straight fault: every tile the same heading
-    const straight = new Fault({ ...QUAKE_DEFAULTS, mode: "slide", power: 80 }, { path: [{ x: 5, y: 40 }, { x: 90, y: 40 }], side: 1 });
-    const a = straight.movement(20, 44);
-    const b = straight.movement(80, 44);
+    const straight = slide([{ x: 5, y: 40 }, { x: 90, y: 40 }]);
+    const a = straight(20, 44);
+    const b = straight(80, 44);
     expect([a.dx, a.dy]).toEqual([b.dx, b.dy]);
     expect(a.dx).toBeGreaterThan(0);
     expect(a.dy).toBe(0);

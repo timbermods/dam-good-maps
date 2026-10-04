@@ -17,6 +17,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 
 **Batches and measures**
+- `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `lip.ts` `measureLip`, `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
@@ -32,9 +33,10 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Release and machine**
 - `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (CLAUDE.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).
+- `roadmap-canvas/` is a standalone planning page: what needs Kyler, what is in flight, the roadmap's steps as cards, the order of work, a map and the releases, read live from `dev`'s documents and GitHub (open its `index.html` from disk; its README says how). Not part of the site.
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
-**Tests**: tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+**Tests**: most tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`, `tests/unit/portable.test.ts` the maths guard, `tests/unit/smooth.test.ts` the smoothness gate and `tests/unit/ci-changes.test.ts` CI's change filter. Run `npx vitest run tests/unit/retired-terms.test.ts`.
 
 ## Machine setup
 
@@ -52,7 +54,13 @@ Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's 
 has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
 tools (D401), run by `tests/unit/portable.test.ts`.
 
-The Rust water (wired, not switched on until M9b is on dev): `npx tsx tools/rust/build.ts [--native] [--check]`
-rebuilds its committed Wasm (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts`
-runs a process's canonical settles natively (`tools/batch.ts --native`); `npx tsx tools/rust/water-identity.ts`
-compares the Rust water with the app's water, three ways (the adoption's identity run).
+The Rust water: `npx tsx tools/rust/build.ts [--native] [--check]` rebuilds its committed Wasm
+(`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts` runs a process's canonical
+settles natively (`tools/batch.ts` by default, `--wasm` to opt out); `npx tsx tools/rust/water-identity.ts`
+checks the native settle against the app's, three ways (in CI).
+
+The Rust forces (D381): `tools/rust/build.ts` rebuilds their committed Wasm too (`src/core/forces/rust/forcesWasm.ts`)
+and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixtures (`tools/rust/forces-jobs.ts`)
+natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
+the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
+`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.

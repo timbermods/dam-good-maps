@@ -22,7 +22,8 @@ import { stream, type Rng } from "../math/rng";
 import { RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { EDITOR_LEVEL, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
 import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
-import { clamp, unit } from "./num";
+import { unit } from "./num";
+import { clamp } from "../math/clamp";
 import { TWO_PI } from "../math/detmath";
 
 export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
