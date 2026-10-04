@@ -107,7 +107,8 @@ test("a warmed renderer draws the first map without compiling a program, the sam
 });
 
 // TEMPORARY DIAGNOSTICS (removed before merge)
-test("DIAG warm vs cold", async ({ page }) => {
+test("DIAG which part varies", async ({ page }) => {
+  test.setTimeout(900_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("./#s=4242&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
@@ -130,10 +131,11 @@ test("DIAG warm vs cold", async ({ page }) => {
       document.body.append(host);
       const r = new Make(c);
       r.setLookChoice("high", false);
-      return r;
+      r.setMap(view);
+      return { r, c };
     };
-    const st = (r: R) => { const h = (r as Any).high; const w = (r as Any).waterMotion; return { passes: h?.stats.shadowPasses, last: Math.round(h?.lastShadow ?? -1), dirty: h?.shadows.dirty, amb: h?.ambient?.ready, flowBaked: w?.baked, flowReady: w?.ready, now: Math.round(performance.now()) }; };
     const frame = (r: R) => {
+      (r as Any).high.lastShadow = -Infinity;
       r.setClock(12.5);
       r.resetView();
       r.renderNow();
@@ -143,58 +145,70 @@ test("DIAG warm vs cold", async ({ page }) => {
       return { px, w: g.drawingBufferWidth };
     };
     const cmp = (a: { px: Uint8Array; w: number }, b: { px: Uint8Array; w: number }) => {
-      let most = 0, at = -1, n3 = 0, n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+      let most = 0, at = -1, n3 = 0;
       for (let i = 0; i < a.px.length; i++) {
         const d = Math.abs(a.px[i] - b.px[i]);
-        if (d) n++;
         if (d > most) { most = d; at = i; }
-        if (d > 3) { n3++; const p = i >> 2; const x = p % a.w, y = Math.floor(p / a.w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        if (d > 3) n3++;
       }
       const p = at >> 2;
-      return { most, n, n3, box: [x0, y0, x1, y1], at: [p % a.w, Math.floor(p / a.w), at & 3], a: Array.from(a.px.slice(p * 4, p * 4 + 4)), b: Array.from(b.px.slice(p * 4, p * 4 + 4)) };
+      return `${most}@${p % a.w},${Math.floor(p / a.w)} n3=${n3}`;
     };
-    const warm = make();
-    log.warm0 = st(warm);
-    await warm.prepareFirstFrame();
-    log.warmPrepared = st(warm);
-    const t0 = performance.now();
-    warm.setMap(view);
-    log.setMapMs = Math.round(performance.now() - t0);
-    log.warmSet = st(warm);
-    const A = frame(warm);
-    log.warmFramed = st(warm);
-    const cold = make();
-    cold.setMap(view);
-    log.coldSet = st(cold);
-    const B = frame(cold);
-    const cold2 = make();
-    cold2.setMap(view);
-    const C = frame(cold2);
-    const twice = make();
-    twice.setMap(view);
-    twice.setMap(view);
-    const D = frame(twice);
-    log.warmVsCold = cmp(A, B);
-    log.coldVsCold2 = cmp(B, C);
-    log.twiceVsCold = cmp(D, B);
-    const A1 = frame(warm);
-    const B1 = frame(cold);
-    log.warmAgain = cmp(A1, A);
-    log.coldAgain = cmp(B1, B);
-    for (const r of [warm, cold]) { (r as Any).high.shadows.dirty = true; (r as Any).high.lastShadow = -Infinity; }
-    const A2 = frame(warm);
-    const B2 = frame(cold);
-    log.forcedShadows = cmp(A2, B2);
-    log.forcedShadowsWarmChange = cmp(A2, A);
-    await new Promise((r) => setTimeout(r, 2500));
-    log.warmLater = st(warm);
-    log.coldLater = st(cold);
-    for (const r of [warm, cold]) { (r as Any).high.shadows.dirty = true; (r as Any).high.lastShadow = -Infinity; }
-    const A3 = frame(warm);
-    const B3 = frame(cold);
-    log.settled = cmp(A3, B3);
-    log.settledWarmChange = cmp(A3, A2);
-    for (const r of [warm, cold, cold2, twice]) r.dispose();
+    const A = make();
+    const B = make();
+    const a0 = frame(A.r);
+    const b0 = frame(B.r);
+    log.base = cmp(a0, b0);
+    // the pixels that differ most: their tile and what is there
+    let most = 0, at = 0;
+    for (let i = 0; i < a0.px.length; i++) { const d = Math.abs(a0.px[i] - b0.px[i]); if (d > most) { most = d; at = i >> 2; } }
+    const x = at % a0.w, yb = Math.floor(at / a0.w), y = 480 - 1 - yb;
+    const rect = A.c.getBoundingClientRect();
+    const hit = A.r.pick(rect.left + x + 0.5, rect.top + y + 0.5) as Any;
+    log.pixel = { x, yFromTop: y, a: Array.from(a0.px.slice(at * 4, at * 4 + 4)), b: Array.from(b0.px.slice(at * 4, at * 4 + 4)) };
+    if (hit) {
+      const mm = (A.r as Any).map;
+      const i = hit.y * mm.W + hit.x;
+      log.tile = { x: hit.x, y: hit.y, face: hit.face, point: hit.point.map((v: number) => +v.toFixed(2)), h: mm.heights[i], depth: +mm.surface.depth[i].toFixed(3), surface: +mm.surface.surface[i].toFixed(3), contam: +mm.surface.contamination[i].toFixed(3) };
+      const ents: string[] = [];
+      const e = mm.entities;
+      for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - hit.x) <= 2 && Math.abs(e.y[k] - hit.y) <= 2) ents.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]},${e.z[k]}`);
+      log.near = ents;
+      const nb: number[] = [];
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) nb.push(mm.heights[(hit.y + dy) * mm.W + hit.x + dx]);
+      log.heights5 = nb.join(",");
+      const dp: string[] = [];
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) dp.push(mm.surface.depth[(hit.y + dy) * mm.W + hit.x + dx].toFixed(2));
+      log.depth5 = dp.join(",");
+    }
+    // each High effect off in both
+    const eff: Record<string, string> = {};
+    for (const k of Object.keys(A.r.highEffects)) {
+      for (const r of [A.r, B.r]) r.setHighEffect(k as Any, false);
+      eff[k] = cmp(frame(A.r), frame(B.r));
+      for (const r of [A.r, B.r]) r.setHighEffect(k as Any, true);
+    }
+    log.effectOff = eff;
+    log.baseAgain = cmp(frame(A.r), frame(B.r));
+    // each named mesh hidden in both
+    const names = new Set<string>();
+    (A.r as Any).scene.traverse((o: Any) => { if (o.visible && (o.isMesh || o.isPoints || o.isLine)) names.add(o.name || o.type); });
+    const hid: Record<string, string> = {};
+    for (const nm of names) {
+      const set = (r: R, v: boolean | null) => { const back: Any[] = []; (r as Any).scene.traverse((o: Any) => { if ((o.isMesh || o.isPoints || o.isLine) && (o.name || o.type) === nm && o.visible) back.push(o); }); for (const o of back) o.visible = false; return back; };
+      const ba = set(A.r, false), bb = set(B.r, false);
+      (A.r as Any).high.shadows.dirty = true; (B.r as Any).high.shadows.dirty = true;
+      hid[nm] = cmp(frame(A.r), frame(B.r));
+      for (const o of [...ba, ...bb]) o.visible = true;
+      (A.r as Any).high.shadows.dirty = true; (B.r as Any).high.shadows.dirty = true;
+    }
+    log.hidden = hid;
+    // the same renderer drawn 6 times: the pixel's values
+    const vals: string[] = [];
+    for (let k = 0; k < 6; k++) { const f = frame(A.r); vals.push(Array.from(f.px.slice(at * 4, at * 4 + 3)).join("/")); }
+    log.redraws = vals;
+    A.r.dispose();
+    B.r.dispose();
     return log;
   });
   console.log("DIAG " + JSON.stringify(out));
