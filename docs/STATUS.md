@@ -8,74 +8,62 @@ of [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01
 
 ## Released
 
-Latest: `m9b-done` (2026-10-04; `main` at b407656, generator 0.8.0, deployed, live check passed). Before it, 2026-10-01:
-`forces-done` (D375), `map-look-2-done` (D378) and `licence-agpl-done` (D379). Every released step's tag:
-`git tag -l '*-done'`. `dev` is ahead of `main` by what merged after the release.
+Latest: `m9b-done` (2026-10-04; `main` at b407656, generator 0.8.0, deployed, live check passed). After it, two releases that
+changed `main` only: `roadmap-page-done` (the roadmap canvas at `/roadmap/`, noindex, live) and `needs-kyler-ping-done` (the
+label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-look-2-done` (D378) and `licence-agpl-done`
+(D379). Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by what merged after the release.
 
 ## The sessions (D388, D398, D468, D470)
 
 - **The milestone session** (Opus 5.5, high; the dedicated machine) does everything except the page, merges, releases and
   hands out decision numbers (next free: D471). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
-  the editor". The settings panel (option B) is built; it waits on Kyler's pick between two generator mockups.
+- **The page session** (Opus 5.5, high; `C:UserskramscodeDamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
+  the editor". The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
+  ready PR labelled `approved`, and the milestone session reviews it before it merges.
 - **The renderer session** (Kyler's PC; its own branches) builds the High look's and the renderer's fixes; its PRs merge on
   green CI (D453).
 - **Codex** builds investigations on `investigation/<name>`; the milestone session adopts them.
-- **Other Claude Code sessions Kyler starts:** the theme critique, the Islands rounds, the coherence cleanup.
+- **Other Claude Code sessions Kyler starts:** the theme critique, the Canyon and Highlands round, the Islands rounds.
 
 ## In flight
 
-Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`). Merge order is the queue below. CI states
-are as of 2026-10-04 and move.
+Worktrees are beside the main clone (`C:UserskramscodeDamGoodMaps-<name>`). Merge order is the queue below. States are
+as of 2026-10-04 and move.
 
-| Work | Branch | PR | Worktree | State |
-|---|---|---|---|---|
-| Coherence cleanup 1, dead code | `cleanup/1-dead-code` | #213 | none | CI green; merges first |
-| Coherence cleanup 2, one flood | `cleanup/2-one-flood` | #214 | none | Trimmed to its no-bytes commit (Kyler's call, #243); merges after 1 |
-| Coherence cleanup 3 to 7 | `cleanup/3-forces-core` to `cleanup/7-planners` | #221, #223, #226, #230, #241 | none | In order after 2; #230 still needs its investigation-import fix |
-| Rust water switch | `feature/rust-water-switch` | #212 | `-rust` | Next after the cleanup's group 5 or ahead of it, whichever merges first; the other rebases |
-| The Rust forces adopted (#158, D381) | `feature/rust-forces` | its own | `-rforces` | Planners in Rust, the TypeScript computation tag `ts-forces-final` and deleted; after #212 |
-| Rust stacked-column water (D448) | `feature/rust-stacked` | #260 | `-stacked` | Adopted from #255: the computation in `rust/water`, no wiring yet; merges on review and green CI |
-| Startup part 1, the core half | `feature/startup-part1` | #222 | none | CI running; D367, D455 |
-| CI merge queue | `ci/merge-queue` | #238 | none | CI running |
-| Badwater joins rivers and lakes | `fix/badwater-contained-d469` | #245 | none | First of the generator queue (D469); one re-pin |
-| Lake Basin round 3 | `investigation/lake-basin-variety` | #234 | none | Kyler said yes; merges as an investigation, patch adopted third |
-| Islands round 4 | `investigation/islands-round-3` | #235 | needs-kyler | Ready: a product change, re-pinned (D148); Kyler judges the sheets |
-| The page | `feature/page` | #163 draft | `-page` | Page session; waits on Kyler's generator pick |
-| Area brush | `feature/area-brush` | #227 | none | CI green; the page adds its toggle after it merges |
-| Renderer fixes | `fix/frame-fit`, `fix/basin-highlight`, `fix/high-worker` | #219, #225, #240 | none | #225 fails the palette test (a hard-coded colour); the renderer session fixes it |
-| Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Parked: Codex rebuilds its core in Rust first |
-| Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Parked: held for Kyler's sitting, after the page |
-| 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | Parked as the reference; its stacked engine's Rust port is on `feature/rust-stacked` (D448) |
-| Real places, round 2 | `feature/real-places-2` | #35 | `-places` | Parked by Kyler (D319); CI red is expected |
-| Source groups, the rule | `feature/source-groups` | #79 draft | `-groups` | Redundant: `sourceGroups.ts` is on `dev`; to close |
-
-| PR | Investigation | State |
-|---|---|---|
-| #158 | rust-forces | Adopted on `feature/rust-forces` (planners in Rust; the TypeScript computation tag `ts-forces-final`, deleted) |
-| #244 | river-valley-sheets | Waits on Kyler (`needs-kyler`) |
-| #211 | theme-critique | CI red; its badwater PR is #245 |
-| #210 | islands-round-2 | Islands round 2; the work continues in #235 |
-| #152 | perf-audit | Approved; guides the speed work |
-| #132 | scaling | Draft; round 4 approved for adoption |
-| #130 | parallel-water | Draft; approved; the multi-core path |
-| #190 | roadmap-canvas | Waits on Kyler (`needs-kyler`) |
+| Work | Branch | PR | State |
+|---|---|---|---|
+| The page | `feature/page` | #163 | Ready, `approved`; review and merge |
+| Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
+| Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | Back for another round (Canyon 27's gorge, Highlands 2 and 23 bare, a camera-pitch sheet); generator 0.9.0, renumbers if it merges second |
+| Parity core (D337–D339) | `feature/parity-core` | #269 | `needs-kyler`: four game-fidelity changes move existing bytes (#270) |
+| Rift and Deposit in Rust | `feature/rift-deposit` | none yet | Adopting #268's investigation (merged) |
+| Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
+| Islands round 4 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
+| Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
+| Theme critique | `investigation/theme-critique` | #211 | The report; its badwater PR is #265 |
+| Islands round 2 | `investigation/islands-round-2` | #210 | The work continues in #235 |
+| Performance audit | `investigation/perf-audit` | #152 | Approved; guides the speed work |
+| Scaling | `investigation/scaling` | #132 | Draft; round 4 approved for adoption |
+| Parallel water | `investigation/parallel-water` | #130 | Draft; approved; the multi-core path |
+| Parity with the game's editor | `feature/parity` | #95 | Draft; superseded by #269 |
+| Drought and Badtide, day by day | `feature/weather-days` | #73 | Draft; parked for Kyler's sitting, after the page |
+| 3D terrain, step 1 | `feature/terrain3d-a` | #71 | Draft; parked as the reference; its stacked engine is in `rust/water` (#260, D448) |
+| Real places, round 2 | `feature/real-places-2` | #35 | Parked by Kyler (D319); CI red is expected |
+| Source groups, the rule | `feature/source-groups` | #79 | Draft; redundant (`sourceGroups.ts` is on `dev`); to close |
 
 ## Queued
 
-1. The documents: #246 (this one); #237 and #239 are merged.
-2. The coherence cleanup: groups 1–5 are merged (#213, #214 trimmed to (b), #221, #223, #226); #230 (group 6) waits for its
-   investigation-import fix, then #241 (group 7) after its rebase onto the new group 6.
-3. The Rust water switch (#212, resolving a conflict with dev), then the Rust forces (#158, being adopted on
-   `feature/rust-forces`).
-4. The generator queue, one re-pin at a time: the theme critique's badwater-line PR (D469; not opened yet), then Delta arms
-   round 2 (#233, merged as an investigation), then Lake Basin round 3 (#234, merged as an investigation); Islands round 4
-   (#235) after Kyler's judgement. #245 (D57 amended by D469) is merged.
-5. Startup part 1 (#222) is merged: a project autosaved while its water is still pending carries no stored map, so the page
-   should autosave again once the water settles (the "settled" event). The rest of D367; "The page is the editor" (#163);
-   the CI merge queue (#238 merged; the ruleset waits for Kyler).
-6. After the release: the Dependabot majors (D460), "Designed for" removed (D449), byte-exact reopening's (a) with startup
-   part 1 (D455).
+1. The Rust order: the water (#212) and the forces (#254) are merged (`ts-water-final`, `ts-forces-final` tagged), and so is
+   the stacked water crate (#260, no wiring yet). Next: Rift and Deposit (#268, being adopted on `feature/rift-deposit`), then
+   parity core's adoption (#269, waiting on Kyler, #270). The forces crate keeps its own copy of the water kernel, to be shared.
+2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
+   (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
+   Highlands height (#261) is back for another round; Islands round 4 (#235) waits on Kyler's eye (needs-kyler).
+3. The page (#163), then the area brush's toggle (the brush, #227, is merged) and the page's startup half: a project
+   autosaved while its water is pending carries no stored map, so the page should autosave again once the water settles
+   (the "settled" event; D367, D455).
+4. The CI merge queue: the workflow side is merged (#238); the ruleset is Kyler's to create (none exists yet).
+5. After the release: the Dependabot majors (D460), "Designed for" removed (D449), byte-exact reopening's (a) (D455).
 
 ## Waiting for Kyler
 
@@ -85,9 +73,9 @@ One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps
 
 ## The release gate (D385–D387)
 
-Passed: M9b released as `m9b-done` (2026-10-04, [#217](https://github.com/timbermods/dam-good-maps/pull/217)). The coherence cleanup
-keeps merging into `dev` in order (D462, D463); Islands' known shortfall (12 of 30 seeds at 128² with no island to
-expand to) is fixed by a round after the release.
+Passed: M9b released as `m9b-done` (2026-10-04, [#217](https://github.com/timbermods/dam-good-maps/pull/217)). The coherence
+cleanup (D462, D463) is finished: groups 1–10 are merged, group 2 trimmed by Kyler's call on #243. Islands' known shortfall
+(12 of 30 seeds at 128² with no island to expand to) is fixed by a round after the release.
 
 ## Probe batches
 
