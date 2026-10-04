@@ -51,6 +51,14 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
   const timer = useRef(0);
   useEffect(() => setText(p.name), [p.name]);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const area = useRef<HTMLTextAreaElement>(null);
+  // as tall as its lines
+  useLayoutEffect(() => {
+    const a = area.current;
+    if (!a) return;
+    a.style.height = "auto";
+    a.style.height = `${a.scrollHeight + a.offsetHeight - a.clientHeight}px`;
+  }, [text]);
   const save = async () => {
     if (text.trim() === p.name) return setText(p.name);
     const why = await p.onRename(text);
@@ -66,18 +74,21 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
         <span class={`field-head${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem ?? "Name"}
         </span>
-        <input
+        {/* (a long name wraps onto more lines: the field always shows its whole value) */}
+        <textarea
           id="map-name"
+          ref={area}
+          rows={1}
           value={text}
           maxLength={80}
           spellcheck={false}
           autoComplete="off"
-          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onInput={(e) => setText((e.target as HTMLTextAreaElement).value.replace(/\n/g, " "))}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               // (Enter renames here; it never makes a new map)
               e.preventDefault();
-              (e.target as HTMLInputElement).blur();
+              (e.target as HTMLTextAreaElement).blur();
             } else if (e.key === "Escape") {
               e.preventDefault();
               e.stopPropagation();
@@ -167,7 +178,7 @@ export function Drawer({ model: m, info, icon, trees }: DrawerProps) {
         <div class="drawer-body">
           <NameField name={m.name} onRename={m.onRename} />
           <div class="drawer-fields">
-            <label class="field" for="theme" {...tip("The kind of land the map leans toward")}>
+            <label class="field wide" for="theme" {...tip("The kind of land the map leans toward")}>
               <span class="field-head">Theme</span>
               <select id="theme" value={spec.theme} onChange={(e) => m.onTheme((e.target as HTMLSelectElement).value as ThemeId)}>
                 {THEMES.map((t) => (
@@ -177,10 +188,10 @@ export function Drawer({ model: m, info, icon, trees }: DrawerProps) {
                 ))}
               </select>
             </label>
-            <label class="field" for="seed" {...tip(HINT.seed)}>
+            <label class="field wide" for="seed" {...tip(HINT.seed)}>
               <span class="field-head">Seed</span>
               <span class="drawer-seed">
-                <input id="seed" value={m.seedText} autoComplete="off" onInput={(e) => m.onSeed((e.target as HTMLInputElement).value)} />
+                <input id="seed" value={m.seedText} maxLength={24} autoComplete="off" onInput={(e) => m.onSeed((e.target as HTMLInputElement).value)} />
                 <button type="button" class="ghost seed-keep" aria-pressed={m.seedPinned} title={m.seedPinned ? "Generate makes this map again" : "Keep this seed for the next Generate"} onClick={() => (m.seedPinned ? m.onUnpinSeed() : m.onPinSeed())}>
                   Keep
                 </button>

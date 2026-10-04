@@ -14,6 +14,14 @@ import type { GlaciateSettings } from "../../core/forces/glaciate/model";
 import type { Verb } from "../../core/forces/op";
 import { FORCES } from "../TopBar";
 import type { ObjectPanel } from "../ObjectWindow";
+
+/** An object's four turns before it is placed (R steps through them): its facing on the map. */
+const TURNS: [number, string, string][] = [
+  [0, "0°", "Face it the first way"],
+  [1, "90°", "Turn it a quarter"],
+  [2, "180°", "Turn it half way round"],
+  [3, "270°", "Turn it three quarters"],
+];
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
@@ -190,8 +198,39 @@ export function useRows(ed: Ed): RowsSlice {
       ],
     };
   }
-  /** The object window's groups for the object picked in the list: its own options, if it has any. */
+  /** The object window's groups for the object picked in the list: its own options, if it has any, and its Turn (R)
+   *  where it turns: every setting a key changes has its control. */
   function shelfRow(): ObjectPanel | null {
+    const p = shelfOwn();
+    if (!shelf?.turns) return p;
+    const turnGroup = {
+      key: "turn",
+      label: "Turn",
+      node: (
+        <div class="segmented" role="group" aria-label="Turn">
+          {TURNS.map(([k, word, title]) => (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={ed.turn === k}
+              {...tip(title, "R")}
+              onClick={() => {
+                ed.turnRef.current = k;
+                ed.setTurn(k);
+                const at = ed.shelfTile.current;
+                if (at) ed.shelfHover(at[0], at[1]);
+              }}
+            >
+              {word}
+            </button>
+          ))}
+        </div>
+      ),
+    };
+    return { label: p?.label ?? `${shelf.name} options`, groups: [...(p?.groups ?? []), turnGroup] };
+  }
+  /** The object's own options in its window, if it has any. */
+  function shelfOwn(): ObjectPanel | null {
     if (!shelf) return null;
     if (shelf.source) {
       const bad = shelf.source === "bad";

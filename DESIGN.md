@@ -416,6 +416,12 @@ refinements and what the mockups left open:
   **Delete** (asked once, "Delete <name>?"; the open map gives way to the next map in Your maps, or a new Surprise me
   map when none is left). The browser's own menu doesn't open on the pictures. Your maps' two columns are now equal
   halves whatever the names (a long name widened its column, and a rename made it jump).
+- **Turn** (Kyler, 2026-10-03): an object that turns has its Turn in the object window, 0°, 90°, 180° and 270°, the
+  one R steps through.
+- **Every field shows its whole value:** Theme, Seed (with Keep) and Size each take a full row (a ten-digit seed, or a
+  word up to 24 letters, fits), and the map's Name wraps onto more lines when it is long.
+- **Your maps under a solid scrollbar:** with Windows' solid scrollbar showing (15px), every picture stays clear of
+  it (the columns are equal halves inside the panel's own room).
 - **The counts** sit under a small "On this map" label, Your maps' style; Forests became **Trees**: every living tree
   on the map as it is, edits included (dead ones aren't counted), with thousands separators.
 - **Opening a map is lighter** (Kyler's slow presses, 2026-10-03): the editor keeps its 3D renderer from one map to the

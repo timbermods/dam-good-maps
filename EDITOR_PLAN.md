@@ -115,7 +115,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size; picked on the map, a source's Strength, This source ("1.45 water/s",
+  Pointing at, a ruin's Height, a relic's Size, and Turn (0°–270°, R) for an object that turns; picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
   it down (×).
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start

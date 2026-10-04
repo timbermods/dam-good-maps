@@ -211,7 +211,8 @@
 }
 
 .drawer-fields select,
-.drawer-fields input {
+.drawer-fields input,
+.drawer-fields textarea {
   width: 100%;
   min-width: 0;
   font: inherit;
@@ -1251,4 +1252,12 @@
 
 .ym-rename.refused:focus {
   box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+/* the map's name: one line, more when it is long (never cut off) */
+.drawer-fields textarea {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.45;
 }
