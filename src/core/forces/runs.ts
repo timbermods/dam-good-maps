@@ -129,7 +129,8 @@ function warm(sim: WaterSim, m: FullForceMap): WarmState {
  *  touches (its integrity pass), so the last stage shows exactly what is kept. */
 export type Finalize = (m: FullForceMap) => void;
 
-abstract class Staged {
+/** A force planned in slices, then shown in stages: what Craterize, Erupt, Quake and Glaciate share. */
+export abstract class Staged {
   map: FullForceMap;
   protected stage = 0;
   /** Steps of its approach shown (the impactor falling, the ground stirring), once planned. */
@@ -147,8 +148,11 @@ abstract class Staged {
     this.map = snapshotMap(before);
   }
 
+  /** A planning step's budget (ms): at least one slice, then more while they fit. */
+  protected readonly planMs: number = PLAN_MS;
+
   /** Plan within the budget; true once planned. */
-  protected abstract plan(budgetMs: number): boolean;
+  protected abstract planFor(budgetMs: number): boolean;
   abstract get planned(): boolean;
   /** Stages it shows once planned, and the steps of its approach before them. */
   protected abstract readonly stages: number;
@@ -173,7 +177,7 @@ abstract class Staged {
     if (this.ended) return;
     this.steps++;
     if (!this.planned) {
-      this.plan(PLAN_MS);
+      this.planFor(this.planMs);
       return;
     }
     if (this.approached < this.approach) {
@@ -187,7 +191,7 @@ abstract class Staged {
 
   /** Plan all of it at once (tests, Claude's step). */
   planAll(): this {
-    while (!this.plan(Infinity)) {
+    while (!this.planFor(Infinity)) {
       // planned in slices
     }
     return this;
@@ -227,7 +231,7 @@ export class CraterRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(8)) if (performance.now() - t0 > budgetMs) return false;
     holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
@@ -314,7 +318,7 @@ export class EruptRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     holdAtFloor(this.before.heights, this.plan0.map.heights, forceFloor(this.settings));
@@ -436,7 +440,7 @@ export class QuakeRun extends Staged implements StagedRun {
     return this.plan0.planned;
   }
 
-  protected plan(budgetMs: number): boolean {
+  protected planFor(budgetMs: number): boolean {
     const t0 = performance.now();
     while (!this.plan0.advance(4)) if (performance.now() - t0 > budgetMs) return false;
     const p = this.plan0;
