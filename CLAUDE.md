@@ -34,6 +34,9 @@
 >   the change before reporting it done. If none can run, say which and why.
 > - Downscale screenshots and captures before a model reads them, unless the detail is what's being judged.
 
+> **Decisions (D467):** read [docs/decisions/README.md](docs/decisions/README.md), then
+> [docs/decisions/how-we-work.md](docs/decisions/how-we-work.md), then only the topic files your task touches.
+
 > **New milestone session? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says how to start, how things are run here
 > and the machine; [docs/STATUS.md](docs/STATUS.md) says what's in flight and what waits for Kyler.
 

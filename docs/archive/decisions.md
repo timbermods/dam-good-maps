@@ -1,7 +1,7 @@
 # Every decision as recorded (D1–D390)
 
 This is PLAN §20's full log as it stood at the prune (2026-10-02, D390), never rewritten. A decision superseded or completed later moves here from PLAN §20 with its status cell updated.
-The decisions in force are in [PLAN.md §20](../../PLAN.md#20-editor-decisions).
+The decisions in force are in [PLAN.md §20](../decisions/README.md).
 
 ## 20. Editor decisions
 

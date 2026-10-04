@@ -10,7 +10,7 @@
 
 **Read this first if you're the new milestone session.** You start with no memory of the last one. Read `CLAUDE.md`, `docs/STATUS.md`
 (in flight, and what waits for Kyler), `docs/PERFECT.md` (the yardstick for every review), `EDITOR_PLAN.md` (before any
-editor work), `PLAN.md` §20 (the decisions in force) and the top of `ROADMAP.md` (the order of work). Kyler (he/him) owns the project and decides everything. The earlier handoff:
+editor work), `docs/decisions/README.md` (the decisions in force: the index, then `how-we-work.md`, then only the topic files your task touches) and the top of `ROADMAP.md` (the order of work). Kyler (he/him) owns the project and decides everything. The earlier handoff:
 [archive/handoff-2026-10-01.md](archive/handoff-2026-10-01.md).
 
 ## 1. Starting a session
@@ -32,8 +32,8 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 ## 2. The three sessions (D388, D398)
 
 - **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
-  the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns PLAN
-  §20's numbering, STATUS and HANDOFF.
+  the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns the
+  decisions' numbering, STATUS and HANDOFF.
 - **The page session** (Fable 5.1, high; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
   `docs/progress/page.md`; this session folds them into PLAN when its work merges.
@@ -41,7 +41,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
   its own PR (merged when CI is green, D453) and item 3: moving
   water and the Flow view, then renderer R1. This session doesn't build them; it merges #165 once the renderer has merged dev into it and CI is green (D453).
   `tools/smooth/` (from `investigation/performance`, #107) stays as a tool, run only when something feels slow. It runs on Kyler's PC (Opus 5.5, high) and never edits
-  PLAN.md, STATUS.md or HANDOFF.md: when its PR merges, this session folds its decisions into PLAN §20, EDITOR_PLAN's view
+  PLAN.md, STATUS.md or HANDOFF.md: when its PR merges, this session folds its decisions into `docs/decisions/`, EDITOR_PLAN's view
   section and STATUS. Its plan (Kyler's yes, 2026-10-02) changes `src/worker/session.ts` (WaterView gains an optional
   per-wet-tile current; the Flow view's lanes are built in the worker after a settle) and `src/editor/waterPlayer.ts` /
   `waterJourney.ts`: keep this session's changes there small, and tell Kyler before large ones. The water's bytes, when
@@ -128,7 +128,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into `PLAN.md` §20 (the next is **D467**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D468**) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
@@ -174,4 +174,4 @@ The computer kept for this work (D218): always on, nobody plays on it. Windows 1
   script (it ends with the session that started it), check `git worktree list`, and if a probe batch was running, run `npm --prefix investigation/probe run restore`
   before anything else.
 - **When the game updates:** recompute the starting-logs floor (D224) with `npx tsx tools/log-floor.ts --check` (then
-  `--write`; record the new floor in PLAN §20); regenerate `investigation/decompiled/`; note it in STATUS.
+  `--write`; record the new floor in `docs/decisions/`); regenerate `investigation/decompiled/`; note it in STATUS.
