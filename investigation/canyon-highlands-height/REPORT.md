@@ -25,8 +25,8 @@ gorge existed only where the course crossed higher benches. Now the land stands 
 down to the floor: walls of five to ten blocks for most of the course. The water gathers in few rivers
 (at most two springs beside the inflow, four at 256²), so the main river carries the cutting flow on
 every map (the 96² round's cause 1 held at 128² too: seeds 2, 5, 8 and 10 had four equal heads under
-1.2 and no cut). The start's shore is the plateau's lakes, not the gorge (cause 4): a basin is drawn
-where the genome drew none and the spring lake's chance is 0.8. The floor beside the channel is kept
+1.2 and no cut). The start's shore is the plateau's lake, not the gorge (cause 4): a basin is drawn
+where the genome drew none, and no lake exceeds 4% of the map. The floor beside the channel is kept
 within 3, so the walls stand close to the water (the hanging-valleys intention's floor of 7–11 left a
 flat with no wall in reach). **At 96² the plateau fades out** (the 96² round's rules alone remain): a
 plateau of 8, 6 or 5 left no start on most lands there (the settler's counters: nearly every level pad
@@ -34,9 +34,9 @@ fails the water rule) and maps failing an absolute, 12–14 of 20 against 16 (`l
 
 **Highlands: tall terraces, the land leaning high, from 128² up.** Benches four levels apart (three
 from 192² up) over at least four fifths of the land (the preset drew 2–3), the land leaning high
-(`lean` ≤ 0.55: most of it on the upper benches, the river's valley the narrow lowest one), and the
-lowest bench at 5, a level and a half over the river's surface where a pump still reaches it, so the
-start keeps its shore. The river threads the lowest bench between the 9 and 13 benches; it is not cut
+(`lean` ≤ 0.65: most of it on the upper benches, the river's valley the narrow lowest one), and the
+lowest bench no lower than 4, half a level over the river's surface where a pump reaches it, so the
+start keeps its shore. The river threads the lowest bench between the 8 and 12 benches; it is not cut
 deeper (incising it lost the shore and the promise: 13 of 20 against 16). **At 96² the shaping fades
 out:** with few tall benches on a small map the promise's plateau count (3 of 68+ tiles) and cliff
 share (0.1 × √(128/96)) cannot be met, 9–12 of 20 against 16 whatever the step or the terrace cell
@@ -49,6 +49,25 @@ out of reach); Highlands benches five apart (8 of 20: too few plateaus); Highlan
 (13 of 20); Canyon at a base of 7 (walls 4.3, 18 of 20 at 128²) or 9 (walls 5.1, 13–14, tributaries
 dry); Canyon at 5 or 6 with the land leaning high at 96² and 128² (12–15, no start on half the lands).
 
+## Kyler's look at #261, and the fixes
+
+Not approved at first (the planning chat, 2026-10-04): the extra height barely reads from the opening
+camera, and three maps regressed. The fixes, on the same branch:
+
+- **Canyon 27 lost its full-length gorge**: the lake forced for the start's shore (a basin and a spring
+  lake at 0.8) took the lake budget's 20% of the map and drowned the gorge's upper half. Now no Canyon
+  lake exceeds 4% of the map and the spring lake keeps the genome's own chance: Canyon 27's main river
+  runs between walls of 7.7 levels median, 78% of its course over five (`local/exp-reg.log`).
+- **Highlands 2 and 23 became bare rock with a thin river**: the lean of 0.55 with the lowest bench at
+  5 left 8% and 6% of the land moist (28% and 32% before): every stream cut a slot into high benches
+  and no valley floor was left. The lean is 0.65 and the lowest bench 4 again (a pump still reaches
+  the river): 28% and 29% moist, and 128² gains a seed (16 → 17). A floor beside the channel, a capped
+  incision, more flow and a lean of 0.7 were tried and lost the promise or the green (`local/exp-reg.log`).
+- **The camera's part**, for Kyler to decide: `docs/sheets/canyon-height-pitch.jpg` and
+  `highlands-height-pitch.jpg` show the same 30 seeds at 128² from the opening camera as it is (70° down)
+  and pitched 55° down, side by side (`capture-pitch.ts`: the second shot sets the view's pitch on the
+  page and lets the renderer frame the map again; no camera code changes).
+
 ## The outcome
 
 First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 96² round's change) → after.
@@ -56,15 +75,16 @@ First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 
 | | 96² | 128² | 256² |
 |---|---|---|---|
 | Canyon | 16 → 16 | 17 → **18** | 16 → 16 |
-| Highlands | 16 → 16 | 15 → **16** | 17 → 15 |
+| Highlands | 16 → 16 | 15 → **17** | 17 → **18** |
 
 At 96² both themes' maps are the 96² round's, byte for byte. Failing an absolute: none, before or after, at any
 size. Relief at 128² (seeds 1–20, `survey3.ts`, the main river's walls as the highest ground within 5 tiles of the
 bank over the water): Canyon's walls 2.8 → 6.2 levels median, the share of the course with walls of 5+ on both
-sides 22% → 65%; Highlands 2.0 → 3.6 and 13% → 28%, its land in benches four apart (about 6 / 26 / 38 / 27% at 4 /
-8 / 12 / 16 against a spread of 2–3). At 256² Canyon's walls are 3.9 median (40% of the course over 5), Highlands'
-2.3. Attempts at 128² (seeds 1–20): Canyon 149 → 201 (no start 49 → 94: the plateau's starts are its lakes), Highlands
-200 → 206. Lands changed: every Canyon and Highlands map from 128² up; none at 96².
+sides 22% → 63%; Highlands 2.0 → 2.7 and 13% → 23%, its land in benches four apart against a spread of 2–3.
+The green (`survey4.ts`, the share of the dry land that is moist, seeds 1–30): Highlands 27% mean before and
+after at 128² (4 maps under 20% before, 5 after), 15% at 256² both (26 and 25 under 20%); Canyon 24% → 26% at
+128². Attempts at 128² (seeds 1–20): Canyon 149 → 171, Highlands 200 → 187. Lands changed: every Canyon and
+Highlands map from 128² up; none at 96².
 
 Sheets for Kyler, seeds 1–30 at 128², dev's tip beside this branch, each map 288 px: the opening 3D view
 [docs/sheets/canyon-height-3d.jpg](../../docs/sheets/canyon-height-3d.jpg) and
@@ -99,8 +119,10 @@ Sheets for Kyler, seeds 1–30 at 128², dev's tip beside this branch, each map 
   worker's tests on Highlands 96² seed 22; the oxbow with the carve's seed 1), `editsPlaceNothing`
   (seeds 7 and 8 first: a site at 16 takes no wall), `forceEverywhere` (seed 6), `forcePower` (River
   Valley 128² seed 1: on the tall terraces every gentlest force fills a valley), `glaciatePowerSize`
-  (the head at (96, 33)), `look-mine-ruins` (the file's sha with generator 0.9.0; River Valley's land
-  is untouched). Of the browser specs on Highlands 96² (seeds 4242 and 4244), one moved: the click-only crater test to seed 4244 (`forces.spec.ts`); the other 28 pass.
+  (the head at (42, 84)), `look-mine-ruins` (the file's sha with generator 0.9.0; River Valley's land
+  is untouched). After the fixes for Kyler's look: Highlands 5's edge lip at (27, 0), the rises on Canyon 18, 5
+  and 3 with River Valley 2 (no Highlands seed to 20 holds one), and the nightly sweep's known list takes
+  Highlands 128² seed 5's edge Slide (7 tiles at Power 10). Of the browser specs on Highlands 96² (seeds 4242 and 4244), one moved: the click-only crater test to seed 4244 (`forces.spec.ts`); the other 28 pass.
 
 ## Regenerate (D195)
 

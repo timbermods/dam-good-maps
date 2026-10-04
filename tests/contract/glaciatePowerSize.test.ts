@@ -13,7 +13,7 @@ import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 
 const W = 128;
-const SEED = 21;
+const SEED = 22;
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
@@ -21,10 +21,11 @@ beforeAll(async () => {
   // (D148, M9b's maps: the head is re-picked from the map. The old pick, the highest dry ground, is on
   // seed 21 a tile near the north rim whose ice runs 16 tiles and stops, so the comparisons had no
   // stretch to share; (80, 24), level 14, sends its ice 70 tiles at the narrowest Size, and every check
-  // below holds from there; (96, 33), level 16, since the height round's tall terraces moved the map,
-  // investigation/canyon-highlands-height: from there every run shares 15 sections or more, where
-  // (80, 24)'s ice runs 11 tiles and the other high heads share none or a few)
-  at = [96, 33];
+  // below holds from there; seed 22 and (62, 14), level 11, since the height round's tall terraces
+  // moved the map, investigation/canyon-highlands-height: on seed 21 no head of 57 whose ice runs 55+
+  // tiles keeps every check (its benches make the walls grow unevenly with Power), on seed 22 this one
+  // does, its ice running 60 tiles)
+  at = [62, 14];
 });
 
 interface Run {

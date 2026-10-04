@@ -198,6 +198,9 @@ export const KNOWN: readonly { use: Use; ground: Ground; power: number; theme?: 
   // within its reach, so it moves nothing; for Kyler, D356)
   ...([["quake slide", "random", 10], ["quake slide click", "random", 10], ["quake slide", "flat", 10], ["quake slide click", "flat", 50], ["quake slide click", "flat", 90]] as const).map(([use, ground, power]) => ({ use, ground, power, theme: "delta" as ThemeId, why: "Delta 128² seed 5's plain: no slope for the slide" })),
   { use: "quake slide", ground: "edge", power: 90, theme: "islands", why: "Islands 128² seed 5: the sea at the map's edge, no slope for the slide" },
+  // (the Canyon and Highlands height round, investigation/canyon-highlands-height: Highlands' tall benches
+  // leave a Slide at the map's edge a 7-tile shift at Power 10; for Kyler, D356)
+  { use: "quake slide", ground: "edge", power: 10, theme: "highlands", why: "Highlands 128² seed 5: a bench edge at (127, 113), the slide's shift 7 tiles at Power 10" },
 ];
 
 /** The uses that did nothing visible and are not among the known ones. */

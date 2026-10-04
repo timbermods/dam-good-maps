@@ -8,9 +8,10 @@
 // of the two or three the old land left it (the bed never goes under the floor, so on land at 4 the
 // walls were one level whatever the incision). At 96² the plateau fades out: it left no start.
 // The water gathers in few rivers: at most two springs beside the inflow (four at 256²), so the
-// main river carries the cutting flow (1.2) on every map; a basin and a spring lake where the
-// genome drew none, since the start's shore is the plateau's lakes, not the gorge (the 96² round's
-// cause 4); and the floor beside the channel kept within 3, so the walls stand close.
+// main river carries the cutting flow (1.2) on every map; a small lake (a basin where the genome
+// drew none, no lake over 4% of the map), since the start's shore is the plateau's lake, not the
+// gorge (the 96² round's cause 4); and the floor beside the channel kept within 3, so the walls
+// stand close.
 //
 // Below 128² the incision is a level deeper (the 96² round: a short course needs a bigger share of
 // it between walls), and the height round fades out: at 96² the map is the 96² round's.
@@ -39,6 +40,9 @@ export function shapeCanyon(g: Genome, W: number, H: number, seed: number, attem
   g.base = Math.max(g.base, 4 + 4 * s - 2 * big);
   if (big > 0) g.hyps.lean = Math.min(g.hyps.lean, 1.3 - 0.6 * big);
   g.relief = g.top - g.base;
+  // the plateau's lake, the start's shore, is a tarn: a basin where the genome drew none, and no lake
+  // over 4% of the map (the budget's 20% drowned the upper half of Canyon 27's gorge; local/exp-reg.log,
+  // Kyler's look at #261). The spring lake keeps the genome's own chance.
   if (!g.parts.some((p) => p.kind === "basin")) g.parts.push(randomPart(stream(seed, "canyon-lake", attempt), "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
-  g.lakeSprings = Math.max(g.lakeSprings, 0.8);
+  g.hydro.lakeBudget = Math.min(g.hydro.lakeBudget, 0.04);
 }

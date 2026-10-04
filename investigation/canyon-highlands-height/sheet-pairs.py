@@ -22,8 +22,9 @@ def font(size):
 
 
 def pic(d, theme, seed):
-    for ext in ("png", "jpg", "jpeg"):
-        p = os.path.join(d, f"{theme}-{seed}.{ext}")
+    """<theme>-<seed>.png or .jpg; a dir of capture-pitch.ts's captures gives its 70° shot."""
+    for name in (f"{theme}-{seed}.png", f"{theme}-{seed}.jpg", f"{theme}-{seed}.jpeg", f"{theme}-{seed}-70.jpg"):
+        p = os.path.join(d, name)
         if os.path.exists(p):
             return Image.open(p).convert("RGB")
     return None
