@@ -175,6 +175,21 @@ const PITCH_MIN = 0.18;
 /** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
 const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
+/** A source's middle tile (a badwater source's: one tile in from its corner, turned with it), or -1 for
+ *  anything else or off the map. */
+function sourceMiddle(e: EntityView, k: number, W: number, H: number): number {
+  const name = e.templates[e.template[k]];
+  if (name !== "WaterSource" && name !== "BadwaterSource") return -1;
+  let x = e.x[k];
+  let y = e.y[k];
+  if (name === "BadwaterSource") {
+    const o = e.orientation[k];
+    x += o === 0 || o === 1 ? 1 : -1;
+    y += o === 0 || o === 3 ? 1 : -1;
+  }
+  return x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
+}
+
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
@@ -523,20 +538,12 @@ export class MapRenderer {
     d.fill(0);
     const e = m.entities;
     for (let k = 0; k < e.count; k++) {
-      const name = e.templates[e.template[k]];
-      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
-      // a badwater source's middle: one tile in from its corner, turned with it
-      let x = e.x[k];
-      let y = e.y[k];
-      if (name === "BadwaterSource") {
-        const o = e.orientation[k];
-        x += o === 0 || o === 1 ? 1 : -1;
-        y += o === 0 || o === 3 ? 1 : -1;
-      }
-      if (x < 0 || y < 0 || x >= m.W || y >= m.H) continue;
-      d[(y * m.W + x) * 4 + (name === "WaterSource" ? 0 : 1)] = 255;
+      const i = sourceMiddle(e, k, m.W, m.H);
+      if (i >= 0) d[i * 4 + (e.templates[e.template[k]] === "WaterSource" ? 0 : 1)] = 255;
     }
     for (const i of this.sourceGlow) if (i >= 0 && i < m.W * m.H) d[i * 4 + 2] = 255;
+    for (const i of this.sourcesLit) if (i >= 0 && i < m.W * m.H) d[i * 4 + 3] = 255;
+    this.uniforms.sourceLit.value = this.sourcesLit.size ? 1 : 0;
     t.needsUpdate = true;
     this.requestRender();
   }
@@ -1230,6 +1237,7 @@ export class MapRenderer {
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
+    this.sourcesLit.clear();
     group.renderOrder = 1;
     this.objects = group;
     this.scene.add(group);
@@ -1477,6 +1485,8 @@ export class MapRenderer {
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
+  /** The middle tiles of the sources highlighted: the water over them turns red too (`markSources`). */
+  private sourcesLit = new Set<number>();
 
   /** The ghost of an object being placed (the left shelf, D184): the object itself, its footprint's
    *  corner at tile (x, y) on the ground at `z`, tinted green where it fits, red where it doesn't
@@ -1593,6 +1603,19 @@ export class MapRenderer {
     }
     this.lit = [];
     const m = this.map;
+    // the sources among them: the water over each turns red too, under water as above it
+    const lit = new Set<number>();
+    if (m && tiles?.length) {
+      const want = new Set(tiles);
+      for (let k = 0; k < m.entities.count; k++) {
+        const i = want.has(m.entities.y[k] * m.W + m.entities.x[k]) ? sourceMiddle(m.entities, k, m.W, m.H) : -1;
+        if (i >= 0) lit.add(i);
+      }
+    }
+    if (lit.size || this.sourcesLit.size) {
+      this.sourcesLit = lit;
+      this.markSources();
+    }
     if (m && this.objects && tiles?.length) {
       const want = new Set(tiles);
       for (const c of this.objects.children) {

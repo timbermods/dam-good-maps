@@ -113,8 +113,10 @@ export interface SceneUniforms {
   /** Level lines (the brush kit's toggle): a thin line along every edge where the ground steps down. */
   levelLines: { value: number };
   /** Where the sources are (`sourceTiles`): R a clean source's middle tile, G a bad one's, B one the
-   *  pointer's water comes from (D196). */
+   *  pointer's water comes from (D196), A one highlighted (D249: Remove's red, Clear sources' glow). */
   sourceTex: { value: DataTexture };
+  /** 1 while a source is highlighted: the water over it turns its clear red (under water too). */
+  sourceLit: { value: number };
   /** The water's current and smoothed contamination, one texel a tile (motion.ts, D353): RG the
    *  current as drawn (128 still), B the badwater share; the moving water reads it in both looks. */
   flowTex: { value: DataTexture };
@@ -145,6 +147,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     slice: { value: 99 },
     levelLines: { value: 0 },
     sourceTex: { value: overlayTexture(1, 1) },
+    sourceLit: { value: 0 },
     flowTex: { value: stillFlow() },
   };
 }
@@ -452,6 +455,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `
   uniform float slice;
   uniform float levelLines;
   uniform sampler2D sourceTex;
+  uniform float sourceLit;
   uniform sampler2D flowTex;
 
   float bitOf(float v, float b) { return mod(floor(v / b + 0.001), 2.0); }
@@ -1152,6 +1156,24 @@ ${hook(h, "water")}        // clear water (D196, D212; waterPalette.ts CLEAR_WAT
           alpha = mix(alpha, 0.9, hl * 0.4);
         }
         #endif
+        // a highlighted source reads under its own water too (D249; Kyler, 2026-10-03: a settled source
+        // usually sits under its water): the water over its basin, a clean one's tile or a bad one's
+        // three by three, turns the same clear red its model does
+        if (sourceLit > 0.5 && n.y > 0.5) {
+          vec2 st = floor(g);
+          float lit = 0.0;
+          for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++) {
+              vec2 sq = st + vec2(float(dx), float(dy));
+              vec4 sv = texture2D(sourceTex, (sq + 0.5) / mapSize);
+              if (sv.a < 0.5) continue;
+              vec2 q = abs(g - sq - 0.5);
+              float reach = sv.g > 0.5 ? 1.5 : 0.5;
+              lit = max(lit, 1.0 - smoothstep(reach - 0.06, reach + 0.04, max(q.x, q.y)));
+            }
+          c = mix(c, vec3(0.9, 0.12, 0.08), lit * 0.9);
+          alpha = mix(alpha, 0.97, lit * 0.9);
+        }
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }
     `,
