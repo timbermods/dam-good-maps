@@ -61,11 +61,12 @@ describe("which suites a change needs", () => {
   });
   it("one core file brings the suites back; rust only when the Rust or what wraps it changes", () => {
     expect(classify(["src/editor/a.ts", "src/core/gen/a.ts"], none)).toEqual({ heavy: true, suites: true, rust: false });
-    for (const f of ["rust/water/src/lib.rs", "tools/rust/check.ts", "rust-toolchain.toml", "src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/math/portable.ts", ".github/workflows/ci.yml"]) {
+    // (the app's settle, which the native Rust settle is checked against, wraps the Rust too)
+    for (const f of ["rust/water/src/lib.rs", "tools/rust/check.ts", "rust-toolchain.toml", "src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/sim/water.ts", "src/core/sim/prefill.ts", "src/core/sim/fed.ts", "src/core/math/portable.ts", ".github/workflows/ci.yml"]) {
       expect(isRustInput(f), f).toBe(true);
       expect(classify([f], none), f).toEqual(all);
     }
-    expect(isRustInput("src/core/sim/water.ts")).toBe(false);
+    expect(isRustInput("src/core/sim/preview.ts")).toBe(false);
     // (the forces' Wasm and what wraps it, and the maps their byte fixtures stand on)
     for (const f of ["src/core/forces/rust/bridge.ts", "src/core/forces/rust/forcesWasm.ts", "tests/contract/forceFixtures.ts", "tools/rust/forces-pins.json"]) expect(isRustInput(f), f).toBe(true);
     expect(isRustInput("src/core/forces/runs.ts")).toBe(false);

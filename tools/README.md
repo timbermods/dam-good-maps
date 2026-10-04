@@ -53,10 +53,10 @@ Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's 
 has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
 tools (D401), run by `tests/unit/portable.test.ts`.
 
-The Rust water (wired, not switched on until M9b is on dev): `npx tsx tools/rust/build.ts [--native] [--check]`
-rebuilds its committed Wasm (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts`
-runs a process's canonical settles natively (`tools/batch.ts --native`); `npx tsx tools/rust/water-identity.ts`
-compares the Rust water with the app's water, three ways (the adoption's identity run).
+The Rust water: `npx tsx tools/rust/build.ts [--native] [--check]` rebuilds its committed Wasm
+(`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts` runs a process's canonical
+settles natively (`tools/batch.ts` by default, `--wasm` to opt out); `npx tsx tools/rust/water-identity.ts`
+checks the native settle against the app's, three ways (in CI).
 
 The Rust forces (D381): `tools/rust/build.ts` rebuilds their committed Wasm too (`src/core/forces/rust/forcesWasm.ts`)
 and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixtures (`tools/rust/forces-jobs.ts`)

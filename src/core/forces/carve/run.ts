@@ -231,7 +231,10 @@ export class CarveRun {
   liveWater(): WarmState {
     const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
     const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
-    return warmState(model, sim);
+    const state = warmState(model, sim);
+    // (its arrays are copied: the Rust simulation is done)
+    sim.dispose();
+    return state;
   }
 
   /** The source it keeps, as it stands now (null for a dry canyon). */

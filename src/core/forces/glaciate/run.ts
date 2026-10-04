@@ -150,7 +150,6 @@ export class GlaciateRun extends Staged implements StagedRun {
     const total = ADVANCE_STEPS + RETREAT_STEPS;
     if (stage >= total) {
       this.map = snapshotMap(p.map);
-      this.sim = null;
       return;
     }
     const b = this.before;
@@ -177,7 +176,6 @@ export class GlaciateRun extends Staged implements StagedRun {
     const ids = new Set(m.entities.map((e) => e.id));
     m.fallen = f.fallen.filter((g) => ids.has(g.id));
     this.map = m;
-    this.sim = null;
   }
 
   cue(): ForceCue {

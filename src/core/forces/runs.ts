@@ -130,7 +130,6 @@ export abstract class Staged {
   private settled = false;
   /** Steps of its approach shown (the impactor falling, the ground stirring), once planned. */
   protected approached = 0;
-  protected sim: WaterSim | null = null;
   protected ended = false;
   steps = 0;
   /** The build's last touches on the planned map (`planForce` sets it: start.ts `buildTouches`). */
@@ -206,8 +205,12 @@ export abstract class Staged {
   }
 
   liveWater(): WarmState {
-    if (!this.sim) this.sim = new WaterSim(modelOf(this.map), this.map.water);
-    return warmState(modelOf(this.map), this.sim);
+    const model = modelOf(this.map);
+    const sim = new WaterSim(model, this.map.water);
+    const state = warmState(model, sim);
+    // (its arrays are copied: the Rust simulation is done)
+    sim.dispose();
+    return state;
   }
 }
 
@@ -252,7 +255,6 @@ export class CraterRun extends Staged implements StagedRun {
       trimRock(m);
     }
     this.map = m;
-    this.sim = null;
   }
 
   cue(): ForceCue {
@@ -303,7 +305,6 @@ export class EruptRun extends Staged implements StagedRun {
     const t = stage / this.stages;
     if (stage >= this.stages) {
       this.map = snapshotMap(this.plan0.map);
-      this.sim = null;
       return;
     }
     const m = stageMap(this.before, this.plan0.map, t);
@@ -323,7 +324,6 @@ export class EruptRun extends Staged implements StagedRun {
     m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
     m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
-    this.sim = null;
   }
 
   /** The eruption's heat on the land (from the prototype's view): red, vents; green, flows' cracks;
@@ -398,7 +398,6 @@ export class QuakeRun extends Staged implements StagedRun {
     const m = snapshotMap(this.plan0.map);
     m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
     this.map = m;
-    this.sim = null;
     this.stage = this.stages;
   }
 
@@ -424,7 +423,6 @@ export class QuakeRun extends Staged implements StagedRun {
       // (the water as it was, until the land is final)
       m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
       this.map = m;
-      this.sim = null;
       return;
     }
     // Slide: every moving tile a share of its travel along (whole tiles), the block together
@@ -471,7 +469,6 @@ export class QuakeRun extends Staged implements StagedRun {
       m.water = { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
     } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
-    this.sim = null;
   }
 
   /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came

@@ -88,6 +88,16 @@ pub unsafe extern "C" fn water_saturation(s: *mut Sim, p: *mut u8) {
     core::ptr::copy_nonoverlapping(sat.as_ptr(), p, sat.len());
 }
 
+/// The simulation's bookkeeping against the same rebuilt from its water (`Sim::books_check`; for the tests):
+/// 0 when they agree. Returned as a float, exact below 2⁵³.
+///
+/// # Safety
+/// `s` must come from `water_new`.
+#[no_mangle]
+pub unsafe extern "C" fn water_books(s: *mut Sim) -> f64 {
+    (*s).books_check() as f64
+}
+
 /// The whole canonical settle after its pre-fill (`protocol::decode_canonical`): returns the encoded result,
 /// whose length is written at `out_len`; free it with `water_dealloc`.
 ///
