@@ -1,0 +1,5041 @@
+{
+  "base": "e292cefe30469033a922650f0455f87297c051d5",
+  "reference": "0b84b96e90d6f267d09bd93ec3e492e4b77e13614fbd2ea47134c7a72d63b15f",
+  "oldBaseline": "b01f113c, six-day cap normalized to e292cefe",
+  "machine": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "logicalCores": 16,
+    "platform": "win32",
+    "arch": "x64",
+    "memoryBytes": 66146570240,
+    "loadSource": "Windows PDH Processor(_Total) % Processor Time"
+  },
+  "identity": {
+    "cases": 1952,
+    "captures": 39529,
+    "commands": 85582,
+    "caseManifest": "1a0ffcf713a3f3147c5878a72bbd75668bd84bb0959f7c8f0508d76aac92cc85",
+    "browsers": [
+      {
+        "engine": "chromium",
+        "cases": 1952
+      },
+      {
+        "engine": "firefox",
+        "cases": 1952
+      },
+      {
+        "engine": "webkit",
+        "cases": 1952
+      }
+    ],
+    "native": "every output re-compared byte for byte",
+    "golden": {
+      "status": "pass",
+      "checks": 38,
+      "source": "f311912101306328b0d0d71c4b8e629150ca43b10ce4e8fb4054ab7fdcc5250f"
+    },
+    "smokeChecks": 33400,
+    "fallback": "pass",
+    "python": {
+      "status": 0,
+      "log": "24e2a45f67da4c66c4350fec5c4902d6dd607f622a68b77da97264cf45baaf09",
+      "summary": "PASS: 63 maps (21 seeds × 3 sizes; themes any, riverValley, canyon, highlands, lakeBasin, delta, islands), 0 generation failures, 0 load failures, 0 round-trip failures; parity on 22 generated and 19 official maps, 0 disagreements"
+    },
+    "generatorRefusals": [
+      "m9b-any-96-31",
+      "m9b-islands-96-4"
+    ],
+    "threadedGoldenCheckpoints": 21600,
+    "browserSmoke": [
+      {
+        "engine": "chromium",
+        "checks": 23400,
+        "lifecycleChecks": 257
+      },
+      {
+        "engine": "firefox",
+        "checks": 23400,
+        "lifecycleChecks": 257
+      },
+      {
+        "engine": "webkit",
+        "checks": 23400,
+        "lifecycleChecks": 257
+      }
+    ],
+    "browserFingerprint": "9e8f820394cba6cd8a7d3f24da93b50d9b588068a72e5204a62be3f55a0fab6b",
+    "threadedCanonicalCasesPerEngine": 36
+  },
+  "wasm": {
+    "sha256": "711b5e621e2b285c2357f86424f17efc16bae485fd600b11920d7e2b6be8d1aa",
+    "bytes": 61231,
+    "gzip": 24392,
+    "brotli": 20481
+  },
+  "sharedWasm": {
+    "sha256": "a3abe9eb5ef1af913e87c3e817f4781fc114061e25951e4b82dd1a138a21e7e5",
+    "bytes": 5056,
+    "gzip": 1878,
+    "brotli": 1707
+  },
+  "nativeBinary": {
+    "sha256": "b94d309b473986efc66bda73b9e797a8ea2528d47f2aa01ceca67ecd5acc3f87",
+    "bytes": 440832,
+    "gzip": 209115,
+    "brotli": 175413
+  },
+  "sharedProvenance": {
+    "study": "68d68313",
+    "source": "386f6ffbcf9a3c9b8114801a4abdd56bf593566acdcd36b020407de425e9029b",
+    "mathMethod": "extract Rust flow/depth/dam expressions verbatim; integer topology access and exact ceil intrinsic replaced",
+    "runtime": "d597674ad96c1d70bb18c9f3566b870569158e54d53b7e3a8d740916556a15d7",
+    "helper": "8480cab3fb4477398011ecc794416c3c904064ef96b83935d9ceb19c93a2346c"
+  },
+  "ir": {
+    "status": "pass",
+    "rows": [
+      {
+        "name": "target/wasm32-unknown-unknown/release/deps/rust_water.ll",
+        "sha256": "bb92892dacc0cff8bd97a50c31adc0ff343342cafdbbc04f381e77da791ce59d"
+      },
+      {
+        "name": "target/release/deps/rust_water.ll",
+        "sha256": "092d4106c3856d710ffced244ff3f4626e3a1ad7cc495dcd0536ee4a99e29224"
+      },
+      {
+        "name": "shared-water.ll",
+        "sha256": "88a01c31e255a95ba4d45701981d9f100aca94be7dfb1aa02a719b0cf7456f79"
+      }
+    ]
+  },
+  "curve": {
+    "hashes": [
+      {
+        "engine": "chromium",
+        "native12": "c3cc30b6c1caa17d1c19e19deebb37665cd225c5157a4c2a7664a3d76b7987b9",
+        "native1": "28df0c3d8db57f97da058b76163797422e2423b8a50c2599d07f545a1d9fb88b",
+        "portable12": "08e0b7c925ca67589bf8fe297181fc9bc1994189fd31c7e9ded28c5bdf81b9e0",
+        "portable1": "7925b325c3d55b5d4f38cf9a33ceb3fbddb3dd28454006ab066f3ea154ba4eac"
+      },
+      {
+        "engine": "firefox",
+        "native12": "c3cc30b6c1caa17d1c19e19deebb37665cd225c5157a4c2a7664a3d76b7987b9",
+        "native1": "28df0c3d8db57f97da058b76163797422e2423b8a50c2599d07f545a1d9fb88b",
+        "portable12": "08e0b7c925ca67589bf8fe297181fc9bc1994189fd31c7e9ded28c5bdf81b9e0",
+        "portable1": "7925b325c3d55b5d4f38cf9a33ceb3fbddb3dd28454006ab066f3ea154ba4eac"
+      },
+      {
+        "engine": "webkit",
+        "native12": "c3cc30b6c1caa17d1c19e19deebb37665cd225c5157a4c2a7664a3d76b7987b9",
+        "native1": "d2ebf6be8c70bcb3bedb209f199c3db9ebee2ed15bfe9188984967de427f0783",
+        "portable12": "08e0b7c925ca67589bf8fe297181fc9bc1994189fd31c7e9ded28c5bdf81b9e0",
+        "portable1": "7925b325c3d55b5d4f38cf9a33ceb3fbddb3dd28454006ab066f3ea154ba4eac"
+      }
+    ],
+    "comparisons": [
+      {
+        "a": "chromium",
+        "b": "firefox",
+        "math": "native12",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "firefox",
+        "math": "native1",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "firefox",
+        "math": "portable12",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "firefox",
+        "math": "portable1",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "webkit",
+        "math": "native12",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "webkit",
+        "math": "native1",
+        "mismatches": 11
+      },
+      {
+        "a": "chromium",
+        "b": "webkit",
+        "math": "portable12",
+        "mismatches": 0
+      },
+      {
+        "a": "chromium",
+        "b": "webkit",
+        "math": "portable1",
+        "mismatches": 0
+      },
+      {
+        "a": "firefox",
+        "b": "webkit",
+        "math": "native12",
+        "mismatches": 0
+      },
+      {
+        "a": "firefox",
+        "b": "webkit",
+        "math": "native1",
+        "mismatches": 11
+      },
+      {
+        "a": "firefox",
+        "b": "webkit",
+        "math": "portable12",
+        "mismatches": 0
+      },
+      {
+        "a": "firefox",
+        "b": "webkit",
+        "math": "portable1",
+        "mismatches": 0
+      }
+    ],
+    "portableChanges": [
+      {
+        "engine": "chromium",
+        "twelveTick": 6,
+        "everyTick": 72
+      },
+      {
+        "engine": "firefox",
+        "twelveTick": 6,
+        "everyTick": 72
+      },
+      {
+        "engine": "webkit",
+        "twelveTick": 6,
+        "everyTick": 72
+      }
+    ]
+  },
+  "scalar": [
+    {
+      "target": "native",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            6321.8910000000005,
+            6148.159799999999,
+            7017.438100000003
+          ],
+          "median": 6321.8910000000005,
+          "worst": 7017.438100000003
+        },
+        "fast": {
+          "samples": [
+            5848.594400000002,
+            3627.5982000000004,
+            4523.636399999996
+          ],
+          "median": 4523.636399999996,
+          "worst": 5848.594400000002
+        },
+        "native": {
+          "samples": [
+            2718.7546,
+            3378.3341,
+            2930.7767
+          ],
+          "median": 2930.7767,
+          "worst": 3378.3341
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 33
+      },
+      "speedup": {
+        "old": 2.1570701718762813,
+        "fast": 1.5434940505702792
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            40885.902400000006,
+            42710.6888,
+            39641.605899999995
+          ],
+          "median": 40885.902400000006,
+          "worst": 42710.6888
+        },
+        "fast": {
+          "samples": [
+            27202.625699999975,
+            25164.32270000002,
+            24718.14439999999
+          ],
+          "median": 25164.32270000002,
+          "worst": 27202.625699999975
+        },
+        "native": {
+          "samples": [
+            16621.587300000003,
+            13176.052,
+            15856.513400000002
+          ],
+          "median": 15856.513400000002,
+          "worst": 16621.587300000003
+        }
+      },
+      "load": {
+        "mean": 99.99934982867336,
+        "max": 100,
+        "samples": 218
+      },
+      "speedup": {
+        "old": 2.5784925959826706,
+        "fast": 1.5870022662106802
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            5441.398300000001,
+            5048.042100000021,
+            4540.324800000002
+          ],
+          "median": 5048.042100000021,
+          "worst": 5441.398300000001
+        },
+        "fast": {
+          "samples": [
+            3476.237199999974,
+            3484.2714999999735,
+            3822.4785000000265
+          ],
+          "median": 3484.2714999999735,
+          "worst": 3822.4785000000265
+        },
+        "native": {
+          "samples": [
+            1103.0758999999998,
+            1518.4573,
+            5520.614799999999
+          ],
+          "median": 1518.4573,
+          "worst": 5520.614799999999
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 29
+      },
+      "speedup": {
+        "old": 3.324454431481228,
+        "fast": 2.294612762571574
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            2071.2018999999855,
+            4350.707599999965,
+            2164.1371999999974
+          ],
+          "median": 2164.1371999999974,
+          "worst": 4350.707599999965
+        },
+        "fast": {
+          "samples": [
+            693.5344000000041,
+            1473.913600000029,
+            987.4954000000143
+          ],
+          "median": 987.4954000000143,
+          "worst": 1473.913600000029
+        },
+        "native": {
+          "samples": [
+            262.1264,
+            317.9934,
+            236.9547
+          ],
+          "median": 262.1264,
+          "worst": 317.9934
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 9
+      },
+      "speedup": {
+        "old": 8.256082561695417,
+        "fast": 3.7672489302871224
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            6494.653499999957,
+            5742.038599999971,
+            6731.563599999994
+          ],
+          "median": 6494.653499999957,
+          "worst": 6731.563599999994
+        },
+        "fast": {
+          "samples": [
+            7712.410800000012,
+            4907.064399999974,
+            4625.224400000006
+          ],
+          "median": 4907.064399999974,
+          "worst": 7712.410800000012
+        },
+        "native": {
+          "samples": [
+            2139.3593,
+            2405.0705,
+            2587.9966
+          ],
+          "median": 2405.0705,
+          "worst": 2587.9966
+        }
+      },
+      "load": {
+        "mean": 99.99784884003111,
+        "max": 100,
+        "samples": 44
+      },
+      "speedup": {
+        "old": 2.7004004664312156,
+        "fast": 2.040299608680899
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            839.6720000000205,
+            1902.484199999948,
+            3010.356299999985
+          ],
+          "median": 1902.484199999948,
+          "worst": 3010.356299999985
+        },
+        "fast": {
+          "samples": [
+            511.7472999999882,
+            755.4413000000059,
+            762.4569999999949
+          ],
+          "median": 755.4413000000059,
+          "worst": 762.4569999999949
+        },
+        "native": {
+          "samples": [
+            263.46320000000003,
+            323.09310000000005,
+            308.1569
+          ],
+          "median": 308.1569,
+          "worst": 323.09310000000005
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3
+      },
+      "speedup": {
+        "old": 6.173751747891895,
+        "fast": 2.451482670029475
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            1537.7352000000537,
+            2537.1823999999906,
+            1257.8387999999686
+          ],
+          "median": 1537.7352000000537,
+          "worst": 2537.1823999999906
+        },
+        "fast": {
+          "samples": [
+            696.8009999999776,
+            2670.8897999999463,
+            786.2752999999793
+          ],
+          "median": 786.2752999999793,
+          "worst": 2670.8897999999463
+        },
+        "native": {
+          "samples": [
+            457.36199999999997,
+            780.2283,
+            374.3849
+          ],
+          "median": 457.36199999999997,
+          "worst": 780.2283
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 9
+      },
+      "speedup": {
+        "old": 3.3621840030436587,
+        "fast": 1.7191530997327704
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            8211.403799999971,
+            8120.342799999984,
+            6970.55819999997
+          ],
+          "median": 8120.342799999984,
+          "worst": 8211.403799999971
+        },
+        "fast": {
+          "samples": [
+            8852.841600000043,
+            5059.7679000000935,
+            9827.975600000005
+          ],
+          "median": 8852.841600000043,
+          "worst": 9827.975600000005
+        },
+        "native": {
+          "samples": [
+            3773.3956,
+            5015.822700000001,
+            3409.8872
+          ],
+          "median": 3773.3956,
+          "worst": 5015.822700000001
+        }
+      },
+      "load": {
+        "mean": 99.99859955087713,
+        "max": 100,
+        "samples": 46
+      },
+      "speedup": {
+        "old": 2.1519987991717553,
+        "fast": 2.3461207194920255
+      }
+    },
+    {
+      "target": "native",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            452.1451999999117,
+            557.4600000000792,
+            1656.15550000011
+          ],
+          "median": 557.4600000000792,
+          "worst": 1656.15550000011
+        },
+        "fast": {
+          "samples": [
+            490.4206000000704,
+            395.1341000000248,
+            767.126099999994
+          ],
+          "median": 490.4206000000704,
+          "worst": 767.126099999994
+        },
+        "native": {
+          "samples": [
+            187.335,
+            217.2664,
+            203.96800000000002
+          ],
+          "median": 203.96800000000002,
+          "worst": 217.2664
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3
+      },
+      "speedup": {
+        "old": 2.7330757765927944,
+        "fast": 2.4043997097587386
+      }
+    },
+    {
+      "target": "native",
+      "id": "stress-islands-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            150007.28669999994,
+            145459.5541999999,
+            133442.22479999997
+          ],
+          "median": 145459.5541999999,
+          "worst": 150007.28669999994
+        },
+        "fast": {
+          "samples": [
+            92206.21230000001,
+            83728.70760000008,
+            75957.18109999993
+          ],
+          "median": 83728.70760000008,
+          "worst": 92206.21230000001
+        },
+        "native": {
+          "samples": [
+            48165.92,
+            43346.133700000006,
+            112275.4858
+          ],
+          "median": 48165.92,
+          "worst": 112275.4858
+        }
+      },
+      "load": {
+        "mean": 99.78672912970679,
+        "max": 100,
+        "samples": 711
+      },
+      "speedup": {
+        "old": 3.0199683552187917,
+        "fast": 1.7383392157774644
+      }
+    },
+    {
+      "target": "native",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            200317.23680000007,
+            177503.3119000001,
+            124953.94530000025
+          ],
+          "median": 177503.3119000001,
+          "worst": 200317.23680000007
+        },
+        "fast": {
+          "samples": [
+            155678.4978,
+            148990.9935999997,
+            181150.08609999996
+          ],
+          "median": 155678.4978,
+          "worst": 181150.08609999996
+        },
+        "native": {
+          "samples": [
+            144536.4364,
+            95537.6796,
+            163677.89049999998
+          ],
+          "median": 144536.4364,
+          "worst": 163677.89049999998
+        }
+      },
+      "load": {
+        "mean": 99.99965606179633,
+        "max": 100,
+        "samples": 1131
+      },
+      "speedup": {
+        "old": 1.228086953858232,
+        "fast": 1.0770882531596717
+      }
+    },
+    {
+      "target": "native",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            153009.6313,
+            48173.487900000066,
+            45138.83850000007
+          ],
+          "median": 48173.487900000066,
+          "worst": 153009.6313
+        },
+        "fast": {
+          "samples": [
+            39884.3909,
+            38924.130200000014,
+            33508.49239999987
+          ],
+          "median": 38924.130200000014,
+          "worst": 39884.3909
+        },
+        "native": {
+          "samples": [
+            21491.5166,
+            19219.065400000003,
+            23965.539
+          ],
+          "median": 21491.5166,
+          "worst": 23965.539
+        }
+      },
+      "load": {
+        "mean": 98.53707756347882,
+        "max": 100,
+        "samples": 620
+      },
+      "speedup": {
+        "old": 2.2415117926112327,
+        "fast": 1.8111392939109758
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            5642.100000023842,
+            5542.800000011921,
+            5643.299999952316
+          ],
+          "median": 5642.100000023842,
+          "worst": 5643.299999952316
+        },
+        "fast": {
+          "samples": [
+            3958.899999976158,
+            4244.600000023842,
+            4445
+          ],
+          "median": 4244.600000023842,
+          "worst": 4445
+        },
+        "rust": {
+          "samples": [
+            2344.5,
+            2459.600000023842,
+            2596.7999999523163
+          ],
+          "median": 2459.600000023842,
+          "worst": 2596.7999999523163
+        }
+      },
+      "load": {
+        "mean": 94.9198466317547,
+        "max": 99.61588709009716,
+        "samples": 48
+      },
+      "speedup": {
+        "old": 2.2939095787807573,
+        "fast": 1.7257277606044468
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            34333.69999998808,
+            34129.89999997616,
+            32794.19999998808
+          ],
+          "median": 34129.89999997616,
+          "worst": 34333.69999998808
+        },
+        "fast": {
+          "samples": [
+            21568,
+            22068,
+            23720.299999952316
+          ],
+          "median": 22068,
+          "worst": 23720.299999952316
+        },
+        "rust": {
+          "samples": [
+            12363.5,
+            13219.600000023842,
+            14168.600000023842
+          ],
+          "median": 13219.600000023842,
+          "worst": 14168.600000023842
+        }
+      },
+      "load": {
+        "mean": 97.83306045281196,
+        "max": 100,
+        "samples": 263
+      },
+      "speedup": {
+        "old": 2.5817649550602595,
+        "fast": 1.6693394656389149
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            4269.600000023842,
+            4465.400000035763,
+            4387.300000011921
+          ],
+          "median": 4387.300000011921,
+          "worst": 4465.400000035763
+        },
+        "fast": {
+          "samples": [
+            3774.199999988079,
+            3895.100000023842,
+            3485
+          ],
+          "median": 3774.199999988079,
+          "worst": 3895.100000023842
+        },
+        "rust": {
+          "samples": [
+            2220.5,
+            2123.199999988079,
+            2140.399999976158
+          ],
+          "median": 2140.399999976158,
+          "worst": 2220.5
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 35
+      },
+      "speedup": {
+        "old": 2.049757054784522,
+        "fast": 1.7633152681882451
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            1099.5999999642372,
+            1056.1000000238419,
+            908.6000000238419
+          ],
+          "median": 1056.1000000238419,
+          "worst": 1099.5999999642372
+        },
+        "fast": {
+          "samples": [
+            991.8000000119209,
+            812.9000000357628,
+            1209.5999999642372
+          ],
+          "median": 991.8000000119209,
+          "worst": 1209.5999999642372
+        },
+        "rust": {
+          "samples": [
+            576.3999999761581,
+            631.1999999880791,
+            762.2999999523163
+          ],
+          "median": 631.1999999880791,
+          "worst": 762.2999999523163
+        }
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 9
+      },
+      "speedup": {
+        "old": 1.6731622307411083,
+        "fast": 1.571292775713961
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            6108.400000035763,
+            4627.900000035763,
+            4813
+          ],
+          "median": 4813,
+          "worst": 6108.400000035763
+        },
+        "fast": {
+          "samples": [
+            3805.099999964237,
+            3470.699999988079,
+            3682
+          ],
+          "median": 3682,
+          "worst": 3805.099999964237
+        },
+        "rust": {
+          "samples": [
+            2191.5,
+            2139.100000023842,
+            2111.599999964237
+          ],
+          "median": 2139.100000023842,
+          "worst": 2191.5
+        }
+      },
+      "load": {
+        "mean": 92.13090648718266,
+        "max": 100,
+        "samples": 44
+      },
+      "speedup": {
+        "old": 2.2500116871330724,
+        "fast": 1.7212846524047316
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            797,
+            788,
+            692.3000000119209
+          ],
+          "median": 788,
+          "worst": 797
+        },
+        "fast": {
+          "samples": [
+            563.5999999642372,
+            567.5,
+            457.4000000357628
+          ],
+          "median": 563.5999999642372,
+          "worst": 567.5
+        },
+        "rust": {
+          "samples": [
+            318.2000000476837,
+            320.19999998807907,
+            292.30000001192093
+          ],
+          "median": 318.2000000476837,
+          "worst": 320.19999998807907
+        }
+      },
+      "load": {
+        "mean": 85.99956201760547,
+        "max": 96.00447422247711,
+        "samples": 7
+      },
+      "speedup": {
+        "old": 2.4764299179192792,
+        "fast": 1.7712130731608398
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            1014.3000000119209,
+            1013.0999999642372,
+            987.8000000119209
+          ],
+          "median": 1013.0999999642372,
+          "worst": 1014.3000000119209
+        },
+        "fast": {
+          "samples": [
+            730.5,
+            855.1000000238419,
+            731.9000000357628
+          ],
+          "median": 731.9000000357628,
+          "worst": 855.1000000238419
+        },
+        "rust": {
+          "samples": [
+            448.19999998807907,
+            495.19999998807907,
+            463.69999998807907
+          ],
+          "median": 463.69999998807907,
+          "worst": 495.19999998807907
+        }
+      },
+      "load": {
+        "mean": 86.69956844167018,
+        "max": 95.7620644272489,
+        "samples": 9
+      },
+      "speedup": {
+        "old": 2.184817770089028,
+        "fast": 1.57839120132538
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            6246.199999988079,
+            6023.899999976158,
+            5925.300000011921
+          ],
+          "median": 6023.899999976158,
+          "worst": 6246.199999988079
+        },
+        "fast": {
+          "samples": [
+            4629.200000047684,
+            4500.700000047684,
+            4682.199999988079
+          ],
+          "median": 4629.200000047684,
+          "worst": 4682.199999988079
+        },
+        "rust": {
+          "samples": [
+            2930.100000023842,
+            2898.599999964237,
+            2711.199999988079
+          ],
+          "median": 2898.599999964237,
+          "worst": 2930.100000023842
+        }
+      },
+      "load": {
+        "mean": 87.13137800052957,
+        "max": 96.14591694124182,
+        "samples": 53
+      },
+      "speedup": {
+        "old": 2.0782101704445184,
+        "fast": 1.5970468502397015
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            532.8000000119209,
+            546.1999999880791,
+            532.6999999880791
+          ],
+          "median": 532.8000000119209,
+          "worst": 546.1999999880791
+        },
+        "fast": {
+          "samples": [
+            401,
+            403.19999998807907,
+            403.69999998807907
+          ],
+          "median": 403.19999998807907,
+          "worst": 403.69999998807907
+        },
+        "rust": {
+          "samples": [
+            228.0999999642372,
+            226.5,
+            242.5999999642372
+          ],
+          "median": 228.0999999642372,
+          "worst": 242.5999999642372
+        }
+      },
+      "load": {
+        "mean": 84.66702977944344,
+        "max": 86.80089425867659,
+        "samples": 4
+      },
+      "speedup": {
+        "old": 2.335817624267673,
+        "fast": 1.7676457696242658
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-islands-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            124742.60000002384,
+            122300.10000002384,
+            104827.89999997616
+          ],
+          "median": 122300.10000002384,
+          "worst": 124742.60000002384
+        },
+        "fast": {
+          "samples": [
+            77675.10000002384,
+            87560,
+            78084.59999996424
+          ],
+          "median": 78084.59999996424,
+          "worst": 87560
+        },
+        "rust": {
+          "samples": [
+            67732.69999998808,
+            65259,
+            65981.59999996424
+          ],
+          "median": 65981.59999996424,
+          "worst": 67732.69999998808
+        }
+      },
+      "load": {
+        "mean": 89.10717328533475,
+        "max": 100,
+        "samples": 1047
+      },
+      "speedup": {
+        "old": 1.853548565055866,
+        "fast": 1.1834299259188403
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            63685.19999998808,
+            37416.60000002384,
+            45087
+          ],
+          "median": 45087,
+          "worst": 63685.19999998808
+        },
+        "fast": {
+          "samples": [
+            38964.59999996424,
+            38615.69999998808,
+            30166.799999952316
+          ],
+          "median": 38615.69999998808,
+          "worst": 38964.59999996424
+        },
+        "rust": {
+          "samples": [
+            24131.299999952316,
+            24282.600000023842,
+            18854.30000001192
+          ],
+          "median": 24131.299999952316,
+          "worst": 24282.600000023842
+        }
+      },
+      "load": {
+        "mean": 94.34782422378991,
+        "max": 100,
+        "samples": 426
+      },
+      "speedup": {
+        "old": 1.868403277075379,
+        "fast": 1.6002328925530072
+      }
+    },
+    {
+      "target": "chromium",
+      "version": "145.0.7632.6",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            53461.59999996424,
+            49234.59999996424,
+            51068.39999997616
+          ],
+          "median": 51068.39999997616,
+          "worst": 53461.59999996424
+        },
+        "fast": {
+          "samples": [
+            38352.799999952316,
+            37767.30000001192,
+            41561.40000003576
+          ],
+          "median": 38352.799999952316,
+          "worst": 41561.40000003576
+        },
+        "rust": {
+          "samples": [
+            20446.19999998808,
+            20446.30000001192,
+            23918
+          ],
+          "median": 20446.30000001192,
+          "worst": 23918
+        }
+      },
+      "load": {
+        "mean": 90.97310054314099,
+        "max": 100,
+        "samples": 433
+      },
+      "speedup": {
+        "old": 2.497684177574739,
+        "fast": 1.8757819263108706
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            6370,
+            5864,
+            5748
+          ],
+          "median": 5864,
+          "worst": 6370
+        },
+        "fast": {
+          "samples": [
+            3964,
+            4180,
+            4249
+          ],
+          "median": 4180,
+          "worst": 4249
+        },
+        "rust": {
+          "samples": [
+            18114,
+            17882,
+            17860
+          ],
+          "median": 17882,
+          "worst": 18114
+        }
+      },
+      "load": {
+        "mean": 86.50195022857046,
+        "max": 98.92776042649227,
+        "samples": 111
+      },
+      "speedup": {
+        "old": 0.3279275248853596,
+        "fast": 0.23375461357789956
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            31094,
+            42176,
+            39176
+          ],
+          "median": 39176,
+          "worst": 42176
+        },
+        "fast": {
+          "samples": [
+            19380,
+            26676,
+            25708
+          ],
+          "median": 25708,
+          "worst": 26676
+        },
+        "rust": {
+          "samples": [
+            104757,
+            114667,
+            109718
+          ],
+          "median": 109718,
+          "worst": 114667
+        }
+      },
+      "load": {
+        "mean": 93.04523539745573,
+        "max": 100,
+        "samples": 647
+      },
+      "speedup": {
+        "old": 0.3570608286698627,
+        "fast": 0.23430977597112598
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            6107,
+            4141,
+            4457
+          ],
+          "median": 4457,
+          "worst": 6107
+        },
+        "fast": {
+          "samples": [
+            4597,
+            2661,
+            2780
+          ],
+          "median": 2780,
+          "worst": 4597
+        },
+        "rust": {
+          "samples": [
+            12296,
+            12148,
+            13413
+          ],
+          "median": 12296,
+          "worst": 13413
+        }
+      },
+      "load": {
+        "mean": 95.29976108615526,
+        "max": 100,
+        "samples": 82
+      },
+      "speedup": {
+        "old": 0.36247560182173066,
+        "fast": 0.22608978529603124
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            1128,
+            1044,
+            1041
+          ],
+          "median": 1044,
+          "worst": 1128
+        },
+        "fast": {
+          "samples": [
+            831,
+            765,
+            736
+          ],
+          "median": 765,
+          "worst": 831
+        },
+        "rust": {
+          "samples": [
+            3271,
+            2981,
+            3028
+          ],
+          "median": 3028,
+          "worst": 3271
+        }
+      },
+      "load": {
+        "mean": 98.03160622044533,
+        "max": 100,
+        "samples": 19
+      },
+      "speedup": {
+        "old": 0.34478203434610305,
+        "fast": 0.25264200792602376
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            7614,
+            8275,
+            7851
+          ],
+          "median": 7851,
+          "worst": 8275
+        },
+        "fast": {
+          "samples": [
+            5056,
+            4852,
+            4825
+          ],
+          "median": 4852,
+          "worst": 5056
+        },
+        "rust": {
+          "samples": [
+            22573,
+            20725,
+            20296
+          ],
+          "median": 20725,
+          "worst": 22573
+        }
+      },
+      "load": {
+        "mean": 98.82884184382361,
+        "max": 100,
+        "samples": 128
+      },
+      "speedup": {
+        "old": 0.3788178528347407,
+        "fast": 0.2341133896260555
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            1350,
+            1095,
+            1172
+          ],
+          "median": 1172,
+          "worst": 1350
+        },
+        "fast": {
+          "samples": [
+            751,
+            821,
+            797
+          ],
+          "median": 797,
+          "worst": 821
+        },
+        "rust": {
+          "samples": [
+            3038,
+            3249,
+            3070
+          ],
+          "median": 3070,
+          "worst": 3249
+        }
+      },
+      "load": {
+        "mean": 99.99497050553758,
+        "max": 100,
+        "samples": 19
+      },
+      "speedup": {
+        "old": 0.3817589576547231,
+        "fast": 0.25960912052117263
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            1455,
+            1636,
+            1633
+          ],
+          "median": 1633,
+          "worst": 1636
+        },
+        "fast": {
+          "samples": [
+            1108,
+            1138,
+            1735
+          ],
+          "median": 1138,
+          "worst": 1735
+        },
+        "rust": {
+          "samples": [
+            5956,
+            4939,
+            5620
+          ],
+          "median": 5620,
+          "worst": 5956
+        }
+      },
+      "load": {
+        "mean": 99.94418818081661,
+        "max": 100,
+        "samples": 31
+      },
+      "speedup": {
+        "old": 0.2905693950177936,
+        "fast": 0.20249110320284697
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            8217,
+            6813,
+            7567
+          ],
+          "median": 7567,
+          "worst": 8217
+        },
+        "fast": {
+          "samples": [
+            6455,
+            4511,
+            5101
+          ],
+          "median": 5101,
+          "worst": 6455
+        },
+        "rust": {
+          "samples": [
+            20818,
+            23749,
+            21026
+          ],
+          "median": 21026,
+          "worst": 23749
+        }
+      },
+      "load": {
+        "mean": 93.82209533618675,
+        "max": 100,
+        "samples": 139
+      },
+      "speedup": {
+        "old": 0.35988775801388756,
+        "fast": 0.24260439455911728
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            594,
+            942,
+            1164
+          ],
+          "median": 942,
+          "worst": 1164
+        },
+        "fast": {
+          "samples": [
+            581,
+            536,
+            761
+          ],
+          "median": 581,
+          "worst": 761
+        },
+        "rust": {
+          "samples": [
+            2314,
+            2396,
+            2466
+          ],
+          "median": 2396,
+          "worst": 2466
+        }
+      },
+      "load": {
+        "mean": 94.76774948447198,
+        "max": 99.80881324820135,
+        "samples": 14
+      },
+      "speedup": {
+        "old": 0.39315525876460766,
+        "fast": 0.24248747913188648
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "stress-islands-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            119893,
+            148677,
+            139751
+          ],
+          "median": 139751,
+          "worst": 148677
+        },
+        "fast": {
+          "samples": [
+            62008,
+            99508,
+            93801
+          ],
+          "median": 93801,
+          "worst": 99508
+        },
+        "rust": {
+          "samples": [
+            321519,
+            451422,
+            387313
+          ],
+          "median": 387313,
+          "worst": 451422
+        }
+      },
+      "load": {
+        "mean": 82.71417843569903,
+        "max": 100,
+        "samples": 2435
+      },
+      "speedup": {
+        "old": 0.3608218675851314,
+        "fast": 0.24218397007071799
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            54485,
+            51370,
+            51441
+          ],
+          "median": 51441,
+          "worst": 54485
+        },
+        "fast": {
+          "samples": [
+            33090,
+            29863,
+            31302
+          ],
+          "median": 31302,
+          "worst": 33090
+        },
+        "rust": {
+          "samples": [
+            132813,
+            133376,
+            133080
+          ],
+          "median": 133080,
+          "worst": 133376
+        }
+      },
+      "load": {
+        "mean": 84.17433696756217,
+        "max": 99.90263431752938,
+        "samples": 874
+      },
+      "speedup": {
+        "old": 0.3865419296663661,
+        "fast": 0.23521190261496844
+      }
+    },
+    {
+      "target": "firefox",
+      "version": "146.0.1",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            57542,
+            56664,
+            54890
+          ],
+          "median": 56664,
+          "worst": 57542
+        },
+        "fast": {
+          "samples": [
+            38008,
+            35340,
+            37112
+          ],
+          "median": 37112,
+          "worst": 38008
+        },
+        "rust": {
+          "samples": [
+            146709,
+            148555,
+            148119
+          ],
+          "median": 148119,
+          "worst": 148555
+        }
+      },
+      "load": {
+        "mean": 82.36787933186821,
+        "max": 99.52110528288704,
+        "samples": 958
+      },
+      "speedup": {
+        "old": 0.382557268142507,
+        "fast": 0.25055529675463645
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            3970,
+            3919,
+            3970
+          ],
+          "median": 3970,
+          "worst": 3970
+        },
+        "fast": {
+          "samples": [
+            3161,
+            2560,
+            3120
+          ],
+          "median": 3120,
+          "worst": 3161
+        },
+        "rust": {
+          "samples": [
+            4899,
+            4305,
+            4619
+          ],
+          "median": 4619,
+          "worst": 4899
+        }
+      },
+      "load": {
+        "mean": 99.99572366361696,
+        "max": 100,
+        "samples": 44
+      },
+      "speedup": {
+        "old": 0.8594933968391427,
+        "fast": 0.6754708811431046
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            30231.00000000093,
+            23863.00000000093,
+            21662.00000000093
+          ],
+          "median": 23863.00000000093,
+          "worst": 30231.00000000093
+        },
+        "fast": {
+          "samples": [
+            19776,
+            14533.000000000931,
+            14681.000000000931
+          ],
+          "median": 14681.000000000931,
+          "worst": 19776
+        },
+        "rust": {
+          "samples": [
+            29254,
+            26617.99999999907,
+            20946
+          ],
+          "median": 26617.99999999907,
+          "worst": 29254
+        }
+      },
+      "load": {
+        "mean": 99.84857323281948,
+        "max": 100,
+        "samples": 242
+      },
+      "speedup": {
+        "old": 0.8964986099632491,
+        "fast": 0.5515440679240156
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            2298.9999999990687,
+            2272.9999999990687,
+            2126
+          ],
+          "median": 2272.9999999990687,
+          "worst": 2298.9999999990687
+        },
+        "fast": {
+          "samples": [
+            1511.0000000009313,
+            1486.0000000009313,
+            1486.0000000009313
+          ],
+          "median": 1486.0000000009313,
+          "worst": 1511.0000000009313
+        },
+        "rust": {
+          "samples": [
+            2638.9999999990687,
+            2509,
+            2421.0000000009313
+          ],
+          "median": 2509,
+          "worst": 2638.9999999990687
+        }
+      },
+      "load": {
+        "mean": 97.54843003010987,
+        "max": 99.51878150577267,
+        "samples": 25
+      },
+      "speedup": {
+        "old": 0.9059386209641566,
+        "fast": 0.5922678357915231
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            503.0000000009313,
+            588,
+            524.9999999990687
+          ],
+          "median": 524.9999999990687,
+          "worst": 588
+        },
+        "fast": {
+          "samples": [
+            368.0000000009313,
+            372.00000000186265,
+            339
+          ],
+          "median": 368.0000000009313,
+          "worst": 372.00000000186265
+        },
+        "rust": {
+          "samples": [
+            604.9999999990687,
+            598,
+            599.0000000009313
+          ],
+          "median": 599.0000000009313,
+          "worst": 604.9999999990687
+        }
+      },
+      "load": {
+        "mean": 95.1066157516053,
+        "max": 97.5975874027265,
+        "samples": 6
+      },
+      "speedup": {
+        "old": 0.8764607679436601,
+        "fast": 0.6143572621041055
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            3519.9999999981374,
+            3574.0000000009313,
+            3534
+          ],
+          "median": 3534,
+          "worst": 3574.0000000009313
+        },
+        "fast": {
+          "samples": [
+            2220.9999999990687,
+            2339,
+            2333
+          ],
+          "median": 2333,
+          "worst": 2339
+        },
+        "rust": {
+          "samples": [
+            3542.9999999990687,
+            3638.0000000009313,
+            3701.0000000009313
+          ],
+          "median": 3638.0000000009313,
+          "worst": 3701.0000000009313
+        }
+      },
+      "load": {
+        "mean": 92.82159093415,
+        "max": 97.95169742196813,
+        "samples": 37
+      },
+      "speedup": {
+        "old": 0.9714128642108564,
+        "fast": 0.6412864211103361
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            559,
+            496.9999999990687,
+            516
+          ],
+          "median": 516,
+          "worst": 559
+        },
+        "fast": {
+          "samples": [
+            340,
+            338.00000000186265,
+            356
+          ],
+          "median": 340,
+          "worst": 356
+        },
+        "rust": {
+          "samples": [
+            558.0000000009313,
+            554,
+            544
+          ],
+          "median": 554,
+          "worst": 558.0000000009313
+        }
+      },
+      "load": {
+        "mean": 93.0034851605132,
+        "max": 97.07864520948829,
+        "samples": 6
+      },
+      "speedup": {
+        "old": 0.9314079422382672,
+        "fast": 0.6137184115523465
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "timing": {
+        "old": {
+          "samples": [
+            720.0000000009313,
+            738.0000000018626,
+            697
+          ],
+          "median": 720.0000000009313,
+          "worst": 738.0000000018626
+        },
+        "fast": {
+          "samples": [
+            538.9999999990687,
+            518,
+            449.9999999990687
+          ],
+          "median": 518,
+          "worst": 538.9999999990687
+        },
+        "rust": {
+          "samples": [
+            770,
+            726.9999999990687,
+            983
+          ],
+          "median": 770,
+          "worst": 983
+        }
+      },
+      "load": {
+        "mean": 92.83672357548826,
+        "max": 96.45157631392229,
+        "samples": 8
+      },
+      "speedup": {
+        "old": 0.9350649350661445,
+        "fast": 0.6727272727272727
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "timing": {
+        "old": {
+          "samples": [
+            4254.000000000931,
+            4220.000000000931,
+            4381
+          ],
+          "median": 4254.000000000931,
+          "worst": 4381
+        },
+        "fast": {
+          "samples": [
+            2726,
+            3037,
+            2815
+          ],
+          "median": 2815,
+          "worst": 3037
+        },
+        "rust": {
+          "samples": [
+            4259,
+            4298.999999999069,
+            4708
+          ],
+          "median": 4298.999999999069,
+          "worst": 4708
+        }
+      },
+      "load": {
+        "mean": 92.84542582645196,
+        "max": 99.6150002744859,
+        "samples": 46
+      },
+      "speedup": {
+        "old": 0.9895324494072698,
+        "fast": 0.6548034426612258
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "timing": {
+        "old": {
+          "samples": [
+            350.00000000186265,
+            391.00000000186265,
+            367.99999999813735
+          ],
+          "median": 367.99999999813735,
+          "worst": 391.00000000186265
+        },
+        "fast": {
+          "samples": [
+            254.99999999813735,
+            244,
+            236
+          ],
+          "median": 244,
+          "worst": 254.99999999813735
+        },
+        "rust": {
+          "samples": [
+            399,
+            379,
+            402
+          ],
+          "median": 399,
+          "worst": 402
+        }
+      },
+      "load": {
+        "mean": 93.00351227759872,
+        "max": 95.75841272771335,
+        "samples": 4
+      },
+      "speedup": {
+        "old": 0.9223057644063593,
+        "fast": 0.6115288220551378
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "stress-islands-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            101985,
+            97956,
+            78654
+          ],
+          "median": 97956,
+          "worst": 101985
+        },
+        "fast": {
+          "samples": [
+            63892,
+            49335,
+            50891
+          ],
+          "median": 50891,
+          "worst": 63892
+        },
+        "rust": {
+          "samples": [
+            75412,
+            79184.00000000186,
+            77644.99999999814
+          ],
+          "median": 77644.99999999814,
+          "worst": 79184.00000000186
+        }
+      },
+      "load": {
+        "mean": 94.34786558911874,
+        "max": 100,
+        "samples": 870
+      },
+      "speedup": {
+        "old": 1.2615879966514567,
+        "fast": 0.6554317728121736
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            45020,
+            27514,
+            28627
+          ],
+          "median": 28627,
+          "worst": 45020
+        },
+        "fast": {
+          "samples": [
+            22905,
+            19126,
+            17275
+          ],
+          "median": 19126,
+          "worst": 22905
+        },
+        "rust": {
+          "samples": [
+            37699,
+            37833,
+            29183
+          ],
+          "median": 37699,
+          "worst": 37833
+        }
+      },
+      "load": {
+        "mean": 90.82880222010107,
+        "max": 100,
+        "samples": 320
+      },
+      "speedup": {
+        "old": 0.7593570121223374,
+        "fast": 0.5073344120533702
+      }
+    },
+    {
+      "target": "webkit",
+      "version": "26.0",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "timing": {
+        "old": {
+          "samples": [
+            27896,
+            26530,
+            30525
+          ],
+          "median": 27896,
+          "worst": 30525
+        },
+        "fast": {
+          "samples": [
+            17409.000000001863,
+            16765.000000001863,
+            21405.000000001863
+          ],
+          "median": 17409.000000001863,
+          "worst": 21405.000000001863
+        },
+        "rust": {
+          "samples": [
+            27455,
+            27641,
+            47918
+          ],
+          "median": 27641,
+          "worst": 47918
+        }
+      },
+      "load": {
+        "mean": 82.46595812662198,
+        "max": 100,
+        "samples": 321
+      },
+      "speedup": {
+        "old": 1.0092254259976123,
+        "fast": 0.6298252595782302
+      }
+    }
+  ],
+  "threaded": [
+    {
+      "target": "chromium",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          10291.509999990463,
+          11179.799999952316,
+          10001.375
+        ],
+        "median": 10291.509999990463,
+        "worst": 11179.799999952316
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 13
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          4709.864999949932,
+          5552.834999978542,
+          5452.90499997139
+        ],
+        "median": 5452.90499997139,
+        "worst": 5552.834999978542
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          4724.525000035763,
+          4684.004999995232,
+          4073.6599999666214
+        ],
+        "median": 4684.004999995232,
+        "worst": 4724.525000035763
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          24199.935000002384,
+          23759.19999998808,
+          25275.810000002384
+        ],
+        "median": 24199.935000002384,
+        "worst": 25275.810000002384
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 37
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          16477.264999985695,
+          11376.790000021458,
+          16411.84000003338
+        ],
+        "median": 16411.84000003338,
+        "worst": 16477.264999985695
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 23
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          18701.939999997616,
+          17901.45499998331,
+          17325.569999992847
+        ],
+        "median": 17901.45499998331,
+        "worst": 18701.939999997616
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 28
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          2435.9950000047684,
+          2342.2449999451637,
+          2406.964999973774
+        ],
+        "median": 2406.964999973774,
+        "worst": 2435.9950000047684
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 4
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          3173.5849999785423,
+          3269.389999985695,
+          3206.6650000214577
+        ],
+        "median": 3206.6650000214577,
+        "worst": 3269.389999985695
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 5
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          2729.899999976158,
+          2480.139999985695,
+          2536.5450000166893
+        ],
+        "median": 2536.5450000166893,
+        "worst": 2729.899999976158
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 5
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          731.1000000238419,
+          717.1050000190735,
+          773.125
+        ],
+        "median": 731.1000000238419,
+        "worst": 773.125
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          783.5500000119209,
+          787.0499999523163,
+          829.7300000190735
+        ],
+        "median": 787.0499999523163,
+        "worst": 829.7300000190735
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          1242.8700000047684,
+          1380.8549999594688,
+          1387.5150000452995
+        ],
+        "median": 1380.8549999594688,
+        "worst": 1387.5150000452995
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 16384
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          4561.759999990463,
+          4359.865000009537,
+          4583.27999997139
+        ],
+        "median": 4561.759999990463,
+        "worst": 4583.27999997139
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          3375.035000026226,
+          3332.9950000047684,
+          3366.4300000071526
+        ],
+        "median": 3366.4300000071526,
+        "worst": 3375.035000026226
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          3491.2150000333786,
+          3453.625,
+          3674.310000002384
+        ],
+        "median": 3491.2150000333786,
+        "worst": 3674.310000002384
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 6
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          643.3100000023842,
+          633.2250000238419,
+          599.285000026226
+        ],
+        "median": 633.2250000238419,
+        "worst": 643.3100000023842
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          514.9300000071526,
+          512.1750000119209,
+          538.2150000333786
+        ],
+        "median": 514.9300000071526,
+        "worst": 538.2150000333786
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          551.5500000119209,
+          539.7049999833107,
+          521.8149999976158
+        ],
+        "median": 539.7049999833107,
+        "worst": 551.5500000119209
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 18432
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          703.7350000143051,
+          788.3500000238419,
+          692.5300000309944
+        ],
+        "median": 703.7350000143051,
+        "worst": 788.3500000238419
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          763.3150000572205,
+          839.1000000238419,
+          803.8500000238419
+        ],
+        "median": 803.8500000238419,
+        "worst": 839.1000000238419
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          806.664999961853,
+          801.6499999761581,
+          769.2999999523163
+        ],
+        "median": 801.6499999761581,
+        "worst": 806.664999961853
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 352,
+        "scalarPhases": 22176
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          4811.410000026226,
+          4111.060000002384,
+          4164.219999969006
+        ],
+        "median": 4164.219999969006,
+        "worst": 4811.410000026226
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          3566.564999997616,
+          3627.235000014305,
+          3695.4099999666214
+        ],
+        "median": 3627.235000014305,
+        "worst": 3695.4099999666214
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 6
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          3800.4699999690056,
+          3513.7849999666214,
+          3720.8400000333786
+        ],
+        "median": 3720.8400000333786,
+        "worst": 3800.4699999690056
+      },
+      "load": {
+        "mean": 99.99483072399768,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          933.125,
+          797.2750000357628,
+          747.6750000119209
+        ],
+        "median": 797.2750000357628,
+        "worst": 933.125
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          601.8149999976158,
+          425.8799999952316,
+          364.9950000047684
+        ],
+        "median": 425.8799999952316,
+        "worst": 601.8149999976158
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 244,
+        "scalarPhases": 26380
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          517.5999999642372,
+          503.9699999690056,
+          440.21499997377396
+        ],
+        "median": 503.9699999690056,
+        "worst": 517.5999999642372
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 26624
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          197545.96499997377,
+          180205.0149999857,
+          284586.55500000715
+        ],
+        "median": 197545.96499997377,
+        "worst": 284586.55500000715
+      },
+      "load": {
+        "mean": 99.99962670799327,
+        "max": 100,
+        "samples": 535
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          78266.95499998331,
+          77919.43500000238,
+          78536.06499999762
+        ],
+        "median": 78266.95499998331,
+        "worst": 78536.06499999762
+      },
+      "load": {
+        "mean": 99.9997202159092,
+        "max": 100,
+        "samples": 240
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          90278.094999969,
+          75089.6399999857,
+          78080.27000004053
+        ],
+        "median": 78080.27000004053,
+        "worst": 90278.094999969
+      },
+      "load": {
+        "mean": 99.99911901860224,
+        "max": 100,
+        "samples": 283
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          32387.25499999523,
+          31132.82999998331,
+          31294.480000019073
+        ],
+        "median": 31294.480000019073,
+        "worst": 32387.25499999523
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 104
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          11700.069999992847,
+          10723.014999985695,
+          10557.75
+        ],
+        "median": 10723.014999985695,
+        "worst": 11700.069999992847
+      },
+      "load": {
+        "mean": 95.62833790796834,
+        "max": 100,
+        "samples": 51
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          8739.014999985695,
+          8388.780000030994,
+          8677.129999995232
+        ],
+        "median": 8677.129999995232,
+        "worst": 8739.014999985695
+      },
+      "load": {
+        "mean": 95.21265044852984,
+        "max": 99.4211705014586,
+        "samples": 35
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          19576.069999992847,
+          21777.235000014305,
+          25669.939999997616
+        ],
+        "median": 21777.235000014305,
+        "worst": 25669.939999997616
+      },
+      "load": {
+        "mean": 95.15713944539655,
+        "max": 100,
+        "samples": 85
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          24361.510000050068,
+          22057.285000026226,
+          17328.70499998331
+        ],
+        "median": 22057.285000026226,
+        "worst": 24361.510000050068
+      },
+      "load": {
+        "mean": 99.89602315027341,
+        "max": 100,
+        "samples": 85
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "chromium",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          12859.339999973774,
+          12709.010000050068,
+          14066.02999997139
+        ],
+        "median": 12859.339999973774,
+        "worst": 14066.02999997139
+      },
+      "load": {
+        "mean": 98.94737800774054,
+        "max": 100,
+        "samples": 50
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          17308.620000000003,
+          16681.300000000003,
+          15184.199999999997
+        ],
+        "median": 16681.300000000003,
+        "worst": 17308.620000000003
+      },
+      "load": {
+        "mean": 98.6780108877118,
+        "max": 100,
+        "samples": 64
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          9289.879999999997,
+          9280.539999999997,
+          8928.539999999997
+        ],
+        "median": 9280.539999999997,
+        "worst": 9289.879999999997
+      },
+      "load": {
+        "mean": 99.39671414703429,
+        "max": 100,
+        "samples": 36
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          4899.46,
+          5066.68,
+          5031.52
+        ],
+        "median": 5031.52,
+        "worst": 5066.68
+      },
+      "load": {
+        "mean": 99.5209350703096,
+        "max": 100,
+        "samples": 20
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          82953.1,
+          77422.42000000001,
+          78305.81999999998
+        ],
+        "median": 78305.81999999998,
+        "worst": 82953.1
+      },
+      "load": {
+        "mean": 95.01470526648095,
+        "max": 100,
+        "samples": 318
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          43141.100000000006,
+          42773.16,
+          43108.14
+        ],
+        "median": 43108.14,
+        "worst": 43141.100000000006
+      },
+      "load": {
+        "mean": 98.68086459931028,
+        "max": 100,
+        "samples": 169
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          24210.979999999996,
+          24404.160000000003,
+          24312.020000000004
+        ],
+        "median": 24312.020000000004,
+        "worst": 24404.160000000003
+      },
+      "load": {
+        "mean": 99.71028731804702,
+        "max": 100,
+        "samples": 94
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          9526,
+          9429.54,
+          9037.380000000001
+        ],
+        "median": 9429.54,
+        "worst": 9526
+      },
+      "load": {
+        "mean": 97.22184998650393,
+        "max": 100,
+        "samples": 38
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          5768.3,
+          5414.9,
+          5318.66
+        ],
+        "median": 5414.9,
+        "worst": 5768.3
+      },
+      "load": {
+        "mean": 98.13512364519922,
+        "max": 100,
+        "samples": 22
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          3072.66,
+          3049.540000000001,
+          3051.4800000000014
+        ],
+        "median": 3051.4800000000014,
+        "worst": 3072.66
+      },
+      "load": {
+        "mean": 98.57541108269537,
+        "max": 99.9031453464443,
+        "samples": 12
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          1934.2600000000002,
+          1864.2800000000002,
+          2218.08
+        ],
+        "median": 1934.2600000000002,
+        "worst": 2218.08
+      },
+      "load": {
+        "mean": 92.85130652087457,
+        "max": 98.93489601201239,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1241.7,
+          1216.2799999999997,
+          1198.3000000000002
+        ],
+        "median": 1216.2799999999997,
+        "worst": 1241.7
+      },
+      "load": {
+        "mean": 97.6474845864735,
+        "max": 100,
+        "samples": 5
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          1982.5000000000005,
+          1862.3400000000001,
+          1941.88
+        ],
+        "median": 1941.88,
+        "worst": 1982.5000000000005
+      },
+      "load": {
+        "mean": 94.60326692664889,
+        "max": 99.14380610823925,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 16384
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          12818.38,
+          12473.579999999998,
+          11957.279999999999
+        ],
+        "median": 12473.579999999998,
+        "worst": 12818.38
+      },
+      "load": {
+        "mean": 94.56943655213149,
+        "max": 100,
+        "samples": 48
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          6627.5199999999995,
+          6608.780000000001,
+          6567.48
+        ],
+        "median": 6608.780000000001,
+        "worst": 6627.5199999999995
+      },
+      "load": {
+        "mean": 91.7816219453334,
+        "max": 97.38940268101271,
+        "samples": 26
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          3823.5600000000004,
+          3878.42,
+          3883.1000000000004
+        ],
+        "median": 3878.42,
+        "worst": 3883.1000000000004
+      },
+      "load": {
+        "mean": 96.1104292623063,
+        "max": 98.54251055651035,
+        "samples": 16
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          1822.16,
+          1768.8800000000006,
+          1829.38
+        ],
+        "median": 1822.16,
+        "worst": 1829.38
+      },
+      "load": {
+        "mean": 88.88172200829997,
+        "max": 92.96613247398375,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1069.92,
+          1088.2800000000002,
+          1100.8599999999997
+        ],
+        "median": 1088.2800000000002,
+        "worst": 1100.8599999999997
+      },
+      "load": {
+        "mean": 92.51726648982154,
+        "max": 96.90138685991701,
+        "samples": 4
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          1938.7800000000002,
+          1820.2999999999997,
+          1768.4799999999996
+        ],
+        "median": 1820.2999999999997,
+        "worst": 1938.7800000000002
+      },
+      "load": {
+        "mean": 89.99723274946406,
+        "max": 96.69714032878689,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 18432
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          2609.76,
+          2524,
+          2606.8199999999997
+        ],
+        "median": 2606.8199999999997,
+        "worst": 2609.76
+      },
+      "load": {
+        "mean": 88.75506949450572,
+        "max": 93.23942820646865,
+        "samples": 10
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1672.94,
+          1719.6599999999999,
+          1682.2400000000007
+        ],
+        "median": 1682.2400000000007,
+        "worst": 1719.6599999999999
+      },
+      "load": {
+        "mean": 97.54058218425686,
+        "max": 99.80830366756277,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          2563.1000000000004,
+          2552,
+          2454.8999999999996
+        ],
+        "median": 2552,
+        "worst": 2563.1000000000004
+      },
+      "load": {
+        "mean": 94.19938588720645,
+        "max": 98.34556623410454,
+        "samples": 10
+      },
+      "phases": {
+        "parallelPhases": 352,
+        "scalarPhases": 22176
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          14688.440000000002,
+          15327.599999999999,
+          15722.920000000006
+        ],
+        "median": 15327.599999999999,
+        "worst": 15722.920000000006
+      },
+      "load": {
+        "mean": 95.23882808946179,
+        "max": 99.71567620141775,
+        "samples": 60
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          10702.579999999998,
+          10649.400000000001,
+          10251.539999999997
+        ],
+        "median": 10649.400000000001,
+        "worst": 10702.579999999998
+      },
+      "load": {
+        "mean": 99.8662759654189,
+        "max": 100,
+        "samples": 38
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          6029.38,
+          5902.66,
+          5974.080000000002
+        ],
+        "median": 5974.080000000002,
+        "worst": 6029.38
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 23
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          1853.08,
+          1897.4999999999995,
+          1815.92
+        ],
+        "median": 1853.08,
+        "worst": 1897.4999999999995
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 8
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1842.34,
+          1901.5,
+          1841.46
+        ],
+        "median": 1842.34,
+        "worst": 1901.5
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 244,
+        "scalarPhases": 26380
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          1696.3799999999999,
+          1785.1399999999999,
+          1773.5200000000004
+        ],
+        "median": 1773.5200000000004,
+        "worst": 1785.1399999999999
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 26624
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          339710.72,
+          354270.88,
+          258873.08000000007
+        ],
+        "median": 339710.72,
+        "worst": 354270.88
+      },
+      "load": {
+        "mean": 92.51060591544469,
+        "max": 100,
+        "samples": 1285
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          134333.47999999998,
+          153561.26,
+          134802.8
+        ],
+        "median": 134802.8,
+        "worst": 153561.26
+      },
+      "load": {
+        "mean": 75.27620825089367,
+        "max": 98.45561303365736,
+        "samples": 532
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          89659.68,
+          85465.08000000002,
+          81683.94
+        ],
+        "median": 85465.08000000002,
+        "worst": 89659.68
+      },
+      "load": {
+        "mean": 84.24703020654853,
+        "max": 99.4215251028527,
+        "samples": 340
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          104253.08,
+          95447.56000000003,
+          80689.72000000003
+        ],
+        "median": 95447.56000000003,
+        "worst": 104253.08
+      },
+      "load": {
+        "mean": 83.00854516096629,
+        "max": 100,
+        "samples": 367
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          70314.92,
+          69916.32,
+          63710.580000000016
+        ],
+        "median": 69916.32,
+        "worst": 70314.92
+      },
+      "load": {
+        "mean": 94.95596989396375,
+        "max": 100,
+        "samples": 244
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          44721.67999999999,
+          40765.92,
+          45857.5
+        ],
+        "median": 44721.67999999999,
+        "worst": 45857.5
+      },
+      "load": {
+        "mean": 99.48603072976277,
+        "max": 100,
+        "samples": 162
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          168667.81999999998,
+          185850.90000000002,
+          157612.54000000004
+        ],
+        "median": 168667.81999999998,
+        "worst": 185850.90000000002
+      },
+      "load": {
+        "mean": 99.43565700242621,
+        "max": 100,
+        "samples": 604
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          119247.23999999999,
+          108678.13999999998,
+          136187.44
+        ],
+        "median": 119247.23999999999,
+        "worst": 136187.44
+      },
+      "load": {
+        "mean": 99.99707072597869,
+        "max": 100,
+        "samples": 381
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "firefox",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          104477.12000000001,
+          92711.26000000001,
+          89785.04000000004
+        ],
+        "median": 92711.26000000001,
+        "worst": 104477.12000000001
+      },
+      "load": {
+        "mean": 99.99950265225415,
+        "max": 100,
+        "samples": 207
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          3298.8399999999992,
+          3506.380000000001,
+          3443.879999999999
+        ],
+        "median": 3443.879999999999,
+        "worst": 3506.380000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          5352.120000000001,
+          5356.700000000001,
+          4943.240000000005
+        ],
+        "median": 5352.120000000001,
+        "worst": 5356.700000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 10
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          64368.58,
+          10390.51999999996,
+          8947.24000000002
+        ],
+        "median": 10390.51999999996,
+        "worst": 64368.58
+      },
+      "load": {
+        "mean": 99.99695247732275,
+        "max": 100,
+        "samples": 87
+      },
+      "phases": {
+        "parallelPhases": 34816,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          17549.04,
+          16762.44,
+          17181.460000000006
+        ],
+        "median": 17181.460000000006,
+        "worst": 17549.04
+      },
+      "load": {
+        "mean": 99.98374496743241,
+        "max": 100,
+        "samples": 52
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          17441.780000000002,
+          18982.44000000001,
+          18799.6
+        ],
+        "median": 18799.6,
+        "worst": 18982.44000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 56
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          170115.92000000004,
+          107082,
+          121860.95999999996
+        ],
+        "median": 121860.95999999996,
+        "worst": 170115.92000000004
+      },
+      "load": {
+        "mean": 99.99977430433863,
+        "max": 100,
+        "samples": 373
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          2026.7799999999988,
+          2078.66,
+          2178.24
+        ],
+        "median": 2078.66,
+        "worst": 2178.24
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          3299.7000000000007,
+          3354.880000000001,
+          3330.1000000000004
+        ],
+        "median": 3330.1000000000004,
+        "worst": 3354.880000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 10
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-islands-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          69200.66,
+          54079.44000000002,
+          40203.640000000014
+        ],
+        "median": 54079.44000000002,
+        "worst": 69200.66
+      },
+      "load": {
+        "mean": 99.99956430115708,
+        "max": 100,
+        "samples": 177
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          633.7,
+          564.8400000000001,
+          496.96000000000004
+        ],
+        "median": 564.8400000000001,
+        "worst": 633.7
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1167.18,
+          1256.56,
+          816.3000000000002
+        ],
+        "median": 1167.18,
+        "worst": 1256.56
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 5
+      },
+      "phases": {
+        "parallelPhases": 16384,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          397.7600000000001,
+          430.03999999999996,
+          381.8800000000001
+        ],
+        "median": 397.7600000000001,
+        "worst": 430.03999999999996
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 16384
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          3012.3399999999997,
+          2658.8399999999992,
+          2561.5800000000017
+        ],
+        "median": 2658.8399999999992,
+        "worst": 3012.3399999999997
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 10
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1766.6,
+          1708.58,
+          1954.88
+        ],
+        "median": 1766.6,
+        "worst": 1954.88
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 7
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          30839.060000000005,
+          38179.10000000001,
+          24091.660000000003
+        ],
+        "median": 30839.060000000005,
+        "worst": 38179.10000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 95
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          392.72,
+          387.0799999999999,
+          377.2000000000003
+        ],
+        "median": 387.0799999999999,
+        "worst": 392.72
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          468.80000000000007,
+          294.1199999999999,
+          343
+        ],
+        "median": 343,
+        "worst": 468.80000000000007
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 18432,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-lakeBasin-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          421.1400000000001,
+          448.6600000000001,
+          506.6400000000001
+        ],
+        "median": 448.6600000000001,
+        "worst": 506.6400000000001
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 18432
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          668.16,
+          636.6600000000001,
+          510.49999999999955
+        ],
+        "median": 636.6600000000001,
+        "worst": 668.16
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          1146.9600000000003,
+          736.0999999999999,
+          1283.8000000000002
+        ],
+        "median": 1146.9600000000003,
+        "worst": 1283.8000000000002
+      },
+      "load": {
+        "mean": 99.98089881948601,
+        "max": 100,
+        "samples": 5
+      },
+      "phases": {
+        "parallelPhases": 22528,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "size": 128,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          900.2399999999998,
+          883.96,
+          813
+        ],
+        "median": 883.96,
+        "worst": 900.2399999999998
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 3
+      },
+      "phases": {
+        "parallelPhases": 352,
+        "scalarPhases": 22176
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          3560.8600000000006,
+          4549.84,
+          3870.0200000000004
+        ],
+        "median": 3870.0200000000004,
+        "worst": 4549.84
+      },
+      "load": {
+        "mean": 99.9931506176719,
+        "max": 100,
+        "samples": 14
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          2518.2600000000007,
+          2389.8600000000006,
+          3659.2999999999993
+        ],
+        "median": 2518.2600000000007,
+        "worst": 3659.2999999999993
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 9
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "size": 256,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          9741.700000000004,
+          7893.699999999997,
+          8894.14
+        ],
+        "median": 8894.14,
+        "worst": 9741.700000000004
+      },
+      "load": {
+        "mean": 99.9761217918168,
+        "max": 100,
+        "samples": 60
+      },
+      "phases": {
+        "parallelPhases": 45056,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          365.3800000000001,
+          436.9200000000001,
+          394.3399999999999
+        ],
+        "median": 394.3399999999999,
+        "worst": 436.9200000000001
+      },
+      "load": {
+        "mean": 99.90390697604849,
+        "max": 99.90390697604849,
+        "samples": 1
+      },
+      "phases": {
+        "parallelPhases": 26624,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          386.18000000000006,
+          353.72,
+          336.3599999999999
+        ],
+        "median": 353.72,
+        "worst": 386.18000000000006
+      },
+      "load": {
+        "mean": 100,
+        "max": 100,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 244,
+        "scalarPhases": 26380
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "m9b-riverValley-96-1",
+      "size": 96,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          351.3200000000001,
+          431.1800000000002,
+          379.05999999999995
+        ],
+        "median": 379.05999999999995,
+        "worst": 431.1800000000002
+      },
+      "load": {
+        "mean": 99.90383406242356,
+        "max": 99.90406433201267,
+        "samples": 2
+      },
+      "phases": {
+        "parallelPhases": 0,
+        "scalarPhases": 26624
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          62015.5,
+          82942.74,
+          64420.580000000016
+        ],
+        "median": 64420.580000000016,
+        "worst": 82942.74
+      },
+      "load": {
+        "mean": 97.69772796605395,
+        "max": 100,
+        "samples": 252
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          52386.48,
+          57841.90000000002,
+          48753.98000000001
+        ],
+        "median": 52386.48,
+        "worst": 57841.90000000002
+      },
+      "load": {
+        "mean": 99.9989358273071,
+        "max": 100,
+        "samples": 177
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-islands-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          32025.4,
+          20804.699999999997,
+          20124.979999999996
+        ],
+        "median": 20804.699999999997,
+        "worst": 32025.4
+      },
+      "load": {
+        "mean": 98.71676586760175,
+        "max": 100,
+        "samples": 123
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          21195.86,
+          19375.620000000003,
+          18986.540000000008
+        ],
+        "median": 19375.620000000003,
+        "worst": 21195.86
+      },
+      "load": {
+        "mean": 92.25680508883175,
+        "max": 98.83182563641664,
+        "samples": 80
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          11316.460000000003,
+          10674.219999999998,
+          11067.86
+        ],
+        "median": 11067.86,
+        "worst": 11316.460000000003
+      },
+      "load": {
+        "mean": 94.74884424614484,
+        "max": 99.90370038612537,
+        "samples": 44
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-lakeBasin-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          8691.640000000001,
+          9167.639999999996,
+          9631.220000000001
+        ],
+        "median": 9167.639999999996,
+        "worst": 9631.220000000001
+      },
+      "load": {
+        "mean": 96.76284155685445,
+        "max": 99.9035691558761,
+        "samples": 37
+      },
+      "phases": {
+        "parallelPhases": 38912,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 1,
+      "timing": {
+        "samples": [
+          24347.480000000003,
+          25614.379999999997,
+          22838.34000000001
+        ],
+        "median": 24347.480000000003,
+        "worst": 25614.379999999997
+      },
+      "load": {
+        "mean": 96.31727622180944,
+        "max": 100,
+        "samples": 89
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 2,
+      "timing": {
+        "samples": [
+          12864.060000000001,
+          12833.980000000007,
+          13067.54
+        ],
+        "median": 12864.060000000001,
+        "worst": 13067.54
+      },
+      "load": {
+        "mean": 96.98248154594665,
+        "max": 100,
+        "samples": 51
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    },
+    {
+      "target": "webkit",
+      "id": "stress-riverValley-512",
+      "size": 512,
+      "threads": 4,
+      "timing": {
+        "samples": [
+          28605.4,
+          38398.759999999995,
+          64286.52000000002
+        ],
+        "median": 38398.759999999995,
+        "worst": 64286.52000000002
+      },
+      "load": {
+        "mean": 99.91279832881317,
+        "max": 100,
+        "samples": 161
+      },
+      "phases": {
+        "parallelPhases": 43008,
+        "scalarPhases": 0
+      }
+    }
+  ],
+  "fullBatch": [
+    {
+      "variant": "old",
+      "threads": 16,
+      "timing": {
+        "samples": [
+          322323.55449999997,
+          345317.3641000001,
+          331225.7514000002
+        ],
+        "median": 331225.7514000002,
+        "worst": 345317.3641000001
+      },
+      "load": [
+        {
+          "mean": 99.99969370755117,
+          "max": 100,
+          "samples": 229
+        },
+        {
+          "mean": 99.99938472753475,
+          "max": 100,
+          "samples": 295
+        },
+        {
+          "mean": 99.99943020743973,
+          "max": 100,
+          "samples": 310
+        }
+      ]
+    },
+    {
+      "variant": "fast",
+      "threads": 16,
+      "timing": {
+        "samples": [
+          273823.57660000003,
+          300736.39540000004,
+          280975.66519999993
+        ],
+        "median": 280975.66519999993,
+        "worst": 300736.39540000004
+      },
+      "load": [
+        {
+          "mean": 100,
+          "max": 100,
+          "samples": 186
+        },
+        {
+          "mean": 100,
+          "max": 100,
+          "samples": 266
+        },
+        {
+          "mean": 99.9996530840667,
+          "max": 100,
+          "samples": 262
+        }
+      ]
+    },
+    {
+      "variant": "native",
+      "threads": 16,
+      "timing": {
+        "samples": [
+          124124.6772,
+          150541.22509999992,
+          146215.44739999995
+        ],
+        "median": 146215.44739999995,
+        "worst": 150541.22509999992
+      },
+      "load": [
+        {
+          "mean": 100,
+          "max": 100,
+          "samples": 83
+        },
+        {
+          "mean": 99.99870358935287,
+          "max": 100,
+          "samples": 141
+        },
+        {
+          "mean": 100,
+          "max": 100,
+          "samples": 140
+        }
+      ]
+    }
+  ],
+  "toolchain": {
+    "rust": "1.90.0",
+    "node": "v24.13.0",
+    "typescript": "5.9.3",
+    "esbuild": "0.28.2"
+  },
+  "threadedBrowserFailures": [
+    {
+      "engine": "webkit",
+      "stage": "bench",
+      "id": "m9b-islands-128-1",
+      "threads": 4,
+      "error": "Target page, context or browser has been closed; numerical output not returned"
+    }
+  ],
+  "threadedFingerprint": "699c9c591498ee9aa2a0ffd98080a5185022a0837a9f9ef855f6a256aff04611",
+  "sourceHashes": {
+    "src/lib.rs": "386f6ffbcf9a3c9b8114801a4abdd56bf593566acdcd36b020407de425e9029b",
+    "rust/main.rs": "e66cd1551a2319068a5b00bd6c224c347220f0a311c2bf8e41ca236bd579d340",
+    "water.ts": "e3193cec34d67892349f9592a50f29cbe0a8ebbc5be60d056114290f5ff94b67",
+    "protocol.ts": "c236ef2ec4b7001afef8a7f1e7cb7d35b9fd93783531322f9f6f79a2cd818e28",
+    "coordinator.ts": "beb48e0aee8e9f1e7ee7aac8d21d6819a3d1ee81b875fa9d175dffa493efcd42",
+    "parallel-coordinator.ts": "128582e8180668f966e41ce499fee597b740b54ac1594d52c33d04f15251f69b",
+    "shared-kernel-template.ts": "2db295b37585369b50862e98ff5dcad0154b7bf1485cbdfcb57bc37f34f40303"
+  }
+}

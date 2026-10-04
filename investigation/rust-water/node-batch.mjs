@@ -1,0 +1,15 @@
+import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {spawn} from 'node:child_process';
+import {cpus,freemem} from 'node:os';
+import {HERE,LOCAL,api,deps,arg,json,hash} from './common.mjs';
+if(!isMainThread){const a=api(workerData.variant),p=deps(resolve(LOCAL,'protocol.cjs'));parentPort.on('message',id=>{try{const job=p.decodeJob(readFileSync(resolve(LOCAL,'checks',id+'.in'))),s=new a.WaterSim(job.model,job.initial,job.opts);s.out.set(job.out);const r=a.settle(s,job.commands[0].settle),out=p.packSnapshots([p.snapshot(s,r)]);if(hash(out)!==workerData.expected[id])throw Error(id+' bytes differ');parentPort.postMessage({id});}catch(e){parentPort.postMessage({error:String(e.stack)});}});}
+else{const cases=JSON.parse(readFileSync(resolve(LOCAL,'checks.json'))).cases.filter(c=>/^m9b-.*-(96|128|256)-\d+$/.test(c.id));if(cases.length!==840)throw Error('Expected complete 840-map batch');const expected=Object.fromEntries(cases.map(c=>[c.id,c.expected]));
+const sampler=spawn('pwsh',['-NoProfile','-File',resolve(HERE,'load.ps1')],{windowsHide:true});let partial='',samples=[];sampler.stdout.on('data',b=>{partial+=b;const lines=partial.split(/\r?\n/);partial=lines.pop();for(const l of lines)if(l&&Number.isFinite(Number(l)))samples.push(Number(l));});const rows=[];
+try{for(const threads of arg('threads',String(cpus().length)).split(',').map(Number))for(let rep=0;rep<Number(arg('reps','3'));rep++)for(const variant of rep%2?['old','fast','native']:['native','fast','old']){samples=[];let index=0;const t=performance.now();
+if(variant==='native'){const {writeFileSync}=await import('node:fs');const manifest=resolve(LOCAL,'native-bench.tsv');writeFileSync(manifest,cases.map(c=>`${resolve(LOCAL,'checks',c.id+'.in')}\t${resolve(LOCAL,'checks',c.id+'.native')}`).join('\n'));const exe=process.env.DGM_NATIVE??resolve(LOCAL,'target/release/water-batch'+(process.platform==='win32'?'.exe':''));await new Promise((res,rej)=>{const proc=spawn(exe,['--batch',manifest,String(threads)],{windowsHide:true});let err='';proc.stderr.on('data',b=>err+=b);proc.on('error',rej);proc.on('exit',code=>code?rej(Error(err)):res());});}
+else await Promise.all(Array.from({length:threads},()=>new Promise((res,rej)=>{const w=new Worker(new URL(import.meta.url),{workerData:{variant,expected}});const next=()=>index<cases.length?w.postMessage(cases[index++].id):w.terminate().then(res);w.on('message',r=>{if(r.error){w.terminate();rej(Error(r.error));return;}next();});w.on('error',rej);next();})));
+const ms=performance.now()-t;if(variant==='native')for(const c of cases)if(hash(readFileSync(resolve(LOCAL,'checks',c.id+'.native')))!==c.expected)throw Error(c.id+' native batch bytes');
+rows.push({variant,threads,rep,ms,load:{mean:samples.reduce((s,v)=>s+v,0)/samples.length,max:Math.max(...samples),samples:samples.length,freeMemory:freemem()}});json('node-batch.json',{machine:cpus()[0].model,logicalCores:cpus().length,rows});console.log(variant,threads,rep,ms);}}
+finally{sampler.kill();}}

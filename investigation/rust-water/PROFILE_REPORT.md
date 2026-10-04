@@ -1,0 +1,20 @@
+# Scalar Wasm profiling follow-up
+
+**Firefox's 4× slowdown was a test-runtime artifact.** Playwright 1.58.2's Juggler Debugger pins Wasm to baseline. Optimizing-only failed with “no WebAssembly compiler available”. Adding just [upstream 1.63's two debugger flags](https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/firefox/juggler/content/Runtime.js) to an isolated copy restores optimization, with the same Firefox 146 executable/JIT. On lakeBasin 128², the original Rust port goes from **1.73/1.74 s to 0.20/0.20 s** with the corrected runtime; the improved port is **0.16/0.17 s**, versus TS **0.40/0.40 s**. These are median/worst, three repeats; the diagnostic copy is not a shipping-browser patch. Original REPORT.md/evidence.json remain historical.
+
+**WebKit already reaches OMG optimization.** Its Windows build uses explicit Wasm memory checks (useWasmFastMemory=false); disassembly shows BBQ then OMG, bounds checks and repeated descriptor loads. The hot Rust substep dominates the Gecko samples. Adapter copying/calls are a small fraction of canonical run time and were unchanged. On 512², 128 separate one-tick calls add 76/82 ms of run-minus-kernel overhead in Firefox and 84/84 ms in WebKit; one 128-tick call adds about 1 ms. Preserve bounded batches and measure Weather/live-edit integration.
+
+**Code fix:** validate shapes/indices once per public run, then cache numeric buffer pointers for the unchanged flow/depth/dam phases. Static substep loads fall 213→179 and Rust bounds-panic sites 45→15; instruction count rises 3118→3203, so this is not a smaller-loop claim. Wasm sandbox checks stay enabled. A pointer-cached control with per-access Rust checks restored takes **2809.0/2828.0 ms** versus **2383.0/2419.0 ms** unchecked (WebKit, fixed 512 ticks on tiled lakeBasin 512²). Arithmetic, reduction order, layout, public adapter and compiler flags stay unchanged.
+
+The table isolates the Rust code change: both Firefox columns use the corrected test runtime. Firefox 512² uses a second cohort after load dropped; its earlier noisy cohort was 17.30/28.33 → 19.27/30.32 s and is retained in the evidence. Each size uses lakeBasin seed 1; the 512² input is a tiled stress map. Three paired repetitions follow one warm-up. Timers include construction, simulation and serialization/byte checks, excluding download/compile. “Versus TS” compares today's faster settle; below 1 is slower. Ryzen 7 9800X3D, Windows x64; measured mean total CPU load 12–100%, peak 100%, with raw samples/load in profile-evidence.json. Our scalar corpus workers finished before timing; the Python oracle remained active, and other host activity is uncontrolled.
+
+| Size | Firefox before → after (median/worst s); gain; versus TS | WebKit before → after (median/worst s); gain; versus TS |
+|---|---|---|
+| 96² | 0.65/0.67 → 0.41/0.54; 1.58×; TS 2.67× | 0.54/0.71 → 0.44/0.54; 1.21×; TS 0.87× |
+| 128² | 0.67/0.86 → 0.51/0.61; 1.31×; TS 2.88× | 0.52/0.61 → 0.37/0.38; 1.38×; TS 0.95× |
+| 256² | 4.13/4.25 → 3.16/3.75; 1.31×; TS 1.93× | 4.46/4.56 → 2.40/3.00; 1.86×; TS 0.84× |
+| 512² | 10.14/10.15 → 8.36/8.38; 1.21×; TS 2.33× | 24.94/31.56 → 17.83/18.87; 1.40×; TS 1.10× |
+
+**Identity:** all 1,952 schedules / 39,529 checkpoints pass as raw bytes in three engines and native, including the 19 official maps, 840 batch inputs, 512²/live/weather cases. Chromium/WebKit reuse attested unchanged same-engine TS expectations; Firefox also reruns TS. Fresh per-tick/lifecycle/fallback browser checks pass in all three; 33,400 Node checks, 38 pinned digests, four skinny shapes, three Rust guard tests and the Python oracle pass. Strict scalar/native/shared LLVM IR passes; the shared kernel binary is unchanged.
+
+**Delivery:** 62791 B raw / 24722 B gzip / 20797 B Brotli. No new shipping dependency or build flag; CI template adds guard tests. Use a matching Playwright runtime with the debugger fix for performance tests. Native, other OS/CPU performance and threaded timings were not remeasured here. INTEGRATION.md gives regeneration and the unsafe-frame invariant proof.

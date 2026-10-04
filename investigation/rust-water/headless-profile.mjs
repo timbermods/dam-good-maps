@@ -1,0 +1,24 @@
+// Self-driving HTTP benchmark with no automation controller. The old patched
+// Firefox still registers Juggler actors; use the diagnostic copy to unpin Wasm.
+import {createServer} from 'node:http';
+import {spawn} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,appendFileSync} from 'node:fs';
+import {resolve,sep} from 'node:path';
+import {createRequire} from 'node:module';
+import {LOCAL,HERE,deps,arg,hash} from './common.mjs';
+import {loadSampler} from './load.mjs';
+await deps('esbuild').build({entryPoints:[resolve(HERE,'profile-worker.ts')],outfile:resolve(LOCAL,'profile-worker.js'),bundle:true,format:'esm',platform:'browser',target:'es2022'});
+const runtime=(process.env.DGM_BROWSER_DEPS?createRequire(resolve(process.env.DGM_BROWSER_DEPS,'package.json')):deps)('playwright');
+const tag=arg('tag','headless'),tier=arg('tier','default'),folder=resolve(LOCAL,'profiles',tag);mkdirSync(folder,{recursive:true});
+const prefs={'browser.shell.checkDefaultBrowser':false,'browser.startup.homepage_override.mstone':'ignore','toolkit.telemetry.reportingpolicy.firstRun':false,'dom.allow_scripts_to_close_windows':true};
+if(tier!=='default')Object.assign(prefs,{'javascript.options.wasm_baselinejit':tier==='baseline','javascript.options.wasm_optimizingjit':tier!=='baseline','javascript.options.wasm_lazy_tiering':false});
+writeFileSync(resolve(folder,'user.js'),Object.entries(prefs).map(([k,v])=>`user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join('\n'));
+const tasks=[];for(const id of arg('ids','m9b-lakeBasin-128-1').split(','))for(let rep=-1;rep<Number(arg('reps','3'));rep++)for(const variant of arg('variants','fast,before,current').split(',').sort((a,b)=>rep%2?a.localeCompare(b):b.localeCompare(a)))tasks.push({id,variant,rep,fixed:Number(arg('fixed','0'))});
+const sampler=loadSampler(),rows=[];let done,error,at=0;const completion=new Promise((res,rej)=>{done=res;error=rej;});
+const html=`<!doctype html><script>const w=new Worker('/profile-worker.js',{type:'module'});let task;w.onerror=e=>fetch('/error',{method:'POST',body:e.message});w.onmessage=async e=>{await fetch('/result',{method:'POST',body:JSON.stringify({task,result:e.data,ua:navigator.userAgent})});await next()};async function next(){task=await(await fetch('/next')).json();if(task){w.postMessage(task)}else{w.terminate();window.close()}}next().catch(e=>fetch('/error',{method:'POST',body:String(e)}));</script>`;
+const server=createServer(async(req,res)=>{const name=decodeURIComponent(new URL(req.url,'http://localhost').pathname).slice(1);if(name==='index.html'){res.setHeader('Content-Type','text/html');res.end(html);return;}if(name==='next'){sampler.reset();res.setHeader('Content-Type','application/json');res.end(JSON.stringify(tasks[at++]??null));if(at>tasks.length)done();return;}if(name==='result'||name==='error'){let text='';for await(const b of req)text+=b;res.end('ok');if(name==='error'){error(Error(text));return;}const {task,result,ua}=JSON.parse(text);if(!result.ok){error(Error(result.error));return;}const row={engine:'firefox',mode:'no-controller',tag,tier,...task,...result,ua,load:sampler.summary(),before:hash(readFileSync(resolve(LOCAL,'before-water.wasm'))),current:hash(readFileSync(resolve(LOCAL,'water.wasm')))};rows.push(row);appendFileSync(resolve(LOCAL,'profiles','measurements.jsonl'),JSON.stringify(row)+'\n');console.log(tag,task.id,task.variant,task.rep,JSON.stringify(result.metrics));return;}const path=resolve(LOCAL,name);if(!path.startsWith(LOCAL+sep)||!existsSync(path)){res.writeHead(404).end();return;}res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.wasm')?'application/wasm':'application/octet-stream');res.end(readFileSync(path));});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const env={...process.env};if(process.argv.includes('--gecko'))Object.assign(env,{MOZ_PROFILER_STARTUP:'1',MOZ_PROFILER_STARTUP_INTERVAL:'1',MOZ_PROFILER_STARTUP_ENTRIES:'10000000',MOZ_PROFILER_STARTUP_FEATURES:'js,stackwalk,cpu,leaf',MOZ_PROFILER_STARTUP_FILTERS:'GeckoMain,DOM Worker',MOZ_PROFILER_SHUTDOWN:resolve(LOCAL,'profiles',tag+'-gecko.json')});
+const child=spawn(process.env.DGM_FIREFOX_EXECUTABLE??runtime.firefox.executablePath(),['-headless','-no-remote','-profile',folder,'http://127.0.0.1:'+server.address().port+'/index.html'],{env,windowsHide:true});
+const exit=new Promise(res=>child.once('exit',res));child.on('error',error);const log=resolve(LOCAL,'profiles',tag+'-browser.log');for(const stream of [child.stdout,child.stderr])stream.on('data',b=>appendFileSync(log,b));
+try{await completion;writeFileSync(resolve(LOCAL,'profiles',tag+'-measurements.json'),JSON.stringify(rows,null,2)+'\n');await Promise.race([exit,new Promise(r=>setTimeout(r,10000))]);}finally{if(child.exitCode===null)child.kill();sampler.stop();server.close();}

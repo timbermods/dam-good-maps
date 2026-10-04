@@ -1,0 +1,24 @@
+// Rebuild the pre-profile port from its immutable commit, never from current code.
+import {readFileSync,writeFileSync,mkdirSync,chmodSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {HERE,LOCAL,hash,json} from './common.mjs';
+const commit='d18a6f4d890d3f2e3f7b480e308242375c100e10';
+mkdirSync(resolve(LOCAL,'profiles'),{recursive:true});
+const folder=resolve(LOCAL,'experiments/before');for(const dir of ['src','rust'])mkdirSync(resolve(folder,dir),{recursive:true});
+const get=name=>execFileSync('git',['show',`${commit}:investigation/rust-water/${name}`],{cwd:HERE});
+const source=get('src/lib.rs');writeFileSync(resolve(folder,'src/lib.rs'),source);
+writeFileSync(resolve(folder,'Cargo.toml'),get('Cargo.toml'));
+writeFileSync(resolve(folder,'rust/main.rs'),get('rust/main.rs'));
+const cargo=process.env.CARGO_HOME?resolve(process.env.CARGO_HOME,'bin',process.platform==='win32'?'cargo.exe':'cargo'):'cargo';
+execFileSync(cargo,['build','--release','--lib','--target','wasm32-unknown-unknown','--manifest-path',resolve(folder,'Cargo.toml'),'--target-dir',resolve(folder,'target')],{cwd:HERE,stdio:'inherit'});
+execFileSync(cargo,['build','--release','--manifest-path',resolve(folder,'Cargo.toml'),'--target-dir',resolve(folder,'target')],{cwd:HERE,stdio:'inherit'});
+const wasm=readFileSync(resolve(folder,'target/wasm32-unknown-unknown/release/rust_water.wasm'));
+writeFileSync(resolve(LOCAL,'before-water.wasm'),wasm);
+writeFileSync(resolve(LOCAL,'before-lib.rs'),source);
+const exe='water-batch'+(process.platform==='win32'?'.exe':'');
+writeFileSync(resolve(LOCAL,'before-'+exe),readFileSync(resolve(folder,'target/release',exe)));
+if(process.platform!=='win32')chmodSync(resolve(LOCAL,'before-'+exe),0o755);
+writeFileSync(resolve(LOCAL,'before-water.ts'),get('water.ts').toString().replaceAll('./local/reference-water','./reference-water').replaceAll('./protocol','../protocol'));
+json('profiles/baseline.json',{commit,source:hash(source),wasm:hash(wasm)});
+console.log('Pinned pre-profile baseline:',hash(wasm));

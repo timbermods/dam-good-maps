@@ -1,0 +1,14 @@
+// Independent whole-map jobs: no shared floating point state, reductions or isolation worker.
+// Single-map phase threading remains the parallel-water study's coordinator/barrier contract.
+import {createServer} from 'node:http';
+import {createRequire} from 'node:module';
+import {readFileSync,existsSync} from 'node:fs';
+import {resolve,sep} from 'node:path';
+import {spawn} from 'node:child_process';
+import {HERE,LOCAL,deps,arg,json} from './common.mjs';
+const cases=JSON.parse(readFileSync(resolve(LOCAL,'checks.json'))).cases.filter(c=>/^m9b-(riverValley|lakeBasin|islands)-(96|128|256)-1$/.test(c.id)||/^stress-.*-512$/.test(c.id));
+const server=createServer((req,res)=>{const name=decodeURIComponent(new URL(req.url,'http://localhost').pathname).slice(1),p=resolve(LOCAL,name);if(!p.startsWith(LOCAL+sep)||!existsSync(p)){res.writeHead(404).end();return;}res.setHeader('Content-Type',p.endsWith('.js')?'text/javascript':p.endsWith('.wasm')?'application/wasm':'application/octet-stream');res.end(readFileSync(p));});await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port+'/';
+const sampler=spawn('pwsh',['-NoProfile','-File',resolve(HERE,'load.ps1')],{windowsHide:true});let samples=[],partial='';sampler.stdout.on('data',b=>{partial+=b;const lines=partial.split(/\r?\n/);partial=lines.pop();for(const l of lines)if(l&&Number.isFinite(Number(l)))samples.push(Number(l));});
+const pw=(process.env.DGM_BROWSER_DEPS?createRequire(resolve(process.env.DGM_BROWSER_DEPS,'package.json')):deps)('playwright'),rows=[];
+try{for(const engine of arg('engines','chromium,firefox,webkit').split(',')){const browser=await pw[engine].launch({headless:true}),page=await browser.newPage();await page.goto(base+'coordinator.js');for(const threads of [1,4])for(let rep=-1;rep<Number(arg('reps','3'));rep++){samples=[];const t=performance.now();const outputs=await page.evaluate(async({base,ids,threads})=>{let index=0;const results=[];await Promise.all(Array.from({length:threads},()=>new Promise((res,rej)=>{const w=new Worker(base+'coordinator.js',{type:'module'});const next=()=>index<ids.length?w.postMessage({id:ids[index++],rustOnly:true}):(w.terminate(),res());w.onmessage=e=>{if(!e.data.ok){w.terminate();rej(Error(e.data.error));return;}results.push(e.data);next();};w.onerror=rej;next();})));return results;},{base,ids:cases.map(c=>c.id),threads});const ms=performance.now()-t;for(const r of outputs){if(r.sha256!==cases.find(c=>c.id===r.id).expected)throw Error(r.id+' hash');}if(rep>=0)rows.push({engine,version:browser.version(),threads,rep,maps:cases.length,ms,load:{mean:samples.reduce((s,v)=>s+v,0)/samples.length,max:Math.max(...samples),samples:samples.length}});json('browser-pool.json',{rows});console.log(engine,threads,rep,ms);}await browser.close();}}
+finally{sampler.kill();server.close();}
