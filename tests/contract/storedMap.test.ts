@@ -85,29 +85,37 @@ describe("a saved project opens from its stored map (D367)", () => {
     expect(timber(MapSession.open(decodeProject(s.project(6))))).toBe(exports[3]);
   });
 
-  it("undo below the save point: held until the replay is compared, then as normal when it matches; undo works at once without a stored map", () => {
+  it("undo below the save point: the replay compared once (by the checks, or by the first undo that crosses the save point), then as normal when it matches; at once without a stored map", () => {
     const { s, exports } = edited();
     const bytes = s.project();
 
     const fast = MapSession.open(decodeProject(bytes));
-    // until the log's replay is compared, the save point is the earliest state
+    // the log's replay is still to be compared: the history is all there, and the first undo that
+    // crosses the save point does the comparison itself when the checks have not yet
     expect(fast.replayPending).toBe(true);
-    expect(fast.canUndo).toBe(false);
-    expect(fast.history()).toEqual([]);
-    expect(fast.undo()).toBe(false);
-    expect(timber(fast)).toBe(exports[3]);
-    // the replay, once: the same map, so undo goes all the way back, a whole step at a time (D456)
-    expect(fast.checkReplay()).toBe(true);
-    expect(fast.replayPending).toBe(false);
-    expect(fast.history().map((h) => h.label)).toEqual(["Raise terrain", "Make a source stronger", "Lower terrain"]);
     expect(fast.canUndo).toBe(true);
-    for (let k = 2; k >= 0; k--) {
+    expect(fast.history().map((h) => h.label)).toEqual(["Raise terrain", "Make a source stronger", "Lower terrain"]);
+    expect(fast.undoStopped).toBeNull();
+    expect(fast.undo()).toBe(true);
+    expect(fast.replayPending).toBe(false);
+    expect(timber(fast)).toBe(exports[2]);
+    for (let k = 1; k >= 0; k--) {
       expect(fast.undo()).toBe(true);
       expect(timber(fast)).toBe(exports[k]);
     }
     expect(fast.canUndo).toBe(false);
     expect(fast.redo()).toBe(true);
     expect(timber(fast)).toBe(exports[1]);
+
+    // the checks' comparison first (the page's checks worker), then undo as normal
+    const checked = MapSession.open(decodeProject(bytes));
+    expect(checked.checkReplay()).toBe(true);
+    expect(checked.replayPending).toBe(false);
+    expect(checked.history().length).toBe(3);
+    for (let k = 2; k >= 0; k--) {
+      expect(checked.undo()).toBe(true);
+      expect(timber(checked)).toBe(exports[k]);
+    }
 
     const slow = MapSession.open(decodeProject(withoutStored(bytes)));
     expect(slow.replayPending).toBe(false);
@@ -127,11 +135,20 @@ describe("a saved project opens from its stored map (D367)", () => {
     // what opens is the stored map, as saved, not a replay
     expect(fast.built.heights).toEqual(heights);
     const saved = timber(fast);
-    expect(fast.checkReplay()).toBe(false);
+    // the first undo does the comparison: the replay differs, so it is refused, with the reason
+    expect(fast.canUndo).toBe(true);
+    expect(fast.undo()).toBe(false);
+    expect(fast.replayPending).toBe(false);
+    expect(fast.undoStopped).toContain("cannot be undone");
+    expect(timber(fast)).toBe(saved);
     expect(fast.canUndo).toBe(false);
     expect(fast.history()).toEqual([]);
     expect(fast.notices.some((n) => n.includes("cannot be undone"))).toBe(true);
     expect(fast.editCount).toBe(4);
+    // (and the checks' comparison says the same)
+    const checked = MapSession.open(decodeProject(bytes));
+    expect(checked.checkReplay()).toBe(false);
+    expect(checked.canUndo).toBe(false);
 
     // a new edit on it undoes back to the map as saved, byte for byte, and no further
     expect(fast.apply({ op: "sculpt", params: { mode: "raise", cells: box(30, 30, 33, 33), amount: 1 } }).ok).toBe(true);
@@ -205,16 +222,23 @@ describe("the editor's worker (D455's comparison runs where the checks run)", ()
     // a document without a stored map has nothing to compare
     expect(ed.follow({ version: 3, doc: decodeProject(withoutStored(bytes)), keep: 0, add: [] }).stored).toBeUndefined();
 
-    // the editor's side, with no checks worker: the save point holds until the background check
+    // the editor's side, with no checks worker: the first background check does the comparison
     const open = ed.openProject(bytes);
-    expect(open.info.canUndo).toBe(false);
-    expect(open.info.history).toEqual([]);
+    expect(open.info.canUndo).toBe(true);
+    expect(open.info.history.map((h) => h.label)).toEqual(["Raise terrain", "Make a source stronger", "Lower terrain"]);
     const bg = await ed.backgroundCheck();
     expect(bg).not.toBeNull();
     expect(bg!.info.canUndo).toBe(true);
-    expect(bg!.info.history.map((h) => h.label)).toEqual(["Raise terrain", "Make a source stronger", "Lower terrain"]);
-    ed.undo();
+    expect(ed.undo().ok).toBe(true);
     expect(sha((await ed.exportTimber(true)).bytes)).toBe(exports[2]);
+    ed.closeSession();
+
+    // a stored map the replay does not give: the undo that crosses the save point is refused, with its reason
+    ed.openProject(tampered(bytes).bytes);
+    const refused = ed.undo();
+    expect(refused.ok).toBe(false);
+    expect(refused.errors[0]).toContain("cannot be undone");
+    expect(refused.info.canUndo).toBe(false);
     ed.closeSession();
   });
 });
