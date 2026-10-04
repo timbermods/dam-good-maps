@@ -36,6 +36,8 @@ export function useTestHook(ed: Ed): TestHookSlice {
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
       selection: () => selection.current.tiles(),
+      // (the water's pace, for tests that wait on it: the page has no Speed control, Kyler, 2026-10-04)
+      waterSpeed: (speed) => ed.player.current?.setSpeed(speed),
       gesture: () => {
         const g = gestureRef.current;
         return { stroke: g.forceStroke ? g.forceStroke.length : null, band: g.forceStroke ? strokeRadius.current : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };

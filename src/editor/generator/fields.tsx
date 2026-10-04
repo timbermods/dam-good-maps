@@ -81,18 +81,7 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
       />
     ),
     seed: <SeedSetting {...p} />,
-    size: (
-      <ChoiceSetting<SizePreset | "custom">
-        line
-        fit
-        label="Size"
-        title={HINT.size}
-        value={preset}
-        options={[...(Object.keys(SIZE_PRESETS) as SizePreset[]).map((k) => [k, String(SIZE_PRESETS[k]), `${k[0].toUpperCase() + k.slice(1)}: ${SIZE_PRESETS[k]}×${SIZE_PRESETS[k]}`] as const), ["custom", "Custom", "Your own width and height"] as const]}
-        onChange={(v) => (v === "custom" ? p.onSize({ x: W, y: H === W ? Math.max(48, W - 16) : H }) : p.onSize({ x: SIZE_PRESETS[v], y: SIZE_PRESETS[v] }))}
-        extra={preset === "custom" ? <SizeNumbers W={W} H={H} onSize={p.onSize} /> : <span class="set-value set-size">{W} × {H}</span>}
-      />
-    ),
+    size: <SizeSetting W={W} H={H} preset={preset} onSize={p.onSize} />,
     relief: num("relief", "Relief", s.terrain.relief, 0, 100, (v) => set((c) => (c.terrain.relief = v)), { bandKey: "relief" }),
     verticality: num("verticality", "Verticality", s.terrain.verticality, 0, 100, (v) => set((c) => setVerticality(c.terrain, v)), { bandKey: "verticality" }),
     variety: num("variety", "Variety", s.terrain.variety, 0, 100, (v) => set((c) => (c.terrain.variety = v)), { bandKey: "variety" }),
@@ -154,7 +143,35 @@ function SeedSetting(p: SettingsProps) {
   );
 }
 
-/** A custom size's width and height, typed, after its options (the line keeps its shape). */
+/** The size: 96, 128, 192, 256 (a square that side) or Custom, five equal options across the line (Kyler,
+ *  2026-10-04: the Size choices end where Theme's do); Custom chosen, its option holds the width and height, typed,
+ *  in its own place, so nothing moves. */
+function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; onSize(size: { x: number; y: number }): void }) {
+  const { W, H } = p;
+  return (
+    <div class="set plate line choice size-line" {...tip(HINT.size)}>
+      <span class="set-label">Size</span>
+      <div class="set-seg" role="group" aria-label="Size">
+        {(Object.keys(SIZE_PRESETS) as SizePreset[]).map((k) => (
+          <button type="button" key={k} aria-pressed={p.preset === k} {...tip(`Size: ${SIZE_PRESETS[k]} × ${SIZE_PRESETS[k]}`)} onClick={() => p.onSize({ x: SIZE_PRESETS[k], y: SIZE_PRESETS[k] })}>
+            {SIZE_PRESETS[k]}
+          </button>
+        ))}
+        {p.preset === "custom" ? (
+          <span class="seg-custom" aria-pressed="true">
+            <SizeNumbers W={W} H={H} onSize={p.onSize} />
+          </span>
+        ) : (
+          <button type="button" aria-pressed={false} {...tip("Your own width and height")} onClick={() => p.onSize({ x: W, y: H === W ? Math.max(48, W - 16) : H })}>
+            Custom
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A custom size's width and height, typed, in the Custom option's place (the line keeps its shape). */
 function SizeNumbers(p: { W: number; H: number; onSize(size: { x: number; y: number }): void }) {
   const box = (v: number, label: string, id: string, onSet: (n: number) => void) => (
     <input

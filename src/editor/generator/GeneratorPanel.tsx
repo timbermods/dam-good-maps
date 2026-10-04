@@ -69,7 +69,7 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
     timer.current = window.setTimeout(() => setProblem(null), 3000);
   };
   return (
-    <div class="set plate gen-name" {...tip(problem ?? "The map's name: the title above the map")}>
+    <div class="set plate line gen-name" {...tip(problem ?? "The map's name: the title above the map")}>
       <label class={`set-label${problem ? " title-problem" : ""}`} for="map-name" role={problem ? "alert" : undefined}>
         Name
       </label>

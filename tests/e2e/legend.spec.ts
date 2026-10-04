@@ -89,7 +89,8 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   await trees.focus();
   await page.keyboard.press("Enter");
   expect(await highlighted(page)).toBeGreaterThan(10);
-  await page.mouse.click(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  // (on the map clear of the open legend, which the band may centre over the middle in a narrower window)
+  await page.mouse.click(canvas.x + canvas.width * 0.3, canvas.y + canvas.height / 2);
   expect(await highlighted(page)).toBe(0);
 
   // unticked: the panel goes, and nothing else moves

@@ -45,8 +45,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (a size the page is designed for: at 1400px the water row, with the weather's day stepper, meets the Show row)
-  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const bar = page.getByRole("toolbar", { name: "Water time" });

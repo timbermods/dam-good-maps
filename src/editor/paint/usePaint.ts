@@ -293,6 +293,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           // (a held weather day: the journey isn't shown, so the settled water goes in place now and the day runs again
           // from it)
           if (e.kind === "settled" && weatherRef.current) player.current?.skip();
+          // (the water has settled: both hazards' days are worked out once Kyler is idle)
+          if (e.kind === "settled") ed.idlePrep();
         } else if (e.kind === "weather") {
           // a held weather day (Kyler, 2026-10-04): the days before it counted while they are simulated, the map as it
           // is meanwhile; then the day itself, its water and soil, and the readout reads it

@@ -4,7 +4,7 @@
 // Built from the shared bar and button styles (D176).
 
 import { useEffect, useRef } from "preact/hooks";
-import { WATER_SPEEDS, type WaterPlayer, type WaterSpeed } from "./waterPlayer";
+import type { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { tip } from "../ui/Tooltip";
 
@@ -19,7 +19,6 @@ export interface WaterBarProps {
   onStep(delta: -1 | 1): void;
 }
 
-const SPEED_NAMES: Record<WaterSpeed, string> = { slower: "Slower", normal: "Normal", faster: "Faster", instant: "Instant" };
 
 export function WaterBar({ player: p, weather, onWeather, day, counting, onStep }: WaterBarProps) {
   const progress = p.progress;
@@ -47,24 +46,15 @@ export function WaterBar({ player: p, weather, onWeather, day, counting, onStep 
   }, []);
   return (
     <div ref={bar} class="map-bar water-bar" role="toolbar" aria-label="Water time">
-      <span class="bar-status" role="status">
+      {/* (greyed while a weather day is held: it says how the map's own water stands, not the day shown) */}
+      <span class={`bar-status${weather ? " off" : ""}`} role="status">
         {status}
       </span>
       <button type="button" class="icon-button" aria-pressed={p.paused} disabled={progress === null && !p.paused} title={p.paused ? "Play the water" : progress === null ? "The water is settled" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
         <span class="icon-word">{p.paused ? "Play water" : "Pause water"}</span>
       </button>
-      {/* Speed: a segmented choice like the page's others, no native dropdown (Kyler, 2026-10-04) */}
-      <span class="bar-group water-speed" title="How fast the water flows">
-        <span class="bar-label">Speed</span>
-        <span class="set-seg" role="group" aria-label="Water speed">
-          {WATER_SPEEDS.map((v) => (
-            <button type="button" key={v} aria-pressed={p.speedName === v} disabled={!!weather} title={`The water at ${SPEED_NAMES[v].toLowerCase()} speed`} onClick={() => p.setSpeed(v)}>
-              {SPEED_NAMES[v]}
-            </button>
-          ))}
-        </span>
-      </span>
-      {/* (Speed, Skip and Replay control the water's journey after an edit: greyed while a weather day is held) */}
+      {/* (Skip and Replay control the water's journey after an edit: greyed while a weather day is held; the water
+          always plays at one pace, Kyler, 2026-10-04: no Speed beside the weather) */}
       <button type="button" class="icon-button" title="Skip to where the water settles" disabled={progress === null || !!weather} onClick={() => p.skip()}>
         <span class="icon-word">Skip</span>
       </button>

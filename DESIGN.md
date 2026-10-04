@@ -441,10 +441,13 @@ refinements and what the mockups left open:
   and Real places take the same box.
   Every setting shows at once, nothing scrolls, each on one 27px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
-  up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name (one line, a box about 24
-  letters wide, a longer name scrolling in it) and the Seed with Keep, then Generate; Theme, then Surprise me; Size
-  ("128 × 128", or a custom width and height typed), then Reset settings; the three buttons one width (150px),
-  stacked, each level with its row, in the panel's 13px; then two columns under a hairline: Terrain,
+  up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name and the Seed, two fields one
+  gap apart (each label outside its box; the seed's box holds 4294967295 and no more, then Keep; the name's box takes
+  the rest), then Generate; Theme, then Surprise me; Size
+  (96, 128, 192, 256 or Custom, five equal options; Custom chosen holds the width and height, typed, in its place),
+  then Reset settings; the name box, Theme's choices and Size's start on one x and end on one x before the buttons
+  (one label column, 44px); the three buttons one width (150px), stacked, each level with its row, in the panel's
+  13px; then two columns under a hairline: Terrain,
   Water and Hazards; Resources, Difficulty and On this map (two to a row). Each group is headed by its picture and
   its name in small capitals. The species mix is one bar of four shares, dragged at its three edges, each share's
   name and number under it; Difficulty's numbers are sliders; Badwater's "No badwater" is Off, Start area's choices
@@ -458,15 +461,25 @@ refinements and what the mockups left open:
   ("Crater Lake"; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
-- **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's
-  words ("Water settled", "Water flowing… 40%") take one width, right-aligned, so nothing beside them moves.
+- **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
+  water after an edit always plays at Normal's pace. The row's words ("Water settled", "Water flowing… 40%") take one
+  width, right-aligned, so nothing beside them moves, and are greyed while a weather day is held (they describe the
+  map's own water).
+- **The band at any size** (Kyler, 2026-10-04: nothing overlaps at any size; `src/editor/view/useBandLayout.ts`): the
+  water row sits centred when it fits between the Show row and Legend (a 16px gap each side), else as near the
+  centre as they allow, else on a second line under the band (at 1400px wide), the panels and the open legend then
+  starting under it. Legend centres in the gap after the water row (or the Show row), kept clear of a panel open at
+  the left and of Top-down. The panels and the open legend are as tall as the room above the controls under them
+  and scroll inside only in a window too short for them (never at 1920×1080 or 2560×1440).
 - **Weather days held** (Kyler, 2026-10-04): Drought or Badtide, clicked, shows the hazard's last day (its length for
   the map's difficulty) and holds it until clicked again (the map's own water back); the other one's button switches
   straight to it. After Badtide, ◀ Day 7 ▶: ◀ steps a day back to Day 0 (the map's own water, still in the view), ▶ a
   day on, past the default length without a cap; ← and → do the same while a view is on (in the arrows' tooltips).
   With neither on, the stepper stays, greyed, "Day –"; its label is two digits wide, so the row never changes shape.
   The first click simulates the days first, the map as it is and the label counting ("Day 3…"), then lands on the
-  last day; nothing plays. An edit while a day is held keeps the view: once its water has settled the hazard runs
+  last day; nothing plays. Each hazard's days are kept until the map changes, so switching back is instant; and once
+  the water has settled and Kyler has been idle 1.5 s, both are worked out in the background, a few milliseconds at a
+  time, stopped by any press or key, so the first click is instant too. An edit while a day is held keeps the view: once its water has settled the hazard runs
   again from it, the label counting, and the same day shows with the edit's effect. The readout reports the day
   shown (its water and soil). Speed, Skip and Replay are greyed while a view is on; a held hazard's button is lit in
   the mint. A held badtide never ends, so its sources stay at full strength after their opening curve. The row's

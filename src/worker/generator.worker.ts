@@ -133,6 +133,8 @@ const api = {
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
+  prepareWeather: () => ed.prepareWeather(),
+  stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),

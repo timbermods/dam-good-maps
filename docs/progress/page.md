@@ -677,3 +677,17 @@ for the milestone session's word that #268's adoption is in dev.
   `waterFlow.spec.ts` runs at 1920×1080 now (at 1400px the wider row meets the Show row).
 - **Generator top:** three rows (Name 24ch and Seed, then Generate; Theme, then Surprise me; Size, then Reset
   settings); the freed row back to the settings, lines 27px; the panel 692px, ending 11px above the coordinates.
+
+## Kyler's five fixes (2026-10-04)
+
+1. **The generator's top row:** Name and Seed two fields one gap apart, the seed's box sized to 4294967295 with Keep
+   after it, the name box the rest; the name box, Theme's and Size's choices start at 80px and end at 471px (one
+   label column). Size's options equal; Custom holds the width and height in its place.
+2. **No Speed** in the water row; the water plays at Normal (the test hook sets the pace for tests).
+3. **Weather:** each hazard's days kept until the map changes (switching is instant); both worked out in the
+   background once the water has settled and Kyler has been idle 1.5 s, stopped by any press or key (first click
+   instant after that: under 10 ms).
+4. **Any size:** the band lays itself out (`useBandLayout.ts`): at 1400px the water row goes to a second line; the
+   panels and the legend size to their room. `layout.spec.ts` checks nothing overlaps at 1400×900, 1366×768 and
+   1280×800 too; `waterFlow.spec.ts` is back at 1400×900.
+5. **The water row's status** greyed while a day is held.

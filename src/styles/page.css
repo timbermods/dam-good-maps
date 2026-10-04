@@ -1390,17 +1390,60 @@
 /* the title block (Kyler, 2026-10-04): three rows on the settings' line height, the left part the settings, the right
    column Generate, Surprise me and Reset settings, one width, each level with its row */
 .sheet-top {
+  /* (one label column, Theme's width, so the name box, Theme's choices and Size's start on one x, and end on one x
+     before the buttons, Kyler, 2026-10-04) */
+  --lab: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px;
   grid-auto-rows: var(--line);
   gap: 3px 10px;
 }
 
-/* Name (a box about 24 letters wide) and Seed share the first row */
+/* Name and Seed, two fields one gap apart: the name box takes what the seed's box (a ten-digit seed's width) and Keep
+   leave */
 .sheet-row1 {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 10px;
+}
+
+/* (whole pixels: the label, a box that holds 4294967295 and no more, then Keep) */
+.sheet-top .set.plate.line.seed {
+  grid-template-columns: 30px 92px 54px;
+}
+
+.sheet-top .seed .set-toggle {
+  padding: 0;
+}
+
+/* (Theme's seven words fit after the shared label column) */
+.sheet-top .set-seg.fit button {
+  padding: 0 4px;
+}
+
+.sheet-top .seed .set-text {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Size's five options equal, across the line; Custom chosen holds the width and height in its place */
+.size-line .set-seg button,
+.size-line .seg-custom {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.size-line .seg-custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--rule);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.size-line .seg-custom .set-num {
+  width: 32px;
+  height: 18px;
 }
 
 .sheet-top > .sheet-act {
@@ -1552,12 +1595,7 @@
 
 /* the map's name: one line, its box about 24 letters wide, the map's title in bold */
 .gen-name.set.plate {
-  display: grid;
-  grid-template-columns: max-content 24ch;
-  align-items: center;
-  column-gap: 8px;
-  height: var(--line);
-  padding: 0 8px 0 7px;
+  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr);
 }
 
 .gen-name .set-label {
@@ -1707,21 +1745,6 @@
 }
 
 
-/* the water row's Speed: its name, then its four speeds as one segmented choice */
-.editor-view .water-bar > .water-speed {
-  gap: 8px;
-  padding: 0 5px 0 8px;
-}
-
-.water-speed .set-seg {
-  height: 24px;
-}
-
-.water-speed .set-seg button {
-  padding: 0 8px;
-  font-size: 0.85rem;
-}
-
 /* the water row's words one width whatever they say ("Water settled", "Water flowing… 100%"), so nothing beside them
    moves as the water runs */
 .editor-view .water-bar > .bar-status {
@@ -1852,4 +1875,40 @@
 .editor-view .water-bar > button[aria-pressed="true"] {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+/* the water row's words greyed while a weather day is held (they describe the map's own water) */
+.editor-view .water-bar > .bar-status.off {
+  color: color-mix(in srgb, var(--ink) 42%, transparent);
+}
+
+/* ---- the top band, laid out at any size (src/editor/view/useBandLayout.ts, Kyler, 2026-10-04): the water row and
+   Legend where the layout puts them; the panels and the open legend as tall as the room under them allows, scrolling
+   inside only in a window too short for them */
+.editor-view .water-bar {
+  left: var(--water-left, calc(50% - var(--water-bar-w, 0px) / 2));
+  top: var(--water-top, 10px);
+  transform: none;
+}
+
+.legend-stack {
+  left: var(--legend-centre, calc((50% + var(--water-bar-w, 600px) / 2 + 100% - 10px - 310px) / 2));
+}
+
+.legend-stack > .legend-panel,
+.legend-stack > .show-key {
+  margin-top: var(--legend-drop, 0px);
+  max-height: var(--legend-max, none);
+  overflow-y: auto;
+}
+
+.gen {
+  top: var(--panel-top, 56px);
+  max-height: var(--panel-max, none);
+  overflow-y: auto;
+}
+
+.maps-panel,
+.places-panel {
+  height: min(692px, var(--panel-max, 692px));
 }

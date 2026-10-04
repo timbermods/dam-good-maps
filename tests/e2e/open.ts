@@ -69,9 +69,9 @@ export async function openYourMaps(page: Page): Promise<Locator> {
   return yours;
 }
 
-/** The water's speed, picked in the water row (Slower, Normal, Faster, Instant). */
+/** The water's pace after an edit, through the test hook (the page has no Speed control: it always plays at Normal). */
 export async function setWaterSpeed(page: Page, speed: string): Promise<void> {
-  await pick(page, "Water speed", speed[0].toUpperCase() + speed.slice(1));
+  await page.evaluate((s) => window.dgmEditor!.waterSpeed(s as "slower" | "normal" | "faster" | "instant"), speed);
 }
 
 /** Open the legend over the map (Legend, last in the Show column; one ticked is left open) and return its panel. It

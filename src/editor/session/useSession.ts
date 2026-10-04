@@ -139,6 +139,9 @@ export interface SessionSlice {
   requestHeldDay: () => void;
   lastHover: { current: { x: number; y: number } | null };
   rehover: () => void;
+  /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
+   *  the moment he acts). */
+  idlePrep: () => void;
   journey: { current: WaterJourney | null };
   setInstant: Dispatch<StateUpdater<CheckItem[]>>;
   instant: CheckItem[];
@@ -301,6 +304,26 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
   const [weatherCounting, setWeatherCounting] = useState<number | null>(null);
   const heldDay = useRef<number | null>(null);
+  // the weather's days worked out in the background (Kyler, 2026-10-04): only while Kyler is idle, the water settled;
+  // any press or key stops it at once and waits for the next quiet moment
+  const prepTimer = useRef(0);
+  const idlePrep = () => {
+    clearTimeout(prepTimer.current);
+    prepTimer.current = window.setTimeout(() => void api.prepareWeather(), 1500);
+  };
+  useEffect(() => {
+    const stop = () => {
+      void api.stopWeatherPrep();
+      idlePrep();
+    };
+    window.addEventListener("pointerdown", stop, true);
+    window.addEventListener("keydown", stop, true);
+    return () => {
+      clearTimeout(prepTimer.current);
+      window.removeEventListener("pointerdown", stop, true);
+      window.removeEventListener("keydown", stop, true);
+    };
+  }, []);
   player.current ??= new WaterPlayer({
     // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once; a held weather day
     // stays on screen meanwhile)
@@ -591,7 +614,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, setWeatherDay, setWeatherDays,
-    setWeatherCounting, heldDay, stepWeather, requestHeldDay, lastHover, rehover, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

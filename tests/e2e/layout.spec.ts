@@ -353,3 +353,26 @@ test("the fullest legend fits at 1920×1080 under Legend, without scrolling", as
   // (the minimap's foot is the map's foot margin: the legend may reach it, clear of the bar and the objects list beside it)
   expect(m.top + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends on the map's foot margin or higher`).toBeLessThanOrEqual(m.minimap.bottom + 0.5);
 });
+
+// Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
+// band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
+// room they have, scrolling inside only when it's short.
+for (const [w, h] of [[1400, 900], [1366, 768], [1280, 800]] as [number, number][]) {
+  test(`at ${w}×${h}: nothing overlaps, panels and the legend open or closed`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page);
+    const header = page.locator("header.editor-bar");
+    for (const panel of [null, "Map Generator", "Real places", "Your maps"]) {
+      if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
+      for (const legend of [false, true]) {
+        if (legend) await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
+        await settle(page, w, h);
+        const bs = await boxes(page);
+        for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${bs[i].name} overlaps ${bs[j].name} (${panel ?? "no panel"}, legend ${legend ? "on" : "off"})`).toBe(false);
+        if (legend) await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
+      }
+      if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
+    }
+  });
+}

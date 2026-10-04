@@ -32,6 +32,7 @@ import { useForceRun } from "./forces/useForceRun";
 import { useForcePointer } from "./forces/useForcePointer";
 import { useRows } from "./rows/useRows";
 import { useReady } from "./view/useReady";
+import { useBandLayout } from "./view/useBandLayout";
 import { useFrameInsets } from "./view/insets";
 import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
@@ -103,6 +104,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useSave(ed));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
+  useBandLayout(!!ed.ready);
   // Your maps' picture: the land and water as the view shows them
   useEffect(() => {
     props.onPicture?.(() => {
