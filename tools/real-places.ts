@@ -45,7 +45,7 @@ import {
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { writeTimber } from "../src/core/format/timber";
 import { namedFile } from "../src/core/gen/pack";
-import { shadeTiles } from "../src/core/render/shade";
+import { thumbnailRgba } from "../src/core/render/shade";
 import { validateMap } from "../src/core/validate/checks";
 import type { CheckResult } from "../src/core/validate/report";
 
@@ -206,30 +206,10 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
   return place;
 }
 
-/** The card's picture: the shaded map with its water, north up, CARD pixels square. */
+/** The card's picture: the shaded map with its water, north up, CARD pixels square (the file's
+ *  thumbnail at the card's size). */
 function cardJpeg(heights: Uint8Array, W: number, H: number, water: ArrayLike<number>): Uint8Array {
-  const tiles = shadeTiles(heights, W, H, water);
-  const out = new Uint8Array(CARD * CARD * 4);
-  for (let py = 0; py < CARD; py++) {
-    const my = Math.min(H - 1, Math.max(0, H * (1 - (py + 0.5) / CARD) - 0.5));
-    const y0 = Math.floor(my);
-    const y1 = Math.min(H - 1, y0 + 1);
-    const ty = my - y0;
-    for (let px = 0; px < CARD; px++) {
-      const mx = Math.min(W - 1, Math.max(0, ((px + 0.5) / CARD) * W - 0.5));
-      const x0 = Math.floor(mx);
-      const x1 = Math.min(W - 1, x0 + 1);
-      const tx = mx - x0;
-      const o = (py * CARD + px) * 4;
-      for (let c = 0; c < 3; c++) {
-        const a = tiles[(y0 * W + x0) * 3 + c] * (1 - tx) + tiles[(y0 * W + x1) * 3 + c] * tx;
-        const b = tiles[(y1 * W + x0) * 3 + c] * (1 - tx) + tiles[(y1 * W + x1) * 3 + c] * tx;
-        out[o + c] = Math.round(a * (1 - ty) + b * ty);
-      }
-      out[o + 3] = 255;
-    }
-  }
-  return encodeJpeg({ data: out, width: CARD, height: CARD }, CARD_QUALITY).data;
+  return encodeJpeg({ data: thumbnailRgba(heights, W, H, water, CARD, CARD), width: CARD, height: CARD }, CARD_QUALITY).data;
 }
 
 // ------------------------------------------------------------------------------------------ run

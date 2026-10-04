@@ -111,8 +111,8 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 - **The generator** (M9b): every edge river's mouth, before the course check (`gen/generate.ts`); the
   course check seals only the mouth's own tiles (`land/courses.ts` `sealedMouths`, the build's
   `mouthTilesOf`), and badwater ditches keep out of the lip's reach.
-- **The forces** do not call it yet: Carve's source row and Glaciate's meltwater can still stand on an edge
-  and pour off it. Whether to wire it in is Kyler's call (the coherence review's B3, D462).
+- **The forces** do not call it (D462): Carve's source row and Glaciate's meltwater can stand on an edge
+  and pour off it.
 - **Real places** (when it resumes, D319): each head the conversion puts on an edge.
 
 # A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
