@@ -14,11 +14,18 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `stored.ts`: the stored map (`storeBuilt`, `restoreBuilt`, `sameMap`).
-- `base.ts` (the stored base map), `placing.ts` (an object or a source from the shelf, and moving one), `tools.ts` (moving
-  the start; what reshaped ground does to the objects on it; features' plain names), `bake.ts` (old drawn landforms
-  become plain terrain, D182).
+- The editor's edits as plain questions on the session's map, each returning the operations and label (or why not) for
+  the worker to apply (D342): `placing.ts` (an object or a source from the shelf, `planEntity`; moving one; trees and
+  bushes painted, `planPlant`; a group of edits' spring pools, `withSpringPools`), `remove.ts` `planRemove` (Remove and
+  Clear everything), `strokes.ts` (a stroke with Clear sources, `planStrokeClearing`; a new ramped Flatten refused,
+  `newRampedStroke`), `tools.ts` (moving, turning or placing the start, `planStart`; what reshaped ground does to the
+  objects on it; features' plain names), `describeTile.ts` (what is on a tile: `describeTileOf`, `entitiesAtTile`).
+- `checkItems.ts`: the checks as the editor lists them: `checkItem` (every one-click fix a check has, the start's moves
+  among them), `instantChecks` (the load and design checks after an edit, those in its region marked), `groupChecks`
+  (the export dialog's groups, an import's own problems apart, D43).
+- `base.ts` (the stored base map), `bake.ts` (old drawn landforms become plain terrain, D182).
 - `start.ts`: the start's helpers the forces, Select, the shelf and the checks' fixes share (`startProblem`, `moveStartNear`,
-  `startClears`, `startCarry`, `startMiddle`).
+  `startClears`, `startCarry`, `startMiddle`), and Select's step with its start carry (`applySelection`).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).

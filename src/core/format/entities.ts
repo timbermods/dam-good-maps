@@ -33,6 +33,12 @@ export function entityJson(e: EntitySpec): JsonObject {
   return { Id: e.id, Template: e.template, Components: comps };
 }
 
+/** An entity's components other than its placement as the file holds them: a read entity's own (its
+ *  BlockObject among them), else the ones built for it, `before` first. */
+export function componentsOf(e: EntitySpec): JsonObject {
+  return (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as JsonObject;
+}
+
 const yieldOf = (good: string, amount: number): JsonObject => ({ Yield: { Good: good, Amount: amount } });
 
 /** The logs a grown tree of the species the generator plants gives (the game's blueprints, pinned

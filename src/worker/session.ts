@@ -11,34 +11,31 @@
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
-import { kindName, moveEdit } from "../core/doc/tools";
-import { moveStartNear, startCarriedBack, startCarry, startClears, startBrokenBy, startMiddle, cornerFor } from "../core/doc/start";
-import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
+import { planStart } from "../core/doc/tools";
+import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
+import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, levelProblem, planEntity, planMoveEntity, levelFootprint, type EntityRequest, type PlannedOps } from "../core/doc/placing";
-import { distanceFrom, runsToTiles, tilesToRuns, type Runs } from "../core/math/grid";
+import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
+import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
+export type { CheckItem };
+import type { Runs } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
-import { toTimberFile } from "../core/gen/pack";
-import { thumbnailJpeg } from "../core/render/shade";
-import type { EntitySpec } from "../core/format/entities";
-import { JsonFloat } from "../core/format/json";
-import { startEntranceTile, type Orientation } from "../core/format/footprints";
-import { entityTiles } from "../core/features/edits";
-import { describeTileOf, type TileDescription } from "../core/doc/describeTile";
-import { objectsIn, ruinFieldTilesIn, submergedIn } from "../core/doc/inArea";
-import { rebuiltSlope } from "../core/features/ids";
-import { placementOf } from "../core/format/entities";
+import { componentsOf, placementOf, type EntitySpec } from "../core/format/entities";
+import { plainJson } from "../core/format/json";
+import type { Orientation } from "../core/format/footprints";
+import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription } from "../core/doc/describeTile";
+export type { EntityInfo };
+import { objectsIn } from "../core/doc/inArea";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
-import { OFFICIAL_FLOW } from "../core/gen/calibrated";
 import { bakeLandforms } from "../core/doc/bake";
-import { badtideContamination, hazardDays, type Hazard } from "../core/sim/weather";
+import { HazardRun, hazardDays, type Hazard } from "../core/sim/weather";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
-import { patchFeature } from "../core/doc/ops";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
-import { validateMap, type Validation } from "../core/validate/checks";
-import { canonicalRun, canonicalSettle, type CanonicalWater } from "../core/sim/prefill";
+import type { Validation } from "../core/validate/checks";
+import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
 import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams, Rect } from "../core/features/raster/brush";
@@ -46,7 +43,6 @@ import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
-import { blocks, failing, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
 import type { CarveRun } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
@@ -105,26 +101,34 @@ export interface ViewUpdate {
   soil?: SoilView;
 }
 
-export interface SessionUpdate {
-  ok: boolean;
-  errors: string[];
-  info: SessionInfo;
+/** What changed on the map, for the page: the parts of the view that changed and the session's news.
+ *  An edit's answer (`SessionUpdate`), a background check's (`BackgroundResult`) and the `settled`
+ *  event share it. (A force taken back, `ForceTakenBack`, carries the view's parts at its top level,
+ *  as the page reads it.) */
+export interface ViewNews {
   view: ViewUpdate;
-  ms: number;
-  /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
-  instant?: InstantCheck | null;
+  info: SessionInfo;
   /** The map's water is settled as this answer leaves (D345, B14): no settle is running for it, so no
    *  journey will follow. False while the worker is settling the water after this change: its frames,
    *  then its settled water, come as events. The water bar reads this, never a guess. */
   waterSettled?: boolean;
 }
 
+export interface SessionUpdate extends ViewNews {
+  ok: boolean;
+  errors: string[];
+  ms: number;
+  /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
+  instant?: InstantCheck | null;
+}
+
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
- *  map as it now stands; `here` marks the problems in the region the edit changed. */
+ *  map as it now stands; `here` marks the problems in the region the edit changed
+ *  (core/doc/checkItems.ts `instantChecks`). */
 export interface InstantCheck {
   items: CheckItem[];
   /** The rectangle the edit changed (terrain or objects), or null. */
-  region: { x0: number; y0: number; x1: number; y1: number } | null;
+  region: TileRect | null;
   ms: number;
 }
 
@@ -136,31 +140,9 @@ export interface SessionOpen {
   ms: number;
 }
 
-export interface CheckItem {
-  id: string;
-  class: CheckClass;
-  message: string;
-  where?: CheckResult["where"];
-  /** A one-click fix: edit operations applied together as one undo step. */
-  fix?: FixOp[];
-  /** The problem lies in the region the last edit changed. */
-  here?: boolean;
-}
-
-/** The export check (PLAN §19.5, `export` profile). */
-export interface ExportCheck {
-  /** Load problems the edits made: export is blocked until they are fixed. */
-  blocking: CheckItem[];
-  /** Playability and design problems the edits made: the player confirms, and they are noted in
-   *  the map's description. */
-  warnings: CheckItem[];
-  /** Advice that never blocks (plants.drought). */
-  advisory: CheckItem[];
-  /** Problems an imported map already had when it was opened: listed, never blamed on edits. */
-  existing: CheckItem[];
-  /** Why the water and start checks are only approximate on this map, or null (PLAN §11, D98). */
-  approximate: string | null;
-  checks: number;
+/** The export check (PLAN §19.5, `export` profile): the validation grouped as the export dialog shows
+ *  it (core/doc/checkItems.ts `groupChecks`), at the session's version. */
+export interface ExportCheck extends CheckGroups {
   version: number;
   ms: number;
 }
@@ -238,7 +220,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   const out = [];
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
-    const comps = e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components };
+    const comps = componentsOf(e) as Record<string, unknown>;
     out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
   }
   return out;
@@ -542,7 +524,7 @@ export type EditorEvent =
    *  map's own water, exactly). */
   | { kind: "weather"; version: number; water: WaterView; phase: "drought" | "badtide" | "return" | "end"; day: number; days: number; soil?: SoilView }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
-  | { kind: "settled"; version: number; view: ViewUpdate; info: SessionInfo }
+  | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
   | { kind: "instant"; version: number; instant: InstantCheck };
 
@@ -759,13 +741,12 @@ export function startWeather(hazard: Hazard): void {
   const token = ++weatherToken;
   const days = hazardDays(s.meta.designedFor ?? "normal", hazard);
   const base = s.built.waterModel;
-  // the sources' own copies: a badtide changes what the clean ones give
-  const model: WaterModel = { ...base, emitters: base.emitters.map((e) => ({ ...e })) };
-  const clean = model.emitters.filter((e) => e.contamination === 0);
-  const sim = new WaterSim(model, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) });
+  // (the hazard's steps are the core's, sim/weather.ts `HazardRun`: here its pace and its frames)
+  const run = new HazardRun(base, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) }, hazard, days);
+  const sim = run.sim;
   const v = version;
   const { x: W, y: H } = s.size;
-  const total = days * TICKS_PER_DAY;
+  const total = run.total;
   const send = (phase: "drought" | "badtide" | "return" | "end", water: WaterView, day: number, soil?: SoilView) => listener?.({ kind: "weather", version: v, water, phase, day, days, ...(soil ? { soil } : {}) });
   const soilNow = (depth: Float64Array, contamination: Float64Array) => soilView(moisture(s.built.heights, depth, contamination, W, H, null), soilContamination(s.built.heights, depth, contamination, W, H, null));
   void (async () => {
@@ -776,8 +757,7 @@ export function startWeather(hazard: Hazard): void {
       while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
         // closer frames the first day, while the rivers drain or the badwater surges
         const gap = t < TICKS_PER_DAY ? 12 : 96;
-        if (hazard === "badtide") for (const e of clean) e.contamination = badtideContamination(t / TICKS_PER_DAY, days);
-        sim.run(gap, hazard === "drought" ? 0 : 1);
+        run.step(gap);
         t += gap;
         const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
         if (soil) nextSoil += TICKS_PER_DAY;
@@ -843,46 +823,12 @@ export function whenWaterSettles(): Promise<void> {
 // ---------------------------------------------------------------------------------- instant checks
 
 /** The load and design checks of the map as it now stands (about 25 ms at 256²), without the
- *  water settle or the thumbnail; `here` marks the problems in the region the edit changed. */
+ *  water settle or the thumbnail; `here` marks the problems in the region the edit changed
+ *  (core/doc/checkItems.ts `instantChecks`). */
 export function instantCheck(s: MapSession = need()): InstantCheck {
   const t0 = performance.now();
-  const d = s.built.dirty;
-  // what the edit touched: the features it changed, old and new, and the ground that changed
-  const parts = d ? [d.region, d.terrain, d.objects].filter((r): r is NonNullable<typeof r> => !!r) : [];
-  const region = parts.length ? { x0: Math.min(...parts.map((r) => r.x0)), y0: Math.min(...parts.map((r) => r.y0)), x1: Math.max(...parts.map((r) => r.x1)), y1: Math.max(...parts.map((r) => r.y1)) } : null;
-  const file = s.mode === "live" ? toTimberFile(s.spec!, s.built, { thumbnail: blankThumbnail() }) : s.exportFile(s.built, { thumbnail: false });
-  const v = validateMap(file, { profile: "export", external: s.mode !== "live", editing: true, spec: s.spec, designedFor: s.meta.designedFor, features: s.features, loadOnly: true });
-  const items: CheckItem[] = [];
-  const at = entityPositions(s);
-  for (const c of v.report.checks) {
-    if (!failing(c)) continue;
-    const item = itemOf(c, s);
-    if (region) item.here = inRegion(c.where, region, at);
-    items.push(item);
-  }
-  return { items, region: region ? { x0: region.x0, y0: region.y0, x1: region.x1, y1: region.y1 } : null, ms: Math.round(performance.now() - t0) };
-}
-
-let blank: Uint8Array | null = null;
-/** A 960×540 thumbnail for the instant checks, which only read its size. */
-function blankThumbnail(): Uint8Array {
-  blank ??= thumbnailJpeg(new Uint8Array(1), 1, 1, null);
-  return blank;
-}
-
-function entityPositions(s: MapSession): Map<string, [number, number]> {
-  const out = new Map<string, [number, number]>();
-  for (const e of s.built.entities) out.set(e.id, [e.x, e.y]);
-  return out;
-}
-
-function inRegion(where: CheckResult["where"], r: { x0: number; y0: number; x1: number; y1: number }, at: Map<string, [number, number]>): boolean {
-  const pts: [number, number][] = [...(where?.tiles ?? [])];
-  for (const id of where?.entities ?? []) {
-    const p = at.get(id);
-    if (p) pts.push(p);
-  }
-  return pts.some(([x, y]) => x >= r.x0 - 1 && x <= r.x1 + 1 && y >= r.y0 - 1 && y <= r.y1 + 1);
+  const { items, region } = instantChecks(s);
+  return { items, region, ms: Math.round(performance.now() - t0) };
 }
 
 // ------------------------------------------------------------------------------------ opening
@@ -953,14 +899,7 @@ export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): Se
   return changed(s, r.ok, r.errors, t0);
 }
 
-/** A new ramped Flatten would lay Slope objects along its rim (D270). The editor has no such stroke
- *  (D322), and no brush places an object (D368 (10): only the player places objects): it is refused,
- *  with the way to a walkable edge. A stroke saved earlier, with its slopes recorded, replays as it
- *  always did, through the project and the history, never through here. */
-function newRampedStroke(op: EditOp): string | null {
-  if (op.op !== "brush" || op.params.tool !== "flatten" || op.params.edges !== "ramped" || op.params.slopes !== undefined) return null;
-  return "Flatten has no ramped edges: place a Slope from the shelf where you want a way up";
-}
+// (a new ramped Flatten is refused: core/doc/strokes.ts `newRampedStroke`)
 
 /** The last change a control made step by step (a strength slider moved with the arrow keys):
  *  its key, when, and how long the history was after it. */
@@ -984,29 +923,9 @@ export function applyStep(op: EditOp, label: string, key: string): SessionUpdate
 export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
   return changed(s, r.ok, r.errors, t0);
-}
-
-/** A badwater source placed or moved in a group of edits (a clean source switched to bad: the old
- *  one removed, the new one placed; a source dragged) cuts its own spring pool where its ground
- *  isn't level (D290), in the same step, before it. */
-function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
-  const bad = (op: EditOp) =>
-    op.op === "placeEntity" ? op.params.template === "BadwaterSource" : op.op === "moveEntity" ? s.built.entities.some((e) => e.id === op.params.id && e.template === "BadwaterSource") : false;
-  if (!ops.some(bad)) return ops;
-  const out: EditOp[] = [];
-  const removed = new Set<string>();
-  for (const op of ops) {
-    if (op.op === "deleteEntities") for (const id of op.params.entities) removed.add(id);
-    if (op.op === "placeEntity" && bad(op)) out.push(...levelFootprint(s, { ...op.params, template: "BadwaterSource" }, removed));
-    if (op.op === "moveEntity" && bad(op)) {
-      const e = s.built.entities.find((g) => g.id === op.params.id)!;
-      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
-    }
-    out.push(op);
-  }
-  return out;
 }
 
 export function undo(): SessionUpdate {
@@ -1067,91 +986,10 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 
 // ------------------------------------------------------------------------------------ export
 
-/** The start checks a move fixes: its ground, its door, its dry ring, what covers it. */
-const START_FIXABLE = new Set(["start.flat", "start.entrance", "start.dry", "start.clear"]);
-
-/** A map with no start (D323 item 44): the checks say so in two words; the save says what to do. */
-const NO_START = "No start";
-const NO_START_REFUSAL = "Place a start first: pick the Start on the shelf";
-
-function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
-  if (c.id === "start.count" && c.value === 0) c = { ...c, message: NO_START };
-  let fix = c.fix?.length ? c.fix : undefined;
-  // (a planting fix only where the game takes each plant: the rest of it still helps)
-  if (fix && s && fix.some((op) => op.op === "placeEntity")) {
-    const label = fix[0].label;
-    fix = fix.filter((op) => op.op !== "placeEntity" || !entityProblem(s, op.params));
-    fix = fix.length ? [{ ...fix[0], label }, ...fix.slice(1)] : undefined;
-  }
-  if (!fix && s && START_FIXABLE.has(c.id)) {
-    const at = startMiddle(s);
-    const ops = at ? moveStartNear(s, at[0], at[1]) : null;
-    if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start to the nearest good spot" : "" }) as FixOp);
-  }
-  // water out of reach (D257: a force may carry it off): the start moved to the nearest good spot
-  // by the nearest water a pump reaches
-  const shore = c.where?.tiles?.[0];
-  if (!fix && s && c.id === "start.water" && shore) {
-    const ops = moveStartNear(s, shore[0], shore[1]);
-    if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start near the water" : "" }) as FixOp);
-  }
-  // entities are named by id; the page finds them by their tiles
-  let where = c.where;
-  if (s && where?.entities?.length && !where.tiles?.length) {
-    const want = new Set(where.entities.slice(0, 50));
-    const tiles: [number, number][] = [];
-    for (const e of s.built.entities) if (want.has(e.id)) tiles.push([e.x, e.y]);
-    if (tiles.length) where = { ...where, tiles };
-  }
-  return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
-}
-
-/** Whether a failing check was already failing, over the same things, when the map was opened. */
-function existedBefore(c: CheckResult, before: Validation): boolean {
-  const o = before.report.checks.find((x) => x.id === c.id);
-  if (!o || o.ok || o.applicable === false) return false;
-  const keys = (w: CheckResult["where"]) => [...(w?.entities ?? []), ...(w?.tiles ?? []).map((t) => t.join(",")), ...(w?.feature ? [w.feature] : [])];
-  const now = keys(c.where);
-  if (!now.length) return String(c.value) === String(o.value) && c.message === o.message;
-  const had = new Set(keys(o.where));
-  return now.every((k) => had.has(k));
-}
-
-/** Validate the open map for export (PLAN §19.5), in one go: the water settles canonically here
- *  when the preview's water is showing (the background check does the same in slices). */
-export function exportCheck(): ExportCheck {
-  const t0 = performance.now();
-  const s = need();
-  if (lastCheck && lastCheck.version === version) return lastCheck;
-  const imported = s.mode === "import";
-  const v = imported ? s.validate("export", { water: settleNow(importModel(s)) }) : s.validate("export");
-  if (imported && !originalFull) originalFull = s.validateOriginal(settleNow(importModel(s, true)));
-  return grouped(s, v, t0);
-}
-
-/** A validation grouped as the export dialog shows it (PLAN §19.5, D43). */
+/** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
+ *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  const imported = s.mode === "import";
-  const before = imported ? originalFull : null;
-  const out: ExportCheck = {
-    blocking: [],
-    warnings: [],
-    advisory: [],
-    existing: [],
-    approximate: v.report.checks.find((c) => c.approximate)?.approximate ?? null,
-    checks: 0,
-    version,
-    ms: 0,
-  };
-  for (const c of v.report.checks) {
-    if (c.applicable === false) continue;
-    out.checks++;
-    if (c.ok) continue;
-    if (before && existedBefore(c, before)) out.existing.push(itemOf(c, s));
-    else if (c.advisory) out.advisory.push(itemOf(c, s));
-    else if (blocks("export", c)) out.blocking.push(itemOf(c, s));
-    else out.warnings.push(itemOf(c, s));
-  }
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -1171,10 +1009,6 @@ function importModel(s: MapSession, opened = false): WaterModel {
   return m;
 }
 
-function settleNow(model: WaterModel): { model: WaterModel; settled: CanonicalWater } {
-  return { model, settled: canonicalSettle(model) };
-}
-
 // ---------------------------------------------------------------------------- background checks
 
 /** A slice of the canonical settle between answers to the page (about 30 ms on a 256² map). */
@@ -1187,14 +1021,10 @@ export interface CheckProgress {
   done: number;
 }
 
-export interface BackgroundResult {
+/** A background check's answer; its view is the one after the canonical water replaced the preview's
+ *  (water, and the plants on it). */
+export interface BackgroundResult extends ViewNews {
   check: ExportCheck;
-  /** The view after the canonical water replaced the preview's (water, and the plants on it). */
-  view: ViewUpdate;
-  info: SessionInfo;
-  /** No settle is running for the open map as this answer leaves (D345, B14): its water is the
-   *  canonical one, and whatever journey the page shows is over. */
-  waterSettled?: boolean;
 }
 
 let bgToken = 0;
@@ -1369,110 +1199,25 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 // --------------------------------------------------------------------- the shelf and Remove
 
 /** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
- *  it can stand (on the map's ground, dry, no object there), as one step. The tiles it planted. */
+ *  it can stand, as one step (core/doc/placing.ts `planPlant`). The tiles it planted. */
 export function plantAt(template: string, tiles: readonly number[]): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
-  const { x: W } = s.size;
-  const b = s.built;
-  const taken = new Uint8Array(W * s.size.y);
-  for (const e of b.entities) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < s.size.y) taken[ty * W + tx] = 1;
-  const ops: EditOp[] = [];
-  const planted: number[] = [];
-  for (const i of new Set(tiles)) {
-    if (i < 0 || i >= taken.length || taken[i] || b.water[i] > 0.05) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    const p = { template, x, y, orientation: "Cw0" as Orientation };
-    if (entityProblem(s, p)) continue;
-    taken[i] = 1;
-    planted.push(i);
-    ops.push({ op: "placeEntity", params: { id: crypto.randomUUID(), ...p } });
-  }
-  if (!ops.length) return { ...changed(s, false, ["nothing can grow there: it needs dry ground with nothing on it"], t0), planted };
-  const name = template === "BlueberryBush" ? "blueberry bush" : template.toLowerCase();
-  const label = ops.length === 1 ? `Plant a ${name}` : `Plant ${ops.length} ${name === "blueberry bush" ? "blueberry bushes" : `${name}s`}`;
-  const r = s.applyAll(ops, "user", label);
-  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? planted : [] };
+  const p = planPlant(s, template, tiles, () => crypto.randomUUID());
+  if (!p.ok) return { ...changed(s, false, p.errors, t0), planted: [] };
+  const r = s.applyAll(p.ops, "user", p.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? p.planted : [] };
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
- *  the ground. The start goes like any object when its kind is named (D323 item 44). The tiles the
- *  removed objects stood on (their corners). */
+ *  the ground (core/doc/remove.ts `planRemove`). The tiles the removed objects stood on. */
 export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
-  const { x: W, y: H } = s.size;
-  const want = new Set(tiles);
-  const ids: string[] = [];
-  const slopes: { x: number; y: number }[] = [];
-  const startFeatures = new Set<string>();
-  const removed: number[] = [];
-  const counts = new Map<RemoveKind, number>();
-  // (a ruin field the selection reaches gives up the tiles inside it, the columns the water hides too; the
-  // columns outside keep their heights and places, D360 b)
-  const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
-  for (const e of s.built.entities) {
-    if (e.raw && !placementOf(e.raw)) continue;
-    if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
-    const kind = removeKindOf(e.template);
-    if (!kind || !removeTakes(kinds, e.template)) continue;
-    if (kind === "ruins" && fields.has(e.owner)) {
-      removed.push(e.y * W + e.x);
-      counts.set(kind, (counts.get(kind) ?? 0) + 1);
-      continue;
-    }
-    if (kind === "slopes" && (rebuiltSlope(e.owner) || e.owner.startsWith("pinned:"))) slopes.push({ x: e.x, y: e.y });
-    else if (kind === "start" && s.features.some((f) => f.kind === "start" && f.id === e.owner)) startFeatures.add(e.owner);
-    else ids.push(e.id);
-    removed.push(e.y * W + e.x);
-    counts.set(kind, (counts.get(kind) ?? 0) + 1);
-  }
-  // what the resource features hold under water there is deleted too (D345, B5), and nothing they would
-  // plant on these tiles later stands again as the water drains or the ground dries: the features'
-  // areas give up the tiles where nothing stands now
-  for (const o of submergedIn(s, want)) {
-    if (!removeTakes(kinds, o.template)) continue;
-    removed.push(o.tile);
-    const kind = removeKindOf(o.template)!;
-    counts.set(kind, (counts.get(kind) ?? 0) + 1);
-  }
-  const trims = new Map<string, Set<number>>();
-  for (const f of s.features) {
-    // (not a ruin field: its columns' heights are assigned over its whole area, so giving tiles up would
-    // change the ones that stand)
-    if (f.kind !== "forest" && f.kind !== "berryPatch") continue;
-    if (!removeTakes(kinds, f.kind === "forest" ? "Pine" : "BlueberryBush")) continue;
-    const standing = new Set<number>();
-    for (const e of s.built.entities) if (e.owner === f.id) for (const [tx, ty] of entityTiles(e)) standing.add(ty * W + tx);
-    const gone = new Set<number>();
-    for (const i of runsToTiles(f.params.area as Runs, W)) if (want.has(i) && !standing.has(i)) gone.add(i);
-    if (gone.size) trims.set(f.id, gone);
-  }
-  if (!removed.length) return { ...changed(s, false, ["nothing to remove there"], t0), removed };
-  const ops: EditOp[] = [];
-  if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
-  for (const [id, gone] of trims) {
-    const f = s.features.find((g) => g.id === id);
-    if (!f || !("area" in f.params)) continue;
-    const keep = runsToTiles(f.params.area as Runs, W).filter((i) => !gone.has(i));
-    // (a feature whose whole area was under water has nothing left: it goes)
-    ops.push(keep.length ? { op: "updateFeature", params: { id, patch: { params: { area: tilesToRuns(keep, W) } } } } : { op: "deleteFeature", params: { id } });
-  }
-  for (const [id, gone] of fields) {
-    const f = s.features.find((g) => g.id === id);
-    if (!f || f.kind !== "ruinField") continue;
-    const cleared = new Set<number>(f.params.cleared ? runsToTiles(f.params.cleared, W) : []);
-    for (const i of gone) cleared.add(i);
-    const left = runsToTiles(f.params.area, W).some((i) => !cleared.has(i));
-    ops.push(left ? { op: "updateFeature", params: { id, patch: { params: { cleared: tilesToRuns([...cleared].sort((a, b) => a - b), W) } } } } : { op: "deleteFeature", params: { id } });
-  }
-  for (const p of slopes) ops.push({ op: "removeSlope", params: p });
-  for (const id of startFeatures) ops.push({ op: "deleteFeature", params: { id } });
-  const one: Record<RemoveKind, [string, string]> = { trees: ["a tree", "trees"], bushes: ["a bush", "bushes"], ruins: ["a ruin", "ruins"], sources: ["a source", "sources"], water: ["a water source", "water sources"], badwater: ["a badwater source", "badwater sources"], slopes: ["a slope", "slopes"], objects: ["an object", "objects"], start: ["the start", "the start"] };
-  const auto = counts.size === 1 ? (() => { const [k, n] = [...counts][0]; return n === 1 ? `Remove ${one[k][0]}` : `Remove ${n} ${one[k][1]}`; })() : `Remove ${removed.length} objects`;
-  const r = s.applyAll(ops, "user", label ?? auto);
-  return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? removed : [] };
+  const p = planRemove(s, tiles, kinds, label);
+  if (!p.ok) return { ...changed(s, false, p.errors, t0), removed: [] };
+  const r = s.applyAll(p.ops, "user", p.label);
+  return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? p.removed : [] };
 }
 
 /** What is on tile (x, y): its ground and every object standing on it (D347, B11). */
@@ -1491,7 +1236,7 @@ export function objectsInArea(tiles: readonly number[]): { counts: Record<string
 export function clearEverything(): SessionUpdate & { removed: number[] } {
   const s = need();
   const all = Array.from({ length: s.size.x * s.size.y }, (_, i) => i);
-  return removeAt(all, ["trees", "bushes", "ruins", "sources", "slopes", "objects", "start"], "Clear everything");
+  return removeAt(all, EVERY_KIND, "Clear everything");
 }
 
 /** A Select action (D259, D264): its operations as one step, exact; objects and sources on the
@@ -1501,52 +1246,22 @@ export function clearEverything(): SessionUpdate & { removed: number[] } {
 export function applySelection(ops: EditOp[], label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
-  ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
-  const r = s.applyAll(ops, "user", label);
+  // (the step and its carry are the core's: core/doc/start.ts `applySelection`)
+  const r = applySelectionStep(s, ops, label, tiles);
   if (!r.ok) return changed(s, false, r.errors, t0);
-  if (startBrokenBy(s, new Set(tiles))) {
-    const at = startMiddle(s);
-    const carry = at ? moveStartNear(s, at[0], at[1], true) : null;
-    if (carry) {
-      s.undo();
-      const again = s.applyAll([...ops, ...carry], "user", label);
-      if (!again.ok) s.applyAll(ops, "user", label);
-    }
-  }
   return changed(s, true, [], t0);
 }
 
 /** A brush stroke with **Clear sources** on (D249): the stroke and the removal of every water or
  *  badwater source standing on `tiles` (the tiles it pressed), one undo step; the water recedes
- *  live. Without a source there it is the stroke alone. */
+ *  live. Without a source there it is the stroke alone (core/doc/strokes.ts `planStrokeClearing`). */
 export function strokeClearing(op: EditOp, label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const { x: W, y: H } = s.size;
-  const want = new Set(tiles);
-  const ids: string[] = [];
-  for (const e of s.built.entities) {
-    if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
-    if (e.raw && !placementOf(e.raw)) continue;
-    if (entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) ids.push(e.id);
-  }
-  const refused = newRampedStroke(op);
-  if (refused) return changed(s, false, [refused], t0);
-  const ops: EditOp[] = [op];
-  if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
-  const r = ids.length ? s.applyAll(ops, "user", `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared`) : s.apply(op, "user", label);
+  const p = planStrokeClearing(s, op, label, tiles);
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
   return changed(s, r.ok, r.errors, t0);
-}
-
-/** Move the start feature by (dx, dy) tiles. */
-function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
-  const t0 = performance.now();
-  const s = need();
-  const r = moveEdit(s, id, dx, dy);
-  if (!r.ok) return changed(s, false, r.errors, t0);
-  const a = s.applyAll(r.ops, "user", r.label);
-  return changed(s, a.ok, a.errors, t0);
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
@@ -1561,99 +1276,23 @@ export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate 
 }
 
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
- *  imported map's own StartingLocation. */
+ *  imported map's own StartingLocation; with none, the shelf's Start places one (core/doc/tools.ts
+ *  `planStart`). */
 export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const f = s.features.find((g) => g.kind === "start");
-  if (f && f.kind === "start") {
-    const at = startMiddle(s)!;
-    const moves = x !== at[0] || y !== at[1];
-    if (!orientation || orientation === f.params.orientation) return moveFeature(f.id, x - at[0], y - at[1]);
-    // turned too (the shelf's R): one step
-    const moved = moves ? moveEdit(s, f.id, x - at[0], y - at[1]) : null;
-    if (moved && !moved.ok) return changed(s, false, moved.errors, t0);
-    const ops: EditOp[] = [...(moved && moved.ok ? moved.ops : []), { op: "updateFeature", params: { id: f.id, patch: { params: { orientation } } } }];
-    const r = s.applyAll(ops, "user", moves ? "Move and turn the start" : "Turn the start");
-    return changed(s, r.ok, r.errors, t0);
-  }
-  const e = s.built.entities.find((g) => g.template === "StartingLocation");
-  if (!e) return placeStart(s, x, y, orientation ?? "Cw0", t0);
-  const o = orientation ?? e.orientation;
-  const [cx, cy] = cornerFor(x, y, o);
-  // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
-  // its door are cut down to the lowest tile, in the same step (D328)
-  const door = startEntranceTile(cx, cy, o);
-  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
-  if (wet) return changed(s, false, [wet], t0);
-  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
-  const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
-  const r = s.applyAll([...level, move], "user", o !== e.orientation ? "Move and turn the start" : "Move start");
-  return changed(s, r.ok, r.errors, t0);
-}
-
-/** The Start from the shelf on a map that has none (it was deleted, D323 item 44): a generated map
- *  gets a start feature with its small bench, an opened map an entity on its own ground, its footprint
- *  and door levelled as for a move (D328); one step. */
-function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: number): SessionUpdate {
-  if (s.mode !== "import") {
-    const z = s.built.heights[y * s.size.x + x];
-    const feature = { id: crypto.randomUUID(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel: z, player: 0 } } as unknown as Feature;
-    // (the generation's objects under it go in the same step, D368 (10))
-    const r = s.applyAll([...startClears(s, x, y, o), { op: "addFeature", params: { feature } }], "user", "Place the start");
-    return changed(s, r.ok, r.errors, t0);
-  }
-  const [cx, cy] = cornerFor(x, y, o);
-  const door = startEntranceTile(cx, cy, o);
-  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
-  if (wet) return changed(s, false, [wet], t0);
-  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set(), [door[1] * s.size.x + door[0]]);
-  const place: EditOp = { op: "placeEntity", params: { id: crypto.randomUUID(), template: "StartingLocation", x: cx, y: cy, orientation: o, components: {} } };
-  const r = s.applyAll([...level, place], "user", "Place the start");
+  const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
 }
 
 // ------------------------------------------------------------------------------ entities (advanced)
 
-export interface EntityInfo {
-  id: string;
-  template: string;
-  x: number;
-  y: number;
-  z: number;
-  orientation: Orientation;
-  flipped: boolean;
-  /** What placed it: a feature's plain name, "placed by hand", "slopes" or "the imported map". */
-  from: string;
-  /** Its components other than BlockObject, as plain JSON. */
-  components: Record<string, unknown>;
-}
-
-function plainJson(v: unknown): unknown {
-  if (v instanceof JsonFloat) return v.value;
-  if (Array.isArray(v)) return v.map(plainJson);
-  if (v !== null && typeof v === "object") {
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v)) out[k] = plainJson((v as Record<string, unknown>)[k]);
-    return out;
-  }
-  return v;
-}
-
-/** The entities whose footprint covers tile (x, y), topmost last (advanced mode's inspector). */
+/** The entities whose footprint covers tile (x, y), topmost last (advanced mode's inspector;
+ *  core/doc/describeTile.ts `entitiesAtTile`). */
 export function entitiesAt(x: number, y: number): EntityInfo[] {
-  const s = need();
-  const names = new Map(s.features.map((f) => [f.id, kindName(f)]));
-  const out: EntityInfo[] = [];
-  for (const e of s.built.entities) {
-    if (e.raw && !placementOf(e.raw)) continue;
-    if (!entityTiles(e).some(([tx, ty]) => tx === x && ty === y)) continue;
-    const comps = (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown>;
-    const { BlockObject: _bo, ...rest } = comps;
-    const from = names.get(e.owner) ?? (e.owner === "placed" ? "placed by hand" : e.owner.startsWith("derived:") || e.owner.startsWith("pinned:") ? "slopes" : "the imported map");
-    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, from, components: plainJson(rest) as Record<string, unknown> });
-  }
-  return out;
+  return entitiesAtTile(need(), x, y);
 }
 
 /** The hover preview of an object or a source from the shelf: its tiles, and why it can't stand there. */
@@ -1863,7 +1502,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
   out = new Map();
   for (const op of s.state.sculpts) if (op.op === "forceResult") for (const f of op.params.felled ?? []) out.set(f.id, { dx: f.dx, dy: f.dy });
   if (out.size) {
-    const dead = new Set(b.entities.filter((e) => lifeOf(e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components }).dead).map((e) => e.id));
+    const dead = new Set(b.entities.filter((e) => lifeOf(componentsOf(e) as Record<string, unknown>).dead).map((e) => e.id));
     for (const id of [...out.keys()]) if (!dead.has(id)) out.delete(id);
   }
   poses.set(b, out);

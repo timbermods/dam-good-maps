@@ -246,6 +246,56 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
 
 export { distanceFrom, runsToTiles };
 
+/** A badwater source placed or moved in a group of edits (a clean source switched to bad: the old
+ *  one removed, the new one placed; a source dragged) cuts its own spring pool where its ground
+ *  isn't level (D290), in the same step, before it. The worker's group of edits (`applyAll`) adds it;
+ *  a single edit, the shelf, Select and a stroke do not. */
+export function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
+  const bad = (op: EditOp) =>
+    op.op === "placeEntity" ? op.params.template === "BadwaterSource" : op.op === "moveEntity" ? s.built.entities.some((e) => e.id === op.params.id && e.template === "BadwaterSource") : false;
+  if (!ops.some(bad)) return ops;
+  const out: EditOp[] = [];
+  const removed = new Set<string>();
+  for (const op of ops) {
+    if (op.op === "deleteEntities") for (const id of op.params.entities) removed.add(id);
+    if (op.op === "placeEntity" && bad(op)) out.push(...levelFootprint(s, { ...op.params, template: "BadwaterSource" }, removed));
+    if (op.op === "moveEntity" && bad(op)) {
+      const e = s.built.entities.find((g) => g.id === op.params.id)!;
+      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
+    }
+    out.push(op);
+  }
+  return out;
+}
+
+// --------------------------------------------------------------------------------- planting
+
+/** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
+ *  it can stand (on the map's ground, dry, no object there), as one step; `newId` names each. The
+ *  operations, their label and the tiles planted, or why nothing can grow there. */
+export function planPlant(s: MapSession, template: string, tiles: readonly number[], newId: () => string): { ok: true; ops: EditOp[]; label: string; planted: number[] } | { ok: false; errors: string[] } {
+  const { x: W } = s.size;
+  const b = s.built;
+  const taken = new Uint8Array(W * s.size.y);
+  for (const e of b.entities) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < s.size.y) taken[ty * W + tx] = 1;
+  const ops: EditOp[] = [];
+  const planted: number[] = [];
+  for (const i of new Set(tiles)) {
+    if (i < 0 || i >= taken.length || taken[i] || b.water[i] > 0.05) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const p = { template, x, y, orientation: "Cw0" as Orientation };
+    if (entityProblem(s, p)) continue;
+    taken[i] = 1;
+    planted.push(i);
+    ops.push({ op: "placeEntity", params: { id: newId(), ...p } });
+  }
+  if (!ops.length) return fail("nothing can grow there: it needs dry ground with nothing on it");
+  const name = template === "BlueberryBush" ? "blueberry bush" : template.toLowerCase();
+  const label = ops.length === 1 ? `Plant a ${name}` : `Plant ${ops.length} ${name === "blueberry bush" ? "blueberry bushes" : `${name}s`}`;
+  return { ok: true, ops, label, planted };
+}
+
 // ------------------------------------------------------------------------------ hover preview
 
 /** Where an entity would stand, and why the game would refuse it there (null when it may): the

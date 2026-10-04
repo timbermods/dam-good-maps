@@ -166,7 +166,6 @@ const api = {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
-  exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
     return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);

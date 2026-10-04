@@ -6,6 +6,7 @@
 
 import * as portable from "../math/portable";
 import type { Difficulty } from "../spec/mapspec";
+import { TICKS_PER_DAY, WaterSim, type Emitter, type WaterModel, type WaterState } from "./water";
 
 export type Hazard = "drought" | "badtide";
 
@@ -41,4 +42,46 @@ export function badtideContamination(sinceStart: number, days: number): number {
   const toEnd = days - sinceStart;
   if (toEnd < 0.5) return shape(toEnd);
   return 1;
+}
+
+/** A hazard run on a map's water (the editor's Drought and Badtide, D180 (8), D181 (3)): its own
+ *  simulation from `water`, on its own copies of the sources (a badtide changes what the clean ones
+ *  give). A drought stops every source; a badtide gives each clean source `badtideContamination` for
+ *  the time it has run, set before each step. `ticksPerDay` is the game's (TICKS_PER_DAY) unless a
+ *  check runs it faster (the determinism cases). The caller paces the steps and shows the frames. */
+export class HazardRun {
+  readonly sim: WaterSim;
+  /** Ticks run so far. */
+  ticks = 0;
+  private readonly clean: Emitter[];
+
+  constructor(
+    model: WaterModel,
+    water: WaterState,
+    readonly hazard: Hazard,
+    readonly days: number,
+    readonly ticksPerDay = TICKS_PER_DAY,
+  ) {
+    const own: WaterModel = { ...model, emitters: model.emitters.map((e) => ({ ...e })) };
+    this.clean = own.emitters.filter((e) => e.contamination === 0);
+    this.sim = new WaterSim(own, water);
+  }
+
+  /** The run's whole length, in ticks. */
+  get total(): number {
+    return this.days * this.ticksPerDay;
+  }
+
+  /** `ticks` more of the hazard; the contamination the clean sources gave during them (a badtide), or
+   *  null (a drought). */
+  step(ticks: number): number | null {
+    let given: number | null = null;
+    if (this.hazard === "badtide") {
+      given = badtideContamination(this.ticks / this.ticksPerDay, this.days);
+      for (const e of this.clean) e.contamination = given;
+    }
+    this.sim.run(ticks, this.hazard === "drought" ? 0 : 1);
+    this.ticks += ticks;
+    return given;
+  }
 }

@@ -810,7 +810,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
-  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
+  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`doc/strokes.ts`
   `newRampedStroke`). `tests/contract/editsPlaceNothing.test.ts` runs every force and brush and compares the objects
   before and after.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a

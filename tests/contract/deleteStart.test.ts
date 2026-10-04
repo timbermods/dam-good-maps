@@ -44,7 +44,7 @@ describe("the start can be deleted (D323 item 44)", () => {
     expect(ed.sessionView().info.features.some((f) => f.kind === "start")).toBe(false);
     // the project saves; the checks say "No start"; the game's save and the download refuse
     expect(ed.project().bytes.length).toBeGreaterThan(100);
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking.map((b) => b.message)).toContain("No start");
     const out = await ed.exportTimber(true);
     expect(out.ok).toBe(false);
@@ -63,7 +63,7 @@ describe("the start can be deleted (D323 item 44)", () => {
     expect(r.ok, JSON.stringify(r.errors)).toBe(true);
     expect(steps()).toBe(n + 1);
     expect(templates().filter((t) => t === "StartingLocation").length).toBe(1);
-    expect(ed.exportCheck().blocking.map((b) => b.message)).not.toContain("No start");
+    expect((await ed.backgroundCheck())!.check.blocking.map((b) => b.message)).not.toContain("No start");
     void cornerFor;
   });
 

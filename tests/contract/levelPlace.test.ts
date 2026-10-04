@@ -103,7 +103,7 @@ describe("placed objects fit the land (D328)", () => {
       for (const i of own) expect(after[i], `tile ${i}`).toBe(after[own[0]]);
       // the water is not dammed: no wet tile is filled
       for (let i = 0; i < after.length; i++) if (g.depth[i] > 0) expect(after[i]).toBeLessThanOrEqual(before[i]);
-      expect(ed.exportCheck().blocking.map((b) => b.message)).toEqual([]);
+      expect((await ed.backgroundCheck())!.check.blocking.map((b) => b.message)).toEqual([]);
       // one undo puts the ground and the object back
       ed.undo();
       expect(steps()).toBe(n);
