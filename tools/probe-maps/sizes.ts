@@ -15,12 +15,19 @@ import { FOOTPRINTS, startEntranceTile, worldBlocks } from "../../src/core/forma
 import { mapMetadata, writeTimber } from "../../src/core/format/timber";
 import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
 import { guidFrom, tileHash01 } from "../../src/core/math/hash";
-import { fbm, fbmField } from "../../src/core/math/noise";
+import { fbm } from "../../src/core/math/noise";
 import { TIMESTAMP } from "../../src/core/gen/pack";
 import { validateMap } from "../../src/core/validate/checks";
 import { waterSteady } from "../../src/core/sim/water";
 import { assemble, drop, type Built, type Draft } from "./assemble";
 import type { BuiltMap, GroupWriter } from "./group";
+
+/** A whole field of fbm noise for a W×H map. */
+function fbmField(seed: number, W: number, H: number, cell: number, octaves = 3): Float64Array {
+  const out = new Float64Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = fbm(seed, x, y, cell, octaves);
+  return out;
+}
 
 const OWNER = "dgm-probe-sizes";
 const SEED = 4242;

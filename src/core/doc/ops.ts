@@ -124,15 +124,6 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-/** Operations kept in the document's log and replayed on every generation. */
-export const LOG_OPS: readonly OpName[] = [
-  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
-  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
-];
-export const ENTITY_OPS: readonly OpName[] = ["placeEntity", "moveEntity", "deleteEntities", "setEntityProps"];
-export const SLOPE_OPS: readonly OpName[] = ["pinSlope", "removeSlope"];
-export const WATER_OPS: readonly OpName[] = ["removeUnfedWater", "fillHollow"];
-
 export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
 /** A force's operation: the shared `forceResult`, or a `carve` of before it. */
 export type ForceOp = AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
