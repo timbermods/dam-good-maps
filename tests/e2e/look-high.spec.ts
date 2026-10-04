@@ -372,6 +372,10 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 });
 
 test("High's basin sources highlight as Standard's do (D378): a source turns a clear red (D249), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
+  // An expected failure, naming the bug it found: a source's highlight is unreadable when it sits under its own
+  // water (seed 4242's first clean source, generator 0.8.0: red 3.7 in Standard, 3.2 in High, against 25). Kyler's
+  // decision: it must read under water, in both looks; fix/basin-highlight fixes it and removes this.
+  test.fail(true, "a source's highlight is unreadable under its own water (Standard 3.7, High 3.2, against 25)");
   const errors: string[] = [];
   await open(page, errors);
   const result = await page.evaluate(() => {
@@ -388,13 +392,12 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
     };
     const m = r.mapState()!;
     const e = m.entities;
-    /** Each kind's source whose basin shows most (the least water over its middle: one deep under its
-     *  own pool hides its red in either look, whatever the map): its tile (as the page highlights it),
-     *  its middle, and whether its basin shows above the water there. */
-    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean; depth: number }> = {};
+    /** Each kind's first source: its tile (as the page highlights it), its middle, and whether its
+     *  basin shows above the water there. */
+    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean }> = {};
     for (let k = 0; k < e.count; k++) {
       const name = e.templates[e.template[k]];
-      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
+      if ((name !== "WaterSource" && name !== "BadwaterSource") || sources[name]) continue;
       let x = e.x[k];
       let y = e.y[k];
       if (name === "BadwaterSource") {
@@ -402,9 +405,7 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
         x += o === 0 || o === 1 ? 1 : -1;
         y += o === 0 || o === 3 ? 1 : -1;
       }
-      const depth = m.surface.depth[y * m.W + x] || 0;
-      if (sources[name] && sources[name].depth <= depth) continue;
-      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(depth > 0.25), depth };
+      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(m.surface.depth[y * m.W + x] > 0.25) };
     }
     const out: Record<string, Record<string, { red: number; glow: number }>> = {};
     let back = 0;
