@@ -86,10 +86,34 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 5. How things are run here
 
+- **Coordination (D470):** only what needs Kyler reaches him.
+  - *Review:* Kyler reviews no PR or code, except for design, taste or human-facing behaviour. This session reviews every
+    PR's diff before it merges (correctness, scope, ownership of files); its own PRs that touch the core or the water get a
+    review from a fresh sub-agent that didn't write them.
+  - *Merging:* labels `hold` (never merge), `needs-kyler` (waiting on his eye; never merge while on) and `approved` (he
+    approved the human-facing result); each session sets them on its own PRs. This session merges, through the merge queue,
+    any green PR that isn't hold or needs-kyler. A PR that changes what a player sees, hears or feels (a theme, a force, the
+    page, sound, wording) needs approved; one with nothing human-facing (internals, CI, Rust ports, cleanup, docs,
+    investigations) merges on review and green CI.
+  - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
+    collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
+    its branches, it doesn't use the issue.
+  - *The Coordination issue* ([#236](https://github.com/timbermods/dam-good-maps/issues/236), pinned): messages between Claude Code
+    sessions, each comment starting "To milestone:", "To page:", "To renderer:" or "To <session name>:". Read it at the start of
+    a task, before pushing and at the end; answer there.
+  - *The line.* Settled between sessions: merge order, holds, rebases, re-pins, CI failures (whoever's change broke it
+    fixes it), a core function another session needs that changes nothing a player sees or hears, ordering on overlapping
+    files within the ownership rules, merging investigations. Kyler only: anything a player sees, hears or feels; a new
+    direction or scope; a decision that constrains future work; adopting a Codex investigation; releases; probe batches
+    (D117); starting a session or anything that spends usage; a disagreement sessions can't settle; anything a session is
+    unsure about. Those get `needs-kyler` where there's a PR, and a ping.
+  - *Reports* are at most about eight lines (what changed, what's still wrong, the numbers a decision needs) plus the sheet,
+    capture or link; detail goes in the files. Post the same report on the PR (or the Coordination issue if there's no PR)
+    and in chat.
 - **Pings (D332):** the moment Kyler's attention or input is needed (a decision only he can answer, anything ready for his
   eye, an approval, work stuck on his side, anything broken), never for progress, green CI or information. One or two lines
   on what's needed, where, and what carries on meanwhile; never wait silently. The toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
-  "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
+  "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%\.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
 - **CI and docs-only changes:** a change that only touches documents, `LICENSE` or `package.json`'s descriptive fields skips
   the heavy jobs (`tools/ci-changes.mjs`) and finishes in minutes.
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
@@ -125,7 +149,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D470**) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D471**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

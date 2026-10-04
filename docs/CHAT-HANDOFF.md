@@ -80,6 +80,16 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - Kyler batches hands-on reviews into single sittings: collect what's ready on the preview and give him one checklist of
   only what changed.
 
+## How sessions coordinate (D470)
+
+- Kyler reviews no PR or code, only design, taste and human-facing behaviour; the milestone session reviews every diff.
+- PR labels: `hold`, `needs-kyler`, `approved`. A PR that changes what a player sees, hears or feels needs approved; the
+  rest merges on review and green CI. Theme rounds are real PRs into dev, re-pin included; Codex stays on investigation branches.
+- Sessions talk on the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issues/236)), not through Kyler.
+  Kyler only decides what a player sees, hears or feels, new direction, rules, adopting Codex work, releases, probe batches,
+  spending usage, and anything unsure. Pings reach his phone too.
+- Reports to him are at most about eight lines plus the sheet or link. A decision gets a number only if it's a rule.
+
 ## Codex: models and prompts
 
 - **GPT-6.1 Sol at high** is the default: force demos, physics, audits, performance and architecture work. **GPT-6 Astra at
@@ -98,7 +108,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D470.**
+- **The next free decision number is D471.**
 
 ## How the planning chat checks in
 

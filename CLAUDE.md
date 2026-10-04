@@ -46,6 +46,20 @@
 Dam Good Maps: a map generator for Timberborn. The README says what the repository holds; [docs/README.md](docs/README.md)
 maps the documents.
 
+## Coordination (D470)
+
+- **Labels on your own PRs:** `hold` (never merge), `needs-kyler` (waiting on Kyler's eye; never merge while on),
+  `approved` (Kyler approved the human-facing result). Anything a player sees, hears or feels needs `approved` to merge.
+- **The Coordination issue** ([#236](https://github.com/timbermods/dam-good-maps/issues/236)): read it when you start a
+  task, before you push and when you finish; answer there, each comment starting "To milestone:", "To page:", "To renderer:" or
+  "To <session name>:". Codex doesn't use it.
+- **The line:** sessions settle merge order, holds, rebases, re-pins, CI failures (whoever broke it fixes it) and ordering on
+  overlapping files. Kyler alone decides what a player sees, hears or feels, a new direction or scope, rules, adopting Codex
+  work, releases, probe batches, anything that spends usage, and anything you're unsure about: `needs-kyler` and a ping.
+- **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.
+- **Pings** only when Kyler's attention is needed, never for progress: `tools/notify.ps1` (toast, and his phone).
+- A decision gets a number only when it's a rule that constrains future work. Full version: `docs/HANDOFF.md`.
+
 ## Standing rules
 
 - **Speed (D453, `docs/PERFECT.md`):** Kyler judges speed by using the tool; something that feels slow is a bug. No quiet
