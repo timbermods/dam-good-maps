@@ -5,7 +5,6 @@
 // spill over, the lowest point of its rim, like a lake breaching, and carves on from there.
 
 import * as portable from "../../math/portable";
-import { sourceStrength } from "./run";
 
 /** How deep the water at a source must stand for it to be in a pool or a lake (levels): a pond, not
  *  the thin sheet a new source spreads over flat ground. */
@@ -22,9 +21,6 @@ export function unleashWidth(strength: number): number {
   const w = 2.8 + ((Math.max(0.5, strength) - 0.5) * 10) / 7.5;
   return Math.round(Math.max(2, Math.min(24, w)) * 10) / 10;
 }
-
-/** (The strength a Carve of `width` would keep, for the tests: `unleashWidth` inverts it.) */
-export const strengthOfWidth = (width: number) => sourceStrength(100, width);
 
 /** The tile a source's water rises from: a badwater source's is the middle of its 3 × 3. */
 export function sourceTile(e: { template: string; x: number; y: number }, W: number): number {

@@ -8,12 +8,10 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
-import { waterFix, type WaterFix } from "../core/doc/waterFix";
 import { decodeProject, documentFileName, type MapDocument, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark, type SessionMode } from "../core/doc/session";
+import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import {
-  deleteEdit,
   kindName,
   objectsOnNewGround,
   moveEdit,
@@ -98,9 +96,7 @@ import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, ty
 
 export interface SessionInfo {
   kind: "generated" | "import";
-  mode: SessionMode;
   name: string;
-  premise: string;
   spec: MapSpec | null;
   /** The difficulty the map is designed for (an import's comes from its document, default Normal). */
   designedFor: Difficulty;
@@ -116,15 +112,12 @@ export interface SessionInfo {
   notices: string[];
   importReport: ImportReport | null;
   timberName: string;
-  projectName: string;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
   featuresKey: string;
   /** The editor's camera bookmarks (D205), saved with the document. */
   views: SavedView[];
-  /** Try another path is there: the last kept carve is the latest step (D199). */
-  carveAgain: boolean;
   /** The force Try another would run again (the last one kept is the latest step), or null. */
   forceAgain: Verb | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
@@ -197,8 +190,6 @@ export interface ExportCheck {
   advisory: CheckItem[];
   /** Problems an imported map already had when it was opened: listed, never blamed on edits. */
   existing: CheckItem[];
-  /** Water and colony checks ran (true since M8, imported maps too). */
-  playability: boolean;
   /** Why the water and start checks are only approximate on this map, or null (PLAN §11, D98). */
   approximate: string | null;
   checks: number;
@@ -230,13 +221,10 @@ function featuresKeyOf(features: readonly Feature[]): string {
 
 export function sessionInfo(s: MapSession = need()): SessionInfo {
   const { x: W, y: H } = s.size;
-  const doc = s.document;
   const history = s.history();
   return {
     kind: s.spec ? "generated" : "import",
-    mode: s.mode,
     name: s.meta.name,
-    premise: s.meta.premise,
     spec: s.spec,
     designedFor: s.spec?.designedFor ?? s.meta.designedFor ?? "normal",
     W,
@@ -250,10 +238,8 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     notices: [...s.notices],
     importReport: s.meta.source?.report ?? null,
     timberName: s.exportTimberName(),
-    projectName: documentFileName(doc),
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
-    carveAgain: againReady(s, history),
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
     version,
@@ -580,14 +566,6 @@ let listener: ((e: EditorEvent) => void) | null = null;
 /** Where the worker sends its events (the page's editor, through the worker's entry). */
 export function listen(fn: ((e: EditorEvent) => void) | null): void {
   listener = fn;
-}
-
-/** How the open map's edits treat the water: "defer" in the page (edits never wait on it), or
- *  "preview" (each edit re-settles before it answers; tests of the older flow). */
-let waterMode: "defer" | "preview" = "defer";
-export function setEditorWaterMode(mode: "defer" | "preview"): void {
-  waterMode = mode;
-  session?.setWaterMode(mode);
 }
 
 /** Whether the worker settles the water by itself after each edit (the page's worker). Node tests
@@ -921,7 +899,8 @@ function opened(s: MapSession): SessionOpen {
   // an edit never waits on the water (live editing): it shows the last settled water on the new
   // ground at once, the water settles again in the background and flows into the new shape
   // (`kickWater`), and the canonical settle follows, always before an export (EDITOR_PLAN §6)
-  s.setWaterMode(waterMode);
+  // (edits never wait on the water: the page's flow)
+  s.setWaterMode("defer");
   stopWater();
   session = s;
   sent = null;
@@ -972,17 +951,6 @@ export function hasSession(): boolean {
 }
 
 // ------------------------------------------------------------------------------------ editing
-
-export function check(op: EditOp): string[] {
-  return need().check(op);
-}
-
-/** D330's automatic water fix (doc/waterFix.ts, the UI brief §5): the operations that fix the open
- *  map's start water checks once its water settled (a spring by the start), or null; the page
- *  applies them as one step. */
-export function waterFixOps(): WaterFix | null {
-  return waterFix(need());
-}
 
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
@@ -1099,7 +1067,6 @@ export async function settingsResponse(): Promise<GenerateResponse> {
     ms: Math.round(performance.now() - t0),
     timber: new Uint8Array(),
     project: new Uint8Array(),
-    edits: s.editCount,
   });
 }
 
@@ -1184,7 +1151,6 @@ function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
     warnings: [],
     advisory: [],
     existing: [],
-    playability: true,
     approximate: v.report.checks.find((c) => c.approximate)?.approximate ?? null,
     checks: 0,
     version,
@@ -1690,16 +1656,6 @@ function placeStart(s: MapSession, x: number, y: number, o: Orientation, t0: num
   return changed(s, r.ok, r.errors, t0);
 }
 
-/** Delete a feature (an on-river fall takes its step out of its river). */
-export function deleteFeature(id: string): SessionUpdate {
-  const t0 = performance.now();
-  const s = need();
-  const r = deleteEdit(s, id);
-  if (!r.ok) return changed(s, false, r.errors, t0);
-  const a = s.applyAll(r.ops, "user", r.label);
-  return changed(s, a.ok, a.errors, t0);
-}
-
 // ------------------------------------------------------------------------------ entities (advanced)
 
 export interface EntityInfo {
@@ -1834,9 +1790,6 @@ export type ForceRequest = (
    *  arrives. Left out, the worker names it. */
   gesture?: number;
 };
-
-/** A carve to start: the carve's own request (kept for the carve's calls). */
-export type CarveRequest = Omit<Extract<ForceRequest, { verb: "carve" }>, "verb">;
 
 export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
@@ -2065,16 +2018,6 @@ function againVerb(s: MapSession, history?: HistoryItem[]): Verb | null {
   return last !== undefined && series.seqs.has(last) ? series.request.verb : null;
 }
 
-function againReady(s: MapSession, history?: HistoryItem[]): boolean {
-  return againVerb(s, history) === "carve";
-}
-
-/** Try another path is there: the last kept carve (or another path tried for it) is the latest
- *  step of the history. */
-export function carveAgainReady(): boolean {
-  return !!session && againReady(session);
-}
-
 const refuse = (text: string): ForceStarted => ({ ok: false, errors: [text], frame: null, settings: null });
 
 /** The words for a force's refusal, from its run's (only nature and the map's limits refuse one:
@@ -2274,22 +2217,6 @@ export function forceAgain(pins?: Record<string, unknown>, gesture?: number): Fo
   return startForce(s, sr.base, req, lastSeq(s), sr.state);
 }
 
-/** Start a carve (the carve's own call). */
-export function carveStart(req: CarveRequest): ForceStarted {
-  return forceStart({ verb: "carve", ...req });
-}
-
-/** Try another path (the carve's own call): the last kept carve again. */
-export function carveAgain(): ForceStarted {
-  const s = need();
-  if (!series || againVerb(s) !== "carve") return refuse("Carve somewhere first: Try another path runs the last carve again");
-  return forceAgain();
-}
-
-function trailOf(run: CarveRun): TrailPoint[] {
-  return run.path.slice(-28).map((p) => ({ x: p.x, y: p.y, dx: p.dx, dy: p.dy, width: p.width, lanes: p.lanes.map((l) => ({ ...l })) }));
-}
-
 /** A carve's cue (its head where the land shown has it, cutting). */
 function carveCue(p: CarvePlay): ForceCue {
   const h = p.head;
@@ -2454,11 +2381,6 @@ export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFr
   return forceFrame(f);
 }
 
-/** Run the carve `steps` steps more (the carve's own call). */
-export function carveAdvance(steps: number): ForceFrame | null {
-  return forceAdvance(steps);
-}
-
 /** The page's view back to the map as it stands (a force dropped, or refused). */
 function restoreView(s: MapSession): ViewUpdate {
   const b = s.built;
@@ -2504,8 +2426,6 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   if (gesture > gestureLast) takenBack.add(gesture);
   return { taken: null };
 }
-
-export const carveCancel = forceCancel;
 
 /** What a staged force asked for, as its operation keeps it. */
 function recordOf(f: NonNullable<typeof force>): { settings: ForceSettingsRecord; where: ForceWhere } {
@@ -2623,8 +2543,6 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
   return { ...u, kept: true };
 }
-
-export const carveStop = forceStop;
 
 /** A force's result with the ground it owns listed too, at its level (unchanged ones included). */
 function withOwned(p: ForceResultParams, heights: Uint8Array, owned: Uint8Array | null): ForceResultParams {

@@ -12,7 +12,6 @@ export const SQRT1_2 = portable.sqrt(0.5);
 export const DIRS8: readonly (readonly [number, number])[] = [
   [1, 0], [SQRT1_2, SQRT1_2], [0, 1], [-SQRT1_2, SQRT1_2], [-1, 0], [-SQRT1_2, -SQRT1_2], [0, -1], [SQRT1_2, -SQRT1_2],
 ];
-export const DIR_NAMES = ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"];
 
 /** The four side-to-side neighbours. */
 export const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -63,11 +62,6 @@ export function polyDist(x: number, y: number, pts: readonly (readonly [number, 
     if (d < best) best = d;
   }
   return best;
-}
-
-/** Rounded to two decimals. */
-export function r2(v: number): number {
-  return Math.round(v * 100) / 100;
 }
 
 /** The value at fraction `p` of a sorted array (floor index), as the prototype reads percentiles. */

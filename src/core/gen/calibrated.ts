@@ -103,16 +103,12 @@ export const OFFICIAL_LAYOUT = {
   ruinOrientations: { Cw0: 0.593, Cw90: 0.139, Cw180: 0.098, Cw270: 0.17 },
   /** A field's columns fill this share of their bounding box (25th 0.50, 75th 0.64). */
   fieldFill: 0.56,
-  /** Mean storeys per field: 10th and 90th percentiles (some fields short, some tall). */
-  fieldMeanStoreys: [2.19, 3.88],
 } as const;
 
 export const RUINS = {
-  singlesShare: 0.05,
   centerBias: 0.35,
   holeShare: 0.05,
   compactness: 2 as const,
-  minStartDist: 22, // official nearest ruin to the start: p10 22
   minFieldSpacing: 18,
   sizeFactors: [0.6, 0.8, 1.0, 1.2, 1.5, 1.9],
 };
@@ -125,7 +121,6 @@ export const FOREST = {
 };
 
 export const BUSHES = {
-  patchMedian: 20,
   nearStartRadius: 16,
 };
 
@@ -134,9 +129,6 @@ export const RIVER_FLOW_MULTIPLIER = { trickle: 0.6, normal: 1, strong: 2, lush:
 /** The strongest river an official map has, blocks of water per second: about its whole water
  *  (water_strength_per_10k × area, about 7 on 256²). A drawn river may be stronger, and says so. */
 export const OFFICIAL_FLOW = 8;
-
-/** Badwater-to-clean strength ratio by the Badwater setting (PLAN §5.4; official median 0.65). */
-export const BADWATER_RATIO = { off: 0, low: 0.3, normal: 0.65, high: 1.2 } as const;
 
 /** Badwater sources like the official maps (Kyler's "Badwater on every map", 2026-09-26, D200;
  *  official-baselines.json `rates.badwater_*` and `badwater`): BadwaterSources per map and their

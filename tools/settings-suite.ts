@@ -6,7 +6,7 @@
 // tests/contract/settings.test.ts runs every experiment on a few seeds; tools/settings-batch.ts
 // runs them on more and writes the table in docs/progress.md.
 
-import { measure, type MapMetrics } from "../src/core/analysis/metrics";
+import { measure, type MapMetrics } from "./lib/metrics";
 import { generate } from "../src/core/gen/generate";
 import { makeSpec, type Difficulty, type MapSpec, type ThemeId } from "../src/core/spec/mapspec";
 

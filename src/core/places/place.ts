@@ -122,25 +122,13 @@ export function decodePlaceFile(bytes: Uint8Array): PlaceData {
   return p;
 }
 
-/** Heights as the data stores them. */
-export function encodeHeights(h: ArrayLike<number>): string {
-  let s = "";
-  for (let i = 0; i < h.length; i++) s += h[i].toString(36);
-  return s;
-}
-
 export function decodeHeights(s: string): Uint8Array {
   const out = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) out[i] = parseInt(s[i], 36);
   return out;
 }
 
-/** Ascending tile indices as gaps, and back. */
-export function encodeTiles(tiles: readonly number[]): number[] {
-  const sorted = [...tiles].sort((a, b) => a - b);
-  return sorted.map((t, k) => (k ? t - sorted[k - 1] : t));
-}
-
+/** Ascending tile indices stored as gaps (`encodeTiles`, tools/lib/placeData.ts, writes them). */
 export function decodeTiles(gaps: readonly number[]): number[] {
   const out: number[] = [];
   let t = 0;

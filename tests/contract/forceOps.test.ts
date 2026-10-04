@@ -76,7 +76,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("each force frames as it runs, Esc drops all of it, its end keeps it as one step exactly as shown, and Try another replaces it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const ground = ed.sessionView().view.heights.slice();
     const s = MapSession.open(decodeProject(ed.project().bytes));
@@ -133,7 +132,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("a painted Lift shows its whole result as it is painted, and is kept when it's let go", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const fault = faultAway(s.built);
@@ -157,7 +155,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("a force through the start completes, and the start is carried to level ground where it stands well, in the same undo step (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const st = open().built.start!;
@@ -200,7 +197,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("the checks say what a force left short at the start, and each one-click fix mends it (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;
@@ -242,7 +238,6 @@ function forceOp(s: MapSession, verb: "craterize" | "erupt" | "quake"): EditOp {
 
 /** What the worker would keep for `req` on the session's map, run to its end. */
 function paramsOf(s: MapSession, req: ed.ForceRequest): ForceResultParams {
-  ed.setEditorWaterMode("defer");
   ed.openProject(s.project());
   const r = ed.forceStart(req);
   expect(r.errors).toEqual([]);

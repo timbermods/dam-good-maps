@@ -43,7 +43,7 @@ export interface StartPick {
   intent?: number;
 }
 
-export type DroughtPolicy = "off" | "prefer" | "require";
+export type DroughtPolicy = "prefer" | "require";
 
 /** The least land (joined by one-level steps) the last-resort start by a bank must join, at 128²
  *  (in proportion to the map's area). */
@@ -240,7 +240,7 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   const walk = shoreWalkFrom(h, W, H, D, water.contamination, waterRule);
   // the water rule: shores on other levels count when a walk over the map's own slopes reaches them
   const walkAny = shoreWalkAny(h, W, H, D, water.contamination, waterRule);
-  const walkKept = opts.kept && opts.drought && opts.drought !== "off" ? shoreWalkAny(h, W, H, opts.kept, water.contamination, waterRule) : null;
+  const walkKept = opts.kept && opts.drought ? shoreWalkAny(h, W, H, opts.kept, water.contamination, waterRule) : null;
   const wetNear = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wetNear[i] = 1;
   const dWet = distanceFrom(wetNear, W, H);

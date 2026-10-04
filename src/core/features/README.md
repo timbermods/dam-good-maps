@@ -15,4 +15,4 @@ The one build pipeline (PLAN §19.8): parametric features in, terrain and entiti
 - `slopes.ts` (derived slopes, step 8), `edits.ts` (overlays from the log), `objects.ts`, `route.ts` (outflow channels).
 - `setpieces/`: one builder per kind, shared by the generator, the editor and Claude.
 
-**Tests**: `tests/contract/` (features, brush, objects, setpieces, narrows, ops, projects; reshape and rivers are heavy) and `tests/unit/hollow.test.ts`. Run `npx vitest run tests/contract/features.test.ts`.
+**Tests**: `tests/contract/` (features, brush, objects, setpieces, narrows, ops, projects; reshape and rivers are heavy). Run `npx vitest run tests/contract/features.test.ts`.
