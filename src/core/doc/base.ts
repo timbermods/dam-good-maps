@@ -15,7 +15,7 @@ import { fromBase64, toBase64 } from "../format/base64";
 import { parse, stringify, type JsonObject } from "../format/json";
 import type { TimberFile } from "../format/timber";
 import { decodeWorld, encodeWorld, LAYERS, surfaceOf, voxelsFromHeights, type WorldModel } from "../format/world";
-import { runsOfColumn, terrainColumns, terrainData, type TerrainData } from "../terrain/runs";
+import { columnOfRuns, runsOfColumn, terrainData, type TerrainData } from "../terrain/runs";
 
 /** The base's terrain is format 3's (`TerrainData`): `heights`, the surface height per tile (the
  *  first free layer above the top solid voxel), base64 of one byte per tile, row-major; `runs`, the
@@ -99,8 +99,14 @@ export function baseFromFile(file: TimberFile, source: BaseMap["source"], owners
   return base;
 }
 
+/** Tolerant of a stored run that names a tile off the map (it is never drawn, `joinTerrain`), as
+ *  saved projects always opened; `terrain/runs.ts` `terrainColumns` refuses one. */
 export function baseTerrain(base: BaseMap): BaseTerrain {
-  return { W: base.sizeX, H: base.sizeY, ...terrainColumns(base, base.sizeX * base.sizeY) };
+  const heights = fromBase64(base.heights);
+  if (heights.length !== base.sizeX * base.sizeY) throw new Error("base heights have the wrong size");
+  const columns = new Map<number, Uint8Array>();
+  for (const [i, r] of base.runs) columns.set(i, columnOfRuns(r, LAYERS));
+  return { W: base.sizeX, H: base.sizeY, heights, columns };
 }
 
 /** Format 1 and 2's columns ([tile, 23 voxels "0"/"1"]) as format 3's runs. */
