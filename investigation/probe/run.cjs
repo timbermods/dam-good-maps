@@ -11,7 +11,10 @@ require.extensions['.ts'] = (mod, file) => {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true, resolveJsonModule: true },
     fileName: file,
   });
-  mod._compile(out.outputText, file);
+  // (in a function's scope, so a module's own top-level `module` or `exports` (src/core/sim/rustWater.ts)
+  // shadows CommonJS's instead of clashing with it, which made Node read the file as an ES module)
+  mod._compile(`(() => {${out.outputText}
+})();`, file);
 };
 const entry = path.resolve(__dirname, process.argv[2]);
 process.argv.splice(1, 1);

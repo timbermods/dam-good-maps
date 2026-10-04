@@ -1315,10 +1315,9 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
-  // ground, is parted from it by a strait; D432: on every sea map, the layout's islands only, never
-  // D417's headlands, which are the shore's own)
+  // ground, is parted from it by a strait; D432: on every sea map)
   if (g.seaLayout) {
-    const isles = g.parts.filter((p) => p.isle && !p.head).map((p) => {
+    const isles = g.parts.filter((p) => p.isle).map((p) => {
       const o = (g.orientation ?? 0) as LandOrientation;
       const px = p.at[0] * (W - 1);
       const py = p.at[1] * (H - 1);
