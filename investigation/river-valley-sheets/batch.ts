@@ -8,7 +8,7 @@ import { storedWater } from '../../src/core/format/world';
 import { shadeTiles } from '../../src/core/render/shade';
 import { encodePng } from '../../tools/png';
 const mode = process.env.RV_MODE || 'dev';
-const out = join(__dirname, 'local', mode);
+const out = join(__dirname, 'local', process.env.RV_OUT || mode);
 mkdirSync(out, {recursive:true});
 const seeds = (process.env.RV_SEEDS || Array.from({length:30},(_,i)=>i+1).join(',')).split(',').map(Number);
 const measures = [];

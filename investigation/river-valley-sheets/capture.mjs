@@ -9,9 +9,9 @@ await build({configFile:'vite.config.ts',base:'/',logLevel:'warn',build:{outDir:
 const server=await preview({configFile:'vite.config.ts',base:'/',build:{outDir:dist},preview:{port:4197,strictPort:true},logLevel:'warn'});
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try {
- for(const mode of ['dev','after']) {
+ for(const mode of (process.env.RV_CAPTURE_MODES || 'dev,round1').split(',')) {
   mkdirSync(join(root,'local',mode,'3d'),{recursive:true});
-  for(const seed of [12,19,5,21,22,26]) {
+  for(const seed of (process.env.RV_CAPTURE_SEEDS || '12,19,5,21,22,26').split(',').map(Number)) {
    const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1,colorScheme:'light'});
    const errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.goto('http://localhost:4197/#s=1&z=96&d=n&t=riverValley');

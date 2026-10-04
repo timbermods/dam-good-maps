@@ -9,3 +9,9 @@ These observations concern machinery shared by themes. They are not adopted as s
 3. **The existing sheet reading is not the visual sheet verdict.** `info.sheet` is a reading of planned lakes, and shared rejection is disabled. Seed 21's dev sheet reading is only 0.006 while its exported wet area is 5,013 tiles. Conversely a large contained lake may receive a sizable reading. The report's 6 -> 2 sheet count comes from the paired visual comparison, not from turning this reading into a gate. No shared screen or rejection flag is changed.
 
 The trial exports and traces supporting these observations stay local under `investigation/river-valley-sheets/local/`. Rejected prototypes are not adoption proposals. Any shared follow-up should establish its own multi-theme evidence and should leave the concurrent badwater and naming work alone.
+
+## Round-2 observations, not shared fixes
+
+- `widenOutlets` protects square neighborhoods around non-sea river heads. Straight pool edges can therefore depend on that shared preparation as well as a planned lake. Seed 6's delivered fix selects an entering River Valley trunk instead of its former spring-only plan; the shared square protection and outlet widening remain unchanged.
+- A planned readable-water/promise pass can retain a poor settled candidate: round 1's seed 12 passed the plan but failed settled readability and the advisory badwater target. The existing default distance is a target, not a hard universal guard. Its safer round-2 valley/start is achieved by River Valley's route qualification; no shared start or hazard rule is repaired.
+- Natural ramps can shorten a drawn cliff after hydrology: seed 5's 88% span became 83% during `naturalRamps` in round 1. River Valley's full-scarp shaping now reduces its own ramp propensity; shared ramp construction and cliff checks are untouched.
