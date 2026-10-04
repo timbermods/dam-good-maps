@@ -59,7 +59,7 @@ export function isUiOnly(path) {
   return path.startsWith("src/editor/") || path.startsWith("src/ui/") || path.startsWith("tests/e2e/");
 }
 
-/** The Rust job's inputs: the Rust, its build tools, the TypeScript that wraps the Wasm (and the maths it is checked against), and anything that changes the tools or the workflow. */
+/** The Rust job's inputs: the Rust, its build tools, the TypeScript that wraps the Wasm, the app's settle the native one is checked against (water.ts, prefill.ts, fed.ts), the maths it is checked against, and anything that changes the tools or the workflow. */
 export function isRustInput(path) {
   return (
     path.startsWith("rust/") ||
@@ -68,7 +68,7 @@ export function isRustInput(path) {
     path === "package.json" ||
     path === "package-lock.json" ||
     path.startsWith(".github/") ||
-    ["src/core/sim/rustWater.ts", "src/core/sim/waterRust.ts", "src/core/sim/waterWasm.ts", "src/core/math/portable.ts", "tools/portable-guard.ts"].includes(path)
+    ["src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/sim/water.ts", "src/core/sim/prefill.ts", "src/core/sim/fed.ts", "src/core/math/portable.ts", "tools/portable-guard.ts"].includes(path)
   );
 }
 

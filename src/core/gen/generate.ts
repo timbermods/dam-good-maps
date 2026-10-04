@@ -976,6 +976,7 @@ function fallingWater(b: BuildResult): Uint8Array | null {
   if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
   const before = sim.D.slice();
   sim.run(256);
+  sim.dispose();
   const fall = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (before[i] > 0.05 && sim.D[i] < before[i] - 0.003) fall[i] = 1;
   const seen = new Uint8Array(N);
@@ -1012,6 +1013,7 @@ function risingWater(b: BuildResult): { tiles: number[]; level: number } | null 
   if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
   const before = sim.D.slice();
   sim.run(256);
+  sim.dispose();
   const rise = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (sim.D[i] > before[i] + 0.003) rise[i] = 1;
   const seen = new Uint8Array(N);

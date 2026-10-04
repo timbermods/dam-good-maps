@@ -156,6 +156,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # the batches' canonical settles run in the native Rust water (PLAN §20 D381; tools/rust/native-water.ts)
+      - name: Install Rust 1.90 (rust-toolchain.toml) and build the native water
+        run: |
+          rustup toolchain install
+          cd rust && cargo build --release -j 4 -p water --bin water-batch
       # Any and the six themes at once, one process each; 100 seeds each run nightly. A seed that makes no
       # map is breakage (final ≥ 98%, PLAN §20 D145), and every accepted map's project file must
       # reopen to the same bytes; the first-attempt rate is information.
@@ -184,10 +189,10 @@ jobs:
   # Rust (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
   # The maths guard over the Rust source, its optimized IR, its assembly and its Wasm (no libm, no FMA, no
   # transcendental intrinsics), then rust/portable bit for bit against src/core/math/portable.ts: natively, in
-  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water (not switched
-  # on until M9b is on dev): the committed Wasm equals a fresh build, and its canonical settle gives the same
-  # bytes natively, in Node's WebAssembly and in each engine. It runs only when the Rust or what wraps it changes
-  # (tools/ci-changes.mjs, isRustInput), and on every full run.
+  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water, which every
+  # job runs (D381): the committed Wasm equals a fresh build; its canonical settle gives the same bytes natively,
+  # in Node's WebAssembly and in each engine; and the native settle gives the app's (tools/rust/water-identity.ts).
+  # It runs only when the Rust or what wraps it changes (tools/ci-changes.mjs, isRustInput), and on every full run.
   engines:
     name: engines and rust
     needs: changes
@@ -226,6 +231,9 @@ jobs:
       - name: The committed Rust water matches a fresh build; the native batch binary
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/build.ts --check --native
+      - name: The native Rust settle gives the app's bytes (golden fixtures under both rules, every theme, stored water)
+        if: needs.changes.outputs.rust == 'true'
+        run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native
       - name: The Rust maths guard, strict builds, the same bits as portable.ts and the same water in every engine
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/check.ts --engines

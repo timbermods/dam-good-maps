@@ -615,6 +615,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
     const model: WaterModel = { ...src, floor: src.floor.slice() };
     // the edit's own settle waits: the stroke's water takes over from it
     stopWater();
+    draft?.job.dispose();
     draft = { session: s, job: new PreviewJob(from, model), model, ground: s.built.heights.slice(), fresh: false, touched: false };
     const token = ++draftToken;
     setTimeout(() => void runDraft(token), 0);
@@ -647,6 +648,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
 export function cancelDraft(): void {
   if (!draft) return;
   const s = draft.session;
+  draft.job.dispose();
   draft = null;
   draftToken++;
   if (s !== session) return;
@@ -685,6 +687,7 @@ async function runDraft(token: number): Promise<void> {
 
 function stopWater(): void {
   waterToken++;
+  waterJob?.job.dispose();
   waterJob = null;
 }
 
@@ -700,12 +703,14 @@ function kickWater(): void {
   // the water in flight
   const painted = handoff ?? (draft && draft.session === s ? draft.job.state() : null);
   handoff = null;
+  draft?.job.dispose();
   draft = null;
   draftToken++;
   const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
+  waterJob?.job.dispose();
   waterJob = { token, job: new PreviewJob(from, s.built.waterModel), version, session: s };
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
@@ -745,6 +750,7 @@ async function runWater(token: number): Promise<void> {
 
 function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): void {
   waterJob = null;
+  j.job.dispose();
   const s = j.session;
   if (session !== s || !s.adoptWater(j.job.model, water)) return;
   settledNews(s, viewUpdate(s));
@@ -837,6 +843,7 @@ export function settleWater(): ViewUpdate {
   let r = j.job.advance(Infinity);
   while (!r) r = j.job.advance(Infinity);
   waterJob = null;
+  j.job.dispose();
   if (!j.session.adoptWater(j.job.model, r)) return {};
   return viewUpdate(j.session);
 }
@@ -1969,6 +1976,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   // the map's own water waits: the force's water takes over from it (a weather run ends)
   stopWater();
   weatherToken++;
+  draft?.job.dispose();
   draft = null;
   draftToken++;
   force = {
@@ -2096,6 +2104,7 @@ let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model:
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
+  forceWater?.sim.dispose();
   forceWater = null;
   const token = ++forceWaterToken;
   const p = f.play;
@@ -2115,6 +2124,7 @@ function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
 }
 
 function endForceWater(): void {
+  forceWater?.sim.dispose();
   forceWater = null;
   forceWaterToken++;
 }

@@ -218,6 +218,7 @@ export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater
   const job = new PreviewJob(from, next, PREVIEW_DAYS);
   let r = job.advance(Infinity);
   while (!r) r = job.advance(Infinity);
+  job.dispose();
   return r;
 }
 
@@ -326,6 +327,7 @@ export class PreviewJob {
       this.drained = true;
       const next = withoutUnfed(this.model, this.current, {}, this.seeds ?? keptSeeds(this.model));
       if (!next) break;
+      this.current.dispose();
       this.current = next;
       this.run = new PreviewRun(next, this.sealed);
       r = this.run.advance(left());
@@ -337,6 +339,11 @@ export class PreviewJob {
 
   get ticks(): number {
     return this.sim.ticks;
+  }
+
+  /** Frees the job's simulation (WaterSim.dispose) when the job is replaced or dropped; `state` still reads it. */
+  dispose(): void {
+    this.current.dispose();
   }
 
   /** The water as it stands now: a newer edit warm-starts from it, so the water keeps flowing. */

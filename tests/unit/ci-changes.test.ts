@@ -61,11 +61,12 @@ describe("which suites a change needs", () => {
   });
   it("one core file brings the suites back; rust only when the Rust or what wraps it changes", () => {
     expect(classify(["src/editor/a.ts", "src/core/gen/a.ts"], none)).toEqual({ heavy: true, suites: true, rust: false });
-    for (const f of ["rust/water/src/lib.rs", "tools/rust/check.ts", "rust-toolchain.toml", "src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/math/portable.ts", ".github/workflows/ci.yml"]) {
+    // (the app's settle, which the native Rust settle is checked against, wraps the Rust too)
+    for (const f of ["rust/water/src/lib.rs", "tools/rust/check.ts", "rust-toolchain.toml", "src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/sim/water.ts", "src/core/sim/prefill.ts", "src/core/sim/fed.ts", "src/core/math/portable.ts", ".github/workflows/ci.yml"]) {
       expect(isRustInput(f), f).toBe(true);
       expect(classify([f], none), f).toEqual(all);
     }
-    expect(isRustInput("src/core/sim/water.ts")).toBe(false);
+    expect(isRustInput("src/core/sim/preview.ts")).toBe(false);
   });
   it("dependency changes run everything; a descriptive package.json change is a document", () => {
     const deps = readWith({ "package.json": [pkg(), pkg({ dependencies: { a: "2" } })] });
