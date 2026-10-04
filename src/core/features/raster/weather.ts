@@ -39,7 +39,7 @@
 // machine.
 
 import { fbm } from "../../math/noise";
-import { MinHeap } from "../../math/grid";
+import { drainage } from "../../land/drainage";
 import type { Rect } from "./brush";
 
 /** What a weathering needs. Arrays are the whole map's, row-major; only `box` is read or written. */
@@ -976,65 +976,19 @@ export function boxWaterLevels(heights: Uint8Array, box: Rect, rim: readonly num
  *  leaves at the map's edge and moves side to side, as the game's does; the filled surface of
  *  `land/drainage.ts` with 4-neighbour flow, on whole levels). */
 export function waterLevels(h: Uint8Array, W: number, H: number): Uint8Array {
-  const ring = new Int16Array(W * H).fill(-1);
-  for (let x = 0; x < W; x++) {
-    ring[x] = h[x];
-    ring[(H - 1) * W + x] = h[(H - 1) * W + x];
-  }
-  for (let y = 0; y < H; y++) {
-    ring[y * W] = h[y * W];
-    ring[y * W + W - 1] = h[y * W + W - 1];
-  }
-  const out = new Int16Array(W * H);
-  flood(h, ring, W, H, out);
-  return Uint8Array.from(out);
+  return Uint8Array.from(drainage(h, W, H, { eight: false }).filled);
 }
 
-/** The level water stands at on every tile: the ring's tiles (`ring` ≥ 0) drain at their levels, and
- *  a priority flood (a bucket per level) with 4-neighbour flow carries it in. */
+/** The level water stands at on every tile: the ring's tiles (the box's border, `ring` ≥ 0) drain at
+ *  their levels, and `land/drainage`'s priority flood with 4-neighbour flow carries it in; with
+ *  `area`, the tiles that drain through each, itself included, along the way the flood came. */
 function flood(h: Uint8Array, ring: Int16Array, bw: number, bh: number, out: Int16Array, area?: Float64Array): void {
   const n = bw * bh;
-  out.fill(-1);
-  const head = i32("flood.head", 257).fill(-1);
-  const next = i32("flood.next", n);
-  let maxLv = 0;
-  for (let k = 0; k < n; k++)
-    if (ring[k] >= 0) {
-      const lv = ring[k];
-      out[k] = lv;
-      next[k] = head[lv];
-      head[lv] = k;
-      if (lv > maxLv) maxLv = lv;
-    }
-  // (with `area`: the tiles that drain through each, itself included, along the way the flood came)
-  const order = area ? new Int32Array(n) : null;
-  const from = area ? new Int32Array(n).fill(-1) : null;
-  let count = 0;
-  for (let lv = 0; lv <= Math.min(256, maxLv); lv++) {
-    while (head[lv] >= 0) {
-      const k = head[lv];
-      head[lv] = next[k];
-      if (order) order[count++] = k;
-      const x = k % bw;
-      for (let e = 0; e < 4; e++) {
-        const j = e === 0 ? (x > 0 ? k - 1 : -1) : e === 1 ? (x + 1 < bw ? k + 1 : -1) : e === 2 ? k - bw : k + bw;
-        if (j < 0 || j >= n || out[j] >= 0) continue;
-        const w = h[j] > lv ? h[j] : lv;
-        out[j] = w;
-        next[j] = head[w];
-        head[w] = j;
-        if (from) from[j] = k;
-        if (w > maxLv) maxLv = w;
-      }
-    }
-  }
-  if (area && order && from) {
-    area.fill(1);
-    for (let q = count - 1; q >= 0; q--) {
-      const k = order[q];
-      if (from[k] >= 0) area[from[k]] += area[k];
-    }
-  }
+  const ground = i16("flood.ground", n);
+  for (let k = 0; k < n; k++) ground[k] = ring[k] >= 0 ? ring[k] : h[k];
+  const d = drainage(ground, bw, bh, { eight: false });
+  out.set(d.filled);
+  if (area) area.set(d.area);
 }
 
 /** How many rounds of repair a pass of `keepOrder` makes at most. */

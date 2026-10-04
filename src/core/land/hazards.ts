@@ -19,7 +19,7 @@ import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
 import type { Feature, SetPieceFeature } from "../features/schema";
 import { hash32 } from "../math/hash";
-import { distanceFrom, MinHeap } from "../math/grid";
+import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import { windRoute } from "./wind";
@@ -29,7 +29,7 @@ import type { Hydro } from "./hydro";
 import { BED_FLOOR } from "./genome";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { LIP_REACH } from "../water/edgeLip";
-import { dist, N4 } from "./num";
+import { dist } from "./num";
 
 export interface Hazards {
   /** Hollows planned (0 when none fits, or No badwater). */

@@ -41,7 +41,8 @@ import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom } from "../math/grid";
-import { clamp, DIRS8 } from "./num";
+import { DIRS8 } from "./num";
+import { clamp } from "../math/clamp";
 
 export interface Lake {
   tiles: number[];

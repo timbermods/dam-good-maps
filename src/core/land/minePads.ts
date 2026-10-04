@@ -12,7 +12,7 @@
 // (gen/extras.ts), far enough out.
 
 import { landRegions } from "../analysis/regions";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import * as portable from "../math/portable";
@@ -33,13 +33,6 @@ export const PAD_MOST = 49;
  *  spreads further, over flats and into ponds. */
 const WATER_MARGIN = 3;
 const PAD_WATER_MARGIN = 5;
-
-const N4 = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 export interface MinePad {
   /** The pad's middle and level. */

@@ -23,7 +23,7 @@
     "archetype": { "enum": ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"] },
     "premise": { "type": "string" },
     "variation": { "type": "integer", "minimum": 0, "maximum": 999 },
-    "intentions": { "type": "array", "maxItems": 2, "items": { "enum": ["under-cliff", "landmark", "farmland-past-gorge", "safe-water-uphill", "falls-shield", "hidden-valley", "high-lake", "meeting-waters", "long-view", "snaking-river", "crater-rivers", "cliff-falls-lake", "oxbow", "stepped-lakes", "split-island", "twin-falls", "upper-lower", "hanging-valleys", "two-ways", "badwater-rich", "relic-pinnacle", "plug-lake", "district-behind"] } },
+    "intentions": { "type": "array", "maxItems": 2, "items": { "enum": ["under-cliff", "landmark", "farmland-past-gorge", "falls-shield", "hidden-valley", "high-lake", "meeting-waters", "long-view", "snaking-river", "crater-rivers", "cliff-falls-lake", "oxbow", "stepped-lakes", "split-island", "twin-falls", "upper-lower", "hanging-valleys", "two-ways", "badwater-rich", "relic-pinnacle", "plug-lake", "district-behind"] } },
     "designedFor": { "enum": ["easy", "normal", "hard"] },
     "settings": {
       "type": "object",

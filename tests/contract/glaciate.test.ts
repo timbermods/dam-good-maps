@@ -1,11 +1,10 @@
 // Glaciate in the editor's worker and the document (PLAN §20 D246, D257, D258, D265, D266, D289, D291,
-// D292): its planner is the investigation's round 4, byte for byte on its hero cases (with the floor's
-// water left as round 4 left it); a click Flows and a drag Aims; through the start it completes and the
+// D292): its planner is the investigation's round 4 with the floor's water finished (D292), never below
+// the Floor; a click Flows and a drag Aims; through the start it completes and the
 // start lands on level ground; Try another varies it; it is one operation, one undo step, stored
 // literally (its springs and its tarn included), Esc drops all of it at once, and it replays to the
 // same bytes; bound only by nature, it respects the height ceiling.
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync, strFromU8 } from "fflate";
@@ -17,14 +16,11 @@ import { MapSession } from "../../src/core/doc/session";
 import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
 import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
-import { GLACIATE_DEFAULTS, glaciateNextSeed, ROUND4_POWER } from "../../src/core/forces/glaciate/model";
-import { makePlan } from "../../src/core/forces/glaciate/plan";
+import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
+import { makePlan } from "../../tools/lib/glaciate";
 import { FLOOR_DEFAULT } from "../../src/core/forces/floor";
 import { floodAllowance } from "../../src/core/forces/glaciate/floor";
 import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
-import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
-import { modelOf } from "../../src/core/forces/runs";
-import { canonicalSettle } from "../../src/core/sim/prefill";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -32,7 +28,6 @@ import { checkSchema } from "../../src/core/spec/schema";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { storedMap } from "../../investigation/forces-core/core/map";
-import { makePlan as protoPlan } from "../../investigation/glaciate/model";
 
 /** Round 4's glacier in full: Power 100 (D368 (3), amended: lower Powers lift it). */
 const FULL = { ...GLACIATE_DEFAULTS, power: 100 };
@@ -45,13 +40,6 @@ function fixture(id: string): FullForceMap {
   const raw = readFileSync(join(__dirname, "../../investigation/glaciate/maps", `${id}.json.gz`));
   return storedMap(JSON.parse(strFromU8(gunzipSync(raw)))) as unknown as FullForceMap;
 }
-
-const digest = (m: Pick<FullForceMap, "heights" | "entities" | "water">) =>
-  createHash("sha256")
-    .update(m.heights)
-    .update(JSON.stringify(m.entities.map((e) => e.id).sort()))
-    .update(new Uint8Array(m.water.depth.buffer))
-    .digest("hex");
 
 /** The highest dry ground well inside the map (a glacier's head). */
 function highGround(b: { W: number; H: number; heights: Uint8Array; water: ArrayLike<number> }): [number, number] {
@@ -84,34 +72,18 @@ function run(req: ed.ForceRequest): { shown: Uint8Array } {
   return { shown };
 }
 
-describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
-  it("gives the investigation's land, water and objects on its hero click and Kyler's cross-valley Aim, with the floor's water left as round 4 left it (on its canyon raised clear of the Floor, D321 item 40)", () => {
+describe("Glaciate's planner (round 4, #69, its floor's water finished, D292)", () => {
+  it("never cuts below the Floor (D321, item 40) on the investigation's canyon, on its hero click and Kyler's cross-valley Aim", () => {
     for (const [x, y, end] of [
       [22, 22, null],
       [24, 80, [96, 36]],
-    ] as const)
-      for (const raise of [0, 6]) {
-        // the canyon as it is, and raised six levels: the Floor (D321, item 40), which the
-        // investigation didn't have, keeps the editor's trough a level above it (its channel and tarn
-        // within it), so on the canyon as it is nothing goes below it; raised, the glacier never comes
-        // near the Floor, and it is the investigation's exactly
-        const m = fixture("canyon-128");
-        for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.min(m.maxHeight, m.heights[i] + raise);
-        for (const e of m.entities) e.z = Math.min(m.maxHeight, e.z + raise);
-        const intent = { origin: y * m.W + x, ...(end ? { end: end[1] * m.W + end[0] } : {}) };
-        const settings = { ...FULL, mode: end ? ("aim" as const) : ("flow" as const) };
-        const p = makePlan(snapshotMap(m), settings, intent, undefined, false);
-        const what = `${x},${y} raised ${raise}`;
-        for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] < Math.min(m.heights[i], FLOOR_DEFAULT)) expect.fail(`${what}: tile ${i} below the Floor`);
-        if (!raise) continue;
-        // (the editor plans round 4's glacier at every Power, as the investigation did at its default
-        // Power, 60; Power scales it afterwards, D368 (3))
-        const q = protoPlan(snapshotMap(m) as never, { ...settings, power: ROUND4_POWER }, intent);
-        expect(Array.from(q.map.heights).some((v, i) => v <= FLOOR_DEFAULT + 1 && v < m.heights[i]), what).toBe(false);
-        // (the investigation moves the start itself; in the editor the start is the editor's, D257)
-        const without = (e: { template: string }) => e.template !== "StartingLocation";
-        expect(digest({ ...p.map, entities: p.map.entities.filter(without) }), what).toBe(digest({ ...(q.map as unknown as FullForceMap), entities: q.map.entities.filter(without) }));
-      }
+    ] as const) {
+      const m = fixture("canyon-128");
+      const intent = { origin: y * m.W + x, ...(end ? { end: end[1] * m.W + end[0] } : {}) };
+      const settings = { ...FULL, mode: end ? ("aim" as const) : ("flow" as const) };
+      const p = makePlan(snapshotMap(m), settings, intent);
+      for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] < Math.min(m.heights[i], FLOOR_DEFAULT)) expect.fail(`${x},${y}: tile ${i} below the Floor`);
+    }
   });
 
   it("finishes the floor's water (D292): the river visits the falls' pools and inflows, no join runs along a wall's foot, and the game's water keeps off the dry floor", () => {
@@ -121,10 +93,6 @@ describe("Glaciate's planner is the investigation's (round 4, #69)", () => {
     expect(p.finished.reached).toBeGreaterThan(0);
     expect(p.finished.floods).toBeLessThanOrEqual(floodAllowance(p));
     for (const j of p.joins) expect(j.length, j.kind).toBeLessThanOrEqual(j.kind === "inflow" ? 40 : 12);
-    // the settled water: fewer separate wet passages across the floor than round 4 left
-    const round4 = makePlan(snapshotMap(m), FULL, { origin: 22 * m.W + 22 }, undefined, false);
-    const settle = (q: typeof p) => measureGlaciate(q, canonicalSettle({ ...modelOf(q.map), retained: [q.retained] }));
-    expect(settle(p).passages).toBeLessThan(settle(round4).passages);
   });
 
   it("is sliced without changing its result, and never goes past the ceiling", () => {
@@ -149,7 +117,6 @@ describe("Glaciate in the editor's worker", () => {
   it("a click Flows and a drag Aims; Esc drops all of it at once; its end is one step exactly as shown; Try another varies it and undo brings the first back", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const at = highGround(s.built);
@@ -204,7 +171,6 @@ describe("Glaciate in the editor's worker", () => {
   it("through the start it completes, and the start lands on level ground in the same undo step (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const st = open().built.start!;
@@ -232,7 +198,6 @@ describe("Glaciate in the editor's worker", () => {
   it("replays to the same bytes: the project file reopens it, its springs and tarn, and the export is the same", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const at = highGround(MapSession.open(decodeProject(ed.project().bytes)).built);
     run({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: at, cut: null });
@@ -274,7 +239,7 @@ describe("Glaciate's details behind More, each on Auto until pinned (D309)", () 
   it("each detail shapes the land: no tarn keeps no lake, many steps drop the floor by more levels, sheer walls cut no benches; left out, round 4's", () => {
     const m = fixture("canyon-128");
     const at = { origin: 22 * m.W + 22 };
-    const plan = (d: object) => makePlan(snapshotMap(m), { ...FULL, ...d }, at, undefined, false);
+    const plan = (d: object) => makePlan(snapshotMap(m), { ...FULL, ...d }, at);
     const r4 = plan({});
     expect(Array.from(plan({ benches: "some", steps: "some", tarn: true, scree: true }).map.heights)).toEqual(Array.from(r4.map.heights));
     expect(r4.retained.tiles.length).toBeGreaterThan(0);
@@ -289,7 +254,6 @@ describe("Glaciate's details behind More, each on Auto until pinned (D309)", () 
   it("the editor's glacier runs with the drawn details and keeps them; Try another re-rolls only the ones on Auto; a pin survives; the engine refuses a detail its row couldn't set", async () => {
     const W2 = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W2, y: W2 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const at = highGround(MapSession.open(decodeProject(ed.project().bytes)).built);
     const st = ed.forceStart({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS } as never, origin: at, cut: null, natural: true });
@@ -327,17 +291,16 @@ describe("Glaciate through waypoints (D312)", () => {
     const t = (x: number, y: number) => y * W + x;
     const settings = { ...GLACIATE_DEFAULTS, mode: "aim" as const };
     const via = [t(60, 40), t(80, 70)];
-    const p = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40), via }, undefined, false);
+    const p = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40), via });
     for (const w of via) {
       const [x, y] = [w % W, Math.floor(w / W)];
       const near = Math.min(...p.path.map((q) => Math.hypot(q.x - x - 0.5, q.y - y - 0.5)));
       expect(near, `${x},${y}`).toBeLessThan(6);
     }
-    const straight = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40) }, undefined, false);
+    const straight = makePlan(snapshotMap(m), settings, { origin: t(24, 80), end: t(100, 40) });
     expect(Array.from(p.map.heights)).not.toEqual(Array.from(straight.map.heights));
     // in the worker: kept as its line, replayed exactly
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const st = ed.forceStart({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: [20, 20], via: [[40, 30], [60, 60]], end: [76, 70], cut: null });
     expect(st.errors).toEqual([]);
@@ -354,26 +317,25 @@ describe("Glaciate through waypoints (D312)", () => {
 });
 
 describe("Glaciate's springs in groups (D314)", () => {
-  it("the cirque head's spring is a row across the glacier's way, its strength shared; each spring a group by the rule; round 4's stay one a site", () => {
+  it("the cirque head's spring is a row across the glacier's way, its strength shared; each spring a group by the rule", () => {
     const m = fixture("canyon-128");
     const at = { origin: 22 * m.W + 22 };
-    const springs = (finish: boolean) => makePlan(snapshotMap(m), GLACIATE_DEFAULTS, at, undefined, finish).map.entities.filter((e) => e.owner === "glaciate");
+    const springs = () => makePlan(snapshotMap(m), GLACIATE_DEFAULTS, at).map.entities.filter((e) => e.owner === "glaciate");
     const strength = (e: { before?: Record<string, unknown> }) => {
       const v = (e.before!.WaterSource as { SpecifiedStrength: unknown }).SpecifiedStrength;
       return typeof v === "number" ? v : (v as { value: number }).value;
     };
-    const r4 = springs(false);
-    const grouped = springs(true);
-    // the head: one source at round 4's tarn, a row at the finished glacier's (placed first); the
-    // strength kept (to a thousandth a source)
-    const head = r4[0];
+    const grouped = springs();
+    // the head: a row at the tarn (placed first), the strength shared (to a thousandth a source)
     const row = grouped.filter((e) => Math.abs(e.x - grouped[0].x) + Math.abs(e.y - grouped[0].y) <= 3 && Math.abs(strength(e) - strength(grouped[0])) < 0.002);
     expect(row.length).toBeGreaterThan(1);
     expect(new Set(row.map((e) => e.z)).size).toBe(1);
     expect(new Set(row.map((e) => e.x)).size === 1 || new Set(row.map((e) => e.y)).size === 1).toBe(true);
-    expect(Math.abs(row.reduce((a, e) => a + strength(e), 0) - strength(head))).toBeLessThan(0.01 * row.length);
+    // (the cirque head's strength: 0.65 a second and the clean sources it swept, plan.ts)
+    const head = 0.65 + makePlan(snapshotMap(m), GLACIATE_DEFAULTS, at).metrics.cleanAbsorbed;
+    expect(Math.abs(row.reduce((a, e) => a + strength(e), 0) - head)).toBeLessThan(0.01 * row.length);
     // ids stable: the same plan twice gives the same springs
-    expect(springs(true).map((e) => `${e.id} ${e.x} ${e.y}`)).toEqual(grouped.map((e) => `${e.id} ${e.x} ${e.y}`));
+    expect(springs().map((e) => `${e.id} ${e.x} ${e.y}`)).toEqual(grouped.map((e) => `${e.id} ${e.x} ${e.y}`));
     expect(new Set(grouped.map((e) => e.id)).size).toBe(grouped.length);
   });
 });
