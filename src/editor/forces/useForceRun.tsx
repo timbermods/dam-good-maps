@@ -350,11 +350,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     };
   }
 
-  /** The water's journey and a weather run give way to the force's own water. */
+  /** The water's journey gives way to the force's own water (a held weather day stays on screen and runs again once
+   *  the force's water has settled). */
   function clearForForce() {
     journey.current?.flush();
     player.current?.clear();
-    if (weatherRef.current) setWeather(null);
     setPicked(null);
     setShapeNote(null);
     setMessage(null);

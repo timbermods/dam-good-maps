@@ -207,6 +207,12 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         putDown();
         return;
       }
+      // ← and → while a weather day is held: a day back or on, as the stepper's arrows do (Kyler, 2026-10-04)
+      if (!mod && !ev.altKey && (ev.key === "ArrowLeft" || ev.key === "ArrowRight") && ed.weatherRef.current) {
+        ev.preventDefault();
+        ed.stepWeather(ev.key === "ArrowLeft" ? -1 : 1);
+        return;
+      }
       // Up and Down with a selection open: raise or lower it one level, as the buttons do (D323 item 6)
       if (!mod && !ev.altKey && (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count && !painter.current?.painting && !brushToolRef.current && !toolRef.current) {
         ev.preventDefault();

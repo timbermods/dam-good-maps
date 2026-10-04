@@ -45,7 +45,8 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.setViewportSize({ width: 1400, height: 900 });
+  // (a size the page is designed for: at 1400px the water row, with the weather's day stepper, meets the Show row)
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const bar = page.getByRole("toolbar", { name: "Water time" });
@@ -116,12 +117,27 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await expect(bar.getByRole("status")).toHaveText("Water settled");
   await endsAtMapWater(page);
 
-  // a drought: the water drains and dries, then comes back to the map's water
+  // a drought, held on a day (Kyler, 2026-10-04): its last day shows and stays, the water drained; ◀ steps a day back,
+  // ▶ past the default length; Speed, Skip and Replay greyed; Drought again brings the map's own water back
+  const day = bar.locator(".day-label");
+  await expect(day).toHaveText("Day –");
   await bar.getByRole("button", { name: "Drought" }).click();
-  await expect(bar.getByRole("status")).toContainText(/Drought: day \d+ of \d+/);
-  await expect.poll(() => wet(page), { timeout: 30_000 }).toBeLessThan(settled / 2);
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 120_000 });
+  await expect(day).toHaveText(/^Day \d+$/, { timeout: 120_000 });
+  const last = Number((await day.textContent())!.replace(/\D/g, ""));
+  expect(last).toBeGreaterThan(1);
+  expect(await wet(page)).toBeLessThan(settled / 2);
+  await expect(bar.getByRole("button", { name: "Skip" })).toBeDisabled();
+  await expect(bar.getByRole("button", { name: "Replay" })).toBeDisabled();
+  await page.waitForTimeout(1500);
+  await expect(day).toHaveText(`Day ${last}`);
+  await bar.getByRole("button", { name: "Day on" }).click();
+  await expect(day).toHaveText(`Day ${last + 1}`, { timeout: 60_000 });
+  await bar.getByRole("button", { name: "Day back" }).click();
+  await bar.getByRole("button", { name: "Day back" }).click();
+  await expect(day).toHaveText(`Day ${last - 1}`, { timeout: 60_000 });
+  await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
+  await expect(day).toHaveText("Day –");
   await endsAtMapWater(page);
 
   // a badtide: the clean water turns to badwater, then washes out to the map's water
@@ -134,9 +150,9 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
     });
   const bad0 = await bad();
   await bar.getByRole("button", { name: "Badtide" }).click();
-  await expect(bar.getByRole("status")).toContainText(/Badtide: day \d+ of \d+/);
-  await expect.poll(bad, { timeout: 30_000 }).toBeGreaterThan(bad0 + 50);
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 180_000 });
+  await expect(day).toHaveText(/^Day \d+$/, { timeout: 180_000 });
+  expect(await bad()).toBeGreaterThan(bad0 + 50);
+  await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
   await endsAtMapWater(page);
   expect(errors).toEqual([]);

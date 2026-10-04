@@ -51,8 +51,8 @@ const GROUP_TIPS: Record<GroupName, string> = {
 };
 
 /** The map's name, the same as the title: Enter or leaving the field renames it through the core (D443); a name the
- *  core refuses goes back, its reason in the field's name for a moment. Two lines kept, so a long name (up to 80
- *  letters) shows whole and never changes the panel. */
+ *  core refuses goes back, its reason in the field's name for a moment. One line, a box about 24 letters wide (Kyler,
+ *  2026-10-04: no map's name needs more); a longer name scrolls in it, and the title shows it whole. */
 function NameField(p: { name: string; onRename(name: string): Promise<string | null> }) {
   const [text, setText] = useState(p.name);
   const [problem, setProblem] = useState<string | null>(null);
@@ -73,19 +73,19 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
       <label class={`set-label${problem ? " title-problem" : ""}`} for="map-name" role={problem ? "alert" : undefined}>
         Name
       </label>
-      <textarea
+      <input
         id="map-name"
-        rows={2}
+        class="set-text"
         value={text}
         maxLength={80}
         spellcheck={false}
         autoComplete="off"
-        onInput={(e) => setText((e.target as HTMLTextAreaElement).value.replace(/\n/g, " "))}
+        onInput={(e) => setText((e.target as HTMLInputElement).value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             // (Enter renames here; it never makes a new map)
             e.preventDefault();
-            (e.target as HTMLTextAreaElement).blur();
+            (e.target as HTMLInputElement).blur();
           } else if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -135,22 +135,24 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
           if (!m.busy) m.onGenerate();
         }}
       >
+        {/* three rows (Kyler, 2026-10-04): Name and Seed, then Generate; Theme, then Surprise me; Size, then Reset
+            settings; the three buttons one width, stacked, each level with its row */}
         <div class="sheet-top">
-          <NameField name={m.name} onRename={m.onRename} />
-          <div class="sheet-go">
-            <button type="submit" class="primary" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
-              Generate
-            </button>
-            <button type="button" class="ghost" disabled={m.busy} {...tip("Make a map of any kind")} onClick={m.onSurprise}>
-              Surprise me
-            </button>
+          <div class="sheet-row1">
+            <NameField name={m.name} onRename={m.onRename} />
+            {f.seed}
           </div>
-          <div class="sheet-wide">{f.theme}</div>
-          <button type="button" class="ghost sheet-reset" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
+          <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
+            Generate
+          </button>
+          <div>{f.theme}</div>
+          <button type="button" class="ghost sheet-act" disabled={m.busy} {...tip("Make a map of any kind")} onClick={m.onSurprise}>
+            Surprise me
+          </button>
+          <div>{f.size}</div>
+          <button type="button" class="ghost sheet-act" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
             Reset settings
           </button>
-          <div>{f.seed}</div>
-          <div>{f.size}</div>
         </div>
         <div class="sheet-cols">
           <div class="sheet-col">

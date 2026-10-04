@@ -85,7 +85,8 @@ export function useSelect(ed: Ed): SelectSlice {
   useEffect(() => {
     const r = renderer.current;
     if (!r) return;
-    r.claimKey = (ev) => (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count > 0 && !brushToolRef.current && !ed.toolRef.current;
+    // (and ← → while a weather day is held: they step the day, Kyler, 2026-10-04)
+    r.claimKey = (ev) => ((ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count > 0 && !brushToolRef.current && !ed.toolRef.current) || ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && !!ed.weatherRef.current);
     return () => {
       if (r.claimKey) r.claimKey = null;
     };

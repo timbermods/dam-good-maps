@@ -290,15 +290,26 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           draftWater.current = null;
           // an edit's water plays at a pace the eye can follow, and the settled water ends it
           journey.current?.news(e);
+          // (a held weather day: the journey isn't shown, so the settled water goes in place now and the day runs again
+          // from it)
+          if (e.kind === "settled" && weatherRef.current) player.current?.skip();
         } else if (e.kind === "weather") {
-          const w = weatherRef.current;
-          if (!w) return;
-          const day = `day ${Math.max(1, Math.ceil(e.day))} of ${e.days}`;
-          const words = e.phase === "drought" ? `Drought: ${day}` : e.phase === "badtide" ? `Badtide: ${day}` : e.phase === "return" ? (w === "badtide" ? "The water runs clean again" : "The water comes back") : undefined;
-          const soil = e.soil;
-          const show = soil ? () => showSoil(soil) : undefined;
-          const final = e.phase === "end" ? () => (soil && showSoil(soil), setWeather(null)) : show;
-          player.current?.push({ water: e.water, done: e.phase === "return" || e.phase === "end" ? 0.5 : e.day / e.days / 2, ...(words ? { words } : {}), ...(final ? { final } : {}) });
+          // a held weather day (Kyler, 2026-10-04): the days before it counted while they are simulated, the map as it
+          // is meanwhile; then the day itself, its water and soil, and the readout reads it
+          if (e.hazard !== weatherRef.current) return;
+          if (e.phase === "computing") return void ed.setWeatherCounting(e.day);
+          const want = ed.heldDay.current ?? e.days;
+          if (e.day !== want || !e.water) return;
+          ed.setWeatherCounting(null);
+          ed.setWeatherDay(e.day);
+          ed.setWeatherDays(e.days);
+          ed.heldDay.current = e.day;
+          showWater(e.water, false, true);
+          if (e.soil) {
+            mirror.current.daySoil = e.soil;
+            showSoil(e.soil);
+          }
+          ed.rehover();
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

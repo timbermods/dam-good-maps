@@ -42,7 +42,8 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
   if (e.kind === "instant") return [];
-  return viewBuffers(e.kind === "water" || e.kind === "weather" ? { water: e.water } : e.view) as Transferable[];
+  if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
+  return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
@@ -131,7 +132,7 @@ const api = {
   // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
-  startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
+  showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),

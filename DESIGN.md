@@ -436,14 +436,15 @@ refinements and what the mockups left open:
   window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, under the Show row
   (Kyler, 2026-10-04: nothing beside it, nothing hidden under it; opening and closing changes nothing on screen but
   the panel), its corners rounded.
-  It starts one gap (10px) under the top band at both sizes and is 684px tall (its lines 25px): at 1920×1080 it ends
-  19px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
+  It starts one gap (10px) under the top band at both sizes and is 692px tall (its lines 27px): at 1920×1080 it ends
+  11px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
   and Real places take the same box.
-  Every setting shows at once, nothing scrolls, each on one 25px line: its name, then a slider and its value, or a
+  Every setting shows at once, nothing scrolls, each on one 27px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
-  up). A title block (the Name, two lines kept, beside Generate and Surprise me; Theme, with Reset settings under
-  Surprise me, the three buttons in the panel's 13px; Seed with Keep, and Size with "128 × 128" or a custom width and
-  height typed), then two columns under a hairline: Terrain,
+  up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name (one line, a box about 24
+  letters wide, a longer name scrolling in it) and the Seed with Keep, then Generate; Theme, then Surprise me; Size
+  ("128 × 128", or a custom width and height typed), then Reset settings; the three buttons one width (150px),
+  stacked, each level with its row, in the panel's 13px; then two columns under a hairline: Terrain,
   Water and Hazards; Resources, Difficulty and On this map (two to a row). Each group is headed by its picture and
   its name in small capitals. The species mix is one bar of four shares, dragged at its three edges, each share's
   name and number under it; Difficulty's numbers are sliders; Badwater's "No badwater" is Off, Start area's choices
@@ -452,13 +453,25 @@ refinements and what the mockups left open:
   each button lit while its panel is open), in the generator's exact box: four to a row, scrolling inside when there
   are more.
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
-  the same box, three across and three down (rows of 218px, so exactly three show and a fourth never peeks; the
+  the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
   ("Crater Lake"; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's
   words ("Water settled", "Water flowing… 40%") take one width, right-aligned, so nothing beside them moves.
+- **Weather days held** (Kyler, 2026-10-04): Drought or Badtide, clicked, shows the hazard's last day (its length for
+  the map's difficulty) and holds it until clicked again (the map's own water back); the other one's button switches
+  straight to it. After Badtide, ◀ Day 7 ▶: ◀ steps a day back to Day 0 (the map's own water, still in the view), ▶ a
+  day on, past the default length without a cap; ← and → do the same while a view is on (in the arrows' tooltips).
+  With neither on, the stepper stays, greyed, "Day –"; its label is two digits wide, so the row never changes shape.
+  The first click simulates the days first, the map as it is and the label counting ("Day 3…"), then lands on the
+  last day; nothing plays. An edit while a day is held keeps the view: once its water has settled the hazard runs
+  again from it, the label counting, and the same day shows with the edit's effect. The readout reports the day
+  shown (its water and soil). Speed, Skip and Replay are greyed while a view is on; a held hazard's button is lit in
+  the mint. A held badtide never ends, so its sources stay at full strength after their opening curve. The row's
+  pieces have 6px padding and the Show row's toggles 6px and 5px, 4px apart, so the wider row clears the Show row by
+  22px at 1920×1080; Legend stays centred between Badtide and Top-down.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks stay left-aligned.

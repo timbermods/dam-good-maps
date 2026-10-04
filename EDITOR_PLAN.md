@@ -195,7 +195,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   is true, so an undo, a redo or an edit that leaves the water as it is never leaves "Water flowing… 0%" waiting
   (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water's controls are one row at the top middle,
   centred in the map area, each floating on its own: the status (plain text over the sky), **Pause water** (Play
-  water while paused), Speed, Skip, Replay, Drought and Badtide (§5); one unavailable (Pause water, Skip and Replay
+  water while paused), Speed, Skip, Replay, Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a
+  drought or a badtide held on any day, from Day 0, the map's own water, to past its default length); one unavailable (Pause water, Skip and Replay
   while the water is settled) has a fainter plate and fainter words.
 - **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
   small top-down view of the whole map, refreshed after edits settle (no outline of the view); click or drag on it to

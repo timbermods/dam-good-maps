@@ -15,6 +15,9 @@ export interface Mirror {
   /** The objects covering each tile (their footprints), likewise. */
   coverAt?: Map<number, number[]> | null;
   soil?: SoilView;
+  /** A held weather day's soil (its moisture and contamination), while a drought or a badtide is on: the readout reads
+   *  it; the map's own stays in `soil`. */
+  daySoil?: SoilView | null;
 }
 
 export function mirrorOf(v: MapView): Mirror {

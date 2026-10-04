@@ -665,3 +665,15 @@ never cut off: it wraps past 500px); the minimap's view outline gone; Legend cen
 and Top-down, the legend centred under it. The coordinates above the minimap reach up to 826px at 1920×1080, so the
 generator (and Your maps and Real places) is 684px tall now, its lines 25px, ending at 807px. Rift and Deposit wait
 for the milestone session's word that #268's adoption is in dev.
+
+## Weather days held, and the generator's top in three rows (2026-10-04)
+
+- **Weather:** Drought and Badtide hold their last day; ◀ Day N ▶ (and ← →) steps from Day 0 to past the default
+  length; an edit while held re-runs from its settled water and shows the same day; the readout reads the day;
+  Speed, Skip and Replay greyed. The worker (`src/worker/session.ts`, `showWeatherDay`) keeps each day's water and
+  soil, answers any kept day at once and simulates further days on request; no return run. Times at 128² on this
+  machine: Drought's 9 days 0.3 s, Badtide's 8 days about 2 s, a further day under 0.1 s, a re-run after an edit
+  about 1.6 s. The pressed Drought and Badtide are lit in the mint (the row's plate colour had covered the fill).
+  `waterFlow.spec.ts` runs at 1920×1080 now (at 1400px the wider row meets the Show row).
+- **Generator top:** three rows (Name 24ch and Seed, then Generate; Theme, then Surprise me; Size, then Reset
+  settings); the freed row back to the settings, lines 27px; the panel 692px, ending 11px above the coordinates.

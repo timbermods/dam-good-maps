@@ -289,7 +289,7 @@
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   background: none;
@@ -304,7 +304,8 @@
   position: absolute;
   z-index: 2;
   top: 10px;
-  left: calc((50% + var(--water-bar-w, 772px) / 2 + 100% - 10px - 310px) / 2);
+  /* (never closer to Top-down than one corner gap and half the button, in a window narrower than the two designed) */
+  left: min(calc((50% + var(--water-bar-w, 772px) / 2 + 100% - 10px - 310px) / 2), calc(100% - 10px - 310px - 8px - 42px));
   bottom: 10px;
   width: 0;
   display: flex;
@@ -343,7 +344,7 @@
   align-items: center;
   gap: 5px;
   height: 36px;
-  padding: 0 8px 0 7px;
+  padding: 0 6px 0 5px;
   text-align: left;
   white-space: nowrap;
 }
@@ -506,7 +507,8 @@
   height: 36px;
   box-sizing: border-box;
   margin: 0;
-  padding: 0 8px;
+  /* (6px: the row holds the weather's day stepper too, clear of the Show row at 1920×1080) */
+  padding: 0 6px;
   border-radius: 6px;
   background: var(--overlay);
   box-shadow: var(--shadow);
@@ -1355,7 +1357,7 @@
 /* ==== the map generator and Your maps over the map (Kyler's pick, A, the sheet, 2026-10-04) ==== */
 
 /* one 640px panel at the left, over the map while it is open, one gap (10px) under the top band at both sizes
-   (Kyler, 2026-10-04); 684px tall, it ends 19px above the coordinates over the minimap at 1920×1080 (and above the
+   (Kyler, 2026-10-04); 692px tall, it ends 11px above the coordinates over the minimap at 1920×1080 (and above the
    bar's settings, which reach under it there) */
 .gen {
   position: absolute;
@@ -1377,55 +1379,34 @@
 
 /* ---- the sheet: a title block, then the five groups in two columns under a hairline */
 .sheet {
+  /* (one line height for every setting and the title block's rows) */
+  --line: 27px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 10px;
 }
 
-/* the title block on three tracks: the Name over the first two, Generate and Surprise me in the third; Theme across;
-   Seed in the first, Size over the other two (the columns' own halves) */
+/* the title block (Kyler, 2026-10-04): three rows on the settings' line height, the left part the settings, the right
+   column Generate, Surprise me and Reset settings, one width, each level with its row */
 .sheet-top {
   display: grid;
-  grid-template-columns: 305px 145px 150px;
-  grid-template-rows: 56px 25px 25px;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  grid-auto-rows: var(--line);
   gap: 3px 10px;
 }
 
-.sheet-top > .gen-name {
-  grid-column: 1 / 3;
-}
-
-.sheet-top > .sheet-wide {
-  grid-column: 1 / 3;
-}
-
-/* Generate, Surprise me and Reset settings: one column, the panel's text size */
-.sheet-go button,
-.sheet-top > .sheet-reset {
-  font-size: 13px;
-}
-
-.sheet-top > .sheet-reset {
-  grid-column: 3;
-  min-width: 0;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
-.sheet-top > div:last-child {
-  grid-column: 2 / -1;
-}
-
-.sheet-go {
+/* Name (a box about 24 letters wide) and Seed share the first row */
+.sheet-row1 {
   display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 3px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px;
 }
 
-.sheet-go button {
+.sheet-top > .sheet-act {
   min-width: 0;
   padding: 0 8px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -1479,7 +1460,7 @@
   grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 52px);
   align-items: center;
   column-gap: 8px;
-  height: 25px;
+  height: var(--line, 25px);
   padding: 0 8px 0 7px;
 }
 
@@ -1569,41 +1550,23 @@
   cursor: pointer;
 }
 
-/* the map's name: its field the map's title, two lines kept so a long name (up to 80 letters) shows whole and never
-   changes the panel */
+/* the map's name: one line, its box about 24 letters wide, the map's title in bold */
 .gen-name.set.plate {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: start;
+  grid-template-columns: max-content 24ch;
+  align-items: center;
   column-gap: 8px;
-  padding: 6px 8px 6px 7px;
+  height: var(--line);
+  padding: 0 8px 0 7px;
 }
 
 .gen-name .set-label {
   font-size: 13px;
-  line-height: 22px;
 }
 
-.gen-name textarea {
-  display: block;
-  height: 42px;
-  margin: 0;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 15px;
+.gen-name .set-text {
+  width: 100%;
   font-weight: 700;
-  line-height: 21px;
-  resize: none;
-  overflow: hidden;
-}
-
-.gen-name textarea:focus {
-  outline: none;
-  background: var(--bg);
 }
 
 /* the species mix: one bar of four shares, dragged at the three edges between them; each share's name and number
@@ -1723,7 +1686,7 @@
 /* ---- Your maps: in the generator's place, four to a row; more maps than it holds scroll inside it */
 .maps-panel {
   /* the generator's own box, so switching between the two never changes the panel's shape */
-  height: 684px;
+  height: 692px;
   box-sizing: border-box;
   overflow-y: auto;
   padding: 10px;
@@ -1763,12 +1726,12 @@
    moves as the water runs */
 .editor-view .water-bar > .bar-status {
   justify-content: flex-end;
-  width: 136px;
+  width: 128px;
 }
 
 /* (an even height: the panel's room is even, so its centred top falls on a whole pixel) */
 .sheet {
-  padding-bottom: 12px;
+  padding-bottom: 13px;
 }
 
 /* (Your maps fills its panel even before its first map has joined) */
@@ -1786,15 +1749,15 @@
 }
 
 /* ---- Real places (Kyler, 2026-10-04): in the generator's box, three across and three down, each picture with its
-   whole name and its size; more scroll inside the panel. Three rows fill the room exactly (684px less its 1px edges is
-   682: 6px, three rows of 218px with 8px between them, 6px), so a fourth never peeks; the scrollbar's room is kept on
+   whole name and its size; more scroll inside the panel. Three rows fill the room exactly (692px less its 1px edges is
+   690: 7px, three rows of 220px with 8px between them, 7px), so a fourth never peeks; the scrollbar's room is kept on
    both sides, so the margins match */
 .places-panel {
-  height: 684px;
+  height: 692px;
   box-sizing: border-box;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
-  padding: 6px;
+  padding: 7px;
 }
 
 .real-places ul {
@@ -1803,7 +1766,7 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-auto-rows: 218px;
+  grid-auto-rows: 220px;
   gap: 8px;
 }
 
@@ -1851,4 +1814,42 @@
 .view3d-corner .compass {
   width: var(--corner-h);
   height: var(--corner-h);
+}
+
+/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
+   row never changes shape; greyed, "Day –", with neither Drought nor Badtide on */
+.editor-view .water-bar > .day-stepper {
+  gap: 0;
+  padding: 0 2px;
+}
+
+.day-stepper .day-step {
+  width: 26px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.75rem;
+}
+
+.day-stepper .day-step:disabled {
+  opacity: 0.35;
+}
+
+.day-stepper .day-label {
+  width: 62px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.water-bar:has(.day-step:disabled + .day-label + .day-step:disabled) .day-label {
+  opacity: 0.45;
+}
+
+/* Drought or Badtide held: lit in the mint like every pressed toggle (the row's plate colour had covered the fill) */
+.editor-view .water-bar > button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
 }

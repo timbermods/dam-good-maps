@@ -20,6 +20,7 @@ import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import type { Hazard } from "../../core/sim/weather";
+import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
 import { type Mirror, mirrorOf } from "./mirror";
 import type { Ed } from "../ed";
@@ -122,6 +123,22 @@ export interface SessionSlice {
   weather: Hazard | null;
   weatherRef: { current: Hazard | null };
   setWeather: (on: Hazard | null) => void;
+  /** The weather day shown (0 the map's own water), its hazard's default length, and the day being simulated now
+   *  ("Day 3…"), or null. */
+  weatherDay: number | null;
+  weatherDays: number | null;
+  weatherCounting: number | null;
+  setWeatherDay: (day: number | null) => void;
+  setWeatherDays: (days: number | null) => void;
+  setWeatherCounting: (day: number | null) => void;
+  /** The day the page asked the worker for last (null: the hazard's default last day). */
+  heldDay: { current: number | null };
+  /** Step the held day back or on (◀ ▶, ← →). */
+  stepWeather: (delta: -1 | 1) => void;
+  /** Ask the worker for the held day again (after an edit's water has settled: it re-runs from it). */
+  requestHeldDay: () => void;
+  lastHover: { current: { x: number; y: number } | null };
+  rehover: () => void;
   journey: { current: WaterJourney | null };
   setInstant: Dispatch<StateUpdater<CheckItem[]>>;
   instant: CheckItem[];
@@ -159,7 +176,7 @@ export interface SessionSlice {
   enqueue: <T>(fn: () => Promise<T>) => Promise<T>;
   run: (fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void) => Promise<void>;
   draftWater: { current: WaterView | null };
-  showWater: (w: WaterView, soon?: boolean) => void;
+  showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
   showSoil: (soil: SoilView) => void;
   applyUpdate: (u: SessionUpdate) => void;
@@ -208,6 +225,13 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [busy, setBusy] = useState(0);
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
+   *  pointer (a weather day landing). */
+  const lastHover = useRef<{ x: number; y: number } | null>(null);
+  const rehover = () => {
+    const h = lastHover.current;
+    if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y)));
+  };
   const [showHistory, setShowHistory] = useState(false);
   const [check, setCheck] = useState<ExportCheck | null>(null);
   // the background check's progress (the canonical settle, then the checks), and the water layer
@@ -273,8 +297,13 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     weatherRef.current = on;
     setWeatherState(on);
   };
+  const [weatherDay, setWeatherDay] = useState<number | null>(null);
+  const [weatherDays, setWeatherDays] = useState<number | null>(null);
+  const [weatherCounting, setWeatherCounting] = useState<number | null>(null);
+  const heldDay = useRef<number | null>(null);
   player.current ??= new WaterPlayer({
-    // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once)
+    // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once; a held weather day
+    // stays on screen meanwhile)
     show: (f) => showWater(f.water, !f.final),
     changed: () => {
       setPlayerTick((n) => n + 1);
@@ -288,8 +317,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   journey.current ??= new WaterJourney(player.current, {
     applyView: (v) => applyViewRef.current(v),
     mapWater: () => mirror.current.mapWater,
-    // (Max water depth's few words, once the water has settled, D264)
-    settledInPlace: () => ed.checkDepthRef.current(),
+    // (Max water depth's few words, once the water has settled, D264; a held weather day runs again from it)
+    settledInPlace: () => {
+      ed.checkDepthRef.current();
+      if (weatherRef.current) requestHeldDay();
+    },
   });
   const [instant, setInstant] = useState<CheckItem[]>([]);
   /** The first run's hints (D184): the steps done so far. */
@@ -389,7 +421,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  camera stays where the player left it, D265). */
   /** A stroke's water waiting for the next frame (the latest wins). */
   const draftWater = useRef<WaterView | null>(null);
-  function showWater(w: WaterView, soon = false) {
+  function showWater(w: WaterView, soon = false, held = false) {
+    // (a held weather day stays on screen: only the day itself replaces it, Kyler, 2026-10-04)
+    if (weatherRef.current && !held) return;
     const r = renderer.current;
     // (water on its way, a stroke's or the journey's: its chunks meshed a few a frame, so painting
     // and turning the view keep the display's rate)
@@ -431,21 +465,46 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     step();
   }
 
-  /** A drought or a badtide to watch, or the map's own water back at once. */
+  /** A drought or a badtide held on a day (Kyler, 2026-10-04): the first click shows its last day and holds it (the
+   *  days before it simulated first, the map as it is meanwhile, the label counting); the other hazard's button
+   *  switches straight to it; the same button again brings the map's own water back. No playing, no jumping back. */
   function toggleWeather(hazard: Hazard) {
     if (weatherRef.current !== hazard) {
-      setWeather(hazard);
+      // (the journey's settled water is put in place first: the day runs from the map's own water)
       journey.current?.flush();
-      player.current?.begin(null, true);
-      void api.startWeather(hazard);
+      player.current?.skip();
+      setWeather(hazard);
+      heldDay.current = null;
+      setWeatherDay(null);
+      setWeatherCounting(null);
+      void api.showWeatherDay(hazard, null);
     } else {
       setWeather(null);
+      heldDay.current = null;
+      setWeatherDay(null);
+      setWeatherCounting(null);
+      mirror.current.daySoil = null;
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
         if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
+        ed.rehover();
       });
     }
+  }
+  /** Step the held day back (to Day 0, the map's own water) or on (past the default length, simulated as asked). */
+  function stepWeather(delta: -1 | 1) {
+    const h = weatherRef.current;
+    if (!h) return;
+    const from = heldDay.current ?? weatherDay ?? 0;
+    const day = Math.max(0, from + delta);
+    if (day === from && heldDay.current !== null) return;
+    heldDay.current = day;
+    void api.showWeatherDay(h, day);
+  }
+  function requestHeldDay() {
+    const h = weatherRef.current;
+    if (h) void api.showWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showSoil(soil: SoilView) {
@@ -455,12 +514,13 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function applyUpdate(u: SessionUpdate): void {
     // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
-    if (u.ok) {
-      if (weatherRef.current) setWeather(null);
-    }
+
     // (the worker says whether a settle is running: an undo back to settled water starts no journey, the bar
     // says "Water settled" at once; the news that came first is played now, D345 B14)
     journey.current?.update(u, u.info.version);
+    // (a held weather day: an edit whose water is already settled runs it again at once; otherwise the settled water
+    // does, once it is in place)
+    if (u.ok && weatherRef.current && u.waterSettled) requestHeldDay();
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
@@ -490,7 +550,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       r?.updateTerrain(v.heights);
     }
     if (v.terrain && ed.pendingTerrain.current === 0) ed.terrain.current = v.terrain;
-    if (v.water) {
+    if (v.water && weatherRef.current) m.mapWater = v.water;
+    else if (v.water) {
       // (the renderer works out the surface water: the page reads it from there)
       r?.updateWater(v.water);
       m.water = r?.mapState()?.surface ?? surfaceWater(infoRef.current.W, infoRef.current.H, v.water);
@@ -499,7 +560,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     }
     // the soil follows the water (the preview's, then the exact settle's): the ground's colours,
     // and the ivy on ruins, so it comes before the objects
-    if (v.soil) {
+    if (v.soil && weatherRef.current) m.soil = v.soil;
+    else if (v.soil) {
       // the land comes alive with the water (D181): the soil's colours move to the new moisture
       // over about two seconds, the tiles that end wettest (by the water) first
       const from = m.soil;
@@ -528,7 +590,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, setWeather, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, setWeatherDay, setWeatherDays,
+    setWeatherCounting, heldDay, stepWeather, requestHeldDay, lastHover, rehover, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
