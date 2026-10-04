@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -28,7 +28,8 @@
     { "if": { "properties": { "op": { "const": "pinSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/pinSlope" } } } },
     { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } },
     { "if": { "properties": { "op": { "const": "removeUnfedWater" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/removeUnfedWater" } } } },
-    { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } }
+    { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } },
+    { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -247,7 +248,7 @@
         "y": { "$ref": "#/$defs/coordinate" },
         "orientation": { "$ref": "#/$defs/orientation" },
         "flipped": { "type": "boolean" },
-        "components": { "type": "object" }
+        "components": { "$ref": "#/$defs/objectComponents" }
       }
     },
     "moveEntity": {
@@ -271,7 +272,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "components"],
-      "properties": { "id": { "$ref": "#/$defs/guid" }, "components": { "type": "object" } }
+      "properties": { "id": { "$ref": "#/$defs/guid" }, "components": { "$ref": "#/$defs/objectComponents" } }
     },
     "pinSlope": {
       "type": "object",
@@ -316,6 +317,48 @@
       "additionalProperties": false,
       "required": ["x", "y"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } }
+    },
+    "objectComponents": {
+      "description": "The components of a placed object or a patch on them, in the game's own names. The options the editor sets are typed here; the engine adds what depends on the object: a water object's strength is at most 8 for each tile it emits into (72 for a badwater source, 32 for a seep) and has no lower bound, a sink is negative; a start delay is a cycle of 1 or more and days of 0 or more, and an aquifer has none; an unstable core's radius is a whole number from 0 to 5 and its countdown is always on; a reserve holds one good of its kind up to its capacity (160 a pile, 200 a warehouse, 300 a tank). Each refusal says which.",
+      "type": "object",
+      "properties": {
+        "WaterSource": {
+          "type": "object",
+          "properties": {
+            "SpecifiedStrength": { "type": "number" },
+            "CurrentStrength": { "type": "number" }
+          }
+        },
+        "WaterDepthStrengthModifier": { "type": "object", "properties": { "CurrentModifier": { "type": "number" } } },
+        "TimeActivatedComponent": {
+          "type": "object",
+          "properties": {
+            "IsEnabled": { "type": "boolean" },
+            "CyclesUntilCountdownActivation": { "type": "number" },
+            "DaysUntilActivation": { "type": "number" },
+            "DaysPassed": { "type": "number" }
+          }
+        },
+        "UnstableCore": { "type": "object", "properties": { "ExplosionRadius": { "type": "number" } } },
+        "FixedStockpile": { "type": "object", "properties": { "FixedGoodId": { "type": "string" } } },
+        "SingleGoodAllower": { "type": "object", "properties": { "AllowedGood": { "type": "string" } } },
+        "Inventory:Stockpile": { "type": "object" },
+        "StockpileVisualizers": { "type": "object", "properties": { "CurrentGood": { "type": "string" } } }
+      }
+    },
+    "paintObjects": {
+      "description": "A brush stroke of objects (D235, D338): trees (Pine, Birch or Oak), bushes (BlueberryBush), succulents (Succulent), mixed woods, ruin fields or thorn patches, over the tiles it covers. It is planned on the map as it stands (dry, free ground, one level for a ruin field) and placed as one step; the log keeps the objects it placed, so a replay never plans again. The density is how densely they land: from a sparse scatter to a dense grove, and the share of the ground a ruin field or a thorn patch covers. The age (trees, succulents, woods): grown, or mixed with saplings. The seed makes the same stroke on the same map place the same objects.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "area", "density", "seed"],
+      "properties": {
+        "kind": { "enum": ["trees", "bushes", "succulents", "woods", "ruins", "thorns"] },
+        "template": { "type": "string" },
+        "area": { "$ref": "#/$defs/runs" },
+        "density": { "type": "number", "minimum": 0.05, "maximum": 1 },
+        "age": { "enum": ["grown", "mixed"] },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+      }
     }
   }
 }

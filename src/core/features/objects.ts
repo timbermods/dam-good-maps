@@ -12,6 +12,7 @@
 
 import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { blockObject, unstableCore, type EntitySpec } from "../format/entities";
+import { EMITTING, FLUIDS } from "../data/parity";
 import { hash32, tileHash01 } from "../math/hash";
 import { runsToTiles } from "../math/grid";
 import { entityId } from "./ids";
@@ -232,7 +233,8 @@ export function removeKindOf(template: string): RemoveKind | null {
   if (/^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent)$/.test(template)) return "trees";
   if (/Bush$|^(Dandelion|Cattail|Spadderdock)$/.test(template)) return "bushes";
   if (/^RuinColumnH/.test(template)) return "ruins";
-  if (template === "WaterSource" || template === "BadwaterSource") return "sources";
+  // the sources, and the game's other water objects that emit (the seeps, the aquifer, the badtide drain: D337)
+  if (template === "WaterSource" || template === "BadwaterSource" || EMITTING.includes(template)) return "sources";
   if (template === "Slope") return "slopes";
   return "objects";
 }
@@ -242,6 +244,6 @@ export function removeTakes(kinds: readonly RemoveKind[], template: string): boo
   const kind = removeKindOf(template);
   if (!kind) return false;
   if (kinds.includes(kind)) return true;
-  if (kind === "sources") return kinds.includes(template === "BadwaterSource" ? "badwater" : "water");
+  if (kind === "sources") return kinds.includes(FLUIDS[template]?.contamination ? "badwater" : "water");
   return false;
 }
