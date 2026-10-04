@@ -44,7 +44,7 @@ are as of 2026-10-04 and move.
 | The page | `feature/page` | #163 draft | `-page` | Page session; waits on Kyler's generator pick |
 | Area brush | `feature/area-brush` | #227 | none | CI green; the page adds its toggle after it merges |
 | Renderer fixes | `fix/frame-fit`, `fix/basin-highlight`, `fix/high-worker` | #219, #225, #240 | none | #225 fails the palette test (a hard-coded colour); the renderer session fixes it |
-| Parity with the game's editor, core adopted (#252) | `feature/parity-core` | this step's PR | `-paritycore` | Review and CI; then the page wires the shelf (#236) and #95 closes. The seep cap (a seep-fed pit fills only to 0.8) waits on Kyler: it moves seep water |
+| Parity with the game's editor, core adopted (#252) | `feature/parity-core` | #269 | `-paritycore` | Review and CI; then the page wires the shelf (#236) and #95 closes. The seep cap (a seep-fed pit fills only to 0.8) waits on Kyler: it moves seep water |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Parked: held for Kyler's sitting, after the page |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | Parked as the reference; its stacked engine's Rust port is on `feature/rust-stacked` (D448) |
 | Real places, round 2 | `feature/real-places-2` | #35 | `-places` | Parked by Kyler (D319); CI red is expected |
