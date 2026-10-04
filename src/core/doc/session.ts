@@ -878,7 +878,11 @@ export class MapSession {
    *  edits included): the stored map is the ground and holds every generated feature, except the
    *  ones the log changed, deleted or reordered. Those leave the stored map, their objects with
    *  them, and are built as they now say, as they were when the edit was made; the rest stay as the
-   *  generator that made them built them. */
+   *  generator that made them built them. The generation's slopes and resources are kept as a live
+   *  map keeps them (`generatedSlopes`, `generatedResources`): a slope stands while its step does,
+   *  and one an edit took away stays gone; a tree or bush stands where the generation put it, dead
+   *  or alive by the ground the edits left (D368 (10), D404). Left in the stored map, every slope
+   *  would stand again and every tree live, whatever the edits did. */
   private frozenLayer(): BaseLayer {
     const layer = this.baseStuff().layer;
     const ids = new Set(this.gen.baseFeatures.map((f) => f.id));
@@ -887,11 +891,18 @@ export class MapSession {
       if (o.orphaned || (o.op !== "updateFeature" && o.op !== "deleteFeature" && o.op !== "reorderFeature")) continue;
       if (ids.has(o.params.id)) touched.add(o.params.id);
     }
-    const key = [...touched].sort().join(",");
+    const slopes = this.keepsSlopes();
+    const resources = this.generatedResources();
+    const key = `${[...touched].sort().join(",")}|${slopes}|${resources ? [...resources.keys()].sort().join(",") : ""}`;
     const c = this.frozenCache;
     if (c && c.key === layer && c.touched === key) return c.layer;
-    for (const id of touched) ids.delete(id);
-    const frozen: BaseLayer = { ...layer, frozen: ids, entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
+    // (the resources the build keeps itself are built as a live map's are, on their own tiles)
+    const built = new Set([...touched, ...(resources?.keys() ?? [])]);
+    for (const id of built) ids.delete(id);
+    // (and the slopes `generatedSlopes` lists leave the stored map: the build keeps them itself)
+    const owned = !!this.gen.base.owners;
+    const kept = (e: BaseLayer["entities"][number]) => !built.has(e.owner) && !(slopes && e.template === "Slope" && (!owned || e.owner === DERIVED_SLOPES));
+    const frozen: BaseLayer = { ...layer, frozen: ids, entities: built.size || slopes ? layer.entities.filter(kept) : layer.entities };
     this.frozenCache = { key: layer, touched: key, layer: frozen };
     return frozen;
   }
@@ -916,7 +927,13 @@ export class MapSession {
     const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
     // (a frozen generation takes the field too: the features read back from it, so one the player
     // changed is not carved again unless its shape changed, and a tall map's top)
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, this.keepsSlopes() ? this.generatedSlopes() : null, mode !== "import" ? this.generatedResources() : null);
+  }
+
+  /** Whether the build keeps the generation's slopes (`generatedSlopes`), live or frozen: a
+   *  generated map whose strokes never ask for slopes to be derived. */
+  private keepsSlopes(): boolean {
+    return this.mode !== "import" && !this.derivesSlopes();
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable

@@ -49,7 +49,7 @@ import {
   terrainFootprint,
   type SculptEdit,
 } from "./raster/terrain";
-import { rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
+import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
 import { objectTiles, rasterizeObjects } from "./objects";
 import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
@@ -918,7 +918,13 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    what a regeneration kept in locked regions, and the imported map's own objects (snapped to
   //    the ground where an edit changed the surface under them)
   if (input.locked) entities.push(...input.locked.entities);
-  if (base) for (const e of base.entities) entities.push(snapToGround(e, base, heights, W));
+  //    (a stored generation's resources and start, opened by a newer generator, come where the
+  //    build places its own, steps 11 and 12: a frozen map lists its objects in the order the
+  //    generation's build did, so it opens exactly as it was saved, its file too, D455)
+  const lateBase = { resources: [] as EntitySpec[], start: [] as EntitySpec[] };
+  const late = new Map<string, EntitySpec[]>();
+  if (frozen) for (const f of features) if (frozen.has(f.id) && (isResource(f) || f.kind === "start")) late.set(f.id, f.kind === "start" ? lateBase.start : lateBase.resources);
+  if (base) for (const e of base.entities) (late.get(e.owner) ?? entities).push(snapToGround(e, base, heights, W));
   //    slope overrides, then the first pass of entity edits
   const ground = { W, H, heights };
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
@@ -1137,7 +1143,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     resources.set(f.id, { key, placed });
     resourceEntities.push(...placed.entities);
   }
-  entities.push(...resourceEntities);
+  entities.push(...lateBase.resources, ...resourceEntities, ...lateBase.start);
 
   // 12. the start entity
   if (start) {

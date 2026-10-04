@@ -50,10 +50,21 @@ describe("carves saved before D220 open exactly (D158)", () => {
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
   });
 
-  it("the project saved with them opens to the same map, its objects, water and file, and undo brings back the carve Try another replaced", () => {
+  it("the project saved with them opens to the same map, its objects, water and file, and undo brings back the carve Try another replaced", () => opensAsSaved(false));
+
+  // A newer generator opens it frozen ("It opens exactly as it was saved", D336, D455): the stored
+  // generation keeps its slopes and resources as a live map does (an edit takes a slope, or a tree's
+  // life, for good), so it is the same map, objects and file. Generator 0.8.1 (#265) found it growing
+  // back two slopes the carves had taken away.
+  it("opened by a newer generator (frozen), it is the same map, its objects, water and file", () => opensAsSaved(true));
+
+  function opensAsSaved(newer: boolean): void {
     const d = JSON.parse(readFileSync(DIGESTS, "utf8")) as Digests;
     const doc = decodeProject(new Uint8Array(readFileSync(PROJECT)));
+    // (saved by any generator but this one, a project opens frozen: no newer generator needed)
+    if (newer) doc.generatorVersion = `${doc.generatorVersion}-older`;
     const s = MapSession.open(doc);
+    expect(s.mode).toBe(newer ? "frozen" : "live");
     expect(sha(s.built.heights)).toBe(d.heights);
     expect(entitiesOf(s)).toBe(d.entities);
     s.settleCanonical();
@@ -63,5 +74,5 @@ describe("carves saved before D220 open exactly (D158)", () => {
     expect(sha(s.built.heights)).toBe(d.undone);
     expect(s.redo()).toBe(true);
     expect(sha(s.built.heights)).toBe(d.heights);
-  });
+  }
 });

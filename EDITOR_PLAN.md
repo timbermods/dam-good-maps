@@ -731,7 +731,9 @@ nothing replaces a document's generation under its log, at any size or setting, 
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
 away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
-leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385). Its slopes and
+resources follow the edits as a live map's do: a slope an edit took away stays gone, a tree stands where the generation
+put it, dead or alive by the ground now (D368 (10), D404).
 
 After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
