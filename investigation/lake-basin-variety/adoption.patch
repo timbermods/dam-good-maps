@@ -1,0 +1,66 @@
+diff --git a/src/core/land/lakeBasin.ts b/src/core/land/lakeBasin.ts
+index bf93a8db..3f67b176 100644
+--- a/src/core/land/lakeBasin.ts
++++ b/src/core/land/lakeBasin.ts
+@@ -5 +5 @@ import { stream } from '../math/rng';
+-import { DIRS8 } from './num';
++import { clamp, DIRS8, unit } from './num';
+@@ -17 +17,11 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
+-  const focus: [number, number] = [rng.range(0.44, 0.56), rng.range(0.44, 0.56)];
++  // Composition is drawn independently of candidate retries: retries can change the land, not
++  // collapse the seed back to a central lake. Position, aspect, neighbours and relief combine
++  // continuously instead of choosing a small catalogue of lake pictures.
++  const composition = stream(seed, 'lake-basin-composition', g.variation);
++  const turn = composition.float();
++  const [ux, uy] = unit(turn);
++  const focus: [number, number] = [composition.range(0.35, 0.65), composition.range(0.35, 0.65)];
++  const paired = composition.float() < 0.32;
++  const aspect = composition.range(1.2, 2.7);
++  const size = side * composition.range(paired ? 0.24 : 0.26, paired ? 0.27 : 0.30)
++    * (side >= 192 ? 0.85 : 1);
+@@ -19,2 +28,0 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
+-  // Keep the existing valley basin's ragged bays and side valleys. One hollow grows with the map;
+-  // on large maps its smaller footprint leaves a substantial lake that fills sooner.
+@@ -22,4 +30,21 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
+-  g.parts.unshift({ kind: 'basin', at: focus,
+-    size: side * rng.range(0.25, 0.29) * 1.1 * (side >= 192 ? 0.85 : 1),
+-    height: -rng.range(5.5, 7) * 1.15, turn: rng.float(),
+-    extra: rng.range(0.8, 1.4) * 0.5, soft: 0, shape: 'valley' });
++  // Use the existing warped-footprint uplift with negative height: a broad hollow whose
++  // boundary bends in two dimensions, without the valley basin's straight side-arm segments.
++  // Append it AFTER the uplands. A later mesa's max-height operation used to erase the lake
++  // hollow entirely; cutting the catchment last also restores the cited no-lake seeds.
++  const hollows: Genome['parts'] = [{ kind: 'isle', at: focus, size,
++    height: -rng.range(10.5, 12.5), turn, extra: aspect, soft: 0 }];
++  if (paired) {
++    const separation = composition.range(0.28, 0.38);
++    const at: [number, number] = [clamp(focus[0] + ux * separation, 0.28, 0.72),
++      clamp(focus[1] + uy * separation, 0.28, 0.72)];
++    hollows.push({ kind: 'isle', at, size: size * composition.range(0.70, 0.95),
++      height: -rng.range(9.5, 11), turn: turn + composition.range(-0.15, 0.15),
++      extra: composition.range(1.2, 2.6), soft: 0 });
++  }
++  if (composition.float() < 0.35) {
++    // A raised, winding flank meets one shore; the opposite shore remains broad lowland.
++    const at: [number, number] = [focus[0] - uy * 0.20, focus[1] + ux * 0.20];
++    g.parts.push({ kind: 'escarpment', at, size: side * composition.range(0.45, 0.65),
++      height: composition.range(2.5, 4), turn: turn + 0.25,
++      extra: side * 0.035, soft: side * 0.025 });
++  }
+@@ -30,0 +56,6 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
++  g.regional.warped = true;
++  // One-level shore steps and waviness, while the player's higher Terracing still leans
++  // toward benches. River routes keep the existing meander process and a minimum wander.
++  g.terrace.jitter = Math.max(g.terrace.jitter, 0.55);
++  if (s.terrain.terracing === preset.terracing) g.terrace.step = 1;
++  g.wander = Math.max(g.wander, 1.0);
+@@ -42,0 +74,6 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
++  g.parts.push(...hollows);
++  // A compact deeper reach inside the main hollow keeps elongated lakes broad enough to
++  // dominate their tributaries. It changes the floor, not the drawn outer shoreline.
++  g.parts.push({ kind: 'basin', shape: 'round', at: focus, size: side * rng.range(0.18, 0.21),
++    height: -rng.range(1.8, 2.8), turn, extra: 0, soft: 0 });
++
+@@ -45 +82 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
+-  if (!g.hydro.exactInflows) g.hydro.inflows = Math.max(2, g.hydro.inflows);
++  if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(2, g.hydro.inflows);
