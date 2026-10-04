@@ -67,16 +67,20 @@ export function* floodsOf(p: GlaciatePlan): Generator<void, { floods: number; ti
     return n;
   };
   const allowed = floodAllowance(p);
-  for (let t = 0; t < FLOOD_TICKS; t += 25) {
-    sim.run(25);
-    // (a floor already wet well past its allowance needs no more ticks to say so)
-    if (t % 100 === 75) {
-      const n = count();
-      if (n > allowed * 4) return { floods: n, ticks: t + 25 };
+  try {
+    for (let t = 0; t < FLOOD_TICKS; t += 25) {
+      sim.run(25);
+      // (a floor already wet well past its allowance needs no more ticks to say so)
+      if (t % 100 === 75) {
+        const n = count();
+        if (n > allowed * 4) return { floods: n, ticks: t + 25 };
+      }
+      yield;
     }
-    yield;
+    return { floods: count(), ticks: FLOOD_TICKS };
+  } finally {
+    sim.dispose();
   }
-  return { floods: count(), ticks: FLOOD_TICKS };
 }
 
 const smooth = (v: number) => {

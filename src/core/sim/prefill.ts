@@ -254,6 +254,7 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
           drainNext = false;
           const next = withoutUnfed(m, sim, opts);
           if (next) {
+            sim.dispose();
             sim = next;
             run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
             maxTicks = sim.ticks + run.maxTicks;
@@ -262,7 +263,15 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
           }
         }
         const kept = keepSealed(sim, m, run.closedBasins(), start);
-        done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts).saturation() : sim.saturation(), out: sim.out.slice() };
+        let sat: Uint8Array;
+        if (kept) {
+          const fresh = new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts);
+          sat = fresh.saturation();
+          fresh.dispose();
+        } else sat = sim.saturation();
+        done = { ...r, depth: sim.D, contamination: sim.C, sat, out: sim.out.slice() };
+        // (its arrays are the result; the Rust simulation is done)
+        sim.dispose();
         return done;
       }
     },

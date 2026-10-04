@@ -31,4 +31,15 @@ describe("the Rust water's binding", () => {
     sim.run(1, 0);
     expect(sim.volume()).toBe(0);
   });
+
+  it("dispose frees the simulation once: again is safe, its arrays stay readable, and running it after says why", () => {
+    const model: WaterModel = { W: 4, H: 4, floor: new Float64Array(16), dam: null, emitters: [{ cells: [5], strength: 1, contamination: 0 }] };
+    const sim = new WaterSim(model).run(10);
+    const depth = sim.D.slice();
+    sim.dispose();
+    sim.dispose();
+    expect(sim.D).toEqual(depth);
+    expect(() => sim.run(1)).toThrow(/disposed/);
+    expect(() => sim.saturation()).toThrow(/disposed/);
+  });
 });

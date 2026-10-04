@@ -238,7 +238,9 @@ export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater
     r = run.advance(Infinity);
     while (!r) r = run.advance(Infinity);
   }
-  return { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice(), preview: true };
+  const sat = sim.saturation();
+  sim.dispose();
+  return { ...r, depth: sim.D, contamination: sim.C, sat, out: sim.out.slice(), preview: true };
 }
 
 /** The water to show at once after an edit, before it settles again (live editing): the last
@@ -339,6 +341,11 @@ export class PreviewJob {
 
   get ticks(): number {
     return this.sim.ticks;
+  }
+
+  /** Frees the job's simulation (WaterSim.dispose) when the job is replaced or dropped; `state` still reads it. */
+  dispose(): void {
+    this.sim.dispose();
   }
 
   /** The water as it stands now: a newer edit warm-starts from it, so the water keeps flowing. */

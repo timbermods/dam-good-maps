@@ -230,6 +230,13 @@ export class WaterSim {
     return this;
   }
 
+  /** Frees the Rust simulation now (Wasm memory never shrinks, so code that makes and drops many simulations
+   *  calls it when done); again is a no-op. Its arrays (D, C, out) stay readable; running it, its saturation
+   *  and Dold throw afterwards. Without it the simulation is freed when this object is collected. */
+  dispose(): void {
+    this.rust.free();
+  }
+
   /** The simulation's kept-up bookkeeping (D359) against the same rebuilt from its water: null when they
    *  agree, else what differs (tests/unit/water-speedups.test.ts). */
   booksError(): string | null {

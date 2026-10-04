@@ -144,12 +144,14 @@ function writeRules(w: Writer, r: RustRules): void {
   w.u32(r.edgeSpill ? 1 : 0);
 }
 
-// Rust simulations are freed when their WaterSim is collected.
+// A Rust simulation is freed by `free` (WaterSim.dispose), or else when its WaterSim is collected. Wasm memory
+// never shrinks, so code that makes and drops many simulations frees each when done with it.
 const finalizer = new FinalizationRegistry<number>((handle) => rustWater().water_free(handle));
 
 /** A Rust simulation: its handle and the places of its arrays (they never move). */
 export class RustSim {
   private readonly handle: number;
+  private freed = false;
   private readonly n: number;
   private readonly hasDam: boolean;
   private readonly ptrs: { d: number; dold: number; c: number; out: number; floor: number; dam: number; params: number };
@@ -168,7 +170,7 @@ export class RustSim {
     }
     const x = rustWater();
     this.handle = withBytes(w.bytes(), (ptr, len) => x.water_new(ptr, len));
-    finalizer.register(owner, this.handle);
+    finalizer.register(owner, this.handle, this);
     this.n = n;
     this.hasDam = !!m.dam;
     const at = (which: number) => x.water_ptr(this.handle, which);
@@ -176,7 +178,16 @@ export class RustSim {
     this.params = new Float64Array(4 * m.emitters.length);
   }
 
+  /** Frees the Rust simulation now; again is a no-op. Using it afterwards throws. */
+  free(): void {
+    if (this.freed) return;
+    this.freed = true;
+    finalizer.unregister(this);
+    rustWater().water_free(this.handle);
+  }
+
   private f64(ptr: number, len: number): Float64Array {
+    if (this.freed) throw new Error("This water simulation was disposed (WaterSim.dispose): make a new one to run water.");
     return new Float64Array(rustWater().memory.buffer, ptr, len);
   }
 
