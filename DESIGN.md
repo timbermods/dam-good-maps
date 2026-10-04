@@ -403,6 +403,9 @@ refinements and what the mockups left open:
   row is for the tools only: an object picked shows no row above the bar (Select's own row gives way while one is
   picked on the map). "Drag it to move it" is gone. At 1920×1080 a source picked on the map takes 267px (303 with
   Try another), clear of the camera group.
+- **The top band** (Kyler, 2026-10-04): every control in it (the six toggles, the water row, Legend, Top-down, Reset
+  view and the compass) one height, 36px, one top and one bottom at both sizes; the corner's second row (the slice,
+  Slow forces, the sound) is 36px too.
 - **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Under roofs** (only on a map
@@ -432,13 +435,13 @@ refinements and what the mockups left open:
   window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, under the Show row
   (Kyler, 2026-10-04: nothing beside it, nothing hidden under it; opening and closing changes nothing on screen but
   the panel), its corners rounded.
-  It starts 10px under the top row (the water row reaches over a 640px panel at 1920×1080) and ends at least 10px
-  above the bar's settings (the bar reaches under it there), centred in that room on whole pixels; at 2560×1440 the
-  room runs down to the bar itself. 748px tall at both sizes: at 1920×1080 it ends 13px above the bar's settings.
+  It starts one gap (10px) under the top band at both sizes and is 748px tall: at 1920×1080 it ends 11px above the
+  bar's settings (the bar reaches under it there).
   Every setting shows at once, nothing scrolls, each on one 28px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
-  up). A title block (the Name, two lines kept, beside Generate and Surprise me; Theme with Reset settings; Seed with
-  Keep, and Size with "128 × 128" or a custom width and height typed), then two columns under a hairline: Terrain,
+  up). A title block (the Name, two lines kept, beside Generate and Surprise me; Theme, with Reset settings under
+  Surprise me, the three buttons in the panel's 13px; Seed with Keep, and Size with "128 × 128" or a custom width and
+  height typed), then two columns under a hairline: Terrain,
   Water and Hazards; Resources, Difficulty and On this map (two to a row). Each group is headed by its picture and
   its name in small capitals. The species mix is one bar of four shares, dragged at its three edges, each share's
   name and number under it; Difficulty's numbers are sliders; Badwater's "No badwater" is Off, Start area's choices
@@ -448,7 +451,8 @@ refinements and what the mockups left open:
   are more.
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 238px, so exactly three show and a fourth never peeks; the
-  scrollbar's room kept on both sides), each place's top-down picture, its whole name (two lines kept) and its size;
+  scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
+  ("Crater Lake"; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's

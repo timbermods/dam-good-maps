@@ -182,7 +182,8 @@ test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view a
   await page.waitForTimeout(500);
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   // (the grid's own: one height and one gap for every piece, 10px from the view's top and right edges)
-  const HEIGHT = 44;
+  // (the top band one height, 36px, Kyler, 2026-10-04)
+  const HEIGHT = 36;
   const GAP = 8;
   const EDGE = 10;
   const WIDTH = 310;

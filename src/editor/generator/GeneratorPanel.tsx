@@ -146,6 +146,9 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
             </button>
           </div>
           <div class="sheet-wide">{f.theme}</div>
+          <button type="button" class="ghost sheet-reset" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
+            Reset settings
+          </button>
           <div>{f.seed}</div>
           <div>{f.size}</div>
         </div>

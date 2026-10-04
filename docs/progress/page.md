@@ -653,3 +653,9 @@ object window rises beside Reset view to about 269px from the top. The camera's 
 **Replaced, Kyler's change of mind:** the Show toggles in one row at the top left (34px clear of the water row at
 1920×1080); Legend alone at the top right beside Top-down, the legend and the overlays' keys under it; Under roofs
 beside Legend (no room in the row at 1920×1080); the panels on the left margin under the row.
+
+**Kyler's four fixes (2026-10-04):** the top band one height (36px) with one top and bottom at both sizes, the compass
+included; the panels one gap under the band at 2560×1440 too; Reset settings its own 13px button under Surprise me;
+Real places' names without "Near".
+Top-down and Reset view are 129px so the camera group stays 310px wide with the 36px compass. No map here shows Under
+roofs: none of the 22 official maps has roofed water, so its capture waits for a map that does.

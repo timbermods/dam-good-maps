@@ -221,7 +221,7 @@ test("Real places in the header: the places three across in the generator's box;
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await page.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
   const places = page.getByRole("region", { name: "Real places" });
-  const tile = places.getByTitle(`Open ${SMALL.name}`, { exact: true });
+  const tile = places.getByTitle(`Open ${SMALL.name.replace(/^Near /, "")}`, { exact: true });
   await expect(tile).toHaveCount(1, { timeout: 30_000 });
   // three across
   const tops = await places.getByRole("button").evaluateAll((b) => b.slice(0, 4).map((e) => Math.round(e.getBoundingClientRect().top)));

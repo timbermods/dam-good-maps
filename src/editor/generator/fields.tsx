@@ -78,11 +78,6 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
         value={spec.theme}
         options={THEMES.map((t) => [t, THEME_NAMES[t], THEME_TIPS[t]] as const)}
         onChange={p.onTheme}
-        extra={
-          <button type="button" class="set-auto set-reset" {...tip("Put every setting back to the theme's own")} onClick={p.onReset}>
-            Reset settings
-          </button>
-        }
       />
     ),
     seed: <SeedSetting {...p} />,

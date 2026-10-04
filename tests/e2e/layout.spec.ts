@@ -176,6 +176,12 @@ async function check(page: Page, w: number, state: string) {
   const topDown = bs.filter((b) => b.name.startsWith(".camera-group > button")).sort((a, b) => a.l - b.l)[0];
   same(legendRow.r, topDown.l - 8, `Legend one corner gap left of Top-down (${state})`);
   same(legendRow.t, row.t, `Legend's top the Show row's (${state})`);
+  // the top band shares one top and one bottom: the toggles, the water row, Legend, Top-down, Reset view and the
+  // compass (Kyler, 2026-10-04)
+  for (const b of [water, legendRow, topDown, find(".view3d-corner .compass")]) {
+    same(b.t, row.t, `${b.name}: the top band's top (${state})`);
+    same(b.b, row.b, `${b.name}: the top band's bottom (${state})`);
+  }
   // the bottom-left group: the minimap at the foot, level with the bar's, on the left margin; beside it, one gap to its
   // right (at its widest, 168px), the readout at the foot and the coordinates one gap above it (Kyler, 2026-10-04)
   const minimap = find(".editor-view .minimap");
