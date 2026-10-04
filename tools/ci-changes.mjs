@@ -70,6 +70,7 @@ export function isRustInput(path) {
     path.startsWith(".github/") ||
     path.startsWith("src/core/forces/rust/") ||
     path === "tests/contract/forceFixtures.ts" ||
+    path === "tests/golden/stacked-water.json" ||
     ["src/core/sim/rustWater.ts", "src/core/sim/waterWasm.ts", "src/core/sim/water.ts", "src/core/sim/prefill.ts", "src/core/sim/fed.ts", "src/core/math/portable.ts", "tools/portable-guard.ts"].includes(path)
   );
 }
