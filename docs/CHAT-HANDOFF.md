@@ -88,6 +88,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - Sessions talk on the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issues/236)), not through Kyler.
   Kyler only decides what a player sees, hears or feels, new direction, rules, adopting Codex work, releases, probe batches,
   spending usage, and anything unsure. Pings reach his phone too.
+- Everything waiting on Kyler carries `needs-kyler`: the PR, or a small issue for a question without one. One GitHub list shows it all.
 - Reports to him are at most about eight lines plus the sheet or link. A decision gets a number only if it's a rule.
 
 ## Codex: models and prompts

@@ -106,7 +106,10 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     files within the ownership rules, merging investigations. Kyler only: anything a player sees, hears or feels; a new
     direction or scope; a decision that constrains future work; adopting a Codex investigation; releases; probe batches
     (D117); starting a session or anything that spends usage; a disagreement sessions can't settle; anything a session is
-    unsure about. Those get `needs-kyler` where there's a PR, and a ping.
+    unsure about. Those get `needs-kyler` and a ping. Everything that needs Kyler carries `needs-kyler` on GitHub, so one
+    list shows it all: with a PR, the PR gets the label; without one (a question, a trade, a probe batch request, a sitting),
+    the session opens a small issue, its question in a few lines, labelled `needs-kyler`, and closes it once Kyler has
+    answered; the milestone session labels a Codex investigation PR `needs-kyler` when it's ready for his adoption verdict.
   - *Reports* are at most about eight lines (what changed, what's still wrong, the numbers a decision needs) plus the sheet,
     capture or link; detail goes in the files. Post the same report on the PR (or the Coordination issue if there's no PR)
     and in chat.

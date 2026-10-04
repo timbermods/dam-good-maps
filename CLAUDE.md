@@ -56,6 +56,8 @@ maps the documents.
 - **The line:** sessions settle merge order, holds, rebases, re-pins, CI failures (whoever broke it fixes it) and ordering on
   overlapping files. Kyler alone decides what a player sees, hears or feels, a new direction or scope, rules, adopting Codex
   work, releases, probe batches, anything that spends usage, and anything you're unsure about: `needs-kyler` and a ping.
+- **Everything that needs Kyler carries `needs-kyler`,** so one GitHub list shows it all: the PR if there is one; otherwise a
+  small issue with the question in a few lines, closed once he has answered. Codex PRs ready for his verdict get it too.
 - **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.
 - **Pings** only when Kyler's attention is needed, never for progress: `tools/notify.ps1` (toast, and his phone).
 - A decision gets a number only when it's a rule that constrains future work. Full version: `docs/HANDOFF.md`.
