@@ -11,8 +11,8 @@
 // the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
-// editor's background settle (`PreviewJob`) runs on past the day while the water still moves, up to
-// the canonical settle's four days: stopping it there showed a filling lake as settled, and each
+// editor's background settle (`PreviewJob`, the one driver, with its own cap) runs on past the day
+// while the water still moves, up to four days: stopping it there showed a filling lake as settled, and each
 // stroke's draft then carried the whole settle on, sending the page a map of moving water every
 // frame (the stutter after a volcano, D244's measurements).
 //
@@ -43,7 +43,7 @@ export const PREVIEW_DAYS = 1;
 /** The editor's background settle runs on past `PREVIEW_DAYS` while the water still moves (not only
  *  sealed basins evaporating), a day at a time, up to this many days in all: water that stops at the
  *  cap while still filling a lake or finding a new course is shown as settled and then moves again
- *  under the next stroke (the draft), every tile of it. The canonical settle's own limit. */
+ *  under the next stroke (the draft), every tile of it. */
 export const PREVIEW_JOB_DAYS = 4;
 
 /** A settled state to start from: the water model it settled on, and its water with its outflows. */
@@ -230,21 +230,14 @@ export function newLakeTiles(prev: WaterModel, next: WaterModel): Uint8Array | n
   return mask;
 }
 
-/** The preview's water for `next`, warm-started from `from` (a previous settle of the same map). */
+/** The preview's water for `next`, warm-started from `from` (a previous settle of the same map), in
+ *  one go: `PreviewJob` with the preview's own cap of `PREVIEW_DAYS` (the build's preview and the
+ *  generator's start-pad judgement). */
 export function previewSettle(from: WarmState, next: WaterModel): CanonicalWater {
-  const { state, out, seeds } = warmStart(from, next);
-  const sim = new WaterSim(next, state);
-  if (out) sim.out.set(out);
-  const sealed = sealedTiles(next);
-  let run = new PreviewRun(sim, sealed);
-  let r = run.advance(Infinity);
-  while (!r) r = run.advance(Infinity);
-  if (drainUnfedAfter(sim, next, seeds)) {
-    run = new PreviewRun(sim, sealed);
-    r = run.advance(Infinity);
-    while (!r) r = run.advance(Infinity);
-  }
-  return { ...r, depth: sim.D, contamination: sim.C, sat: sim.saturation(), out: sim.out.slice(), preview: true };
+  const job = new PreviewJob(from, next, PREVIEW_DAYS);
+  let r = job.advance(Infinity);
+  while (!r) r = job.advance(Infinity);
+  return r;
 }
 
 /** The water to show at once after an edit, before it settles again (live editing): the last
@@ -289,9 +282,12 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
   };
 }
 
-/** The editor's background settle after an edit (live editing, D133's live water): the preview's
- *  warm start and stopping rule, run a few ticks at a time so the page gets the water as it flows
- *  and a newer edit can take over from the water as it stands (`state`). */
+/** The preview's one settle driver: the warm start (`warmStart`), then the preview's stopping rule
+ *  a day at a time while the water still moves, up to `days` in all, then the unfed water taken once
+ *  and the water run on from there. Run a few ticks at a time it is the editor's background settle
+ *  after an edit (live editing, D133's live water; `PREVIEW_JOB_DAYS`): the page gets the water as it
+ *  flows and a newer edit can take over from the water as it stands (`state`). `previewSettle` runs
+ *  it in one go with `PREVIEW_DAYS`. */
 export class PreviewJob {
   readonly sim: WaterSim;
   private run: PreviewRun;
@@ -308,6 +304,8 @@ export class PreviewJob {
   constructor(
     from: WarmState,
     readonly model: WaterModel,
+    /** The most game days the water runs on while it still moves. */
+    private readonly days: number = PREVIEW_JOB_DAYS,
   ) {
     const { state, out, seeds } = warmStart(from, model);
     this.sim = new WaterSim(model, state);
@@ -326,7 +324,7 @@ export class PreviewJob {
     let r = this.run.advance(ticks);
     for (;;) {
       // (the day's cap reached while the water still moves: another day, from the water as it stands)
-      while (r && !r.settled && r.steadyTicks === undefined && this.sim.ticks - this.startTicks < PREVIEW_JOB_DAYS * TICKS_PER_DAY) {
+      while (r && !r.settled && r.steadyTicks === undefined && this.sim.ticks - this.startTicks < this.days * TICKS_PER_DAY) {
         this.run = new PreviewRun(this.sim, this.sealed);
         r = this.run.advance(left());
       }
