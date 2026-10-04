@@ -1,0 +1,32 @@
+name: needs-kyler ping
+
+# When an issue or a pull request gets the needs-kyler label, one notification to Kyler's phone through ntfy
+# (D470): the item's number and title as the title, its link as the click target. The topic is the NTFY_TOPIC
+# secret, which Kyler sets himself; without it this does nothing. The topic is never printed (GitHub masks secrets,
+# and nothing here echoes it).
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  ping:
+    if: github.event.label.name == 'needs-kyler'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Send the ping
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+          URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+          KIND: ${{ github.event.pull_request && 'PR' || 'Issue' }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then exit 0; fi
+          body=$(jq -n --arg topic "$NTFY_TOPIC" --arg title "#$NUMBER $TITLE" --arg message "$KIND waiting for Kyler (needs-kyler)" --arg click "$URL" \
+            '{topic: $topic, title: $title, message: $message, click: $click}')
+          curl -fsS -o /dev/null --max-time 10 -H 'Content-Type: application/json' -d "$body" https://ntfy.sh/ || echo "ntfy didn't accept the ping"
