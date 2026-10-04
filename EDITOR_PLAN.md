@@ -700,7 +700,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
