@@ -88,6 +88,9 @@ export interface BaseLayer {
    *  water warm-starts from after the first edit (marked `preview`, so a canonical build never
    *  takes it for a settle). */
   water?: CanonicalWater;
+  /** The soil the file stores on each tile's top (a stored generation's, frozen): where the edits
+   *  changed it, its trees and bushes are judged again (step 11); elsewhere they stand as stored. */
+  soil?: { moisture: ArrayLike<number>; contamination: ArrayLike<number> };
 }
 
 /** The land a generation's processes made (M9a, docs/m9-design.md §12): the ground build step 1
@@ -586,6 +589,9 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   //    breaks is gone for good, even where a later edit gives the step back (D368 (10); the slopes
   //    outside the region keep their verdicts, and the region holds every slope it touches whole)
   const gs = input.generatedSlopes ?? null;
+  // (a stored generation, frozen: its slopes stand as stored; one is judged only once an edit has
+  // changed its ground, so today's slope rule never takes one the edits left alone)
+  const broken = (tiles: readonly number[], h: Uint8Array) => (!frozen || tiles.some((i) => h[i] !== base!.heights[i])) && !slopeStands(tiles as [number, number, number], h);
   let slopeGone: Uint8Array | null = null;
   if (gs) {
     if (prev?.terrain.slopeGone && prev.terrain.slopeList === gs) slopeGone = prev.terrain.slopeGone.slice();
@@ -595,7 +601,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
       if (prev)
         gs.forEach((s, k) => {
           const tiles = slopeTiles(s, W, H);
-          if (tiles && !slopeStands(tiles, prev.terrain.pre7)) slopeGone![k] = 1;
+          if (tiles && broken(tiles, prev.terrain.pre7)) slopeGone![k] = 1;
         });
     }
   }
@@ -608,7 +614,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
       watch.push([k, tiles]);
     });
   const checkSlopes = () => {
-    for (const [k, tiles] of watch) if (!slopeGone![k] && !slopeStands(tiles, heights)) slopeGone![k] = 1;
+    for (const [k, tiles] of watch) if (!slopeGone![k] && broken(tiles, heights)) slopeGone![k] = 1;
   };
   checkSlopes();
   const caves = base && base.columns.size ? (i: number) => base.columns.has(i) : undefined;
@@ -860,8 +866,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     for (const [y, x0, x1] of f.params.area) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) slopeOcc[y * W + x] = 1;
   }
   let slopes: PlacedSlope[] = [];
-  if (input.generatedSlopes) {
-    // an edited generated map: the generation's slopes that still stand; none is ever added
+  if (input.generatedSlopes && !frozen) {
+    // an edited generated map: the generation's slopes that still stand; none is ever added (a
+    // frozen one keeps its stored map's own, below)
     const standing = new Set<number>();
     for (const e of entities) if (e.template === "Slope") standing.add(e.y * W + e.x);
     slopes = keptSlopes(input.generatedSlopes, heights, W, H, standing, terrain.slopeGone);
@@ -945,7 +952,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const lateBase = { resources: [] as EntitySpec[], start: [] as EntitySpec[] };
   const late = new Map<string, EntitySpec[]>();
   if (frozen) for (const f of features) if (frozen.has(f.id) && (isResource(f) || f.kind === "start")) late.set(f.id, f.kind === "start" ? lateBase.start : lateBase.resources);
-  if (base) for (const e of base.entities) (late.get(e.owner) ?? entities).push(snapToGround(e, base, heights, W));
+  //    (and its slopes stand as stored, but for those an edit's ground took away, step 6)
+  const goneSlope = new Set<string>();
+  if (frozen && terrain.slopeGone) input.generatedSlopes?.forEach((s, k) => terrain.slopeGone![k] && goneSlope.add(`${s.x},${s.y},${s.orientation}`));
+  if (base)
+    for (const e of base.entities) {
+      if (goneSlope.size && e.template === "Slope" && goneSlope.has(`${e.x},${e.y},${e.orientation}`)) continue;
+      (late.get(e.owner) ?? entities).push(snapToGround(e, base, heights, W));
+    }
   //    slope overrides, then the first pass of entity edits
   const ground = { W, H, heights };
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
@@ -1164,7 +1178,34 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     resources.set(f.id, { key, placed });
     resourceEntities.push(...placed.entities);
   }
-  entities.push(...lateBase.resources, ...resourceEntities, ...lateBase.start);
+  //    a stored generation's trees and bushes (frozen) stand exactly as stored, but where the edits
+  //    changed a tile, its ground, or its water or soil against the stored map's: there one is judged
+  //    again by the build's rule, dead or alive by the ground now (D404), as a live map's is
+  const reJudged = new Map<string, { tiles: ReadonlySet<number>; at: Map<number, EntitySpec> }>();
+  if (frozen && base && lateBase.resources.length && input.generatedResources) {
+    const wasWet = new Uint8Array(N);
+    if (base.water) for (let i = 0; i < N; i++) wasWet[i] = base.water.depth[i] > 0 ? 1 : 0;
+    const was = base.soil;
+    // (the file's water kept, no settle: the water and soil are the stored map's, only the ground can differ)
+    const settled = !!settle;
+    const changed = (i: number) => heights[i] !== base.heights[i] || (settled && ((water[i] > 0) !== !!wasWet[i] || (!!was && ((moist[i] > 0) !== (was.moisture[i] > 0) || (soil[i] > 0) !== (was.contamination[i] > 0)))));
+    for (const f of features) {
+      if (!frozen.has(f.id) || (f.kind !== "forest" && f.kind !== "berryPatch")) continue;
+      const tiles = new Set([...(input.generatedResources.get(f.id) ?? [])].filter(changed));
+      if (!tiles.size) continue;
+      reJudged.set(f.id, { tiles, at: new Map(rasterizeResource(f, g, tiles).entities.map((e) => [e.y * W + e.x, e])) });
+    }
+  }
+  const storedResources = reJudged.size
+    ? lateBase.resources.flatMap((e) => {
+        const r = reJudged.get(e.owner);
+        const i = e.y * W + e.x;
+        if (!r || !r.tiles.has(i)) return [e];
+        const again = r.at.get(i);
+        return again ? [again] : [];
+      })
+    : lateBase.resources;
+  entities.push(...storedResources, ...resourceEntities, ...lateBase.start);
 
   // 12. the start entity
   if (start) {
