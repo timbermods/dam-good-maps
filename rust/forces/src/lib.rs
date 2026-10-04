@@ -160,7 +160,8 @@ mod water {
                 pos: vec![usize::MAX; n],
                 settle_closed: None,
             };
-            s.seep = vec![1; s.emitters.len()];
+            // a seep starts off, as the game's does (rust/water sim.rs)
+            s.seep = s.emitters.iter().map(|e| if e.limit.is_some() { 0 } else { 1 }).collect();
             s.validate_shape();
             for i in 0..n {
                 let x = i % w;
@@ -313,6 +314,27 @@ mod water {
                     continue;
                 }
                 let add = (DT * src.strength * scale) / src.cells.len() as f64;
+                if add < 0.0 {
+                    // a sink (D337), as rust/water sim.rs
+                    for &i in &src.cells {
+                        let d0 = self.d[i];
+                        if !(d0 > 0.0) {
+                            continue;
+                        }
+                        if self.game {
+                            self.old[i] = d0;
+                        }
+                        let d1 = d0 + add;
+                        if d1 > 0.0 {
+                            self.c[i] = clamp((self.c[i] * d0 + src.contamination * add) / d1, 0.0, 1.0);
+                            self.d[i] = d1;
+                        } else {
+                            self.c[i] = 0.0;
+                            self.d[i] = 0.0;
+                        }
+                    }
+                    continue;
+                }
                 if !(add > 0.0) {
                     continue;
                 }
@@ -6511,10 +6533,15 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
     let mut path = vec![0u8; n];
     let mut mark = vec![0u32; n];
     let mut stamp = 0;
+    // a seep's water stands no higher than its anchor's floor plus its limit (prefill.ts `flowThrough`);
+    // with no running seep every tile's water stands at its spill level
+    let seeps = m.emitters.iter().any(|e| e.limit.is_some() && e.strength > 0.0);
+    let mut level = if seeps { vec![f64::NEG_INFINITY; n] } else { spill.clone() };
     for e in &m.emitters {
         if !(e.strength > 0.0) {
             continue;
         }
+        let cap = e.limit.map_or(f64::INFINITY, |(a, off, _)| m.floor[a] + off);
         stamp += 1;
         let mut queue = vec![];
         for &i in &e.cells {
@@ -6532,6 +6559,12 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
                 bad[c] += e.strength * e.contamination;
             }
             path[c] = 1;
+            if seeps {
+                let lv = if spill[c] < cap { spill[c] } else { cap };
+                if lv > level[c] {
+                    level[c] = lv;
+                }
+            }
             let x = c % m.w;
             let y = c / m.w;
             for j in [
@@ -6547,13 +6580,19 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
                 if mark[j] == stamp || spill[j] > spill[c] {
                     continue;
                 }
+                if cap != f64::INFINITY {
+                    let d = m.dam.as_ref().map_or(0.0, |dam| if dam[j] >= 0.0 { dam[j] } else { 0.0 });
+                    if m.floor[j] + d >= cap {
+                        continue;
+                    }
+                }
                 mark[j] = stamp;
                 queue.push(j);
             }
         }
     }
     let open: Vec<bool> = (0..n)
-        .map(|i| path[i] != 0 && !(spill[i] > m.floor[i]))
+        .map(|i| path[i] != 0 && !(level[i] > m.floor[i]))
         .collect();
     let mut rx = vec![0usize; n];
     let mut ry = vec![0usize; n];
@@ -6597,8 +6636,8 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
         if path[i] == 0 {
             continue;
         }
-        let d = if spill[i] > m.floor[i] {
-            spill[i] - m.floor[i]
+        let d = if level[i] > m.floor[i] {
+            level[i] - m.floor[i]
         } else {
             min(1.0, (0.3 * q[i]) / rx[i].min(ry[i]) as f64)
         };

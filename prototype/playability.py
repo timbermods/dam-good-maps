@@ -30,7 +30,9 @@ RESERVOIR_RADIUS = 40
 BLUEBERRY_DAYS_TO_DIE_DRY = 9
 TREES = ("Pine", "Birch", "Oak")
 WALK_BLOCKERS = ("Thorns", "Blockage", "NaturalDam", "UnstableCore", "GeothermalField", "UndergroundRuins",
-                 "SmallRelic", "MediumRelic", "LargeRelic")
+                 "SmallRelic", "MediumRelic", "LargeRelic",
+                 # the reserves and the drill fill their tiles, and the drain its own (PLAN §20 D337, D338)
+                 "ReservePile", "ReserveWarehouse", "ReserveTank", "AncientAquiferDrill", "BadtideDrain")
 RESERVE = {"scarce": 1.0, "normal": 1.5, "plenty": 3.0}      # PLAN §5.3 drought reserve
 START_AREA = {"small": 0.6, "normal": 1.0, "large": 1.8}      # PLAN §5.6 start area
 DROUGHT_DAYS = {"easy": 4, "normal": 9, "hard": 30}
@@ -197,11 +199,13 @@ def water_model(m, fps, surface):
                 delayed = comps.get("TimeActivatedComponent", {}).get("IsEnabled") is True
                 s = float(comps.get("WaterSource", {}).get("SpecifiedStrength", 0.0)) if runs and not delayed else 0.0
                 s = min(s, 8 * len(tiles))
-                if not s > 0:
+                # (below 0 it is a sink, D337)
+                if not math.isfinite(s):
                     s = 0.0
                 src = {"tiles": cells, "strength": s, "contamination": cont, "template": p.template}
                 if seep:
-                    src["depth_limit"] = (cells[0], 0.8, 0.72)
+                    # the game reads the depth at the block's own coordinates, flipped or not
+                    src["depth_limit"] = ((p.y, p.x) if 0 <= p.x < X and 0 <= p.y < Y else cells[0], 0.8, 0.72)
                 sources.append(src)
         if p.template in ("Blockage", "BadtideDrain"):
             x, y = object_tile(fps, p, 0, 0)

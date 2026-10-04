@@ -92,8 +92,9 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 
 **5. Then, in order**
 
-1. **The parity batch** (parked, #95; D337–D339) with **Crop map to selection** (D340): the old branch waits now that
-   Codex rebuilds its core in Rust (D381); it is rebuilt from `dev` when it resumes.
+1. **The parity batch** (D337–D339) with **Crop map to selection** (D340): the core is adopted from Codex's
+   `investigation/parity-core` (#252, `feature/parity-core`); the page wires its shelf tiles and settings, and the old
+   branch (#95) closes. Crop map to selection is still to build.
 2. **The Weather view** (parked, #73): Drought and Badtide day by day, held for Kyler's sitting after the page (D349).
 3. **Custom map sizes** (D357), then **the dam sketch tool** (D383).
 4. **Pick a place**, after the design pass (D384).
@@ -308,13 +309,14 @@ Not yet scheduled.
 
 ---
 
-## The parity batch (parked, D381) and Crop map to selection (D340)
+## The parity batch and Crop map to selection (D340)
 
-After the post-release list, on `build-light` (Sonnet 5.5, high), on its own branch ([#95](https://github.com/timbermods/dam-good-maps/pull/95)).
+The core is adopted from `investigation/parity-core` (#252): the objects, their options, sinks, scatter placement, the
+core's blast questions and the fluid timeline (EDITOR_PLAN.md, the shelf). The page adds the shelf tiles, models and settings.
 The decisions in docs/decisions/ are the spec; every item matches the game's rules, footprints and defaults from its data, never
 guesses, with an original model in both looks, a label in Markers, exact save and load, and a sample in the next probe batch.
 - **D337, the game's fluid editing tools:** Water Seep and Badwater Seep (2×2, stopping while the water over them is deeper
-  than 0.8 m), Aquifer (3×3) and Ancient Aquifer Drill, Badtide Drain (1×2), a start delay for every origin but aquifers,
+  than 0.8 m), Aquifer (3×3) and Ancient Aquifer Drill, Badtide Drain (1×3), a start delay for every origin but aquifers,
   negative strength (a sink), the game's strength ceilings (8 m³/s per emitting tile) and defaults (a new water source at 1).
 - **D338, objects, ruins and natural resources:** the Unstable Core and the Reserve Pile, Warehouse and Tank; ruin and thorn
   fields painted as the generator grows them; Succulent; D235 finished for trees and bushes (strength sets density, an Age
