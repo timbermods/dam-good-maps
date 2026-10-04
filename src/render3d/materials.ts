@@ -560,7 +560,10 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     uniforms: { ...scene, ...own } as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
       uniform float slice;
-      varying vec3 vWorld;
+      // (centroid: on a pixel a face only partly covers, the multisampled edge of the map's outer faces
+      // seen edge-on, the point is taken inside the face, never projected far past it, where the
+      // patterns drawn from it, the soil cap's roots among them, come out different from draw to draw)
+      centroid varying vec3 vWorld;
       varying vec3 vNormal;
       void main() {
         vec4 w = modelMatrix * vec4(position, 1.0);
@@ -579,7 +582,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform sampler2D eruptionMask;
       uniform float eruptionAge;
       uniform float coolingAge;
-      varying vec3 vWorld;
+      centroid varying vec3 vWorld;
       varying vec3 vNormal;
       ${common(h)}
       vec4 tileAt(vec2 t) {
