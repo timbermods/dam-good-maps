@@ -1,14 +1,12 @@
 name: CodeQL
 
 # Code scanning for the JavaScript and TypeScript (the app, its workers, the artifact spike, the
-# tools and the tests) and for the workflows themselves: on pushes and pull requests to dev and
+# tools and the tests) and for the workflows themselves: on pushes to dev and
 # main, and weekly. The alerts are in the repository's Security tab → Code scanning. It reads the
 # code only; it changes no map.
 
 on:
   push:
-    branches: [dev, main]
-  pull_request:
     branches: [dev, main]
   schedule:
     - cron: "23 5 * * 1"

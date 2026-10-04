@@ -1,5 +1,5 @@
 // Decides whether a change needs CI's heavy suites (the browser tests, the cross-engine determinism check, the
-// map batches and the Python oracle). A change that only touches documents, the LICENSE file or package.json's
+// map batches and the Python oracle). A change that only touches documents, investigation/, the LICENSE file or package.json's
 // descriptive fields is "light": the typecheck and the quick suite still run, the heavy jobs are skipped (a skipped
 // job counts as passed for merge and release). Anything else, including a change this script can't read, is "heavy".
 //
@@ -21,6 +21,11 @@ export function isDocument(path) {
   if (/\.md$/i.test(path)) return true;
   if (/^LICENSE(\.(md|txt))?$/i.test(path)) return true;
   return path.startsWith("docs/") && DOC_EXTENSIONS.test(path);
+}
+
+/** Investigations (reports, code, samples) aren't part of the app, so a change touching only them is light too. */
+export function isInvestigation(path) {
+  return path.startsWith("investigation/");
 }
 
 function withoutLightFields(json, where) {
@@ -49,7 +54,7 @@ export function onlyLightFieldsDiffer(oldText, newText, where = "package") {
 export function needsHeavy(files, read) {
   if (!files.length) return true; // nothing to compare against: run everything
   for (const f of files) {
-    if (isDocument(f)) continue;
+    if (isDocument(f) || isInvestigation(f)) continue;
     if (f === "package.json" || f === "package-lock.json") {
       const a = read(f, "old");
       const b = read(f, "new");
