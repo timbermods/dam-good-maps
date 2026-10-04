@@ -836,7 +836,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
     tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
     **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
-    above 0.8 deep (back on below 0.72), aquifers give no water (a drill starts unpowered), and a negative strength
+    above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and

@@ -364,9 +364,16 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     q = np.zeros(N)
     q_bad = np.zeros(N)
     path = np.zeros(N, bool)
+    # a seep's water stands no higher than its anchor's floor plus its limit (the game stops it there):
+    # `level` is the level the water stands at on each tile it reaches (src/core/sim/prefill.ts flowThrough)
+    seeps = any(s.get("depth_limit") and s["strength"] > 0 for s in sources)
+    level = np.full(N, -np.inf) if seeps else spill
+    ground = F + (np.where(np.asarray(dam) >= 0, np.asarray(dam), 0.0).ravel() if dam is not None else 0.0)
     for s in sources:
         if not s["strength"] > 0:
             continue
+        lim = s.get("depth_limit")
+        cap = F[lim[0][0] * X + lim[0][1]] + lim[1] if lim else np.inf
         seen = np.zeros(N, bool)
         queue = []
         for (y, x) in s["tiles"]:
@@ -382,13 +389,19 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
             if s.get("contamination", 0.0) > 0:
                 q_bad[c] += s["strength"] * s["contamination"]
             path[c] = True
+            if seeps:
+                lv = spill[c] if spill[c] < cap else cap
+                if lv > level[c]:
+                    level[c] = lv
             y, x = divmod(c, X)
             for n in (c - X if y > 0 else -1, c - 1 if x > 0 else -1, c + X if y < Y - 1 else -1, c + 1 if x < X - 1 else -1):
                 if n < 0 or seen[n] or spill[n] > spill[c]:
                     continue
+                if cap != np.inf and ground[n] >= cap:
+                    continue
                 seen[n] = True
                 queue.append(n)
-    basin = spill > F
+    basin = level > F
     open_ = (path & ~basin).reshape(Y, X)
     run_x = np.zeros((Y, X), int)
     run_y = np.zeros((Y, X), int)
@@ -419,7 +432,7 @@ def prefill(floor: np.ndarray, sources=(), dam=None, retained=()):
     cont = np.zeros(N)
     for i in np.nonzero(path)[0]:
         if basin[i]:
-            d = spill[i] - F[i]
+            d = level[i] - F[i]
         else:
             w = min(run_x[i], run_y[i])
             d = 0.3 * q[i] / w
