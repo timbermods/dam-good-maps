@@ -25,7 +25,10 @@
 //   after every dab. A stroke replays with the rule it was painted with.
 // - Shapes (the brush kit, PLAN §20 D182, D179 (3)): round, or square (by the larger of the two
 //   distances, on the tile grid). A pen's pressure scales each dab's pressure (a mouse presses
-//   fully).
+//   fully). An area (Timberborn's own editor's Terrain, Kyler 2026-10-03), Raise and Lower only: the
+//   stroke's two dabs are the opposite corners of a rectangle, and every tile in it changes with hard
+//   edges: to the target when there is one, as a target's stroke does; one whole level when Free (a
+//   block added or taken on each tile, as the game's). Holding does nothing more.
 // - A target (D322, item 37: the game editor's own way): Raise, Lower and Flatten act exactly, with
 //   the brush's footprint and hard edges (no falloff, no edge rule, vertical walls). Raise lifts every
 //   tile under it that is below `target` to it and leaves the rest (a relative raise); Lower cuts every
@@ -132,8 +135,9 @@ export interface BrushParams {
    *  (farmland: they keep their height, so they stay moist), as runs [y, x0, x1]. Recorded as
    *  `shore` and `pools` are. */
   moist?: [number, number, number][];
-  /** Square (by the larger distance, on the tile grid); round when absent. */
-  shape?: "square";
+  /** Square (by the larger distance, on the tile grid); an area (Raise and Lower: its two dabs the
+   *  rectangle's opposite corners, every tile in it, hard-edged); round when absent. */
+  shape?: "square" | "area";
   /** Precise (retired by D322; its strokes replay): hard edges, no falloff, vertical walls (see
    *  `levels`). */
   precise?: boolean;
@@ -216,9 +220,10 @@ function radius4(size: number): number {
   return Math.max(2, Math.min(4 * BRUSH_SIZE_MAX, Math.round(size * 4)));
 }
 
-/** Whether a stroke acts with hard edges and exact levels: a target's (D322) or a precise one's. */
-export function brushHard(p: Pick<BrushParams, "precise" | "target">): boolean {
-  return p.precise === true || p.target !== undefined;
+/** Whether a stroke acts with hard edges and exact levels: a target's (D322), a precise one's, or an
+ *  area's (every tile of its rectangle, Free or not: the build's integrity pass leaves its tiles too). */
+export function brushHard(p: Pick<BrushParams, "precise" | "target"> & { shape?: BrushParams["shape"] }): boolean {
+  return p.precise === true || p.target !== undefined || p.shape === "area";
 }
 
 /** Falloff by squared distance (in sixteenths of a tile²): 256 at the middle, 0 at the edge,
@@ -359,9 +364,9 @@ export function weatherRim(p: Pick<BrushParams, "size" | "dabs">, heights: Array
 
 /** The tiles a stroke can change: its dabs' discs (plus the tiles next to them that smooth and
  *  naturalize read), on the map. Null for a stroke without dabs. */
-export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise" | "target" | "rigid" | "weathers" | "weathering">, W: number, H: number): Rect | null {
+export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "precise" | "target" | "rigid" | "weathers" | "weathering" | "shape">, W: number, H: number): Rect | null {
   if (p.dabs.length < 2) return null;
-  const r = Math.ceil((brushHard(p) ? preciseReach(p.size) + 2 : radius4(p.size)) / 4) + (weathersLikeNature(p) ? WEATHER_MARGIN : p.tool === "smooth" || p.tool === "naturalize" ? 1 : 0);
+  const r = p.shape === "area" ? 0 : Math.ceil((brushHard(p) ? preciseReach(p.size) + 2 : radius4(p.size)) / 4) + (weathersLikeNature(p) ? WEATHER_MARGIN : p.tool === "smooth" || p.tool === "naturalize" ? 1 : 0);
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -389,8 +394,25 @@ export function brushBounds(p: Pick<BrushParams, "size" | "dabs" | "tool" | "pre
   return out.x0 <= out.x1 && out.y0 <= out.y1 ? out : null;
 }
 
+/** An area's rectangle (its first two dabs, quarter tiles, the opposite corners), on the map, both corner
+ *  tiles in it; null when it has none. */
+export function areaRect(dabs: ArrayLike<number>, W: number, H: number): Rect | null {
+  if (dabs.length < 4) return null;
+  const ax = Math.floor(dabs[0] / 4);
+  const ay = Math.floor(dabs[1] / 4);
+  const bx = Math.floor(dabs[2] / 4);
+  const by = Math.floor(dabs[3] / 4);
+  const out = { x0: Math.max(0, Math.min(ax, bx)), y0: Math.max(0, Math.min(ay, by)), x1: Math.min(W - 1, Math.max(ax, bx)), y1: Math.min(H - 1, Math.max(ay, by)) };
+  return out.x0 <= out.x1 && out.y0 <= out.y1 ? out : null;
+}
+
 /** Mark in `out` the tiles a stroke presses on (its dabs' discs or squares, as `add` reaches). */
 export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | "precise" | "target">, W: number, H: number, out: Uint8Array): void {
+  if (p.shape === "area") {
+    const b = areaRect(p.dabs, W, H);
+    if (b) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) out[y * W + x] = 1;
+    return;
+  }
   const hard = brushHard(p);
   const r4 = hard ? preciseReach(p.size) : radius4(p.size);
   const R2 = hard ? r4 * r4 : r4 * r4 - 1;
@@ -413,6 +435,8 @@ export function markBrushTiles(p: Pick<BrushParams, "size" | "dabs" | "shape" | 
 /** Whether a dab at (cx, cy), in quarter tiles, presses on tile (x, y): the same tiles
  *  `markBrushTiles` marks (the ring's reach, D249's Clear sources). */
 export function dabPresses(p: Pick<BrushParams, "size" | "shape" | "precise" | "target">, cx: number, cy: number, x: number, y: number): boolean {
+  // (an area presses its rectangle, between its two dabs: `areaRect`; one corner alone presses its own tile)
+  if (p.shape === "area") return x === Math.floor(cx / 4) && y === Math.floor(cy / 4);
   const hard = brushHard(p);
   const r4 = hard ? preciseReach(p.size) : radius4(p.size);
   const R2 = hard ? r4 * r4 : r4 * r4 - 1;
@@ -555,7 +579,7 @@ export class BrushStroke {
     this.cap = smart && !this.deep ? new Uint8Array(W * H).fill(255) : null;
     this.floorBed = this.cap && settings.bed !== undefined ? new Uint8Array(W * H).fill(255) : null;
     this.exact = pointwise && settings.target !== undefined;
-    this.depth = (settings.precise || this.exact) && pointwise ? new Uint8Array(W * H) : null;
+    this.depth = (settings.precise || this.exact || settings.shape === "area") && pointwise ? new Uint8Array(W * H) : null;
     // which tiles (D322): the dry ones, or the wet ones, as they were when the stroke began
     if (settings.mode) {
       const wet = new Uint8Array(W * H);
@@ -601,6 +625,7 @@ export class BrushStroke {
   /** Apply more dabs (quarter-tile pairs), with their pressures (1–255) when a pen gave them, and
    *  precise's levels. Returns the rectangle whose tiles may have changed. */
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
+    if (this.settings.shape === "area") return this.addArea(dabs);
     const { W, H, r4, table } = this;
     const R2 = r4 * r4;
     const square = this.settings.shape === "square";
@@ -690,6 +715,19 @@ export class BrushStroke {
     if (this.nature) return this.applyNature();
     if (sequential) return pad(touched, 1, W, H);
     // raise, lower and flatten: the whole stroke's change again, with its edge rule
+    this.applyPointwise();
+    return this.box;
+  }
+
+  /** An area (Raise and Lower): every tile of the rectangle between its two dabs, all the way to the
+   *  target, or one level when Free; hard edges. */
+  private addArea(dabs: ArrayLike<number>): Rect | null {
+    const b = areaRect(dabs, this.W, this.H);
+    if (!b || !this.depth) return null;
+    this.dabCount += dabs.length >> 1;
+    const lv = this.exact ? 255 : 1;
+    for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) this.depth[y * this.W + x] = lv;
+    this.box = grow(this.box, b);
     this.applyPointwise();
     return this.box;
   }
@@ -1116,7 +1154,9 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.rim !== undefined && (p.weathering !== 2 || !Array.isArray(p.rim) || p.rim.length % 2 || p.rim.length > 8192 || !p.rim.every((v, k) => Number.isInteger(v) && (k % 2 ? v >= 1 && v <= BRUSH_MAX_LEVEL : v >= 0)))) return [`a natural weathering's rim is pairs [tile along the ring, depth 1 to ${BRUSH_MAX_LEVEL}]`];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
   if (p.dabs.length > 2 * MAX_DABS) return [`a stroke holds at most ${MAX_DABS} dabs`];
-  if (p.shape !== undefined && p.shape !== "square") return ["a brush is round or square"];
+  if (p.shape !== undefined && p.shape !== "square" && p.shape !== "area") return ["a brush is round, square or an area"];
+  if (p.shape === "area" && (!(p.tool === "raise" || p.tool === "lower") || p.dabs.length !== 4)) return ["an area is Raise's or Lower's, its two dabs the rectangle's corners"];
+  if (p.shape === "area" && (p.precise || p.pressure !== undefined || p.levels !== undefined || p.channel)) return ["an area has no pressure, precise levels or channel"];
   if (p.pressure !== undefined && (p.pressure.length !== p.dabs.length / 2 || !p.pressure.every((v) => Number.isInteger(v) && v >= 1 && v <= 255))) return ["a stroke's pressures are one whole number from 1 to 255 for each dab"];
   if (p.levels !== undefined && (!p.precise || p.levels.length !== p.dabs.length / 2 || !p.levels.every((v) => Number.isInteger(v) && v >= 1 && v <= BRUSH_MAX_LEVEL))) return [`a precise stroke's levels are one whole number from 1 to ${BRUSH_MAX_LEVEL} for each dab`];
   if (p.stop !== undefined && (!Number.isInteger(p.stop) || p.stop < 0 || p.stop > BRUSH_MAX_LEVEL)) return [`a stroke stops at a level from 0 to ${BRUSH_MAX_LEVEL}`];

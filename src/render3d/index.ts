@@ -3,4 +3,5 @@
 
 export { MapRenderer, wheelDelta, type BuildStats, type FrameInsets, type FrameStats, type PointerTool, type ViewMode, type ViewState } from "./renderer";
 export type { TileHit } from "./pick";
+export type { GhostTile } from "./blockGhost";
 export * from "./model";

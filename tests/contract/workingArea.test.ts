@@ -84,7 +84,6 @@ describe("the working area (D254, D259)", () => {
 
   it("a force: the land outside is unbreakable rock to it, and inside it eases to the edge; one clicked outside is refused", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const a = areaAt(s);

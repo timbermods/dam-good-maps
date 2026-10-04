@@ -10,13 +10,12 @@
 // does not depend on the order ties pop, so both give the same distances bit for bit (the sums of
 // 1 and √2 along the shortest path).
 
-import { MinHeap } from "../math/grid";
+import { MinHeap, N8 } from "../math/grid";
 
 /** Farther than this is "not within walking distance" (every threshold is 40 or less). */
 export const WALK_LIMIT = 64;
 
 const S2 = Math.SQRT2;
-const DIRS: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 /** Walking distance from the start's 3×3 (distance 0 on each of its tiles), Infinity beyond
  *  `limit` or where the walk cannot go. `links` are slope links (low tile, high tile). */
@@ -60,7 +59,7 @@ export function walkDistance(
     const x = c % W;
     const y = (c - x) / W;
     const lv = h[c];
-    for (const [dx, dy] of DIRS) {
+    for (const [dx, dy] of N8) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

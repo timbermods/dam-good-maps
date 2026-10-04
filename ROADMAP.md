@@ -228,7 +228,9 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
    files with water still pending keep the rebuild fallback); this is also byte-exact reopening's (a) (D455): on reopen the
    log is replayed once and compared with the stored map, and if they match byte for byte undo below the save point works
    as normal, otherwise it stops at the save point, never an approximate replay; the renderer warms its shaders and GPU state while the map
-   loads; the checks start after the first editable frame, every gate unchanged.
+   loads; the checks start after the first editable frame, every gate unchanged. The core half (the stored map, the replay
+   rule, the replica's comparison; `src/core/doc/stored.ts`) is built on `feature/startup-part1`; the renderer's half and
+   the page's start of the checks after the first editable frame are separate.
 2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
    with multi-core water's adoption.

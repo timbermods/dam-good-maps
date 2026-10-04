@@ -83,7 +83,6 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
       let refused = 0;
       for (const seed of [1, 2]) {
         await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-        ed.setEditorWaterMode("defer");
         ed.refine();
         // the water as the editor settles it, so that a placement is compared with that
         canonical();
@@ -134,7 +133,6 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
 
   it("a footprint that is level already may stand in shallow water: nothing changes", async () => {
     await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const base = snap();
     const own = cover("SmallRelic");

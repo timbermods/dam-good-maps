@@ -97,6 +97,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     investigations) merges on review and green CI.
   - *At every merge pass:* anything that no longer needs Kyler loses `needs-kyler`; a PR this session adopts or supersedes
     is closed with a line saying why; an answered question's issue is closed.
+  - *A Codex PR Kyler sends back for another round* loses `needs-kyler` until Codex pushes that round; then it gets the
+    label again for his verdict.
   - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
     collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
     its branches, it doesn't use the issue.
@@ -119,10 +121,20 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   eye, an approval, work stuck on his side, anything broken), never for progress, green CI or information. One or two lines
   on what's needed, where, and what carries on meanwhile; never wait silently. The toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
   "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%\.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
-- **When CI runs:** on pull requests into `dev` and `main`, and pushes to `dev` and `main`, not on other branches or tags; a
-  newer push cancels the run it supersedes (never on `main` or a release PR). A draft PR gets no CI until it is marked ready.
-  A change that only touches documents, `investigation/`, `LICENSE` or `package.json`'s descriptive fields skips the heavy
-  jobs (`tools/ci-changes.mjs`) and finishes in minutes. CodeQL runs on pushes and weekly, not on PRs.
+- **When CI runs:**
+  - a **pull request into `dev`** runs the light set: `test` (typecheck, quick suite, build) and the four browser shards. Not
+    while it is a draft; a newer push cancels the run it supersedes;
+  - the **merge queue** (a merge group) runs the full suite on the merged state, once per batch: oracle, generation, engines and rust as
+    well. Nothing merges into `dev` without it. `dev` has no CI of its own on a push; the nightly checks its tip;
+  - a **push to `main`, a pull request into `main` (a release) and a manual run** run the full suite, never cancelled;
+  - the rest is skipped by what changed (`tools/ci-changes.mjs`): only documents, `investigation/`, `LICENSE` or `package.json`'s
+    descriptive fields run just the document tests and the build; only `src/editor/`, `src/ui/` and `tests/e2e/` skip oracle,
+    generation, engines and rust; the Rust checks run only when `rust/`, `tools/rust/`, the Wasm's TypeScript wrapper or the
+    workflow changes. CodeQL runs on pushes and weekly, not on PRs.
+- **Merging into `dev`** goes through the queue: open the PR ready, wait for the light set to go green, then add it to the
+  merge queue (`gh pr merge <n> --merge --auto`, or the button). The queue's run must pass; a red run drops the PR out. A fix for dev's own failure
+  is still a PR through the queue.
+- **Before pushing:** run the typecheck and the tests that touch the change; CI runs the rest (D454).
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; each e2e run its own free port), `npm run oracle`
   (0 disagreements), `npm run batch` (at least 98% final blocks), `npm run places -- --check`. The Claude suite is
@@ -132,12 +144,12 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   works (D396): ask Kyler before publishing anything else there.** A normal deploy of `main` drops `/preview/`: republish the
   page's preview after every release.
 - **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
-  `dev` commit that has no red run: pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
+  `dev` commit that the queue's run passed (a commit with no run is refused): pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
   cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
   once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
   prints the steps). Then republish the preview and record the release in STATUS and the Progress log. If the live check
   fails, revert the release merge on `main`.
-- **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch.
+- **Fixes for dev's own failing tests go to dev**, never only onto a feature branch: as a PR through the queue (a repository admin's direct push bypasses it, and has no CI run, so release only commits that went through the queue).
 - **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
   byte-identity checks run in CI; a real check before anything is reported done stays.
 - **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after

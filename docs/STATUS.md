@@ -61,12 +61,17 @@ are as of 2026-10-04 and move.
 
 ## Queued
 
-1. The documents: #237 (decisions cleanup), then #239 (coordination), then #246 (this one).
-2. The coherence cleanup, #213 to #241 in order.
-3. The Rust water switch (#212), then the Rust forces (#158) after cleanup group 4.
-4. The generator queue, one re-pin at a time: #245 (badwater, D469), Delta arms round 2 (#233, merged as an
-   investigation), Lake Basin round 3 (#234); Islands round 4 (#235) after Kyler's judgement.
-5. Startup part 1 (#222) and the rest of D367; "The page is the editor" (#163); the CI merge queue (#238).
+1. The documents: #246 (this one); #237 and #239 are merged.
+2. The coherence cleanup: groups 1–5 are merged (#213, #214 trimmed to (b), #221, #223, #226); #230 (group 6) waits for its
+   investigation-import fix, then #241 (group 7) after its rebase onto the new group 6.
+3. The Rust water switch (#212, resolving a conflict with dev), then the Rust forces (#158, being adopted on
+   `feature/rust-forces`).
+4. The generator queue, one re-pin at a time: the theme critique's badwater-line PR (D469; not opened yet), then Delta arms
+   round 2 (#233, merged as an investigation), then Lake Basin round 3 (#234, merged as an investigation); Islands round 4
+   (#235) after Kyler's judgement. #245 (D57 amended by D469) is merged.
+5. Startup part 1 (#222) is merged: a project autosaved while its water is still pending carries no stored map, so the page
+   should autosave again once the water settles (the "settled" event). The rest of D367; "The page is the editor" (#163);
+   the CI merge queue (#238 merged; the ruleset waits for Kyler).
 6. After the release: the Dependabot majors (D460), "Designed for" removed (D449), byte-exact reopening's (a) with startup
    part 1 (D455).
 

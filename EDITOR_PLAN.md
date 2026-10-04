@@ -103,7 +103,8 @@ The editor's parts as they are now; their placement and styling are the design p
   (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
   B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
   (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
-  is left; a panel opening or closing never moves the camera by itself (D265).
+  is left: the map as drawn (its edges at their heights, its sides, its hills) fitted snugly, a small even margin
+  all round; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
@@ -256,9 +257,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 
@@ -701,7 +700,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
@@ -719,7 +720,8 @@ stroke records the options it used:
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
   item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
@@ -747,10 +749,18 @@ Dirty-region tracking lets rendering, validation and the water preview update on
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; autosave in the browser through the storage
 adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recovering the last session on reload
 (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
-a new imported map.
+a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
+what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
+once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
+rebuilding, as every project did before.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
+once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
+with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
+code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
@@ -968,7 +978,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how
