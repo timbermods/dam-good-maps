@@ -1,0 +1,298 @@
+{
+  "reference": "feature/terrain3d-a 24b88b9b; tests/golden/terrain3d.json water hashes unchanged. Disk fixtures only; runtime maps use typed memory.",
+  "cases": [
+    {
+      "name": "t1-support",
+      "W": 96,
+      "H": 64,
+      "settle": null,
+      "hashes": {
+        "depth": "3a3ed164e42500a1",
+        "overflow": "3a3ed164e42500a1",
+        "contamination": "3a3ed164e42500a1",
+        "moisture": "3a3ed164e42500a1",
+        "soilContamination": "3a3ed164e42500a1",
+        "dropped": "62f328a99574e4ab"
+      },
+      "levels": 2,
+      "inputSha256": "59d7ab59f727151fc86da472768b44bc305a76ead1bfdf7e539f2291d65c783a",
+      "inputGzip": "H4sIAAAAAAACCu3aOw6CQBRA0Rds7Ka1cysuxaWwNJbiEiwtjFiY6NMg/g3KmeQ0MFNwQ8hAWEbEIk6jiogCAB3atvS6vX7SqWS7ZJtsknWySpqkTiKrEv31f2P/Ok70d//rr7/+43z+1/q7//XX/wf6e7d9uv880V9//f+3f9ue+/56/f+zf98epdJff/2H2L9J6ivSnE/0H9P+X3/99R/O839u/6m//vrrP8rvP/r/Vn/01x/99Uf/sf3/gP4vXX85KNNux/N3zu9ag/76o7/+6K8/+usPAAAAAAAA8Ij+MVtcHtkDyb+va0RgAAA=",
+      "fields": {
+        "3": "71c38a39e3a7eabefaa20a1d13edd4f82f97b2a16c9d28c73b9fb215e6e4a11c",
+        "4": "0a5542a3b1da741c4a76aae68fdbe0e6f1965eefa3953fb91e113cfc3ebf386b",
+        "5": "8fb52f42a9fd5ee616dd84fca5663dc03d3b2368bf754f21ed6fac338e2eff74",
+        "6": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
+        "7": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
+        "8": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
+        "10": "1349fcb7977fc66b0e1a8ce519a9e09036c8af7686b60f07af3aa14d0e778ab7",
+        "11": "00e645ce09baf3c151bb3160618195b8e32adab02805e04cd6bbba1b4956e057",
+        "12": "fd9d399e7482c73cdc94b94f3ee37efa4bff24ea0ad51aa7c782db982f820cff",
+        "13": "27e358f68d7180a8b7d2b7bb270796f809f5173457164173fa9f7eb573555618",
+        "14": "e32b6893f203f38878c79f296a24f064b15cb7367609701ad72884db48a4d339",
+        "16": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+        "17": "71c38a39e3a7eabefaa20a1d13edd4f82f97b2a16c9d28c73b9fb215e6e4a11c",
+        "18": "49d12616b9ae5af3b7f00cae073a65e03fbe0c8f6fab6ccce82d4330fd05a9cb",
+        "19": "0a5542a3b1da741c4a76aae68fdbe0e6f1965eefa3953fb91e113cfc3ebf386b"
+      }
+    },
+    {
+      "name": "t2-walking",
+      "W": 64,
+      "H": 48,
+      "settle": {
+        "settled": true,
+        "ticks": 128
+      },
+      "hashes": {
+        "depth": "2aae7dc846aaf25f",
+        "overflow": "2aae7dc846aaf25f",
+        "contamination": "2aae7dc846aaf25f",
+        "moisture": "2aae7dc846aaf25f",
+        "soilContamination": "2aae7dc846aaf25f",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "97c873c05dcd4de857e9dd3c280193139b9a3107040979284fbe6d7f9855a3d1",
+      "inputGzip": "H4sIAAAAAAACCu3XwQmDMBSA4XfowYP4pCdvruAGphM4gocOkhF1E0ewhScURaKnYswf+BEDET4MGJ2INPIbDxHRPzdrOJV7hx8/fvz48ePHn5p/0nC8f/z48ePHjx8/fvz48ePHjx8/fvz4423QcPjZ//ivm//u4W4nf3J9rRb+uP39Jvzn1reFhR9/in6fW7F//+ud8OM/PP9lS/jTPP+n7uf/71L+8MicXUu3nrf78fl+recrt33CB8xvKH10MAAA",
+      "fields": {
+        "3": "d67dc6b22939f5e7bc82df9630a0f42c82f8c118c6a7cbffb5c7976b81b621de",
+        "4": "ea2fd7690d1277b88530217361df544abf03d42d5061c7a060b54eb6a0d54339",
+        "5": "e2584d62d78e2162e200a453f6c0f7b312fa34fadfb048b2ff9483c7d365012d",
+        "6": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
+        "7": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
+        "8": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
+        "10": "f7e8f4389aa7406a18e0bb040a73ba74968cb2eb178934837f072b4a17ca95df",
+        "11": "3a94ed8efd04b49bc465760f76394836dc801f651bc643700265dc2440f933ca",
+        "12": "d732a71d55d3455050b80d12b7ca70fa15d2789fc205b69ed0c899fa4659ad8a",
+        "13": "a56789d37c7c0901355d8af1114cb4a0ed50321487a208f5cc28541c468467d3",
+        "14": "f6897a643bbc070e8cf7076c6fb24f7537ed93579703e9f274f7d6b01155f0c9",
+        "16": "fd9243e1ba57263ed469c3bdbd7ade6ec5254e7ed924a9f5737fa44749933cc0",
+        "17": "d67dc6b22939f5e7bc82df9630a0f42c82f8c118c6a7cbffb5c7976b81b621de",
+        "18": "3373da7871cdfcca6a1d2ad44c6c6e30a7571330c2a35bd16505eb223c479ab9",
+        "19": "ea2fd7690d1277b88530217361df544abf03d42d5061c7a060b54eb6a0d54339"
+      }
+    },
+    {
+      "name": "t3-cave-water",
+      "W": 64,
+      "H": 64,
+      "settle": {
+        "settled": true,
+        "ticks": 2176
+      },
+      "hashes": {
+        "depth": "a93122acb6fbdd8e",
+        "overflow": "5a915da332465453",
+        "contamination": "de2f256064a0af79",
+        "moisture": "b4b8dd31c6738050",
+        "soilContamination": "de2f256064a0af79",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "318dfacda94676c65d574ad05ec9c2b8cf821f8a01e98745eaa5e227cb95dd9b",
+      "inputGzip": "H4sIAAAAAAACCu3YMQrCMBSA4VcQ7KY4dXBy0AM4FZTEzXt4EcHBo7l6BDdXRzspkgRsJG21INb8hY+g8mp/qrRUi4gWkZ6Y7bHeAKAjBg3Q394+4NP9HQLo/+3+3ZN/7D8HxNIf+/nn/9/t618SWb+viPx+kH766aeffvpjfP6R8PyDfvpL1Bvo5/dPP/0AAAAAGlBfQD/99NNPf3f6+xXopz/m/pk1t3JrEcD5p59+rv/0008//fTTTz+Alsw21madeKtoqdwuqjy/9ObTmvmTN7+2a2bXYc28Oz43n5t16/YzrZm/qurP08BxmNfH0WZVfj97+b47ynNHmHRBAAA=",
+      "fields": {
+        "3": "bf0b8b14da0e84c925b07da4b5f14e5b51d26c932315fc91106edbb4f5df8847",
+        "4": "2d16f1506ab438df9eee42ba2265002a348725b11b7109361eaead52689066ea",
+        "5": "9a16afda2a59121a7770a23d006daf83e671fabce1a684dfdd4c9bec263b344a",
+        "6": "a93122acb6fbdd8ea802949d95ad112508ecf3dfd1c76643859394a3cbb0ad1d",
+        "7": "5a915da332465453d8a63141de7820fb0f9c11d71e8e64bc4ce696ec2fbceac7",
+        "8": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+        "10": "2bc194071a22e205da19f48b4ea30d8c035fb8a4c25f8a33488d0ca32a80f02a",
+        "11": "fea074f6118f1bf848986227ca7f786a8316ab999b3d4b5210856b47f6477e45",
+        "12": "8df9ef9fef264abc94a67b19f57a1b214a61272f323ea2760b4be042bd283f83",
+        "13": "3fa008ecb2d1d8c2c83fd3f86efa2865ca0932dca7b601fe0834855d5550ff51",
+        "14": "66bded3657b8da6f563a1516839f833d7dca7880724a63a43095e6bda7baa395",
+        "16": "52a60d50cbd715832aa46524980074021901be5a530ca4bb955e480f49d2a7d1",
+        "17": "bf0b8b14da0e84c925b07da4b5f14e5b51d26c932315fc91106edbb4f5df8847",
+        "18": "97089d4c967e21b6d80dac356f74dcd5c8301519f50c2f058d900696115f48d8",
+        "19": "2d16f1506ab438df9eee42ba2265002a348725b11b7109361eaead52689066ea"
+      }
+    },
+    {
+      "name": "t4-soil",
+      "W": 64,
+      "H": 48,
+      "settle": {
+        "settled": true,
+        "ticks": 2048
+      },
+      "hashes": {
+        "depth": "593e2cc6e8e24c18",
+        "overflow": "858b7701a6a1f70b",
+        "contamination": "2aae7dc846aaf25f",
+        "moisture": "2fe17f9f59da1970",
+        "soilContamination": "2aae7dc846aaf25f",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "d88d3a7ed77bfc7658d07ce83be072884a3d07bfee11510ae76c37ec612809bb",
+      "inputGzip": "H4sIAAAAAAACCu3YMQqDMBiG4Y/SwVE6dXCuq2O3PzlLhx7DHtFbuHoDOyQd0lIxFAnFN/AQIsTwIiLoJHWSDgrjKGkGAECS/aDPQP9/9LcZ7hnGDPTTTz/99PP9o59+AAAAAMCGrCD66ae/6H+gvfebFaTt8Px5/+mnn34AAPYjjMaF+RrnS5wrp8UxWbo/zg8f1+eV+7+N1/n1233CejjdfHr987wnXHo8RPQwAAA=",
+      "fields": {
+        "3": "ae41413db61194adba6f2fdebb756a63b5fa700e8249c1e6eddb3efabeae30b6",
+        "4": "3b591561c706ed6edaae2b9b657e9523dd480fb10da891890e1098471a9ccdb7",
+        "5": "9cd3700093c6834e89e3f34a16c9d8302ad583bbca17ed97f48d8d85091813eb",
+        "6": "593e2cc6e8e24c186eaeb46bcf69bac4f172fe0b63bf30f7d8b7526a6bc196cf",
+        "7": "858b7701a6a1f70b73a2bcdd7577bf9ea3fd18688e366989b5c115267c7062f2",
+        "8": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
+        "10": "1a5536086bd1244d709e2598497acbf45b7279704fc670ee40d731b606fa1c56",
+        "11": "85b12a74431189363dc333a57ce47c0a9ddc72d6e72d8cda7282c8374e4222dd",
+        "12": "2eb7f4b5ba486e19aef55b17ae145e4c3c822edd71b7aef788328f227248168e",
+        "13": "e7fae4b2b8514a72fac6319ef4417e537f15fffc94099c66685af54c640d28af",
+        "14": "d89a647766777c1d959b0599262bbc4330addac43e854511dbd37f2affaa8256",
+        "16": "24540aac6bc86c089ae3bca22b6131a09743ac314f719f15d119148c0f26400d",
+        "17": "ae41413db61194adba6f2fdebb756a63b5fa700e8249c1e6eddb3efabeae30b6",
+        "18": "3c885b729e2df62d17b306ea91141739eff7d83ce8baecc198dcc2e2171c4aff",
+        "19": "3b591561c706ed6edaae2b9b657e9523dd480fb10da891890e1098471a9ccdb7"
+      }
+    },
+    {
+      "name": "t5-plants",
+      "W": 48,
+      "H": 48,
+      "settle": {
+        "settled": true,
+        "ticks": 512
+      },
+      "hashes": {
+        "depth": "735cc0e408995426",
+        "overflow": "1c02730953829883",
+        "contamination": "1c02730953829883",
+        "moisture": "796551b6399da5d9",
+        "soilContamination": "1c02730953829883",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "5d6322dc3ef46386893b7e5d11cb95d18254b1ade5b866b5954fe244fea3c4e4",
+      "inputGzip": "H4sIAAAAAAACCu3VMQqDQBCF4WdiYacECwvBK1ikHz2LB80VchRvsMquFmbFSkHIP/AYnIXdrxpbSa2kRKFSSUYIOS0N/lPjcsmyOH6O/7Z+N/fPThx+/PjZP/x/8eO/zO8SyXbi5/jx42f/4MeP/5r985TsEcfP8ePHz/7Bjx8/fvy3SY4fP378f+IPVXehv5deLL3sdFijHZ9nP/etFb6/r6HfzqvovQnKu9nvtCQAAA==",
+      "fields": {
+        "3": "6f1f238bd603cca429b9e9575482d638b73969be9f999e3b226136a4962f634b",
+        "4": "a349739a8ca72b5a65e1b217fd485eb6469340a1667c8fb8b85bd12e0c398981",
+        "5": "5adbca6e5d7cf3d982f2924d17d5c771f66f377399b17afe56961ca07baf5930",
+        "6": "735cc0e408995426e17eee809aa191ceebf4723a2bb7f95155e15516ed7f52c1",
+        "7": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
+        "8": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
+        "10": "4edd88b2bee1029f12e18e4391209069b9ae20ec37149e996d461cba95e0b3e0",
+        "11": "105bafce49e4ab4fc0d2100cf2aaa79a3c8d7e311f82f0f56587aaee789c9e90",
+        "12": "7eb31dfba9b4781ab32645e76f744d7b9def0323482b1fe8f1b847a506ec7905",
+        "13": "9d8859ff13c10a864cfc3369bb6c76ce7e6244be78e17bb6476f8a09a73920df",
+        "14": "8a52f472d8662011ae74d21834136eafe56ee02e547c107b253a5b784e5b76ff",
+        "16": "35807474ed79a755a792190c8224564564387ef8b40d174107217a5522c46b65",
+        "17": "6f1f238bd603cca429b9e9575482d638b73969be9f999e3b226136a4962f634b",
+        "18": "613a04ea39e9538a079ba41c8d4d149628f1296f677fce92911a6252b257930e",
+        "19": "a349739a8ca72b5a65e1b217fd485eb6469340a1667c8fb8b85bd12e0c398981"
+      }
+    },
+    {
+      "name": "t6-heights",
+      "W": 256,
+      "H": 256,
+      "settle": {
+        "settled": true,
+        "ticks": 1280
+      },
+      "hashes": {
+        "depth": "2d133ad519e00f48",
+        "overflow": "30e14955ebf13522",
+        "contamination": "30e14955ebf13522",
+        "moisture": "5951e2356ad3e98d",
+        "soilContamination": "30e14955ebf13522",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "d2799c72d539213b2644fab70c3246c5e20b492dd9027bb698de7ab17af48de6",
+      "inputGzip": "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",
+      "fields": {
+        "3": "80cd4d11391cd6f22705c7531f9a1d0cfabd8c495ddf0a3d1814131fca87b286",
+        "4": "c1c50706717762cc83c20f6bab1c068f7e75c05692856026779d65330f4ffa1e",
+        "5": "9d186de5b85c534d4856e388a3101e16deef5bae3a4bd4a502d968706d3a9cb5",
+        "6": "2d133ad519e00f487f1c3b3c4eba385f50fd79d5cd79280a7da18423d3215d06",
+        "7": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "8": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "10": "191c977698dc250c3dc6a916c846a942a0625e4bab8f830bb0e0fc5926c1780a",
+        "11": "451f31dd61a378174f72f0277a6db0fe5a8e5915a1b7d35ce1564a2aba539060",
+        "12": "109359903e5297ef69fe02b978d49cdbc8be82511eae8c0e6ffc273f653c8425",
+        "13": "71f6f8cfc2645283e9858de68fd47ddb0fbe5087c2abb4a7b07f9ce776fbaa9a",
+        "14": "08ec0313f3bde3cf7ba17871ed37e3a3fb6f40e1e434c21528c168dd2d931ea3",
+        "16": "82d9b80e06ae53c6573488768ed2ceab6c07b775cfa8832458e80ceb5220d37e",
+        "17": "80cd4d11391cd6f22705c7531f9a1d0cfabd8c495ddf0a3d1814131fca87b286",
+        "18": "4302a8f9429bbc2ddbf0244cf8c5aa0efdc0e7abef478e9fe57f2e888707f3c0",
+        "19": "c1c50706717762cc83c20f6bab1c068f7e75c05692856026779d65330f4ffa1e"
+      }
+    },
+    {
+      "name": "cave-valley",
+      "W": 40,
+      "H": 32,
+      "settle": {
+        "settled": true,
+        "ticks": 384
+      },
+      "hashes": {
+        "depth": "f0531faa2e51e8a1",
+        "overflow": "a21a749f470d79e7",
+        "contamination": "cc61635da46b2c99",
+        "moisture": "da60975dc7a1a0ac",
+        "soilContamination": "cc61635da46b2c99",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "cafe3b8ad2735786d4621aa6141ca6b0d4046b9b69ab444a5303fe9fd0d4734c",
+      "inputGzip": "H4sIAAAAAAACCtWYTU6FMBSFL6lJ3wxjHDgwwaFDh47scy0uhOV1qDt4W3AH/oRWL4fT0AeWYpOTwnncvq+XFlruReRORIwM5UJEPlqQVbXWFt63DAj5os+uPcPzBpQT26g6KsW3ktETxtnYhjBizhuQWeb5JnA1v5qNFaV4zu7/HzGe7QlhxJwL6ctW3pd60GQMSD3GnjBizke/sf4U9FyQPsYxsCUPeo4wsvvvEteW9jqQI2PAVWR0hBFzrtlZf0p6raqjcAx0FRlbwog5b0FdwmPPrtzYlGeV4jm7/zltnkTkFdStZLSEEXNuSV+Y5wOTV8qNTXk2rP20cAzktukJo13JaAgjjtPcNj1htCsZDWFcOj9w7J12Nj/Y/C0xP/B9WOvZ3CW49/7+wLVYjXUBvnv1Ma4XXUVGltvJPkDqrQEZN+5Vaqybe7KG/lk/733/gftkqcfIcltqf77I+4/7c/b9ZeW3ocUe4y70/WqRR3I7lNtjOAj1Q6ivo58oh+M4/hHaOczEv7vx9U/w/3PxcyXGX0I7w/nb1cvz2L+Z/N8nCmlyCTQVAAA=",
+      "fields": {
+        "3": "be4e935286b2865485e55ef35eca897207aaf25adf1c4c3379a844387a7cb356",
+        "4": "438d1101533d888c6c9d967af95d87053c14da3c7c3a6b6b7980731fd9e4a222",
+        "5": "2c710ac205b17586ac2f73b621b5b19053ffa7b274f1a7e5f0e67f99b432604e",
+        "6": "f0531faa2e51e8a1dbf9fda72ea55660848017f8305389a4c058d706ac0f32ca",
+        "7": "a21a749f470d79e73ab2c939d840b349344f28c39558d21b364e8265cb37cb04",
+        "8": "cc61635da46b2c9974335ea37e0b5fd660a5c8a42a89b271fa7ec2ac4b8b26f6",
+        "10": "1fb658f9cf566a381c40f5c980527cf537954def4faa936b610ea01dd4148472",
+        "11": "0a927d65b75b37082ced93e2ef112be8ee64e597191c10472cc57d0d1b65d8dc",
+        "12": "018b3aadcfc7832a41d8cd723f3fbaf8aa215878ea081dea9ea2f9ac98abca38",
+        "13": "cf923e75466b979e21d1c4b115dd85fa9f7af05b1492ce01b14f870f4df2885c",
+        "14": "0948335828707c6331e9b1cb93fb0ceb3a19a8dccbb6db0d30facdab61a340b2",
+        "16": "686d1d68c9e076c184c26581bdc4283b4585d75435130d25b454197dbda85a2f",
+        "17": "be4e935286b2865485e55ef35eca897207aaf25adf1c4c3379a844387a7cb356",
+        "18": "e94c0fcd17366ad1396354f456ff211718c1202050e3f8720e52df3f1f58441b",
+        "19": "438d1101533d888c6c9d967af95d87053c14da3c7c3a6b6b7980731fd9e4a222"
+      }
+    },
+    {
+      "name": "lake-cave",
+      "W": 30,
+      "H": 20,
+      "settle": {
+        "settled": true,
+        "ticks": 512
+      },
+      "hashes": {
+        "depth": "4b1c2b6958333e4e",
+        "overflow": "5354c05af8285425",
+        "contamination": "e9a15a094703faae",
+        "moisture": "3dea437883f3a8f7",
+        "soilContamination": "e9a15a094703faae",
+        "dropped": "e3b0c44298fc1c14"
+      },
+      "levels": 2,
+      "inputSha256": "63a98b48ef4608c839aaf0f362cad02848ea4e907ac91745e892ce9a2d3922a5",
+      "inputGzip": "H4sIAAAAAAACCpNjYGAQYWBgYGSAABYGBob/zKOYEnwcCx61FztmZsCPHzOj4sFgLyV41F5UbE8FPJTspVUeHLWXPvaO4lFMKYYAGQcIrQClVaA0A4zGAQQIyHM4YFcH4V8QSnZEFZfAMA8APx41nxQKAAA=",
+      "fields": {
+        "3": "a3e331917f60a394533904a1bf08ab3c27cdd9156789f1d914b57c634fed70f0",
+        "4": "74ad3e4886caa0a10fb6cc5b3532e15a6d93e7c0a5c181781a8157b6e8e22754",
+        "5": "5e38eb10385fcce2541c2d64e91457258208939091e01402e04ff3a69561d310",
+        "6": "4b1c2b6958333e4ebc0b5a142621ccfee33f83e17642de74cabfa09c52a9569f",
+        "7": "5354c05af8285425e6cb6c18efbdfece848dcccfc95605efa71637cd3bac8dee",
+        "8": "e9a15a094703faaea3fdf53af7e04da21717008ab4bb228799712b2fced03c65",
+        "10": "77b83cd21edfdbeea053e6ac46326c9d817f1068011c6b79a1bd1a0b33af5649",
+        "11": "f06dfc1eec3a064f5e2fc538830efac24adeb7a57d8f31b3b495c57ea7819907",
+        "12": "c0070b1b24397bfcdb9a98fb01cfcd2697ef443587693ac5e7e503c9cbe0851b",
+        "13": "25a5812107be5f6b89425852d830855e014d8a6ef1758f183dbb63c264ee0a07",
+        "14": "681ac12cf9c33b63abb13160c0766c6395dedc9e3e99e9b9218af2e607cdf7d2",
+        "16": "08d0691258a415b138881cf4e9174b6be12caf5dac42c2af30b4647b58202343",
+        "17": "a3e331917f60a394533904a1bf08ab3c27cdd9156789f1d914b57c634fed70f0",
+        "18": "404bbd4d43a49fc0e5c6021667161f4a9fbb1bd5a014d0fe178004da3086029e",
+        "19": "74ad3e4886caa0a10fb6cc5b3532e15a6d93e7c0a5c181781a8157b6e8e22754"
+      }
+    }
+  ]
+}

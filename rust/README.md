@@ -8,7 +8,13 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
 - `water/`: the water simulation (the game's rules and the port's, the faster settle's bookkeeping), its settle,
   fed water and the canonical settle after the pre-fill (#156, ported from `src/core/sim/water.ts` at
   `ts-water-final`). Its Wasm is committed in `src/core/sim/waterWasm.ts` and bound by `src/core/sim/rustWater.ts`;
-  `WaterSim` runs it in every engine and in Node. `water-batch` is the native binary batch jobs run.
+  `WaterSim` runs it in every engine and in Node. `water-batch` is the native binary batch jobs run. The same crate
+  holds the stacked-column water for terrain above terrain (D448; `columns`, `stack`, `stack_prefill`, `stack_engine`,
+  `stack_memory`), ported from #71's reference, whose one-column path is today's water unchanged. It is computation
+  only, not wired into the app yet (Foundations does that): `stack_*` exports take Rust-owned typed arrays, one call
+  per operation (the interface is in `investigation/rust-stacked/INTEGRATION.md` on PR #255). Its contracts are
+  `cargo test -p water`; `tools/rust/stack-identity.ts` runs #71's game-verified fixtures (`tests/golden/stacked-water.json`)
+  natively (the `stack-fixture` example) and in Node's WebAssembly; D366's check has two stacked-water cases.
 - `forces/`: the forces' planning, Carve, Craterize, Erupt, Quake and Glaciate (#158, D381; their TypeScript planners
   are tag `ts-forces-final`). Its Wasm is committed in `src/core/forces/rust/forcesWasm.ts` and bound by
   `src/core/forces/rust/bridge.ts` (one call plans a force); `forces-batch` is the native binary the identity check

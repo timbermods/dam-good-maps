@@ -110,3 +110,9 @@ pub unsafe extern "C" fn water_canonical(ptr: *const u8, len: usize, out_len: *m
     *out_len = out.len();
     Box::into_raw(out) as *mut u8
 }
+
+pub mod columns;
+pub mod stack;
+pub mod stack_prefill;
+pub mod stack_engine;
+pub mod stack_memory;
