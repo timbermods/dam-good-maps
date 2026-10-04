@@ -16,7 +16,7 @@ label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-
 ## The sessions (D388, D398, D468, D470)
 
 - **The milestone session** (Opus 5.5, high; the dedicated machine) does everything except the page, merges, releases and
-  hands out decision numbers (next free: D471). It owns STATUS and HANDOFF.
+  hands out decision numbers (next free: D472). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high; `C:UserskramscodeDamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
   the editor". The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
   ready PR labelled `approved`, and the milestone session reviews it before it merges.

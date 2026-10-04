@@ -47,6 +47,21 @@ export type DroughtPolicy = "prefer" | "require";
  *  (in proportion to the map's area). */
 export const BANK_FOOT = 800;
 
+/** The least walk from a start's middle tile to a shore: its 5×5 stays dry (`start.dry`), so the
+ *  nearest shore stands 3 tiles out. */
+export const SHORE_WALK_LEAST = 3;
+/** The walk the generator aims the start's water within (the start's middle tile to its shore): the
+ *  Water without stairs rule less a margin of 2, never under the least a start can have (D471: the
+ *  rule at 4, its least, makes a map). */
+export function waterAim(rule: number): number {
+  return Math.max(rule - 2, Math.min(rule, SHORE_WALK_LEAST));
+}
+/** The settler's estimate's aim, read from the start's 3×3 (a tile nearer than its middle): the rule
+ *  less 5, never under the least a 3×3 can have (2). */
+function waterAim3(rule: number): number {
+  return Math.max(rule - 5, SHORE_WALK_LEAST - 1);
+}
+
 export interface SettlerOptions {
   /** Only for repeated picks before terrain/water changes; no cross-attempt cache. */
   prepared?: StartPreparation;
@@ -55,6 +70,9 @@ export interface SettlerOptions {
    *  and path to the shore); false on a shown land, where only a start that needs no levelling
    *  leaves the land as it was shown (D348), the levelled ones a last resort. */
   level?: boolean;
+  /** How far the levelled 5×5's ground may stand from the center's level (1; a rescue round, D471,
+   *  reaches further on land that has no flatter place, its middle 3×3 levelled too). */
+  levelReach?: number;
   /** Depth left after the first drought (analytic), for `drought`. */
   kept?: ArrayLike<number> | null;
   drought?: DroughtPolicy;
@@ -346,6 +364,7 @@ export function pickStart(
   const roomWant = opts.room ?? 900;
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
+  const reach = opts.levelReach ?? 1;
   const cands: { i: number; score: number; kind: string; o: Orientation; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
@@ -363,7 +382,7 @@ export function pickStart(
             const j = (y + dy) * W + x + dx;
             if (D[j] > 0.001 || hydro.water[j] === 1 || hydro.water[j] === 2) ok = false;
             else if (h[j] !== L) {
-              if (pass === 0 || Math.abs(h[j] - L) > 1 || Math.max(Math.abs(dx), Math.abs(dy)) <= 1) ok = false;
+              if (pass === 0 || Math.abs(h[j] - L) > reach || (reach === 1 && Math.max(Math.abs(dx), Math.abs(dy)) <= 1)) ok = false;
               uneven = true;
             }
           }
@@ -377,8 +396,8 @@ export function pickStart(
             w = Math.min(w, walk[(y + dy) * W + x + dx]);
             wa = Math.min(wa, walkAny[(y + dy) * W + x + dx]);
           }
-        const sameLevel = w <= waterRule - 5;
-        if (!sameLevel && !(wa <= waterRule - 5)) continue;
+        const sameLevel = w <= waterAim3(waterRule);
+        if (!sameLevel && !(wa <= waterAim3(waterRule))) continue;
         if (!sameLevel) w = wa;
         // the ground reached without stairs
         const foot = footAt(opts.foot, i);
@@ -465,7 +484,7 @@ export function pickStart(
       const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule);
       if (opts.moistWalk && sw.moist < opts.moistWalk.min) continue;
       if (!c.sameLevel) {
-        if (!(sw.water <= waterRule - 2)) continue;
+        if (!(sw.water <= waterAim(waterRule))) continue;
         c.walk = sw.water;
       }
     }
