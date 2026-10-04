@@ -93,10 +93,31 @@ export class BrushCursor {
     const pos = this.pos;
     const col = this.col;
     let q = 0;
-    const quad = (x0: number, z0: number, x1: number, z1: number, y: number, a: number, c: [number, number, number] = [cr, cg, cb]) => {
+    // (written straight into the buffers: a big brush lays a few thousand quads each time it moves)
+    const quad = (x0: number, z0: number, x1: number, z1: number, y: number, a: number, c: readonly [number, number, number] | null = null) => {
       if (q >= MAX_QUADS) return;
-      pos.set([x0, y, -z0, x1, y, -z0, x1, y, -z1, x0, y, -z1], q * 12);
-      for (let v = 0; v < 4; v++) col.set([c[0], c[1], c[2], a], q * 16 + v * 4);
+      const p = q * 12;
+      pos[p] = x0;
+      pos[p + 1] = y;
+      pos[p + 2] = -z0;
+      pos[p + 3] = x1;
+      pos[p + 4] = y;
+      pos[p + 5] = -z0;
+      pos[p + 6] = x1;
+      pos[p + 7] = y;
+      pos[p + 8] = -z1;
+      pos[p + 9] = x0;
+      pos[p + 10] = y;
+      pos[p + 11] = -z1;
+      const r = c ? c[0] : cr;
+      const g = c ? c[1] : cg;
+      const b = c ? c[2] : cb;
+      for (let o = q * 16, end = o + 16; o < end; o += 4) {
+        col[o] = r;
+        col[o + 1] = g;
+        col[o + 2] = b;
+        col[o + 3] = a;
+      }
       q++;
     };
     const tx0 = Math.max(0, Math.floor(s.x - r));
@@ -154,8 +175,13 @@ export class BrushCursor {
       quad(px - m, py - m, px + m, py + m, h, 1, MARK);
     }
     this.geo.setDrawRange(0, q * 6);
-    (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
-    (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;
+    // (only the quads laid this time go to the GPU)
+    for (const [name, per] of [["position", 12], ["color", 16]] as const) {
+      const attr = this.geo.getAttribute(name) as BufferAttribute;
+      attr.clearUpdateRanges();
+      attr.addUpdateRange(0, Math.max(1, q) * per);
+      attr.needsUpdate = true;
+    }
     this.mesh.visible = q > 0;
     // a target: the level it works to, as a plane over the brush
     if (s.level !== null) {

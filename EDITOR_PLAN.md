@@ -867,8 +867,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
-    soon as it has answered; the page meshes a stroke's water a few chunks a frame (`updateWaterSoon`), so painting
-    and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
+    soon as it has answered; the renderer's water worker meshes the chunks a stroke's water changed, nearest the
+    view first (`updateWaterSoon`, `waterMesher.ts`), and the page draws a few milliseconds of them a frame (on its
+    own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
+    two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history.
