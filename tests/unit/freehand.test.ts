@@ -8,6 +8,8 @@ import { forceReach } from "../../src/core/forces/reach";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { downhillPath, pathLength, pathTiles, resamplePath } from "../../src/core/forces/path";
 import { DRAW_PX, FreehandPath } from "../../src/editor/freehand";
+import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
+import { fixture } from "../contract/forceFixtures";
 
 describe("a force's reach at its Power and Size (D312)", () => {
   it("follows Power while Size is Auto, and Size once set", () => {
@@ -66,5 +68,19 @@ describe("the freehand path (D321, item 41)", () => {
     expect(downhillPath(drawnUphill, heights, W, 8)[0]).toEqual({ x: 0, y: 2 });
     const drawnDownhill = drawnUphill.slice().reverse();
     expect(downhillPath(drawnDownhill, heights, W, 8)[0]).toEqual({ x: 0, y: 2 });
+  });
+
+  it("a carve drawn along a path: its curve passes through every point, and its course follows it", () => {
+    const W = 64;
+    const at = (x: number, y: number) => y * W + x;
+    const stops = [at(10, 10), at(20, 12), at(40, 20), at(44, 40), at(30, 54)];
+    const r = new CarveRun(fixture("plain", W), { ...CARVE, mode: "aim", power: 60, defyGravity: true }, { origin: stops[0], end: stops.at(-1)!, via: stops.slice(1, -1) });
+    const c = r.records.curve!;
+    const near = (x: number, y: number, xs: number[], ys: number[]) => Math.min(...xs.map((v, k) => Math.hypot(v - x, ys[k] - y)));
+    for (const t of stops) expect(near(t % W, Math.floor(t / W), c.x, c.y)).toBeLessThan(1e-9);
+    for (let k = 1; k < c.s.length; k++) expect(c.s[k]).toBeGreaterThan(c.s[k - 1]);
+    // (the river keeps its own wander and physics along it: its course passes within a few tiles of each point)
+    r.finish();
+    for (const t of stops.slice(1, -1)) expect(near(t % W, Math.floor(t / W), r.path.map((p) => p.x), r.path.map((p) => p.y))).toBeLessThan(6);
   });
 });

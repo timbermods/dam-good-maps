@@ -193,6 +193,13 @@ export interface CarveRecords {
   stepMetrics: CarveMetrics[];
   stepObjectChanges: { step: number; id: string; x: number; y: number; z: number }[];
   initialEntities: EntitySpec[];
+  /** For the contract tests (never in the operation): the river's hard rock cores it splits round, the
+   *  map's rock under it (1 a core's tile), the sediment it laid in each tile (an oxbow's mouth bars), and
+   *  a drawn path's curve (null without one). */
+  knobs: { x: number; y: number; radius: number }[];
+  rock: Uint8Array;
+  sediment: Uint8Array;
+  curve: { x: number[]; y: number[]; s: number[] } | null;
 }
 
 /** What the Rust plans, by verb (records.ts), with `raw`: its map before the core's last touches. */
@@ -229,7 +236,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     const descriptor = x.forces_descriptor(task);
     // (memory can grow in any call: views are made fresh after each)
     const view = <T>(slot: number, Type: { new (b: ArrayBuffer, at: number, n: number): T }): T => {
-      const d = new Uint32Array(x.memory.buffer, descriptor, 128);
+      const d = new Uint32Array(x.memory.buffer, descriptor, 136);
       return new Type(x.memory.buffer, d[slot * 2], d[slot * 2 + 1]);
     };
     for (const a of [m.heights, m.lava, m.water.depth, m.water.contamination]) if (a.length !== N) throw new Error("a force's map must be W × H");
@@ -583,6 +590,18 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
         stepMetrics,
         stepObjectChanges,
         initialEntities: entityRows(view(45, Float64Array)),
+        knobs: Array.from({ length: view(63, Float64Array).length / 3 }, (_, i) => {
+          const k = view(63, Float64Array);
+          return { x: k[i * 3], y: k[i * 3 + 1], radius: k[i * 3 + 2] };
+        }),
+        rock: view(64, Uint8Array).slice(),
+        sediment: view(65, Uint8Array).slice(),
+        curve: (() => {
+          const c = view(66, Float64Array);
+          if (!c.length) return null;
+          const at = (o: number) => Array.from({ length: c.length / 3 }, (_, i) => c[i * 3 + o]);
+          return { x: at(0), y: at(1), s: at(2) };
+        })(),
       };
       break;
     }

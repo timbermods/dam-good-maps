@@ -1821,7 +1821,7 @@ pub struct Job {
     id_bytes: Vec<u8>,
     source_strength: Vec<f64>,
     source_kind: Vec<u8>,
-    descriptor: Box<[usize; 128]>,
+    descriptor: Box<[usize; 136]>,
 }
 pub fn prepare(input: &[u8]) -> Job {
     let mut r = Reader { data: input, at: 0 };
@@ -1945,7 +1945,7 @@ pub fn prepare(input: &[u8]) -> Job {
         },
         command_bytes: vec![0; 4096],
         path,
-        descriptor: Box::new([0; 128]),
+        descriptor: Box::new([0; 136]),
     };
     refresh_id_bytes(&mut task);
     describe(&mut task);
@@ -2756,7 +2756,7 @@ fn output_views(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-fn pair<T>(d: &mut [usize; 128], slot: usize, v: &[T]) {
+fn pair<T>(d: &mut [usize; 136], slot: usize, v: &[T]) {
     d[slot * 2] = v.as_ptr() as usize;
     d[slot * 2 + 1] = v.len();
 }
@@ -2835,6 +2835,10 @@ fn describe(task: &mut Job) {
                 pair(d, 41, &r.step_metrics);
                 pair(d, 45, &p.step_objects);
                 pair(d, 54, &r.step_object_changes);
+                pair(d, 63, &r.knobs);
+                pair(d, 64, &r.rock);
+                pair(d, 65, &r.sediment);
+                pair(d, 66, &r.curve);
                 if let Some(m) = &r.closure {
                     pair(d, 46, &m.heights);
                     pair(d, 47, &m.lava);
@@ -5894,6 +5898,12 @@ struct CarveRecords {
     group: Vec<PlacedWater>,
     closure: Option<Map>,
     strength_depth: Option<f64>,
+    // Read by the core's contract tests, never packed: the river's hard rock cores (x, y, radius each), the
+    // map's rock under it, the sediment laid in each tile, and a drawn path's curve (x, y, s each).
+    knobs: Vec<f64>,
+    rock: Vec<u8>,
+    sediment: Vec<u8>,
+    curve: Vec<f64>,
 }
 const CARVE_EVENTS: [&str; 8] = [
     "surge",
@@ -6123,7 +6133,13 @@ fn carve(
         .iter()
         .map(|(key, step)| (objects[first_by_key[*key]].slot, *step))
         .collect();
+    let knobs = run.character.knobs.iter().flat_map(|k| [k.x, k.y, k.radius]).collect();
+    let curve = run.course.curve.as_ref().map_or(vec![], |c| (0..c.x.len()).flat_map(|i| [c.x[i], c.y[i], c.s[i]]).collect());
     let r = CarveRecords {
+        knobs,
+        rock: run.character.rock.clone(),
+        sediment: run.sediment.clone(),
+        curve,
         initial_entities: objects,
         raw_changes,
         raw_offsets,

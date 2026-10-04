@@ -248,13 +248,16 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(Array.from(linked.map.heights)).toEqual(Array.from(explicit.map.heights));
   });
 
-  it("each seed (Try another path) is exact; another seed changes the course", () => {
+  it("each seed (Try another path) is exact; another seed changes the course but never the rock", () => {
     const a = complete(large, { mode: "aim", power: 85, wander: 65, seed: 1 }, largeAim);
     const b = complete(large, { mode: "aim", power: 85, wander: 65, seed: 1 }, largeAim);
     const c = complete(large, { mode: "aim", power: 85, wander: 65, seed: 2 }, largeAim);
     expect(Array.from(a.map.heights)).toEqual(Array.from(b.map.heights));
     expect(a.path).toEqual(b.path);
     expect(Array.from(a.map.heights)).not.toEqual(Array.from(c.map.heights));
+    // (the river's hard rock cores come from the map alone)
+    expect(Array.from(a.records.rock)).toEqual(Array.from(c.records.rock));
+    expect(a.records.knobs).toEqual(c.records.knobs);
   });
 
   it("smooth reaches narrow into rapids, with real whole-level falls", () => {
@@ -291,6 +294,8 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     const gap = (s: (typeof fork)[number]) => Math.hypot(s.lanes[0].x - s.lanes[1].x, s.lanes[0].y - s.lanes[1].y);
     const widest = fork.reduce((a, b) => (gap(a) > gap(b) ? a : b));
     expect(gap(widest)).toBeGreaterThan(widest.lanes[0].width * 2);
+    expect(r.records.knobs.length).toBeGreaterThan(0);
+    for (const k of r.records.knobs) expect(r.map.heights[k.y * 96 + k.x]).toBe(m.heights[k.y * 96 + k.x]);
     const seen = new Set([largeAim.origin]);
     const queue = [largeAim.origin];
     for (let n = 0; n < queue.length; n++) {
@@ -352,6 +357,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     expect(cut.pool.filter((p) => water.depth[at(p)] > 1).length).toBeGreaterThan(12);
     for (const b of cut.bars) {
       expect(water.depth[at(b)]).toBe(0);
+      expect(r.records.sediment[at(b)]).toBeGreaterThan(0);
       expect(r.map.heights[at(b)]).toBeGreaterThanOrEqual(b.level);
     }
     const basin = r.records.oxbowBasin;
