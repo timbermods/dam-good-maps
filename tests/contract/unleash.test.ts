@@ -11,8 +11,8 @@ import { checkSchema } from "../../src/core/spec/schema";
 import { forceProblems } from "../../src/core/forces/op";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { breakout, sourceTile, strengthOfWidth, unleashWidth } from "../../src/core/forces/carve/unleash";
-import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
+import { breakout, sourceTile, unleashWidth } from "../../src/core/forces/carve/unleash";
+import { DEFAULTS as CARVE_DEFAULTS, sourceStrength } from "../../src/core/forces/carve/run";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -62,7 +62,8 @@ describe("Unleash, on a source (D239)", () => {
       expect(w).toBeLessThanOrEqual(24);
       expect(w).toBeGreaterThan(last);
       last = w;
-      expect(Math.abs(strengthOfWidth(w) - s)).toBeLessThan(0.08);
+      // (the strength a Carve of width w would keep: unleashWidth inverts it)
+      expect(Math.abs(sourceStrength(100, w) - s)).toBeLessThan(0.08);
     }
     expect(unleashWidth(64)).toBe(24);
   });
@@ -70,7 +71,6 @@ describe("Unleash, on a source (D239)", () => {
   it("in the editor's worker: one undo step, the source stays its origin (no second source), its width from its strength, aimed by an end; Esc takes it all back; Try another replaces it; a badwater source's river is badwater", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const s0 = open();

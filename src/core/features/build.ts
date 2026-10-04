@@ -1,5 +1,5 @@
 // The one build pipeline (PLAN §19.8): features in, terrain and entities out. Generation plans the
-// features first (gen/riverValley.ts) and then runs this; the editor runs the same code after every
+// features first (gen/generate.ts) and then runs this; the editor runs the same code after every
 // edit. It is a pure function of its input: rebuilding a saved document reproduces the map exactly
 // (PLAN §19.7).
 //
@@ -23,7 +23,7 @@ import { gameSoil } from "../sim/soil";
 import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
-import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
+import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
 import { groupIds, groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
 import { hash32 } from "../math/hash";
@@ -211,9 +211,6 @@ export interface BuildOptions {
    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
    *  settles it in the background, so an edit never waits on the water. */
   water?: "canonical" | "preview" | "defer";
-  /** The water and soil rules the map is built under (sim/water.ts, sim/soil.ts; their defaults
-   *  when absent, D308). */
-  rules?: WaterRules;
   /** Path and inward fields shared by the builds of one generated land (looked up there first; a
    *  full build without `prev` only). The result's own cache keeps the fields it used. */
   fieldCache?: FieldCache;
@@ -1038,7 +1035,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model, opts.rules ? { rules: opts.rules } : {});
+          settle = canonicalSettle(model);
           opts.settleCache?.set(model, settle);
         }
       }
@@ -1065,8 +1062,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    // the soil rules (D298: the game's own; their default when the build's options do not say)
-    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat, opts.rules);
+    // the soil rules (D298: the game's own)
+    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
     moist = s.moisture;
     soil = s.contamination;
   }

@@ -8,7 +8,8 @@
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
-import { fullMap } from "../../src/core/forces/force";
+import { snapshotMap, type ForceMap, type FullForceMap } from "../../src/core/forces/force";
+import { geology } from "../../src/core/forces/random";
 import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
 import { carveForceParams } from "../../src/core/forces/carve/result";
 import { CraterRun, EruptRun, QuakeRun, modelOf, type StagedRun } from "../../src/core/forces/runs";
@@ -27,6 +28,12 @@ import { badtideContamination } from "../../src/core/sim/weather";
 import { MapSession } from "../../src/core/doc/session";
 import { Rng } from "../../src/core/math/rng";
 import { randomOp } from "../../tests/contract/randomOps";
+
+/** A copy of a force's map with its rock beds (derived from its ground when it has none), fresh rock and fallen trees. */
+function fullMap(m: ForceMap): FullForceMap {
+  const r = snapshotMap(m);
+  return { ...r, rockLayers: r.rockLayers ?? geology(r.heights), fallen: r.fallen ?? [], lava: r.lava ?? new Uint32Array(r.W * r.H) };
+}
 
 export interface Case {
   id: string;

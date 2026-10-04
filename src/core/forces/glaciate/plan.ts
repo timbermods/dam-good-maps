@@ -100,15 +100,6 @@ const texture = (seed: number, x: number, y: number, scale: number) => {
   return (at(gx, gy) * (1 - u) + at(gx + 1, gy) * u) * (1 - v) + (at(gx, gy + 1) * (1 - u) + at(gx + 1, gy + 1) * u) * v;
 };
 
-/** Plan a glacier, all at once (tests; the worker slices `planGlaciate`). */
-export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
-  const g = planGlaciate(input, settings, intent, valley, finish);
-  for (;;) {
-    const r = g.next();
-    if (r.done) return r.value;
-  }
-}
-
 /** Plan a glacier a phase at a time (each `next()` a slice of it); its value, once done, is the plan.
  *  `finish`: lead the floor's extra water into the main river (D292; off only to compare with the
  *  investigation's round 4). Finished, the river's course is tried in turn (floor.ts `FLOOR_STYLES`:

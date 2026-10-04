@@ -22,7 +22,6 @@ const TITLES: Record<IntentionId, string[]> = {
   "under-cliff": ["Cliff Shelter", "Under the Bluff", "Bluff Hollow {land}", "Crag Foot", "Sheltered Ledge"],
   landmark: ["Lone Spire", "The Watchstone", "Needle {land}", "Standing Stone", "Sentinel {land}"],
   "farmland-past-gorge": ["Beyond the Gorge", "Far Fields", "Gorge Crossing", "Fields Past the Chasm", "Across the Cut"],
-  "safe-water-uphill": ["Uphill Water", "The High Well"],
   "falls-shield": ["Falls Guard", "Behind the Falls", "Falls Watch {land}", "Curtain Falls", "Waterfall Ward"],
   "hidden-valley": ["Hidden Vale", "The Secret Shelf", "High Hollow", "Tucked Vale", "Lost Shelf {land}"],
   "high-lake": ["Sky Lake", "Perched Lake", "Upper Pool {land}", "Hanging Tarn", "Summit Water"],

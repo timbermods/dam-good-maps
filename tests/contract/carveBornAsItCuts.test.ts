@@ -41,7 +41,6 @@ async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; w
   // (a force an earlier test left at work, failing part way, goes first)
   ed.forceCancel();
   await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));

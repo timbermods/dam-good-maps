@@ -5,8 +5,6 @@
 import type { Orientation } from "../format/footprints";
 import type { Runs } from "../math/grid";
 
-export const FEATURE_SCHEMA_VERSION = 1;
-
 export type FeatureKind = "river" | "lake" | "landform" | "setPiece" | "forest" | "berryPatch" | "ruinField" | "mapObject" | "start";
 export type Origin = "generated" | "user" | "claude";
 export type Edge = "west" | "east" | "south" | "north";
@@ -245,7 +243,3 @@ export type Feature =
   | RuinFieldFeature
   | MapObjectFeature
   | StartFeature;
-
-export function byKind<K extends FeatureKind>(features: readonly Feature[], kind: K): Extract<Feature, { kind: K }>[] {
-  return features.filter((f) => f.kind === kind) as Extract<Feature, { kind: K }>[];
-}
