@@ -5,7 +5,7 @@
 // undo step, leaving only the terrain.
 
 import { describe, expect, it } from "vitest";
-import { cornerFor } from "../../src/core/doc/tools";
+import { cornerFor } from "../../src/core/doc/start";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";

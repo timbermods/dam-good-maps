@@ -20,7 +20,7 @@ import { generate } from "../../src/core/gen/generate";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
-import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
+import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { StartFeature } from "../../src/core/features/schema";
 import * as ed from "../../src/worker/session";
 

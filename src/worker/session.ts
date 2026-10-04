@@ -15,23 +15,17 @@ import {
   kindName,
   objectsOnNewGround,
   moveEdit,
-  moveStartNear,
-  startCarriedBack,
-  startCarry,
-  startClears,
-  startBrokenBy,
-  startMiddle,
   planContextOf,
   planLake,
   planPiece,
   planRiver,
   replacePatch,
   withObjectsOnNewGround,
-  cornerFor,
   type LakeRequest,
   type PlannedEdit,
   type RiverRequest,
 } from "../core/doc/tools";
+import { moveStartNear, startCarriedBack, startCarry, startClears, startBrokenBy, startMiddle, cornerFor } from "../core/doc/start";
 import type { PlanRecord } from "../core/features/setpieces";
 import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
