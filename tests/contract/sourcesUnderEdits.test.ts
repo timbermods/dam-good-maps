@@ -1,6 +1,6 @@
 // Another feature's water or badwater source under an edit (decisions-pending #89, accepted by
 // Kyler in PLAN §20 D270 for the generator's feature operations and Claude's steps only). A planned
-// edit (a lake, a landform, a set piece, a move) that would reshape the ground under a source keeps
+// edit (a move of the start; before D182 also a lake, a landform or a set piece) that would reshape the ground under a source keeps
 // off it and says why (`objectsOnNewGround` in src/core/doc/tools.ts). The brushes, the Select tool
 // and the forces never meet that refusal: sources ride the ground under brushes and Select actions
 // (D249), and the forces sweep their path (D257).

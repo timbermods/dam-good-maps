@@ -14,7 +14,9 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `stored.ts`: the stored map (`storeBuilt`, `restoreBuilt`, `sameMap`).
-- `base.ts` (the stored base map), `placing.ts` and `tools.ts` (turn a request into planned features and operations), `bake.ts` (old drawn landforms become plain terrain, D182).
+- `base.ts` (the stored base map), `placing.ts` (an object or a source from the shelf, and moving one), `tools.ts` (moving
+  the start; what reshaped ground does to the objects on it; features' plain names), `bake.ts` (old drawn landforms
+  become plain terrain, D182).
 - `start.ts`: the start's helpers the forces, Select, the shelf and the checks' fixes share (`startProblem`, `moveStartNear`,
   `startClears`, `startCarry`, `startMiddle`).
 - `waterFix.ts` `waterFix`: the automatic water fix (D330): the operations that fix the start's water checks after edits (a spring by the start), as one step.

@@ -803,7 +803,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
-  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  objects under it in the same step (`doc/start.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
