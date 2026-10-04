@@ -268,7 +268,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
   any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
   as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
-  channel (shown as a stroke's water is); kept (or skipped to its end), the map's water flows on from that water, so
+  channel (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
+  the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
@@ -881,7 +882,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
-  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  objects under it in the same step (`doc/start.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
@@ -946,8 +947,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
-    soon as it has answered; the page meshes a stroke's water a few chunks a frame (`updateWaterSoon`), so painting
-    and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
+    soon as it has answered; the renderer's water worker meshes the chunks a stroke's water changed, nearest the
+    view first (`updateWaterSoon`, `waterMesher.ts`), and the page draws a few milliseconds of them a frame (on its
+    own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
+    two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history.

@@ -9,12 +9,9 @@
 import * as portable from "../math/portable";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
-import { reachAt, walkDistance } from "../analysis/walk";
+import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
-import { entityTiles } from "../features/edits";
-import { WALK_BLOCKERS } from "../validate/playability";
 import { TREE_LOGS, type EntitySpec } from "../format/entities";
-import { slopeHighSide } from "../format/footprints";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { hash32, tileHash01 } from "../math/hash";
 import { cosDet, expDet, sinDet } from "../math/detmath";
@@ -45,17 +42,7 @@ export interface Ground {
 function walkFromStart(g: Ground): Float64Array | null {
   if (!g.start || !g.entities) return null;
   const { W, H } = g;
-  const links: [number, number][] = [];
-  const blocked = new Uint8Array(W * H);
-  for (const e of g.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  const { blocked, links } = walkWorld(g.entities, W, H);
   const d = walkDistance(g.heights, W, H, blocked, links, g.start);
   const out = new Float64Array(W * H);
   for (let i = 0; i < W * H; i++) out[i] = reachAt(d, W, H, i);
@@ -65,12 +52,15 @@ function walkFromStart(g: Ground): Float64Array | null {
 /** Near the start, food and wood go within this walk: the requirements count 20 (D85). */
 const NEAR_WALK = 20;
 
-/** Regeneration constraints (PLAN §7.0): tiles resources keep off, and what locks kept. */
+/** What resources keep off: the badwater hollows' ground (land/hazards.ts `avoid`), and the scrap
+ *  planned already. */
 export interface ResourceConstraints {
   protect: Uint8Array | null;
-  lockedMask: Uint8Array | null;
   /** Scrap already planned (the obstacle's ruins on a plateau): it counts toward the map's budget. */
   scrapPlaced?: number;
+  /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
+   *  prototypes that still pass it type-check (investigation/generative/proto). */
+  lockedMask?: null;
 }
 
 /** The starting wood a tree of a living grove gives, on average (D164): its species' yield by the
@@ -124,10 +114,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     // living plants need moist, dry-footed, clean soil
     moist[i] = g.moisture[i] > 0 && !wet[i] && !(g.soilContamination[i] > 0) ? 1 : 0;
   }
-  // regeneration: nothing on the player's features, locked regions or keep-out regions
+  // nothing on the ground the generator keeps them off
   const keepOff = constraints?.protect;
-  const kept = constraints?.lockedMask;
-  if (keepOff || kept) for (let i = 0; i < N; i++) if (keepOff?.[i] || kept?.[i]) free[i] = 0;
+  if (keepOff) for (let i = 0; i < N; i++) if (keepOff[i]) free[i] = 0;
   const startMask = new Uint8Array(N);
   if (g.start) {
     for (let y = g.start.y - 1; y <= g.start.y + 1; y++)

@@ -2,7 +2,7 @@
 // here changes the session: it reads the built map, the features and the spec.
 
 import type { MapSession } from "../../../src/core/doc/session";
-import { startCentre } from "../../../src/core/doc/tools";
+import { startMiddleTile } from "../../../src/core/format/footprints";
 import type { EntitySpec } from "../../../src/core/format/entities";
 import type { Feature } from "../../../src/core/features/schema";
 import type { MapSpec } from "../../../src/core/spec/mapspec";
@@ -44,7 +44,7 @@ export function viewOf(s: MapSession): MapView {
   const startEntity = b.entities.find((e) => e.template === "StartingLocation");
   let start = b.start ? { x: b.start.x, y: b.start.y, z: b.start.z } : null;
   if (!start && startEntity) {
-    const [x, y] = startCentre(startEntity.x, startEntity.y, startEntity.orientation);
+    const [x, y] = startMiddleTile({ x: startEntity.x, y: startEntity.y, orientation: startEntity.orientation });
     start = { x, y, z: startEntity.z };
   }
   return {

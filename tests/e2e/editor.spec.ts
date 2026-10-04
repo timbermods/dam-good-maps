@@ -5,6 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor } from "./open";
+import { toolInHand } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -44,6 +45,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
   await centreOn(page, lowered[0], lowered[1]);
   await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await toolInHand(page);
   // (from the tile itself: its target is a level below where the stroke starts, D322)
   await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -74,6 +76,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   expect(spring).not.toBeNull();
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
   await centreOn(page, spring![0], spring![1]);
+  await toolInHand(page);
   const sp = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spring!);
   await page.mouse.click(sp.x, sp.y);
   await page.evaluate(() => window.dgmEditor!.idle());

@@ -168,11 +168,13 @@ export function hasDefaults(template: string): boolean {
   return defaultEntity({ id: "", template, x: 0, y: 0, orientation: "Cw0" }, 0) !== null;
 }
 
-/** 2-D tiles an entity covers (none for templates without a footprint). */
-export function entityTiles(e: EntitySpec): [number, number][] {
+/** 2-D tiles an entity covers (none for templates without a footprint, or an entity read from a
+ *  file without a BlockObject). It reads only where the entity stands, so a map file's object
+ *  (`MapObject`) is read alike. */
+export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orientation"> & { z?: number; flipped?: boolean; raw?: JsonObject }): [number, number][] {
   if (!FOOTPRINTS[e.template]) return [];
   if (e.raw && !isObject((e.raw.Components as JsonObject | undefined)?.BlockObject)) return [];
-  return footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped });
+  return footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z ?? 0, orientation: e.orientation, flipped: !!e.flipped });
 }
 
 // ---------------------------------------------------------------------------------- applying

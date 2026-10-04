@@ -7,7 +7,9 @@
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { planContextOf, planLake, planLandform } from "../../src/core/doc/tools";
+import { planEntity } from "../../src/core/doc/placing";
+import { polygonMask } from "../../src/core/features/geometry";
+import type { LandformFeature } from "../../src/core/features/schema";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate, MAX_ATTEMPTS } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -128,8 +130,8 @@ describe("the checks' replica follows the editor's map by its log", () => {
     const [x, y] = besideWater(a);
     a.apply({ op: "sculpt", params: { mode: "raise", cells: box(x - 2, y - 2, x + 2, y + 2), amount: 2 } });
     same();
-    const lake = planLake({ outline: [[20.5, 70.5], [30.5, 70.5], [30.5, 78.5], [20.5, 78.5]], spring: 0.5 }, planContextOf(a), "0b8e9a64-1111-4c2d-9e1f-2a3b4c5d6e7f");
-    if (lake.ok) a.applyAll(lake.ops, "user", lake.label);
+    const source = planEntity(a, { template: "WaterSource", x: 25, y: 74, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } }, "0b8e9a64-1111-4c2d-9e1f-2a3b4c5d6e7f");
+    if (source.ok) a.applyAll(source.ops, "user", source.label);
     same();
     a.undo();
     same();
@@ -161,12 +163,11 @@ describe("an imported map's first edit starts from its own water", () => {
   });
 });
 
-describe("drawn landforms stand on the ground, and say the level they reach", () => {
-  it("a gentle hill never lowers the ground under it, and a small one says it tops out lower", () => {
+describe("an old project's drawn landforms stand on the ground", () => {
+  it("a gentle hill never lowers the ground under it", () => {
     const r = generate(makeSpec({ seed: 3, size: { x: W, y: W } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
-    const ctx = planContextOf(s);
     // a spot away from the start, on ground that is not flat
     let at: [number, number] = [70, 20];
     for (let y = 14; y < W - 14; y += 5)
@@ -183,20 +184,19 @@ describe("drawn landforms stand on the ground, and say the level they reach", ()
         if (hi - lo >= 2) at = [x, y];
       }
     const outline: [number, number][] = [[at[0] - 6.5, at[1] - 6.5], [at[0] + 6.5, at[1] - 6.5], [at[0] + 6.5, at[1] + 6.5], [at[0] - 6.5, at[1] + 6.5]];
-    const p = planLandform({ outline, kind: "hill", edgeStyle: "gentle", height: 16 }, ctx, "0b8e9a64-5555-4c2d-9e1f-2a3b4c5d6e7f");
-    expect(p.ok).toBe(true);
-    if (!p.ok) return;
-    // 13 tiles across climb only a few levels: the plan says so before it is placed
-    expect(p.report[0]).toMatch(/^reaches level \d+ here, not 16/);
-    const reached = Number(/reaches level (\d+)/.exec(p.report[0])![1]);
+    // the hill as the old landform tool drew it: its steps start at the lowest ground on its edge
+    const mask = polygonMask(outline, W, W);
+    let base = 16;
+    for (let i = 0; i < mask.length; i++) if (mask[i] && (!mask[i - 1] || !mask[i + 1] || !mask[i - W] || !mask[i + W])) base = Math.min(base, s.built.heights[i]);
+    const feature: LandformFeature = { id: "0b8e9a64-5555-4c2d-9e1f-2a3b4c5d6e7f", kind: "landform", origin: "user", locked: false, params: { kind: "hill", edgeStyle: "gentle", outline, height: 16, base, onGround: true } };
     const before = s.built.heights.slice();
-    expect(s.applyAll(p.ops, "user", p.label).ok).toBe(true);
-    let top = 0;
-    for (const i of p.tiles) {
+    expect(s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Add hill").ok).toBe(true);
+    let raised = 0;
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i]) continue;
       expect(s.built.heights[i]).toBeGreaterThanOrEqual(Math.min(before[i], 16) - (s.built.channel[i] ? 16 : 0));
-      top = Math.max(top, s.built.heights[i]);
+      if (s.built.heights[i] > before[i]) raised++;
     }
-    expect(top).toBeGreaterThanOrEqual(reached);
+    expect(raised).toBeGreaterThan(0);
   });
 });
-

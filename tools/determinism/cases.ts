@@ -5,6 +5,7 @@
 // hashed as little-endian binary64, so signed zero and low bits count. `run.ts` runs the same cases in
 // Chromium, Firefox, WebKit and Node and compares them checkpoint by checkpoint.
 
+import { runStackFixture, stackFixtures } from "../rust/stack-fixtures";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
@@ -37,7 +38,7 @@ function fullMap(m: ForceMap): FullForceMap {
 
 export interface Case {
   id: string;
-  kind: "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling";
+  kind: "stacked-water" | "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling";
   n: number;
   [k: string]: any;
 }
@@ -197,7 +198,7 @@ function water(m: any, ticks = 24) {
  *  full list (nightly) runs every setting at both sizes, three seeds and long sequences. */
 export function cases(smoke = false): Case[] {
   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
-  const out: Case[] = [];
+  const out: Case[] = ["cave-valley", "lake-cave"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
   for (const n of [128, 256]) {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
@@ -223,6 +224,15 @@ export function cases(smoke = false): Case[] {
 /** One case's checkpoints. */
 export async function runCase(c: Case, progress: (s: string) => void = () => {}): Promise<Row[]> {
   const rows: Row[] = [];
+  if (c.kind === "stacked-water") {
+    const f = stackFixtures.find(f => f.name === c.name);
+    if (!f) throw Error("Water fixture is unknown.");
+    const r = runStackFixture(f);
+    const components: Record<string,string> = { info: await sha(binary(r.info, "f64")) };
+    for (const [id, bytes] of r.fields.entries()) components["field"+id] = await sha(bytes);
+    for (const [id, expected] of Object.entries(f.fields)) if (components["field"+id] !== expected) throw Error(f.name+" differs from #71 field "+id);
+    return [{ label: c.id, hash: await sha(enc.encode(json(components))), components }];
+  }
   const add = async (label: string, m: any, record?: any, extra?: any) => void rows.push({ label, ...(await digest(m, record, extra)) });
   if (c.kind === "scheduling") {
     // a force's record must not depend on how fast it was planned (D366): the same run under a

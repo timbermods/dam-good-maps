@@ -81,7 +81,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 3. **Custom map sizes** (D357), then **the dam sketch tool** (D383).
 4. **Pick a place**, after the design pass (D384).
 5. **The four 3D steps** (terrain above terrain; #71 is the reference, never adopted in TypeScript, D448): the Rust water
-   gains the stacked-column engine, then Foundations, the view, creating them (Erode in Rust, D438, and the Block tool),
+   has the stacked-column engine (adopted, the computation alone, not wired in), then Foundations, the view, creating them (Erode in Rust, D438, and the Block tool),
    generation.
 6. **Polish until mature:** the 20-second tour (D377) and **M13**, before collaborative editing's first users (D349).
 7. **Collaborative editing** (D349), then **M12 (Claude)** (D277, D342), then **Later**.
@@ -171,7 +171,7 @@ below).
 ## The Rust order (D381)
 
 The exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI, no timing gates, D441, D453), each port byte-identical and tagged
-before its TypeScript is deleted: (1) the water settle (above), and later the stacked-column engine for terrain above terrain in the same crate (D448); (2) the five released forces (their TypeScript tagged
+before its TypeScript is deleted: (1) the water settle (above), and the stacked-column engine for terrain above terrain in the same crate (D448; adopted as computation only, wired in by Foundations); (2) the five released forces (their TypeScript tagged
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
 Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
@@ -421,12 +421,12 @@ On its own branch `feature/terrain3d-a`, alongside M9b (M9a and M9b keep the mac
 
 **First, new modules only, no existing module changed** (D286 (3)), so it doesn't collide with the water and generator code
 that M9b is changing: the stacked-column water engine as its own module (on #71 in TypeScript, kept as the reference and
-never adopted: Codex ports it into the Rust water crate after the Rust water's adoption, D448), verified against the game itself — a DGM Probe batch
+never adopted: its Rust port is in the Rust water crate, `rust/water`'s stack modules, D448), verified against the game itself — a DGM Probe batch
 of the test maps T1–T6 and the official cave maps' own saved water (asked under D117, when the machine is free) — with its
 results saved as **golden fixtures that CI checks on every push**; and the support-rule check.
 
 **After M9b has merged into `dev`** (the forces have): converting `core/terrain`, the build and the TypeScript validator to
-runs, and wiring in the **Rust** stacked engine once Codex's port passes #71's golden fixtures in every engine (D448; the
+runs, and wiring in the **Rust** stacked engine, which passes #71's golden fixtures natively, in Node's WebAssembly and in D366's engines (D448; the
 one-column fast path is today's water unchanged) (`build`).
 
 **No Python copy of the stacked water engine** (D279): 3D water is verified against the game, not a second engine kept in

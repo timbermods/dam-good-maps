@@ -35,6 +35,7 @@ are as of 2026-10-04 and move.
 | Coherence cleanup 3 to 7 | `cleanup/3-forces-core` to `cleanup/7-planners` | #221, #223, #226, #230, #241 | none | In order after 2; #230 still needs its investigation-import fix |
 | Rust water switch | `feature/rust-water-switch` | #212 | `-rust` | Next after the cleanup's group 5 or ahead of it, whichever merges first; the other rebases |
 | The Rust forces adopted (#158, D381) | `feature/rust-forces` | its own | `-rforces` | Planners in Rust, the TypeScript computation tag `ts-forces-final` and deleted; after #212 |
+| Rust stacked-column water (D448) | `feature/rust-stacked` | #260 | `-stacked` | Adopted from #255: the computation in `rust/water`, no wiring yet; merges on review and green CI |
 | Startup part 1, the core half | `feature/startup-part1` | #222 | none | CI running; D367, D455 |
 | CI merge queue | `ci/merge-queue` | #238 | none | CI running |
 | Badwater joins rivers and lakes | `fix/badwater-contained-d469` | #245 | none | First of the generator queue (D469); one re-pin |
@@ -45,7 +46,7 @@ are as of 2026-10-04 and move.
 | Renderer fixes | `fix/frame-fit`, `fix/basin-highlight`, `fix/high-worker` | #219, #225, #240 | none | #225 fails the palette test (a hard-coded colour); the renderer session fixes it |
 | Parity with the game's editor | `feature/parity` | #95 draft | `-parity` | Parked: Codex rebuilds its core in Rust first |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 draft | `-weather` | Parked: held for Kyler's sitting, after the page |
-| 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | Parked as the reference: Codex ports its stacked engine into the Rust water (D448) |
+| 3D terrain, step 1 | `feature/terrain3d-a` | #71 draft | `-3d` | Parked as the reference; its stacked engine's Rust port is on `feature/rust-stacked` (D448) |
 | Real places, round 2 | `feature/real-places-2` | #35 | `-places` | Parked by Kyler (D319); CI red is expected |
 | Source groups, the rule | `feature/source-groups` | #79 draft | `-groups` | Redundant: `sourceGroups.ts` is on `dev`; to close |
 

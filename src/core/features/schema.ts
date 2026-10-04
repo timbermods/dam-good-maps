@@ -135,6 +135,10 @@ export interface LandformParams {
 
 // -------------------------------------------------------------------------------------- set piece
 
+/** The set-piece kinds a document may name. The generator makes the second district's site, ruins on
+ *  a rise and badwater hollows; the editor's waterfalls, dam sites, gorges, terraced cliffs, plugged
+ *  spillways and natural narrows are retired (D462): a project that held one opens without it
+ *  (doc/document.ts `dropRetired`), and no builder makes them (setpieces/index.ts `BUILDERS`). */
 export type SetPieceKind =
   | "waterfall"
   | "damSite"
@@ -144,7 +148,6 @@ export type SetPieceKind =
   | "plugSpillway"
   | "obstaclePayoff"
   | "secondDistrict"
-  // M9a: two hillside spurs closing in on a river (#63: an internal operation for M12's Claude)
   | "naturalNarrows";
 
 export interface SetPieceParams {

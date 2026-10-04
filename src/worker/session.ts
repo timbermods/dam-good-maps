@@ -11,33 +11,11 @@
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
-import {
-  kindName,
-  objectsOnNewGround,
-  moveEdit,
-  moveStartNear,
-  startCarriedBack,
-  startCarry,
-  startClears,
-  startBrokenBy,
-  startMiddle,
-  planContextOf,
-  planLake,
-  planPiece,
-  planRiver,
-  replacePatch,
-  withObjectsOnNewGround,
-  cornerFor,
-  startCentre,
-  type LakeRequest,
-  type PlannedEdit,
-  type RiverRequest,
-} from "../core/doc/tools";
-import type { PlanRecord } from "../core/features/setpieces";
+import { kindName, moveEdit } from "../core/doc/tools";
+import { moveStartNear, startCarriedBack, startCarry, startClears, startBrokenBy, startMiddle, cornerFor } from "../core/doc/start";
 import { removeKindOf, removeTakes, type RemoveKind } from "../core/features/objects";
 export type { RemoveKind };
-import { entityProblem, footprintCheck as checkFootprint, lakeAt, levelProblem, moveObject, planEntity, planMoveEntity, planObject, levelFootprint, planRiverBadwater, type AreaPreview, type EntityRequest, type ObjectRequest, type PlannedOps } from "../core/doc/placing";
-import type { SetPieceKind } from "../core/features/schema";
+import { entityProblem, footprintCheck as checkFootprint, levelProblem, planEntity, planMoveEntity, levelFootprint, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { distanceFrom, runsToTiles, tilesToRuns, type Runs } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
 import { toTimberFile } from "../core/gen/pack";
@@ -68,7 +46,7 @@ import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { mapObjects, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
-import { blocks, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
+import { blocks, failing, type CheckClass, type CheckResult, type FixOp } from "../core/validate/report";
 import { changedRect } from "../render3d/mesh";
 import type { CarveRun } from "../core/forces/carve/run";
 import { CarvePlay } from "../core/forces/carve/play";
@@ -885,7 +863,7 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
   const items: CheckItem[] = [];
   const at = entityPositions(s);
   for (const c of v.report.checks) {
-    if (c.ok || c.applicable === false || c.advisory) continue;
+    if (!failing(c)) continue;
     const item = itemOf(c, s);
     if (region) item.here = inRegion(c.where, region, at);
     items.push(item);
@@ -1114,7 +1092,7 @@ function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
     fix = fix.length ? [{ ...fix[0], label }, ...fix.slice(1)] : undefined;
   }
   if (!fix && s && START_FIXABLE.has(c.id)) {
-    const at = startAt(s);
+    const at = startMiddle(s);
     const ops = at ? moveStartNear(s, at[0], at[1]) : null;
     if (ops) fix = ops.map((op, k) => ({ ...op, label: k === 0 ? "Move the start to the nearest good spot" : "" }) as FixOp);
   }
@@ -1134,14 +1112,6 @@ function itemOf(c: CheckResult, s: MapSession | null = session): CheckItem {
     if (tiles.length) where = { ...where, tiles };
   }
   return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
-}
-
-/** The middle of the map's start, from its feature or its StartingLocation. */
-function startAt(s: MapSession): [number, number] | null {
-  const f = s.features.find((g) => g.kind === "start");
-  if (f && f.kind === "start") return [f.params.position[0], f.params.position[1]];
-  const e = s.built.entities.find((g) => g.template === "StartingLocation");
-  return e ? startCentre(e.x, e.y, e.orientation) : null;
 }
 
 /** Whether a failing check was already failing, over the same things, when the map was opened. */
@@ -1370,63 +1340,26 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
 
 // ------------------------------------------------------------------------------------ the tools
 
-export type ToolRequest =
-  | ({ tool: "river" } & RiverRequest)
-  | ({ tool: "lake" } & LakeRequest)
-  | { tool: "setPiece"; piece: SetPieceKind; request: PlanRecord }
-  | ({ tool: "object" } & ObjectRequest)
-  | ({ tool: "entity" } & EntityRequest)
-  | { tool: "spillway"; at: [number, number]; width?: number }
-  | { tool: "riverBadwater"; river: string; on: boolean };
+/** What the shelf places (D184): an object or a source, one entity (EDITOR_PLAN §4). */
+export type ToolRequest = { tool: "entity" } & EntityRequest;
 
 export interface ToolPlan {
   ok: boolean;
   errors: string[];
-  /** What the edit does, in plain words: every value reduced, what it clears and adds. */
+  /** What the edit does, in plain words. */
   report: string[];
   label: string;
   ops: EditOp[];
-  /** The tiles the planned feature covers, for the preview. */
+  /** The tiles it covers, for the preview. */
   tiles: number[];
-  /** A resource area's preview: where plants live, where they would stand dead, what stays bare. */
-  area?: AreaPreview;
-  featureId: string | null;
 }
 
-function toolPlan(r: PlannedEdit | PlannedOps, area?: AreaPreview): ToolPlan {
-  if (!r.ok) return { ok: false, errors: r.errors, report: [], label: "", ops: [], tiles: [], featureId: null };
-  return { ok: true, errors: [], report: r.report, label: r.label, ops: r.ops, tiles: r.tiles, ...(area ? { area } : {}), featureId: "feature" in r ? r.feature.id : null };
-}
-
-/** Plan a tool's edit on the open map without applying it (the preview). `id` is the new
- *  feature's id, or the id of the set piece planned again. */
-export function planTool(req: ToolRequest, id: string): ToolPlan {
-  const s = need();
-  if (req.tool === "setPiece") return toolPlan(planPiece(s, req.piece, req.request, id));
-  if (req.tool === "object") {
-    const { tool: _t, ...r } = req;
-    return toolPlan(planObject(s, r, id));
-  }
-  if (req.tool === "entity") {
-    const { tool: _t, ...r } = req;
-    return toolPlan(planEntity(s, r, id));
-  }
-  if (req.tool === "riverBadwater") return toolPlan(planRiverBadwater(s, req.river, req.on));
-  if (req.tool === "spillway") {
-    const lake = lakeAt(s, req.at[0], req.at[1]);
-    if (!lake) return toolPlan({ ok: false, errors: ["click a lake's shore: a spillway drains a lake"] });
-    return toolPlan(planPiece(s, "plugSpillway", { lake, at: req.at, width: req.width ?? 3 }, id));
-  }
-  // a feature on the map is planned again on the map without it, and changed in place
-  const existing = s.features.find((f) => f.id === id) ?? null;
-  const ctx = planContextOf(s, existing ? id : null);
-  const origin = existing?.origin ?? "user";
-  const r = req.tool === "river" ? planRiver(req, ctx, id, origin) : planLake(req, ctx, id, origin);
-  if (!r.ok) return toolPlan(r);
-  // the objects on the ground it reshapes move with it, or are cleared (EDITOR_PLAN §3, D87)
-  if (!existing) return toolPlan(withObjectsOnNewGround(s, r, id));
-  const patch = { params: replacePatch(existing.params, r.feature.params) as Record<string, unknown> };
-  return toolPlan(withObjectsOnNewGround(s, { ...r, ops: [{ op: "updateFeature", params: { id, patch } }, ...r.ops.slice(1)], label: `Change ${r.label.replace(/^Add /, "")}` }, id));
+/** Plan a shelf placement on the open map without applying it. */
+function planTool(req: ToolRequest, id: string): ToolPlan {
+  const { tool: _t, ...r } = req;
+  const p: PlannedOps = planEntity(need(), r, id);
+  if (!p.ok) return { ok: false, errors: p.errors, report: [], label: "", ops: [], tiles: [] };
+  return { ok: true, errors: [], report: p.report, label: p.label, ops: p.ops, tiles: p.tiles };
 }
 
 /** Plan and apply a tool's edit as one undo step. */
@@ -1614,11 +1547,11 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
   return changed(s, r.ok, r.errors, t0);
 }
 
-/** Move a feature by (dx, dy) tiles; rivers, lakes and set pieces are planned again there. */
-export function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
+/** Move the start feature by (dx, dy) tiles. */
+function moveFeature(id: string, dx: number, dy: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const r = s.features.find((f) => f.id === id)?.kind === "mapObject" ? moveObject(s, id, dx, dy) : moveEdit(s, id, dx, dy);
+  const r = moveEdit(s, id, dx, dy);
   if (!r.ok) return changed(s, false, r.errors, t0);
   const a = s.applyAll(r.ops, "user", r.label);
   return changed(s, a.ok, a.errors, t0);
@@ -1642,7 +1575,7 @@ export function moveStartTo(x: number, y: number, orientation?: Orientation): Se
   const s = need();
   const f = s.features.find((g) => g.kind === "start");
   if (f && f.kind === "start") {
-    const at = startAt(s)!;
+    const at = startMiddle(s)!;
     const moves = x !== at[0] || y !== at[1];
     if (!orientation || orientation === f.params.orientation) return moveFeature(f.id, x - at[0], y - at[1]);
     // turned too (the shelf's R): one step
@@ -1731,11 +1664,9 @@ export function entitiesAt(x: number, y: number): EntityInfo[] {
   return out;
 }
 
-/** The hover preview of a single object or an entity: its tiles, and why it can't stand there. */
+/** The hover preview of an object or a source from the shelf: its tiles, and why it can't stand there. */
 export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: string | null; level?: number } {
-  const s = need();
-  if (req.tool !== "object" && req.tool !== "entity") return { tiles: [], problem: null };
-  return checkFootprint(s, req);
+  return checkFootprint(need(), req);
 }
 
 // ------------------------------------------------------------------------------ the water layers
@@ -2157,14 +2088,27 @@ export function flowForceWater(ticks: number): Float64Array | null {
   return w.sim.D.slice();
 }
 
+/** How fast a force's own water flows: substeps a second (two game minutes a second), whatever the map's
+ *  size or the machine, so a carve's breakthrough drains its sheet at a pace the eye follows rather than at
+ *  once (#247). A machine that can't keep up flows as fast as it can, never catching up in a burst. */
+const FORCE_WATER_PACE = 400;
+
 async function runForceWater(token: number): Promise<void> {
   let last = 0;
+  let owed = 0;
+  let at = performance.now();
   for (;;) {
     const w = forceWater;
     if (!w || token !== forceWaterToken || force !== w.force || w.force.session !== session) return;
+    const now = performance.now();
+    // (at most a tenth of a second's water owed: a stall is never made up at once)
+    owed = Math.min(owed + ((now - at) / 1000) * FORCE_WATER_PACE, FORCE_WATER_PACE / 10);
+    at = now;
     if (forceWaterFlows(w)) {
-      const t0 = performance.now();
-      while (performance.now() - t0 < WATER_SLICE_MS) w.sim.run(2);
+      while (owed >= 2 && performance.now() - now < WATER_SLICE_MS) {
+        w.sim.run(2);
+        owed -= 2;
+      }
       if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
         last = performance.now();
         const D = w.sim.D;
@@ -2175,8 +2119,9 @@ async function runForceWater(token: number): Promise<void> {
           listener({ kind: "water", version, water: waterOf(w.force.session, { depth: D, contamination: w.sim.C, out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
         }
       }
-    }
-    await breathe();
+    } else owed = 0;
+    // (ahead of the pace: wait a few milliseconds rather than spin)
+    await (owed < 2 ? new Promise<void>((r) => setTimeout(r, 4)) : breathe());
   }
 }
 

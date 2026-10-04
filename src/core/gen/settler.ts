@@ -14,9 +14,9 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
-import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from "../analysis/walk";
+import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
-import { coordinatesForMinCorner, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, ORIENTATIONS, rotate, type Orientation } from "../format/footprints";
 import type { Hydro } from "../land/hydro";
 import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
@@ -149,15 +149,7 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
-  const links: [number, number][] = [];
-  for (const s of slopes) {
-    const [dx, dy] = slopeHighSide(s.orientation);
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    if (hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([s.y * W + s.x, hy * W + hx]);
-  }
-  const d = walkDistance(h, W, H, null, links, { x, y }, Math.max(20, rule));
+  const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
   let water = Infinity;
