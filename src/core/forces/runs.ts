@@ -12,10 +12,9 @@
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
 import * as portable from "../math/portable";
-import { toMapObject } from "../features/build";
-import type { WarmState } from "../sim/preview";
-import { waterModel } from "../sim/model";
-import { WaterSim, type WaterModel } from "../sim/water";
+import { modelOf } from "../features/build";
+import { warmState, type WarmState } from "../sim/preview";
+import { WaterSim } from "../sim/water";
 import { ImpactPlan, type CraterIntent, type CraterSettings } from "./craterize";
 import { EruptPlan, lobeField, stageMap, type EruptIntent, type EruptSettings, type Point } from "./erupt";
 import { snapshotMap, type FullForceMap } from "./force";
@@ -86,8 +85,8 @@ export interface StagedRun {
   finalize: Finalize | null;
 }
 
-/** The water model of a force's map. */
-export const modelOf = (m: FullForceMap): WaterModel => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
+/** The water model of a force's map (features/build.ts). */
+export { modelOf };
 
 /** A planning slice's budget (ms): the worker answers the page's other calls between them. */
 const PLAN_MS = 12;
@@ -119,10 +118,6 @@ export function respectKeep(before: FullForceMap, after: FullForceMap, keep: Uin
     after.fallen = after.fallen.filter((f) => ids.has(f.id) && !kept({ x: Math.floor(f.x), y: Math.floor(f.y) }));
     for (const f of before.fallen) if (kept({ x: Math.floor(f.x), y: Math.floor(f.y) }) && !after.fallen.some((g) => g.id === f.id)) after.fallen.push(structuredClone(f));
   }
-}
-
-function warm(sim: WaterSim, m: FullForceMap): WarmState {
-  return { model: modelOf(m), water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
 
 /** Called on a force's final map once it is planned: the editor gives it the build's own last
@@ -207,7 +202,7 @@ export abstract class Staged {
 
   liveWater(): WarmState {
     if (!this.sim) this.sim = new WaterSim(modelOf(this.map), this.map.water);
-    return warm(this.sim, this.map);
+    return warmState(modelOf(this.map), this.sim);
   }
 }
 

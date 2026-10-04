@@ -23,7 +23,7 @@ import { hash32 } from "../../math/hash";
 import { spillLevels } from "../../sim/prefill";
 import { forceFloor } from "../floor";
 import type { CarveRun } from "./run";
-import { modelFor } from "./run";
+import { modelOf } from "../../features/build";
 import { oxbowBasin } from "./water";
 import { clamp } from "../random";
 
@@ -65,7 +65,7 @@ export function shapeRiver(run: CarveRun): number[] {
     // the game's water pools up to its spill level, and a little over it where it flows on: the
     // carve's ground stays within `depth` - 1 of that level, so the water over it is never deeper than
     // `depth` (at 1, no pool at all: the river just flows)
-    const spill = spillLevels(modelFor(m));
+    const spill = spillLevels(modelOf(m));
     for (let i = 0; i < h.length; i++)
       if (h[i] < run.original[i] && spill[i] - h[i] > depth - 1 + 0.01) set(i, Math.ceil(spill[i] - depth + 1 - 1e-6));
   }

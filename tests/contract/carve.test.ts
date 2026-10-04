@@ -14,7 +14,8 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { naturalWidth } from "../../src/core/forces/carve/character";
 import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { CarveRun, DEFAULTS, hardness, mapSeed, modelFor, sourceStrength, type CarveIntent, type CarveSettings } from "../../src/core/forces/carve/run";
+import { CarveRun, DEFAULTS, hardness, mapSeed, sourceStrength, type CarveIntent, type CarveSettings } from "../../src/core/forces/carve/run";
+import { modelOf } from "../../src/core/forces/runs";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { protectedGround, STEPS_PER_SECOND, type ForceMap } from "../../src/core/forces/force";
 import { generate } from "../../src/core/gen/generate";
@@ -175,13 +176,13 @@ describe("the force: Power, Width, walls and rock", () => {
     expect(total(broad)).toBe(8);
     expect(broad.group.length).toBeGreaterThan(1);
     expect(broad.group[0].tile).toBe(intent.origin);
-    const emitted = (r: CarveRun) => modelFor(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
+    const emitted = (r: CarveRun) => modelOf(r.map).emitters.filter((e) => r.group.some((g) => e.cells.includes(g.tile))).reduce((a, e) => a + e.strength, 0);
     expect(emitted(slot)).toBeCloseTo(0.5, 3);
     expect(emitted(broad)).toBeCloseTo(8, 3);
     const dry = complete(mountain, { dry: true, power: 95 });
     expect(dry.source).toBeNull();
     expect(dry.group).toEqual([]);
-    expect(canonicalSettle(modelFor(dry.map)).depth.every((v) => v === 0)).toBe(true);
+    expect(canonicalSettle(modelOf(dry.map)).depth.every((v) => v === 0)).toBe(true);
     // the water never changes the land it cuts
     expect(Array.from(dry.map.heights)).toEqual(Array.from(high.map.heights));
   });
@@ -331,7 +332,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
   const r = complete(ox, winding, aimed);
   const cut = r.oxbows[0];
   const lake = oxbowLake(r);
-  const model = { ...modelFor(r.map), ...(lake ? { retained: [lake] } : {}) };
+  const model = { ...modelOf(r.map), ...(lake ? { retained: [lake] } : {}) };
   const water = canonicalSettle(model);
 
   it("bends are wider and deeper on the outside, the straights narrower: never a uniform tube", () => {
@@ -364,7 +365,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     expect(lake!.tiles).toEqual(basin.slice().sort((a, b) => a - b));
     expect(cut.neck.every((p) => water.depth[at(p)] > 0.05)).toBe(true);
     // the game's settle from the land and the sources alone would leave the crescent dry
-    const fresh = canonicalSettle(modelFor(r.map));
+    const fresh = canonicalSettle(modelOf(r.map));
     expect(cut.pool.filter((p) => fresh.depth[at(p)] > 1).length).toBeLessThan(cut.pool.filter((p) => water.depth[at(p)] > 1).length / 4);
     // the two-stage settle is exact however it is sliced
     const run = canonicalRun(model);
@@ -375,7 +376,7 @@ describe("the force: varied bends and oxbow lakes (D199, D216; #47's two touches
     const dry = complete(ox, { ...winding, dry: true }, aimed);
     expect(dry.oxbows.length).toBe(1);
     expect(oxbowLake(dry)).toBeNull();
-    expect(canonicalSettle(modelFor(dry.map)).depth.every((v) => v === 0)).toBe(true);
+    expect(canonicalSettle(modelOf(dry.map)).depth.every((v) => v === 0)).toBe(true);
   });
 
   it("an unfed oxbow lake evaporates under the game's rules: correct physics, and nothing refills it", () => {

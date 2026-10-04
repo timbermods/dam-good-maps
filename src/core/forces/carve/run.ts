@@ -26,13 +26,12 @@
 // runs this code.
 
 import * as portable from "../../math/portable";
-import { toMapObject } from "../../features/build";
+import { modelOf } from "../../features/build";
 import { PLACED } from "../../features/edits";
 import { waterSource, type EntitySpec } from "../../format/entities";
 import { guidFrom, hash32 } from "../../math/hash";
 import { placeSourceGroup } from "../../water/sourceGroups";
-import { waterModel } from "../../sim/model";
-import type { WarmState } from "../../sim/preview";
+import { warmState, type WarmState } from "../../sim/preview";
 import { WaterSim, type WaterModel } from "../../sim/water";
 import { entityTiles, protectedGround, type ForceHead, type ForceMap, type Lane } from "../force";
 import { naturalWidth, RiverCharacter } from "./character";
@@ -141,8 +140,6 @@ export function hardness(level: number, layers: boolean, seed = 0): number {
   return layers && (level + (seed % 4)) % 4 === 0 ? 1 : 0;
 }
 
-/** The water model of a force's map. */
-export const modelFor = (m: ForceMap) => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
 
 /** A carve's own options, beyond its settings: the ground it may not touch (the layer cut, caves),
  *  and the id of the source it keeps. */
@@ -261,7 +258,7 @@ export class CarveRun {
     this.course = new Course(input, settings, intent, this.character);
     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
     this.map = { ...input, ...(input.lava ? { lava: input.lava.slice() } : {}), heights: input.heights.slice(), entities: input.entities.slice(), water: { depth: input.water.depth.slice(), contamination: input.water.contamination.slice() } };
-    this.model = modelFor(input);
+    this.model = modelOf(input);
     this.target = input.heights.slice();
     this.sign = new Int8Array(N);
     this.wear = new Float64Array(N);
@@ -325,7 +322,7 @@ export class CarveRun {
   liveWater(): WarmState {
     const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
     const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
-    return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+    return warmState(model, sim);
   }
 
   /** The source it keeps, as it stands now (null for a dry canyon). */
