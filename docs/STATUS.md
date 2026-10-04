@@ -68,7 +68,7 @@ are as of 2026-10-04 and move.
    investigation-import fix, then #241 (group 7) after its rebase onto the new group 6.
 3. The Rust water switch (#212, resolving a conflict with dev), then the Rust forces (#158, being adopted on
    `feature/rust-forces`).
-4. The generator queue, one re-pin at a time: the theme critique's badwater-line PR (D469; not opened yet), then Delta arms
+4. The generator queue, one re-pin at a time: the theme critique's badwater-line PR (#265, D469: generator 0.8.1, its one re-pin `LIVE_SHA`; `needs-kyler` for the sheet), then Delta arms
    round 2 (#233, merged as an investigation), then Lake Basin round 3 (#234, merged as an investigation); Islands round 4
    (#235) after Kyler's judgement. #245 (D57 amended by D469) is merged.
 5. Startup part 1 (#222) is merged: a project autosaved while its water is still pending carries no stored map, so the page

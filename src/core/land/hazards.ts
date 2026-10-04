@@ -305,7 +305,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   const ditchEst = (i: number, floor: number): number => {
     let d = toWater.get(floor);
     if (!d) {
-      d = spread((j) => o0.goal[j] === 1 && hh[j] + wetNow[j] < floor);
+      d = spread((j) => o0.goal[j] === 1 && !o0.keepOff[j] && hh[j] + wetNow[j] < floor);
       toWater.set(floor, d);
     }
     return Number.isFinite(d[i]) ? d[i] : W + toEdge[i];
@@ -397,9 +397,11 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // that water, and the ring beside it, the ditch keeps off)
     const goal = new Uint8Array(N);
     const keepOff = cached.outs.keepOff.slice();
-    for (let j = 0; j < N; j++) if (cached.outs.goal[j] && hh[j] + wetNow[j] < floor) goal[j] = 1;
+    // (and never a tile it keeps off, a river's mouth or the player's keep-off: the trace, the
+    // cheapest way and the drawn ditch all end only where the ditch may go)
+    for (let j = 0; j < N; j++) if (cached.outs.goal[j] && !keepOff[j] && hh[j] + wetNow[j] < floor) goal[j] = 1;
     for (let j = 0; j < N; j++) {
-      if (!cached.outs.goal[j] || goal[j]) continue;
+      if (!cached.outs.goal[j] || goal[j] || cached.outs.keepOff[j]) continue;
       const x = j % W;
       const y = (j - x) / W;
       for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) if (!goal[yy * W + xx]) keepOff[yy * W + xx] = 1;

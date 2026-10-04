@@ -83,10 +83,11 @@ async function wordy(page: Page): Promise<string[]> {
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went; its one flat
-  // spot is a plateau by the map's edge, where the placed source's water runs over the uneven ground
-  // the mine site needs levelled, and "the water is in the way")
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
+  // (seed 6 for 0.8.1's maps, D148: seed 4's land has no open, level, dry spot since the badwater
+  // ditches follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere
+  // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
+  // uneven ground the mine site needs levelled, and "the water is in the way")
+  await page.goto("./#s=6&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

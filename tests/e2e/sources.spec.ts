@@ -38,9 +38,10 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and keeps room
-  // for only one of the two rows; of River Valley 96² seeds 1-30 only seed 4 has both)
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
+  // (seed 6 for 0.8.1's maps, D148: seed 4's land has no room for either row since the badwater ditches
+  // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
+  // kept room for only one of the two rows)
+  await page.goto("./#s=6&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
