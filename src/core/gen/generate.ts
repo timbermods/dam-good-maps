@@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
-import { seaLevel, standIslandsClear } from "../land/islands";
+import { islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -173,7 +173,7 @@ export interface GenerationInfo {
   preWet?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
-  planned?: { promise: boolean; water: boolean };
+  planned?: { promise: boolean; water: boolean; island?: number };
   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
@@ -345,6 +345,8 @@ interface LandStage {
   hollows: Omit<Hazards, "heights"> | null;
 }
 
+/** An island to expand to (D429): the dry tiles it needs at 128², by area (`islandToExpandTo`). */
+const EXPAND_TILES = 150;
 /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
  *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
  *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
@@ -1328,9 +1330,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
-  // ground, is parted from it by a strait)
+  // ground, is parted from it by a strait; D432: on every sea map, the layout's islands only, never
+  // D417's headlands, which are the shore's own)
   if (g.seaLayout) {
-    const isles = g.parts.filter((p) => p.isle).map((p) => {
+    const isles = g.parts.filter((p) => p.isle && !p.head).map((p) => {
       const o = (g.orientation ?? 0) as LandOrientation;
       const px = p.at[0] * (W - 1);
       const py = p.at[1] * (H - 1);
@@ -1342,8 +1345,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     });
     const keepI = new Uint8Array(N);
     for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
-    // (only round an inland sea: where the ring breaks, an island may reach the land round it, D417)
-    if (g.seaRing) standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
+    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
@@ -1777,6 +1779,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
+        }
+        // (D429, D432: an Islands map has an island to expand to, large enough to build on and
+        // reachable from the shore across water as the game allows; a land without one is drawn again
+        // like one missing the promise. The size is Kyler's 150 tiles at 128², by area.)
+        if (shown.theme === "islands" && g.seaLayout) {
+          const island = islandToExpandTo(hLand, est, W, H);
+          info.planned.island = island;
+          // (from 128² up: at 96² the sea has little room for islands and the shore little for a
+          // start, and a land drawn again for this missed the start more often, D433)
+          if (!lastAttempt && opts.screen !== false && N >= 128 * 128 && screened.count < landScreen(W, H) && island < EXPAND_TILES * (N / (128 * 128))) {
+            screened.count++;
+            return fail("an island to expand to (planned)", null, false);
+          }
         }
       }
     }

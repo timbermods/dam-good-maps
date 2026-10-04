@@ -47,6 +47,8 @@ export interface Part {
   shape?: "round" | "valley" | "sea";
   /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
   isle?: boolean;
+  /** A headland of the land round the sea (D417): the shore's own, never parted from it. */
+  head?: boolean;
 }
 
 /** The six themes the generator knows, without "Any". */
@@ -630,7 +632,10 @@ const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
 /** How much deeper the basins the Lakes setting adds are (D333 (6)). */
 const LAKES_DEEPER = 1.6;
 
-/** And the sea (a quarter of the map or more, the promise's line). */
+/** And the sea (a quarter of the map or more, the promise's line). Round 3 (D417, D427): the layouts'
+ *  radii are a third of the side or so, so the sea's floor and its arms draw the coast, an outline of
+ *  the sea's own, and the land round it is broad where the sea lies off it; drawn to half the side,
+ *  the sea was cut by the rim on every side and the coast was the rim's rounded square. */
 const SEA_GROW = 1.12;
 
 /**
@@ -646,19 +651,32 @@ const SEA_GROW = 1.12;
  * the rest of the genome keeps its draws.
  */
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
+  const first = g.parts.length;
   const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
   g.seaLayout = layout;
-  g.seaRing = layout === "edge" || rng.float() < 0.25;
+  // (D427, D432: never one large island in a moat inside a ring of land: the central layout breaks
+  // the ring. D423, D427, round 3: a ring of land round the whole sea on about one map in five; the
+  // edge layout is a sea off one edge, no ring, and the sea lies where its layout put it)
+  g.seaRing = rng.float() < 0.25 && layout !== "central" && layout !== "edge";
   g.tiltKind = "radial";
   g.regional.warped = true;
   const side = Math.min(W, H);
-  // a map that needed a new genome gets a smaller sea (a broad sea settles slowly on large maps)
-  const shrink = Math.max(0.75, 1 - 0.05 * attempt);
+  // (D432, round 3: under 128² a map that needed a new genome gets a smaller sea, so the shore keeps
+  // room for a start on a small map, whose sea crowds it: the layouts' radii are the side's share,
+  // the islands' the area's, and a start's needs are the game's. From 128² up the sea keeps its
+  // size: the lands drawn again had mostly missed the promise, which a smaller sea misses more
+  // surely, and the land that passed in the end had little sea. The sea a third of the side settles
+  // in time at 256² without the shrink that a sea of half the side needed.)
+  const shrink = W * H < 128 * 128 ? Math.max(0.75, 1 - 0.05 * attempt) : 1;
   // (D350: on a larger map fewer, larger islands, the same share of the land: count × area^0.3, size
   // × area^0.35, so an island clears the promise's size, which grows with the map, as at 128²)
   const n = (k: number) => Math.max(1, Math.round(k * portable.pow(Math.max(1, areaK), 0.3)));
-  const isleK = portable.pow(Math.max(1, areaK), 0.35);
+  // (round 3: the sea is a third of the side or so now, and the islands keep their share of it)
+  const isleK = portable.pow(Math.max(1, areaK), 0.35) * 0.85;
   let seaDepth = 9;
+  // (round 3, D427: inside a ring of land the sea and its layout are drawn smaller, so the ring is
+  // broad land round the sea's own outline, not a frame along the map's edges)
+  const ringK = g.seaRing ? 0.82 : 1;
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
     seaDepth = depth;
     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
@@ -666,11 +684,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
   // floor, a spine along it and a peak or two off its middle, so the erosion cuts valleys down its
   // flanks and the terraces step it, never a flat table with a bump
-  const island = (at: [number, number], R: number, rise: number, depth: number) => {
+  // (each island's parts, the island first, so the island moves as one piece)
+  const groups: { from: number; to: number; head: boolean }[] = [];
+  const island = (at: [number, number], R: number, rise: number, depth: number, head = false) => {
     const turn = rng.float();
     const [ax, ay] = unit(turn);
     const r = R * isleK;
-    g.parts.push({ kind: "isle", at, size: r, height: depth * 1.1 + rise * 0.75 * tallK, turn, extra: 1 + 0.9 * rng.float(), soft: 0, isle: true });
+    const from = g.parts.length;
+    g.parts.push({ kind: "isle", at, size: r, height: depth * 1.1 + rise * 0.75 * tallK, turn, extra: 1 + 0.9 * rng.float(), soft: 0, isle: true, ...(head ? { head: true } : {}) });
     // a spine along it, and a peak off its middle, sometimes two
     g.parts.push({ kind: "ridge", at, size: r * (1 + 0.5 * rng.float()), height: rise * (0.2 + 0.15 * rng.float()) * tallK, turn: turn + 0.25 * (rng.float() < 0.5 ? 1 : 0), extra: r * (0.25 + 0.12 * rng.float()), soft: 0 });
     const peaks = 1 + Math.floor(2 * rng.float());
@@ -678,13 +699,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const off = r * (0.15 + 0.35 * rng.float()) * (k ? -1 : 1);
       g.parts.push({ kind: "isle", at: [at[0] + (ax * off) / W, at[1] + (ay * off) / H], size: r * (0.3 + 0.2 * rng.float()), height: rise * (0.15 + 0.2 * rng.float()) * tallK, turn: rng.float(), extra: 1 + rng.float(), soft: 0 });
     }
+    groups.push({ from, to: g.parts.length, head });
   };
   let tilt = 3 + rng.float();
   switch (layout) {
     case "central": {
       // one large island with smaller ones round it
       g.focus = [0.4 + 0.2 * rng.float(), 0.4 + 0.2 * rng.float()];
-      const R = side * (0.42 + 0.08 * rng.float());
+      const R = side * (0.32 + 0.05 * rng.float());
       const depth = 9 + 2.5 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.1 + 0.5 * rng.float());
       // (D417: fewer, larger islands: the big one 19–24, two to four others of 5–9)
@@ -701,15 +723,25 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     case "edge": {
       // the sea lies along the south edge, behind a strip of coast its outlet crosses, with islands
       // off the mainland that rises behind it (the map's orientation turns it to any edge)
-      g.focus = [0.35 + 0.3 * rng.float(), 0.3 + 0.06 * rng.float()];
-      const R = side * (0.4 + 0.08 * rng.float());
+      // (round 3: an ordinary sea pressed against the north edge: drawn at the map's middle, a
+      // broad ellipse along the edge, and moved 0.14–0.18 of the side toward it below, so it meets
+      // the rim there and its own outline faces the mainland; drawn at a third of the side from the
+      // edge, the old band held a sixth of the map and its water story never read)
+      g.focus = [0.35 + 0.3 * rng.float(), 0.5];
+      const R = side * (0.34 + 0.04 * rng.float());
       const depth = 8 + 2 * rng.float();
-      sea([g.focus[0], g.focus[1]], R, depth, rng.float() < 0.5 ? 0 : 0.5, 1.9 + 0.7 * rng.float());
+      const asp = 1.4 + 0.4 * rng.float();
+      sea([g.focus[0], g.focus[1]], R, depth, 0, asp);
+      // (D432: the islands lie off the mainland, within a strait of its shore, not in the sea's
+      // middle out of reach of either shore: a third to three quarters of the way from the sea's
+      // middle to the mainland's side, spread along the coast)
+      const minor = (R * shrink * SEA_GROW) / portable.sqrt(asp);
       const count = n(3 + 2 * rng.float());
       for (let k = 0; k < count; k++) {
         const [vx, vy] = unit(rng.float());
         const r = 0.7 * portable.sqrt(rng.float()) * R;
-        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + (vy * r * 0.6) / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
+        const off = (0.3 + 0.45 * Math.abs(vy)) * minor;
+        island([g.focus[0] + (vx * r * 1.6) / W, g.focus[1] + off / H], 6 + 8 * rng.float(), 3 + 5 * rng.float(), depth);
       }
       tilt = 6 + 1.5 * rng.float();
       // (its water leaves by the coast: the south edge is the way out, D275 turns it)
@@ -719,7 +751,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     case "archipelago": {
       // a scatter of mid-sized islands through a broad sea, one of them big enough for a colony
       g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
-      const R = side * (0.46 + 0.06 * rng.float());
+      const R = side * (0.34 + 0.05 * rng.float()) * ringK;
       const depth = 8.5 + 2 * rng.float();
       const turn = rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, turn, 1 + 0.4 * rng.float());
@@ -731,7 +763,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         const size = k === 0 ? 14 + 4 * rng.float() : 7 + 5 * rng.float();
         const x = g.focus[0] * W + vx * d;
         const y = g.focus[1] * H + vy * d;
-        if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.25 + 4)) continue;
+        // (D432: a strait between neighbours: the field's island runs out to about 1.4 of its radius)
+        if (placed.some(([px, py, pr]) => portable.hypot(px - x, py - y) < (pr + size) * isleK * 1.5 + 6)) continue;
         placed.push([x, y, size]);
         island([x / W, y / H], size, 3.5 + 4.5 * rng.float() + (k === 0 ? 2 : 0), depth);
         k++;
@@ -741,7 +774,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     }
     case "chain": {
       g.focus = [0.38 + 0.24 * rng.float(), 0.38 + 0.24 * rng.float()];
-      const R = side * (0.42 + 0.08 * rng.float());
+      const R = side * (0.33 + 0.05 * rng.float()) * ringK;
       const depth = 8.5 + 2 * rng.float();
       const turn = rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, turn, 1.5 + 0.6 * rng.float());
@@ -752,13 +785,15 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       const ccy = g.focus[1] * H + ax * bend;
       // (the arc's middle points back at the sea's middle; it spans about one and a half radii)
       const base = turn + (bend > 0 ? -0.25 : 0.25);
-      const span = (1.5 * R) / Math.abs(bend) / TWO_PI;
+      // (D432: the arc spans two radii and its islands are smaller, so neighbours keep a strait and
+      // the chain reads as islands, not one broken ridge joined to the shore at both ends)
+      const span = (2 * R) / Math.abs(bend) / TWO_PI;
       const count = 4 + Math.floor(3 * rng.float());
       for (let k = 0; k < count; k++) {
         const t = (k + 0.3 * (rng.float() - 0.5)) / Math.max(1, count - 1) - 0.5;
         const [ux, uy] = unit(base + t * span);
         const mid = 1 - Math.abs(t) * 1.3;
-        const size = 6 + 11 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
+        const size = 5 + 9 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
         island([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 3 + 5 * Math.max(0.2, mid) + 2 * rng.float(), depth);
       }
       break;
@@ -766,12 +801,14 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     case "atolls": {
       // a ring of land round a lagoon, lobed, never a circle, with one to three passes to the sea
       g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];
-      const R = side * (0.44 + 0.06 * rng.float());
+      const R = side * (0.34 + 0.04 * rng.float()) * ringK;
       const depth = 8 + 2 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, rng.float(), 1.05 + 0.3 * rng.float());
       const cx = g.focus[0] * W;
       const cy = g.focus[1] * H;
-      const ra = (side / 128) * (26 + 8 * rng.float());
+      // (round 3: a smaller atoll of smaller pieces, so a channel of sea stays round it in the
+      // smaller sea; the old one filled it to the shore)
+      const ra = (side / 128) * (20 + 6 * rng.float()) * ringK;
       const k1 = 2 + (rng.float() < 0.5 ? 1 : 0);
       const p1 = rng.float();
       const k2 = 4 + (rng.float() < 0.5 ? 1 : 0);
@@ -786,7 +823,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         if (gapAt.some((q) => Math.abs(((t - q + 1.5) % 1) - 0.5) < 0.05)) continue;
         const [ux, uy] = unit(t);
         const r = ra * (1 + 0.16 * unit(k1 * t + p1)[1] + 0.08 * unit(k2 * t + p2)[1]);
-        island([(cx + ux * r) / W, (cy + uy * r) / H], 7 + 3 * rng.float(), 2.5 + 3.5 * rng.float(), depth);
+        island([(cx + ux * r) / W, (cy + uy * r) / H], 6 + 2 * rng.float(), 2.5 + 3.5 * rng.float(), depth);
       }
       if (rng.float() < 0.5) island([g.focus[0], g.focus[1]], 4 + 3 * rng.float(), 5 + 3 * rng.float(), depth);
       tilt = 3 + rng.float();
@@ -797,10 +834,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       g.focus = [0.44 + 0.12 * rng.float(), 0.44 + 0.12 * rng.float()];
       const turn = rng.float();
       const [ax, ay] = unit(turn);
-      const R = side * (0.46 + 0.06 * rng.float());
+      const R = side * (0.36 + 0.04 * rng.float()) * ringK;
       const depth = 8.5 + 2 * rng.float();
       sea([g.focus[0], g.focus[1]], R, depth, turn, 1.1 + 0.4 * rng.float());
-      const apart = side * (0.17 + 0.05 * rng.float());
+      const apart = side * (0.17 + 0.05 * rng.float()) * ringK;
       for (const sgn of [-1, 1]) {
         const at: [number, number] = [g.focus[0] + (sgn * -ay * apart) / W + (ax * side * 0.08 * (rng.float() - 0.5)) / W, g.focus[1] + (sgn * ax * apart) / H + (ay * side * 0.08 * (rng.float() - 0.5)) / H];
         island(at, 15 + 5 * rng.float(), 5 + 4 * rng.float(), depth);
@@ -817,9 +854,47 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // (D417: where the ring breaks, the sea lies off the middle, so the land round it is broad on one
   // side, where islands drawn there join it as peninsulas, and narrow on the other)
   if (!g.seaRing) {
-    const [ox, oy] = unit(rng.float());
-    const sh = 0.08 + 0.06 * rng.float();
-    for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
+    const [ox, oy] = layout === "edge" ? [0, -1] : unit(rng.float());
+    const sh = layout === "edge" ? 0.14 + 0.04 * rng.float() : 0.08 + 0.06 * rng.float();
+    // (D432: the islands move with their sea, as one piece; left where the sea was drawn, those on
+    // its far side stood in the land round it, joined to it by high ground no strait could part)
+    const sea = g.parts.find((q) => q.shape === "sea")!;
+    const to: [number, number] = [clamp(sea.at[0] + ox * sh, 0.2, 0.8), clamp(sea.at[1] + oy * sh, 0.2, 0.8)];
+    const dx = to[0] - sea.at[0];
+    const dy = to[1] - sea.at[1];
+    for (let k = first; k < g.parts.length; k++) {
+      const q = g.parts[k];
+      q.at = [q.at[0] + dx, q.at[1] + dy];
+    }
+  }
+  // (D432: an island stands in the sea, clear of the rim of land round it: its centre keeps the
+  // rim's width and its own foot from the map's edges (the foot of the field's island runs to about
+  // 1.4 of its radius, long along its axis), else it is drawn in toward the sea's middle until it
+  // does; one rooted in the rim was the shore's own, joined to it by high ground no strait could part)
+  {
+    const sea = g.parts.find((q) => q.shape === "sea")!;
+    for (const grp of groups) {
+      if (grp.head) continue;
+      const p = g.parts[grp.from];
+      const foot = p.size * portable.sqrt(p.extra) * 0.9 + 4;
+      const mx = (0.12 * side + foot) / W;
+      const my = (0.12 * side + foot) / H;
+      const lo: [number, number] = [Math.min(mx, 0.5), Math.min(my, 0.5)];
+      const hi: [number, number] = [Math.max(1 - mx, 0.5), Math.max(1 - my, 0.5)];
+      // the island's centre, pulled along its line to the sea's middle until it lies within
+      let t = 1;
+      for (const a of [0, 1] as const) {
+        const d = p.at[a] - sea.at[a];
+        if (p.at[a] < lo[a] && d < 0) t = Math.min(t, (sea.at[a] - lo[a]) / -d);
+        if (p.at[a] > hi[a] && d > 0) t = Math.min(t, (hi[a] - sea.at[a]) / d);
+      }
+      if (t >= 1) continue;
+      const nx = sea.at[0] + (p.at[0] - sea.at[0]) * t;
+      const ny = sea.at[1] + (p.at[1] - sea.at[1]) * t;
+      const ddx = nx - p.at[0];
+      const ddy = ny - p.at[1];
+      for (let k = grp.from; k < grp.to; k++) g.parts[k].at = [g.parts[k].at[0] + ddx, g.parts[k].at[1] + ddy];
+    }
   }
   // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
   // it, their high ground an island's, so the shore is land and channels, never a frame)
@@ -829,12 +904,32 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     for (let k = 0; k < heads; k++) {
       const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
       // (from the map's middle out to near its edge, along this bearing)
-      const reach = 0.5 - (0.1 + 0.06 * rng.float());
+      let reach = 0.5 - (0.1 + 0.06 * rng.float());
       const scale = Math.max(Math.abs(vx), Math.abs(vy));
-      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
+      const R = 13 + 6 * rng.float();
+      // (D432: a headland keeps clear of the layout's islands, a strait between: one reaching in
+      // over an island joined it to the shore by its own high ground. It moves out toward the edge
+      // until clear, and where it can't, it isn't drawn.)
+      const foot = R * isleK * portable.sqrt(1.9) * 0.9 + 4;
+      const clear = (rx: number, ry: number) => groups.every((grp) => {
+        if (grp.head) return true;
+        const q = g.parts[grp.from];
+        return portable.hypot((q.at[0] - rx) * W, (q.at[1] - ry) * H) >= foot + q.size * portable.sqrt(q.extra) * 0.9 + 4;
+      });
+      while (reach < 0.46 && !clear(0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach)) reach += 0.02;
+      if (!clear(0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach)) continue;
+      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], R, 4 + 3 * rng.float(), seaDepth, true);
     }
   }
-  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
+  // (D432: the sea is the map's water, not a lake of the budget: the budget is the most the settings
+  // allow a lake (half the map), so the hydrology never cuts the sea's sill down to fit it. Cut down,
+  // the sill fell to the sea's floor and the rivers' channels ran on through it and out, and the sea
+  // drained: most open layouts at 128² had no sea at the land stage.)
+  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float(), 0.5);
+  // (D432: the sea's outlet pours over its sill: a river's bed past a lake is cut `incise` levels
+  // under the ground beside it, and the sea's sill with it; a shallow sea drained to its floor. On
+  // a sea's map the rivers run shallow channels, cut one level under the land.)
+  g.hydro.incise = Math.min(g.hydro.incise, 0.4);
   // the sea is fed from the heights round it: springs, whose rivers pour down into it (a river from
   // an edge enters low on the bowl's rim, and no sea stands above where its water comes in)
   g.hydro.inflows = 0;

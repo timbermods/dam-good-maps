@@ -303,8 +303,8 @@ export interface Field {
 
 /** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
  *  tile, so the sea keeps a rim of land) to 1 inside the rim (D417): the rim's inner line is a
- *  rounded square (no square corners), its distance from the edge wandering from 1% of the side to
- *  8%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
+ *  rounded square (no square corners), its distance from the edge wandering from 3% of the side to
+ *  11%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
  *  the side. */
 function rimKeep(s: number, x: number, y: number, W: number, H: number): number {
   const side = Math.min(W, H);
@@ -314,7 +314,10 @@ function rimKeep(s: number, x: number, y: number, W: number, H: number): number 
   const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
   const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
   const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
-  const inner = side * (0.01 + 0.07 * t + 0.03 * head);
+  // (round 3, D417: the rim's inner line wanders wider, from 3% of the side to 11%, so where the sea
+  // meets the rim its coast bends in bays and out in headlands rather than running with the edge,
+  // and the rim is never a single row, whose level set the sea's)
+  const inner = side * (0.03 + 0.08 * t + 0.03 * head);
   const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
   return smoothstep((e - inner) / fall);
 }
