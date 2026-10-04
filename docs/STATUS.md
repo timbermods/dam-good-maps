@@ -7,8 +7,8 @@ of [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01
 
 ## Released
 
-Latest, all 2026-10-01 and live: `forces-done` (D375), `map-look-2-done` (D378, the High look) and `licence-agpl-done`
-(D379, `main` at 87c73a0, generator 0.7.0). Every released step's tag: `git tag -l '*-done'`.
+Latest: `m9b-done` (2026-10-04; exactly `m9b-rc1` at df70acce, generator 0.8.0; `main` at b407656, deployed, live
+check passed). Before it, 2026-10-01: `forces-done` (D375), `map-look-2-done` (D378) and `licence-agpl-done` (D379). Every released step's tag: `git tag -l '*-done'`.
 
 ## The three sessions (D388, D398)
 
@@ -115,13 +115,9 @@ Nothing waiting. The coherence review (D386) waits for his word, when he is sati
 
 ## The release gate (D385–D387)
 
-Done: water from nowhere (#177), the settle fix (#175), Naturalize's land effect (#170), Islands (D430, D432; a known
-shortfall: 12 of 30 seeds at 128² have no island to expand to, fixed by a round after the release) and the Real places
-gallery (D421; amended by D445: every place shown again with a "No reachable water" note, #193). Still blocking, per ROADMAP's "Before the next release": **Naturalize's sound** (D387 (5), on dev, #198);
-**the coherence review** (D386, D461: a separate session on Kyler's PC once M9b is on `dev`, report and cleanup plan only,
-`src/core/`, `src/worker/`, `tools/`); the release itself waits for its report, then Kyler decides; its cleanup runs as PRs from Kyler's PC once M9b is on
-`dev`, merged in order (D462, D463); and **M9b's own release steps** (the measures,
-the re-pins, the tag).
+Passed: M9b released as `m9b-done` (2026-10-04, [#217](https://github.com/timbermods/dam-good-maps/pull/217)). The coherence cleanup
+keeps merging into `dev` in order (D462, D463); Islands' known shortfall (12 of 30 seeds at 128² with no island to
+expand to) is fixed by a round after the release.
 
 ## Probe batches
 
