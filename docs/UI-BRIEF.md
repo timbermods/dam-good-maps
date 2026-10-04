@@ -2,7 +2,7 @@
 
 Kyler's decisions, 2026-09-29. One workspace is a core part of Dam Good Maps' identity: generation, editing and sculpting are seamless.
 
-> Recorded as [PLAN.md §20](../PLAN.md#20-editor-decisions) D330, from Kyler's question-and-answer round on
+> Recorded as [docs/decisions/editor.md](decisions/editor.md) D330, from Kyler's question-and-answer round on
 > [UI-QUESTIONS.md](archive/UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
 
 ## 1. One workspace
