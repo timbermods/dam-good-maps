@@ -1122,11 +1122,12 @@ export class MapSession {
 
   /** Validate the map as it would be exported: the `export` profile for generated maps, `import`
    *  for imported ones (PLAN §19.5), or the profile given. `loadOnly` runs the load and design
-   *  classes only (no water settle). */
+   *  classes only (no water settle, and a blank thumbnail: they read only its size); the editor's
+   *  instant checks are these (`checkItems.ts` `instantChecks`). */
   validate(profile?: Profile, opts: { loadOnly?: boolean; water?: { model: WaterModel; settled: CanonicalWater } } = {}): Validation {
     const live = this.mode === "live";
     if (!opts.loadOnly && !opts.water) this.settleCanonical();
-    return validateMap(this.exportFile(), {
+    return validateMap(this.exportFile(this.cur, opts.loadOnly ? { thumbnail: false } : {}), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
       // (the map is being edited: an edge wall warns, D323)

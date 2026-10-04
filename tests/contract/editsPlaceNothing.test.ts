@@ -202,7 +202,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
       if (found.x + 2 < 10 || found.y + 2 < 10 || found.x + 2 > 85 || found.y + 2 > 85) continue;
       // (before any edit the check has nothing to say; a harmless first edit makes it apply)
       expect(ed.apply({ op: "brush", params: { tool: "raise", size: 1, strength: 1, target: 0, dabs: [8, 8] } }, "user", "touch").errors).toEqual([]);
-      const c = ed.exportCheck();
+      const c = (await ed.backgroundCheck())!.check;
       if ([...c.advisory, ...c.warnings, ...c.blocking].some((i) => i.id === "resources.mine_site")) {
         ed.undo();
         continue;
@@ -222,7 +222,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
     const r = ed.apply({ op: "brush", params: { tool: "raise", size: 2.5, strength: 10, target: Math.min(16, mine!.z + 6), dabs } }, "user", "wall");
     expect(r.errors).toEqual([]);
     expect(added(before, entities()).map((e) => `${e.template}@${e.x},${e.y}`)).toEqual([]);
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     const item = [...c.advisory, ...c.warnings, ...c.blocking].find((i) => i.id === "resources.mine_site");
     expect(item, "the checks say the mine site is out of reach").toBeTruthy();
     expect(item!.message).toMatch(/mine site/);

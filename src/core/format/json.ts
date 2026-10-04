@@ -217,3 +217,15 @@ export function num(v: JsonValue | undefined): number {
 export function isObject(v: JsonValue | undefined): v is JsonObject {
   return v !== null && typeof v === "object" && !Array.isArray(v) && !(v instanceof JsonFloat);
 }
+
+/** A parsed value as plain JSON: every float a plain number. */
+export function plainJson(v: unknown): unknown {
+  if (v instanceof JsonFloat) return v.value;
+  if (Array.isArray(v)) return v.map(plainJson);
+  if (v !== null && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v)) out[k] = plainJson((v as Record<string, unknown>)[k]);
+    return out;
+  }
+  return v;
+}

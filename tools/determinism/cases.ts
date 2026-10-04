@@ -25,7 +25,7 @@ import * as nature from "../../src/core/forces/nature";
 import { tree, waterSource } from "../../src/core/format/entities";
 import { WaterSim } from "../../src/core/sim/water";
 import { prefill } from "../../src/core/sim/prefill";
-import { badtideContamination } from "../../src/core/sim/weather";
+import { HazardRun } from "../../src/core/sim/weather";
 import { MapSession } from "../../src/core/doc/session";
 import { Rng } from "../../src/core/math/rng";
 import { randomOp } from "../../tests/contract/randomOps";
@@ -266,13 +266,11 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
     rows[0].schedule = { calls, mapEqual: maps[0] === maps[1], recordEqual: json(records[0]) === json(records[1]), steps: records.map((r: any) => r?.steps) };
   } else if (c.kind === "weather") {
     const m = fixture(c.n);
-    const model = modelOf(m);
-    const sim = new WaterSim(model, m.water);
-    const clean = model.emitters.filter((e) => e.contamination === 0);
+    // (the editor's badtide, core/sim/weather.ts `HazardRun`, a day of 60 ticks)
+    const run = new HazardRun(modelOf(m), m.water, "badtide", 1.5, 60);
+    const sim = run.sim;
     for (let k = 0; k < c.count; k++) {
-      const contamination = badtideContamination(k / 60, 1.5);
-      for (const emitter of clean) emitter.contamination = contamination;
-      sim.run(1);
+      const contamination = run.step(1)!;
       m.water = { depth: sim.D.slice(), contamination: sim.C.slice() };
       await add(`${c.id}/${k}`, m, { contamination }, { momentum: await sha(binary(sim.out, "f64")) });
     }

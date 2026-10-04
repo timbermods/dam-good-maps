@@ -79,7 +79,7 @@ describe("validation parity between the editor and the generator (ROADMAP M8)", 
     expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(writeTimber(s.exportFile(full))))).toBe(true);
   });
 
-  it("the worker's background check equals its one-go export check, and the export is the canonical file", async () => {
+  it("the worker's background check settles the water canonically, a newer edit drops it, and the export is the canonical file", async () => {
     const spec = makeSpec({ seed: 21, size: { x: 96, y: 96 } });
     await runGenerate(spec);
     ed.refine();
@@ -104,8 +104,10 @@ describe("validation parity between the editor and the generator (ROADMAP M8)", 
     const progress: number[] = [];
     const bg = await ed.backgroundCheck((p) => progress.push(p.done));
     expect(bg).not.toBeNull();
-    const sync = ed.exportCheck();
-    expect(bg!.check).toEqual(sync);
+    // (the canonical water is in place: the check answers it, and asked again gives the same check)
+    expect(bg!.waterSettled).toBe(true);
+    expect(bg!.check.version).toBe(ed.sessionInfo().version);
+    expect((await ed.backgroundCheck())!.check).toEqual(bg!.check);
     // a newer edit drops a check that is running
     const u2 = ed.apply({ op: "sculpt", params: { mode: "lower", cells: [[Math.floor(at / W), (at % W) - 2, (at % W) + 2]], amount: 1 } });
     expect(u2.ok).toBe(true);

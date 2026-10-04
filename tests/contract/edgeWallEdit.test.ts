@@ -29,12 +29,12 @@ describe("an edge wall on an edited map (D323)", () => {
     await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     // the generated map has none (D151)
-    expect(wallItem(ed.exportCheck().warnings)).toBeUndefined();
+    expect(wallItem((await ed.backgroundCheck())!.check.warnings)).toBeUndefined();
     const before = ed.sessionView().info.history.filter((h) => h.applied).length;
     raiseWall();
     expect(edgeWalls(ed.sessionView().view.heights, W, W).find((e) => e.edge === "west")!.share).toBeGreaterThanOrEqual(EDGE_SHARE);
 
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(wallItem(c.blocking)).toBeUndefined();
     const warn = wallItem(c.warnings)!;
     expect(warn, "a warning").toBeDefined();
@@ -52,13 +52,13 @@ describe("an edge wall on an edited map (D323)", () => {
     expect(fixed.ok).toBe(true);
     expect(ed.sessionView().info.history.filter((h) => h.applied).length).toBe(steps + 1);
     expect(edgeWalls(ed.sessionView().view.heights, W, W).every((e) => e.share < EDGE_SHARE)).toBe(true);
-    expect(wallItem(ed.exportCheck().warnings)).toBeUndefined();
+    expect(wallItem((await ed.backgroundCheck())!.check.warnings)).toBeUndefined();
     // the outer tiles now stand at the land inside, and nothing else moved
     const h = ed.sessionView().view.heights;
     for (let y = 2; y < W - 2; y++) expect(h[y * W]).toBeLessThanOrEqual(Math.max(h[y * W + 2], h[y * W + 3], h[y * W + 4]));
     // one undo brings the wall back
     ed.undo();
-    expect(wallItem(ed.exportCheck().warnings)).toBeDefined();
+    expect(wallItem((await ed.backgroundCheck())!.check.warnings)).toBeDefined();
     expect(ed.sessionView().info.history.filter((h2) => h2.applied).length).toBe(steps);
     expect(before).toBeLessThan(steps);
   });
