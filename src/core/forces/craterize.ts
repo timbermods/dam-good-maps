@@ -19,6 +19,7 @@ import { footprint } from "./objects";
 import { clamp, hash } from "./random";
 import { smoothstep } from "../math/clamp";
 import { strength, tempered } from "./strength";
+import { forceSettingsProblem } from "./settings";
 
 export interface CraterSettings {
   mode: "strike" | "aim";
@@ -49,22 +50,10 @@ export const CRATER_DEFAULTS: CraterSettings = { mode: "strike", power: 55, size
 export const naturalSize = (power: number) => Math.round(6 + 112 * portable.pow(power / 100, 1.4));
 export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 68 ? "peak" : "ring");
 
+/** Throws why an impact can't start (its settings, settings.ts; its point and aim on the map). */
 export function validateCrater(s: CraterSettings, m: { W: number; H: number }, i: CraterIntent): void {
-  if (
-    !["strike", "aim"].includes(s.mode) ||
-    !["steep", "terraced"].includes(s.walls) ||
-    !["auto", "bowl", "peak", "ring", "flat"].includes(s.centre) ||
-    !["light", "heavy"].includes(s.debris) ||
-    typeof s.rays !== "boolean" ||
-    !Number.isFinite(s.power) ||
-    s.power < 0 ||
-    s.power > 100 ||
-    !Number.isInteger(s.seed) ||
-    s.seed < 0 ||
-    s.seed > 0xffffffff ||
-    (s.size !== null && (!Number.isFinite(s.size) || s.size < 4 || s.size > 180))
-  )
-    throw Error("Invalid impact settings");
+  const why = forceSettingsProblem("craterize", s as unknown as Record<string, unknown>);
+  if (why) throw Error(why);
   if (!Number.isInteger(i.origin) || i.origin < 0 || i.origin >= m.W * m.H) throw Error("Strike on the map");
   if (s.mode === "aim" && (!Number.isInteger(i.end) || i.end! < 0 || i.end! >= m.W * m.H)) throw Error("Drag across the map to aim");
 }

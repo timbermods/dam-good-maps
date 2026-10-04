@@ -267,8 +267,8 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
 }
 
 /** Plan a glacier, all at once (tests and tools; the worker slices `planGlaciate`). */
-export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
-  const g = planGlaciate(input, settings, intent, valley, finish);
+export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley): GlaciatePlan {
+  const g = planGlaciate(input, settings, intent, valley);
   for (;;) {
     const r = g.next();
     if (r.done) return r.value;

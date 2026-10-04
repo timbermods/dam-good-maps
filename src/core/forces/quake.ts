@@ -22,6 +22,7 @@ import { footprint } from "./objects";
 import { clamp, hash } from "./random";
 import { smoothstep } from "../math/clamp";
 import { PathBrush } from "./path";
+import { forceSettingsProblem } from "./settings";
 
 export interface Point {
   x: number;
@@ -52,9 +53,10 @@ export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
 /** How far the shaking reaches from the fault (tiles) at a Power (the editor's ring, D312). */
 export const quakeReach = (power: number) => 14 + power * 0.5;
 
+/** Throws why a quake can't start (its settings, settings.ts; its fault on the land). */
 export function validateQuake(s: QuakeSettings, m: { W: number; H: number }, i: QuakeIntent): void {
-  if (!["lift", "slide"].includes(s.mode) || !["sheer", "stepped"].includes(s.scarp) || !Number.isFinite(s.power) || s.power < 0 || s.power > 100 || !Number.isInteger(s.seed) || s.seed < 0 || s.seed > 0xffffffff)
-    throw Error("Invalid quake settings");
+  const why = forceSettingsProblem("quake", s as unknown as Record<string, unknown>);
+  if (why) throw Error(why);
   if (!i || ![1, -1].includes(i.side) || !Array.isArray(i.path) || i.path.length < 2 || i.path.length > 512 || i.path.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.y < 0 || p.x > m.W - 1 || p.y > m.H - 1))
     throw Error("Draw a fault on the land");
 }

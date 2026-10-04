@@ -18,6 +18,7 @@ import { footprint } from "./objects";
 import { clamp, hash } from "./random";
 import { smoothstep } from "../math/clamp";
 import { strength, tempered } from "./strength";
+import { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, forceSettingsProblem } from "./settings";
 
 export interface Point {
   x: number;
@@ -49,26 +50,13 @@ export interface EruptSettings {
 
 export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1, size: null };
 
-/** Erupt's Size, in tiles across (D226). */
-export const ERUPT_SIZE_MIN = 6;
-export const ERUPT_SIZE_MAX = 140;
+/** Erupt's Size, in tiles across (D226; settings.ts). */
+export { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN };
 
+/** Throws why an eruption can't start (its settings, settings.ts; its vent and fissure on the map). */
 export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i: EruptIntent): void {
-  if (
-    !["vent", "fissure"].includes(s.mode) ||
-    !["steep", "broad"].includes(s.shape) ||
-    !["auto", "peak", "crater", "caldera"].includes(s.summit) ||
-    !["light", "heavy"].includes(s.flows) ||
-    typeof s.ridges !== "boolean" ||
-    !Number.isFinite(s.power) ||
-    s.power < 0 ||
-    s.power > 100 ||
-    !Number.isInteger(s.seed) ||
-    s.seed < 0 ||
-    s.seed > 0xffffffff ||
-    (s.size != null && !(Number.isFinite(s.size) && s.size >= ERUPT_SIZE_MIN && s.size <= ERUPT_SIZE_MAX))
-  )
-    throw Error("Invalid eruption settings");
+  const why = forceSettingsProblem("erupt", s as unknown as Record<string, unknown>);
+  if (why) throw Error(why);
   if (!Number.isInteger(i.origin) || i.origin < 0 || i.origin >= m.W * m.H) throw Error("Choose land on the map");
   if (s.mode === "fissure" && (!Array.isArray(i.path) || i.path.length < 2 || i.path.length > 512 || i.path.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.y < 0 || p.x > m.W - 1 || p.y > m.H - 1)))
     throw Error("Draw a fissure on the land");
