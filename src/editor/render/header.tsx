@@ -34,6 +34,8 @@ export function header(ed: Ed, props: EditorProps) {
       onAnother={props.onAnother ? () => props.onAnother!(info) : undefined}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
+      mapsOpen={props.mapsOpen}
+      onMaps={() => props.onMaps(!props.mapsOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
     />
   );

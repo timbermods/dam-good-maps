@@ -7,7 +7,7 @@
 // the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setLevel } from "./open";
+import { openEditor, setLevel, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -49,7 +49,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   // apart far from the start; 4244 has one at (16, 56))
   await openEditor(page, "s=4244&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await setWaterSpeed(page, "instant");
 
   // two dry, low spots far from the start, where the map (not a bar) takes the pointer, with room
   const spot = await page.evaluate(() => {

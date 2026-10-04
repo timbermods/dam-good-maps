@@ -6,7 +6,7 @@
 // opens it again.
 
 import { expect, test } from "@playwright/test";
-import { centreOn, generateButton, openDrawer, openEditor } from "./open";
+import { centreOn, generateButton, openDrawer, openEditor, openYourMaps, pick } from "./open";
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
@@ -32,9 +32,9 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   expect(edited.edits).toBe(1);
 
   // Generate over the edited map asks nothing: a new map, at the other size (Kyler's case)
-  await openDrawer(page);
+  const drawer = await openDrawer(page);
   const generate = generateButton(page);
-  await page.locator("#size").selectOption("medium");
+  await pick(drawer, "Size", "128");
   const before = await page.evaluate(() => window.dgm!.current!()!.made);
   await generate.click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
@@ -53,7 +53,7 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
 
   // the edited map is in Your maps, edit and all: its row (the one not marked as open) brings it back
   // (the new map joins Your maps a few seconds after it opens: its tile is waited for, not assumed)
-  const yours = page.getByRole("region", { name: "Your maps" });
+  const yours = await openYourMaps(page);
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toHaveCount(1);
   await yours.locator("button:not([aria-current])").click();

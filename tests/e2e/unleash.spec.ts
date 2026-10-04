@@ -4,7 +4,7 @@
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -23,7 +23,7 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("faster");
+  await setWaterSpeed(page, "faster");
 
   // a source on dry high ground far from the start, where the map (not a bar) takes the pointer,
   // with lower ground 12 to 20 tiles from it to aim at

@@ -17,7 +17,7 @@ import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { Ed } from "./ed";
-import type { DrawerModel } from "./Drawer";
+import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
@@ -66,10 +66,13 @@ export interface EditorProps {
   onRename(name: string): Promise<string | null>;
   /** The page asks the editor for the map's land and water as shown (Your maps' picture). */
   onPicture?(get: () => MapPicture | null): void;
-  /** The New map drawer: what it shows, whether it is open, and its switch (the page keeps it open across maps). */
-  drawer: DrawerModel;
+  /** The map generator's panel and Your maps: what they show, whether each is open (one at a time), and their
+   *  switches (the page keeps them open across maps). */
+  drawer: GeneratorModel;
   drawerOpen: boolean;
   onDrawer(open: boolean): void;
+  mapsOpen: boolean;
+  onMaps(open: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
 }

@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { openDrawer, openEditor, openSection, waitForEditor } from "./open";
+import { expectReady, openDrawer, openEditor, openSection, pick, waitForEditor } from "./open";
 import { generate } from "../../src/core/gen/generate";
 import { defaultSettings, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 import { shareCases } from "../shareCases";
@@ -53,7 +53,7 @@ test("a link made for Easy or Hard opens a Normal map with Normal's default sett
 
 test("changing a setting and generating puts it in the link", async ({ page }) => {
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
-  await (await openSection(page, "Water")).getByLabel("Waterfalls").selectOption("many");
+  await pick(await openSection(page, "Water"), "Waterfalls", "Many");
   const first = await page.evaluate(() => window.dgm!.current!()?.sha256);
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
   // (the new map, not the first one still showing: generating takes its time on a slow machine)
@@ -67,16 +67,17 @@ test("the drought reserve guard disables what a small map cannot hold", async ({
   // (a Normal map's Plenty reserve needs about 380 tiles of reservoir: more than 15% of a 48² map; the size is set
   // in the drawer, as most 48² River Valley seeds fail their checks and a link to one would open another seed)
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
-  await openDrawer(page);
-  await page.locator("#size").selectOption("custom");
+  // (the map checked and settled first: the page takes the opened map's settings as it settles)
+  await expectReady(page);
+  const drawer = await openDrawer(page);
+  await pick(drawer, "Size", "Custom");
   for (const id of ["#size-x", "#size-y"]) {
     const f = page.locator(id);
     await f.fill("48");
     await f.press("Tab");
     await expect(f).toHaveValue("48");
   }
-  await openSection(page, "Water");
-  const plenty = page.locator("#reserve option[value=plenty]");
-  await expect(plenty).toHaveJSProperty("disabled", true);
-  await expect(plenty).toContainText("too big for this map size");
+  const plenty = (await openSection(page, "Water")).getByRole("group", { name: "Drought reserve" }).getByRole("button", { name: "Plenty", exact: true });
+  await expect(plenty).toBeDisabled();
+  await expect(plenty).toHaveAttribute("title", /too big for this map size/);
 });

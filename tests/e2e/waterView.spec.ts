@@ -7,7 +7,7 @@
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -170,11 +170,11 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await lastStep(page, "Remove a badwater source");
 
   // the water's speed: normal by default, instant straight to the result
-  const speed = page.getByRole("combobox", { name: "Water speed" });
-  await expect(speed).toHaveValue("normal");
-  await speed.selectOption("instant");
-  await expect(speed).toHaveValue("instant");
-  await speed.selectOption("normal");
+  const speed = page.getByRole("group", { name: "Water speed" });
+  await expect(speed.getByRole("button", { name: "Normal", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await setWaterSpeed(page, "instant");
+  await expect(speed.getByRole("button", { name: "Instant", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await setWaterSpeed(page, "normal");
 
   // the water flows on a stroke while it is painted (D197): a Lower stroke out of the river, and
   // water in its channel before the button comes up

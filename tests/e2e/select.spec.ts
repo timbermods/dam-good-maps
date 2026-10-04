@@ -9,7 +9,7 @@
 // water.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { centreOn, openEditor } from "./open";
+import { centreOn, openEditor, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -21,7 +21,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function openTopDown(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await setWaterSpeed(page, "instant");
 }
 
 /** Dry land with room round it where the map (not a bar) takes the pointer. */

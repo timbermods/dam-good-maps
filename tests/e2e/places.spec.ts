@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openDrawer, openEditor, openFileMenu, waitForEditor } from "./open";
+import { openEditor, openFileMenu, openYourMaps, waitForEditor } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -159,9 +159,8 @@ test("a real place replaces the open map without asking, and the replaced map st
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
   // the map it replaced is in Your maps, its edit with it, and its row opens it again
-  await openDrawer(page);
   // (the place joins Your maps a few seconds after it opens: its tile is waited for)
-  const yours = page.getByRole("region", { name: "Your maps" });
+  const yours = await openYourMaps(page);
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
   await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();

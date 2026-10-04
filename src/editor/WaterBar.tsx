@@ -43,16 +43,17 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
       <button type="button" class="icon-button" aria-pressed={p.paused} disabled={progress === null && !p.paused} title={p.paused ? "Play the water" : progress === null ? "The water is settled" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
         <span class="icon-word">{p.paused ? "Play water" : "Pause water"}</span>
       </button>
-      <label class="bar-group" title="How fast the water flows">
-        Speed
-        <select aria-label="Water speed" value={p.speedName} onChange={(e) => p.setSpeed((e.target as HTMLSelectElement).value as WaterSpeed)}>
+      {/* Speed: a segmented choice like the page's others, no native dropdown (Kyler, 2026-10-04) */}
+      <span class="bar-group water-speed" title="How fast the water flows">
+        <span class="bar-label">Speed</span>
+        <span class="set-seg" role="group" aria-label="Water speed">
           {WATER_SPEEDS.map((v) => (
-            <option key={v} value={v}>
+            <button type="button" key={v} aria-pressed={p.speedName === v} title={`The water at ${SPEED_NAMES[v].toLowerCase()} speed`} onClick={() => p.setSpeed(v)}>
               {SPEED_NAMES[v]}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
+        </span>
+      </span>
       <button type="button" class="icon-button" title="Skip to where the water settles" disabled={progress === null} onClick={() => p.skip()}>
         <span class="icon-word">Skip</span>
       </button>

@@ -34,8 +34,7 @@ import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture } from "../editor/Editor";
 import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
-import type { DrawerModel, YourMapRow } from "../editor/Drawer";
-import type { Section } from "../editor/drawer/settings";
+import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, progressText, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
@@ -180,9 +179,8 @@ export function App() {
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array } | null>(null);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  /** The drawer's open settings sheet, kept when a new map replaces the open one. */
-  const [openSections, setOpenSections] = useState<readonly Section[]>([]);
+  // the map generator's panel or Your maps, one at a time
+  const [panel, setPanel] = useState<"generator" | "maps" | null>(null);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
@@ -708,7 +706,7 @@ export function App() {
 
   // ---------------------------------------------------------------------------------- render
 
-  const drawer: DrawerModel = {
+  const drawer: GeneratorModel = {
     spec,
     seedText,
     onSeed: (t) => {
@@ -733,8 +731,6 @@ export function App() {
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
     onDeleteMap: deleteMap,
-    open: openSections,
-    onToggle: (s) => setOpenSections((o) => (o.includes(s) ? o.filter((x) => x !== s) : [...o, s])),
     name,
     onRename: rename,
   };
@@ -856,8 +852,10 @@ export function App() {
         onAnother={() => guard(() => void anotherLikeThis(), "Another like this")}
         onPicture={(get) => (picture.current = get)}
         drawer={drawer}
-        drawerOpen={drawerOpen}
-        onDrawer={setDrawerOpen}
+        drawerOpen={panel === "generator"}
+        onDrawer={(o) => setPanel(o ? "generator" : null)}
+        mapsOpen={panel === "maps"}
+        onMaps={(o) => setPanel(o ? "maps" : null)}
         keepView={opened.keepView}
       />
       {message}

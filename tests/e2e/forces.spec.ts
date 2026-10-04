@@ -10,7 +10,7 @@
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setWaterSpeed } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -517,7 +517,7 @@ test("a force keeps its own pace whatever the water's speed (D266)", async ({ pa
   await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
   const timed = async (speed: string) => {
-    await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
+    await setWaterSpeed(page, speed);
     await clickTile(page, far[0], far[1]);
     await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.forceTiming()))?.kept ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
     const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;

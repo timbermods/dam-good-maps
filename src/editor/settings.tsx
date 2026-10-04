@@ -76,20 +76,29 @@ export function NumberSetting(p: {
   onChange(v: number): void;
   auto?: Auto;
   disabled?: boolean;
+  /** On one line: the name, the slider, then the value (the map generator). */
+  line?: boolean;
 }) {
   const fill = p.max > p.min ? ((p.value - p.min) / (p.max - p.min)) * 100 : 0;
   const words = p.words ?? String(p.value);
+  const value = (
+    <span class="set-value" aria-hidden="true">
+      {words}
+    </span>
+  );
   return (
-    <div class={`set plate${p.auto?.on ? " auto" : ""}${p.disabled ? " off" : ""}`} {...tip(p.title, ...(p.keys ?? []))}>
-      <div class="set-head">
+    <div class={`set plate${p.line ? " line" : ""}${p.auto?.on ? " auto" : ""}${p.disabled ? " off" : ""}`} {...tip(p.title, ...(p.keys ?? []))}>
+      {p.line ? (
         <span class="set-label">{p.label}</span>
-        <span class="set-right">
-          <span class="set-value" aria-hidden="true">
-            {words}
+      ) : (
+        <div class="set-head">
+          <span class="set-label">{p.label}</span>
+          <span class="set-right">
+            {value}
+            {p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}
           </span>
-          {p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}
-        </span>
-      </div>
+        </div>
+      )}
       <input
         type="range"
         class="set-range"
@@ -103,6 +112,7 @@ export function NumberSetting(p: {
         style={{ "--fill": `${Math.max(0, Math.min(100, fill))}%` }}
         onInput={(e) => p.onChange(Number((e.target as HTMLInputElement).value))}
       />
+      {p.line ? value : null}
     </div>
   );
 }
@@ -122,16 +132,22 @@ export function ChoiceSetting<T extends string | number>(p: {
   extra?: ComponentChildren;
   /** The options as wide as their words, not equal (long words in a narrow group). */
   fit?: boolean;
+  /** On one line: the name, the options, then the extra (the map generator). */
+  line?: boolean;
 }) {
   return (
-    <div class={`set plate${p.auto?.on ? " auto" : ""}`} {...(p.title ? tip(p.title, ...(p.keys ?? [])) : {})}>
-      <div class="set-head">
+    <div class={`set plate${p.line ? ` line choice${p.extra ? " has-extra" : ""}` : ""}${p.auto?.on ? " auto" : ""}`} {...(p.title ? tip(p.title, ...(p.keys ?? [])) : {})}>
+      {p.line ? (
         <span class="set-label">{p.label}</span>
-        <span class="set-right">
-          {p.extra}
-          {p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}
-        </span>
-      </div>
+      ) : (
+        <div class="set-head">
+          <span class="set-label">{p.label}</span>
+          <span class="set-right">
+            {p.extra}
+            {p.auto ? <AutoChip label={p.label} auto={p.auto} /> : null}
+          </span>
+        </div>
+      )}
       <div class={`set-seg${p.fit ? " fit" : ""}`} role="group" aria-label={p.label}>
         {p.options.map(([v, word, title, off]) => (
           <button type="button" key={String(v)} aria-pressed={p.value === v} disabled={!!off} {...tip(off ? `${title}: ${off}` : title, ...(p.keys ?? []))} onClick={() => p.onChange(v)}>
@@ -139,6 +155,7 @@ export function ChoiceSetting<T extends string | number>(p: {
           </button>
         ))}
       </div>
+      {p.line ? p.extra : null}
     </div>
   );
 }

@@ -5,7 +5,7 @@
 // Clear everything in the ⋯ menu; a map without a start says so and the save refuses.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu } from "./open";
+import { openEditor, openFileMenu, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,7 +17,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function openTopDown(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await setWaterSpeed(page, "instant");
 }
 
 /** A box of the map where the map (not a bar) takes the pointer, dragged as a rectangle. */

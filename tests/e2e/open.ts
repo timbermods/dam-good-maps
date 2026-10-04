@@ -33,7 +33,7 @@ export async function openFileMenu(page: Page): Promise<Locator> {
 }
 
 /** Open the map generator's panel from the header (Map Generator; a panel already open is left open) and return it.
- *  It takes 352px at the left of the map. */
+ *  It lies over the map at the left, 640px wide, every setting showing. */
 export async function openDrawer(page: Page): Promise<Locator> {
   const button = page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
@@ -45,16 +45,33 @@ export async function openDrawer(page: Page): Promise<Locator> {
 /** The drawer's submit button: "Generate", or the progress words while a map is made. */
 export const generateButton = (page: Page): Locator => page.getByRole("form", { name: "Settings" }).locator('button[type="submit"]');
 
-/** Open the drawer and one of its settings sections (Terrain, Water, Hazards, Resources, Difficulty, "Limits for this
- *  size") and return its fields: the group "<Section> settings", opened in place directly under the section's row.
- *  A section already open is left open (clicking its row again would close it). */
+/** Open the map generator and return one of its groups (Terrain, Water, Hazards, Resources, Difficulty), all of which
+ *  always show. */
 export async function openSection(page: Page, section: string): Promise<Locator> {
   const drawer = await openDrawer(page);
-  const row = drawer.locator(`[data-section="${section}"]`);
-  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click();
-  const group = drawer.getByRole("group", { name: `${section} settings` });
+  const group = drawer.getByRole("region", { name: section, exact: true });
   await expect(group).toBeVisible();
   return group;
+}
+
+/** Pick an option of a segmented choice (a generator setting, the water's Speed) by the choice's name and the option's
+ *  word. */
+export async function pick(scope: Locator | Page, choice: string, option: string): Promise<void> {
+  await scope.getByRole("group", { name: choice, exact: true }).getByRole("button", { name: option, exact: true }).click();
+}
+
+/** Open Your maps from the header (its own panel, in the map generator's place) and return the maps' region. */
+export async function openYourMaps(page: Page): Promise<Locator> {
+  const button = page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true });
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  const yours = page.getByRole("region", { name: "Your maps" });
+  await expect(yours).toBeVisible();
+  return yours;
+}
+
+/** The water's speed, picked in the water row (Slower, Normal, Faster, Instant). */
+export async function setWaterSpeed(page: Page, speed: string): Promise<void> {
+  await pick(page, "Water speed", speed[0].toUpperCase() + speed.slice(1));
 }
 
 /** Open the legend over the map (Legend, last in the Show column; one ticked is left open) and return its panel. It

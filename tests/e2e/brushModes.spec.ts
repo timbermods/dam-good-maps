@@ -4,7 +4,7 @@
 // stroke starts, and kept in its operation; each brush remembers its mode.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setLevel } from "./open";
+import { openEditor, setLevel, setWaterSpeed } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -21,7 +21,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await setWaterSpeed(page, "instant");
 
   // a river tile with dry land two tiles to its north, away from the edges and the bars
   const spot = await page.evaluate(() => {

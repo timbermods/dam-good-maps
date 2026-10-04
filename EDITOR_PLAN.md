@@ -49,7 +49,8 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 ## 3. The screen
 
 The editor's parts as they are now: Layout 2 (Kyler, 2026-10-03). The page is the editor (D330): every map opens in
-the editor at once, in one window, and **Map Generator** opens the generator's settings in a 352px panel at the left.
+the editor at once, in one window; **Map Generator** opens the generator's settings in a 640px panel over the map at the
+left, and **Your maps** opens the maps kept in this browser in the same place.
 Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s ("Layout 2 mockups (2026-10-03): the design to
 build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the sizes it is designed for.
 
@@ -64,20 +65,22 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
   Save project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
   M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
-- **The map generator's panel** (352px at the left, lying over the map: opening it never resizes the map or moves
-  the camera; its new single-view design is in mockups, DESIGN.md): **Generate** and **Surprise me** pinned at its top; under them, scrolling as one:
-  the map's **Name** (the title's; renaming it here is the title's rename); Theme and Seed (a typed seed is kept,
-  with **Keep** to keep or let it go); Size; Terrain, Water, Hazards, Resources, **Difficulty** (Starting wood, Max
-  walk to water, Starting berries, Start area, No ruins within) and Limits for this size, each opening in place
-  under its own row, several at once, with the settings' fields and guards (PLAN §5) and no line under them (the
-  official maps' range is in each tooltip); under "On this map", Mine sites, Ruin fields, Berry patches, **Trees**
-  (every living tree on the map as it is, edits included) and Rivers, each with its picture and number; **Your
-  maps**. Every map is made for Normal until the core drops difficulty after M9b's release. Every Generate makes a new map named for its
-  theme ("River Valley") and replaces the open one without asking: edits never replay onto new land (D336), and the
-  map it replaces is already in Your maps.
+- **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
+  the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
+  language (a slider with its value, or a segmented choice; no dropdowns). A title block: the map's **Name** (the
+  title's; renaming it here is the title's rename), **Generate** and **Surprise me**; **Theme** (with **Reset
+  settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
+  Custom, its width and height typed). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
+  within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
+  included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
+  its tooltip); the code is `src/editor/generator/`. Every map is made for Normal until the core drops difficulty
+  after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
+  without asking: edits never replay onto new land (D336), and the map it replaces is already in Your maps.
 - **Your maps** (D234): every map opened or made is kept in this browser and saved quietly after its edits settle
-  (`core/library/saver.ts`), a new one a moment after it opens and the open one before anything replaces it; the
-  panel's foot shows them two to a row, each the map's whole picture in a square box (the core's 256px top-down
+  (`core/library/saver.ts`), a new one a moment after it opens and the open one before anything replaces it; **Your
+  maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
   right-click on one, open or not, offers **Download .timber file**, **Rename** (in place) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Phones stay view-only (D185).
@@ -673,8 +676,8 @@ Glaciate and M Select.
 ## 8. The generator, Claude and the first run
 
 **The page is the editor** (D330; [docs/UI-BRIEF.md](docs/UI-BRIEF.md), as Kyler reshaped it on the current editor's
-skeleton, DESIGN.md): one window with no step between making a map and shaping it; the map generator's panel holds
-the map as a whole (the settings, what is on it, Your maps) and the controls over the map hold the land; Generate runs
+skeleton, DESIGN.md): one window with no step between making a map and shaping it; the map generator's panel and
+Your maps hold the map as a whole (the settings, what is on it, the other maps) and the controls over the map hold the land; Generate runs
 only on its button. **Edits never replay onto new land** (D336): every Generate makes a new map, at any size or
 setting; an edited map stays in Your maps, one click away (D234). Decided and not yet built: the candidates strip
 (the versions, checkpoint 2).

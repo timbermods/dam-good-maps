@@ -32,14 +32,13 @@ test("the start requirements follow the settings, and the editor's start follows
   // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the map generator's Difficulty section)
   const sheet = await openSection(page, "Difficulty");
   // Difficulty holds the start rules in this order, at Normal's values; "Designed for" and its Easy and Hard are gone
-  await expect(sheet.locator("label.field .field-head")).toHaveText(["Starting wood", "Max walk to water", "Starting berries", "Start area", "No ruins within"]);
-  await expect(sheet.locator("#rule-wood")).toHaveValue("200");
-  await expect(sheet.locator("#rule-water")).toHaveValue("20");
-  await expect(sheet.locator("#rule-bushes")).toHaveValue("30");
+  await expect(sheet.locator(".set-label")).toHaveText(["Starting wood", "Max walk to water", "Starting berries", "Start area", "No ruins within"]);
+  await expect(sheet.getByRole("slider", { name: "Starting wood" })).toHaveValue("200");
+  await expect(sheet.getByRole("slider", { name: "Max walk to water" })).toHaveValue("20");
+  await expect(sheet.getByRole("slider", { name: "Starting berries" })).toHaveValue("30");
   await expect(page.locator("aside[aria-label=\"Map Generator\"]")).not.toContainText("Designed for");
   await expect(page.locator("aside[aria-label=\"Map Generator\"]").getByRole("button", { name: /^(Easy|Hard)$/ })).toHaveCount(0);
-  await sheet.getByLabel("Starting wood").fill("75");
-  await sheet.getByLabel("Starting wood").dispatchEvent("change");
+  await sheet.getByRole("slider", { name: "Starting wood" }).fill("75");
   await page.getByRole("form", { name: "Settings" }).getByRole("button", { name: /^Generate/ }).click();
   await expect(page).toHaveURL(/&sl=75/, { timeout: 60_000 });
   await page.waitForFunction(() => window.dgm!.current!()?.checks.find((k) => k.id === "start.wood")?.limit === 75 && window.dgmEditor?.info().spec?.settings.start.rules.woodWithin20 === 75, null, { timeout: 60_000 });

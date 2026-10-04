@@ -7,7 +7,7 @@
 // varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setWaterSpeed } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -184,7 +184,7 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
   await page.keyboard.press("-");
   const at = await high(page);
   const timed = async (speed: string) => {
-    await page.getByRole("combobox", { name: "Water speed" }).selectOption(speed);
+    await setWaterSpeed(page, speed);
     const p = await client(page, at[0], at[1]);
     await page.mouse.click(p.x, p.y);
     await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.forceTiming()))?.kept ?? 0, { timeout: 60_000 }).toBeGreaterThan(0);

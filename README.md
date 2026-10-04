@@ -7,7 +7,7 @@ The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on
 <https://timbermods.github.io/dam-good-maps/>.
 
 The generator:
-- A map opens ready to edit. **Map Generator**, top left, opens its settings and your maps.
+- A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
   Basin**, **Delta** or **Islands**. Then pick the size.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
@@ -84,7 +84,7 @@ The editor:
   **About**.
 - Click the map's name at the top to rename it. The saved file takes the name.
 - **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
-- The map you were on stays in **Your maps**, at the foot of **Map Generator**: click it to go back.
+- The map you were on stays in **Your maps**, beside **Map Generator**: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 

@@ -7,7 +7,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { openDrawer, openEditor, openLegend, waitForEditor } from "./open";
+import { openEditor, openLegend, openYourMaps, waitForEditor } from "./open";
 
 /** Tiles the renderer's overlay draws in the highlight's colour. */
 const highlighted = (page: Page) =>
@@ -124,8 +124,7 @@ test("the header names the open map: a generated map, then an opened file, the r
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe("");
 
-  await openDrawer(page);
-  const yours = page.getByRole("region", { name: "Your maps" });
+  const yours = await openYourMaps(page);
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText("My island");
   await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();

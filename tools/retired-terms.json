@@ -40,7 +40,8 @@
     { "term": "rebuildWithCurrentGenerator", "retired": "D336", "instead": "edits never replay onto new land: an older map opens exactly as it was saved" },
     { "term": "Refine this map", "retired": "D330", "instead": "the page opens every generated map in the editor at once; there is no step between making a map and shaping it" },
     { "term": "Back to settings", "retired": "D330", "instead": "the map stays in the editor: New map in the header opens the drawer with the settings beside it" },
-    { "term": "poisoned soil", "retired": "D334", "instead": "contaminated ground: the game's orange-red veins, in every look (the High look's dark stain and its switch are retired)" }
+    { "term": "poisoned soil", "retired": "D334", "instead": "contaminated ground: the game's orange-red veins, in every look (the High look's dark stain and its switch are retired)" },
+    { "term": "Limits for this size", "retired": "Kyler, 2026-10-04", "instead": "the map generator shows every setting at once; each setting's guard (a drought reserve too big for the size is greyed) says what a size can hold" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

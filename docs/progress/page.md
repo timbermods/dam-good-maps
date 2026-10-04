@@ -612,3 +612,18 @@ Level, the height slice, a source's Strength).
   the header and the bar, everything else in its place; nothing under the panel clicked) instead of the left side
   moving with a narrowed map. Full browser suite: 129 of 131 before that update; the two left were layout.spec (now
   passing) and dev's own look-high highlight failure; a shelf label test failed once and passed on rerun.
+
+## The map generator built: A, the sheet, with Kyler's changes (2026-10-04)
+
+Kyler picked A with five changes: the panel ends above the bar's settings (748px at both sizes; each setting on one
+line, two columns); no tabs, Map Generator and Your maps as named header buttons, the left side's controls back on
+the margin; yes to the four changes (the species mix bar with its names, Difficulty's sliders, the shorter words,
+Reset settings on Theme's line); 640px at both sizes; Speed in the water row a segmented choice. Built for real:
+`src/editor/generator/` (the panel, Your maps, the fields, the hints, the model); the old drawer, its sections, B and
+`?gen=` are gone. The panel starts under the top row, since the wider water row reaches over it at 1920×1080. The
+specs moved to the new controls (`open.ts`'s `pick`, `openYourMaps`, `setWaterSpeed`; the sections always show);
+`layout.spec.ts` now holds the open panel clear of every control still showing. "Limits for this size" joins the
+retired terms. Captures: `docs/design/generator-{closed,open}-{1920x1080,2560x1440}.jpg`.
+Tests: full browser suite 129 of 131 (dev's look-high highlight failure; the 256² water timing test hit its limit
+while the unit suite ran alongside and passed alone). Unit quick suite: `carveBornAsItCuts.test.ts`'s two tests fail
+on feature/page's commit before this build too (no core file changed here); for the milestone session.

@@ -418,17 +418,26 @@ refinements and what the mockups left open:
   top row (the water row and the camera group), the Show column and the bottom-left group (the left: whichever
   reaches further), the bar with its settings, and the objects list with a picked object's window, each as far as it
   reaches plus 8px (`src/editor/view/insets.ts`), kept up to date as they change; setting them never moves the camera.
-- **The map generator's two structures** (mockups, 2026-10-04, for Kyler's pick; `?gen=a`, `?gen=b`;
-  [docs/design/layout2.html](docs/design/layout2.html)): 640px at both sizes, every setting showing, nothing
-  scrolling, every setting through `src/editor/generator/fields.tsx` in the bar's control language. **A, the sheet:**
-  a title block (Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in three columns (Terrain
-  and Difficulty, Water and Hazards, Resources and On this map); two named tabs on the left edge (Map Generator, Your
-  maps). **B, the board:** the bar's 76px cells eight across, the first column Generate, Surprise me and the groups'
-  names as tools' cells; one tab on the left edge, Your maps in the header, On this map a line at the foot. In both
-  the tabs sit flush on the window's edge, 32px wide and 152px tall, and the left side's controls (the Show column,
-  the coordinates, the readout, the minimap) stand 42px from the edge to clear them. 640px rather than a third of the
-  window at 2560×1440 (853px): the controls are the bar's sizes, with no scale-up, so more width would only stretch
-  the sliders and cover more map. "Limits for this size" goes; nothing else is cut.
+- **The map generator, A, the sheet** (Kyler's pick of two structures, 2026-10-04, with his changes; the mockups of A
+  and B are on [docs/design/layout2.html](docs/design/layout2.html)): one panel, 640px at both sizes (a third of the
+  window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, its corners rounded.
+  It starts 10px under the top row (the water row reaches over a 640px panel at 1920×1080) and ends at least 10px
+  above the bar's settings (the bar reaches under it there), centred in that room on whole pixels; at 2560×1440 the
+  room runs down to the bar itself. 748px tall at both sizes: at 1920×1080 it ends 13px above the bar's settings.
+  Every setting shows at once, nothing scrolls, each on one 28px line: its name, then a slider and its value, or a
+  segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
+  up). A title block (the Name, two lines kept, beside Generate and Surprise me; Theme with Reset settings; Seed with
+  Keep, and Size with "128 × 128" or a custom width and height typed), then two columns under a hairline: Terrain,
+  Water and Hazards; Resources, Difficulty and On this map (two to a row). Each group is headed by its picture and
+  its name in small capitals. The species mix is one bar of four shares, dragged at its three edges, each share's
+  name and number under it; Difficulty's numbers are sliders; Badwater's "No badwater" is Off, Start area's choices
+  Tight, Normal and Roomy, "Unstable cores" has "advanced" in its tooltip. "Limits for this size" is gone.
+- **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header beside Map Generator (one
+  of the two open at a time, each button lit while its panel is open), in the generator's exact box: four to a row,
+  scrolling inside when there are more. The header has no tabs on the window's edge; the left side's controls stay on
+  the 10px margin. While a panel is open, the Show column, the coordinates and the readout give way under it.
+- **The water row's Speed** is a segmented choice (Slower, Normal, Faster, Instant), no native dropdown; the row's
+  words ("Water settled", "Water flowing… 40%") take one width, right-aligned, so nothing beside them moves.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks stay left-aligned.

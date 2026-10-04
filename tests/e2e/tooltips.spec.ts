@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openDrawer, openEditor, openFileMenu, openSection } from "./open";
+import { openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -225,23 +225,18 @@ test("every control in the map generator's panel, in each settings section opene
   await check("the title being renamed");
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Map name")).toHaveCount(0);
-  const drawer = await openDrawer(page);
-  await check("the drawer");
-  // each section opens in place under its own row (no dialog, no sheet), the ones before it staying open
-  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty", "Limits for this size"]) {
-    await openSection(page, section);
-    await check(`the drawer with ${section} open`);
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-  }
-  // Your maps (its tiles join a few seconds after a map opens: only the region is certain)
-  await expect(page.getByRole("region", { name: "Your maps" })).toBeVisible();
-  await check("the drawer, every section open");
-  // each row again closes its section
-  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty", "Limits for this size"]) await drawer.locator(`[data-section="${section}"]`).click();
-  await expect(drawer.getByRole("group", { name: /settings$/ })).toHaveCount(0);
-  // the drawer closed again
-  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
-  await check("the drawer closed again");
+  await openDrawer(page);
+  // every group shows at once: nothing to open, no dialog
+  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty"]) await openSection(page, section);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await check("the map generator");
+  // Your maps, its own panel in the generator's place (its tiles join a few seconds after a map opens: only the region
+  // is certain)
+  await openYourMaps(page);
+  await check("Your maps");
+  // closed again
+  await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
+  await check("the panels closed again");
   expect(missing, "controls with no tooltip, by state").toEqual({});
 });
 
@@ -250,17 +245,17 @@ test("no grey line under a setting: the official maps' range is the tooltip's la
   await page.setViewportSize({ width: 1400, height: 1000 });
   await openEditor(page, "s=9&z=96&d=n&t=riverValley");
   const drawer = await openDrawer(page);
-  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty"]) await openSection(page, section);
-  // nothing in the drawer reads as a reference line
+  // nothing in the panel reads as a reference line
   await expect(drawer.locator(".band, [class*='-band']")).toHaveCount(0);
   await expect(drawer).not.toContainText("Official");
   // a setting with a range in the official maps says it at the end of its tooltip
-  for (const [id, range] of [["relief", /Official maps: 9–15/], ["falls", /Official maps: 0–41/], ["rule-water", /Official maps: most 12/], ["rule-wood", /Official maps: most 110/]] as const) {
-    const title = (await drawer.locator(`label[for="${id}"]`).getAttribute("title")) ?? "";
-    expect(title, id).toMatch(new RegExp(` · ${range.source}[^.]*$`));
+  const setting = (name: string) => drawer.locator(".set.line").filter({ has: page.locator(".set-label", { hasText: new RegExp(`^${name}$`) }) });
+  for (const [name, range] of [["Relief", /Official maps: 9–15/], ["Waterfalls", /Official maps: 0–41/], ["Max walk to water", /Official maps: most 12/], ["Starting wood", /Official maps: most 110/]] as const) {
+    const title = (await setting(name).getAttribute("title")) ?? "";
+    expect(title, name).toMatch(new RegExp(` · ${range.source}[^.]*$`));
   }
   // and one with none has only what it does
-  expect(await drawer.locator('label[for="river-style"]').getAttribute("title")).toBe("How the rivers run: straight, meandering or braided");
+  expect(await setting("River style").getAttribute("title")).toBe("How the rivers run: straight, meandering or braided");
 });
 
 test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, in the one shared tooltip", async ({ page }) => {

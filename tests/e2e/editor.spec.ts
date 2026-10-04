@@ -4,7 +4,7 @@
 // and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, generateButton, openEditor, openFileMenu, openSection, waitForEditor } from "./open";
+import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor } from "./open";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -116,15 +116,14 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);
   // the edited map stays in Your maps, and its row brings it back with its edits
   const madeBefore = await page.evaluate(() => window.dgm!.current!()!.made);
-  await (await openSection(page, "Resources")).getByLabel("Grove size").selectOption("bigWoods");
+  await pick(await openSection(page, "Resources"), "Grove size", "Big woods");
   await generateButton(page).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
   await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
   expect((await info(page)).edits).toBe(0);
-  // (the Resources section stays open in place across the new map; the new map joins Your maps a few seconds after it
-  // opens, so its tile is waited for, not assumed)
-  const yours = page.getByRole("region", { name: "Your maps" });
+  // (the new map joins Your maps a few seconds after it opens, so its tile is waited for, not assumed)
+  const yours = await openYourMaps(page);
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await yours.locator("button:not([aria-current])").click();
   // (the editor opens again for the map from Your maps: wait for it before asking it anything)

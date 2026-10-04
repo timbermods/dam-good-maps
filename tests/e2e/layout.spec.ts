@@ -1,7 +1,8 @@
 // The editor's layout, Layout 2 (DESIGN.md, "Layout 2 mockups (2026-10-03): the design to build"), at the two sizes
 // it is designed for, 1920×1080 and 2560×1440: with the map generator's panel closed and open, the legend off and
-// on, and each Show toggle on, no two pieces of chrome overlap (the open panel lies over the map and whatever is on it,
-// Kyler, 2026-10-04; opening it moves nothing); the map's info sits at the window's centre; the
+// on, and each Show toggle on, no two pieces of chrome overlap (the open panel lies over the map, clear of every
+// control still showing; the Show column, the coordinates and the readout give way under it; opening it moves
+// nothing, Kyler, 2026-10-04); the map's info sits at the window's centre; the
 // pieces keep to their places (the Show column and the bottom-left group at the map's left, the camera group and the objects
 // menu at its right, the water row and the bar centred in it, the objects menu's foot level with the bar's); the
 // held tool's settings sit on the bar's own cells at its exact width; ticking a toggle moves nothing; the legend
@@ -14,13 +15,13 @@ import { legendEntries, objectLegend } from "../../src/render3d/palette";
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
 const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
-/** The panel's one width (Kyler, 2026-10-03). */
-const PANEL = 352;
+/** The map generator's one width at both sizes (Kyler, 2026-10-04). */
+const PANEL = 640;
 /** The page's margin round the map's edges. */
 const MARGIN = 10;
 
 /** The pieces of chrome that must never overlap one another. */
-const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".drawer", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
+const PIECES = [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions", ".gen", ".show-column", ".legend-panel", ".overlay-legend", ".layer-legend", ".water-bar", ".camera-group > button", ".view3d-corner .compass", ".corner-level .layer-widget", ".view3d-corner > .slow-cell", ".sound-cell .speaker", ".tool-settings", ".tool-bar", ".objects-menu", ".object-window", ".editor-view .minimap", ".coords", ".readout"];
 
 interface Box {
   name: string;
@@ -57,6 +58,9 @@ async function contrast(page: Page): Promise<{ name: string; ratio: number; soli
       return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
     };
     const parse = (s: string): number[] | null => {
+      // (a colour mixed in CSS reads as color(srgb r g b / a), each from 0 to 1)
+      const c = /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/.exec(s);
+      if (c) return [Number(c[1]) * 255, Number(c[2]) * 255, Number(c[3]) * 255, c[4] === undefined ? 1 : Number(c[4])];
       const m = /rgba?\(([^)]+)\)/.exec(s);
       if (!m) return null;
       const p = m[1].split(",").map((x) => parseFloat(x));
@@ -65,7 +69,7 @@ async function contrast(page: Page): Promise<{ name: string; ratio: number; soli
     const out: { name: string; ratio: number; solid: boolean }[] = [];
     const seen = new Set<Element>();
     // ("Water settled" is plain text over the map's sky with a dark shadow, by design: not among them)
-    for (const el of document.querySelectorAll(".editor-bar button, .editor-bar h1, .editor-bar .muted, .shelf-item, .drawer button, .drawer label, .drawer li, .show-column button, .tool-dock button, .tool-dock label, .cell-head, .view3d-corner button, .view3d-corner output, .legend-panel .pick-line, .legend-panel .panel-head, .readout, .coords, .water-bar button, .water-bar label, .layer-legend p, .overlay-legend p")) {
+    for (const el of document.querySelectorAll(".editor-bar button, .editor-bar h1, .editor-bar .muted, .shelf-item, .gen button, .gen label, .gen li, .show-column button, .tool-dock button, .tool-dock label, .cell-head, .view3d-corner button, .view3d-corner output, .legend-panel .pick-line, .legend-panel .panel-head, .readout, .coords, .water-bar button, .water-bar label, .layer-legend p, .overlay-legend p")) {
       if (seen.has(el) || (el as HTMLElement).offsetParent === null) continue;
       seen.add(el);
       const cs = getComputedStyle(el);
@@ -154,17 +158,19 @@ async function onTheCells(page: Page, state: string) {
 /** The checks of one state: no overlap, the info centred, the pieces in their places, solid and readable. */
 async function check(page: Page, w: number, state: string) {
   const bs = await boxes(page);
-  // (the map generator's panel lies over whatever is on the map while it is open)
-  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (bs[i].name !== ".drawer" && bs[j].name !== ".drawer") expect(overlaps(bs[i], bs[j]), `${bs[i].name} overlaps ${bs[j].name} (${state})`).toBe(false);
+  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${bs[i].name} overlaps ${bs[j].name} (${state})`).toBe(false);
   const find = (name: string) => bs.find((b) => b.name === name)!;
   const [map] = await boxes(page, [".editor-view .view3d"]);
   // the map's info at the window's centre, clear of both side groups
   const title = find(".editor-bar .editor-title");
   same((title.l + title.r) / 2, w / 2, `the map's info sits at the window's centre (${state})`, 1.5);
   // the map's left: the Show column and the minimap on the margin, the legend's left edge on the column's
-  const column = find(".show-column");
-  same(column.l, map.l + MARGIN, `the Show column on the map's left margin (${state})`);
-  same(column.t, map.t + MARGIN, `the Show column at the map's top margin (${state})`);
+  // (an open panel lies over the Show column, which gives way under it)
+  const column = bs.find((b) => b.name === ".show-column");
+  if (column) {
+    same(column.l, map.l + MARGIN, `the Show column on the map's left margin (${state})`);
+    same(column.t, map.t + MARGIN, `the Show column at the map's top margin (${state})`);
+  }
   // the bottom-left group: the coordinates, the readout, then the minimap at the foot, level with the bar's, all on
   // the left margin, one gap between them (Kyler's sitting, 2026-10-03)
   const minimap = find(".editor-view .minimap");
@@ -179,7 +185,7 @@ async function check(page: Page, w: number, state: string) {
     groupTop = b.t;
   }
   const legend = bs.find((b) => b.name === ".legend-panel");
-  if (legend) {
+  if (legend && column) {
     same(legend.l, column.l, `the legend's left edge is the column's (${state})`);
     expect(groupTop - legend.b, `the legend ends at least 8px above the bottom-left group (${state})`).toBeGreaterThanOrEqual(8 - 0.5);
     const scroll = await page.locator(".legend-panel").evaluate((e) => e.scrollHeight - e.clientHeight);
@@ -223,17 +229,21 @@ for (const [w, h] of SIZES) {
         expect(before.some((b) => b.name === ".legend-panel"), `the legend panel (${state})`).toBe(legend);
         if (!panel) closed[String(legend)] = before;
         else {
-          // the panel opens over the map at its left edge, at its one width, between the header and the bar; nothing
-          // else moves (Kyler, 2026-10-04: opening it never resizes the map)
-          const d = before.find((b) => b.name === ".drawer")!;
-          const bar = before.find((b) => b.name === ".tool-bar")!;
+          // the panel opens over the map on its left margin, at its one width, 10px under the top row and 10px above
+          // the bar's settings at least, on whole pixels; nothing else moves (Kyler, 2026-10-04: opening it never
+          // resizes the map); what lies under it gives way
+          const d = before.find((b) => b.name === ".gen")!;
+          const water = before.find((b) => b.name === ".water-bar")!;
+          const settings = before.find((b) => b.name === ".tool-settings")!;
           const [map] = await boxes(page, [".editor-view .view3d"]);
           same(d.r - d.l, PANEL, `the panel's one width (${state})`);
-          same(d.l, map.l, `the panel on the window's left edge (${state})`);
-          expect(d.t, `the panel below the header (${state})`).toBeGreaterThanOrEqual(map.t + MARGIN - 0.5);
-          expect(d.b, `the panel above the bar (${state})`).toBeLessThanOrEqual(bar.t - MARGIN + 0.5);
+          same(d.l, map.l + MARGIN, `the panel on the map's left margin (${state})`);
+          expect(d.t, `the panel under the top row (${state})`).toBeGreaterThanOrEqual(water.b + MARGIN - 0.5);
+          expect(d.b, `the panel above the bar's settings (${state})`).toBeLessThanOrEqual(settings.t - MARGIN + 0.5);
+          expect(d.t % 1, `the panel on a whole pixel (${state})`).toBe(0);
           for (const b of closed[String(legend)]) {
             const a = before.find((x) => x.name === b.name);
+            if (!a && [".show-column", ".legend-panel", ".coords", ".readout"].some((s) => b.name.startsWith(s))) continue;
             expect(a && edge(a.l) === edge(b.l) && edge(a.t) === edge(b.t) && edge(a.r) === edge(b.r) && edge(a.b) === edge(b.b), `${b.name} keeps its place when the panel opens (${state})`).toBe(true);
           }
         }

@@ -11,7 +11,6 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
-import { GEN_LAYOUT, MAPS_ICON } from "./generator/GenPanel";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -239,9 +238,11 @@ export interface HeaderProps {
   onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
-  /** The New map drawer: open, and its switch. */
+  /** The map generator's panel and Your maps (one open at a time): open, and their switches. */
   drawerOpen: boolean;
   onDrawer(): void;
+  mapsOpen: boolean;
+  onMaps(): void;
   /** Another like this (D278 (1c)): a sibling of a generated map. */
   onAnother?(): void;
   /** The look's menu (High or Standard, D284), beside More. */
@@ -266,9 +267,10 @@ export function Header(p: HeaderProps) {
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
       const h = el.getBoundingClientRect();
-      const l = el.querySelector(".new-map")?.getBoundingClientRect();
+      // (the left group: Map Generator and Your maps)
+      const ls = [...el.querySelectorAll(".new-map")].map((e) => e.getBoundingClientRect().right);
       const r = el.querySelector(".editor-actions")?.getBoundingClientRect();
-      const sl = l ? Math.ceil(l.right - h.left) : 0;
+      const sl = ls.length ? Math.ceil(Math.max(...ls) - h.left) : 0;
       const sr = r ? Math.ceil(h.right - r.left) : 0;
       el.style.setProperty("--side-l", `${sl}px`);
       el.style.setProperty("--side-r", `${sr}px`);
@@ -306,19 +308,22 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the map generator" : "Make a new map, change its settings, open your maps"} onClick={p.onDrawer}>
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings"} onClick={p.onDrawer}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
           <path d="M9 3v15M15 6v15" />
         </svg>
         Map Generator
       </button>
-      {GEN_LAYOUT === "b" ? (
-        <button type="button" class="ghost new-map your-maps-button" aria-pressed={false} {...tip("Your maps")}>
-          {MAPS_ICON}
-          Your maps
-        </button>
-      ) : null}
+      <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+          <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
+          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
+          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
+        </svg>
+        Your maps
+      </button>
       <div class="editor-title">
         <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
