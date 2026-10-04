@@ -17,6 +17,7 @@ import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import * as portable from "../math/portable";
 import { mineDistance } from "../resources/mineGround";
+import { FLOOD_MARGIN, nearWater } from "../validate/playability";
 
 /** A mine site's square: its footprint (5×5) and the ring round it, all at one level. */
 const SIDE = 7;
@@ -29,9 +30,9 @@ const PAD_R = 4.3;
 /** The most tiles a pad takes down (D363: about 49). */
 export const PAD_MOST = 49;
 /** The water's margin the objects keep (validate/playability.ts FLOOD_MARGIN + 1, a square round
- *  each wet tile), and a pad's, wider: the planned water is only the plan, and the settled water
- *  spreads further, over flats and into ponds. */
-const WATER_MARGIN = 3;
+ *  each wet tile, as gen/extras.ts `objectKeepOff` keeps it), and a pad's, wider: the planned water
+ *  is only the plan, and the settled water spreads further, over flats and into ponds. */
+const WATER_MARGIN = FLOOD_MARGIN + 1;
 const PAD_WATER_MARGIN = 5;
 
 export interface MinePad {
@@ -53,39 +54,6 @@ interface SiteOptions {
   /** The least distance from the start, and the distance the placement looks at first. */
   lo: number;
   far: number;
-}
-
-/** The tiles within `margin` (a square round each) of the water: wetter than 0.05. */
-function nearWater(wet: ArrayLike<number>, W: number, H: number, margin: number): Uint8Array {
-  const N = W * H;
-  const out = new Uint8Array(N);
-  // (a square dilation, rows then columns)
-  const rows = new Uint8Array(N);
-  for (let y = 0; y < H; y++) {
-    let last = -Infinity;
-    for (let x = 0; x < W; x++) {
-      if (wet[y * W + x] > 0.05) last = x;
-      if (x - last <= margin) rows[y * W + x] = 1;
-    }
-    last = Infinity;
-    for (let x = W - 1; x >= 0; x--) {
-      if (wet[y * W + x] > 0.05) last = x;
-      if (last - x <= margin) rows[y * W + x] = 1;
-    }
-  }
-  for (let x = 0; x < W; x++) {
-    let last = -Infinity;
-    for (let y = 0; y < H; y++) {
-      if (rows[y * W + x]) last = y;
-      if (y - last <= margin) out[y * W + x] = 1;
-    }
-    last = Infinity;
-    for (let y = H - 1; y >= 0; y--) {
-      if (rows[y * W + x]) last = y;
-      if (last - y <= margin) out[y * W + x] = 1;
-    }
-  }
-  return out;
 }
 
 /** The middles of the level squares on the land (`land`'s regions), clear of `blocked` and the

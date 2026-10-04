@@ -20,7 +20,8 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `start.ts`: the start's helpers the forces, Select, the shelf and the checks' fixes share (`startProblem`, `moveStartNear`,
   `startClears`, `startCarry`, `startMiddle`).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
-  D330), as one step; only its test calls it today.
+  D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
+  it today (the page's fix waits on #92).
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

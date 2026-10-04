@@ -22,11 +22,11 @@ import { polygonMask } from "../features/geometry";
 import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { landRegions, walkRegions } from "../analysis/regions";
 import { slopeLinks, walkWorld } from "../analysis/walk";
-import { distanceFrom, levelRegions, tilesToRuns } from "../math/grid";
+import { distanceFrom, levelRegions, N4, tilesToRuns } from "../math/grid";
 import { DISTRICT_LAND, DISTRICT_RADIUS, DISTRICT_WATER } from "../features/setpieces/secondDistrict";
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
-import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, WET } from "../validate/playability";
+import { bandScale, EXTRA_BANDS, FLOOD_MARGIN, MINE_LO, minesWanted, nearWater, WET } from "../validate/playability";
 import { mineFootDistance } from "../resources/mineGround";
 import { pickMineSite } from "../resources/baseline";
 
@@ -88,19 +88,11 @@ const ORDER: MapObjectKind[] = ["mineSite", "relicLarge", "geothermal", "relicMe
 export function objectKeepOff(b: BuildResult, features: readonly Feature[], protect?: Uint8Array | null, avoid?: Uint8Array | null): Uint8Array {
   const { W, H } = b;
   const N = W * H;
-  const blocked = new Uint8Array(N);
-  const margin = FLOOD_MARGIN + 1;
+  const blocked = nearWater(b.water, W, H, FLOOD_MARGIN + 1);
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
     if (b.occupied[i] || b.channel[i] || b.cache.terrain.protect[i] || protect?.[i] || avoid?.[i] || x < 2 || y < 2 || x > W - 3 || y > H - 3) blocked[i] = 1;
-    if (b.water[i] > WET)
-      for (let dy = -margin; dy <= margin; dy++)
-        for (let dx = -margin; dx <= margin; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H) blocked[yy * W + xx] = 1;
-        }
   }
   const beds = lakeBeds(features, b.heights, W, H);
   for (let i = 0; i < N; i++) if (beds[i]) blocked[i] = 1;
@@ -508,7 +500,7 @@ export function riseSpots(b: BuildResult, features: readonly Feature[], avoid: U
           } else if (stair < 2 && labels[j] === root && (h[j] === lv - 2 || h[j] === lv - 1) && !(b.water[j] > 0)) {
             // a tile the colony walks on, beside the disc (4-neighbour of a disc tile), a level or
             // two below
-            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            for (const [dx, dy] of N4) {
               const ax = xx + dx;
               const ay = yy + dy;
               if ((ax - x) * (ax - x) + (ay - y) * (ay - y) <= R * R + R) stair = Math.max(stair, lv - h[j]);
@@ -549,7 +541,7 @@ export function riseStands(b: BuildResult, x: number, y: number, radius: number,
         continue;
       }
       if (labels[j] !== root || b.heights[j] !== top - rise) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if ((xx + dx - x) * (xx + dx - x) + (yy + dy - y) * (yy + dy - y) <= R2) stair = true;
+      for (const [dx, dy] of N4) if ((xx + dx - x) * (xx + dx - x) + (yy + dy - y) * (yy + dy - y) <= R2) stair = true;
     }
   return stair;
 }

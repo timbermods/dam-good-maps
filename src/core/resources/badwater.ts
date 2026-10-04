@@ -16,11 +16,11 @@
 
 import { waterSource, type EntitySpec } from "../format/entities";
 import { entityId } from "../features/ids";
-import { BADWATER_SETTING, lnDet, OFFICIAL_BADWATER as B, officialPerMap } from "../gen/calibrated";
-import { expDet } from "../math/detmath";
+import { BADWATER_SETTING, OFFICIAL_BADWATER as B, officialPerMap } from "../gen/calibrated";
 import { distanceFrom } from "../math/grid";
 import { stream } from "../math/rng";
 import type { Settings } from "../spec/mapspec";
+import { between } from "./budget";
 import { lownessAt } from "./measure";
 
 export type BadwaterSetting = Settings["hazards"]["badwater"];
@@ -42,11 +42,6 @@ export interface BadwaterBudget {
   strength: number;
   /** The official maps' typical range at this size (25th to 75th percentile), at Normal. */
   official: { sources: [number, number]; strength: [number, number] };
-}
-
-/** Between lo and hi at t in [0, 1], evenly in ln (a ratio, so a factor of the median). */
-function between(lo: number, hi: number, t: number): number {
-  return lo * expDet(t * lnDet(hi / lo));
 }
 
 /** A map's badwater sources for its size and setting (see the file's header). The seed alone moves

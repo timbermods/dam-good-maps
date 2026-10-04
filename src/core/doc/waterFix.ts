@@ -9,13 +9,15 @@
 // pump reaches on foot; `start.food` and `start.farmland`: moist land and living berries by the start),
 // and only when none of the checks it leaves alone gets worse. The spring is a row of sources by the
 // rule for sources placed automatically (water/sourceGroups.ts, D314), in the lowest ground near the
-// start that the colony walks to (a dry riverbed first, else a hollow), tried in turn on a copy of the
-// map and settled, the first that works kept.
+// start that the colony walks to (a dry riverbed first, else a hollow; water/springSites.ts, the
+// candidate rule the generator's spring by the start shares), tried in turn on a copy of the map and
+// settled, the first that works kept.
 
 import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { hash32 } from "../math/hash";
 import { failing, type CheckResult } from "../validate/report";
 import { placeSourceGroup } from "../water/sourceGroups";
+import { springCandidates } from "../water/springSites";
 import { decodeProject } from "./document";
 import type { EditOp } from "./ops";
 import { MapSession } from "./session";
@@ -46,42 +48,14 @@ export function waterFix(s: MapSession, opts: { tries?: number } = {}): WaterFix
   if (!wanted.length) return null;
   const b = s.built;
   const { W, H } = b;
-  const N = W * H;
   if (!b.start) return null;
   // the colony's walk from the start, over the map's own ground and slopes
   const { blocked, links } = walkWorld(b.entities, W, H);
   const walk = walkDistance(b.heights, W, H, blocked, links, b.start);
   const rule = s.effectiveSpec()?.settings.start.rules.waterWithin ?? 20;
-  // candidate places: dry ground the colony reaches within the rule's walk, off the start's 5×5, in a
-  // riverbed or a hollow below the ground round it; the lowest and nearest first
-  const cands: [number, number][] = [];
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (b.water[i] > 0.05 || b.occupied[i] || Math.max(Math.abs(x - b.start.x), Math.abs(y - b.start.y)) <= 4) continue;
-    const d = reachAt(walk, W, H, i);
-    if (!(d <= rule - 4)) continue;
-    let lower = 0;
-    let ring = 0;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        ring++;
-        if (b.heights[yy * W + xx] > b.heights[i]) lower++;
-      }
-    const hollow = lower / Math.max(1, ring);
-    if (!b.channel[i] && hollow < 0.5) continue;
-    cands.push([(b.channel[i] ? 0 : 1000) - 100 * hollow + d, i]);
-  }
-  cands.sort((a, c) => a[0] - c[0] || a[1] - c[1]);
-  const picks: number[] = [];
-  for (const [, i] of cands) {
-    if (picks.some((j) => Math.abs((j % W) - (i % W)) + Math.abs(Math.floor(j / W) - Math.floor(i / W)) < 6)) continue;
-    picks.push(i);
-    if (picks.length >= (opts.tries ?? FIX_TRIES)) break;
-  }
+  // candidate places (water/springSites.ts, the generator's rule too): within the rule's walk, off
+  // the start's 5×5, in a riverbed or a hollow; the lowest and nearest first
+  const picks = springCandidates({ W, H, heights: b.heights, water: b.water, occupied: b.occupied, channel: b.channel, start: b.start }, rule, opts.tries ?? FIX_TRIES, (i) => reachAt(walk, W, H, i));
   const doc = s.project();
   for (const i of picks)
     for (const strength of FIX_STRENGTH) {

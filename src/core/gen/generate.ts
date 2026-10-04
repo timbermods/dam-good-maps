@@ -55,11 +55,12 @@ import { planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
+import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, type IntentionId } from "../land/intentions";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
@@ -506,7 +507,7 @@ function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array)
       const t = q[k];
       const x = t % W;
       const y = (t - x) / W;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -792,7 +793,7 @@ export function plannedWater(h: Uint8Array, hy: Hydro, W: number, H: number, hel
       let bank = Infinity;
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -877,50 +878,40 @@ function startWaterServed(b: BuildResult, within: number, days: number): number 
 }
 
 /** D330's fix on a shown land (D348): a spring by the start, when the settled water left the start
- *  without water a pump reaches on foot. As `doc/waterFix.ts` places it, on dry ground within the
- *  rule's walk (less 4), off the start's 5×5, in a dry bed or a hollow below the ground round it, the
- *  lowest and nearest first, and here beside ground the colony walks to at most two levels above it
- *  (a pump there reaches its pond); a short spring-fed river the field holds (its sources a group by
- *  D314's rule, no channel cut), tried at SPRING_TRIES places. `tryWith` builds and settles the map
- *  with the spring and says whether the start's water now passes. */
+ *  without water a pump reaches on foot. Its places are the candidate rule `doc/waterFix.ts` shares
+ *  (water/springSites.ts `springCandidates`: dry ground within the rule's walk less 4, off the
+ *  start's 5×5, in a dry bed or a hollow below the ground round it, the lowest and nearest first).
+ *  What differs here: the walk is to ground beside the tile the colony walks to at most two levels
+ *  above it (a pump there reaches its pond; the fix reads the walk at the tile itself), the tile is
+ *  two or more tiles off the map's edge and a level or more under the start's pad, SPRING_TRIES
+ *  places (the fix tries FIX_TRIES), and the spring is a short spring-fed river the field holds at
+ *  one strength (its sources a group by D314's rule, no channel cut; the fix places sources at
+ *  FIX_STRENGTH's two). `tryWith` builds and settles the map with the spring and says whether the
+ *  start's water now passes. */
 function springByStart(b: BuildResult, rule: number, seed: number, attempt: number, tryWith: (f: RiverFeature) => boolean): RiverFeature | null {
   const { W, H } = b;
-  const N = W * H;
   if (!b.start) return null;
   const d = startWalk(b, false);
   if (!d) return null;
   const padLevel = b.heights[b.start.y * W + b.start.x];
-  const cands: [number, number][] = [];
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (b.water[i] > 0.05 || b.occupied[i] || Math.max(Math.abs(x - b.start.x), Math.abs(y - b.start.y)) <= 4) continue;
-    if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) continue;
-    // (a level or more under the start's pad: the spring's water, running on from its pond, never
-    // reaches the start's ground)
-    if (b.heights[i] >= padLevel) continue;
-    let walk = Infinity;
-    for (const n of [i - 1, i + 1, i - W, i + W]) if (d[n] + 1 < walk && b.heights[n] >= b.heights[i] && b.heights[n] - b.heights[i] <= 2) walk = d[n] + 1;
-    if (!(walk <= rule - 4)) continue;
-    let lower = 0;
-    let ring = 0;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        if (!dx && !dy) continue;
-        ring++;
-        if (b.heights[(y + dy) * W + x + dx] > b.heights[i]) lower++;
-      }
-    const hollow = lower / Math.max(1, ring);
-    if (!b.channel[i] && hollow < 0.5) continue;
-    cands.push([(b.channel[i] ? 0 : 1000) - 100 * hollow + walk, i]);
-  }
-  cands.sort((a, c) => a[0] - c[0] || a[1] - c[1]);
-  const picks: number[] = [];
-  for (const [, i] of cands) {
-    if (picks.some((j) => Math.abs((j % W) - (i % W)) + Math.abs(Math.floor(j / W) - Math.floor(i / W)) < 6)) continue;
-    picks.push(i);
-    if (picks.length >= SPRING_TRIES) break;
-  }
+  const picks = springCandidates(
+    { W, H, heights: b.heights, water: b.water, occupied: b.occupied, channel: b.channel, start: b.start },
+    rule,
+    SPRING_TRIES,
+    (i) => {
+      let walk = Infinity;
+      for (const n of [i - 1, i + 1, i - W, i + W]) if (d[n] + 1 < walk && b.heights[n] >= b.heights[i] && b.heights[n] - b.heights[i] <= 2) walk = d[n] + 1;
+      return walk;
+    },
+    (i) => {
+      const x = i % W;
+      const y = (i - x) / W;
+      if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) return false;
+      // (a level or more under the start's pad: the spring's water, running on from its pond, never
+      // reaches the start's ground)
+      return b.heights[i] < padLevel;
+    },
+  );
   for (const [k, i] of picks.entries()) {
     const x = i % W;
     const y = (i - x) / W;
@@ -928,7 +919,7 @@ function springByStart(b: BuildResult, rule: number, seed: number, attempt: numb
     let fx = 1;
     let fy = 0;
     let low = Infinity;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    for (const [dx, dy] of N4) {
       const v = b.heights[(y + dy) * W + x + dx];
       if (v < low) {
         low = v;
@@ -1167,7 +1158,7 @@ function islandStarts(h: Uint8Array, D: ArrayLike<number>, W: number, H: number,
       const x = c % W;
       const y = (c - x) / W;
       if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

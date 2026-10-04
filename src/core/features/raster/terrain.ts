@@ -14,6 +14,7 @@ import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 import { wantedCount } from "../../water/sourceGroups";
 import * as portable from "../../math/portable";
+import { polyDist } from "../../math/polyline";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -250,23 +251,7 @@ export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
   const half = f.params.width / 2;
   return mouthTilesBy(f, W, H, (i) => {
     const x = i % W;
-    const y = (i - x) / W;
-    let best = Infinity;
-    for (let k = 0; k + 1 < path.length; k++) {
-      const ax = path[k][0];
-      const ay = path[k][1];
-      const vx = path[k + 1][0] - ax;
-      const vy = path[k + 1][1] - ay;
-      const l2 = vx * vx + vy * vy;
-      let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-      if (t < 0) t = 0;
-      else if (t > 1) t = 1;
-      const px = ax + t * vx - x;
-      const py = ay + t * vy - y;
-      const dd = px * px + py * py;
-      if (dd < best) best = dd;
-    }
-    return portable.sqrt(best) < half;
+    return polyDist(x, (i - x) / W, path) < half;
   });
 }
 
