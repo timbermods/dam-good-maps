@@ -33,6 +33,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Release and machine**
 - `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (CLAUDE.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).
+- `roadmap-canvas/` is a standalone planning page: what needs Kyler, what is in flight, the roadmap's steps as cards, the order of work, a map and the releases, read live from `dev`'s documents and GitHub (open its `index.html` from disk; its README says how). Not part of the site.
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
 **Tests**: most tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`, `tests/unit/portable.test.ts` the maths guard, `tests/unit/smooth.test.ts` the smoothness gate and `tests/unit/ci-changes.test.ts` CI's change filter. Run `npx vitest run tests/unit/retired-terms.test.ts`.
