@@ -12,7 +12,8 @@
 // Cargo runs with -j 4 by default (DGM_CARGO_JOBS).
 
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { assertClean } from "./guard.mjs";
 
@@ -32,6 +33,19 @@ const remaps = rsFiles(RUST).map((f) => {
   const rel = relative(RUST, f);
   return `--remap-path-prefix=${rel}=${rel.replaceAll("\\", "/")}`;
 });
+// and the dependencies' (rust/Cargo.lock's crates from the registry, whose paths reach the Wasm in its panic
+// messages): each absolute path → /cargo/registry/<crate>-<version>/<path in it, forward slashes>, the same on
+// every OS and home folder
+execFileSync("cargo", ["fetch"], { cwd: RUST, stdio: ["ignore", "inherit", "inherit"], windowsHide: true });
+const registry = join(process.env.CARGO_HOME ?? join(homedir(), ".cargo"), "registry", "src");
+const lock = readFileSync(join(RUST, "Cargo.lock"), "utf8");
+const crates = [...lock.matchAll(/\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"\nsource = "registry\+/g)].map((m) => `${m[1]}-${m[2]}`);
+for (const index of existsSync(registry) ? readdirSync(registry) : [])
+  for (const crate of crates) {
+    const dir = join(registry, index, crate);
+    if (!existsSync(dir)) continue;
+    for (const f of rsFiles(dir)) remaps.push(`--remap-path-prefix=${f}=/cargo/registry/${crate}/${relative(dir, f).replaceAll("\\", "/")}`);
+  }
 /** Each embedded module: its crate, the library cargo builds, the file and the constant it is written to. */
 const EMBEDS = [
   { pkg: "water", lib: "water", out: "src/core/sim/waterWasm.ts", name: "WATER_WASM" },
