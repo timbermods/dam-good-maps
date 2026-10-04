@@ -97,6 +97,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     investigations) merges on review and green CI.
   - *At every merge pass:* anything that no longer needs Kyler loses `needs-kyler`; a PR this session adopts or supersedes
     is closed with a line saying why; an answered question's issue is closed.
+  - *A Codex PR Kyler sends back for another round* loses `needs-kyler` until Codex pushes that round; then it gets the
+    label again for his verdict.
   - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
     collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
     its branches, it doesn't use the issue.
