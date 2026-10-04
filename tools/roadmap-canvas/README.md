@@ -29,7 +29,7 @@ live when it opens and again every 5 minutes while it is visible.
 |---|---|
 | `ROADMAP.md`, `docs/STATUS.md`, `docs/PERFECT.md` | `dev`, on raw.githubusercontent.com |
 | The decisions | `docs/decisions/README.md` and the topic files it links, when it exists on `dev`; else `PLAN.md` §20 |
-| Pull requests, issues, labels, comments, tags | GitHub's public API, without a token |
+| Pull requests, issues, labels, comments, tags | GitHub's public API, without a token unless one is saved |
 
 A document that can't be read, or whose shape has changed, shows one line at the top saying which; the rest of the page
 carries on, using what that document said last time.
@@ -44,6 +44,10 @@ here.
 when they share a connection). The page reads everything once, then only what changed since (one request per refresh),
 keeps that in the browser between visits, reads each tag's date once, reads nothing while hidden, and slows down when the
 allowance runs low.
+
+**A GitHub token (optional)** lifts that limit and refreshes every 2 minutes: **GitHub token** in the header, paste,
+**Save**; it stays in this browser and goes only to api.github.com. Make it at GitHub → **Settings** → **Developer
+settings** → **Fine-grained tokens** → **Generate new token**: **Public repositories (read-only)**, no permissions.
 
 ## Settings
 

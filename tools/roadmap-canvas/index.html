@@ -37,6 +37,12 @@
   .btn { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font-size: .84rem; white-space: nowrap; }
   .btn:hover { border-color: var(--accent); }
   #theme { width: 7.5em; }
+  #token { width: 8.5em; }
+  .side { position: relative; }
+  .tokenbox { position: absolute; right: 0; top: 40px; z-index: 30; display: flex; gap: 8px; align-items: center; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--shadow); }
+  .tokenbox[hidden] { display: none; }
+  .tokenbox input { width: 280px; height: 30px; padding: 0 8px; font: inherit; font-size: .84rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; }
+  .tokenbox .btn:disabled { opacity: .45; cursor: default; border-color: var(--line); }
 
   .notes { flex: none; padding: 0 20px; }
   .notes p { margin: 8px 0 0; font-size: .84rem; color: var(--ink); padding: 6px 10px; border-radius: 7px; background: color-mix(in srgb, var(--in-flight) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--in-flight) 40%, var(--line)); }
@@ -90,12 +96,13 @@
   .col { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
   .col h2 { font-size: .86rem; margin: 2px 2px 10px; display: flex; align-items: center; gap: 8px; }
   .col h2 .n { color: var(--muted); font-weight: 500; margin-left: auto; font-variant-numeric: tabular-nums; }
-  .card { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; box-shadow: var(--shadow); display: block; }
+  .card { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 8px; padding: 9px 10px; box-shadow: var(--shadow); display: flex; flex-direction: column; justify-content: flex-start; }
+  .cards { display: grid; grid-auto-rows: 1fr; gap: 8px; }
   .card:hover { border-color: var(--accent); border-left-color: var(--c); }
   .card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
   .card .t { font-weight: 600; font-size: .88rem; line-height: 1.3; }
   .card .s { color: var(--muted); font-size: .78rem; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card .m { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .card .m { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 7px; }
   .card .m:empty { display: none; }
 
   /* Order of work */
@@ -158,7 +165,8 @@
 <header>
   <h1 id="name">Roadmap</h1>
   <nav class="tabs" id="tabs" aria-label="Views"></nav>
-  <div class="side"><span class="meta" id="meta">Reading…</span><button class="btn" id="theme"></button></div>
+  <div class="side"><span class="meta" id="meta">Reading…</span><button class="btn" id="token" aria-expanded="false" aria-controls="tokenbox"></button><button class="btn" id="theme"></button>
+    <form class="tokenbox" id="tokenbox" hidden autocomplete="off"><input id="tokenin" type="password" spellcheck="false" aria-label="GitHub token"><button class="btn" type="submit" id="tokensave">Save</button><button class="btn" type="button" id="tokendel">Remove</button></form></div>
 </header>
 <div class="notes" id="notes"></div>
 <div class="frame" id="frame"><main id="main"></main><aside id="drawer" class="drawer" hidden aria-label="Details"></aside></div>
@@ -185,6 +193,7 @@ const CONFIG = {
   labels: { needs: 'needs-kyler', approved: 'approved', hold: 'hold' },
   coordinationTitle: 'Coordination',
   refreshMinutes: 5,
+  refreshMinutesWithToken: 2,
 };
 
 (() => {
@@ -506,13 +515,25 @@ const CONFIG = {
     };
   }
 
-  // ================================================================ GitHub, without a token
+  // ================================================================ GitHub, with or without a token
+  // An optional token, pasted in the header, kept only in this browser and sent only as the Authorization header to
+  // api.github.com. With one, unchanged answers (304) don't count against the limit, so every read revalidates.
+  const tokenStore = {
+    get() { try { return localStorage.getItem('rc-token') || ''; } catch { return ''; } },
+    set(t) { try { if (t) localStorage.setItem('rc-token', t); else localStorage.removeItem('rc-token'); } catch { /* blocked: keep it for this visit only */ } },
+  };
+  let token = tokenStore.get(), tokenRejected = false;
+  const useToken = () => !!token && !tokenRejected;
   const rate = { remaining: null, reset: 0 };
   class RateLimited extends Error {}
   const RESERVE = 8; // requests left for the other machine and a reload
   async function api(path) {
     if (rate.remaining !== null && rate.remaining <= RESERVE && Date.now() < rate.reset) throw new RateLimited();
-    const r = await fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } });
+    const withToken = useToken();
+    const headers = { Accept: 'application/vnd.github+json' };
+    if (withToken) headers.Authorization = `Bearer ${token}`;
+    const r = await fetch(API + path, { headers, cache: withToken ? 'no-cache' : 'default' });
+    if (withToken && r.status === 401) { tokenRejected = true; rate.remaining = null; return api(path); }
     const rem = r.headers.get('x-ratelimit-remaining'), reset = r.headers.get('x-ratelimit-reset');
     if (rem !== null) rate.remaining = +rem;
     if (reset !== null) rate.reset = +reset * 1000;
@@ -716,7 +737,7 @@ const CONFIG = {
     return `<span class="dref" title="${esc(t ? (t.short ? t.short + ': ' : '') + t.text : 'Not in force')}">${esc(d)}</span>`;
   };
   const cardLink = (id) => { const c = M.byId.get(id); return c ? `<button class="cardlink" data-card="${esc(id)}">${statusDot(c.status)}${esc(shortTitle(c))}</button>` : ''; };
-  const shortTitle = (c) => trim(c.title.replace(/\s*\((?:[^()]*\d[^()]*)\)\s*/g, ' ').replace(/^(M\d+[ab]?)[.:]\s+/, '$1 · '), 70);
+  const shortTitle = (c) => c.title.replace(/\s*\((?:[^()]*\d[^()]*)\)\s*/g, ' ').replace(/^(M\d+[ab]?)[.:]\s+/, '$1 · ').replace(/\s+/g, ' ').trim();
   const labelsOf = (i) => new Set(i.labels);
 
   function cardEl(c) {
@@ -783,7 +804,7 @@ const CONFIG = {
       let list = M.cards.filter((c) => c.status === k);
       if (k === 'released') list.sort((a, b) => (b.releasedOn || '').localeCompare(a.releasedOn || ''));
       else list.sort((a, b) => a.rank - b.rank);
-      return `<section class="col"><h2>${statusDot(k)}${esc(v.name)}<span class="n">${list.length}</span></h2>${list.map(cardEl).join('') || '<p class="empty">None.</p>'}</section>`;
+      return `<section class="col"><h2>${statusDot(k)}${esc(v.name)}<span class="n">${list.length}</span></h2>${list.length ? `<div class="cards">${list.map(cardEl).join('')}</div>` : '<p class="empty">None.</p>'}</section>`;
     });
     return `<div class="board">${cols.join('')}</div>`;
   }
@@ -805,31 +826,49 @@ const CONFIG = {
       ${o.closing ? `<p class="dim">${esc(o.closing)}</p>` : ''}</div>`;
   }
 
-  // The map: released steps by date, then now, then the planned steps in the order of work, then the rest.
+  // The map: released steps by date, then now, then the planned steps in the order of work, then the rest. Titles wrap;
+  // every card in a column is as tall as its tallest.
+  const measure = (() => { let ctx; return (t) => { ctx ||= document.createElement('canvas').getContext('2d'); ctx.font = `12px ${getComputedStyle(document.body).fontFamily}`; return ctx.measureText(t).width; }; })();
+  function wrap(text, width) {
+    const lines = [];
+    let cur = '';
+    for (const w of text.split(/\s+/)) {
+      const next = cur ? cur + ' ' + w : w;
+      if (cur && measure(next) > width) { lines.push(cur); cur = w; } else cur = next;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
   function viewMap() {
-    const NW = 184, NH = 40, GX = 44, GY = 8, LEFT = 20, TOP = 44;
+    const NW = 176, GX = 30, GY = 8, LEFT = 16, TOP = 44, LINE = 15;
     const cols = [];
     const released = M.cards.filter((c) => c.status === 'released');
     const dates = unique(released.map((c) => (c.releasedOn || '').slice(0, 10))).sort();
     for (const d of dates) cols.push({ label: d ? fmtDate(d) : 'Released', cards: released.filter((c) => (c.releasedOn || '').slice(0, 10) === d) });
     const nowIdx = cols.push({ label: 'Now', now: true, cards: M.cards.filter((c) => c.status === 'in-flight' || c.status === 'on-dev').sort((a, b) => a.rank - b.rank) }) - 1;
     const planned = M.cards.filter((c) => c.status === 'planned').sort((a, b) => a.rank - b.rank);
-    planned.forEach((c, i) => cols.push({ label: i === 0 ? 'Next, in order' : '', cards: [c] }));
+    if (planned.length) cols.push({ label: 'Next, in order', cards: planned, chain: true });
     for (const k of ['ongoing', 'parked', 'later']) { const list = M.cards.filter((c) => c.status === k); if (list.length) cols.push({ label: STATUS[k].name, cards: list }); }
-    const pos = new Map();
-    cols.forEach((col, ci) => col.cards.forEach((c, ri) => pos.set(c.id, { x: LEFT + ci * (NW + GX), y: TOP + ri * (NH + GY) })));
-    const W = LEFT * 2 + cols.length * (NW + GX), H = TOP + Math.max(1, ...cols.map((c) => c.cards.length)) * (NH + GY) + 20;
+    const pos = new Map(), lines = new Map();
+    let H = TOP;
+    cols.forEach((col, ci) => {
+      for (const c of col.cards) lines.set(c.id, wrap((col.chain ? `${col.cards.indexOf(c) + 1}. ` : '') + shortTitle(c), NW - 22));
+      col.nh = 14 + Math.max(...col.cards.map((c) => lines.get(c.id).length)) * LINE + 14;
+      col.cards.forEach((c, ri) => pos.set(c.id, { x: LEFT + ci * (NW + GX), y: TOP + ri * (col.nh + GY), h: col.nh }));
+      H = Math.max(H, TOP + col.cards.length * (col.nh + GY));
+    });
+    const W = LEFT * 2 + cols.length * (NW + GX) - GX;
+    H += 12;
     const edges = planned.slice(1).map((c, i) => ({ from: planned[i].id, to: c.id }));
-    const path = (e) => { const s = pos.get(e.from), t = pos.get(e.to); const x1 = s.x + NW, y1 = s.y + NH / 2, x2 = t.x, y2 = t.y + NH / 2, dx = Math.max(20, (x2 - x1) / 2); return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`; };
-    const cut = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+    const path = (e) => { const s = pos.get(e.from), t = pos.get(e.to); const x = s.x + 24; return `M${x},${s.y + s.h} L${x},${t.y}`; };
     const sub = (c) => c.status === 'released' ? (c.tags[0] || '') : c.prs.length ? c.prs.slice(0, 3).map((n) => '#' + n).join(' ') : STATUS[c.status].name;
     const svg = `<g id="viewport">
-      ${cols.map((col, i) => `<line class="colline" x1="${LEFT + i * (NW + GX) - GX / 2}" y1="${TOP - 26}" x2="${LEFT + i * (NW + GX) - GX / 2}" y2="${H}"></line><text class="colhead${col.now ? ' now' : ''}" x="${LEFT + i * (NW + GX)}" y="${TOP - 14}">${esc(col.label)}</text>`).join('')}
+      ${cols.map((col, i) => `${i ? `<line class="colline" x1="${LEFT + i * (NW + GX) - GX / 2}" y1="${TOP - 26}" x2="${LEFT + i * (NW + GX) - GX / 2}" y2="${H}"></line>` : ''}<text class="colhead${col.now ? ' now' : ''}" x="${LEFT + i * (NW + GX)}" y="${TOP - 14}">${esc(col.label)}</text>`).join('')}
       <g>${edges.map((e) => `<path class="edge" data-from="${e.from}" data-to="${e.to}" d="${path(e)}"></path>`).join('')}</g>
-      <g>${M.cards.filter((c) => pos.has(c.id)).map((c) => { const p = pos.get(c.id);
+      <g>${M.cards.filter((c) => pos.has(c.id)).map((c) => { const p = pos.get(c.id), ls = lines.get(c.id);
         return `<g class="node${ui.card === c.id ? ' sel' : ''}" data-card="${esc(c.id)}" transform="translate(${p.x},${p.y})"><title>${esc(c.title)}</title>
-          <rect class="box" width="${NW}" height="${NH}" rx="7"></rect><rect width="4" height="${NH}" rx="2" fill="${STATUS[c.status].color}"></rect>
-          <text x="12" y="17">${esc(cut(shortTitle(c), 27))}</text><text class="sub" x="12" y="31">${esc(cut(sub(c), 32))}</text></g>`; }).join('')}</g></g>`;
+          <rect class="box" width="${NW}" height="${p.h}" rx="7"></rect><rect width="4" height="${p.h}" rx="2" fill="${STATUS[c.status].color}"></rect>
+          <text x="12" y="18">${ls.map((l, i) => `<tspan x="12" dy="${i ? LINE : 0}">${esc(l)}</tspan>`).join('')}</text><text class="sub" x="12" y="${p.h - 9}">${esc(sub(c))}</text></g>`; }).join('')}</g></g>`;
     return `<div class="maptools"><button class="btn" id="fit" title="Fit the whole map">Fit</button><button class="btn" id="zin" title="Zoom in (wheel up)">Zoom in</button><button class="btn" id="zout" title="Zoom out (wheel down)">Zoom out</button>
       <div class="legend">${Object.entries(STATUS).map(([k, v]) => `<span>${statusDot(k)}${esc(v.name)}</span>`).join('')}</div></div>
       <div class="mapwrap"><svg id="map" data-w="${W}" data-h="${H}" data-now="${LEFT + nowIdx * (NW + GX)}">${svg}</svg></div>`;
@@ -837,13 +876,12 @@ const CONFIG = {
   function wireMap() {
     const svg = $('#map'); if (!svg) return;
     const vp = $('#viewport');
-    const W = +svg.dataset.w, H = +svg.dataset.h, NOW = +svg.dataset.now;
+    const W = +svg.dataset.w, H = +svg.dataset.h;
     const size = () => { const r = svg.parentElement.getBoundingClientRect(); svg.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); return r; };
     const apply = () => vp.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`);
-    const fit = () => { const r = size(); const k = Math.min(r.width / W, r.height / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 0 }; apply(); };
+    const fit = () => { const r = size(); const k = Math.min((r.width - 16) / W, (r.height - 16) / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 8 }; apply(); };
     size();
-    if (!mapView) { const r = size(); const k = Math.max(.6, Math.min(1, (r.height - 8) / H)); mapView = { k, x: Math.min(0, r.width * .4 - NOW * k), y: 0 }; }
-    apply();
+    if (!mapView) fit(); else apply();
     let drag = null;
     svg.addEventListener('pointerdown', (e) => { if (e.target.closest('.node')) return; drag = { x: e.clientX, y: e.clientY, ox: mapView.x, oy: mapView.y }; svg.classList.add('grabbing'); svg.setPointerCapture(e.pointerId); });
     svg.addEventListener('pointermove', (e) => { if (!drag) return; mapView.x = drag.ox + e.clientX - drag.x; mapView.y = drag.oy + e.clientY - drag.y; apply(); });
@@ -912,7 +950,7 @@ const CONFIG = {
   const RENDER = { needs: viewNeeds, flight: viewFlight, board: viewBoard, order: viewOrder, map: viewMap, releases: viewReleases };
   function render() {
     $('#tabs').innerHTML = VIEWS.map(([v, n]) => `<button data-view="${v}" class="${ui.view === v ? 'on' : ''}"><span>${n}</span></button>`).join('');
-    const notes = [...(docsState?.notes || []), ...(ghNote ? [ghNote] : [])];
+    const notes = [...(docsState?.notes || []), ...(tokenRejected ? ['GitHub rejected the saved token; reading without it.'] : []), ...(ghNote ? [ghNote] : [])];
     $('#notes').innerHTML = notes.map((n) => `<p>${esc(n)}</p>`).join('');
     if (!docsState) { $('#main').innerHTML = '<p class="empty">Reading…</p>'; return; }
     M = build(docsState, ghState);
@@ -939,6 +977,7 @@ const CONFIG = {
       docsState = parseDocs(rawDocs);
       store.set('rc-docs-v1', { ...rawDocs, notes: [] });
       ghNote = '';
+      const wasRejected = tokenRejected;
       try {
         await syncGitHub(ghState);
       } catch (e) {
@@ -946,6 +985,7 @@ const CONFIG = {
           ? `GitHub's hourly limit is used up; it is read again at ${fmtTime(rate.reset)}.`
           : `GitHub couldn't be read: ${e.message}.`;
       }
+      if (tokenRejected !== wasRejected) tokenLabel();
       store.set('rc-github-v1', ghState);
       readAt = Date.now();
     } finally { busy = false; }
@@ -954,7 +994,7 @@ const CONFIG = {
   // Every few minutes while the page is visible; slower when GitHub's allowance runs low.
   function due() {
     const low = rate.remaining !== null && rate.remaining < 20;
-    return Date.now() - lastRun >= CONFIG.refreshMinutes * 60e3 * (low ? 3 : 1);
+    return Date.now() - lastRun >= (useToken() ? CONFIG.refreshMinutesWithToken : CONFIG.refreshMinutes) * 60e3 * (low ? 3 : 1);
   }
   setInterval(() => { if (document.visibilityState === 'visible' && due()) refresh(); }, 30e3);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && due()) refresh(); });
@@ -967,7 +1007,37 @@ const CONFIG = {
     else if (t.dataset.card) { ui.card = ui.card === t.dataset.card && t.classList.contains('card') ? null : t.dataset.card; render(); }
     else if (t.dataset.close) { ui.card = null; render(); }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.card) { ui.card = null; render(); } });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('#tokenbox').hidden) { openToken(false); return; }
+    if (ui.card) { ui.card = null; render(); }
+  });
+
+  // The token button: the same place and size whether a token is set or not.
+  const tokenBtn = $('#token'), tokenBox = $('#tokenbox'), tokenIn = $('#tokenin');
+  function tokenLabel() {
+    tokenBtn.textContent = token ? 'Token set' : 'GitHub token';
+    tokenBtn.title = token ? (tokenRejected ? 'GitHub rejected this token' : 'Replace or remove the GitHub token') : 'Paste a GitHub token';
+    tokenIn.placeholder = token ? 'Paste a new token to replace it' : 'Paste a token';
+    $('#tokendel').disabled = !token;
+  }
+  function openToken(open) {
+    tokenBox.hidden = !open;
+    tokenBtn.setAttribute('aria-expanded', String(open));
+    tokenIn.value = '';
+    if (open) tokenIn.focus();
+  }
+  function setToken(t) {
+    token = t; tokenRejected = false; rate.remaining = null;
+    tokenStore.set(t);
+    tokenLabel(); openToken(false);
+    lastRun = 0; refresh();
+  }
+  tokenBtn.addEventListener('click', () => openToken(tokenBox.hidden));
+  tokenBox.addEventListener('submit', (e) => { e.preventDefault(); const t = tokenIn.value.trim(); if (t) setToken(t); });
+  $('#tokendel').addEventListener('click', () => setToken(''));
+  document.addEventListener('pointerdown', (e) => { if (!tokenBox.hidden && !e.target.closest('#tokenbox, #token')) openToken(false); });
+  tokenLabel();
   window.addEventListener('hashchange', () => { readHash(); render(); });
   window.addEventListener('resize', () => { if (ui.view === 'map' && $('#map')) { const r = $('#map').parentElement.getBoundingClientRect(); $('#map').setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); } }, { passive: true });
   const themeBtn = $('#theme');
