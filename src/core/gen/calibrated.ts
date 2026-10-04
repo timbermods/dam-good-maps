@@ -1,6 +1,8 @@
 // Calibrated targets (PLAN §4, §5): the TypeScript side of prototype/calibrated.py. The numbers come
 // from investigation/calibration.json; tests/contract/calibrated.test.ts asserts the two agree.
 
+import { hazardDays } from "../sim/weather";
+
 /** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). The resource rows
  *  (scrap, trees, bushes, ruin field columns) are investigation/official-baselines.json's class
  *  medians: Nomads and Oasis left out (Kyler), and the clear outliers of each rate (Beaverome's trees,
@@ -170,11 +172,13 @@ export const RESERVE = { scarce: 1, normal: 1.5, plenty: 3 } as const;
 /** Lakes and basins: multipliers on the official natural-basin median for the size (PLAN §5.3). */
 export const LAKES = { none: 0, few: 0.5, some: 1, many: 2 } as const;
 
-/** Stored water a colony needs through the worst drought (PLAN §11.4). */
+/** Stored water a colony needs through the worst drought (PLAN §11.4): the longest drought of the
+ *  difficulty (sim/weather.ts `hazardDays`, the game's own range; prototype/playability.py
+ *  `DROUGHT_DAYS` writes them out) and the colony it waters. */
 export const DROUGHT = {
-  easy: { days: 4, colony: 40 },
-  normal: { days: 9, colony: 50 },
-  hard: { days: 30, colony: 50 },
+  easy: { days: hazardDays("easy", "drought"), colony: 40 },
+  normal: { days: hazardDays("normal", "drought"), colony: 50 },
+  hard: { days: hazardDays("hard", "drought"), colony: 50 },
 } as const;
 
 export function reservoirNeeded(d: keyof typeof DROUGHT): number {
