@@ -28,6 +28,7 @@ import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
 import { replay, type AppliedOp } from "./ops";
+import type { StoredState } from "./stored";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
@@ -116,6 +117,10 @@ export interface MapDocument {
   /** The next operation's `seq`. */
   nextSeq: number;
   meta: DocMeta;
+  /** The map as it was when the project was saved (Startup part 1, D367, D455; stored.ts): the
+   *  session opens from it without rebuilding. Absent in older files and in projects saved while
+   *  their water was still pending, which open by rebuilding. */
+  stored?: StoredState;
 }
 
 export function baseFeaturesOf(doc: MapDocument): Feature[] {
@@ -268,6 +273,8 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
+  // a stored map that is not one (a hand-edited file) is left out: the project opens by rebuilding
+  if ("stored" in doc && (!doc.stored || typeof doc.stored !== "object")) delete doc.stored;
   // a project saved without a stored name opens with the name it has always had (D382)
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
   if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
@@ -310,6 +317,17 @@ export function checkDocument(doc: MapDocument): void {
   if (!jsonEqual(state.features, doc.features)) throw new ProjectError("the project file is damaged: its features do not match its edits");
   const top = doc.edits.reduce((m, e) => Math.max(m, e.seq), 0);
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
+}
+
+/** The document as it stood after its first `edits` operations (the save point of a stored map):
+ *  the log cut there, the features replayed to it. For the replay comparison of a project whose
+ *  log grew since it was opened (D455). */
+export function documentAt(doc: MapDocument, edits: number): MapDocument {
+  if (edits >= doc.edits.length) return doc;
+  const cut = doc.edits.slice(0, edits);
+  const { state } = replay(baseFeaturesOf(doc), cut);
+  const { stored: _s, ...rest } = doc;
+  return { ...rest, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut };
 }
 
 /** A map's name as the player typed it, trimmed; an empty one is refused with a one-line reason (D443). */

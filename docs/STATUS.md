@@ -88,7 +88,11 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 4. **The brush patches** in `docs/progress/naturalize/`: `brushes-worker.patch` replaces `brushes-coalesce.patch`.
 5. **With M9b's release:** its candidate events, Sources: Placed - None, and the automatic water fix (APIs in
    `docs/progress/m9b.md`).
-6. **Later:** the service worker for startup part 2 (D397), with multi-core water's adoption.
+6. **Startup part 1's core half** (D367, D455; `feature/startup-part1`): a project carries its map (`stored`) and opens from
+   it; the replay comparison runs on the checks worker's replica, or in the first undo that crosses the save point (a
+   refused undo carries its reason); a project autosaved while its water is still pending carries no stored map, so the
+   page should autosave again once the water settles (the "settled" event).
+7. **Later:** the service worker for startup part 2 (D397), with multi-core water's adoption.
 
 ## The milestone session's queue
 

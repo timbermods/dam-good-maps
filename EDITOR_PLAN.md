@@ -747,10 +747,18 @@ Dirty-region tracking lets rendering, validation and the water preview update on
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; autosave in the browser through the storage
 adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recovering the last session on reload
 (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
-a new imported map.
+a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
+what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
+once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
+rebuilding, as every project did before.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
+once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
+with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
+code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
