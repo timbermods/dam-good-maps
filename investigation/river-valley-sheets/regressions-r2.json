@@ -1,0 +1,849 @@
+{
+  "dev": {
+    "5": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.7,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 18.8,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 88% of the map",
+      "badWaterEuclideanDistance": 19.235384061671347,
+      "nearestCleanPumpDepthEuclideanDistance": 8.602325267042627,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 88% of the map",
+          "say": "A cliff across three quarters of the map splits it into an upper and a lower world.",
+          "outcome": "emerged"
+        }
+      ]
+    },
+    "6": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 57.3,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 49% of the map",
+      "badWaterEuclideanDistance": 58.52349955359812,
+      "nearestCleanPumpDepthEuclideanDistance": 35.90264614203249,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "long-view",
+          "ok": false,
+          "note": "start at level 4 (map's 75th percentile 12), 1 levels above the lowest ground within 15 tiles",
+          "outcome": "dropped"
+        },
+        {
+          "id": "landmark",
+          "ok": true,
+          "note": "16 standing forms of 300 tiles or fewer (the most prominent 10 levels over its ring), tallest fall 2",
+          "say": "A lone height stands 10 levels over the land round it.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "12": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 8.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 97.6,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 57% of the map",
+      "badWaterEuclideanDistance": 91.67878707749138,
+      "nearestCleanPumpDepthEuclideanDistance": 9.055385138137417,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "oxbow",
+          "ok": false,
+          "note": "no curved lake beside a river that keeps its water",
+          "outcome": "dropped"
+        },
+        {
+          "id": "farmland-past-gorge",
+          "ok": true,
+          "note": "560 tiles of farmland past a gorge, against 306 by the start",
+          "say": "The best farmland, 560 tiles of it, lies past the gorge; 306 by the start.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "21": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.7,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": false,
+          "value": 4.8,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 100% of the map",
+      "badWaterEuclideanDistance": 8.06225774829855,
+      "nearestCleanPumpDepthEuclideanDistance": 8.485281374238571,
+      "ponds": [
+        {
+          "tiles": 45,
+          "box": [
+            71,
+            38,
+            78,
+            47
+          ],
+          "boxFill": 0.5625
+        }
+      ],
+      "intentions": [
+        {
+          "id": "stepped-lakes",
+          "ok": true,
+          "note": "3 lakes step down one river, each a level or more below the last",
+          "say": "Three lakes step down the river, each spilling into the next.",
+          "outcome": "emerged"
+        },
+        {
+          "id": "crater-rivers",
+          "ok": true,
+          "note": "a 2964-tile lake: rim on 14 of 16 rays (falling again outside on 11), 3 rivers in, 1 way out",
+          "say": "Three rivers gather in a crater's lake, which leaves through one gap in its rim.",
+          "outcome": "emerged"
+        }
+      ]
+    },
+    "22": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 7.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": false,
+          "value": 11.9,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 93% of the map",
+      "badWaterEuclideanDistance": 18.38477631085024,
+      "nearestCleanPumpDepthEuclideanDistance": 8.94427190999916,
+      "ponds": [
+        {
+          "tiles": 91,
+          "box": [
+            102,
+            11,
+            116,
+            32
+          ],
+          "boxFill": 0.27575757575757576
+        }
+      ],
+      "intentions": [
+        {
+          "id": "farmland-past-gorge",
+          "ok": false,
+          "note": "no larger farmland past a gorge (376 by the start)",
+          "outcome": "dropped"
+        },
+        {
+          "id": "under-cliff",
+          "ok": true,
+          "note": "58 tiles 2+ levels above within 7, cliff yes, water 7 tiles' walk",
+          "say": "The start sits under a cliff, its water 7 tiles' walk below.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "23": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 7.1,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 30,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 57% of the map",
+      "badWaterEuclideanDistance": 33,
+      "nearestCleanPumpDepthEuclideanDistance": 9.219544457292887,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "split-island",
+          "ok": false,
+          "note": "no island of 150+ tiles in a river",
+          "outcome": "dropped"
+        },
+        {
+          "id": "twin-falls",
+          "ok": false,
+          "note": "0 falls of 3+ levels, none side by side",
+          "outcome": "dropped"
+        },
+        {
+          "id": "oxbow",
+          "ok": true,
+          "note": "a 251-tile curved lake 3 tiles off the river keeps 73% through a 9-day drought",
+          "say": "An oxbow lake curves beside the river and keeps 73% of its water through a 9-day drought.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "27": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 2.4,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 23.2,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 99% of the map",
+      "badWaterEuclideanDistance": 29.832867780352593,
+      "nearestCleanPumpDepthEuclideanDistance": 7.0710678118654755,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "under-cliff",
+          "ok": false,
+          "note": "0 tiles 2+ levels above within 7, cliff no, water 2 tiles' walk",
+          "outcome": "dropped"
+        },
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 99% of the map",
+          "say": "A cliff across the whole map splits it into an upper and a lower world.",
+          "outcome": "found"
+        }
+      ]
+    }
+  },
+  "round1": {
+    "5": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 5.7,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 22.9,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 83% of the map",
+      "badWaterEuclideanDistance": 29.732137494637012,
+      "nearestCleanPumpDepthEuclideanDistance": 7.810249675906656,
+      "ponds": [
+        {
+          "tiles": 39,
+          "box": [
+            56,
+            76,
+            66,
+            81
+          ],
+          "boxFill": 0.5909090909090909
+        }
+      ],
+      "intentions": [
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 83% of the map",
+          "say": "A cliff across three quarters of the map splits it into an upper and a lower world.",
+          "outcome": "emerged"
+        }
+      ]
+    },
+    "6": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 40.9,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 64% of the map",
+      "badWaterEuclideanDistance": 39.81205847478877,
+      "nearestCleanPumpDepthEuclideanDistance": 37.0540146272978,
+      "ponds": [
+        {
+          "tiles": 225,
+          "box": [
+            17,
+            48,
+            51,
+            66
+          ],
+          "boxFill": 0.3383458646616541
+        }
+      ],
+      "intentions": [
+        {
+          "id": "hidden-valley",
+          "ok": false,
+          "note": "no upland cut off by cliffs with riches within 60 tiles",
+          "outcome": "dropped"
+        },
+        {
+          "id": "relic-pinnacle",
+          "ok": true,
+          "note": "a medium relic 49 tiles away, reached only by building up to it",
+          "say": "A medium relic waits on a pinnacle 49 tiles from the start, reached only by building up to it.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "12": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 5.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": false,
+          "value": 0,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 38% of the map",
+      "badWaterEuclideanDistance": 4,
+      "nearestCleanPumpDepthEuclideanDistance": 7.211102550927979,
+      "ponds": [
+        {
+          "tiles": 418,
+          "box": [
+            57,
+            46,
+            115,
+            90
+          ],
+          "boxFill": 0.15743879472693031
+        }
+      ],
+      "intentions": [
+        {
+          "id": "district-behind",
+          "ok": false,
+          "note": "no site close to the start behind debris",
+          "outcome": "dropped"
+        },
+        {
+          "id": "hanging-valleys",
+          "ok": false,
+          "note": "0 tributaries fall 2+ levels into the river; its valley floor 45 tiles wide",
+          "outcome": "dropped"
+        },
+        {
+          "id": "two-ways",
+          "ok": true,
+          "note": "1318 tiles of farmland one way; 38 ruins up high the other",
+          "say": "Two ways to grow: open farmland one way, ruins up high the other.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "21": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.7,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 20,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 100% of the map",
+      "badWaterEuclideanDistance": 20.615528128088304,
+      "nearestCleanPumpDepthEuclideanDistance": 31.622776601683796,
+      "ponds": [
+        {
+          "tiles": 37,
+          "box": [
+            48,
+            112,
+            62,
+            116
+          ],
+          "boxFill": 0.49333333333333335
+        }
+      ],
+      "intentions": [
+        {
+          "id": "stepped-lakes",
+          "ok": false,
+          "note": "at most 2 lakes stepping down one river",
+          "outcome": "dropped"
+        },
+        {
+          "id": "crater-rivers",
+          "ok": false,
+          "note": "a 771-tile lake: rim on 7 of 16 rays (falling again outside on 4), 3 rivers in, 0 ways out",
+          "outcome": "dropped"
+        },
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 100% of the map",
+          "say": "A cliff across the whole map splits it into an upper and a lower world.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "22": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 36.7,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 93% of the map",
+      "badWaterEuclideanDistance": 36.345563690772494,
+      "nearestCleanPumpDepthEuclideanDistance": 43.86342439892262,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "farmland-past-gorge",
+          "ok": false,
+          "note": "no larger farmland past a gorge (731 by the start)",
+          "outcome": "dropped"
+        },
+        {
+          "id": "hidden-valley",
+          "ok": true,
+          "note": "1 upland cut off by cliffs, reached only by stairs, with riches (largest 1780 tiles)",
+          "say": "A 1780-tile valley up the cliffs, reached only by stairs, holds riches.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "23": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 7.1,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 29,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 57% of the map",
+      "badWaterEuclideanDistance": 32,
+      "nearestCleanPumpDepthEuclideanDistance": 9.219544457292887,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "split-island",
+          "ok": false,
+          "note": "no island of 150+ tiles in a river",
+          "outcome": "dropped"
+        },
+        {
+          "id": "twin-falls",
+          "ok": false,
+          "note": "0 falls of 3+ levels, none side by side",
+          "outcome": "dropped"
+        },
+        {
+          "id": "oxbow",
+          "ok": true,
+          "note": "a 251-tile curved lake 3 tiles off the river keeps 73% through a 9-day drought",
+          "say": "An oxbow lake curves beside the river and keeps 73% of its water through a 9-day drought.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "27": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.4,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 17.7,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 72% of the map",
+      "badWaterEuclideanDistance": 17.720045146669353,
+      "nearestCleanPumpDepthEuclideanDistance": 12.806248474865697,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "under-cliff",
+          "ok": true,
+          "note": "50 tiles 2+ levels above within 7, cliff yes, water 6 tiles' walk",
+          "say": "The start sits under a cliff, its water 6 tiles' walk below.",
+          "outcome": "emerged"
+        }
+      ]
+    }
+  },
+  "round2": {
+    "5": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 1.4,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 67.1,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 88% of the map",
+      "badWaterEuclideanDistance": 64.35060217278468,
+      "nearestCleanPumpDepthEuclideanDistance": 3.6055512754639896,
+      "ponds": [
+        {
+          "tiles": 39,
+          "box": [
+            56,
+            76,
+            66,
+            81
+          ],
+          "boxFill": 0.5909090909090909
+        }
+      ],
+      "intentions": [
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 88% of the map",
+          "say": "A cliff across three quarters of the map splits it into an upper and a lower world.",
+          "outcome": "emerged"
+        }
+      ]
+    },
+    "6": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.4,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 94.7,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 49% of the map",
+      "badWaterEuclideanDistance": 92.57429448826493,
+      "nearestCleanPumpDepthEuclideanDistance": 8.246211251235321,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "long-view",
+          "ok": false,
+          "note": "start at level 4 (map's 75th percentile 12), 1 levels above the lowest ground within 15 tiles",
+          "outcome": "dropped"
+        },
+        {
+          "id": "landmark",
+          "ok": true,
+          "note": "13 standing forms of 300 tiles or fewer (the most prominent 10 levels over its ring), tallest fall 2.8",
+          "say": "A lone height stands 10 levels over the land round it.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "12": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 22,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 57% of the map",
+      "badWaterEuclideanDistance": 27.294688127912362,
+      "nearestCleanPumpDepthEuclideanDistance": 11.045361017187261,
+      "ponds": [
+        {
+          "tiles": 148,
+          "box": [
+            79,
+            72,
+            104,
+            90
+          ],
+          "boxFill": 0.29959514170040485
+        }
+      ],
+      "intentions": [
+        {
+          "id": "oxbow",
+          "ok": false,
+          "note": "no curved lake beside a river that keeps its water",
+          "outcome": "dropped"
+        },
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 57% of the map",
+          "say": "A cliff across half the map splits it into an upper and a lower world.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "21": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.7,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 20,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 100% of the map",
+      "badWaterEuclideanDistance": 20.615528128088304,
+      "nearestCleanPumpDepthEuclideanDistance": 31.622776601683796,
+      "ponds": [
+        {
+          "tiles": 37,
+          "box": [
+            48,
+            112,
+            62,
+            116
+          ],
+          "boxFill": 0.49333333333333335
+        }
+      ],
+      "intentions": [
+        {
+          "id": "stepped-lakes",
+          "ok": false,
+          "note": "at most 2 lakes stepping down one river",
+          "outcome": "dropped"
+        },
+        {
+          "id": "crater-rivers",
+          "ok": false,
+          "note": "a 771-tile lake: rim on 7 of 16 rays (falling again outside on 4), 3 rivers in, 0 ways out",
+          "outcome": "dropped"
+        },
+        {
+          "id": "upper-lower",
+          "ok": true,
+          "note": "the longest cliff of 3+ levels spans 100% of the map",
+          "say": "A cliff across the whole map splits it into an upper and a lower world.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "22": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 6.2,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 36.7,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 93% of the map",
+      "badWaterEuclideanDistance": 36.345563690772494,
+      "nearestCleanPumpDepthEuclideanDistance": 43.86342439892262,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "farmland-past-gorge",
+          "ok": false,
+          "note": "no larger farmland past a gorge (731 by the start)",
+          "outcome": "dropped"
+        },
+        {
+          "id": "hidden-valley",
+          "ok": true,
+          "note": "1 upland cut off by cliffs, reached only by stairs, with riches (largest 1780 tiles)",
+          "say": "A 1780-tile valley up the cliffs, reached only by stairs, holds riches.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "23": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 7.1,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 29,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 57% of the map",
+      "badWaterEuclideanDistance": 32,
+      "nearestCleanPumpDepthEuclideanDistance": 9.219544457292887,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "split-island",
+          "ok": false,
+          "note": "no island of 150+ tiles in a river",
+          "outcome": "dropped"
+        },
+        {
+          "id": "twin-falls",
+          "ok": false,
+          "note": "0 falls of 3+ levels, none side by side",
+          "outcome": "dropped"
+        },
+        {
+          "id": "oxbow",
+          "ok": true,
+          "note": "a 251-tile curved lake 3 tiles off the river keeps 73% through a 9-day drought",
+          "say": "An oxbow lake curves beside the river and keeps 73% of its water through a 9-day drought.",
+          "outcome": "found"
+        }
+      ]
+    },
+    "27": {
+      "startChecks": [
+        {
+          "id": "start.water",
+          "ok": true,
+          "value": 7.1,
+          "limit": 20
+        },
+        {
+          "id": "start.badwater",
+          "ok": true,
+          "value": 21.4,
+          "limit": 15
+        }
+      ],
+      "cliff": "the longest cliff of 3+ levels spans 99% of the map",
+      "badWaterEuclideanDistance": 28.844410203711917,
+      "nearestCleanPumpDepthEuclideanDistance": 8.94427190999916,
+      "ponds": [],
+      "intentions": [
+        {
+          "id": "under-cliff",
+          "ok": true,
+          "note": "120 tiles 2+ levels above within 7, cliff yes, water 7 tiles' walk",
+          "say": "The start sits under a cliff, its water 7 tiles' walk below.",
+          "outcome": "emerged"
+        }
+      ]
+    }
+  }
+}
