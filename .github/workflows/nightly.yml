@@ -85,6 +85,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # the batches' canonical settles run in the native Rust water (PLAN §20 D381; tools/rust/native-water.ts)
+      - name: Install Rust 1.90 (rust-toolchain.toml) and build the native water
+        run: |
+          rustup toolchain install
+          cd rust && cargo build --release -j 4 -p water --bin water-batch
       # Any and the six themes at once, one process each (the other sizes and difficulties run locally,
       # docs/progress.md)
       - name: Pass rates, every theme (100 seeds at 128² Normal, final ≥ 98%; first attempt reported)

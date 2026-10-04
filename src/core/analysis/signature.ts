@@ -20,6 +20,7 @@ import type { Feature, RiverFeature } from "../features/schema";
 import { wetSystems } from "./story";
 import { polygonMask } from "../features/geometry";
 import * as portable from "../math/portable";
+import { N4 } from "../math/grid";
 
 export interface Signature {
   /** River Valley: the median width of the main river's valley floor, as a share of the side. */
@@ -45,13 +46,6 @@ export interface Signature {
   apart: number;
   islands: number;
 }
-
-const D4 = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 /** A river's course, a tile at a time inside the map, with the direction along it. */
 function samples(r: RiverFeature, W: number, H: number): { x: number; y: number; dx: number; dy: number }[] {
@@ -176,7 +170,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
     if (h[i] >= waterLevel + 4) high++;
     const x = i % W;
     const y = (i - x) / W;
-    for (const [dx, dy] of D4) {
+    for (const [dx, dy] of N4) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -201,7 +195,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -286,7 +280,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

@@ -14,8 +14,14 @@ import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { stream } from "../../src/core/math/rng";
 import { makeSpec, SIZE_PRESETS } from "../../src/core/spec/mapspec";
-import { LOG_OPS, type EditOp } from "../../src/core/doc/ops";
+import type { EditOp, OpName } from "../../src/core/doc/ops";
 import { randomOp } from "./randomOps";
+
+/** Operations kept in the document's log and replayed on every generation. */
+const LOG_OPS: readonly OpName[] = [
+  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity",
+  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
+];
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
@@ -38,8 +44,9 @@ const OPS: Record<number, number> = { 96: 40, 128: 32, 192: 20, 256: 16 };
  *  test needs (D148): the large preset on 305 since housekeeping's randomOps (no setLock) shifted
  *  the draws on M9a's maps, and 303 then applied none; the small preset on 306 since the draws took
  *  in Fill and Remove unfed water (#167's operations), and 301 then applied none; the max preset on 309
- *  since Remove unfed water joined the log operations (#176), and 304 then never found unfed water to take. */
-const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 309 };
+ *  since Remove unfed water joined the log operations (#176), and
+ *  304 then never found unfed water to take; the max preset on 310 since M9b's maps changed the draws, and 309 then never found unfed water to take. */
+const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 310 };
 
 // (River Valley and Any in turn: every map since M9a is a generated field, whose read-back features
 // the random operations reshape too)

@@ -1,7 +1,9 @@
 // Drainage on a height field (floats or levels): Barnes' priority flood from the map edge gives
 // every tile its spill level and a receiver (the tile the flood reached it from), so water on any
-// tile has a path to an edge. The erosion (field.ts) and the rivers (hydro.ts) run on it. Exact
-// arithmetic only; the heap breaks ties by tile index, so every run agrees (PLAN §2.1).
+// tile has a path to an edge. The erosion (field.ts), the rivers (hydro.ts), the spill levels the
+// land and the outlet wear read (`edgeSpill`) and Carve's downhill guide all run on it (the water
+// keeps its own, sim/prefill.ts). Exact arithmetic only; the heap breaks ties by tile index, so every
+// run agrees (PLAN §2.1).
 //
 // Ported from the M9 design prototype (investigation/generative/proto/erode.ts).
 
@@ -74,4 +76,16 @@ export function drainage(h: ArrayLike<number>, W: number, H: number, opts: { out
     if (r >= 0) area[r] += area[i];
   }
   return { filled, rcv, order: n === N ? order : order.slice(0, n), area };
+}
+
+/**
+ * The spill level of every tile on whole levels, with water moving side to side as the game's does:
+ * the lowest level water standing there drains at, through the border tiles not in `noOutlet`; -1
+ * where no outlet is reached. The filled surface of `drainage(…, { eight: false })`.
+ */
+export function edgeSpill(h: ArrayLike<number>, W: number, H: number, noOutlet: ArrayLike<number> | null = null): Int16Array {
+  const { filled, rcv } = drainage(h, W, H, { eight: false, outlet: noOutlet ? (i) => !noOutlet[i] : undefined });
+  const spill = new Int16Array(W * H);
+  for (let i = 0; i < spill.length; i++) spill[i] = rcv[i] === -2 ? -1 : filled[i];
+  return spill;
 }

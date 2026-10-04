@@ -27,7 +27,7 @@ Left in place, because tools write to them or read them:
 # The story
 
 How Dam Good Maps' identity has changed, one short chapter per major turn (Kyler's decision, feedback item 33, D326).
-Each chapter links to its decisions in [PLAN.md §20](../../PLAN.md#20-editor-decisions). The decision log stays as
+Each chapter links to its decisions in [PLAN.md §20](../decisions/README.md). The decision log stays as
 written; where a later decision overturned an earlier one, the chapter says so. Add a chapter at every milestone or
 major turn.
 

@@ -16,11 +16,11 @@ import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import type { WaterModel, WaterRules } from "../sim/water";
-import type { SoilRules } from "../sim/soil";
+import type { WaterModel } from "../sim/water";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
 import { checkPlayability, rulesFor, type PlayabilityAnalysis } from "./playability";
 import { tilesToRuns } from "../math/grid";
+import { counted, lines, nameOf, objectLine, placeOf } from "./words";
 import { blocks, Collector, type CheckResult, type FixOp, type Profile, type ValidationReport } from "./report";
 
 export type { CheckClass, CheckResult, Profile, Severity, ValidationReport } from "./report";
@@ -53,12 +53,12 @@ function checkFile(file: TimberFile, c: Collector, external: boolean): void {
   const w = file.world;
   const X = w.sizeX;
   const Y = w.sizeY;
-  c.add({ id: "file.size", class: "load", ok: X >= 4 && X <= 256 && Y >= 4 && Y <= 256, value: `${X}x${Y}`, limit: "4..256", message: `map is ${X}×${Y} (the game allows 4–256 per side)` });
-  c.add({ id: "file.layers", class: "load", ok: w.layers === 23, value: w.layers, limit: 23, message: `${w.layers} voxel layers (exactly 23)` });
+  c.add({ id: "file.size", class: "load", ok: X >= 4 && X <= 256 && Y >= 4 && Y <= 256, value: `${X}x${Y}`, limit: "4..256", message: X >= 4 && X <= 256 && Y >= 4 && Y <= 256 ? `${X}×${Y} tiles` : `${X}×${Y} tiles, the game takes 4–256 a side` });
+  c.add({ id: "file.layers", class: "load", ok: w.layers === 23, value: w.layers, limit: 23, message: w.layers === 23 ? "23 terrain layers" : `${w.layers} terrain layers, the game needs 23` });
   const ver = w.gameVersion;
   const txt = file.versionTxt.split(/\r?\n/)[0].trim();
   const verOk = external ? ver.startsWith("1.1.") && txt === ver : ver === GAME_VERSION && txt === GAME_VERSION;
-  c.add({ id: "file.version", class: "load", ok: verOk, value: ver, limit: external ? "1.1.x" : GAME_VERSION, message: `version ${ver}, version.txt ${txt}` });
+  c.add({ id: "file.version", class: "load", ok: verOk, value: ver, limit: external ? "1.1.x" : GAME_VERSION, message: verOk ? `Version ${ver}` : `Version ${ver}, version file ${txt}` });
   const s = w.singletons;
   const need = ["MapSize", "TerrainMap", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator", "WaterEvaporationMap"];
   const missing = need.filter((k) => !(k in s));
@@ -68,7 +68,7 @@ function checkFile(file: TimberFile, c: Collector, external: boolean): void {
     id: "file.singletons",
     class: "load",
     ok: missing.length === 0 && migOk,
-    message: missing.length ? `missing ${missing.join(", ")}` : migOk ? "all present, WaterSimulationMigrator.IsMigrated true" : "WaterSimulationMigrator.IsMigrated missing or false: every source would run at half strength",
+    message: missing.length ? `${counted(missing.length, "part")} of the map's saved data missing` : migOk ? "Saved data complete" : "Water saved in an old format: every source would run at half strength",
   });
   if (!missing.length) {
     const wm = s.WaterMapNew as JsonObject;
@@ -98,15 +98,15 @@ function checkFile(file: TimberFile, c: Collector, external: boolean): void {
       ok: bad.length === 0 && levels >= need2,
       value: levels,
       limit: need2,
-      message: bad.length ? `wrong lengths: ${bad.map(([k, v, want]) => `${k} ${v} (expected ${want})`).join(", ")}` : levels < need2 ? `water Levels ${levels} below the terrain's ${need2} floors` : "every packed array has W·H tokens per slot",
+      message: bad.length ? "Saved water or soil data is the wrong size for the map" : levels < need2 ? `Water saved with ${counted(levels, "level")}, the terrain needs ${need2}` : "Saved water and soil data fit the map",
     });
   }
   const md = file.metadata;
   const mdKeys = ["Width", "Height", "MapNameLocKey", "MapDescriptionLocKey", "MapDescription", "IsRecommended", "IsUnconventional", "IsDev"];
   const mdOk = !!md && mdKeys.every((k) => k in md) && md.Width === X && md.Height === Y;
-  c.add({ id: "file.metadata", class: "load", ok: mdOk, message: md ? `metadata ${String(md.Width)}×${String(md.Height)}` : "map_metadata.json missing" });
+  c.add({ id: "file.metadata", class: "load", ok: mdOk, message: mdOk ? "Map details complete" : md ? "Map details incomplete or the wrong size" : "Map details missing" });
   const thumbOk = !!file.thumbnail && jpegSize(file.thumbnail)?.join("x") === "960x540";
-  c.add({ id: "file.thumbnail", class: "load", ok: thumbOk, message: thumbOk ? "960×540 JPEG" : "thumbnail missing or not 960×540" });
+  c.add({ id: "file.thumbnail", class: "load", ok: thumbOk, message: thumbOk ? "Thumbnail 960×540" : "Thumbnail missing or not 960×540" });
 }
 
 /** Width and height from a JPEG's SOF marker. */
@@ -141,21 +141,21 @@ function checkTerrain(file: TimberFile, c: Collector, surface: Uint8Array, stack
     limit: GAME_MAX_HEIGHT,
     message:
       maxH > GAME_MAX_HEIGHT
-        ? `highest column ${maxH} (the game's limit is ${GAME_MAX_HEIGHT})`
+        ? `Highest ground is level ${maxH}, the game's limit is ${GAME_MAX_HEIGHT}`
         : maxH > EDITOR_MAX_HEIGHT
-          ? `highest column ${maxH} (up to ${GAME_MAX_HEIGHT} loads in the game; the in-game map editor edits only up to level ${EDITOR_MAX_HEIGHT})`
-          : `highest column ${maxH} (at most ${GAME_MAX_HEIGHT})`,
+          ? `Highest ground is level ${maxH}; the in-game map editor edits only up to level ${EDITOR_MAX_HEIGHT}`
+          : `Highest ground is level ${maxH}`,
   });
   const plane = w.sizeX * w.sizeY;
   let top = 0;
   if (w.layers >= 23) for (let i = 0; i < plane; i++) top += w.voxels[22 * plane + i];
-  c.add({ id: "terrain.top_layer_free", class: "load", ok: top === 0, value: top, limit: 0, message: top ? `${top} solid voxels in layer 22` : "layer 22 is empty" });
+  c.add({ id: "terrain.top_layer_free", class: "load", ok: top === 0, value: top, limit: 0, message: top ? `${counted(top, "block")} of ground in the top layer` : "Top layer is empty" });
   const floors = floorsOf(w);
   let multi = 0;
   for (const v of floors) if (v > 1) multi++;
-  c.add({ id: "terrain.single_floor", class: "design", ok: multi === 0, value: multi, limit: 0, message: multi ? `${multi} columns with caves or overhangs (outside the water model's scope)` : "one floor per tile" });
+  c.add({ id: "terrain.single_floor", class: "design", ok: multi === 0, value: multi, limit: 0, message: multi ? `Caves or overhangs on ${counted(multi, "tile")}` : "One floor per tile" });
   const unsupported = multi === 0 ? 0 : unsupportedVoxels(file, stackTops);
-  c.add({ id: "terrain.supported", class: "load", ok: unsupported === 0, value: unsupported, limit: 0, message: unsupported ? `${unsupported} voxels float more than 3 tiles from support` : "all terrain is supported" });
+  c.add({ id: "terrain.supported", class: "load", ok: unsupported === 0, value: unsupported, limit: 0, message: unsupported ? `${counted(unsupported, "block")} of ground floating` : "All ground is supported" });
   checkEdgeWall(w.sizeX, w.sizeY, surface, c, editing);
 }
 
@@ -166,7 +166,7 @@ function checkTerrain(file: TimberFile, c: Collector, surface: Uint8Array, stack
  *  with the one-click fix "Lower the wall". */
 function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector, editing = false): void {
   if (!edgeRuleApplies(W, H)) {
-    c.notApplicable("terrain.edge_wall", "principle", `the map is too small for an edge wall (under ${2 * (EDGE_BAND + EDGE_INSIDE)} tiles a side)`);
+    c.notApplicable("terrain.edge_wall", "principle", `Map too small for an edge wall (under ${2 * (EDGE_BAND + EDGE_INSIDE)} tiles a side)`);
     return;
   }
   const edges = edgeWalls(surface, W, H);
@@ -182,8 +182,8 @@ function checkEdgeWall(W: number, H: number, surface: Uint8Array, c: Collector, 
     value: Math.round(most.share * 100) / 100,
     limit: EDGE_SHARE,
     message: walled.length
-      ? `a wall runs along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")}: its outer two tiles stand ${EDGE_RISE}+ levels above the land inside, holding water in`
-      : `no wall along the map's edges (at most ${pct(most.share)} of an edge stands ${EDGE_RISE}+ levels above the land inside; a wall is ${pct(EDGE_SHARE)})`,
+      ? `Wall along the ${walled.map((e) => `${e.edge} edge (${pct(e.share)})`).join(", ")} holds back water`
+      : "No wall along the map's edges",
     ...(walled.length ? { where: { tiles: walled.map((e) => e.at) } } : {}),
     ...(fix ? { fix } : {}),
   });
@@ -241,8 +241,8 @@ function checkDamWall(W: number, H: number, surface: Uint8Array, depth: ArrayLik
     value: walls.length,
     limit: 0,
     message: walls.length
-      ? `${walls.length} dam wall${walls.length > 1 ? "s" : ""}: a straight band of rock ${walls[0].crest - walls[0].floor} levels high across a valley, with a gap for the river`
-      : "no dam wall across any valley: dam sites are the land's own",
+      ? `${counted(walls.length, "dam wall")} across a valley`
+      : "No dam wall across a valley",
     ...(walls.length ? { where: { tiles: walls.map((w) => [w.x, w.y] as [number, number]) } } : {}),
   });
 }
@@ -350,12 +350,12 @@ function checkEntities(file: TimberFile, c: Collector, surface: Uint8Array): Ent
     id: "entities.templates",
     class: "load",
     ok: unknown.size === 0,
-    message: unknown.size ? `unknown or faction-only templates: ${[...unknown].join(", ")}` : "every template is in the common collections",
+    message: unknown.size ? `${counted(unknownIds.length, "object")} the game cannot load for every faction: ${[...unknown].map(nameOf).join(", ")}` : "Every object loads for every faction",
     ...(unknownIds.length ? { where: { entities: unknownIds }, fix: [{ op: "deleteEntities" as const, label: "Remove the objects the game cannot load", params: { entities: unknownIds } }] } : {}),
   });
-  c.add({ id: "entities.enums", class: "load", ok: badEnum.length === 0, message: badEnum.length ? `bad orientation on ${badEnum.slice(0, 5).join(", ")}` : "every orientation is a valid enum name" });
-  c.add({ id: "entities.components", class: "load", ok: missingComp.size === 0, message: missingComp.size ? `missing ${[...missingComp].slice(0, 6).join(", ")}` : "required components present" });
-  c.add({ id: "entities.ids", class: "load", ok: badIds === 0, value: badIds, limit: 0, message: `${badIds} duplicate or malformed ids` });
+  c.add({ id: "entities.enums", class: "load", ok: badEnum.length === 0, message: badEnum.length ? `${counted(badEnum.length, "object")} facing a direction the game does not know: ${[...new Set(badEnum)].slice(0, 5).map(nameOf).join(", ")}` : "Every object faces a direction the game knows" });
+  c.add({ id: "entities.components", class: "load", ok: missingComp.size === 0, message: missingComp.size ? `${[...new Set([...missingComp].map((k) => nameOf(k.split(".")[0])))].slice(0, 6).join(", ")} missing a part the game needs` : "Every object has the parts the game needs" });
+  c.add({ id: "entities.ids", class: "load", ok: badIds === 0, value: badIds, limit: 0, message: badIds ? `${counted(badIds, "object")} with a duplicate or broken ID` : "Every object has its own ID" });
 
   // load order: z ascending (ties keep file order, like the game's batch loader)
   const order = placements.map((p, k) => [p, k] as const).sort((a, b) => a[0].z - b[0].z || a[1] - b[1]);
@@ -371,21 +371,21 @@ function checkEntities(file: TimberFile, c: Collector, surface: Uint8Array): Ent
     const cells = worldBlocks(fp, p);
     let why = "";
     for (const b of cells) {
-      if (b.x < 0 || b.x >= X || b.y < 0 || b.y >= Y || b.z >= MAX_OBJECT_Z) { why = "outside the map"; break; }
-      if (solid(b.x, b.y, b.z)) { why = `inside terrain at (${b.x},${b.y},${b.z})`; break; }
-      if ((occupied.get(key(b.x, b.y, b.z)) ?? 0) & b.flags) { why = `overlaps another object at (${b.x},${b.y},${b.z})`; break; }
-      if (b.below === "ground" && !solid(b.x, b.y, b.z - 1)) { why = `floating at (${b.x},${b.y},${b.z})`; break; }
-      if (b.below === "groundOrStackable" && !solid(b.x, b.y, b.z - 1) && !stackTops.has(key(b.x, b.y, b.z - 1))) { why = `floating at (${b.x},${b.y},${b.z})`; break; }
-      if (b.below === "air" && solid(b.x, b.y, b.z)) { why = `slope top not in air at (${b.x},${b.y},${b.z})`; break; }
+      if (b.x < 0 || b.x >= X || b.y < 0 || b.y >= Y || b.z >= MAX_OBJECT_Z) { why = "off the map"; break; }
+      if (solid(b.x, b.y, b.z)) { why = "inside terrain"; break; }
+      if ((occupied.get(key(b.x, b.y, b.z)) ?? 0) & b.flags) { why = "overlapping another object"; break; }
+      if (b.below === "ground" && !solid(b.x, b.y, b.z - 1)) { why = "floating"; break; }
+      if (b.below === "groundOrStackable" && !solid(b.x, b.y, b.z - 1) && !stackTops.has(key(b.x, b.y, b.z - 1))) { why = "floating"; break; }
+      if (b.below === "air" && solid(b.x, b.y, b.z)) { why = "blocked above"; break; }
       if (b.occupyAllBelow) {
         let under = false;
         for (let zz = 0; zz < b.z; zz++) if (baseCells.has(key(b.x, b.y, zz))) under = true;
-        if (under) { why = `object below an OccupyAllBelow block at (${b.x},${b.y})`; break; }
+        if (under) { why = "under another object"; break; }
       }
-      if (CONTINUOUS.has(p.template) && b.below === "ground" && b.z !== firstTop[b.y * X + b.x]) { why = `not on the first terrain column at (${b.x},${b.y})`; break; }
+      if (CONTINUOUS.has(p.template) && b.below === "ground" && b.z !== firstTop[b.y * X + b.x]) { why = "on an upper floor"; break; }
     }
     if (why) {
-      problems.push(`${p.template} at (${p.x},${p.y},${p.z}): ${why}`);
+      problems.push(objectLine(p.template, why, p.x, p.y, p.z));
       rejected.push(placementIds[k]);
       continue;
     }
@@ -406,12 +406,12 @@ function checkEntities(file: TimberFile, c: Collector, surface: Uint8Array): Ent
     ok: problems.length === 0,
     value: problems.length,
     limit: 0,
-    message: problems.length ? problems.slice(0, 6).join("; ") + (problems.length > 6 ? ` (+${problems.length - 6} more)` : "") : "every object would load",
+    message: problems.length ? lines(problems) : "Every object loads",
     // the game deletes these on load; the fix removes them first, so the map loads without issues
     ...(rejected.length ? { where: { entities: rejected }, fix: [{ op: "deleteEntities" as const, label: "Remove the objects the game would delete", params: { entities: rejected } }] } : {}),
   });
   const overlap = startCells.filter((k) => occupied.has(k)).length;
-  c.add({ id: "start.clear", class: "load", ok: overlap === 0, value: overlap, limit: 0, message: overlap ? `${overlap} start cells covered by objects (the start would be deleted)` : "nothing overlaps the start" });
+  c.add({ id: "start.clear", class: "load", ok: overlap === 0, value: overlap, limit: 0, message: overlap ? `Objects cover ${counted(overlap, "tile")} of the start` : "Nothing covers the start" });
   return { occupied, stackTops, startCells, placements };
 }
 
@@ -435,7 +435,7 @@ function checkSlopes(file: TimberFile, c: Collector, surface: Uint8Array, scan: 
     const chained = at.get(ly * X + lx);
     const lowOk = inb(lx, ly) && (surface[ly * X + lx] === s.z || (!!chained && chained.z === s.z - 1));
     if (!highOk || !lowOk) {
-      bad.push(`(${s.x},${s.y},${s.z}) ${s.orientation}`);
+      bad.push(objectLine("Slope", "joins no step", s.x, s.y, s.z));
       if (inb(s.x, s.y)) badTiles.push([s.x, s.y]);
     }
   }
@@ -445,7 +445,7 @@ function checkSlopes(file: TimberFile, c: Collector, surface: Uint8Array, scan: 
     ok: bad.length === 0,
     value: bad.length,
     limit: 0,
-    message: bad.length ? `slopes that do not join a 1-level step: ${bad.slice(0, 5).join(", ")}` : `${slopes.length} slopes join level z to z+1`,
+    message: bad.length ? lines(bad) : slopes.length ? `${counted(slopes.length, "slope")} joining levels` : "No slopes",
     // the game keeps a slope that joins nothing as a ramp to nowhere; the fix removes them
     ...(badTiles.length
       ? { where: { tiles: badTiles }, fix: badTiles.map(([x, y], k) => ({ op: "removeSlope" as const, label: k === 0 ? "Remove the slopes that join nothing" : "", params: { x, y } })) }
@@ -456,16 +456,16 @@ function checkSlopes(file: TimberFile, c: Collector, surface: Uint8Array, scan: 
 function checkStart(file: TimberFile, c: Collector, surface: Uint8Array, scan: EntityScan): void {
   const { sizeX: X, sizeY: Y } = file.world;
   const starts = scan.placements.filter((p) => p.template === "StartingLocation");
-  c.add({ id: "start.count", class: "load", ok: starts.length === 1, value: starts.length, limit: 1, message: `${starts.length} StartingLocation(s) (a vanilla map needs exactly one)` });
+  c.add({ id: "start.count", class: "load", ok: starts.length === 1, value: starts.length, limit: 1, message: starts.length === 1 ? "One start" : starts.length ? `${starts.length} starts, the map needs one` : "No start" });
   if (starts.length !== 1) return;
   const p = starts[0];
   const cells = worldBlocks(FOOTPRINTS.StartingLocation, p).filter((b) => b.localZ === 0);
   const flat = cells.every((b) => b.x >= 0 && b.x < X && b.y >= 0 && b.y < Y && surface[b.y * X + b.x] === p.z);
-  c.add({ id: "start.flat", class: "load", ok: flat, message: flat ? "the district center's 3×3 is flat ground at the start level" : "the start's 3×3 footprint is not flat" });
+  c.add({ id: "start.flat", class: "load", ok: flat, message: flat ? "Start ground is flat" : "Start ground is not flat" });
   const [ex, ey] = startEntranceTile(p.x, p.y, p.orientation);
   const plane = X * Y;
   const free = ex >= 0 && ex < X && ey >= 0 && ey < Y && surface[ey * X + ex] === p.z && !scan.occupied.has(p.z * plane + ey * X + ex) && !scan.occupied.has((p.z + 1) * plane + ey * X + ex);
-  c.add({ id: "start.entrance", class: "load", ok: free, where: { tiles: [[ex, ey]] }, message: free ? `entrance tile (${ex},${ey}) is free ground at level ${p.z}` : `entrance tile (${ex},${ey}) must be free ground at level ${p.z}, or no beavers spawn` });
+  c.add({ id: "start.entrance", class: "load", ok: free, where: { tiles: [[ex, ey]] }, message: free ? "Start entrance is clear" : `Start entrance blocked · ${placeOf(ex, ey, p.z)}` });
 }
 
 // ---------------------------------------------------------------------------------------- validate
@@ -483,10 +483,6 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
-  /** The water rules for the validator's own settle (without `water`), and the soil rules: the
-   *  defaults when absent (sim/water.ts, sim/soil.ts; D308). */
-  waterRules?: WaterRules;
-  soilRules?: SoilRules;
   /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
@@ -528,7 +524,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
     const w = file.world;
     const objects: MapObject[] = mapObjects(w);
     model = opts.water?.model ?? waterModel(w.sizeX, w.sizeY, surface, objects);
-    water = opts.water?.settled ?? canonicalSettle(model, opts.waterRules ? { rules: opts.waterRules } : {});
+    water = opts.water?.settled ?? canonicalSettle(model);
     analysis = checkPlayability(
       {
         W: w.sizeX,
@@ -540,7 +536,6 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
         rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal", String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "")),
         features: opts.features ?? null,
         ids: w.entities.filter((e) => placementOf(e)).map((e) => String(e.Id)),
-        ...(opts.soilRules ? { soilRules: opts.soilRules } : {}),
         ...(opts.mineCutAtOpen ? { mineCutAtOpen: opts.mineCutAtOpen } : {}),
       },
       c,

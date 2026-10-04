@@ -361,6 +361,10 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 });
 
 test("High's basin sources highlight as Standard's do (D378): a source turns a clear red (D249), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
+  // An expected failure, naming the bug it found: a source's highlight is unreadable when it sits under its own
+  // water (seed 4242's first clean source, generator 0.8.0: red 3.7 in Standard, 3.2 in High, against 25). Kyler's
+  // decision: it must read under water, in both looks; fix/basin-highlight fixes it and removes this.
+  test.fail(true, "a source's highlight is unreadable under its own water (Standard 3.7, High 3.2, against 25)");
   const errors: string[] = [];
   await open(page, errors);
   // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera)

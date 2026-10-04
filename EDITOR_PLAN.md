@@ -3,8 +3,8 @@
 > **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
 
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision and how it works now, taken from
-Kyler's decisions (`PLAN.md` §20: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
-reference. Where anything here conflicts with `PLAN.md` §20, §20 wins. The next screen is
+Kyler's decisions (`docs/decisions/`: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
+reference. Where anything here conflicts with `docs/decisions/`, the decisions win. The next screen is
 [docs/UI-BRIEF.md](docs/UI-BRIEF.md)'s ("The page is the editor", D330; a separate page session owns that design):
 where this document describes the screen and the brief differs, the brief wins. What was superseded, the detailed
 text this document condensed (at D390) and the deferred Claude integration's design are in
@@ -312,7 +312,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `src/editor/forceSize.ts`): hold F and move the mouse to size the ring on the map (a click or letting go keeps
   it, Esc or a right click puts it back), { and } step the Size, [ and ] the Power by five (or F held and the wheel,
   D368 (11)), the number beside the pointer. **Size sets how far a force reaches; Power how strong it is within
-  that** (`core/forces/strength.ts`): a force set larger than its Power's own size keeps its reach and acts in
+  that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
   (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
@@ -335,11 +335,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
-  two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
+  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 
@@ -720,7 +718,7 @@ flags them if they reappear anywhere else (D188).
 ## Working rules
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
-  entry. Record deviations and decisions in `PLAN.md` §20.
+  entry. Record deviations and decisions in `docs/decisions/` (its index says how).
 - The editor must never export a file that breaks the game. Load problems block export; playability and design
   problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only
@@ -783,7 +781,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
@@ -801,7 +801,8 @@ stroke records the options it used:
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
   item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
@@ -828,10 +829,18 @@ Dirty-region tracking lets rendering, validation and the water preview update on
 
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; Your maps in the browser (D234;
 `platform/yourMaps.ts`, IndexedDB), guarded against storage failures, recovering the open map on reload (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
-a new imported map.
+a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
+what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
+once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
+rebuilding, as every project did before.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
+once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
+with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
+code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
@@ -1033,7 +1042,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
     change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
-    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
@@ -1049,7 +1058,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how

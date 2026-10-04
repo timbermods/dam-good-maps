@@ -11,10 +11,10 @@
 // - Remove unfed water (doc/waterEdits.ts, its check in doc/ops.ts): sources only, so a carve's
 //   sealed oxbow lake and a Fill count as unfed and can be removed;
 // - the canonical settle (prefill.ts) and the editor's water (preview.ts): sources and the stored
-//   lakes a removal didn't drain (`keptSeeds`), plus, in the warm start, the water kept from before.
+//   lakes a removal didn't drain (`keptSeeds`), plus, in the preview, the water kept from before.
 //   Water the pre-fill put where none of them reaches (a hollow on a dry plateau its walk spread
-//   over) would come from nowhere, so it is taken away (`withoutUnfed`), as is the water a removal
-//   drained (the model's `drained`).
+//   over) would come from nowhere, so it is taken away once the water has stopped (`withoutUnfed`,
+//   in both), as is the water a removal drained (the model's `drained`).
 
 import { WaterSim, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
@@ -122,14 +122,17 @@ export function keptSeeds(m: WaterModel): Uint8Array | null {
   return mask;
 }
 
-/** The simulation without its unfed water (no running source and no kept stored lake reaches it,
- *  `keptSeeds`): the water the pre-fill left where none goes (D385) and the water a removal drained
- *  (the model's `drained`, D387 (2)). A new simulation on the water as it stands, those tiles dry and
- *  still, at the same tick; null when there is none (nothing changes). */
-export function withoutUnfed(m: WaterModel, sim: WaterSim, opts: WaterSimOptions = {}): WaterSim | null {
+/** The simulation without its unfed water (no running source and no seed reaches it: by default the
+ *  kept stored lakes, `keptSeeds`; the editor's preview adds the water it kept from before): the
+ *  water the pre-fill left where none goes (D385) and the water a removal drained (the model's
+ *  `drained`, D387 (2)). A new simulation on the water as it stands, those tiles dry and still, at
+ *  the same tick, so its bookkeeping is built from that water (water.ts: a running simulation's `D`
+ *  and `C` are never written); null when there is none (nothing changes). The one drain of the
+ *  canonical settle (prefill.ts `canonicalRun`) and the preview's (preview.ts `PreviewJob`). */
+export function withoutUnfed(m: WaterModel, sim: WaterSim, opts: WaterSimOptions = {}, seeds: ArrayLike<number> | null = keptSeeds(m)): WaterSim | null {
   const state: WaterState = { depth: sim.D.slice(), contamination: sim.C.slice() };
   const out = sim.out.slice();
-  const fed = fedTiles(m, state.depth, keptSeeds(m));
+  const fed = fedTiles(m, state.depth, seeds);
   let any = false;
   for (let i = 0; i < sim.N; i++) {
     if (!(state.depth[i] > 0) || fed[i]) continue;

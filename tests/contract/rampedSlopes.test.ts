@@ -11,7 +11,7 @@ import { MapSession } from "../../src/core/doc/session";
 import { RIM_SLOPES } from "../../src/core/features/ids";
 import { applyBrush, markBrushTiles, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
-import { RIM_SPACING, rimSlopes } from "../../src/core/features/slopes";
+import { RIM_SPACING, rimSlopes } from "./rimSlopes";
 import { slopeHighSide, ORIENTATIONS } from "../../src/core/format/footprints";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
@@ -71,7 +71,6 @@ describe("a ramped Flatten lays its own slopes (D270)", () => {
 
   it("kept in the stroke: the build places them, the project replays them exactly; the editor refuses a new ramped stroke (D368 (10)); a stroke from before D270 still asks the planner", async () => {
     await runGenerate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const b = s0.built;

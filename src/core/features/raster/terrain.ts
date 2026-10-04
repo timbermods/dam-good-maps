@@ -10,7 +10,6 @@ import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
-import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
 import { wantedCount } from "../../water/sourceGroups";
@@ -393,7 +392,7 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | CarveParams | ForceResultParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | ForceResultParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {

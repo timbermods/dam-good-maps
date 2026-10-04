@@ -7,16 +7,16 @@
 // overlapping eruptions build volcanic fields. It erupts wherever it is asked, the start's ground
 // too (the editor carries the start to level ground, D257), and never adds water. The swell is shown in stages (`stageMap`).
 //
-// Ported from investigation/forces-core `verbs/erupt/engine.ts` and `flows.ts` (PR #59, from #50 at
-// 89c6842), kept to its structure: the pinned parity tests compare it with the prototype byte for
-// byte.
+// Planned in Rust (rust/forces, PLAN §20 D381; rust/bridge.ts). Its anatomy stays here too: the editor's
+// cursor ring reads it as the pointer moves (`eruptAnatomy`). The TypeScript planner it replaced is tag
+// `ts-forces-final`.
 
 import * as portable from "../math/portable";
-import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
-import { footprint } from "./objects";
-import { clamp, hash, smooth } from "./random";
-import { strength, tempered } from "./strength";
+import { clamp, hash } from "./random";
+import { smoothstep } from "../math/clamp";
+import { planInRust } from "./rust/bridge";
+import { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, forceSettingsProblem } from "./settings";
 
 export interface Point {
   x: number;
@@ -48,26 +48,13 @@ export interface EruptSettings {
 
 export const ERUPT_DEFAULTS: EruptSettings = { mode: "vent", power: 62, shape: "steep", summit: "auto", flows: "heavy", ridges: true, seed: 1, size: null };
 
-/** Erupt's Size, in tiles across (D226). */
-export const ERUPT_SIZE_MIN = 6;
-export const ERUPT_SIZE_MAX = 140;
+/** Erupt's Size, in tiles across (D226; settings.ts). */
+export { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN };
 
+/** Throws why an eruption can't start (its settings, settings.ts; its vent and fissure on the map). */
 export function validateErupt(s: EruptSettings, m: { W: number; H: number }, i: EruptIntent): void {
-  if (
-    !["vent", "fissure"].includes(s.mode) ||
-    !["steep", "broad"].includes(s.shape) ||
-    !["auto", "peak", "crater", "caldera"].includes(s.summit) ||
-    !["light", "heavy"].includes(s.flows) ||
-    typeof s.ridges !== "boolean" ||
-    !Number.isFinite(s.power) ||
-    s.power < 0 ||
-    s.power > 100 ||
-    !Number.isInteger(s.seed) ||
-    s.seed < 0 ||
-    s.seed > 0xffffffff ||
-    (s.size != null && !(Number.isFinite(s.size) && s.size >= ERUPT_SIZE_MIN && s.size <= ERUPT_SIZE_MAX))
-  )
-    throw Error("Invalid eruption settings");
+  const why = forceSettingsProblem("erupt", s as unknown as Record<string, unknown>);
+  if (why) throw Error(why);
   if (!Number.isInteger(i.origin) || i.origin < 0 || i.origin >= m.W * m.H) throw Error("Choose land on the map");
   if (s.mode === "fissure" && (!Array.isArray(i.path) || i.path.length < 2 || i.path.length > 512 || i.path.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.y < 0 || p.x > m.W - 1 || p.y > m.H - 1)))
     throw Error("Draw a fissure on the land");
@@ -265,10 +252,10 @@ const CRATER_DEPTH = 0.22;
  *  crater or caldera; a fissure's ridge (its line, not its summit, shapes it). */
 export function coneProfile(s: Pick<EruptSettings, "shape">, summit: EruptSettings["summit"], r: number, fissure = false): number {
   const e = s.shape === "steep" ? (fissure ? 0.83 : 1.7) : 1.65;
-  if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smooth((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
+  if (!fissure && summit === "caldera") return r < 0.43 ? 0.34 : r < 0.6 ? 0.34 + 0.48 * smoothstep((r - 0.43) / 0.17) : 0.82 * Math.max(0, 1 - (r - 0.6) / 0.65);
   if (!fissure && summit === "crater" && r < CRATER_R) {
     const rim = portable.pow(1 - CRATER_R, e);
-    return rim - CRATER_DEPTH * (1 - smooth(r / CRATER_R));
+    return rim - CRATER_DEPTH * (1 - smoothstep(r / CRATER_R));
   }
   return portable.pow(Math.max(0, 1 - r), e);
 }
@@ -321,8 +308,8 @@ export function riseBound(s: EruptSettings, a: Pick<EruptAnatomy, "height" | "su
     const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4);
     const ridge = s.ridges
       ? fissure
-        ? (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : strength * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2)
+        ? (1 - smoothstep((r - 1.05) / 0.85)) * smoothstep((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : strength * (0.7 + s.power * 0.013) * smoothstep((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2)
       : 0;
     const basin = !fissure && r < (a.summit === "caldera" ? 0.6 : a.summit === "crater" ? CRATER_R : 0);
     const rise = basin ? a.height * profile : Math.max(a.height * profile, apron) + ridge;
@@ -494,12 +481,6 @@ export function eruptAnatomy(m: { W: number; H: number; heights: Uint8Array; max
   return a;
 }
 
-/** A fissure's share of its rise at a tile whose line stands on `local` (D226): all of it where the
- *  line has room under the ceiling, less where the ground is high. */
-function fissureScale(a: EruptAnatomy, bound: number, local: number): number {
-  return Math.min(1, Math.max(0, a.ceiling - local) / bound);
-}
-
 /** The ground the prototype raises at tile `i` (unrounded, before the ceiling), its rise scaled by
  *  `k` (1: the prototype's own, exactly): a vent's apron and ridges (its cone's height is fitted in
  *  its anatomy already), a fissure's whole rise at this point of its line. */
@@ -509,10 +490,10 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const datum = s.mode === "vent" ? a.datum : local;
   let profile = coneProfile(s, a.summit, r, s.mode === "fissure");
   if (s.mode === "fissure") {
-    const bowl = 1 - smooth(f.ventDistance / Math.max(2.4, a.radius * 0.19));
+    const bowl = 1 - smoothstep(f.ventDistance / Math.max(2.4, a.radius * 0.19));
     profile = Math.max(0, profile - bowl * (a.summit === "caldera" ? 0.4 : a.summit === "peak" ? 0.12 : 0.27));
   }
-  const shoulder = smooth((r - 0.48) / 0.7);
+  const shoulder = smoothstep((r - 0.48) / 0.7);
   const cone = datum + (k === 1 || s.mode === "vent" ? a.height : a.height * k) * profile + (h - datum) * shoulder;
   // a fitted volcano's lava runs downhill from its vent: its apron and ridges never pile onto higher
   // ground (an older cone's upper slopes, pressed against the ceiling, would become a mesa)
@@ -523,8 +504,8 @@ function raiseAt(m: { W: number; heights: Uint8Array }, s: EruptSettings, a: Eru
   const apron = thick * portable.pow(Math.max(0, 1 - r / reach), 1.4) * (0.86 + 0.14 * portable.sin(f.theta * 4 + a.phase + r)) * lobed * k * flowsHere;
   const ridge = s.ridges
     ? (s.mode === "fissure"
-        ? f.ridge * (1 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
-        : flows[i] * (0.7 + s.power * 0.013) * smooth((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2) * (1 - smooth((r - reach * 0.7) / (reach * 0.3)))) *
+        ? f.ridge * (1 - smoothstep((r - 1.05) / 0.85)) * smoothstep((r - 0.34) / 0.32) * (0.8 + s.power * 0.022)
+        : flows[i] * (0.7 + s.power * 0.013) * smoothstep((r - (a.summit === "caldera" ? 0.6 : CRATER_R)) / 0.2) * (1 - smoothstep((r - reach * 0.7) / (reach * 0.3)))) *
       k *
       flowsHere
     : 0;
@@ -570,21 +551,20 @@ export function eruptField(a: EruptAnatomy, s: EruptSettings, x: number, y: numb
   return { r, theta, ridge, cx, cy, along, vent, ventDistance: nearest };
 }
 
-/** An eruption planned a few rows at a time (`advance`), on its own copy of the map. `keep` adds
- *  ground it leaves alone (the land above the layer showing, an imported map's caves). */
+/** An eruption planned on its own copy of the map, in Rust, in one call. `keep` adds ground it leaves
+ *  alone (the land above the layer showing, an imported map's caves). Throws why it can't start (its
+ *  settings and gesture, or no room to rise, `NO_ROOM_REASON`). */
 export class EruptPlan {
   readonly map: FullForceMap;
   readonly anatomy: EruptAnatomy;
   readonly keep: Uint8Array;
   readonly flows: Float32Array;
-  readonly stats = { raised: 0, changed: 0, flattened: 0, erased: 0, hard: 0 };
-  private row = 0;
-  private done = false;
-
-  /** A fissure's bound on its rise, when its line needs its share of it (D226; 0: all of it). */
-  private readonly bound: number;
+  readonly stats: { raised: number; changed: number; flattened: number; erased: number; hard: number };
   /** How strongly it rises (D361 (3): 1 unless its Size outgrows its Power). */
   readonly strength: number;
+  /** Its heat on the land (RGBA a tile: red the vents, green the flows' cracks, blue the dust, alpha when
+   *  the heat arrives there, 0–1 along the flows, out from the vent). */
+  readonly heat: Uint8Array;
 
   constructor(
     readonly before: FullForceMap,
@@ -593,146 +573,27 @@ export class EruptPlan {
     extraKeep: Uint8Array | null = null,
   ) {
     validateErupt(settings, before, intent);
-    this.anatomy = eruptAnatomy(before, settings, intent, extraKeep);
-    // (the start's ground is nature's to change: the start is carried off it, D257)
-    this.keep = new Uint8Array(before.W * before.H);
-    if (extraKeep) for (let i = 0; i < extraKeep.length; i++) if (extraKeep[i]) this.keep[i] = 1;
-    this.map = snapshotMap(before);
-    this.flows = lobeField(before.W, before.H, this.anatomy.lobes);
-    // (a fissure that fits keeps all of its rise everywhere, as the prototype's)
-    const a = this.anatomy;
-    this.bound = settings.mode === "fissure" && !fits(before, settings, a, this.keep) ? riseBound(settings, a) : 0;
-    this.strength = strength(settings.power, settings.size ?? null, naturalBreadth(settings));
-  }
-
-  get planned(): boolean {
-    return this.done;
-  }
-
-  /** Plan `rows` more rows; true once the whole volcano is planned. */
-  advance(rows = 4): boolean {
-    if (this.done) return true;
-    const { W, H } = this.map;
-    const a = this.anatomy;
-    const s = this.settings;
-    const end = Math.min(H, this.row + Math.max(1, Math.floor(rows)));
-    for (let y = this.row; y < end; y++)
-      for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        const h = this.before.heights[i];
-        if (this.keep[i]) continue;
-        const f = eruptField(a, s, x, y);
-        if (f.r > 2.6) continue;
-        const k = this.bound ? fissureScale(a, this.bound, this.before.heights[Math.round(f.cy) * W + Math.round(f.cx)]) : a.scale;
-        let target = raiseAt(this.before, s, a, this.flows, f, i, h, k);
-        // Size and Power (D361 (3)): broader than Power's own volcano, it rises in proportion
-        target = tempered(h, target, this.strength);
-        target = clamp(Math.round(Math.round(target * 4096) / 4096), 0, Math.min(22, this.map.maxHeight));
-        this.map.heights[i] = target;
-        if (target !== h) {
-          this.stats.changed++;
-          this.stats.raised += target - h;
-          for (let z = h; z < target; z++) this.map.lava[i] |= 1 << z;
-          this.stats.hard++;
-        }
-      }
-    this.row = end;
-    if (end < H) return false;
-    this.despeckle();
-    this.finishObjects();
-    this.done = true;
-    return true;
-  }
-
-  /** Its surface reads as rock, never single-tile noise (item 14): a raised tile standing alone above
-   *  all four neighbours, or sunk alone below them, takes its neighbours' level (twice over, so a pair
-   *  settles too); the crater and the vent's own ground are left as they are. */
-  private despeckle(): void {
-    const { W, H } = this.map;
-    const h = this.map.heights;
-    const b = this.before.heights;
-    const a = this.anatomy;
-    for (let pass = 0; pass < 2; pass++)
-      for (let y = 1; y < H - 1; y++)
-        for (let x = 1; x < W - 1; x++) {
-          const i = y * W + x;
-          if (h[i] === b[i] || this.keep[i]) continue;
-          // (the summit is its own: a peak's tip stands above everything round it by design)
-          if (a.vents.some((v) => portable.hypot(x - v.x, y - v.y) < Math.max(2.5, a.radius * 0.15))) continue;
-          const n = [h[i - 1], h[i + 1], h[i - W], h[i + W]];
-          const lo = Math.min(...n);
-          const hi = Math.max(...n);
-          let v = h[i];
-          if (v > hi) v = hi;
-          else if (v < lo && portable.hypot(x - a.x, y - a.y) > a.radius * CRATER_R * 1.2) v = lo;
-          if (v === h[i]) continue;
-          v = Math.max(v, b[i]);
-          h[i] = v;
-          this.map.lava[i] &= v >= 31 ? 0xffffffff : (1 << v) - 1;
-          for (let z = b[i]; z < v; z++) this.map.lava[i] |= 1 << z;
-        }
-  }
-
-  private finishObjects(): void {
-    const a = this.anatomy;
-    const s = this.settings;
-    const m = this.map;
-    m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[clamp(Math.floor(f.y), 0, m.H - 1) * m.W + clamp(Math.floor(f.x), 0, m.W - 1)] }));
-    m.entities = m.entities.filter((e) => {
-      const tile = e.y * m.W + e.x;
-      // (the start is the editor's: carried to level ground when its own breaks, D257)
-      if (this.keep[tile] || e.template === "StartingLocation") return true;
-      const f = eruptField(a, s, e.x, e.y);
-      const plant = /^(Pine|Oak|Birch|Succulent|BlueberryBush)$/.test(e.template);
-      if (!EMITTERS[e.template] && f.ventDistance < Math.max(1.5, a.radius * 0.065)) {
-        this.stats.erased++;
-        m.fallen = m.fallen.filter((v) => v.id !== e.id);
-        return false;
-      }
-      if (plant && f.ventDistance < a.radius * 0.72) {
-        if (e.template === "BlueberryBush" || e.template === "Succulent") {
-          this.stats.erased++;
-          return false;
-        }
-        const d = portable.hypot(e.x - f.vent.x, e.y - f.vent.y) || 1;
-        m.fallen = m.fallen.filter((v) => v.id !== e.id);
-        m.fallen.push({ id: e.id, x: e.x + 0.5, y: e.y + 0.5, z: m.heights[tile], dx: (e.x - f.vent.x) / d, dy: (e.y - f.vent.y) / d, length: e.template === "Oak" ? 2.6 : 2 });
-        e.components = { ...e.components, LivingNaturalResource: { IsDead: true } };
-        delete e.raw;
-        this.stats.flattened++;
-      }
-      // Rigid footprints ride a supporting terrace, instead of leaving one corner hanging.
-      const tiles = footprint(m, e);
-      const height = Math.max(...tiles.map((i) => m.heights[i]));
-      if (tiles.some((i) => this.keep[i] && m.heights[i] !== height)) return true;
-      if (!plant)
-        for (const i of tiles) {
-          const prior = m.heights[i];
-          m.heights[i] = height;
-          for (let z = prior; z < height; z++) m.lava[i] |= 1 << z;
-        }
-      const z = plant ? m.heights[tile] : height;
-      if (e.z !== z) delete e.raw;
-      e.z = z;
-      return true;
-    });
+    const p = planInRust({ verb: "erupt", map: before, settings, intent, keep: extraKeep });
+    this.map = p.raw;
+    this.anatomy = p.anatomy;
+    this.keep = p.keep;
+    this.flows = p.flows;
+    this.stats = p.stats;
+    this.strength = p.strength;
+    this.heat = p.heat;
   }
 }
 
 /** A whole eruption at once (tests, Claude's step). */
 export function erupt(m: FullForceMap, s: EruptSettings, intent: EruptIntent, keep: Uint8Array | null = null): EruptPlan {
-  const p = new EruptPlan(m, s, intent, keep);
-  while (!p.advance(8)) {
-    // planned a slice at a time
-  }
-  return p;
+  return new EruptPlan(m, s, intent, keep);
 }
 
 /** The eruption at `t` (0–1) of its swell: every raised tile a share of the way up (whole levels),
  *  objects on their ground then. */
 export function stageMap(before: FullForceMap, after: FullForceMap, t: number): FullForceMap {
   const m = snapshotMap(after);
-  for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smooth(t));
+  for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smoothstep(t));
   m.entities = m.entities.map((e) => ({ ...e, z: m.heights[e.y * m.W + e.x] }));
   m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[Math.floor(f.y) * m.W + Math.floor(f.x)] }));
   return m;

@@ -23,7 +23,6 @@ describe("Clear sources and the water (item 15)", () => {
   it("a Flatten stroke clearing a source: the stroke's water stops and the pit it filled drains", async () => {
     // (seed 1 on M9b's maps, D148: seed 3 has no dry flat spot 9 tiles from any water)
     await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;
