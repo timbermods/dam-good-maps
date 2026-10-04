@@ -29,7 +29,6 @@ function maxDepthOps(s: MapSession, tiles: number[], depth: number): { ops: Edit
 describe("Max water depth (D264)", () => {
   const lakeAndRiver = async (seed: number) => {
     await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     let s = open();
     // a lake: a 10 × 10 pit at level 4 in a 14 × 14 block at level 10, on dry ground far from the

@@ -11,7 +11,8 @@
 
 import { canonicalSettle } from "../../sim/prefill";
 import type { RetainedWater } from "../../sim/water";
-import { modelFor, type CarveRun } from "./run";
+import { modelOf } from "../../features/build";
+import type { CarveRun } from "./run";
 
 /** The connected low ground behind both mouth bars (below their level), in the order found; empty
  *  when there is none, or when it reaches the live river (the shortcut) or the carve's source. */
@@ -44,8 +45,8 @@ export function oxbowBasin(run: CarveRun): number[] {
 export function oxbowLake(run: CarveRun): RetainedWater | null {
   const basin = run.closure && !run.settings.dry ? oxbowBasin(run) : [];
   if (!basin.length) return null;
-  const first = canonicalSettle(modelFor(run.closure!));
-  const floor = modelFor(run.map).floor;
+  const first = canonicalSettle(modelOf(run.closure!));
+  const floor = modelOf(run.map).floor;
   const tiles = basin.slice().sort((a, b) => a - b);
   return {
     tiles,

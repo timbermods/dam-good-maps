@@ -92,7 +92,6 @@ describe("an edit never waits on the water (live editing)", () => {
 
   it("the worker's session: the edit answers at once, the background settle puts the settled water in place", async () => {
     await runGenerate(makeSpec({ seed: 21, size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const v = ed.sessionView();
     let at: [number, number] | null = null;

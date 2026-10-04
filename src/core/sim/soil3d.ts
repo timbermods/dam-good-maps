@@ -1,21 +1,14 @@
 // Soil moisture and contamination per terrain run (D120; investigation/terrain3d/DESIGN.md §3.4,
 // GAME_RULES.md §6): the game keeps one value per run top, slot j of tile i at j·N + i
 // (`SoilMoistureSimulator`, `SoilContaminationSimulator`), with the runs laid out as
-// `ColumnTerrainMap` does (sim/columns.ts `terrainColumns`). Two modes, as the water engine has:
+// `ColumnTerrainMap` does (sim/columns.ts `terrainColumns`).
 //
-// "port" (the default): the steady states of sim/moisture.ts and sim/contamination.ts with run tops
-// as nodes, so on a heightfield (one run per tile) they give those modules' numbers bit for bit;
-// on terrain above terrain they add the game's own rules (Timberborn 1.1.2.4,
-// `MoistureCalculationTask`, `ContaminationCandidatesCountingTask`, read from the decompiled code
-// and described, not copied). The heightfield modules approximate the game in three places, which
-// "port" keeps: a contaminated wet tile spreads its value before its water's (1 − c) is applied (so
-// moisture leaks through a badwater stream to the land beyond it), a diagonal step costs √2 (the
-// game: 1.414), and clean water's own 2·sat is scaled by (1 − c) as well.
-//
-// "game": the game's own per-tick rules (the same task, in float32, with its decay and spreading
-// rates), run from dry soil until nothing changes: what the game stores once the soil has settled.
-// It reproduces the official maps' stored moisture (see docs/progress/terrain3d-a.md). Whether the
-// build adopts it, on heightfields too, is Kyler's call at the wiring step (as D293 was for water).
+// The game's own per-tick rules (Timberborn 1.1.2.4, `MoistureCalculationTask`,
+// `ContaminationCandidatesCountingTask`, read from the decompiled code and described, not copied;
+// the same task, in float32, with its decay and spreading rates), run from dry soil until nothing
+// changes: what the game stores once the soil has settled. It reproduces the official maps' stored
+// moisture (see docs/progress/terrain3d-a.md). (The earlier "port" mode, which gave sim/moisture.ts's
+// and sim/contamination.ts's numbers, was unreachable and is gone.)
 //
 // The rules, per run (its floor and its top):
 // - A run's own water is the water column whose floor is the run's top (`TryGetColumnWithFloorAt
@@ -40,7 +33,6 @@
 // in the heightfield modules. The game's other barrier (`BlockAboveMoisture`, player buildings) is
 // not on maps.
 
-import { MinHeap } from "../math/grid";
 import { terrainColumns, type TerrainColumns, type VoxelMasks, type WaterColumns } from "./columns";
 import { objectTile, type MapObject } from "./model";
 
@@ -119,29 +111,17 @@ export function soilBarrierCells(W: number, H: number, objects: readonly MapObje
   return out;
 }
 
-/** Whether tile i is a heightfield tile: one run and one water column. */
-const heightfieldTile = (runs: TerrainColumns, wc: WaterColumns, i: number) => runs.count[i] === 1 && wc.count[i] === 1;
-
 /** The water on and under each run: its own column (floor at the run's top) and the column below
- *  it (ceiling at the run's floor), as column ids or −1. In "port" mode a heightfield tile's run
- *  owns the tile's one column, as sim/moisture.ts pairs them (a Blockage raises the column's floor
- *  above the run's top), and `base` is where that water stands on: the run's top there, else the
- *  column's floor. */
-function runWater(runs: TerrainColumns, wc: WaterColumns, port: boolean): { own: Int32Array; below: Int32Array; base: Int16Array } {
+ *  it (ceiling at the run's floor), as column ids or −1. */
+function runWater(runs: TerrainColumns, wc: WaterColumns): { own: Int32Array; below: Int32Array } {
   const { N, T } = runs;
   const own = new Int32Array(T * N).fill(-1);
   const below = new Int32Array(T * N).fill(-1);
-  const base = Int16Array.from(wc.floor);
   for (let i = 0; i < N; i++)
     for (let k = 0; k < runs.count[i]; k++) {
       const n = k * N + i;
       const top = runs.ceil[n];
       const bottom = runs.floor[n];
-      if (port && heightfieldTile(runs, wc, i)) {
-        own[n] = i;
-        base[i] = top;
-        continue;
-      }
       for (let s = 0; s < wc.count[i]; s++) {
         const id = s * N + i;
         if (wc.floor[id] === top) {
@@ -159,232 +139,10 @@ function runWater(runs: TerrainColumns, wc: WaterColumns, port: boolean): { own:
         if (wc.ceil[id] > bottom) break;
       }
     }
-  return { own, below, base };
-}
-
-/** The column of neighbour tile j that run n (on a tile of `nodeRuns` runs) reads its water from:
- *  the topmost column of j with its floor at or below `top` passing `ok`, or, between two
- *  heightfield tiles, j's one column when it passes `ok`; −1 when none. */
-function besideColumn(wc: WaterColumns, j: number, top: number, nodeRuns: number, ok: (id: number) => boolean): number {
-  const N = wc.N;
-  if (nodeRuns === 1 && wc.count[j] === 1) return ok(j) ? j : -1;
-  for (let s = wc.count[j] - 1; s >= 0; s--) {
-    const id = s * N + j;
-    if (wc.floor[id] <= top && ok(id)) return id;
-  }
-  return -1;
+  return { own, below };
 }
 
 const DIRS4: readonly [number, number][] = [[0, -1], [-1, 0], [0, 1], [1, 0]];
-
-/** Steady-state moisture per run (slot-major, `runs.T`·N), from the water per column id. */
-export function moisture3d(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth)): Float64Array {
-  const { W, H, N, T } = runs;
-  const NN = T * N;
-  const MC = wc.L * N;
-  const { own, below, base } = runWater(runs, wc, true);
-  const range = new Float64Array(MC);
-  const surfCeil = new Int32Array(MC);
-  for (let c = 0; c < MC; c++) {
-    const cn = contamination[c];
-    const r = 2 * sat[c];
-    range[c] = cn >= 0.01 ? Math.floor(r * Math.min(1, Math.max(0, 1 - cn / 0.53))) : r;
-    surfCeil[c] = Math.ceil(base[c] + depth[c] - 1e-9);
-  }
-  const wet = (c: number) => depth[c] > 0;
-  const M = new Float64Array(NN);
-  const fixed = new Uint8Array(NN);
-  const heap = new MinHeap();
-  for (let n = 0; n < NN; n++) {
-    const i = n % N;
-    if ((n - i) / N >= runs.count[i]) continue;
-    const w = own[n];
-    if (w >= 0 && wet(w) && contamination[w] <= 0.01) {
-      M[n] = 2 * sat[w];
-      fixed[n] = 1;
-    }
-    if (barrier && barrier.has(runs.ceil[n] * N + i)) {
-      M[n] = 0;
-      fixed[n] = 1;
-    }
-  }
-  for (let n = 0; n < NN; n++) {
-    const i = n % N;
-    if ((n - i) / N >= runs.count[i]) continue;
-    if (fixed[n]) {
-      if (M[n] > 0) heap.push(-M[n], n);
-      continue;
-    }
-    const top = runs.ceil[n];
-    const bottom = runs.floor[n];
-    let best = 0;
-    // a full cave below the run, through its rock
-    const b = below[n];
-    if (b >= 0 && wet(b) && wc.floor[b] + depth[b] >= wc.ceil[b]) {
-      const v = range[b] - 6 * (top - bottom - 1);
-      if (v > best) best = v;
-    }
-    const x = i % W;
-    const y = (i - x) / W;
-    for (const [dx, dy] of DIRS4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-      const w = besideColumn(wc, yy * W + xx, top, runs.count[i], wet);
-      if (w < 0 || surfCeil[w] <= bottom) continue;
-      const v = range[w] - 6 * Math.max(0, top - surfCeil[w]);
-      if (v > best) best = v;
-    }
-    if (best > 0) {
-      M[n] = best;
-      heap.push(-best, n);
-    }
-  }
-  while (heap.size > 0) {
-    const n = heap.pop();
-    const m = -heap.lastKey;
-    if (m < M[n] - 1e-9) continue;
-    const i = n % N;
-    const x = i % W;
-    const y = (i - x) / W;
-    const top = runs.ceil[n];
-    const bottom = runs.floor[n];
-    const w = own[n];
-    const climbBase = top + Math.ceil((w >= 0 ? depth[w] : 0) - 1e-9);
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const j = yy * W + xx;
-        const cost = dx && dy ? Math.SQRT2 : 1;
-        for (let k = 0; k < runs.count[j]; k++) {
-          const t = k * N + j;
-          if (bottom > runs.ceil[t]) continue;
-          if (top < runs.floor[t]) break;
-          if (fixed[t]) continue;
-          const climb = Math.max(0, runs.ceil[t] - climbBase);
-          const v = m - cost - 6 * climb;
-          if (v > M[t] + 1e-9) {
-            M[t] = v;
-            heap.push(-v, t);
-          }
-        }
-      }
-    }
-  }
-  const out = new Float64Array(NN);
-  for (let n = 0; n < NN; n++) {
-    const w = own[n];
-    let v = M[n] * (w >= 0 && wet(w) ? 1 - contamination[w] : 1);
-    if (v < 0.01) v = 0;
-    out[n] = v;
-  }
-  return out;
-}
-
-const SQRT2 = Math.SQRT2;
-
-/** Steady-state soil contamination per run (slot-major, `runs.T`·N): only water with
- *  contamination ≥ 0.5 contaminates soil, 2·(c − 0.5) on and beside it, then −1/7 per tile (√2/7
- *  diagonally) and −5/7 per level climbed. */
-export function contamination3d(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null): Float64Array {
-  const { W, H, N, T } = runs;
-  const NN = T * N;
-  const MC = wc.L * N;
-  const { own, below, base } = runWater(runs, wc, true);
-  const bad = new Uint8Array(MC);
-  const surfCeil = new Int32Array(MC);
-  for (let c = 0; c < MC; c++) {
-    bad[c] = depth[c] > 0 && contamination[c] >= 0.5 ? 1 : 0;
-    surfCeil[c] = Math.ceil(base[c] + depth[c] - 1e-9);
-  }
-  // the run each water column stands on (its floor is that run's top), or −1
-  const onRun = new Int32Array(MC).fill(-1);
-  for (let n = 0; n < NN; n++) if (own[n] >= 0) onRun[own[n]] = n;
-  const barred = (n: number) => barrier !== null && barrier.has(runs.ceil[n] * N + (n % N));
-  const V = new Float64Array(NN);
-  const heap = new MinHeap();
-  const contaminated = (id: number) => depth[id] > 0 && contamination[id] > 0;
-  // bad water, in column id order, seeds the run it stands on and the runs beside it that read it
-  for (let w = 0; w < MC; w++) {
-    if (!bad[w]) continue;
-    const i = w % N;
-    const x = i % W;
-    const y = (i - x) / W;
-    const v0 = 2 * (contamination[w] - 0.5);
-    const n0 = onRun[w];
-    if (n0 >= 0) {
-      if (v0 > V[n0]) V[n0] = v0;
-      heap.push(-V[n0], n0);
-    }
-    for (let k = 0; k < 4; k++) {
-      const xx = k === 1 ? x - 1 : k === 3 ? x + 1 : x;
-      const yy = k === 0 ? y - 1 : k === 2 ? y + 1 : y;
-      if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-      const j = yy * W + xx;
-      for (let s = 0; s < runs.count[j]; s++) {
-        const t = s * N + j;
-        const o = own[t];
-        if (o >= 0 && bad[o]) continue;
-        const top = runs.ceil[t];
-        // the water run t reads beside it must be this column
-        const read = runs.count[j] === 1 && wc.count[i] === 1 ? (bad[i] ? i : -1) : besideColumn(wc, i, top, runs.count[j], contaminated);
-        if (read !== w || surfCeil[w] <= runs.floor[t]) continue;
-        const v = v0 - (5 / 7) * Math.max(0, top - surfCeil[w]);
-        if (v > V[t]) {
-          V[t] = v;
-          heap.push(-v, t);
-        }
-      }
-    }
-  }
-  // a full cave of bad water below a run, through its rock
-  for (let n = 0; n < NN; n++) {
-    const i = n % N;
-    if ((n - i) / N >= runs.count[i]) continue;
-    const b = below[n];
-    if (b < 0 || !bad[b] || wc.floor[b] + depth[b] < wc.ceil[b]) continue;
-    const v = 2 * (contamination[b] - 0.5) - (5 / 7) * (runs.ceil[n] - runs.floor[n] - 1);
-    if (v > V[n]) {
-      V[n] = v;
-      heap.push(-v, n);
-    }
-  }
-  while (heap.size > 0) {
-    const n = heap.pop();
-    const v0 = -heap.lastKey;
-    if (v0 < V[n] - 1e-9) continue;
-    const i = n % N;
-    const x = i % W;
-    const y = (i - x) / W;
-    const top = runs.ceil[n];
-    const bottom = runs.floor[n];
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const j = yy * W + xx;
-        for (let k = 0; k < runs.count[j]; k++) {
-          const t = k * N + j;
-          if (bottom > runs.ceil[t]) continue;
-          if (top < runs.floor[t]) break;
-          if (barred(t)) continue;
-          const v = v0 - (dx && dy ? SQRT2 : 1) / 7 - (5 / 7) * Math.max(0, runs.ceil[t] - top);
-          if (v > V[t] + 1e-9) {
-            V[t] = v;
-            heap.push(-v, t);
-          }
-        }
-      }
-    }
-  }
-  for (let n = 0; n < NN; n++) if (V[n] < 0.001) V[n] = 0;
-  return V;
-}
 
 // ------------------------------------------------------------------------------ "game" mode
 
@@ -536,7 +294,7 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
   const { W, H, N, T } = runs;
   const NN = T * N;
   const g = spreadGraph(runs);
-  const { own, below } = runWater(runs, wc, false);
+  const { own, below } = runWater(runs, wc);
   const D = Float32Array.from(depth);
   const C = Float32Array.from(contamination);
   const initialRange = (c: number) => f32(2 * sat[c]);
@@ -636,7 +394,7 @@ export function contamination3dGame(runs: TerrainColumns, wc: WaterColumns, dept
   const { W, H, N, T } = runs;
   const NN = T * N;
   const g = spreadGraph(runs);
-  const { below } = runWater(runs, wc, false);
+  const { below } = runWater(runs, wc);
   const D = Float32Array.from(depth);
   const C = Float32Array.from(contamination);
   const barred = new Uint8Array(NN);
@@ -716,8 +474,6 @@ export function contamination3dGame(runs: TerrainColumns, wc: WaterColumns, dept
   return out;
 }
 
-export type SoilMode = "port" | "game";
-
 export interface Soil3d {
   runs: TerrainColumns;
   /** Per run, slot-major (`runs.T`·N). */
@@ -726,19 +482,13 @@ export interface Soil3d {
 }
 
 /** Moisture and contamination per run of a map's settled water (per water column id). */
-export function soil3d(t: VoxelMasks, wc: WaterColumns, water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; sat?: Uint8Array }, objects: readonly MapObject[] = [], mode: SoilMode = "port"): Soil3d {
+export function soil3d(t: VoxelMasks, wc: WaterColumns, water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; sat?: Uint8Array }, objects: readonly MapObject[] = []): Soil3d {
   const runs = terrainColumns(t);
   const barrier = soilBarrierCells(t.W, t.H, objects);
   const sat = water.sat ?? columnSaturation(wc, water.depth);
-  if (mode === "game")
-    return {
-      runs,
-      moisture: moisture3dGame(runs, wc, water.depth, water.contamination, barrier, sat),
-      contamination: contamination3dGame(runs, wc, water.depth, water.contamination, barrier),
-    };
   return {
     runs,
-    moisture: moisture3d(runs, wc, water.depth, water.contamination, barrier, sat),
-    contamination: contamination3d(runs, wc, water.depth, water.contamination, barrier),
+    moisture: moisture3dGame(runs, wc, water.depth, water.contamination, barrier, sat),
+    contamination: contamination3dGame(runs, wc, water.depth, water.contamination, barrier),
   };
 }

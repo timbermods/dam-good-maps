@@ -14,8 +14,14 @@ import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { stream } from "../../src/core/math/rng";
 import { makeSpec, SIZE_PRESETS } from "../../src/core/spec/mapspec";
-import { LOG_OPS, type EditOp } from "../../src/core/doc/ops";
+import type { EditOp, OpName } from "../../src/core/doc/ops";
 import { randomOp } from "./randomOps";
+
+/** Operations kept in the document's log and replayed on every generation. */
+const LOG_OPS: readonly OpName[] = [
+  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity",
+  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
+];
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 

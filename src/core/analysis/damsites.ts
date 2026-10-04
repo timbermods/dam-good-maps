@@ -2,6 +2,8 @@
 // reservoir it would hold. Port of prototype/analysis.py `dam_candidate` / `dam_sites` (same
 // sampling, same flood order), so both validators find the same sites.
 
+import { N4 } from "../math/grid";
+
 export interface DamSite {
   x: number;
   y: number;
@@ -19,7 +21,6 @@ export interface DamSite {
 }
 
 const DAM_DIRS: readonly [number, number][] = [[1, 0], [0, 1], [1, 1], [1, -1]]; // (dy, dx)
-const N4: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]]; // (dy, dx)
 
 /** A dam line through (x, y) along (dy, dx), crest = h + height. The line extends until terrain
  *  reaches the crest on both sides (at most 10 tiles each way). The reservoir is the tile set below

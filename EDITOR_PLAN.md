@@ -256,9 +256,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 
@@ -719,7 +717,8 @@ stroke records the options it used:
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
   item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
@@ -968,7 +967,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how

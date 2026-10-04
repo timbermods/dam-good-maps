@@ -25,7 +25,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readTimber } from "../src/core/format/timber";
 import { exp, log, pow } from "../src/core/math/portable";
-import { groundOfFile, measureResources, MAP_TREES, RUIN_VARIANT_IDS, type ResourceMeasures } from "../src/core/resources/measure";
+import { MAP_TREES } from "../src/core/resources/measure";
+import { groundOfFile, measureResources, RUIN_VARIANT_IDS, type ResourceMeasures } from "./lib/resources";
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
