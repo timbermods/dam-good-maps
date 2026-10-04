@@ -25,7 +25,6 @@ describe("a force leaves the locked land, and the ground above the layer showing
   it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 27 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const area: [number, number, number][] = [];
     for (let y = 16; y < 28; y++) area.push([y, 21, 47]);
@@ -55,7 +54,6 @@ describe("a force leaves the locked land, and the ground above the layer showing
   it("Highlands 64², seed 10: a Craterize (Power 44) at (51, 28) with the layer cut at level 10 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 10, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const cut = 10;
     const before = open().built;

@@ -42,7 +42,7 @@ import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
 import { floorProblem, forceFloor } from "../floor";
 import { shapeRiver } from "./river";
-import { keepSourcesOnMap, type PlacedSource } from "../../water/edgeSources";
+import { clamp } from "../random";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -129,7 +129,6 @@ export interface Station {
   lanes: Lane[];
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** Terrain-derived, coherent horizontal beds (a hash of the heights: the same map, the same rock). */
 export function mapSeed(m: Pick<ForceMap, "W" | "H" | "heights">): number {
@@ -194,8 +193,6 @@ export class CarveRun implements ForceRun {
   head: ForceHead;
   private readonly model: WaterModel;
   private readonly initialContamination: Float64Array;
-  /** Its sources whose water can still run straight off the map's edge (item 27; empty: all flow in). */
-  edgeLeaks: PlacedSource[] = [];
   /** The step each object the cut took went at (the editor's playback shows it go then, D321). */
   readonly removedAt = new Map<string, number>();
   /** The objects on each tile (their ids), for the ones a cut takes. */
@@ -716,12 +713,6 @@ export class CarveRun implements ForceRun {
       this.metrics.stable = true;
       // the river's own shape once its canyon is cut: its depth and its banks (items 17, 18)
       const shaped = this.planning ? [] : shapeRiver(this);
-      // its source row at the map's edge flows into the map (item 27: M9b's edge lip, once callable)
-      if (!this.planning && this.group.length) {
-        const kept = keepSourcesOnMap(this.map, this.group.map((g) => ({ x: g.tile % this.map.W, y: Math.floor(g.tile / this.map.W) })));
-        this.edgeLeaks = kept.leaks.map((l) => l.source);
-        shaped.push(...kept.changed);
-      }
       if (shaped.length) {
         if (this.map.lava) for (const i of shaped) this.map.lava[i] &= (1 << this.map.heights[i]) - 1;
         this.dropObjects(shaped);

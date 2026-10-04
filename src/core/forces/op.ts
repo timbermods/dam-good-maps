@@ -85,10 +85,6 @@ export function isForce(p: object): p is CarveParams | ForceResultParams {
   return "tiles" in p && "heights" in p && "removed" in p;
 }
 
-export function isForceResult(p: object): p is ForceResultParams {
-  return isForce(p) && "verb" in p && "version" in p;
-}
-
 /** A `carve` of before the shared operation, in its shape. */
 export function forceOfCarve(p: CarveParams): ForceResultParams {
   return {

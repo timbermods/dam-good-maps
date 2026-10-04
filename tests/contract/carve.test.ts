@@ -624,7 +624,6 @@ describe("a carve at work in the editor's worker", () => {
   it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = ed.sessionView();
     const ground = open.view.heights.slice();
@@ -634,7 +633,7 @@ describe("a carve at work in the editor's worker", () => {
     const origin = farFromStart(s);
     const settings = { ...DEFAULTS, power: 70 };
     // worked out a slice a call (nothing changes on the land meanwhile), then shown a frame at a time
-    const st = ed.carveStart({ settings, origin, cut: null });
+    const st = ed.forceStart({ verb: "carve", settings, origin, cut: null });
     expect(st.errors).toEqual([]);
     expect(ed.carving()).toBe(true);
     let shown: Uint8Array = ground.slice();
@@ -644,25 +643,25 @@ describe("a carve at work in the editor's worker", () => {
       return f!;
     };
     show(st.frame);
-    for (let k = 0; k < 200 && !show(ed.carveAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
-    const worked = ed.carveAdvance(0)!;
+    for (let k = 0; k < 200 && !show(ed.forceAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
+    const worked = ed.forceAdvance(0)!;
     expect(worked.planned).toBe(true);
     expect(worked.total).toBeGreaterThan(3 * STEPS_PER_SECOND);
-    for (let k = 0; k < 3; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
-    expect(ed.carveAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
+    for (let k = 0; k < 3; k++) show(ed.forceAdvance(STEPS_PER_SECOND));
+    expect(ed.forceAdvance(0)!.shown).toBe(3 * STEPS_PER_SECOND);
     expect(Array.from(shown)).not.toEqual(Array.from(ground));
     // (no frame carries water: a carve's own flows as a stroke's does, carveBornAsItCuts.test.ts)
     expect("water" in worked).toBe(false);
     // Esc: all of it goes at once, and the history never had it
-    const back = ed.carveCancel();
+    const back = ed.forceCancel();
     expect(Array.from(back.heights!)).toEqual(Array.from(ground));
     expect(ed.carving()).toBe(false);
     expect(steps()).toBe(n0);
     // kept part way (Watch's jump to the end): one step, the whole result, the same as shown to its end
-    show(ed.carveStart({ settings, origin, cut: null }).frame);
-    for (let k = 0; k < 4; k++) show(ed.carveAdvance(STEPS_PER_SECOND));
+    show(ed.forceStart({ verb: "carve", settings, origin, cut: null }).frame);
+    for (let k = 0; k < 4; k++) show(ed.forceAdvance(STEPS_PER_SECOND));
     const partWay = shown;
-    const kept = ed.carveStop();
+    const kept = ed.forceStop();
     expect(kept.errors).toEqual([]);
     expect(kept.kept).toBe(true);
     expect(steps()).toBe(n0 + 1);
@@ -670,19 +669,19 @@ describe("a carve at work in the editor's worker", () => {
     const first = ed.terrainNow().heights;
     expect(Array.from(first)).not.toEqual(Array.from(partWay));
     ed.undo();
-    show(ed.carveStart({ settings, origin, cut: null }).frame);
-    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
-    expect(ed.carveStop().kept).toBe(true);
+    show(ed.forceStart({ verb: "carve", settings, origin, cut: null }).frame);
+    for (let k = 0; k < 2000 && !show(ed.forceAdvance(STEPS_PER_SECOND)).done; k++);
+    expect(ed.forceStop().kept).toBe(true);
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     expect(Array.from(first)).toEqual(Array.from(shown));
-    expect(kept.info.carveAgain).toBe(true);
+    expect(kept.info.forceAgain).toBe("carve");
     // Try another path: the same carve from the same land, the next seed; it replaces the first
-    const again = ed.carveAgain();
+    const again = ed.forceAgain();
     expect(again.errors).toEqual([]);
     expect(again.settings!.seed).toBe(1);
     show(again.frame);
-    for (let k = 0; k < 2000 && !show(ed.carveAdvance(STEPS_PER_SECOND)).done; k++);
-    const other = ed.carveStop();
+    for (let k = 0; k < 2000 && !show(ed.forceAdvance(STEPS_PER_SECOND)).done; k++);
+    const other = ed.forceStop();
     expect(other.kept).toBe(true);
     expect(other.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Try another path");
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(shown));
@@ -690,18 +689,17 @@ describe("a carve at work in the editor's worker", () => {
     // undo: the first carve, exactly; again: the land before it
     ed.undo();
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
-    expect(ed.sessionInfo().carveAgain).toBe(true);
+    expect(ed.sessionInfo().forceAgain).toBe("carve");
     ed.undo();
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(ground));
-    expect(ed.sessionInfo().carveAgain).toBe(false);
-    expect(ed.carveAgain().ok).toBe(false);
+    expect(ed.sessionInfo().forceAgain).toBeNull();
+    expect(ed.forceAgain().ok).toBe(false);
     ed.settleWater();
   });
 
   it("carves only the land showing: under a cut, the ground above it stays as it is (D207)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const ground = ed.sessionView().view.heights.slice();
     const s = MapSession.open(decodeProject(ed.project().bytes));
@@ -710,10 +708,10 @@ describe("a carve at work in the editor's worker", () => {
     // (the ground above the cut can't be a carve's origin)
     let above = -1;
     for (let i = 0; i < ground.length && above < 0; i++) if (ground[i] > cut) above = i;
-    if (above >= 0) expect(ed.carveStart({ settings: DEFAULTS, origin: [above % W, Math.floor(above / W)], cut }).ok).toBe(false);
-    expect(ed.carveStart({ settings: { ...DEFAULTS, power: 90, walls: "wide" }, origin, cut }).ok).toBe(true);
-    for (let k = 0; k < 6; k++) ed.carveAdvance(STEPS_PER_SECOND);
-    expect(ed.carveStop().kept).toBe(true);
+    if (above >= 0) expect(ed.forceStart({ verb: "carve", settings: DEFAULTS, origin: [above % W, Math.floor(above / W)], cut }).ok).toBe(false);
+    expect(ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 90, walls: "wide" }, origin, cut }).ok).toBe(true);
+    for (let k = 0; k < 6; k++) ed.forceAdvance(STEPS_PER_SECOND);
+    expect(ed.forceStop().kept).toBe(true);
     const after = ed.terrainNow().heights;
     let changed = 0;
     for (let i = 0; i < ground.length; i++) {

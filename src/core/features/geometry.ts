@@ -195,34 +195,6 @@ export function polygonMask(poly: Point[], W: number, H: number): Uint8Array {
   return mask;
 }
 
-/** The point of a path nearest (x, y), its distance, and its arc position along the path. */
-export function nearestOnPath(path: readonly Point[], x: number, y: number): { p: Point; d: number; s: number } {
-  let best = Infinity;
-  let bp: Point = path[0];
-  let bs = 0;
-  let arc = 0;
-  for (let i = 0; i + 1 < path.length; i++) {
-    const [ax, ay] = path[i];
-    const vx = path[i + 1][0] - ax;
-    const vy = path[i + 1][1] - ay;
-    const l2 = vx * vx + vy * vy;
-    let u = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-    if (u < 0) u = 0;
-    else if (u > 1) u = 1;
-    const px = ax + u * vx;
-    const py = ay + u * vy;
-    const d = (px - x) * (px - x) + (py - y) * (py - y);
-    const len = portable.sqrt(l2);
-    if (d < best) {
-      best = d;
-      bp = [px, py];
-      bs = arc + u * len;
-    }
-    arc += len;
-  }
-  return { p: bp, d: portable.sqrt(best), s: bs };
-}
-
 /** Squared distance from (x, y) to the segment a–b. */
 export function segmentDistance2(x: number, y: number, a: readonly number[], b: readonly number[]): number {
   const vx = b[0] - a[0];

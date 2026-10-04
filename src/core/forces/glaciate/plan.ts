@@ -28,7 +28,8 @@ import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
 import { glacierCut, glacierDepth } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp } from "../random";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -99,15 +100,6 @@ const texture = (seed: number, x: number, y: number, scale: number) => {
   const at = (xx: number, yy: number) => noise(seed, Math.imul(xx, 73856093) ^ Math.imul(yy, 19349663)) * 2 - 1;
   return (at(gx, gy) * (1 - u) + at(gx + 1, gy) * u) * (1 - v) + (at(gx, gy + 1) * (1 - u) + at(gx + 1, gy + 1) * u) * v;
 };
-
-/** Plan a glacier, all at once (tests; the worker slices `planGlaciate`). */
-export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
-  const g = planGlaciate(input, settings, intent, valley, finish);
-  for (;;) {
-    const r = g.next();
-    if (r.done) return r.value;
-  }
-}
 
 /** Plan a glacier a phase at a time (each `next()` a slice of it); its value, once done, is the plan.
  *  `finish`: lead the floor's extra water into the main river (D292; off only to compare with the

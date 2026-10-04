@@ -18,11 +18,11 @@ import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools"
 import type { StartFeature } from "../../src/core/features/schema";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed, ROUND4_POWER } from "../../src/core/forces/glaciate/model";
-import { makePlan } from "../../src/core/forces/glaciate/plan";
+import { makePlan } from "../../tools/lib/glaciate";
 import { FLOOR_DEFAULT } from "../../src/core/forces/floor";
 import { floodAllowance } from "../../src/core/forces/glaciate/floor";
 import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
-import { measureGlaciate } from "../../src/core/forces/glaciate/measure";
+import { measureGlaciate } from "../../tools/lib/glaciate";
 import { modelOf } from "../../src/core/forces/runs";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
@@ -149,7 +149,6 @@ describe("Glaciate in the editor's worker", () => {
   it("a click Flows and a drag Aims; Esc drops all of it at once; its end is one step exactly as shown; Try another varies it and undo brings the first back", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const at = highGround(s.built);
@@ -204,7 +203,6 @@ describe("Glaciate in the editor's worker", () => {
   it("through the start it completes, and the start lands on level ground in the same undo step (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const st = open().built.start!;
@@ -232,7 +230,6 @@ describe("Glaciate in the editor's worker", () => {
   it("replays to the same bytes: the project file reopens it, its springs and tarn, and the export is the same", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const at = highGround(MapSession.open(decodeProject(ed.project().bytes)).built);
     run({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: at, cut: null });
@@ -289,7 +286,6 @@ describe("Glaciate's details behind More, each on Auto until pinned (D309)", () 
   it("the editor's glacier runs with the drawn details and keeps them; Try another re-rolls only the ones on Auto; a pin survives; the engine refuses a detail its row couldn't set", async () => {
     const W2 = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W2, y: W2 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const at = highGround(MapSession.open(decodeProject(ed.project().bytes)).built);
     const st = ed.forceStart({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, ...AUTO_GLACIATE_DETAILS } as never, origin: at, cut: null, natural: true });
@@ -337,7 +333,6 @@ describe("Glaciate through waypoints (D312)", () => {
     expect(Array.from(p.map.heights)).not.toEqual(Array.from(straight.map.heights));
     // in the worker: kept as its line, replayed exactly
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const st = ed.forceStart({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: [20, 20], via: [[40, 30], [60, 60]], end: [76, 70], cut: null });
     expect(st.errors).toEqual([]);

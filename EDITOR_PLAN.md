@@ -256,9 +256,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 

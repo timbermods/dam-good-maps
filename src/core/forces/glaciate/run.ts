@@ -17,7 +17,6 @@ import { trimRock } from "../rock";
 import { modelOf, respectKeep, type Finalize, type ForceCue, type StagedRun } from "../runs";
 import { sizeOf, Valley, type GlaciateIntent, type GlaciateSettings } from "./model";
 import { planGlaciate, type GlaciatePlan } from "./plan";
-import { keepSourcesOnMap, type PlacedSource } from "../../water/edgeSources";
 
 /** Steps of its advance and its retreat (ten a second: three seconds, then two). */
 export const ADVANCE_STEPS = 30;
@@ -42,8 +41,6 @@ export class GlaciateRun implements StagedRun {
   private stage = 0;
   private ended = false;
   private sim: WaterSim | null = null;
-  /** Its meltwater springs whose water can still run straight off the map's edge (item 27). */
-  edgeLeaks: PlacedSource[] = [];
 
   constructor(
     readonly before: FullForceMap,
@@ -107,10 +104,6 @@ export class GlaciateRun implements StagedRun {
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   private settle(p: GlaciatePlan): void {
     const m = p.map;
-    // its springs at the map's edge flow into the map (item 27: M9b's edge lip, once callable)
-    const had = new Set(this.before.entities.map((e) => e.id));
-    const springs = m.entities.filter((e) => e.template === "WaterSource" && !had.has(e.id)).map((e) => ({ x: e.x, y: e.y }));
-    this.edgeLeaks = keepSourcesOnMap(m, springs).leaks.map((l) => l.source);
     trimRock(m);
     respectKeep(this.before, m, this.keep);
     this.pending = p;

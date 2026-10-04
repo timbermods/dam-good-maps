@@ -17,10 +17,10 @@ import * as portable from "../math/portable";
 import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS } from "../format/footprints";
 import { objectTile } from "../sim/model";
-import type { WaterState } from "../sim/water";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
-import { clamp, hash, smooth } from "./random";
+import { clamp, hash } from "./random";
+import { smoothstep } from "../math/clamp";
 import { PathBrush } from "./path";
 
 export interface Point {
@@ -125,7 +125,7 @@ export class Fault {
       const k = Math.floor(n);
       const a = hash(settings.seed, k + 100) * 2 - 1;
       const b = hash(settings.seed, k + 101) * 2 - 1;
-      const offset = (a + (b - a) * smooth(n - k)) * rough * smooth(t / 5) * smooth((length - t) / 5);
+      const offset = (a + (b - a) * smoothstep(n - k)) * rough * smoothstep(t / 5) * smoothstep((length - t) / 5);
       this.points.push({ x: r.a.x + r.dx * f - r.dy * offset, y: r.a.y + r.dy * f + r.dx * offset });
       if (t === length) break;
     }
@@ -194,7 +194,7 @@ export class Fault {
       // translation. Fade only the outside of that block, never its advertised travel. The opposite
       // bank stays on its original course.
       const reach = Math.max(this.reach, this.length * 1.3, this.slide + 12);
-      const envelope = (1 - smooth((dist - reach) / 12)) * (1 - smooth((f.end - this.slide - 8) / 12));
+      const envelope = (1 - smoothstep((dist - reach) / 12)) * (1 - smoothstep((f.end - this.slide - 8) / 12));
       // Stepped splits the perimeter into benches; even a bank narrower than three tiles gets the
       // full offset at the fault itself.
       const weight = s.scarp === "stepped" ? Math.ceil(envelope * 3) / 3 : envelope;
@@ -212,7 +212,7 @@ export class Fault {
     // The block continues to the map edge for a map-spanning stroke. Fading a long lifted block back
     // down nearby makes an artificial upstream dam, not a scarp.
     const blockReach = Math.max(this.reach, this.length * 1.3);
-    const envelope = (1 - smooth((dist - blockReach * 0.8) / (blockReach * 0.2))) * (1 - smooth(f.end / Math.max(8, this.reach * 0.6)));
+    const envelope = (1 - smoothstep((dist - blockReach * 0.8) / (blockReach * 0.2))) * (1 - smoothstep(f.end / Math.max(8, this.reach * 0.6)));
     const step = s.scarp === "stepped" ? Math.min(1, (Math.floor(dist / 3) + 1) / 3) : 1;
     const tilt = (hash(s.seed, 6) * 2 - 1) * (f.along / this.length - 0.5) * 2.4 + (hash(s.seed, 7) * 2 - 1) * clamp(dist / this.reach, 0, 1) * 1.4;
     let dz = Math.round((side > 0 ? this.lift + tilt : -this.lift * 0.55) * envelope * step);
@@ -465,24 +465,6 @@ export function quake(m: FullForceMap, s: QuakeSettings, i: QuakeIntent): QuakeP
     // planned a slice at a time
   }
   return p;
-}
-
-/** Move the warm water between successive painted plans without duplicating a volume, including when
- *  X reverses the chosen side. */
-export function paintWater(old: FullForceMap, p: QuakePlan, offset: QuakePlan | null): WaterState {
-  const { W, H } = old;
-  const D = new Float64Array(W * H);
-  const C = new Float64Array(D.length);
-  for (let i = 0; i < D.length; i++) {
-    const origin = offset && p.settings.mode === "slide" ? offset.source[i] : i;
-    const bx = origin % W;
-    const by = Math.floor(origin / W);
-    const b = clamp(Math.round(by), 0, H - 1) * W + clamp(Math.round(bx), 0, W - 1);
-    const j = p.settings.mode === "slide" ? clamp(Math.round(by) + p.dy[b], 0, H - 1) * W + clamp(Math.round(bx) + p.dx[b], 0, W - 1) : i;
-    D[j] += old.water.depth[i];
-    C[j] += old.water.depth[i] * old.water.contamination[i];
-  }
-  return { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
 }
 
 /** Eight deterministic fronts: the map at `step` of `steps` (timing and frame rate never enter it). */

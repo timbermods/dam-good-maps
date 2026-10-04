@@ -16,7 +16,7 @@ import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import type { Point } from "../features/schema";
 import { damWalls } from "../analysis/ridge";
-import { smoothstep } from "./num";
+import { smoothstep } from "../math/clamp";
 
 export interface NarrowsRequest {
   /** The river's path (flow order) and channel width. */

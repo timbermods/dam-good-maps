@@ -3,13 +3,14 @@
 // asked to keep reporting (D292): the separate wet passages across the floor, the most disjoint wet
 // runs on any cross-section (goal 1), with the trough's wet share, the river's widths and the falls.
 
-import * as portable from "../../math/portable";
-import type { WaterState } from "../../sim/water";
-import type { FullForceMap } from "../force";
-import { entityTiles } from "../force";
-import { isPlant } from "../objects";
-import { clamp } from "./model";
-import { N4, type GlaciatePlan } from "./plan";
+import * as portable from "../../src/core/math/portable";
+import type { WaterState } from "../../src/core/sim/water";
+import type { FullForceMap } from "../../src/core/forces/force";
+import { entityTiles } from "../../src/core/forces/force";
+import { isPlant } from "../../src/core/forces/objects";
+import { clamp } from "../../src/core/forces/random";
+import { N4, planGlaciate, type GlaciatePlan } from "../../src/core/forces/glaciate/plan";
+import type { GlaciateIntent, GlaciateSettings, Valley } from "../../src/core/forces/glaciate/model";
 
 export interface GlaciateMeasure {
   troughTiles: number;
@@ -263,4 +264,13 @@ export function glacierSections(before: ArrayLike<number>, after: ArrayLike<numb
     out.push({ arc, width, floor: middle[middle.length >> 1], level: levels[0], deepest, area });
   }
   return out;
+}
+
+/** Plan a glacier, all at once (tests and tools; the worker slices `planGlaciate`). */
+export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
+  const g = planGlaciate(input, settings, intent, valley, finish);
+  for (;;) {
+    const r = g.next();
+    if (r.done) return r.value;
+  }
 }

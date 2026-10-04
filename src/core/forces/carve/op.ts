@@ -6,7 +6,6 @@
 // document then leaves the earlier carve out, and undoing it brings that carve back. A carve that
 // sealed an oxbow lake keeps the lake's water (`lake`, water.ts): the map's water settles from it.
 
-import type { Rect } from "../../features/target";
 import type { RetainedWater } from "../../sim/water";
 
 export interface CarveParams {
@@ -49,28 +48,6 @@ export interface CarveParams {
   lake?: RetainedWater;
   /** Try another path: the carve (its operation's seq) this one replaces. */
   replaces?: number;
-}
-
-export function isCarve(p: object): p is CarveParams {
-  return "tiles" in p && "heights" in p && "removed" in p;
-}
-
-/** The rectangle of tiles a carve changed (null: none). */
-export function carveBounds(p: CarveParams, W: number): Rect | null {
-  if (!p.tiles.length) return null;
-  let x0 = Infinity;
-  let y0 = Infinity;
-  let x1 = -Infinity;
-  let y1 = -Infinity;
-  for (const i of p.tiles) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x < x0) x0 = x;
-    if (x > x1) x1 = x;
-    if (y < y0) y0 = y;
-    if (y > y1) y1 = y;
-  }
-  return { x0, y0, x1, y1 };
 }
 
 /** Why a carve's result does not fit a W × H map with levels up to `maxLevel` (empty when it does). */

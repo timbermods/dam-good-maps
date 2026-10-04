@@ -37,7 +37,6 @@ function added(before: ReturnType<typeof entities>, after: ReturnType<typeof ent
 
 async function open(seed: number, side = W) {
   await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: side, y: side } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   const st = b.start!;
@@ -167,7 +166,6 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   it("a Quake Lift across a river's head adds no spring; undo and the project give the same map", async () => {
     for (const flow of [1, 2]) {
       ed.openTimber(bytes, "flat.timber");
-      ed.setEditorWaterMode("defer");
       const id = `11111111-2222-4333-8444-00000000000${flow}`;
       expect(ed.applyTool({ tool: "river", points: [[16, 32], [40, 32], [S - 1, 32]], flow, width: 9 }, id).errors).toEqual([]);
       const before = entities();

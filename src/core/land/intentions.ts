@@ -10,9 +10,6 @@
 // large crater where multiple rivers converge" (`crater-rivers`); "I want a cliffside with a
 // waterfall that goes into a large circular lake" (`cliff-falls-lake`).
 //
-// "The only safe water is uphill" (`safe-water-uphill`) left the set: in design version 2's first
-// run it emerged on 4 of 86 draws. Its check stays for the record; it is never drawn.
-//
 // M9b (PLAN §20 D274, settling #66): Kyler's pick of design version 2's candidates joins the set:
 // the oxbow lake, lakes stepping down the valley, the river splitting round a big island, two falls
 // side by side, a long cliff splitting the map, hanging side valleys, two ways to grow, badwater
@@ -30,13 +27,12 @@ import type { Rng } from "../math/rng";
 import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
-import { levelRegions } from "../math/grid";
+import { levelRegions, N4 } from "../math/grid";
 
 export const INTENTIONS = [
   "under-cliff",
   "landmark",
   "farmland-past-gorge",
-  "safe-water-uphill",
   "falls-shield",
   "hidden-valley",
   "high-lake",
@@ -59,18 +55,17 @@ export const INTENTIONS = [
 ] as const;
 export type IntentionId = (typeof INTENTIONS)[number];
 /** The intentions a map may draw (the set). */
-export const ACTIVE: readonly IntentionId[] = INTENTIONS.filter((id) => id !== "safe-water-uphill");
+export const ACTIVE: readonly IntentionId[] = INTENTIONS;
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
-export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "safe-water-uphill", "two-ways", "badwater-rich"]);
+export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich"]);
 
 /** The outcome in a player's words. */
 export const INTENTION_TEXT: Record<IntentionId, string> = {
   "under-cliff": "The start sits under a cliff, with water below.",
   landmark: "A signature landmark stands out: a spire, a mesa, a peak or a tall waterfall.",
   "farmland-past-gorge": "The best farmland lies past the gorge.",
-  "safe-water-uphill": "The only safe water is uphill: a high lake keeps its water when the river runs low.",
   "falls-shield": "A waterfall shields the start: its cliff stands between the start and the nearest threat.",
   "hidden-valley": "A hidden valley up the cliffs, reached only by stairs, holds riches.",
   "high-lake": "A lake high on the heights spills over a fall.",
@@ -99,7 +94,6 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "under-cliff": { riverValley: 1, canyon: 1.5, highlands: 1.5, lakeBasin: 0.8, delta: 0.5, islands: 0.8 },
   landmark: { riverValley: 1, canyon: 1, highlands: 1, lakeBasin: 1, delta: 0.8, islands: 1.2 },
   "farmland-past-gorge": { riverValley: 1, canyon: 1.2, highlands: 0.8, lakeBasin: 0.5, delta: 1, islands: 0.3 },
-  "safe-water-uphill": { riverValley: 0.8, canyon: 0.6, highlands: 1, lakeBasin: 0.8, delta: 0.4, islands: 0.5 },
   "falls-shield": { riverValley: 0.8, canyon: 1, highlands: 1, lakeBasin: 0.5, delta: 0.3, islands: 0.4 },
   "hidden-valley": { riverValley: 0.6, canyon: 1, highlands: 1, lakeBasin: 0.4, delta: 0.3, islands: 0.4 },
   "high-lake": { riverValley: 0.5, canyon: 0.8, highlands: 1.2, lakeBasin: 0.8, delta: 0.3, islands: 0.5 },
@@ -136,7 +130,6 @@ function weightOf(id: IntentionId, theme: ThemeId): number {
 const VERTICAL = new Set<IntentionId>(["under-cliff", "falls-shield", "hidden-valley", "high-lake", "long-view", "snaking-river", "cliff-falls-lake", "twin-falls", "upper-lower", "hanging-valleys", "relic-pinnacle"]);
 /** Pairs that pull the start two ways. */
 const CLASH: [IntentionId, IntentionId][] = [
-  ["safe-water-uphill", "long-view"],
   ["under-cliff", "long-view"],
 ];
 
@@ -205,12 +198,6 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       return (g) => {
         g.hydro.incise += 1.5;
         g.hydro.floor += 2;
-      };
-    case "safe-water-uphill":
-      return (g, rng) => {
-        g.hydro.springs += 1;
-        if (g.hazards.badwater === "none" && rng.float() < 0.7) g.hazards.badwater = "pit";
-        if (rng.float() < 0.5) part(g, rng, rng.float() < 0.5 ? "mesa" : "plateau");
       };
     case "falls-shield":
       return (g, rng) => {
@@ -374,9 +361,6 @@ export interface SettlerView {
   /** Distance to a planned confluence, and to a fall of the settled water (1.5+ levels). */
   dJoin: Float64Array;
   dFall: Float64Array;
-  /** Clean water bodies (60+ tiles) with their surface and the share they keep through a 9-day
-   *  drought. */
-  lakes: { tiles: number[]; surface: number; keep9: number }[];
   /** Farmland patches (moist, dry, level within a step; 400+ tiles) and the gorges (wet tiles with
    *  banks 2+ above the water on two sides). */
   farms: { size: number; cx: number; cy: number }[];
@@ -412,7 +396,6 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
         if (xx >= 0 && yy >= 0 && xx < W && yy < H) f(yy * W + xx);
       }
   };
-  const near = (tiles: number[], r: number) => tiles.some((i) => Math.max(Math.abs((i % W) - x), Math.abs(Math.floor(i / W) - y)) <= r);
   switch (id) {
     case "under-cliff": {
       if (!(walk <= 12)) return 0;
@@ -442,8 +425,6 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       return s.dJoin[y * W + x] <= 18 ? 1 : 0;
     case "falls-shield":
       return s.dFall[y * W + x] <= 18 ? 1 : 0;
-    case "safe-water-uphill":
-      return s.lakes.some((lk) => lk.surface >= L + 1 && lk.keep9 >= 0.5 && near(lk.tiles, 40)) ? 1 : 0;
     case "badwater-rich": {
       // the low land beside badwater within 60 tiles, against the check's 400 (at 128²)
       if (!(s.dBad[y * W + x] <= 60)) return 0;
@@ -532,8 +513,6 @@ export interface FinalCtx {
   arms?: [number, number][][];
 }
 
-const D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
 /** Wet bodies (4-connected water ≥ 0.1 deep): labels and each body's tiles. */
 function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
   const { W, H, D } = c;
@@ -549,7 +528,7 @@ function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -667,7 +646,7 @@ function levelLakes(c: FinalCtx, min: number): LevelLake[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -712,7 +691,7 @@ function openWater(L: LevelLake, W: number, H: number): number[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const j = (y + dy) * W + x + dx;
         if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || lab[j] >= 0 || !core[j]) continue;
         lab[j] = s0;
@@ -871,7 +850,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (h[i] >= z + 2) high++;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -887,7 +866,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (s > z - 0.05 || s < z - 2) continue;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -931,7 +910,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const j = (y + dy) * W + x + dx;
             if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || seen[j] || !top[j]) continue;
             seen[j] = 1;
@@ -977,7 +956,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const y = (i - x) / W;
           cx += x;
           cy += y;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1025,48 +1004,6 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       }
       return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland, ${sizes[best]} tiles of it, lies past the gorge; ${own} by the start.` } : {}) };
     }
-    case "safe-water-uphill": {
-      const b = bodies(c);
-      let startBody = -1;
-      let bestD = Infinity;
-      for (let i = 0; i < N; i++) {
-        if (b.lab[i] < 0 || !(C[i] < 0.05)) continue;
-        const s = h[i] + D[i];
-        if (s > z - 0.05 || s < z - 2) continue;
-        const d = eu(i);
-        if (d < bestD) {
-          bestD = d;
-          startBody = b.lab[i];
-        }
-      }
-      const keep = (id: number) => {
-        let v = 0;
-        let k = 0;
-        for (const i of b.tiles[id]) {
-          v += D[i];
-          k += c.kept9[i];
-        }
-        return v > 0 ? k / v : 0;
-      };
-      const startKeep = startBody >= 0 ? keep(startBody) : 0;
-      let high = -1;
-      for (let id = 0; id < b.tiles.length; id++) {
-        if (id === startBody || b.tiles[id].length < 60) continue;
-        const t = b.tiles[id];
-        let surf = 0;
-        let near = false;
-        let bad = false;
-        for (const i of t) {
-          surf = Math.max(surf, h[i] + D[i]);
-          if (eu(i) <= 40) near = true;
-          if (C[i] >= 0.05) bad = true;
-        }
-        if (!near || bad || surf < z + 1) continue;
-        if (keep(id) >= 0.5) high = id;
-      }
-      const ok = high >= 0 && startKeep < 0.35;
-      return { ok, note: `start's water keeps ${Math.round(startKeep * 100)}% through a 9-day drought; ${high >= 0 ? `a lake uphill keeps ${Math.round(keep(high) * 100)}%` : "no lake uphill keeps half"}` };
-    }
     case "falls-shield": {
       const near = c.falls.filter((f) => eu(f.i) <= 20 && f.drop >= 1.5);
       // the nearest threat: badwater or thorns
@@ -1109,7 +1046,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q0[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1137,7 +1074,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (riches[i]) rich++;
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1372,7 +1309,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (L.inLake[f.i]) continue;
           const x = f.i % W;
           const y = (f.i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1412,7 +1349,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1484,7 +1421,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const x = i % W;
           const y = (i - x) / W;
           if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1536,7 +1473,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       for (let i = 0; i < N; i++) {
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

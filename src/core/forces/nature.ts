@@ -16,6 +16,7 @@ import type { EruptSettings } from "./erupt";
 import type { QuakeSettings } from "./quake";
 import type { GlaciateSettings } from "./glaciate/model";
 import type { Verb } from "./op";
+import { clamp } from "./random";
 
 /** The ground a force acts on: the map's heights and the tile it acts round. */
 export interface ForceGround {
@@ -42,7 +43,6 @@ export function ruggedness(g: ForceGround, r = 8): number {
   return hi > lo ? Math.min(1, (hi - lo) / 8) : 0;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const chance = (rng: { float(): number }, p: number) => rng.float() < clamp(p, 0, 1);
 /** The draws for one force at one place and seed (the ground's own height and relief lean them). */
 function draws(verb: string, seed: number, g: ForceGround) {

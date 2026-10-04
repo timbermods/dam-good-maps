@@ -16,7 +16,7 @@
 // a map converted or built under one keeps being settled with it, `rules` passed explicitly):
 // - evaporation on every active tile, a dry tile that receives water too (the port: wet tiles only);
 // - the spill threshold at the map's edge too, where a floor-0 tile meets the padding (the port
-//   left it out; `edgeSpill`, taken from feature/weather-days' drought run, D303);
+//   left it out; `edgeSpill`, D303);
 // - a partial obstacle (NaturalDam) read from the higher of the two floors up to the ceiled surface
 //   (the port read it at the target's floor only: water from a higher floor passes over it);
 // - the source step sets the old depth too (it only matters beside a partial obstacle).
@@ -58,12 +58,16 @@
 // water by constructing a simulator (with its warm start) and may set `out` before running, as
 // always; the floor may change between runs (a carve), since no cache holds a floor.
 
+import { clamp } from "../math/clamp";
+
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
 export const K = 2.25 * DT; // flow factor, 0.675
 export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
 export const KEEP = 0.999; // flow momentum kept per substep
 export const BAL = 0.8; // outflow balancing against the reverse flow
 export const TICKS_PER_DAY = 768;
+/** A game day in seconds: its ticks, two substeps each. */
+export const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
 /** The game days the canonical settle may run before its water counts as not settling (PLAN §10,
  *  §11.3; D358: 6, 4 before 2026-10-01). It stops at the first check that passes, so a map whose
  *  water settles sooner is the same whatever the limit. */
@@ -79,9 +83,6 @@ export const DEFAULT_WATER_RULES: WaterRules = "game";
 
 export interface WaterSimOptions {
   rules?: WaterRules;
-  /** The spill threshold at the map's edge (D303): the game's rule, on with the game's rules unless
-   *  it is given (feature/weather-days' drought run passes it explicitly). */
-  edgeSpill?: boolean;
 }
 
 /** Direction k: 0 = −y, 1 = −x, 2 = +y, 3 = +x; OPP[k] is the reverse direction. */
@@ -254,7 +255,7 @@ export class WaterSim {
   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
     this.rules = opts.rules ?? DEFAULT_WATER_RULES;
     this.game = this.rules === "game";
-    this.edgeSpill = opts.edgeSpill ?? this.game;
+    this.edgeSpill = this.game;
     const { W, H } = model;
     const N = W * H;
     this.W = W;
@@ -719,10 +720,6 @@ export class WaterSim {
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
 }
 
 // ------------------------------------------------------------------------------------------ settle

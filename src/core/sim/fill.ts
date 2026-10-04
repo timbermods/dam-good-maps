@@ -5,9 +5,7 @@
 // and its evaporation is not the water still changing (D222). Nothing here sets a rate of its own:
 // `fillDays` reads the same rules to say roughly how long the water will last.
 
-import { DT, TICKS_PER_DAY, type RetainedWater, type WaterModel } from "./water";
-
-const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
+import { SECONDS_PER_DAY, type RetainedWater, type WaterModel } from "./water";
 
 /** The water a Fill to `level` at tile (x, y) stores: the hollow's tiles (4-connected, every one
  *  whose floor, with a partial obstacle's height, stands below the level), ascending, with their
