@@ -9,7 +9,7 @@
 // Ported from investigation/carve/course.ts (PR #47), kept to its structure.
 
 import * as portable from "../../math/portable";
-import { drainage } from "../drainage";
+import { drainage } from "../../land/drainage";
 import type { ForceMap } from "../force";
 import type { RiverCharacter } from "./character";
 import type { CarveIntent, CarveSettings } from "./run";
@@ -83,7 +83,7 @@ export class Course {
       this.curve = pathCurve([pt(intent.origin), ...intent.via.map(pt), pt(intent.end!)]);
     }
     if (settings.mode === "unleash") {
-      const d = drainage(m.heights, m.W, m.H, 0.0001);
+      const d = drainage(m.heights, m.W, m.H, { epsilon: 0.0001 });
       const distance = new Float64Array(m.W * m.H);
       for (const i of d.order) {
         const r = d.rcv[i];

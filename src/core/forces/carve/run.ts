@@ -42,6 +42,7 @@ import { findNeck, mouthFloors, type Oxbow } from "./oxbow";
 import { hardAt } from "../rock";
 import { floorProblem, forceFloor } from "../floor";
 import { shapeRiver } from "./river";
+import { clamp } from "../random";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -128,7 +129,6 @@ export interface Station {
   lanes: Lane[];
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** Terrain-derived, coherent horizontal beds (a hash of the heights: the same map, the same rock). */
 export function mapSeed(m: Pick<ForceMap, "W" | "H" | "heights">): number {

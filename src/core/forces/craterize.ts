@@ -16,7 +16,8 @@ import * as portable from "../math/portable";
 import { EMITTERS } from "../sim/model";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
-import { clamp, hash, smooth } from "./random";
+import { clamp, hash } from "./random";
+import { smoothstep } from "../math/clamp";
 import { strength, tempered } from "./strength";
 
 export interface CraterSettings {
@@ -195,7 +196,7 @@ export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: n
   const r = portable.hypot(u, v) / edge;
   const down = (1 + portable.cos(theta)) * 0.5;
   const heavy = s.debris === "heavy";
-  const edgeFade = heavy && a.edgeInset ? smooth((Math.min(x, y, a.W - 1 - x, a.H - 1 - y) - a.edgeInset) / 12) : 1;
+  const edgeFade = heavy && a.edgeInset ? smoothstep((Math.min(x, y, a.W - 1 - x, a.H - 1 - y) - a.edgeInset) / 12) : 1;
   let rayHeight = 0;
   let secondary = 0;
   if (s.rays && r > 1.15)
@@ -208,19 +209,19 @@ export function craterField(a: CraterAnatomy, s: CraterSettings, x: number, y: n
       const width = rayWidth(rayInfo, t);
       if (Math.abs(offset) < width) {
         // Uneven lobes, soft ragged edges and dwindling coverage survive integer-height quantization.
-        const feather = smooth(1 - Math.abs(offset) / width);
+        const feather = smoothstep(1 - Math.abs(offset) / width);
         const grain = hash(rayInfo.seed, x + Math.imul(y, 65537));
         if (heavy) {
           // A coherent raised body remains readable at map scale; gaps and feathered margins stay irregular.
           const wave = portable.sin(t * 13 + rayInfo.phase);
-          const lobes = smooth((wave + 0.8) / 1.25);
-          const gaps = smooth((wave + 0.96) / 0.28);
-          const fade = 1 - smooth((t - 0.45) / 0.55);
+          const lobes = smoothstep((wave + 0.8) / 1.25);
+          const gaps = smoothstep((wave + 0.96) / 0.28);
+          const fade = 1 - smoothstep((t - 0.45) / 0.55);
           const height = (1.2 + (1.25 * s.power) / 100) * feather * (0.7 + 0.3 * lobes) * gaps * fade * edgeFade;
           rayHeight = Math.max(rayHeight, Math.floor(height + 0.3 + grain * 0.4));
         } else {
-          const lobes = smooth((portable.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
-          const density = feather * (0.12 + 0.88 * lobes) * (1 - smooth((t - 0.2) / 0.8));
+          const lobes = smoothstep((portable.sin(t * 25 + rayInfo.phase) + 0.65) / 1.25);
+          const density = feather * (0.12 + 0.88 * lobes) * (1 - smoothstep((t - 0.2) / 0.8));
           if (density > 0.18 + grain * 0.66) rayHeight = 1;
         }
       }
@@ -282,11 +283,11 @@ export class ImpactPlan {
         let target = h;
         if (r < 1) {
           let wall = 0;
-          if (s.walls === "steep") wall = smooth((r - 0.89) / 0.055);
+          if (s.walls === "steep") wall = smoothstep((r - 0.89) / 0.055);
           else {
             // Four short scarps separate three broad, level benches, even on mid-size craters.
             const shift = (hash(s.seed, 7) - 0.5) * 0.025;
-            for (let step = 0; step < 4; step++) wall += smooth((r - (0.48 + step * 0.16 + shift)) / 0.025) / 4;
+            for (let step = 0; step < 4; step++) wall += smoothstep((r - (0.48 + step * 0.16 + shift)) / 0.025) / 4;
           }
           const curve = s.walls === "steep" ? 0.23 : 0.16;
           const t = a.centre === "bowl" ? curve * portable.pow(clamp(r / (s.walls === "steep" ? 0.89 : 0.48), 0, 1), 2) + (1 - curve) * wall : wall;
@@ -294,7 +295,7 @@ export class ImpactPlan {
           if (a.centre === "peak") inside += a.depth * 0.69 * portable.pow(Math.max(0, 1 - r / 0.31), 1.25);
           if (a.centre === "ring") inside += a.depth * 0.55 * portable.exp(-(portable.pow(((r - 0.38) / 0.1), 2))) * (1 + 0.18 * portable.sin(theta * 7 + phase));
           // The newest bowl replaces prior relief; only the outermost lip rejoins its local ground.
-          target = inside + (h - a.datum) * smooth((r - 0.84) / 0.16);
+          target = inside + (h - a.datum) * smoothstep((r - 0.84) / 0.16);
           if (s.walls === "terraced" && r > 0.54 && r < 0.93 && this.before.rockLayers[clamp(Math.round(target), 0, 22)] > 0.5) target = Math.ceil(target);
         } else {
           const rim = a.rim * Math.max(0, 1 - (r - 1) / 0.23);
@@ -302,7 +303,7 @@ export class ImpactPlan {
           const reach = heavy ? 2.65 : 1.48;
           const directional = 1 + a.glance * (down * 1.65 - 0.65);
           const hummock = 0.8 + 0.18 * portable.sin(theta * 5 + phase + (r - 1) * 3) + 0.13 * portable.sin(theta * 3 - phase);
-          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * portable.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smooth((reach - r) / 0.4) * directional * hummock;
+          const skirt = (heavy ? 2.1 + a.depth * 0.36 : 0.9) * portable.exp(-(r - 1) * (heavy ? 2.15 : 7)) * smoothstep((reach - r) / 0.4) * directional * hummock;
           target = h + Math.max(rim, skirt);
           if (f.ray) target = Math.max(h + f.rayHeight, Math.round(target) + f.rayHeight);
           if (f.secondary) target = h - f.secondary;

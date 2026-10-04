@@ -7,9 +7,7 @@
 
 import { clusterSaturation } from "./moisture";
 import { spillLevels } from "./prefill";
-import { TICKS_PER_DAY, DT, type WaterModel } from "./water";
-
-const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
+import { SECONDS_PER_DAY, type WaterModel } from "./water";
 
 /** Depth left per tile after `days` of drought, from the settled `depth`. */
 export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: number): Float64Array {

@@ -25,13 +25,13 @@ import { forceFloor } from "../floor";
 import type { CarveRun } from "./run";
 import { modelFor } from "./run";
 import { oxbowBasin } from "./water";
+import { clamp } from "../random";
 
 /** The banks stand at least this many levels over the river's bed (and at that, with River depth Off). */
 const BANK_DEPTH = 2;
 /** How far past the banks the walls step back (tiles). */
 const WALL_REACH = 14;
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** Shape the finished carve's river on its map (heights only); the tiles it changed. */
 export function shapeRiver(run: CarveRun): number[] {

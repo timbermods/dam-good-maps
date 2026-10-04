@@ -21,7 +21,8 @@ import { EruptPlan, lobeField, stageMap, type EruptIntent, type EruptSettings, t
 import { snapshotMap, type FullForceMap } from "./force";
 import type { Verb } from "./op";
 import { QuakePlan, revealQuake, type QuakeIntent, type QuakeSettings } from "./quake";
-import { clamp, smooth } from "./random";
+import { clamp } from "./random";
+import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
 import { transportRock, trimRock } from "./rock";
@@ -340,7 +341,7 @@ export class EruptRun extends Staged implements StagedRun {
     // arrival, from the vent outward (or along a fissure); the water waits for the final land
     const heat = this.heat()!;
     const W = m.W;
-    const reached = (x: number, y: number) => smooth(t) >= 0.12 + 0.76 * (heat[(clamp(Math.floor(y), 0, m.H - 1) * W + clamp(Math.floor(x), 0, W - 1)) * 4 + 3] / 255);
+    const reached = (x: number, y: number) => smoothstep(t) >= 0.12 + 0.76 * (heat[(clamp(Math.floor(y), 0, m.H - 1) * W + clamp(Math.floor(x), 0, W - 1)) * 4 + 3] / 255);
     const now = new Map(m.entities.map((e) => [e.id, e]));
     m.entities = this.before.entities.flatMap((e) => {
       const after = now.get(e.id);
@@ -384,11 +385,11 @@ export class EruptRun extends Staged implements StagedRun {
           }
         }
         const r = dist / a.radius;
-        const vent = a.segments.length ? 1 - smooth(dist / 2.1) : 1 - smooth(r / 0.22);
+        const vent = a.segments.length ? 1 - smoothstep(dist / 2.1) : 1 - smoothstep(r / 0.22);
         const hot = Math.max(vent, s.ridges ? Math.min(1, flows[i] / 1.7) : Math.max(0, 1 - r) * 0.14);
         mask[i * 4] = Math.round(255 * hot);
-        mask[i * 4 + 1] = Math.round(110 * (1 - smooth(r / 1.1)));
-        mask[i * 4 + 2] = Math.round(255 * (1 - smooth(r / 2.1)));
+        mask[i * 4 + 1] = Math.round(110 * (1 - smoothstep(r / 1.1)));
+        mask[i * 4 + 2] = Math.round(255 * (1 - smoothstep(r / 2.1)));
         mask[i * 4 + 3] = Math.round(255 * (a.segments.length ? along : Math.min(1, r / 1.8)));
       }
     return (this.mask = mask);
@@ -403,7 +404,7 @@ export class EruptRun extends Staged implements StagedRun {
       progress: p,
       x: a.x,
       y: a.y,
-      z: a.datum + a.height * smooth(p),
+      z: a.datum + a.height * smoothstep(p),
       size: a.radius * 2,
       power: this.settings.power,
       erupt: { vents: a.vents.map((v) => ({ ...v })), radius: a.radius, fissure: this.settings.mode === "fissure", line: a.segments.length ? [a.segments[0].a, ...a.segments.map((s) => s.b)] : [] },

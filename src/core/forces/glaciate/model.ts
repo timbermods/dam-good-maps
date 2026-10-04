@@ -8,6 +8,7 @@
 import * as portable from "../../math/portable";
 import { MinHeap, N8 } from "../../math/grid";
 import type { ForceMap } from "../force";
+import { clamp } from "../random";
 
 /** What the row sets (D289: Power, Size, Meltwater; Try another's seed), and the gesture's mode: a
  *  click Flows, a drag Aims (D258; there is no Mode control). */
@@ -102,7 +103,6 @@ export const ROUND4_POWER = 60;
 export const GLACIATE_SIZE_MIN = 4;
 export const GLACIATE_SIZE_MAX = 64;
 
-export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** The investigation's integer mixer: a number in [0, 1) from a seed and a key. */
 export const noise = (seed: number, i: number) => {

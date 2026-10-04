@@ -11,7 +11,7 @@
 // course stands dry for a stretch cannot be followed.
 
 import type { Feature, RiverFeature } from "../features/schema";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 
 export interface WaterStory {
   /** Tiles with water 0.05 deep or more. */
@@ -44,13 +44,6 @@ export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainW
 /** How far from clean water land counts as within reach of it, as a share of the map's side. */
 export const REACH = 0.14;
 
-const D4 = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
-
 /** The labels of the wet systems (−1 dry) and each system's tiles and volume. */
 export function wetSystems(W: number, H: number, depth: ArrayLike<number>, min = 0.05): { labels: Int32Array; tiles: number[]; volume: number[] } {
   const N = W * H;
@@ -71,7 +64,7 @@ export function wetSystems(W: number, H: number, depth: ArrayLike<number>, min =
       v += depth[i];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -98,7 +91,7 @@ function joinedOverPlugs(W: number, H: number, sys: ReturnType<typeof wetSystems
     for (const i of courseTiles(r, W, H)) {
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of [[0, 0], ...D4]) {
+      for (const [dx, dy] of [[0, 0], ...N4]) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -156,7 +149,7 @@ function wetNear(i: number, W: number, H: number, depth: ArrayLike<number>): boo
   if (depth[i] >= 0.05) return true;
   const x = i % W;
   const y = (i - x) / W;
-  for (const [dx, dy] of D4) {
+  for (const [dx, dy] of N4) {
     const xx = x + dx;
     const yy = y + dy;
     if (xx >= 0 && yy >= 0 && xx < W && yy < H && depth[yy * W + xx] >= 0.05) return true;

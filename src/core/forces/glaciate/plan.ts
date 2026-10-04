@@ -28,7 +28,8 @@ import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
 import { glacierCut, glacierDepth } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp } from "../random";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
