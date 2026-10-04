@@ -90,8 +90,10 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   eye, an approval, work stuck on his side, anything broken), never for progress, green CI or information. One or two lines
   on what's needed, where, and what carries on meanwhile; never wait silently. The toast: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\notify.ps1 -Title "Dam Good Maps: <thing>" -Body
   "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57.
-- **CI and docs-only changes:** a change that only touches documents, `LICENSE` or `package.json`'s descriptive fields skips
-  the heavy jobs (`tools/ci-changes.mjs`) and finishes in minutes.
+- **When CI runs:** on pull requests into `dev` and `main`, and pushes to `dev` and `main`, not on other branches or tags; a
+  newer push cancels the run it supersedes (never on `main` or a release PR). A draft PR gets no CI until it is marked ready.
+  A change that only touches documents, `investigation/`, `LICENSE` or `package.json`'s descriptive fields skips the heavy
+  jobs (`tools/ci-changes.mjs`) and finishes in minutes. CodeQL runs on pushes and weekly, not on PRs.
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; each e2e run its own free port), `npm run oracle`
   (0 disagreements), `npm run batch` (at least 98% final blocks), `npm run places -- --check`. The Claude suite is
@@ -100,9 +102,10 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   <https://timbermods.github.io/dam-good-maps/preview/> (noindex). **The `/preview/` slot belongs to the page session while it
   works (D396): ask Kyler before publishing anything else there.** A normal deploy of `main` drops `/preview/`: republish the
   page's preview after every release.
-- **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` tags the
-  green `dev` commit (annotated), pushes the tag and a `release/<name>` branch, opens the PR into `main`, merges it **as a
-  merge commit** once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
+- **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
+  `dev` commit that has no red run: pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
+  cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
+  once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
   prints the steps). Then republish the preview and record the release in STATUS and the Progress log. If the live check
   fails, revert the release merge on `main`.
 - **Fixes for dev's own failing tests go to dev directly**, never only onto a feature branch.
