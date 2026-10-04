@@ -35,6 +35,7 @@ are as of 2026-10-04 and move.
 | Coherence cleanup 3 to 7 | `cleanup/3-forces-core` to `cleanup/7-planners` | #221, #223, #226, #230, #241 | none | In order after 2; #230 still needs its investigation-import fix |
 | Rust water switch | `feature/rust-water-switch` | #212 | `-rust` | Next after the cleanup's group 5 or ahead of it, whichever merges first; the other rebases |
 | The Rust forces adopted (#158, D381) | `feature/rust-forces` | its own | `-rforces` | Planners in Rust, the TypeScript computation tag `ts-forces-final` and deleted; after #212 |
+| Rift and Deposit, the core half (#268, D438) | `feature/rift-deposit` | its own | `-riftdep` | Adopted in Rust (forces, operations, checks); the page adds their controls and effects after it merges |
 | Rust stacked-column water (D448) | `feature/rust-stacked` | #260 | `-stacked` | Adopted from #255: the computation in `rust/water`, no wiring yet; merges on review and green CI |
 | Startup part 1, the core half | `feature/startup-part1` | #222 | none | CI running; D367, D455 |
 | CI merge queue | `ci/merge-queue` | #238 | none | CI running |

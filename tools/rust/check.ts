@@ -286,7 +286,7 @@ if (forceJobs.length !== Object.keys(pins).length) throw new Error(`the forces' 
 const nodeForces = forceJobs.map((j) => {
   const out = executeInRust(j.job);
   if (sha256(out) !== pins[j.name]) throw new Error(`the Rust forces' ${j.name} differs from its pin (tools/rust/forces-pins.json): a force changed`);
-  return hash53(out);
+  return Buffer.from(out);
 });
 const forcesBin = join(RUST, "target/release", process.platform === "win32" ? "forces-batch.exe" : "forces-batch");
 if (!existsSync(forcesBin)) cargo(["build", "--release", "-j", JOBS, "-p", "forces", "--bin", "forces-batch"]);
@@ -296,9 +296,9 @@ if (!existsSync(forcesBin)) cargo(["build", "--release", "-j", JOBS, "-p", "forc
   let at = 0;
   forceJobs.forEach((j, k) => {
     const len = out.readUInt32LE(at);
-    const got = hash53(new Uint8Array(out.buffer, out.byteOffset + at + 4, len));
+    const got = out.subarray(at + 4, at + 4 + len);
     at += 4 + len;
-    if (got !== nodeForces[k]) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
+    if (!got.equals(nodeForces[k])) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
   });
 }
 console.log(`the Rust forces: ${forceJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
@@ -318,14 +318,7 @@ const FORCES_IN_PAGE = `async ({ wasm, jobs }) => {
     const res = x.forces_execute(ptr, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const b = new Uint8Array(x.memory.buffer, res, len);
-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-    for (let i = 0; i < b.length; i++) {
-      h1 = Math.imul(h1 ^ b[i], 2654435761);
-      h2 = Math.imul(h2 ^ b[i], 1597334677);
-    }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    out.push(4294967296 * (2097151 & h2) + (h1 >>> 0));
+    let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
     x.water_dealloc(res, len);
     x.water_dealloc(lenPtr, 4);
     x.water_dealloc(ptr, job.length);
@@ -357,9 +350,9 @@ if (ENGINES) {
         if (h !== nodeWater[k]) throw new Error(`the Rust water differs in ${name}: ${waterJobs[k].name}`);
       });
       console.log(`${name}: the Rust water's ${waterJobs.length} canonical settles, the same bytes`);
-      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as number[];
+      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as string[];
       forceHashes.forEach((h, k) => {
-        if (h !== nodeForces[k]) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
+        if (!Buffer.from(h, "base64").equals(nodeForces[k])) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
       });
       console.log(`${name}: the Rust forces' ${forceJobs.length} fixtures, the same bytes`);
     } finally {

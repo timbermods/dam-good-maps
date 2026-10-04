@@ -156,7 +156,7 @@ The editor's parts as they are now; their placement and styling are the design p
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate; Erode and Deposit when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
@@ -315,6 +315,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
+- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
+  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
+  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
+  More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
+  `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
+- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
+  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
+  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
+  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
+  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
