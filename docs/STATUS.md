@@ -14,8 +14,8 @@ check passed). Before it, 2026-10-01: `forces-done` (D375), `map-look-2-done` (D
 
 - **The milestone session** (Opus 5.5, high; the main clone, this machine) does everything except the page: the core, the
   water, the generator, the editor-core items, the Codex adoptions and the documents. It owns the decisions' numbering (next
-  free: D468), STATUS and HANDOFF.
-- **The page session** (Fable 5.1, high; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
+  free: D471), STATUS and HANDOFF.
+- **The page session** (Opus 5.5, high, D468; `C:\Users\krams\code\DamGoodMaps-page`, `feature/page`) does only "The page is
   the editor" and its design (D384). PR #163 is a draft and the build is under way: the one-window page (header, New map drawer, Your maps, File menu, the address as
   the share link, Select always in hand) and Naturalize's worker wiring, its latest commit the browser tests on that page. Its Editor.tsx split (#169) is on `dev`. It records its decisions in `DESIGN.md` and `docs/progress/page.md`; the milestone
   session folds them into PLAN when its work merges. A control the core's items need is agreed through Kyler.
