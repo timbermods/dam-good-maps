@@ -9,12 +9,9 @@
 import * as portable from "../math/portable";
 import type { BerryPatchFeature, Feature, ForestFeature, RuinFieldFeature } from "../features/schema";
 import { featureId } from "../features/ids";
-import { reachAt, walkDistance } from "../analysis/walk";
+import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { LOG_FLOOR, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../data/logFloor";
-import { entityTiles } from "../features/edits";
-import { WALK_BLOCKERS } from "../validate/playability";
 import { TREE_LOGS, type EntitySpec } from "../format/entities";
-import { slopeHighSide } from "../format/footprints";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { hash32, tileHash01 } from "../math/hash";
 import { cosDet, expDet, sinDet } from "../math/detmath";
@@ -45,17 +42,7 @@ export interface Ground {
 function walkFromStart(g: Ground): Float64Array | null {
   if (!g.start || !g.entities) return null;
   const { W, H } = g;
-  const links: [number, number][] = [];
-  const blocked = new Uint8Array(W * H);
-  for (const e of g.entities) {
-    if (WALK_BLOCKERS.has(e.template)) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) blocked[y * W + x] = 1;
-    if (e.template !== "Slope") continue;
-    const [dx, dy] = slopeHighSide(e.orientation);
-    const hx = e.x + dx;
-    const hy = e.y + dy;
-    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([e.y * W + e.x, hy * W + hx]);
-  }
+  const { blocked, links } = walkWorld(g.entities, W, H);
   const d = walkDistance(g.heights, W, H, blocked, links, g.start);
   const out = new Float64Array(W * H);
   for (let i = 0; i < W * H; i++) out[i] = reachAt(d, W, H, i);
