@@ -2,8 +2,18 @@ name: CI
 
 on:
   push:
+    branches: [dev, main]
   pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+
+# Runs for pull requests into dev and main (not while they are drafts: marking one ready runs CI), for pushes to dev
+# and main, and by hand; no run for other branches or tags. A newer push cancels the run it supersedes, except on main
+# and for pull requests into main (releases).
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.base_ref != 'main' }}
 
 # Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in four shards, the
 # Python oracle, generation, the cross-engine determinism check and the Rust build. They fail only on
@@ -11,7 +21,7 @@ on:
 # budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
 # (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
 #
-# A change that only touches documents, LICENSE or package.json's descriptive fields (not dependencies,
+# A change that only touches documents, investigation/, LICENSE or package.json's descriptive fields (not dependencies,
 # devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines, rust) and
 # finishes in minutes: the `changes` job decides (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). A
 # skipped job counts as passed for merge and release (tools/release.sh). Any other change, a manual run, or a
@@ -19,6 +29,7 @@ on:
 # the whole quick suite, or for such a change only the two tests that read documents.
 jobs:
   changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
