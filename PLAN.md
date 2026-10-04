@@ -1187,7 +1187,7 @@ features with their own placement rules (§9.7).
 ### 19.4 Stable ids
 
 - **Generated features:** `id = "f-" + base32(hash64(seed, kind, roleKey))`. `roleKey` is the feature's role in the
-  plan, not how many other features exist (`river/main`, `river/tributary/2`, `setpiece/damSite/primary`,
+  plan, not how many other features exist (`river/main`, `river/tributary/2`, `setpiece/secondDistrict/primary`,
   `ruinField/band2/1`, `forest/grove/<anchor tile>`), so adding a river does not rename the ruin fields; retries
   (`attempt`) and candidates are not part of the id.
 - **User and Claude features:** a random UUID, made when the feature is created and stored in the document.

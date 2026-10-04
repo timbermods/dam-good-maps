@@ -24,6 +24,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readTimber } from "../src/core/format/timber";
+import { officialPerMap } from "../src/core/gen/calibrated";
 import { exp, log, pow } from "../src/core/math/portable";
 import { MAP_TREES } from "../src/core/resources/measure";
 import { groundOfFile, measureResources, RUIN_VARIANT_IDS, type ResourceMeasures } from "./lib/resources";
@@ -56,20 +57,14 @@ const median = (v: readonly number[]) => quantile(v, 0.5);
 const Q = [0.1, 0.25, 0.5, 0.75, 0.9] as const;
 const quantiles = (v: readonly number[], d = 3) => Object.fromEntries(Q.map((p) => [`p${Math.round(p * 100)}`, round(quantile(v, p), d)]));
 
-/** Official size classes and the area each class's median stands at (calibrated.ts SIZE_ANCHORS). */
+/** Official size classes, their medians standing at calibrated.ts `SIZE_ANCHORS`' areas. */
 const CLASSES = ["small", "medium", "large", "max"] as const;
-const CLASS_AREA = [3750, 16384, 36864, 65536];
 /** Classes with enough maps to measure the spread among maps of one size. */
 const SPREAD_CLASSES = new Set(["large", "max"]);
 
-/** The class medians' rate at `area`: joined linearly in ln(area) between the classes, flat beyond. */
-function curveAt(medians: readonly number[], area: number): number {
-  const x = log(area);
-  const xs = CLASS_AREA.map((a) => log(a));
-  if (x <= xs[0]) return medians[0];
-  for (let k = 1; k < xs.length; k++) if (x <= xs[k]) return medians[k - 1] + ((x - xs[k - 1]) / (xs[k] - xs[k - 1])) * (medians[k] - medians[k - 1]);
-  return medians[medians.length - 1];
-}
+/** The class medians' rate at `area`: joined linearly in ln(area) between the classes, flat beyond
+ *  (calibrated.ts `officialPerMap`, the curve `density` reads the calibration table with). */
+const curveAt = (medians: readonly number[], area: number): number => officialPerMap(medians, area);
 
 /** The size trend for the outlier rule: ln(rate) fitted as a line in ln(area). */
 function trend(points: { area: number; value: number }[]): (area: number) => number {

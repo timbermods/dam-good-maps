@@ -188,12 +188,11 @@ if (milestone === "m1") {
     const bw = b.contamination[best] >= 0.05 ? `, badwater ${Math.round(b.contamination[best] * 100)}%` : "";
     samples.push(`(${x}, ${y}) ${b.water[best].toFixed(2)} deep, surface ${(b.heights[best] + b.water[best]).toFixed(2)}${bw}`);
   }
-  // nearest pumpable clean water to the start
-  let pump = -1;
-  for (let i = 0; i < W * b.H; i++) {
-    const s = b.heights[i] + b.water[i];
-    if (b.water[i] >= 0.3 && b.contamination[i] < 0.05 && s >= start.z - 2 && s <= start.z + 0.01 && (pump < 0 || sd[i] < sd[pump])) pump = i;
-  }
+  // the start's water as the start.water check finds it (analysis/walk.ts `startWaterShore`): the nearest
+  // lasting clean water a pump on a shore the start walks to reaches
+  const startWater = r.report.checks.find((c) => c.id === "start.water");
+  const at = startWater?.where?.tiles?.[0];
+  const pump = at ? at[1] * W + at[0] : -1;
   if (pump >= 0) marks.push({ x: pump % W, y: Math.floor(pump / W), rgb: [0, 230, 255] });
   writeFileSync(join(outDir, `${base}.png`), preview(b, marks, true));
 
@@ -230,7 +229,7 @@ if (milestone === "m1") {
     `River: ${b.sources.filter((s) => s.template === "WaterSource").length} sources on the west edge, ${(river.params as { flow: number }).flow} water/s in all.`,
     `River depth samples, west to east (B1: the same on day 1, no surge or drain): ${samples.join("; ")}.`,
     pump >= 0
-      ? `Nearest pumpable clean water to the start: (${pump % W}, ${Math.floor(pump / W)}), ${b.water[pump].toFixed(2)} deep, ${sd[pump].toFixed(1)} tiles from the start.`
+      ? `Nearest pumpable clean water to the start (start.water): (${pump % W}, ${Math.floor(pump / W)}), ${b.water[pump].toFixed(2)} deep, ${String(startWater!.value)} tiles' walk from the start.`
       : "No pumpable water near the start.",
     `Living berry bushes within 20 tiles of the start (B1: none flagged dry): ${bushesNear.length}; for example ${bushesNear.slice(0, 5).map((e) => `(${e.x}, ${e.y})`).join(" ")}.`,
     `Trees: ${tr.length}, ${tr.filter(living).length} alive. Living groves (B3: still alive after 15 days): ${livingGroves.map((g) => `${g.n} ${g.species} around (${g.cx}, ${g.cy})`).join("; ")}.`,
