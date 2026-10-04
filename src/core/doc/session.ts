@@ -13,7 +13,8 @@
 //   is replayed once (`checkReplay`, or the page's checks worker) and compared with the stored map,
 //   byte for byte: the same, and undo below the save point works as normal; different (the code
 //   changed since the save), and undo stops at the save point, so the map as saved is the earliest
-//   state, never an approximate replay. Until the comparison is in, undo stops there too.
+//   state, never an approximate replay. An undo that would cross the save point before the
+//   comparison is in does the comparison first, right there.
 
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
@@ -141,9 +142,10 @@ export class MapSession {
   private cur: BuildResult;
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
-  /** Steps of the history below which undo stops: the saved steps of a project opened from its
-   *  stored map, until its replay is compared (`checkReplay`, `confirmReplay`), and for good when
-   *  the replay differs (D455). 0: undo goes all the way back. */
+  /** The save point of a project opened from its stored map, as steps of the history: undo below
+   *  it waits on the replay comparison (`checkReplay`, `confirmReplay`; an undo that would cross it
+   *  first does the comparison itself), and stops there for good when the replay differs (D455).
+   *  0: undo goes all the way back. */
   private floor = 0;
   /** A project opened from its stored map, until its replay is compared: the state as decoded
    *  (the checks worker compares against it), the map it restored, and the document as saved. */
@@ -229,9 +231,14 @@ export class MapSession {
 
   /** Whether the replay comparison of a map opened from its stored map is still owed (D455): the
    *  checks worker does it on its replica (`replayMatchesStored`), a headless caller with
-   *  `checkReplay`. Undo stops at the save point meanwhile. */
+   *  `checkReplay`; an undo that would cross the save point first does it itself. */
   get replayPending(): boolean {
     return this.pending !== null;
+  }
+
+  /** Why undo cannot go below the save point now, or null (the replay differed, D455). */
+  get undoStopped(): string | null {
+    return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
   }
 
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
@@ -257,7 +264,7 @@ export class MapSession {
     this.pending = null;
     this.storedOpen = true;
     if (same) this.floor = 0;
-    else this.notice("This map opens as it was saved. Its earlier edits cannot be undone: the editor has changed since they were made, so taking them back could not give the map they were made on.");
+    else this.notice(UNDO_STOPPED);
   }
 
   /** D455's comparison for a document with a stored map: its log up to the save point, replayed
@@ -581,19 +588,24 @@ export class MapSession {
     return out.sort((a, b) => a.seq - b.seq);
   }
 
-  /** The steps undo can take back and redo bring back (the steps below the floor, which undo
-   *  cannot reach, are not listed: the map as saved is the earliest state, D455). */
+  /** The steps undo can take back and redo bring back (the steps below the save point, once the
+   *  replay differed, are not listed: the map as saved is the earliest state, D455). */
   history(): HistoryItem[] {
     const item = (e: HistoryEntry, applied: boolean): HistoryItem => {
       const first = e.ops[0];
       const orphaned = e.ops.find((o) => o.orphaned)?.orphaned;
       return { label: e.label ?? labelOf(first), op: first.op, seq: first.seq, count: e.ops.length, applied, ...(orphaned ? { orphaned } : {}) };
     };
-    return [...this.undoStack.slice(this.floor).map((e) => item(e, true)), ...this.redoStack.slice().reverse().map((e) => item(e, false))];
+    return [...this.undoStack.slice(this.reach).map((e) => item(e, true)), ...this.redoStack.slice().reverse().map((e) => item(e, false))];
+  }
+
+  /** The steps undo may reach: all of them until the replay differed (D455). */
+  private get reach(): number {
+    return this.pending ? 0 : this.floor;
   }
 
   get canUndo(): boolean {
-    return this.undoStack.length > this.floor;
+    return this.undoStack.length > this.reach;
   }
 
   get canRedo(): boolean {
@@ -765,7 +777,9 @@ export class MapSession {
   }
 
   undo(): boolean {
-    if (this.undoStack.length <= this.floor) return false;
+    // (crossing the save point of a map opened from its stored map: the replay comparison first,
+    // here, when the checks have not done it yet; it decides whether undo may go on, D455)
+    if (this.undoStack.length <= this.floor && (!this.pending || !this.checkReplay())) return false;
     const e = this.undoStack.pop();
     if (!e) return false;
     for (let k = e.ops.length - 1; k >= 0; k--) {
@@ -805,7 +819,7 @@ export class MapSession {
 
   /** The operations of the latest step on the history (empty when there is none undo can reach). */
   lastStepOps(): readonly AppliedOp[] {
-    return this.undoStack.length > this.floor ? (this.undoStack.at(-1)?.ops ?? []) : [];
+    return this.undoStack.length > this.reach ? (this.undoStack.at(-1)?.ops ?? []) : [];
   }
 
   /** `mark` with the one step taken since it; null when not exactly one step was (nothing to name). */
@@ -1156,6 +1170,9 @@ export class MapSession {
 }
 
 // ------------------------------------------------------------------------------------ helpers
+
+/** Why undo stops at the save point (D455): the notice, and a refused undo's reason. */
+const UNDO_STOPPED = "This map opens as it was saved. Its earlier edits cannot be undone: the editor has changed since they were made, so taking them back could not give the map they were made on.";
 
 let blank: Uint8Array | null = null;
 /** A 960×540 thumbnail for checks, which read only its size. */

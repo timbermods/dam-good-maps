@@ -757,8 +757,8 @@ history is visible as a list the user can step back through. A map opened from i
 once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
 with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
 code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
-state, never an approximate replay. Until the comparison is in, undo stops there too, and the history lists only the
-steps undo can reach. A step of several operations (a force with its objects,
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each

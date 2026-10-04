@@ -1069,7 +1069,10 @@ function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
 export function undo(): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  return changed(s, s.undo(), [], t0);
+  const ok = s.undo();
+  // (refused at the save point of a map opened from its stored map: the reason, D455)
+  const stopped = ok ? null : s.undoStopped;
+  return changed(s, ok, stopped ? [stopped] : [], t0);
 }
 
 export function redo(): SessionUpdate {
