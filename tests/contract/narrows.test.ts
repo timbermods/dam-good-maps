@@ -12,8 +12,8 @@ import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 describe("a natural narrows on a generated river", () => {
-  // (seed 5 since 0.8.0, D148: on seed 3's map the one narrows planned is 2 tiles of spur; seed 1 since M9b's small starts and speed rounds, whose seed 5 plans a 6-tile spur second)
-  const r = generate(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "riverValley" }));
+  // (seed 5 since 0.8.0, D148: on seed 3's map the one narrows planned is 2 tiles of spur; seed 1 since M9b's small starts and speed rounds, whose seed 5 plans a 6-tile spur second; seed 2 since 0.8.1's maps, whose seed 1 first refuses with "the spurs would reach the start", a refusal this test's reasons do not list)
+  const r = generate(makeSpec({ seed: 2, size: { x: 128, y: 128 }, theme: "riverValley" }));
 
   it("raises spurs from both banks, keeps the channel's gap, never a dam wall, and undoes", () => {
     const s = MapSession.fromGenerated(r);

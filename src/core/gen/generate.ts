@@ -172,7 +172,7 @@ export interface GenerationInfo {
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
   /** The longest straight channel bank and canal (D209). */
-  straight: { run: number; canal: number } | null;
+  straight: { run: number; canal: number; wave: number } | null;
   /** Water storage near the start (preferred, #67). */
   storage: boolean | null;
   /** The start's water stays pumpable through the first Normal drought (#59). */
@@ -1644,6 +1644,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
     distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
     keepOff: weir ? orMask(protect, pool) : protect,
+    // (the ditches follow the field's own drainage, as the rivers' courses do)
+    field: land.E,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -2649,9 +2651,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   info.start = pick;
   // ---- the drought-aware start on the real water (information: the settler chose by it)
   if (built.start) info.startDrought = startWaterWalk(built, droughtStorage(built.waterModel, built.water, FIRST_DROUGHT_DAYS)) <= rule;
-  // ---- no ruler-straight channels (D209)
-  const st = straightness(W, H, built.water);
-  info.straight = { run: st.longest?.length ?? 0, canal: st.canal?.length ?? 0 };
+  // ---- no ruler-straight channels (D209), and no badwater ditch drawn as a regular wave (its line
+  //      is the planned one: the water alone is not read for it, rivers' meanders being
+  //      quasi-periodic too)
+  const ditches: [number, number][][] = [];
+  for (const f of features) {
+    if (f.kind !== "setPiece" || f.params.kind !== "badwaterBasin") continue;
+    const o = (f.params.plan as { outlet: number[] }).outlet;
+    const pts: [number, number][] = [];
+    for (let k = 0; k + 1 < o.length; k += 2) pts.push([o[k], o[k + 1]]);
+    ditches.push(pts);
+  }
+  const st = straightness(W, H, built.water, { channels: ditches });
+  info.straight = { run: st.longest?.length ?? 0, canal: st.canal?.length ?? 0, wave: st.wave?.length ?? 0 };
   const straight = tooStraight(st);
   // ---- water storage near the start: preferred (#67)
   const storage = v.report.checks.find((c) => c.id === "water.storage_possible");

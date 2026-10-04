@@ -289,8 +289,8 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out where it
   // would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for one, then seed
   // 2, whose Lake Basin has none on D333's maps, D148)
-  const everyObject = (theme: ThemeId) => {
-    const spec = makeSpec({ seed: 3, size: { x: 96, y: 96 }, theme });
+  const everyObject = (theme: ThemeId, seed = 3) => {
+    const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -306,9 +306,11 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   };
   it.each(themes.filter((t) => t !== "canyon"))("%s, every map object on, 96²", (theme) => everyObject(theme));
   // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): with every object on and
-  // three mine sites, M9b's Canyon 96² seed 3 finds no start on its shown land (one map of 60 such);
-  // M9b's work on starts that run out on a shown land. When it passes, `fails` comes off.
-  it.fails("canyon, every map object on, 96²: no start on the shown land with three mine sites", () => everyObject("canyon"));
+  // three mine sites, M9b's Canyon 96² finds no start on its shown land (one map of 60 such);
+  // M9b's work on starts that run out on a shown land. When it passes, `fails` comes off. (Re-seeded
+  // from 3 to 113 for 0.8.1's maps, D148: seeds 1–60 now all find their start; of seeds 1–250 only 113,
+  // 147, 193, 195 and 225 still fail, 113 the first.)
+  it.fails("canyon, every map object on, 96²: no start on the shown land with three mine sites", () => everyObject("canyon", 113));
 });
 
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */
@@ -332,8 +334,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // maps with a site at generator 0.8.0 (D77: a site only where one fits; re-seeded for M9b's
     // maps, for batch 5's, for D333's, whose check walks round the objects that block the way, and
     // for D348–D360's, and for M9b's small starts and speed rounds, which left canyon 3 without a site;
-    // Islands 3 for 2 since Islands' second shape round, D417, D429, left seed 2 without one, D148)
-    for (const [theme, seed] of [["islands", 3], ["riverValley", 3], ["canyon", 4], ["riverValley", 4]] as [ThemeId, number][]) {
+    // Islands 3 for 2 since Islands' second shape round, D417, D429, left seed 2 without one; canyon 6 for
+    // canyon 4, which 0.8.1's maps (badwater ditches along the land) left without one, D148)
+    for (const [theme, seed] of [["islands", 3], ["riverValley", 3], ["canyon", 6], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -366,9 +369,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
-    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise, D148)
+    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 2], ["canyon", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 2], ["canyon", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

@@ -26,7 +26,8 @@ import { drainage } from "../../src/core/land/drainage";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { moisture } from "../../src/core/sim/moisture";
+import { toMapObject } from "../../src/core/features/build";
+import { gameSoil } from "../../src/core/sim/soil";
 import { mulberry } from "./brushRandom";
 
 const W = 96;
@@ -216,7 +217,8 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // caught a bug): on M9b's lands, met in its merge of dev, River Valley 3 (2,050 level edges → 2,081)
   // and Lake Basin 3 (2,808 → 2,963) end with more level edges than they had. For the milestone
   // session; when one passes, it comes off this list. Lake Basin's maps at Terracing 100 moved when
-  // round 2 came to every Lake Basin map (2026-10-03): seed 3 passes now, seed 1 (2,258 → 2,380) fails.
+  // round 2 came to every Lake Basin map (2026-10-03): seed 3 passes now, seed 1 (2,258 → 2,380) fails. On 0.8.1's final maps (D148; badwater ditches follow the land) seed 1
+  // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
   const fails = new Set(["riverValley 3", "lakeBasin 1"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
@@ -294,7 +296,8 @@ describe("Naturalize keeps the water where it stood (D399)", () => {
 
 describe("farmland is never lost (D399, Kyler's round 3 verdict)", () => {
   // no tile wet or moist before a stroke ends out of the water's reach: the moisture of the settled
-  // water (sim/moisture.ts) on the land before and after, the water standing as it stood
+  // water (the game's soil rules, sim/soil.ts, as the build stores it) on the land before and after,
+  // the water standing as it stood
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
@@ -306,9 +309,13 @@ describe("farmland is never lost (D399, Kyler's round 3 verdict)", () => {
       const rand = mulberry(seed * 4241 + theme.length);
       const depth0 = s.built.water.slice();
       const contamination = s.built.contamination.slice();
+      // (the soil by the game's rules, as the build stores it and Naturalize holds it, D298; the older
+      // port, sim/moisture.ts, counted tiles by a badwater ditch moist that the game counts dry, and
+      // 0.8.1's ditches join rivers and lakes)
+      const objects = s.built.entities.map(toMapObject);
       for (let k = 0; k < 6; k++) {
         const h0 = s.built.heights.slice();
-        const m0 = moisture(h0, depth0, contamination, W, W);
+        const m0 = gameSoil(W, W, h0, depth0, contamination, objects).moisture;
         // a moist dry tile to paint on, or (the last stroke) Size 64 across the map
         const moistTiles: number[] = [];
         for (let i = W * 4; i < W * (W - 4); i++) if (i % W >= 4 && i % W < W - 4 && m0[i] > 0 && !(depth0[i] > 0)) moistTiles.push(i);
@@ -325,7 +332,7 @@ describe("farmland is never lost (D399, Kyler's round 3 verdict)", () => {
         // the water as it stood: its surface over the land now
         const depth1 = new Float64Array(depth0.length);
         for (let i = 0; i < depth1.length; i++) if (depth0[i] > 0) depth1[i] = Math.max(0, h0[i] + depth0[i] - h1[i]);
-        const m1 = moisture(h1, depth1, contamination, W, W);
+        const m1 = gameSoil(W, W, h1, depth1, contamination, objects).moisture;
         const lost: string[] = [];
         for (let i = 0; i < m0.length; i++) if (m0[i] > 0 && !(m1[i] > 0)) lost.push(`(${i % W}, ${Math.floor(i / W)}) ${h0[i]} → ${h1[i]}`);
         expect(lost, `${theme} ${seed}, stroke ${k + 1} (Size ${p.size}, Strength ${p.strength}) dried`).toEqual([]);
