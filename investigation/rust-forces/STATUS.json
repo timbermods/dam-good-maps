@@ -13,14 +13,14 @@
     "ciRustBuild": true,
     "ciRustEngines": true,
     "ciEngineSmoke": true,
-    "ciQuickSuite": false,
+    "ciQuickSuite": true,
     "typecheck": true,
     "build": true,
     "portableArithmetic": true,
     "coreHostAdapter": true,
-    "forceSuitesAgainstRust": false,
+    "forceSuitesAgainstRust": true,
     "forceBrowserSuites": true,
     "forceNativeWasmFixtures": true
   },
-  "adoption": "blocked: ciQuickSuite, forceSuitesAgainstRust"
+  "adoption": "ready for adoption"
 }

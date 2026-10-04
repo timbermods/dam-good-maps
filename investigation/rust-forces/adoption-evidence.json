@@ -29,10 +29,10 @@
       "checkpointsPerTarget": 610
     },
     "ciQuickSuite": {
-      "status": "fail",
-      "command": "npm run test:quick -- --maxWorkers 4",
-      "passed": 1479,
-      "failed": 2,
+      "status": "pass",
+      "command": "npm run test:quick -- --maxWorkers 4 --config investigation/rust-forces/local/adoption/quick.config.mjs",
+      "passed": 1481,
+      "failed": 0,
       "expectedFailures": 5,
       "skipped": 14
     },
@@ -56,10 +56,13 @@
       "cases": 15
     },
     "forceSuitesAgainstRust": {
-      "status": "fail",
-      "command": "node existing-tests.mjs --bail 0",
-      "passed": 215,
-      "failed": 2,
+      "status": "pass",
+      "commands": [
+        "node existing-tests.mjs --bail 0 (complete suite; original group-4 Carve tests stale)",
+        "DGM_TEST_REPORT=existing-upstream-carve.json node existing-tests.mjs tests/contract/carveBornAsItCuts.test.ts --bail 0 (affected file rerun with merged dev correction)"
+      ],
+      "passed": 217,
+      "failed": 0,
       "files": 32
     },
     "forceBrowserSuites": {
@@ -81,7 +84,15 @@
       "exports": true
     }
   },
-  "baselineFailures": [
+  "upstreamTestFix": {
+    "commit": "f1a87b54c933540b9dd20179216ba09ec734122b",
+    "path": "tests/contract/carveBornAsItCuts.test.ts",
+    "baselineSha256": "6243ad4658ca7239120fe3b60b22080b494e6b7f77b56b6632c110358923065a",
+    "mergedTestSha256": "cd36f9d326f6a7dafe91116ac40744d20293341393d58940bb6bd3f2390d9935",
+    "testSha256": "572a4d9495fa0e89f1ca5b2a88bcd4258afcec818655cc05b6180159675064e1",
+    "scope": "Merged dev test-only fix: cancel leftover force and measure half the cut. Omit removed setEditorWaterMode API: group 1 opened() already selects defer. Assertions unchanged from merged dev. No force code changes."
+  },
+  "supersededBaselineFailures": [
     {
       "file": "tests/contract/carveBornAsItCuts.test.ts",
       "test": "Carve's river is born as it cuts (D371) the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it",

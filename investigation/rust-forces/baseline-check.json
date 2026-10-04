@@ -13,6 +13,7 @@
   ],
   "otherDiff": "Game soil and export/finalization use current core host.",
   "diffArtifact": "local/adoption/group4.diff",
-  "result": "Port and local byte checks pass; adoption blocked by two existing product Carve suite failures. No corpus or timing gates.",
-  "postM9bMerged": true
+  "result": "Local byte checks and suites pass with merged dev Carve test correction, adapted to group 1 removed API; no corpus or timing gates.",
+  "postM9bMerged": true,
+  "upstreamTestCommit": "f1a87b54c933540b9dd20179216ba09ec734122b"
 }
