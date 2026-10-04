@@ -165,7 +165,7 @@ test("a real place replaces the open map without asking, and the replaced map st
   await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
   await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();
-  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name), { timeout: 60_000 }).toBe(name);
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name), { timeout: 60_000 }).toBe(name);
   expect((await page.evaluate(() => window.dgmEditor!.info())).edits).toBe(1);
 });
 
