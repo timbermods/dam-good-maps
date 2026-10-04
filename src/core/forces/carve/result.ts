@@ -8,7 +8,6 @@ import { forceCeiling, type ForceMap } from "../force";
 import type { ForceResultParams } from "../op";
 import { keptObject, literalOf } from "../result";
 import { sourceStrength, type CarveRun, type CarveSettings } from "./run";
-import { oxbowLake } from "./water";
 import { FLOOR_DEFAULT } from "../floor";
 
 /** The map a force starts from: the build's ground and objects (those standing on the map), and
@@ -45,7 +44,8 @@ export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveReco
   const src = run.source;
   if (!tiles.length && !src) return null;
   const set = rec.settings;
-  const lake = oxbowLake(run);
+  // (its sealed oxbow's lake: the water the game settled before the mouths closed, run.ts)
+  const lake = run.retained;
   return {
     version: 1,
     verb: "carve",

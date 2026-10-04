@@ -1,7 +1,7 @@
 // Release gate (D385), forces: a force is bound only by nature and refuses only for the map's physical
 // limits, in plain words (D257; Glaciate: only "At the map floor: no ground left to carve"); a refusal is
 // one plain line (D342 (1)); nothing is scary (PERFECT, "The forces"). Glaciate names its springs from
-// its seed, its point and a serial (`newId`, forces/glaciate/plan.ts). It skipped only the ids standing
+// its seed, its point and a serial (`glacier_source_id`, rust/forces). It skipped only the ids standing
 // on the map at its end (the release gate's bug hunt, D385): a glacier used again where an earlier one
 // stood sweeps that one's springs away and took their ids again, which the document still holds from
 // the earlier operation, so the glacier played to its end and was dropped with "an entity with the Id

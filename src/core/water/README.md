@@ -78,12 +78,12 @@ Every generated map changes, so it goes in with the one switch and its one re-pi
 
 On `feature/forces` (Carve, Unleash) and `feature/glaciate` (Glaciate):
 
-- **Carve's source** (`forces/carve/run.ts`, the constructor's `waterSource` at `intent.origin`): one call
-  with `strength: sourceStrength(power, width)`, `flow: [head.dx, head.dy]` (the carve's heading),
+- **Carve's source** (`rust/forces`, the carve's source row at `intent.origin`, a port of the TypeScript
+  that called this module, tag `ts-forces-final`): one call with `strength: sourceStrength(power, width)`, `flow: [head.dx, head.dy]` (the carve's heading),
   the carve's seed; ground = the map before the first cut, `occupied` from its entities. The anchor
   keeps `this.sourceId`; the others get theirs from `groupIds`, and `added` lists them all. Each source's
   `z` follows the ground when the carve is kept (the bed is cut under the row).
-- **Glaciate's meltwater** (`forces/glaciate/plan.ts`, `addGroup`): one call per site with that site's
+- **Glaciate's meltwater** (`rust/forces`, the glacier's springs, ported the same way): one call per site with that site's
   strength and `flow` the glacier's direction; the anchor takes a fresh id, the others theirs from
   `groupIds`.
 - **Unleash** places no source today: the player's own source is the river's origin and stays single

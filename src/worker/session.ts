@@ -1871,9 +1871,6 @@ let force: {
  *  whole map's update on the page, so the land's own changes keep the page's frames free. */
 const FORCE_VIEW_MS = 120;
 
-/** A carve's working-out slice (ms): the worker answers the page's other calls between them. */
-const CARVE_PLAN_MS = 24;
-
 /** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
  *  again from its original land, with the next seed, while one of them is the latest step of the
  *  history. */
@@ -2074,7 +2071,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
   if (!f || f.session !== session) return null;
   if (f.play) {
     // (worked out a slice at a time first, then shown `steps` at a time)
-    if (!f.play.planned) f.play.plan(CARVE_PLAN_MS);
+    if (!f.play.planned) f.play.plan();
     else f.play.advance(steps);
   } else {
     const r = f.staged!;
@@ -2247,7 +2244,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   };
   // a force kept part way keeps its whole result: its showing only shows it (a carve's playback, Slow
   // forces' jump to the end, D321; a staged force's stages, Esc aside)
-  if (f.carve) f.play?.plan(Infinity);
+  if (f.carve) f.play?.plan();
   else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (its operation assembled in the core, forces/keep.ts)
   const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)) });

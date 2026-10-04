@@ -1,6 +1,7 @@
-// Glaciate at work (PLAN §20 D246, D291, D292; the investigation's two acts, INTEGRATION.md): while
-// it is planned (a few slices a step: the worker answers the page between them) the ice gathers where
-// it was asked; then the ice advances for three seconds, the land under it taking its final levels as
+// Glaciate at work (PLAN §20 D246, D291, D292; the investigation's two acts, INTEGRATION.md): planned
+// when it starts (in Rust, rust/bridge.ts; the land of investigation/glaciate's round 4, its floor's water
+// led into the main river, D292), the ice gathers where it was asked while the plan is given its last
+// touches; then the ice advances for three seconds, the land under it taking its final levels as
 // the front passes (every height is the plan's before the retreat begins), and melts back for two.
 // The editor paces the stages (D321, item 29: Fast, or Slow forces); nothing changes before the ice reaches
 // it (item 30): the objects in its path go as the front passes, and the water stays as it was until
@@ -9,12 +10,73 @@
 // pace, the machine or the effects.
 
 import { prefill } from "../../sim/prefill";
+import type { RetainedWater } from "../../sim/water";
 import { snapshotMap, type FullForceMap } from "../force";
 import { clamp } from "../random";
 import { trimRock } from "../rock";
 import { modelOf, respectKeep, Staged, type ForceCue, type StagedRun } from "../runs";
-import { sizeOf, Valley, type GlaciateIntent, type GlaciateSettings } from "./model";
-import { planGlaciate, type GlaciatePlan } from "./plan";
+import { planInRust } from "../rust/bridge";
+import { glaciateProblem, sizeOf, type Basin, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+
+/** What a glacier did: the levels cut and laid, what it carried away, the objects it took, the sources
+ *  it swept (clean ones fed into its cirque head, badwater discarded), its pools' joins, and its
+ *  lengths. */
+export interface GlaciateMetrics {
+  cut: number;
+  deposited: number;
+  carriedAway: number;
+  treesRemoved: number;
+  objectsRemoved: number;
+  cleanAbsorbed: number;
+  badSwept: number;
+  maxPoolJoin: number;
+  length: number;
+  valleyLength: number;
+  centreline: number;
+  valley: number;
+  outwash: number;
+  requestedWidth: number;
+}
+
+/** A planned glacier: the map it started from and the one it makes, its route and stations, when
+ *  each tile takes its final level (0–1 along the way: the ice's advance), the trough (1 floor, 2
+ *  benches and moraine), the floor datum, the channels (1 the main river, 2 pools and joins, 3
+ *  hanging gullies), the outwash fan, its basins and their kept water, its hanging valleys. */
+export interface GlaciatePlan {
+  before: FullForceMap;
+  map: FullForceMap;
+  settings: GlaciateSettings;
+  intent: GlaciateIntent;
+  path: Station[];
+  reference: Point[];
+  streamPath: Point[];
+  arrival: Float32Array;
+  mask: Uint8Array;
+  floor: Uint8Array;
+  nearest: Int32Array;
+  stream: Uint8Array;
+  fan: Uint8Array;
+  retained: RetainedWater;
+  basins: Basin[];
+  hanging: Hanging[];
+  metrics: GlaciateMetrics;
+  /** The floor's water as one river (D292): the falls' pools and inflows the river could visit, and
+   *  the ones it reached. */
+  finished: { style: string; visits: number; reached: number; floods?: number; floodTicks?: number };
+  /** The channels led across the floor to the river: from a fall's pool, a lip's other face, an
+   *  inflow; where from, and how long. */
+  joins: { kind: "fall" | "spill" | "inflow"; from: number; length: number }[];
+}
+
+/** A glacier planned on `input` (in Rust, in one call), before the editor's last touches (Keep, the
+ *  build's own, its water): the land of round 4, its floor's water led into the main river (D292). Throws
+ *  why it can't start. */
+export function planGlacier(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent): GlaciatePlan {
+  const problem = glaciateProblem(input.W, input.H, settings, intent);
+  if (problem) throw new Error(problem);
+  const { raw, verb: _verb, ...records } = planInRust({ verb: "glaciate", map: input, settings, intent, keep: null });
+  return { before: input, map: raw, settings, intent, ...records };
+}
 
 /** Steps of its advance and its retreat (ten a second: three seconds, then two). */
 export const ADVANCE_STEPS = 30;
@@ -22,29 +84,24 @@ export const RETREAT_STEPS = 20;
 
 export class GlaciateRun extends Staged implements StagedRun {
   readonly verb = "glaciate" as const;
-  /** A planning step's budget (ms): at least one slice, then more while they fit. */
-  protected override readonly planMs = 80;
   protected readonly stages = ADVANCE_STEPS + RETREAT_STEPS;
   protected readonly approach = 0;
+  /** The plan, once given its last touches. */
   private plan0: GlaciatePlan | null = null;
+  /** The plan as Rust made it (its last touches still to come). */
+  private readonly made: GlaciatePlan;
   /** The plan being given its last touches (its footprint is protected while they are made). */
   private pending: GlaciatePlan | null = null;
-  private readonly slices: Generator<void, GlaciatePlan, void>;
 
   constructor(
     before: FullForceMap,
     readonly settings: GlaciateSettings,
     readonly intent: GlaciateIntent,
     keep: Uint8Array | null = null,
-    valley?: Valley,
   ) {
     super(before, keep);
     // (its settings and gesture are checked now: a bad one never starts)
-    this.slices = planGlaciate(before, settings, intent, valley);
-  }
-
-  get planned(): boolean {
-    return this.plan0 !== null;
+    this.made = planGlacier(before, settings, intent);
   }
   /** The glacier's own ground (its trough, benches, moraine, channels and outwash): every level
    *  there is the glacier's, the ones it left as they were included (its banks), so the build's
@@ -63,23 +120,10 @@ export class GlaciateRun extends Staged implements StagedRun {
     return this.plan0;
   }
 
-  /** Plan within the budget; true once planned. */
-  protected planFor(budgetMs: number): boolean {
-    if (this.plan0) return true;
-    const t0 = performance.now();
-    for (;;) {
-      const r = this.slices.next();
-      if (r.done) {
-        this.settle(r.value);
-        return true;
-      }
-      if (performance.now() - t0 > budgetMs) return false;
-    }
-  }
-
   /** The plan's last touches: the ground a force leaves as it is (the layer showing, caves, outside
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
-  private settle(p: GlaciatePlan): void {
+  protected settle(): void {
+    const p = this.made;
     const m = p.map;
     trimRock(m);
     respectKeep(this.before, m, this.keep);

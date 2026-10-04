@@ -231,7 +231,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `src/editor/forceSize.ts`): hold F and move the mouse to size the ring on the map (a click or letting go keeps
   it, Esc or a right click puts it back), { and } step the Size, [ and ] the Power by five (or F held and the wheel,
   D368 (11)), the number beside the pointer. **Size sets how far a force reaches; Power how strong it is within
-  that** (`core/forces/strength.ts`): a force set larger than its Power's own size keeps its reach and acts in
+  that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
   (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
@@ -254,7 +254,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
-  two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
+  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water

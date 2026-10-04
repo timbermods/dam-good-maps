@@ -62,7 +62,8 @@ part 2 (D367, D397). Rebuilt fresh on `feature/page` from `dev`, not on part 1 (
    `tools/batch.ts --native`) but not switched on: Kyler, 2026-10-03, the switch, the identity run and the
    TypeScript's tag and deletion wait until M9b is on dev, and the Rust is re-ported to M9b's water.ts then;
    (b) the Rust water (#156), native for batch jobs and in the browser, in every engine at every size, its TypeScript
-   tagged and deleted (D381); (c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the
+   tagged and deleted (D381); (c) the forces (#158), adopted: their planning is Rust (`rust/forces`), byte-identical to the
+   TypeScript it replaced (tag `ts-forces-final`, then deleted), its byte fixtures in CI's `rust` job; (d) the analysis (#157) and the
    generator, after M9b's release. Details in "The Codex adoptions" below.
 4. **The post-release list** (`build`, Opus 5.5, high; D378, D380, D381):
    1. **The quick-click bug** (D378; built by the renderer session on its own PR, merged when CI is green): Craterize clicked quickly sometimes skips the new crater's strike animation; the
@@ -173,11 +174,10 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 - **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
   after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
   descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
-- **The Rust forces** (#158, D400, D453): round 2's speed is accepted. Adoption follows (D442 (c)) when CI's byte-identity
-  checks (D366, three engines) and the existing suites pass against the Rust, under D381; Codex's step after M9b is only the
-  re-pin, the rebuild and those checks. There is no identity corpus. New forces (Erode first)
-  are then built directly in Rust on the adopted port, never in TypeScript first (D438). Round 1's lesson applies to every port: share the map in typed memory, one call per
-  operation, never serialized.
+- **The Rust forces** (#158, D400, D453): adopted (D442 (c)): the planners are Rust (`rust/forces`), the core keeps the
+  request, Keep, the build's last touches, the record and the showing; the TypeScript computation is tag `ts-forces-final`
+  and deleted. New forces (Erode first) are built directly in Rust on it, never in TypeScript first (D438). Round 1's lesson
+  applies to every port: share the map in typed memory, one call per operation, never serialized.
 - **Portable maths** (#171, D401): merged as an investigation; adopt a narrowed version: the one shared `portable.rs` for
   every Rust port, and the whole-source guard over `src/core/`, the workers and data-producing tools, as CI. Left out: the
   Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
@@ -193,7 +193,7 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Still with Codex:** the Rust forces' re-pin after M9b (#158). The dam sketch engine is merged as an
+**Still with Codex:** the dam sketch engine is merged as an
 investigation, rounds 1 (#159) and 2 (#166), not adopted, no round 3 before the release (D392, D403; see its section
 below).
 

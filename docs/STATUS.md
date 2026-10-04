@@ -38,6 +38,8 @@ Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
   `RustWaterSim`, the native batch binary); the switch waits for M9b on dev (the Rust is re-ported to M9b's
   water.ts then); whether the artifact page keeps a TypeScript water without WebAssembly is Kyler's call. Rust is installed on this machine for the user only (rustup, host
   `x86_64-pc-windows-gnu`, as there are no Visual Studio C++ tools).
+  (c) The forces (#158) are adopted on `feature/rust-forces` (its PR into dev): the planners are Rust (`rust/forces`),
+  the TypeScript computation is tag `ts-forces-final` and deleted; the forces' byte fixtures run in CI's `rust` job.
 - **Flakes and a timeout:** `sources.spec` and `waterView.spec` (D341; `fix/sources-flake`); the `properties.test` 256² timeout
   (`fix/properties-timeout`).
 - **A latent NaN in `pickStart`** (`src/core/gen/settler.ts`): fixed after M9b's measures.
@@ -68,7 +70,7 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 
 | PR | Investigation | State |
 |---|---|---|
-| #158 | rust-forces | Draft; round 3 is there (portable maths, the 1% pilot passes all cells); no identity corpus (D453); adopted when CI's byte-identity checks and the suites pass |
+| #158 | rust-forces | Adopted on `feature/rust-forces` (planners in Rust; the TypeScript computation tag `ts-forces-final`, deleted) |
 | #156 | rust-water | Draft; approved; in the browser per HANDOFF's policy; unchanged |
 | #155 | gen-speed | Approved; rounds 1 and 2 adopted on M9b |
 | #153 | small-starts | Approved; adopted on M9b |
@@ -106,7 +108,7 @@ verdicts are in ROADMAP, "The Codex adoptions"):
 4. **Recorded 2026-10-03 (D455–D460):** D456's step grouping saved in the project and D457 (an imported map's own water
    kept), both fixing on `dev`; D458 (Lake Basin round 2 onto `feature/m9b`, M9b); D459 (Naturalize's sound, in
    `palette.ts` and `calibration.ts`; tell Kyler when it is on `dev`); D460 (the Dependabot majors, after M9b's release).
-5. **Waiting:** the Rust forces (#158 READY), the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
+5. **Waiting:** the Rust water's switch and the TypeScript deletion (M9b on dev; the artifact
    spike's answer).
 
 ## Decisions open for Kyler (word for word)

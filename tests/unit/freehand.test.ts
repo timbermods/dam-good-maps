@@ -4,7 +4,6 @@
 // its higher end, whichever way it was drawn; the curve through its points passes through each.
 
 import { describe, expect, it } from "vitest";
-import { pathCurve } from "../../src/core/forces/carve/course";
 import { forceReach } from "../../src/core/forces/reach";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { downhillPath, pathLength, pathTiles, resamplePath } from "../../src/core/forces/path";
@@ -67,12 +66,5 @@ describe("the freehand path (D321, item 41)", () => {
     expect(downhillPath(drawnUphill, heights, W, 8)[0]).toEqual({ x: 0, y: 2 });
     const drawnDownhill = drawnUphill.slice().reverse();
     expect(downhillPath(drawnDownhill, heights, W, 8)[0]).toEqual({ x: 0, y: 2 });
-  });
-
-  it("its curve passes through every point", () => {
-    const pts = [{ x: 2, y: 2 }, { x: 10, y: 2 }, { x: 10, y: 8 }, { x: 3, y: 12 }];
-    const c = pathCurve(pts);
-    for (const p of pts) expect(Math.min(...c.x.map((x, k) => Math.hypot(x - p.x, c.y[k] - p.y)))).toBeLessThan(1e-9);
-    for (let k = 1; k < c.s.length; k++) expect(c.s[k]).toBeGreaterThan(c.s[k - 1]);
   });
 });

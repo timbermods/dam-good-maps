@@ -19,7 +19,6 @@ import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateNextSeed } from "../../src/core/forces/glaciate/model";
 import { makePlan } from "../../tools/lib/glaciate";
 import { FLOOR_DEFAULT } from "../../src/core/forces/floor";
-import { floodAllowance } from "../../src/core/forces/glaciate/floor";
 import { AUTO_GLACIATE_DETAILS, glaciateNature, type ForceGround } from "../../src/core/forces/nature";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import type { ForceResultParams } from "../../src/core/forces/op";
@@ -91,11 +90,12 @@ describe("Glaciate's planner (round 4, #69, its floor's water finished, D292)", 
     const p = makePlan(snapshotMap(m), FULL, { origin: 22 * m.W + 22 });
     expect(p.finished.style).toBe("visits");
     expect(p.finished.reached).toBeGreaterThan(0);
-    expect(p.finished.floods).toBeLessThanOrEqual(floodAllowance(p));
+    // (the dry floor tiles a finished floor may wet in its flood run and still be kept: 1% of its floor, at least 12)
+    expect(p.finished.floods).toBeLessThanOrEqual(Math.max(12, Math.round(p.mask.filter((v) => v === 1).length * 0.01)));
     for (const j of p.joins) expect(j.length, j.kind).toBeLessThanOrEqual(j.kind === "inflow" ? 40 : 12);
   });
 
-  it("is sliced without changing its result, and never goes past the ceiling", () => {
+  it("as the editor runs it (planned when it starts, its last touches its first step) it keeps the whole plan's land, and never goes past the ceiling", () => {
     const m = fixture("canyon-128");
     const whole = makePlan(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
     const r = new GlaciateRun(snapshotMap(m), GLACIATE_DEFAULTS, { origin: 22 * m.W + 22 });
@@ -104,7 +104,7 @@ describe("Glaciate's planner (round 4, #69, its floor's water finished, D292)", 
       r.step();
       planning++;
     }
-    expect(planning).toBeGreaterThan(1);
+    expect(planning).toBe(1);
     r.finishAll();
     expect(Array.from(r.final()!.heights)).toEqual(Array.from(whole.map.heights));
     const low = { ...snapshotMap(m), maxHeight: 16 };

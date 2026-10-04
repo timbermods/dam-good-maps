@@ -1,4 +1,4 @@
-// Carve's river (PLAN §20 D321, items 17, 18 and 25; core/forces/carve/river.ts): its water is never
+// Carve's river (PLAN §20 D321, items 17, 18 and 25; rust/forces `shape_river`): its water is never
 // deeper than River depth (Off: as deep as it cuts; a dry canyon has no river to limit), the canyon's
 // walls as tall as before; Banks leave flat, dry land at the waterline on each side, the river's surface
 // just below their top, wider inside a bend than outside; the operation keeps both settings.
