@@ -2,9 +2,7 @@
 // from literal tables so the picks are the same in every engine (no Math.pow).
 
 import type { Rng } from "../math/rng";
-
-const N8: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-const N4: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+import { N4, N8 } from "../math/grid";
 
 /** count^c for c in {0.8, 1.5, 2}, count 0..8 (computed once, stored as literals). */
 const WEIGHTS: Record<string, number[]> = {
@@ -107,19 +105,4 @@ export function pickSeeds(rng: Rng, weight: Float64Array | Uint8Array, W: number
     if (seeds.length >= count) break;
   }
   return seeds;
-}
-
-/** Log-normal group sizes around a median with a heavy tail, summing to about `total`. */
-export function groupSizes(rng: Rng, total: number, median: number, cap: number): number[] {
-  const sizes: number[] = [];
-  let sum = 0;
-  while (sum < total) {
-    let s = Math.floor(rng.logNormal(median, 0.9));
-    s = Math.max(3, Math.min(cap, s));
-    const left = total - sum;
-    s = left >= 3 ? Math.min(s, left) : 3;
-    sizes.push(s);
-    sum += s;
-  }
-  return sizes;
 }

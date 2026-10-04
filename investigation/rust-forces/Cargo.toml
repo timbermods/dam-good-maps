@@ -1,0 +1,25 @@
+[package]
+name = "rust-forces"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+[features]
+# Debug-only phase clocks. Production Wasm keeps its zero-import bridge.
+bench-clock = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "forces-batch"
+path = "rust/main.rs"
+
+[dependencies]
+serde_json = { version = "=1.0.145", features = ["preserve_order", "float_roundtrip"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

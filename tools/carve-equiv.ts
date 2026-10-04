@@ -14,7 +14,8 @@ import { gunzipSync } from "node:zlib";
 import { CarveRun as ProtoRun, DEFAULTS as PROTO_DEFAULTS, plainEntities, type CarveMap, type Settings } from "../investigation/carve/engine";
 import { fixture } from "../investigation/carve/maps";
 import { carveWaterSettle } from "../investigation/carve/water";
-import { CarveRun, modelFor, type CarveSettings } from "../src/core/forces/carve/run";
+import { CarveRun, type CarveSettings } from "../src/core/forces/carve/run";
+import { modelOf } from "../src/core/forces/runs";
 import { oxbowLake } from "../src/core/forces/carve/water";
 import type { ForceMap } from "../src/core/forces/force";
 import { generate } from "../src/core/gen/generate";
@@ -131,7 +132,7 @@ function check(sc: Scenario): string | null {
   // the water each keeps
   const want = carveWaterSettle(proto.map, proto);
   const lake = oxbowLake(port);
-  const got = canonicalSettle({ ...modelFor(port.map), ...(lake ? { retained: [lake] } : {}) });
+  const got = canonicalSettle({ ...modelOf(port.map), ...(lake ? { retained: [lake] } : {}) });
   if ((want.method === "retained-oxbow") !== !!lake) return `the oxbow lake: the prototype's water is ${want.method ?? "canonical"}, the port ${lake ? "keeps" : "keeps no"} lake`;
   if (!same(want.depth, got.depth) || !same(want.contamination, got.contamination)) return "the kept water differs";
   if (want.settled !== got.settled) return `settled: ${want.settled} against ${got.settled}`;

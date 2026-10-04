@@ -13,7 +13,7 @@ import { footprintTiles } from "../src/core/format/footprints";
 import { readTimber, type TimberFile } from "../src/core/format/timber";
 import { generate } from "../src/core/gen/generate";
 import { shadeTiles } from "../src/core/render/shade";
-import { groundOfFile } from "../src/core/resources/measure";
+import { groundOfFile } from "./lib/resources";
 import { AVAILABLE_THEMES, makeSpec, type ThemeId } from "../src/core/spec/mapspec";
 
 type RGB = readonly [number, number, number];

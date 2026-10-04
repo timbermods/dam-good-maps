@@ -1,0 +1,9 @@
+{
+  "source": "rust/portable/src/lib.rs",
+  "guard": "tools/rust/guard.mjs",
+  "oracle": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "portableSha256": "10ccff7e29fcd5d1dd0ec992e2c860423c77bf4f6e0a7aab0ceb513df123e0dd",
+  "guardSha256": "32ba64deb358b12e7d71c0e09cf55bd07d6205be2e28fe06eb552e2a93b25146",
+  "scope": "One adopted shared source; no private arithmetic copy or arithmetic edits. Strict source, native/Wasm IR, assembly and unstripped Wasm guards.",
+  "license": "AGPL-3.0-or-later"
+}

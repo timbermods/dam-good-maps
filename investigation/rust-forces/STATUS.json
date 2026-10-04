@@ -1,0 +1,26 @@
+{
+  "baseline": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "scope": "D453/D454: CI byte checks and existing force suites; no corpus, pilot, timing or window gates.",
+  "implemented": [
+    "footprint",
+    "craterize",
+    "erupt",
+    "quake",
+    "carve",
+    "glaciate"
+  ],
+  "gates": {
+    "ciRustBuild": true,
+    "ciRustEngines": true,
+    "ciEngineSmoke": true,
+    "ciQuickSuite": true,
+    "typecheck": true,
+    "build": true,
+    "portableArithmetic": true,
+    "coreHostAdapter": true,
+    "forceSuitesAgainstRust": true,
+    "forceBrowserSuites": true,
+    "forceNativeWasmFixtures": true
+  },
+  "adoption": "ready for adoption"
+}

@@ -1,0 +1,13 @@
+import {createRequire} from 'node:module';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {mkdirSync,writeFileSync,existsSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const runDir=process.env.DGM_RUN_DIR??'';if(runDir&&!/^[a-z0-9-]+$/.test(runDir))throw Error('Invalid isolated run directory');
+export const HERE=dirname(fileURLToPath(import.meta.url)),LOCAL=resolve(HERE,'local',runDir);
+export const ROOT=process.env.DGM_ROOT??resolve(HERE,'../..');
+export const deps=createRequire(resolve(process.env.DGM_DEPS??'C:/Users/Kyler/.cache/codex-runtimes/codex-primary-runtime/dependencies/node','package.json'));
+mkdirSync(LOCAL,{recursive:true});
+export const hash=b=>createHash('sha256').update(b).digest('hex');
+export const json=(name,data)=>writeFileSync(resolve(LOCAL,name),JSON.stringify(data,null,2)+'\n');
+export const arg=(name,fallback)=>{const i=process.argv.indexOf('--'+name);return i<0?fallback:process.argv[i+1];};

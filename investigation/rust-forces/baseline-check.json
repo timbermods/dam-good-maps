@@ -1,0 +1,19 @@
+{
+  "oracle": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "previousOracle": "4799800ff4cc14093de8aabf68aa0e7385c32248",
+  "method": "Rebase own investigation clone onto cleanup/4-force-planning; audit merged M9b and groups 1\u20134 by source diff.",
+  "portChanges": [
+    "Game-water and edge-spill defaults; six-day first settle, four-day drain settle and 300-tick glacier probe unchanged.",
+    "Exact merged sealed-lake restoration/releveling, adopted Rust water implementation adapted to force types.",
+    "D5 source-group member identifiers and collisions with standing/used IDs.",
+    "Group 4 core planning/result assembly; remove edgeSources/edgeLeaks hook."
+  ],
+  "unchanged": [
+    "Shared portable arithmetic."
+  ],
+  "otherDiff": "Game soil and export/finalization use current core host.",
+  "diffArtifact": "local/adoption/group4.diff",
+  "result": "Local byte checks and suites pass with merged dev Carve test correction, adapted to group 1 removed API; no corpus or timing gates.",
+  "postM9bMerged": true,
+  "upstreamTestCommit": "f1a87b54c933540b9dd20179216ba09ec734122b"
+}

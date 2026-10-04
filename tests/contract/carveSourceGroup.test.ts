@@ -22,7 +22,6 @@ describe("Carve's source group (D314)", () => {
     // (seed 4 for 3, D148: after D447's bank rule seed 3's highest ground away from the start stands
     // where a row has no room, and the carve's source stays single)
     await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
@@ -72,7 +71,6 @@ describe("Carve's source group (D314)", () => {
 
   it("a carve kept before D314 (a single source) replays unchanged; Unleash places no source", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const n0 = s.built.entities.filter((e) => e.template === "WaterSource").length;

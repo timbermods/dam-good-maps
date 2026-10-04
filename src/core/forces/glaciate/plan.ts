@@ -16,7 +16,7 @@ import type { EntitySpec } from "../../format/entities";
 import { waterSource } from "../../format/entities";
 import { slopeHighSide } from "../../format/footprints";
 import { guidFrom, hash32 } from "../../math/hash";
-import { placeSourceGroup } from "../../water/sourceGroups";
+import { groupIds, placeSourceGroup } from "../../water/sourceGroups";
 import { forceFloor, holdAtFloor } from "../floor";
 import { MinHeap, N8 } from "../../math/grid";
 import { EMITTERS } from "../../sim/model";
@@ -28,7 +28,8 @@ import { hardAt, trimRock } from "../rock";
 import { modelOf } from "../runs";
 import { glacierCut, glacierDepth } from "../strength";
 import { floodAllowance, FLOOR_STYLES, floodsOf as floorFloods, floorDistance, riverCourse, type FloorStyle, type Visit } from "./floor";
-import { clamp, glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { glaciateProblem, noise, RELIEF_SPAN, ROUND4_DETAILS, ROUND4_POWER, route, sinuosity, sizeOf, Valley, type Basin, type GlaciateDetails, type GlaciateIntent, type GlaciateSettings, type Hanging, type Point, type Station } from "./model";
+import { clamp } from "../random";
 
 /** The only refusal: the map's own floor. */
 export const PHYSICAL = "At the map floor: no ground left to carve";
@@ -100,28 +101,18 @@ const texture = (seed: number, x: number, y: number, scale: number) => {
   return (at(gx, gy) * (1 - u) + at(gx + 1, gy) * u) * (1 - v) + (at(gx, gy + 1) * (1 - u) + at(gx + 1, gy + 1) * u) * v;
 };
 
-/** Plan a glacier, all at once (tests; the worker slices `planGlaciate`). */
-export function makePlan(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): GlaciatePlan {
-  const g = planGlaciate(input, settings, intent, valley, finish);
-  for (;;) {
-    const r = g.next();
-    if (r.done) return r.value;
-  }
-}
-
 /** Plan a glacier a phase at a time (each `next()` a slice of it); its value, once done, is the plan.
- *  `finish`: lead the floor's extra water into the main river (D292; off only to compare with the
- *  investigation's round 4). Finished, the river's course is tried in turn (floor.ts `FLOOR_STYLES`:
- *  visiting the falls and inflows, bending toward them, round 4's meander) until the game's water,
- *  run a while on it, keeps off its dry floor; the one that keeps off it best is kept. */
-export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley, finish = true): Generator<void, GlaciatePlan, void> {
+ *  The floor's extra water is led into the main river (D292): the river's course is tried in turn
+ *  (floor.ts `FLOOR_STYLES`: visiting the falls and inflows, bending toward them, round 4's meander)
+ *  until the game's water, run a while on it, keeps off its dry floor; the one that keeps off it best
+ *  is kept. */
+export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley?: Valley): Generator<void, GlaciatePlan, void> {
   const problem = glaciateProblem(input.W, input.H, settings, intent);
   if (problem) throw new Error(problem);
   if (!valley) {
     valley = new Valley(input);
     yield;
   }
-  if (!finish) return yield* planOnce(input, settings, intent, valley, null);
   let best: GlaciatePlan | null = null;
   for (const style of FLOOR_STYLES) {
     const plan = yield* planOnce(input, settings, intent, valley, style);
@@ -135,8 +126,7 @@ export function* planGlaciate(input: FullForceMap, settings: GlaciateSettings, i
   return best!;
 }
 
-function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley: Valley, style: FloorStyle | null): Generator<void, GlaciatePlan, void> {
-  const finish = style !== null;
+function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: GlaciateIntent, valley: Valley, style: FloorStyle): Generator<void, GlaciatePlan, void> {
   const top = input.maxHeight;
   const cutFloor = forceFloor(settings, top);
   const before = snapshotMap(input);
@@ -291,7 +281,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     } else if (d < 1 + 3 / q.r) {
       const M = before.heights[i];
       const hard = hardAt(m, i, M) ? 1 : (m.rockLayers[Math.max(f + 1, Math.floor((f + M) / 2))] ?? 0);
-      if (M - f >= 5 && hard < 0.5 && portable.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style?.byWater === "skip" && nearWater(i))) {
+      if (M - f >= 5 && hard < 0.5 && portable.sin(q.s * 19 + phase) > (detail.benches === "many" ? -0.7 : 0.15) && detail.benches !== "none" && !(style.byWater === "skip" && nearWater(i))) {
         m.heights[i] = Math.max(M - cap, Math.min(M, f + Math.round((M - f) * 0.58)));
         mask[i] = 2;
         arrival[i] = q.s;
@@ -370,7 +360,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   const bends: typeof incoming = [];
   // (D292: the river bends toward every fall that will run, the biggest first, a little closer
   // together, so their water has a short way to it)
-  if (style && style.course === "bends") {
+  if (style.course === "bends") {
     for (const c of mouths) if (((s.meltwater && enough(c.lip)) || (c.oldWet && survivingFeed.depth[c.lip] > 0)) && !bends.some((b) => Math.abs(path[b.k].s - path[c.k].s) * length < style.spacing)) bends.push(c);
   } else for (const c of mouths) if ((c.oldWet || c.area >= 20) && !bends.some((b) => Math.abs(path[b.k].s - path[c.k].s) * length < Math.max(14, r * 1.2))) bends.push(c);
   const meanderPath = (): Point[] =>
@@ -426,17 +416,15 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   let streamPath: Point[];
   let visits: Visit[] = [];
   let reached: Visit[] = [];
-  if (finish) {
-    // D292: the river swings over to the falls' pools and the inflows, the biggest first
-    for (const list of inflows()) {
-      const e = entryOf(list);
-      visits.push({ k: nearest[e.i], x: (e.i % W) + 0.5, y: Math.floor(e.i / W) + 0.5, weight: 1e6 + before.water.depth[e.outside] });
-    }
-    for (const c of mouths)
-      if ((s.meltwater && enough(c.lip)) || (c.oldWet && survivingFeed.depth[c.lip] > 0)) visits.push({ k: c.k, x: (c.landing % W) + 0.5, y: Math.floor(c.landing / W) + 0.5, weight: (c.oldWet ? 1e5 : 0) + c.area });
-    if (style.course === "visits") ({ course: streamPath, reached } = riverCourse(path, visits, length, riverRadius, phase, { mask, W, H }, style));
-    else streamPath = meanderPath();
-  } else streamPath = meanderPath();
+  // D292: the river swings over to the falls' pools and the inflows, the biggest first
+  for (const list of inflows()) {
+    const e = entryOf(list);
+    visits.push({ k: nearest[e.i], x: (e.i % W) + 0.5, y: Math.floor(e.i / W) + 0.5, weight: 1e6 + before.water.depth[e.outside] });
+  }
+  for (const c of mouths)
+    if ((s.meltwater && enough(c.lip)) || (c.oldWet && survivingFeed.depth[c.lip] > 0)) visits.push({ k: c.k, x: (c.landing % W) + 0.5, y: Math.floor(c.landing / W) + 0.5, weight: (c.oldWet ? 1e5 : 0) + c.area });
+  if (style.course === "visits") ({ course: streamPath, reached } = riverCourse(path, visits, length, riverRadius, phase, { mask, W, H }, style));
+  else streamPath = meanderPath();
   const channel = (points: Point[], beds: number[], width: number, at: number, kind = 2, record?: number[], exact = false) => {
     for (let k = 0; k < points.length; k++) {
       const a = points[Math.max(0, k - 1)];
@@ -552,7 +540,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       if (d !== cost[i]) continue;
       // (D292: every join goes to the main river itself, the nearest way across the floor at or below
       // its datum, never to another join along the wall's foot; a lip's other face to its own pool)
-      if ((finish ? stream[i] === 1 || (anyWater && i !== origin && stream[i] === 2 && draining[i]) : draining[i] || stream[i] === 1) && m.heights[i] <= datum) {
+      if ((stream[i] === 1 || (anyWater && i !== origin && stream[i] === 2 && draining[i])) && m.heights[i] <= datum) {
         goal = i;
         break;
       }
@@ -564,7 +552,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
         const j = yy * W + xx;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H || mask[j] !== 1) continue;
         if (dx && dy && mask[y * W + xx] !== 1 && mask[yy * W + x] !== 1) continue;
-        const next = d + portable.hypot(dx, dy) * (finish ? 1 : 1 + Math.max(0, floor[j] - datum) * 0.25);
+        const next = d + portable.hypot(dx, dy);
         if (next < cost[j]) {
           cost[j] = next;
           parent[j] = i;
@@ -580,7 +568,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     indices.reverse();
     let join = indices.map((i) => ({ x: (i % W) + 0.5, y: Math.floor(i / W) + 0.5 }));
     // (D292: a straight stream across the floor where the floor lets it, a tile a point)
-    if (finish && goal !== origin) {
+    if (goal !== origin) {
       const a = { x: (origin % W) + 0.5, y: Math.floor(origin / W) + 0.5 };
       const b = join.at(-1)!;
       const count = Math.max(1, Math.ceil(portable.hypot(b.x - a.x, b.y - a.y)));
@@ -609,7 +597,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     return lengthOf(join);
   };
   // (D292: how far across the floor each tile is from the river, for the falls it passes close by)
-  const riverDist = finish ? floorDistance(mask, stream, W, H) : new Float64Array(0);
+  const riverDist = floorDistance(mask, stream, W, H);
   const reachedAt = new Set(reached.map((v) => Math.floor(v.y) * W + Math.floor(v.x)));
   yield;
   for (const c of mouths) {
@@ -626,7 +614,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     const lipAt = c.lip;
     const from = { x: (c.landing % W) + 0.5, y: Math.floor(c.landing / W) + 0.5 };
     // (D292: a fall the river doesn't reach, nor passes close by, stays a dry hanging valley)
-    const feed = s.meltwater && enough(c.lip) && (!finish || reachedAt.has(c.landing) || riverDist[c.landing] <= style!.reach);
+    const feed = s.meltwater && enough(c.lip) && (reachedAt.has(c.landing) || riverDist[c.landing] <= style.reach);
     const oldWet = c.oldWet && survivingFeed.depth[c.lip] > 0;
     const cells: number[] = [];
     if (feed || oldWet) {
@@ -671,13 +659,8 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   for (const i of landings) {
     const from = { x: (i % W) + 0.5, y: Math.floor(i / W) + 0.5 };
     // (D292: the lip's other face runs into its own fall's pool, beside it)
-    if (finish) {
-      if (stream[i]) continue;
-      joins.push({ kind: "spill", from: i, length: joinRiver(from, path[nearest[i]].s, 0.5, undefined, true) });
-      continue;
-    }
-    channel([from], [floor[i]], 1.2, path[nearest[i]].s, 2, undefined, true);
-    joins.push({ kind: "spill", from: i, length: joinRiver(from, path[nearest[i]].s) });
+    if (stream[i]) continue;
+    joins.push({ kind: "spill", from: i, length: joinRiver(from, path[nearest[i]].s, 0.5, undefined, true) });
   }
   yield;
   const scree = hanging.filter((h) => h.source !== null || before.water.depth[h.mouth] > 0.03).map((h) => h.landing);
@@ -783,7 +766,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
   {
     // (D292: the outgoing river starts no higher than the river reaches it, so the river never backs
     // up over its floor behind a sill at the snout)
-    const outlet = finish ? Math.min(snout.floor, riverBeds.at(-1)!) : snout.floor;
+    const outlet = Math.min(snout.floor, riverBeds.at(-1)!);
     let bed = outlet;
     let tailArc = 14;
     const beds = tail.map((q, k) => {
@@ -806,26 +789,24 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     for (const { i, outside } of list) if (far(i)) m.heights[i] = Math.max(m.heights[i], Math.min(top, Math.ceil(before.heights[outside] + before.water.depth[outside])));
     // (D292: its shore too, two tiles out from its water: an outside river backed up by its new
     // outlet spreads over its shore, and at the floor's level it would run over the floor as a sheet)
-    if (finish) {
-      const wet = new Set(list.map((e) => e.outside));
-      const shore = new Set<number>();
-      for (const o of wet)
-        for (let dy = -2; dy <= 2; dy++)
-          for (let dx = -2; dx <= 2; dx++) {
-            const x = (o % W) + dx;
-            const y = Math.floor(o / W) + dy;
-            const j = y * W + x;
-            if (x >= 0 && y >= 0 && x < W && y < H && mask[j] !== 1) shore.add(j);
-          }
-      for (const o of shore)
-        for (const [dx, dy] of N4) {
+    const wet = new Set(list.map((e) => e.outside));
+    const shore = new Set<number>();
+    for (const o of wet)
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
           const x = (o % W) + dx;
           const y = Math.floor(o / W) + dy;
-          const i = y * W + x;
-          if (x >= 0 && y >= 0 && x < W && y < H && mask[i] === 1 && far(i) && m.heights[i] <= m.heights[o]) m.heights[i] = Math.min(top, m.heights[o] + 1);
+          const j = y * W + x;
+          if (x >= 0 && y >= 0 && x < W && y < H && mask[j] !== 1) shore.add(j);
         }
-    }
-    joins.push({ kind: "inflow", from: entry.i, length: joinRiver(centre, path[nearest[entry.i]].s, finish ? riverRadius : Math.min(riverRadius, 0.99)) });
+    for (const o of shore)
+      for (const [dx, dy] of N4) {
+        const x = (o % W) + dx;
+        const y = Math.floor(o / W) + dy;
+        const i = y * W + x;
+        if (x >= 0 && y >= 0 && x < W && y < H && mask[i] === 1 && far(i) && m.heights[i] <= m.heights[o]) m.heights[i] = Math.min(top, m.heights[o] + 1);
+      }
+    joins.push({ kind: "inflow", from: entry.i, length: joinRiver(centre, path[nearest[entry.i]].s, riverRadius) });
     yield;
   }
   // the upstream bank continues round a bar until the river itself drops (closing the lateral
@@ -840,7 +821,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
           const x = (i % W) + dx;
           const y = Math.floor(i / W) + dy;
           const j = y * W + x;
-          if (x >= 0 && y >= 0 && x < W && y < H && (stream[j] === 1 || stream[j] === 2)) bank = Math.max(bank, m.heights[j] + freeboard, receivingSpill[j] + (finish ? freeboard : 1));
+          if (x >= 0 && y >= 0 && x < W && y < H && (stream[j] === 1 || stream[j] === 2)) bank = Math.max(bank, m.heights[j] + freeboard, receivingSpill[j] + freeboard);
         }
         m.heights[i] = Math.max(m.heights[i], Math.min(top, bank));
       }
@@ -874,47 +855,31 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     while (idTaken(id)) id = guidFrom("glaciate", s.seed, intent.origin, serial++);
     return id;
   };
-  // a group's other springs are named from its anchor (an earlier glacier's group, from the same
-  // anchor, may still stand)
-  const memberId = (anchor: string, x: number, y: number) => {
-    let id = guidFrom(anchor, x, y);
-    for (let k = 1; idTaken(id); k++) id = guidFrom(anchor, x, y, k);
-    return id;
-  };
   const addSource = (i: number, strength: number, id = newId()) => {
     m.entities.push(waterSource({ id, owner: "glaciate", x: i % W, y: Math.floor(i / W), z: m.heights[i], strength }));
   };
-  // D314: the finished glacier's springs come in groups, as the game's own maps have them (a row
-  // across the flow, fewer where cramped, the strength shared; core/water/sourceGroups.ts); round 4's
-  // (the investigation's, `finish` off) stay one a site
+  // D314: the glacier's springs come in groups, as the game's own maps have them (a row across the
+  // flow, fewer where cramped, the strength shared; core/water/sourceGroups.ts)
   const taken = new Uint8Array(n);
-  if (finish) for (const e of m.entities) for (const i of entityTiles(e)) taken[i] = 1;
+  for (const e of m.entities) for (const i of entityTiles(e)) taken[i] = 1;
   const addGroup = (i: number, strength: number, flow: readonly [number, number]) => {
-    const g = placeSourceGroup({ kind: "water", x: i % W, y: Math.floor(i / W), strength, seed: hash32(s.seed, intent.origin, i), flow }, { W, H, heights: m.heights, occupied: taken });
+    const req = { kind: "water", x: i % W, y: Math.floor(i / W), strength, seed: hash32(s.seed, intent.origin, i), flow } as const;
+    const g = placeSourceGroup(req, { W, H, heights: m.heights, occupied: taken });
     if (g.refused || !g.sources.length) return addSource(i, strength);
-    const anchor = newId();
-    for (const q of g.sources) {
+    // a group's other springs are named from its anchor by the one rule (water/sourceGroups.ts
+    // `groupMemberId`), past any id taken (an earlier glacier's group, from the same anchor, may still stand)
+    const ids = groupIds(newId(), req, g, idTaken);
+    g.sources.forEach((q, k) => {
       const at = q.y * W + q.x;
-      addSource(at, q.strength, at === i ? anchor : memberId(anchor, q.x, q.y));
+      addSource(at, q.strength, ids[k]);
       taken[at] = 1;
-    }
+    });
   };
   if (s.meltwater) {
-    let strength = 0.65 + cleanAbsorbed;
-    if (finish) {
-      // the cirque head: one group at the tarn, across the glacier's way down
-      const a = path[0];
-      const b = path[Math.min(6, path.length - 1)];
-      addGroup(tile(tarn), strength, [b.x - a.x, b.y - a.y]);
-    } else {
-      const sites = [tile(tarn), ...lakeSeeds.filter((i) => i !== tile(tarn))];
-      let index = 0;
-      while (strength > 0) {
-        const amount = Math.min(8, strength);
-        addSource(sites[index++ % sites.length], amount);
-        strength -= amount;
-      }
-    }
+    // the cirque head: one group at the tarn, across the glacier's way down
+    const a = path[0];
+    const b = path[Math.min(6, path.length - 1)];
+    addGroup(tile(tarn), 0.65 + cleanAbsorbed, [b.x - a.x, b.y - a.y]);
     const fed = hanging.filter((h) => h.source !== null);
     const weights = fed.map((h) => (0.12 + Math.min(0.32, h.catchment / 650)) * (0.65 + noise(s.seed, h.mouth) * 0.7));
     const budget = Math.max(0.25, riverRadius * 0.7);
@@ -922,8 +887,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
     for (let k = 0; k < fed.length; k++) {
       const h = fed[k];
       // (a hanging valley's spring: a group at its lip, across its fall into the trough)
-      if (finish) addGroup(h.source!, weights[k] * scale, [(h.landing % W) - (h.mouth % W), Math.floor(h.landing / W) - Math.floor(h.mouth / W)]);
-      else addSource(h.source!, weights[k] * scale);
+      addGroup(h.source!, weights[k] * scale, [(h.landing % W) - (h.mouth % W), Math.floor(h.landing / W) - Math.floor(h.mouth / W)]);
     }
   }
   m.entities = plainEntities(m.entities);
@@ -979,7 +943,7 @@ function* planOnce(input: FullForceMap, settings: GlaciateSettings, intent: Glac
       outwash: 0,
       requestedWidth: sizeOf(s),
     },
-    finished: { style: style ? `${style.course}${style.byWater === "cut" ? ", benches by water" : ""}` : "round 4", visits: visits.length, reached: reached.length },
+    finished: { style: `${style.course}${style.byWater === "cut" ? ", benches by water" : ""}`, visits: visits.length, reached: reached.length },
     joins,
   };
   let removed = true;

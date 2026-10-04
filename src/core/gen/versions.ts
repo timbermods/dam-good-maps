@@ -13,7 +13,7 @@
 
 import { sameLand } from "../analysis/story";
 import type { MapSpec, ThemeId } from "../spec/mapspec";
-import { generate, type GenerateOptions, type GenerateResult } from "./generate";
+import { generate, type GenerateResult } from "./generate";
 import type { Outcomes } from "./outcomes";
 
 /** The most versions the background search makes before it gives up (the session's default,
@@ -78,19 +78,16 @@ export interface VersionSearch {
 
 /**
  * The background search: siblings of the map (its spec, the intentions it was steered toward, its
- * land) past its own variation, until one passes and meets all three outcomes. `stop()` ends it
- * early (a new map was asked for); `onTry` hears each sibling.
+ * land) past its own variation, until one passes and meets all three outcomes.
  */
-export function findVersion(from: { spec: MapSpec; intentions: readonly string[]; heights: ArrayLike<number> }, opts: { tries?: number; stop?: () => boolean; onTry?: (variation: number, r: GenerateResult) => void; generate?: GenerateOptions } = {}): VersionSearch {
+export function findVersion(from: { spec: MapSpec; intentions: readonly string[]; heights: ArrayLike<number> }): VersionSearch {
   const spec = from.spec;
   const intentions = spec.intentions ?? from.intentions;
-  const tries = opts.tries ?? VERSION_TRIES;
+  const tries = VERSION_TRIES;
   let variation = spec.variation ?? 0;
   for (let k = 0; k < tries; k++) {
-    if (opts.stop?.()) return { result: null, tried: k };
     variation++;
-    const r = generate(siblingSpec(spec, variation, intentions), opts.generate ?? {});
-    opts.onTry?.(variation, r);
+    const r = generate(siblingSpec(spec, variation, intentions));
     if (!r.report.passed || !r.outcomes?.met || sameLand(from.heights, r.built.heights)) continue;
     return { result: r, tried: k + 1 };
   }

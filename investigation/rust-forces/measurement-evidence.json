@@ -1,0 +1,7 @@
+{
+  "retired": true,
+  "reason": "D453/D454: no timing work or speed gate. Historical full results belong under ignored local/.",
+  "artifact": "local/adoption/historical/measurement-evidence.json",
+  "sha256": "fdb7de86ba17764a04ceafa45fb994986904ba1f34f29cb5c37fabfd600af458",
+  "historicalCommit": "1aed14e7d4eed36acdf52fc1fb07a7ab0dc323a3"
+}

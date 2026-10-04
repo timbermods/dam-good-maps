@@ -1,0 +1,108 @@
+{
+  "oracle": "a516e43de7446550db25c617c8e461ff0e0761ed",
+  "scope": "D453/D454: local CI byte checks and existing force suites; no corpus, pilot, matrix, projection, timing or window.",
+  "wasmSha256": "907cf7c42da6680f1ff731878f19421d585dbf0738bc3aef0d052f231e4bcbdb",
+  "nativeSha256": "4b3d437dd98fb2b3771af34070d7541688c5ddc8a3d1ccaa1e839dd37a8e6cff",
+  "rustSourceSha256": "18734d4bdbb08a867ed9e0b9b56dd4f777ab656f534da5b4d4e76d4c3ee8ed21",
+  "checks": {
+    "ciRustBuild": {
+      "status": "pass",
+      "command": "npx tsx tools/rust/build.ts --check --native"
+    },
+    "ciRustEngines": {
+      "status": "pass",
+      "command": "npx tsx tools/rust/check.ts --engines",
+      "mathVectors": 47063,
+      "waterFixtures": 19,
+      "targets": [
+        "native",
+        "node-wasm",
+        "chromium",
+        "firefox",
+        "webkit"
+      ]
+    },
+    "ciEngineSmoke": {
+      "status": "pass",
+      "command": "npx tsx tools/determinism/run.ts --smoke",
+      "cases": 183,
+      "checkpointsPerTarget": 610
+    },
+    "ciQuickSuite": {
+      "status": "pass",
+      "command": "npm run test:quick -- --maxWorkers 4 --config investigation/rust-forces/local/adoption/quick.config.mjs",
+      "passed": 1481,
+      "failed": 0,
+      "expectedFailures": 5,
+      "skipped": 14
+    },
+    "typecheck": {
+      "status": "pass",
+      "command": "npm run typecheck"
+    },
+    "build": {
+      "status": "pass",
+      "command": "npm run build"
+    },
+    "portableArithmetic": {
+      "status": "pass",
+      "command": "node verify-ir.mjs",
+      "portableSha256": "10ccff7e29fcd5d1dd0ec992e2c860423c77bf4f6e0a7aab0ceb513df123e0dd",
+      "guardSha256": "32ba64deb358b12e7d71c0e09cf55bd07d6205be2e28fe06eb552e2a93b25146"
+    },
+    "coreHostAdapter": {
+      "status": "pass",
+      "command": "node core-host-check.mjs",
+      "cases": 15
+    },
+    "forceSuitesAgainstRust": {
+      "status": "pass",
+      "commands": [
+        "node existing-tests.mjs --bail 0 (complete suite; original group-4 Carve tests stale)",
+        "DGM_TEST_REPORT=existing-upstream-carve.json node existing-tests.mjs tests/contract/carveBornAsItCuts.test.ts --bail 0 (affected file rerun with merged dev correction)"
+      ],
+      "passed": 217,
+      "failed": 0,
+      "files": 32
+    },
+    "forceBrowserSuites": {
+      "status": "pass",
+      "command": "node existing-browser.mjs --workers 3 --max-failures 1",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 3
+    },
+    "forceNativeWasmFixtures": {
+      "status": "pass",
+      "commands": [
+        "node check.mjs --verbs footprint,craterize,erupt,quake,carve,glaciate --sizes 128 --count 2 --name adoption-final --exports --server",
+        "node browser.mjs --verbs footprint,craterize,erupt,quake,carve,glaciate --sizes 128 --count 2 --name adoption-final --exports"
+      ],
+      "native": 12,
+      "nodeWasm": 12,
+      "browserPerEngine": 12,
+      "exports": true
+    }
+  },
+  "upstreamTestFix": {
+    "commit": "f1a87b54c933540b9dd20179216ba09ec734122b",
+    "path": "tests/contract/carveBornAsItCuts.test.ts",
+    "baselineSha256": "6243ad4658ca7239120fe3b60b22080b494e6b7f77b56b6632c110358923065a",
+    "mergedTestSha256": "cd36f9d326f6a7dafe91116ac40744d20293341393d58940bb6bd3f2390d9935",
+    "testSha256": "572a4d9495fa0e89f1ca5b2a88bcd4258afcec818655cc05b6180159675064e1",
+    "scope": "Merged dev test-only fix: cancel leftover force and measure half the cut. Omit removed setEditorWaterMode API: group 1 opened() already selects defer. Assertions unchanged from merged dev. No force code changes."
+  },
+  "supersededBaselineFailures": [
+    {
+      "file": "tests/contract/carveBornAsItCuts.test.ts",
+      "test": "Carve's river is born as it cuts (D371) the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it",
+      "message": "AssertionError: expected 121 to be greater than 121\n    at C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/rust-forces/local/checkout/tests/contract/carveBornAsItCuts.test.ts:93:30\n    at file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/rust-forces/local/checkout/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:20"
+    },
+    {
+      "file": "tests/contract/carveBornAsItCuts.test.ts",
+      "test": "Carve's river is born as it cuts (D371) undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none",
+      "message": "TypeError: Cannot read properties of null (reading 'planned')\n    at partWay (C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/rust-forces/local/checkout/tests/contract/carveBornAsItCuts.test.ts:112:37)\n    at C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/rust-forces/local/checkout/tests/contract/carveBornAsItCuts.test.ts:119:5\n    at file:///C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/rust-forces/local/checkout/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:20"
+    }
+  ],
+  "artifactDirectory": "local/adoption/"
+}

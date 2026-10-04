@@ -1,0 +1,32 @@
+--- a/investigation/rust-forces/src/lib.rs
++++ b/investigation/rust-forces/src/lib.rs
+@@ -6319,15 +6319,15 @@
+             model.emitters.clone(),
+             d,
+             c,
+-            false,
+-            false,
++            true,
++            true,
+         )
+     };
+     let mut sim = new_sim(start_d.clone(), start_c.clone());
+     let mut sealed = retained.map_or_else(Vec::new, |r| r.tiles.clone());
+     sealed.sort_unstable();
+     sealed.dedup();
+-    sim.settle(4.0, 128, 0.005, 0.005, &sealed);
++    sim.settle(6.0, 128, 0.005, 0.005, &sealed);
+     let n = model.w * model.h;
+     let mut fed = vec![false; n];
+     let mut queue = Vec::with_capacity(n);
+@@ -8301,8 +8301,8 @@
+         m.emitters,
+         p.map.depth.clone(),
+         p.map.contamination.clone(),
+-        false,
+-        false,
++        true,
++        true,
+     );
+     let count = |s: &water::Sim| {
+         (0..s.n)
