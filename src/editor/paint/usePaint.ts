@@ -177,6 +177,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
       setTool(null);
       pickShelf(null);
       setPicked(null);
+      // the brush takes the map's left button now, not a frame later: the very next press paints
+      brushToolRef.current = t;
+      const r = renderer.current;
+      const p = painter.current;
+      if (r && p) r.tool = p.tool;
     }
   }
 

@@ -14,8 +14,9 @@ import { naturalDepth, naturalWidth } from "../core/forces/carve/character";
 import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN } from "../core/forces/carve/run";
 import { CEILING } from "../core/format/world";
 
-import { powerWord, wanderWord, type ForceStatus } from "./forceDriver";
-import { AutoDetail, CellRow, ForceKeys, ForceOptions, MoreButton, MoreRow, SIZE_KEYS, SizeControl, STRENGTH_KEYS, type Force } from "./TopBar";
+import { wanderWord, type ForceStatus } from "./forceDriver";
+import { FloorSetting, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
+import { ButtonSetting, ChoiceSetting, NumberSetting, SettingsGrid, Words } from "./settings";
 import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next carve (the page keeps it for the visit). Its details (wander,
@@ -81,9 +82,6 @@ export interface CarveRowProps {
   onAgain(): void;
   onPause(): void;
   onRevert(): void;
-  /** More is open (D309): closed by default, remembered while it stays open. */
-  more: boolean;
-  onMore(open: boolean): void;
   /** The settings the last carve actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: CarveSettings | null;
 }
@@ -94,39 +92,40 @@ export function CarveRow(p: CarveRowProps) {
   const st = p.status;
   if (st) {
     return (
-      <CellRow
+      <SettingsGrid
         label="Carve at work"
-        cells={[
+        groups={[
           {
             key: "status",
+            row: 1,
             at: 1,
-            span: 5,
+            span: 7,
+            rows: 2,
             centre: true,
-            node: (
-              <span class="bar-status" role="status">
-                {st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}
-              </span>
-            ),
+            node: <Words status>{st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}</Words>,
           },
           {
             key: "pause",
-            at: 6,
-            span: 1,
+            row: 1,
+            at: 8,
+            span: 2,
+            rows: 2,
             centre: true,
             node: (
-              <button type="button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
+              <button type="button" class="set-button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
                 {st.paused ? "Resume" : "Pause"}
               </button>
             ),
           },
-          { key: "keys", at: 7, span: 3, centre: true, node: <ForceKeys /> },
           {
             key: "revert",
+            row: 1,
             at: 10,
             span: 2,
+            rows: 2,
             centre: true,
             node: (
-              <button type="button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
+              <button type="button" class="set-button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
                 Revert
               </button>
             ),
@@ -141,121 +140,126 @@ export function CarveRow(p: CarveRowProps) {
   const walls = u.walls ?? drawn?.walls ?? "steep";
   const depth = u.depth ?? drawn?.depth ?? naturalDepth(u.power, width);
   const banks = u.banks ?? drawn?.banks ?? 0;
+  const OFF = CEILING + 1;
   return (
-    <>
-      <ForceOptions
-        force={p.force}
-        power={
-          <label class="slider-field" {...tip("How hard it cuts", ...STRENGTH_KEYS)}>
-            <input type="range" min={0} max={100} step={5} aria-label="Power" aria-valuetext={`${u.power}, ${powerWord(u.power)}`} value={u.power} onInput={(e) => set({ power: Number((e.target as HTMLInputElement).value) })} />
-            <output title={powerWord(u.power)}>{u.power}</output>
-          </label>
-        }
-        size={
-          <SizeControl
-            label="Size"
-            title="How wide it cuts"
-            keys={SIZE_KEYS}
-            value={Math.round(width)}
-            words={u.width === null ? width.toFixed(1) : String(u.width)}
-            min={2}
-            max={24}
-            step={1}
-            onChange={(v) => set({ width: v })}
-            auto={{ on: u.width === null, onAuto: (on) => set({ width: on ? null : Math.round(width) }) }}
-          />
-        }
-        choice={{
-          label: "What it leaves",
+    <SettingsGrid
+      label="Carve options"
+      groups={[
+        {
+          key: "power",
+          row: 1,
+          at: 1,
+          span: 2,
+          node: <NumberSetting label="Power" title="How hard it cuts" keys={STRENGTH_KEYS} value={u.power} words={String(u.power)} min={0} max={100} step={5} onChange={(power) => set({ power })} />,
+        },
+        {
+          key: "size",
+          row: 1,
+          at: 3,
+          span: 2,
           node: (
-            <div class="segmented" role="group" aria-label="What it leaves">
-              <button type="button" aria-pressed={!u.dry} title="A river that keeps flowing" onClick={() => set({ dry: false })}>
-                Keep river
-              </button>
-              <button type="button" aria-pressed={u.dry} title="A dry canyon" onClick={() => set({ dry: true })}>
-                Dry canyon
-              </button>
-            </div>
+            <NumberSetting
+              label="Size"
+              title="How wide it cuts"
+              keys={SIZE_KEYS}
+              value={Math.round(width)}
+              words={u.width === null ? width.toFixed(1) : String(u.width)}
+              min={2}
+              max={24}
+              step={1}
+              onChange={(v) => set({ width: v })}
+              auto={{ on: u.width === null, onAuto: (on) => set({ width: on ? null : Math.round(width) }), title: u.width === null ? "Size follows Power" : "Let the size follow Power", follows: "Power" }}
+            />
           ),
-        }}
-        again={
-          p.canAgain ? (
-            <button type="button" onClick={p.onAgain} title="Carve it another way">
-              Try another
-            </button>
-          ) : null
-        }
-        more={<MoreButton open={p.more} onToggle={() => p.onMore(!p.more)} />}
-      />
-      {p.more ? (
-        <MoreRow
-          force={p.force}
-          details={[
-            {
-              label: "Wander",
-              node: (
-                <AutoDetail label="Wander" on={u.wander === null} onAuto={(on) => set({ wander: on ? null : wander })}>
-                  <label class="slider-field" title="How much it winds">
-                    <input type="range" min={0} max={100} step={5} aria-label="Wander" aria-valuetext={`${wander}, ${wanderWord(wander)}`} value={wander} onInput={(e) => set({ wander: Number((e.target as HTMLInputElement).value) })} />
-                    <output>{wanderWord(wander)}</output>
-                  </label>
-                </AutoDetail>
-              ),
-            },
-            {
-              label: "Walls",
-              node: (
-                <AutoDetail label="Walls" on={u.walls === null} onAuto={(on) => set({ walls: on ? null : walls })}>
-                  <select aria-label="Walls" title="Steep or wide walls" value={walls} onChange={(e) => set({ walls: (e.target as HTMLSelectElement).value as CarveUi["walls"] })}>
-                    <option value="steep">Steep</option>
-                    <option value="wide">Wide</option>
-                  </select>
-                </AutoDetail>
-              ),
-            },
-            {
-              label: "Canyon depth",
-              node: (
-                <SizeControl
-                  label="Canyon depth"
-                  title="How deep the canyon cuts"
-                  value={depth}
-                  min={DEPTH_MIN}
-                  max={DEPTH_MAX}
-                  step={1}
-                  onChange={(v) => set({ depth: v })}
-                  auto={{ on: u.depth === null, onAuto: (on) => set({ depth: on ? null : depth }) }}
-                />
-              ),
-            },
-            {
-              label: "River depth",
-              node: (
-                <span class="size-control">
-                  <label class="slider-field" title="How deep the river's water may be">
-                    <input type="range" min={1} max={CEILING} step={1} aria-label="River depth" aria-valuetext={u.riverDepth === null ? "Off" : String(u.riverDepth)} value={u.riverDepth ?? RIVER_DEPTH_DEFAULT} disabled={u.riverDepth === null} onInput={(e) => set({ riverDepth: Number((e.target as HTMLInputElement).value) })} />
-                    <output>{u.riverDepth === null ? "Off" : u.riverDepth}</output>
-                  </label>
-                  <button type="button" class="auto-button" aria-pressed={u.riverDepth === null} aria-label="River depth off" title={u.riverDepth === null ? "Limit the river's depth" : "No limit on the river's depth"} onClick={() => set({ riverDepth: u.riverDepth === null ? RIVER_DEPTH_DEFAULT : null })}>
-                    Off
-                  </button>
-                </span>
-              ),
-            },
-            {
-              label: "Banks",
-              node: (
-                <AutoDetail label="Banks" on={u.banks === null} onAuto={(on) => set({ banks: on ? null : banks })}>
-                  <label class="slider-field" title="Flat land beside the water">
-                    <input type="range" min={0} max={BANKS_MAX} step={1} aria-label="Banks" aria-valuetext={banks ? `${banks} tiles` : "None"} value={banks} onInput={(e) => set({ banks: Number((e.target as HTMLInputElement).value) })} />
-                    <output>{banks || "None"}</output>
-                  </label>
-                </AutoDetail>
-              ),
-            },
-          ]}
-        />
-      ) : null}
-    </>
+        },
+        {
+          key: "leaves",
+          row: 1,
+          at: 5,
+          span: 3,
+          node: (
+            <ChoiceSetting<"river" | "canyon">
+              label="What it leaves"
+              value={u.dry ? "canyon" : "river"}
+              options={[
+                ["river", "River", "A river that keeps flowing"],
+                ["canyon", "Canyon", "A dry canyon"],
+              ]}
+              onChange={(v) => set({ dry: v === "canyon" })}
+            />
+          ),
+        },
+        {
+          key: "wander",
+          row: 1,
+          at: 8,
+          span: 2,
+          node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
+        },
+        {
+          key: "walls",
+          row: 1,
+          at: 10,
+          span: 2,
+          node: (
+            <ChoiceSetting<"steep" | "wide">
+              label="Walls"
+              value={walls}
+              options={[
+                ["steep", "Steep", "Steep walls"],
+                ["wide", "Wide", "Wide walls"],
+              ]}
+              onChange={(v) => set({ walls: v })}
+              auto={{ on: u.walls === null, onAuto: (on) => set({ walls: on ? null : walls }) }}
+            />
+          ),
+        },
+        {
+          key: "depth",
+          row: 2,
+          at: 1,
+          span: 3,
+          node: (
+            <NumberSetting
+              label="Canyon depth"
+              title="How deep the canyon cuts"
+              value={depth}
+              min={DEPTH_MIN}
+              max={DEPTH_MAX}
+              step={1}
+              onChange={(v) => set({ depth: v })}
+              auto={{ on: u.depth === null, onAuto: (on) => set({ depth: on ? null : depth }) }}
+            />
+          ),
+        },
+        {
+          key: "river",
+          row: 2,
+          at: 4,
+          span: 2,
+          node: (
+            <NumberSetting
+              label="River depth"
+              title="How deep the river's water may be"
+              value={u.riverDepth ?? OFF}
+              words={u.riverDepth === null ? "Off" : String(u.riverDepth)}
+              min={1}
+              max={OFF}
+              step={1}
+              onChange={(v) => set({ riverDepth: v >= OFF ? null : v })}
+            />
+          ),
+        },
+        {
+          key: "banks",
+          row: 2,
+          at: 6,
+          span: 2,
+          node: <NumberSetting label="Banks" title="Flat land beside the water" value={banks} words={banks ? String(banks) : "None"} min={0} max={BANKS_MAX} step={1} onChange={(v) => set({ banks: v })} auto={{ on: u.banks === null, onAuto: (on) => set({ banks: on ? null : banks }) }} />,
+        },
+        { key: "floor", row: 2, at: 8, span: 2, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
+      ]}
+    />
   );
 }

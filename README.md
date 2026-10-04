@@ -42,8 +42,8 @@ The editor:
   shown beside the pointer, with hard edges.
 - Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
   either end, **Free** raises or digs softly.
-- The held tool's settings sit just above the bar: **Size**, **Level**, **Mode** and **Sources**, then
-  **Square** and **Straight lines**. **Flatten** adds **In steps**.
+- The held tool's settings sit just above the bar: **Size**, **Level** (or **Strength**), **Mode**,
+  **Sources** and **Brush** (**Round**, **Square** or **Lines**). **Flatten** adds **Steps**.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
@@ -55,7 +55,7 @@ The editor:
 - The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
   a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
-  Power. **Try another** gives a different result; **More** holds the details.
+  Power. Every setting shows; **Auto** lets the land decide one. **Try another** gives a different result.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
 - The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.

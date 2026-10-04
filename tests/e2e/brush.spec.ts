@@ -6,7 +6,7 @@
 // D322); the stroke is still there after a reload (Your maps keeps it).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, settingValue } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -101,7 +101,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await page.keyboard.down("Control");
   await page.mouse.click(p.x, p.y);
   await page.keyboard.up("Control");
-  await expect(page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" })).toHaveValue(String(level));
+  await expect(settingValue(page, "Level")).toHaveText(String(level));
   expect((await info(page)).history.length).toBe(steps);
 
   // { and } size the brush (D368 (1)); Shift+wheel sets Smooth's strength (D196, as the game); each shows
@@ -194,6 +194,27 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   await page.mouse.move(cx, cy, { steps: 8 });
   await page.mouse.up();
   await settled(page);
+  expect(await view()).toBe(turned);
+
+  // a press straight after picking a brush paints, not a frame later (the milestone session's bug): put away, then the
+  // brush picked and a drag sent in the same moment, before the page draws again
+  await page.keyboard.press("Escape");
+  await expect(raise).toHaveAttribute("aria-pressed", "false");
+  n = await count();
+  await page.evaluate(
+    ([x, y]) => {
+      (document.querySelector('[aria-label="Lower brush (2)"]') as HTMLButtonElement).click();
+      const c = document.querySelector(".view3d > canvas")!;
+      const ev = (type: string, px: number, buttons: number) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 8, pointerType: "mouse", isPrimary: true, clientX: px, clientY: y, button: 0, buttons });
+      c.dispatchEvent(ev("pointerdown", x - 120, 1));
+      c.dispatchEvent(ev("pointermove", x, 1));
+      c.dispatchEvent(ev("pointermove", x + 120, 1));
+      c.dispatchEvent(ev("pointerup", x + 120, 0));
+    },
+    [cx, cy - 60],
+  );
+  await settled(page);
+  expect(await count()).toBe(n + 1);
   expect(await view()).toBe(turned);
   expect(errors).toEqual([]);
 });

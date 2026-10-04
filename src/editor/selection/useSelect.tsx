@@ -12,7 +12,7 @@ import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
 import { BAD, LOWERS, MOVING, RAISES } from "../tools";
 import { tip } from "../../ui/Tooltip";
-import { CellRow, type Cell } from "../TopBar";
+import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 
@@ -353,8 +353,8 @@ export function useSelect(ed: Ed): SelectSlice {
     if (!z || (!brushTool && !tool)) return null;
     void selectionTick;
     return (
-      <button type="button" class="select-chip" {...tip("Select an area", "M")} onClick={openSelect}>
-        Working inside {z.w} × {z.h} · Esc to clear
+      <button type="button" class="select-chip" {...tip("Working inside this area: Select again", "M", "Esc clears it")} onClick={openSelect}>
+        Working inside {z.w} × {z.h}
       </button>
     );
   }
@@ -376,109 +376,85 @@ export function useSelect(ed: Ed): SelectSlice {
       onBlur: () => setSelectPreview(null),
     });
     const choices = deleteMenu && z ? deleteChoices() : [];
-    // Layout 2 (Kyler, 2026-10-03): How to select on the tools' six cells, one shape per cell, icon above its name;
-    // on the forces' five, with no heading, what a drag does, Shift and Alt as key caps (or the selection's size).
-    // A selection's actions take the row above, one per cell. No close button: Esc or X closes it.
-    const keys = (
-      <span class="sel-keys">
-        <kbd class="cap">Shift</kbd> adds · <kbd class="cap">Alt</kbd> takes away
+    // Kyler's option B (2026-10-03): How to select's six shapes on the tools' six cells, icon above its name; beside them
+    // what a drag does, or the selection's size; a selection's Level and actions on the second row, one per cell; keys
+    // only in tooltips (Shift adds, Alt takes away, in the shapes').
+    const shapes = (
+      <span class="segmented shapes" role="group" aria-label="How to select">
+        {SELECT_MODES.map(([v, name, hint]) => (
+          <button type="button" class="icon-button" key={v} aria-label={name} aria-pressed={(selecting ?? "rect") === v} {...tip(`${name}: ${hint}`, "Shift adds", "Alt takes away")} onClick={() => setSelecting(v)}>
+            <ModeIcon mode={v} />
+            <span class="icon-word">{name}</span>
+          </button>
+        ))}
+        <button type="button" class="icon-button" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
+          <WholeMapIcon />
+          <span class="icon-word">Whole map</span>
+        </button>
       </span>
     );
-    const shapes: Cell = {
-      key: "shapes",
-      at: 1,
-      span: 6,
-      label: "How to select",
+    if (!z)
+      return (
+        <SettingsGrid
+          label="Selection"
+          groups={[
+            { key: "shapes", row: 1, at: 1, span: 6, rows: 2, node: shapes },
+            { key: "status", row: 1, at: 7, span: 5, rows: 2, centre: true, node: <Words status>Drag on the map</Words> },
+          ]}
+        />
+      );
+    const deep = deepest >= 1;
+    const act = (key: string, at: number, label: string, title: ReturnType<typeof tip>, what: "raise" | "lower" | "flatten" | "cut" | "fill", run: () => void): Group => ({
+      key,
+      row: 2,
+      at,
+      span: 1,
       node: (
-        <span class="segmented shapes" role="group" aria-label="How to select">
-          {SELECT_MODES.map(([v, name, hint]) => (
-            <button type="button" class="icon-button" key={v} aria-label={name} aria-pressed={(selecting ?? "rect") === v} title={`${name}: ${hint}`} onClick={() => setSelecting(v)}>
-              <ModeIcon mode={v} />
-              <span class="icon-word">{name}</span>
-            </button>
-          ))}
-          <button type="button" class="icon-button" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
-            <WholeMapIcon />
-            <span class="icon-word">Whole map</span>
+        <div class="set">
+
+          <button type="button" class="set-button" {...title} {...way(what)} onClick={run}>
+            {label}
           </button>
-        </span>
+        </div>
       ),
-    };
-    const status: Cell = {
-      key: "status",
-      at: 7,
-      span: 5,
-      centre: true,
-      node: (
-        <span class="bar-status sel-status">
-          <span class="sel-line" role="status">
-            {z ? sizeWords(z) : "Drag on the map"}
-          </span>
-          {keys}
-        </span>
-      ),
-    };
-    const button = (key: string, at: number, node: ComponentChildren, span = 1): Cell => ({ key, at, span, node });
-    const actions: Cell[] = z
-      ? [
-          button(
-            "up",
-            1,
-            <button type="button" {...tip("Raise the selection one level", "Up")} {...way("raise")} onClick={() => selectAction("raise")}>
-              Up 1
-            </button>,
-          ),
-          button(
-            "down",
-            2,
-            <button type="button" {...tip("Lower the selection one level", "Down")} {...way("lower")} onClick={() => selectAction("lower")}>
-              Down 1
-            </button>,
-          ),
-          {
-            key: "level",
-            at: 3,
-            span: 1,
-            label: "Level",
-            node: (
-              <input
-                type="number"
-                aria-label="Level"
-                {...tip("The level", "Ctrl+click", "Shift+scroll")}
-                min={0}
-                max={BRUSH_MAX_LEVEL}
-                step={1}
-                value={level}
-                onInput={(e) => setFlattenTo(Math.max(0, Math.min(BRUSH_MAX_LEVEL, Math.round(Number((e.target as HTMLInputElement).value) || 0))))}
-              />
-            ),
-          },
-          button(
-            "flatten",
-            4,
-            <button type="button" title="Set the area to this level" {...way("flatten")} onClick={() => selectAction("flatten", level)}>
-              Flatten
-            </button>,
-          ),
-          button(
-            "cut",
-            5,
-            <button type="button" title="Cut the ground above this level" {...way("cut")} onClick={() => selectAction("cut", level)}>
-              Cut down
-            </button>,
-          ),
-          button(
-            "fill",
-            6,
-            <button type="button" title="Fill the ground below this level" {...way("fill")} onClick={() => selectAction("fill", level)}>
-              Fill up
-            </button>,
-          ),
-          button(
-            "delete",
-            7,
+    });
+    const groups: Group[] = [
+      { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
+      { key: "size", row: 1, at: 7, span: deep ? 2 : 5, centre: true, node: <Words status>{sizeWords(z)}</Words> },
+      ...(deep
+        ? [
+            {
+              key: "depth",
+              row: 1 as const,
+              at: 9,
+              span: 2,
+              node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={deepest} step={1} onChange={(v) => setMaxDepth(v)} />,
+            },
+            { key: "apply", row: 1 as const, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)} /> },
+          ]
+        : []),
+      {
+        key: "level",
+        row: 2,
+        at: 1,
+        span: 5,
+        node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} onChange={(v) => setFlattenTo(v)} />,
+      },
+      act("up", 6, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
+      act("down", 7, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
+      act("flatten", 8, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
+      act("cut", 9, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
+      act("fill", 10, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
+      {
+        key: "delete",
+        row: 2,
+        at: 11,
+        span: 1,
+        node: (
+          <div class="set">
+
             <span class="menu-wrap">
-              <button type="button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
+              <button type="button" class="set-button" aria-haspopup="menu" aria-expanded={deleteMenu} {...tip("Delete what stands here", "Delete")} onClick={() => setDeleteMenu(!deleteMenu)}>
                 Delete
               </button>
               {deleteMenu ? (
@@ -511,36 +487,14 @@ export function useSelect(ed: Ed): SelectSlice {
                   )}
                 </ul>
               ) : null}
-            </span>,
-          ),
-          ...(deepest >= 1
-            ? [
-                {
-                  key: "depth",
-                  at: 8,
-                  span: 1,
-                  label: "Water",
-                  node: <input type="number" aria-label="Max water depth" title="The deepest the water may be" min={1} max={deepest} step={1} value={depth} onInput={(e) => setMaxDepth(Math.max(1, Math.min(deepest, Math.round(Number((e.target as HTMLInputElement).value) || 1))))} />,
-                },
-                button(
-                  "max-depth",
-                  9,
-                  <button type="button" title="Make the water no deeper than this" onClick={() => selectAction("depth", depth)}>
-                    Max water depth
-                  </button>,
-                  2,
-                ),
-              ]
-            : []),
-        ]
-      : [];
-    return (
-      <div class="cell-stack" role="group" aria-label="Selection">
-        <CellRow label="Shapes" cells={[shapes, status]} />
-        {actions.length ? <CellRow label="Actions" cells={actions} /> : null}
-      </div>
-    );
+            </span>
+          </div>
+        ),
+      },
+    ];
+    return <SettingsGrid label="Selection" groups={groups} />;
   }
+
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */
   function objectFootprints(): number[][] {
     const e = mirror.current.entities;

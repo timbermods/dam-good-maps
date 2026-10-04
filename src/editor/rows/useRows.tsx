@@ -38,7 +38,7 @@ export function useRows(ed: Ed): RowsSlice {
     api, info, tool, options, setOptions, shelf, shelfOptions, setShelfOptions, feel, setPicked, picked,
     pickedObject, setPickedObject, optionsRef, enqueue, run, strengthOfEntity, liveStrength, entityIndexOf,
     groupsRef, pointedWords, removeSources, carveUi, setCarveUi, craterUi, setCraterUi, eruptUi, setEruptUi, quakeUi,
-    setQuakeUi, glaciateUi, setGlaciateUi, moreOpen, setMoreOpen, forcer, lastUnleash, unleashPower, setUnleashPower,
+    setQuakeUi, glaciateUi, setGlaciateUi, forcer, lastUnleash, unleashPower, setUnleashPower,
     unleash, unleashAgain, unleashDown, forceAgain
   } = ed;
 
@@ -296,8 +296,6 @@ export function useRows(ed: Ed): RowsSlice {
     const force = FORCES.find((f) => f.id === tool)!;
     const st = forcer.current?.status ?? null;
     const canAgain = info.forceAgain === tool;
-    const more = moreOpen[tool as Verb] ?? false;
-    const onMore = (open: boolean) => setMoreOpen((m) => ({ ...m, [tool as Verb]: open }));
     if (tool === "carve")
       return (
         <CarveRow
@@ -311,17 +309,15 @@ export function useRows(ed: Ed): RowsSlice {
           onAgain={() => void forceAgain()}
           onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
           onRevert={() => forcer.current?.cancel()}
-          more={more}
-          onMore={onMore}
           drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
         />
       );
     if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
     const again = () => void forceAgain();
-    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
-    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
-    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
-    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} more={more} onMore={onMore} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
+    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
+    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
+    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 
   return { pickTile, pickedRow, shelfRow, forceRow };

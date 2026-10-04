@@ -370,6 +370,15 @@ refinements and what the mockups left open:
   legend (20 lines, "Markers on:" and its 4 lines, with Under roofs added to the Show column) needs 437px at
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
+- **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
+  for every tool, two rows on one grid of the bar's own 11 cells, every setting a plate on whole cells (its edges on
+  the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
+  of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
+  (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;
+  no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
+  work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
+  (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. The panel's 120px is set by Carve, the
+  fullest (nine settings and Try another, five plates a row). The rest of this item describes the build before.
 - **The settings on the bar's cells:** each group keeps its place on every tool of its kind, an empty place left
   empty, so nothing jumps between tools: Smooth and Naturalize (no Level) give Size cells 1–4; Flatten's In steps
   takes cells 9–11 of the row above; Quake (no Size) has its Lift or Slide in the choice's cells 7–9; Glaciate's

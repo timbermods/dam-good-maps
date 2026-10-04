@@ -17,7 +17,7 @@ import { bandTiles, FreehandPath } from "../freehand";
 import { downhillPath, pathLength, pathTiles, resamplePath, type PathPoint } from "../../core/forces/path";
 import type { Verb } from "../../core/forces/op";
 import type { ForceCue } from "../../core/forces/runs";
-import { ForceKeys, type Cell } from "../TopBar";
+import { Words, type Group } from "../settings";
 import { FLOOR_DEFAULT } from "../../core/forces/floor";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "../forceSize";
 import { hasTarget, nextSize, sizeMax } from "../brushes";
@@ -34,7 +34,7 @@ export interface ForceRunSlice {
   unleash: (e: EntityInfo, end?: [number, number], via?: [number, number][]) => void;
   unleashAgain: (e: EntityInfo) => void;
   unleashDown: (ev: PointerEvent, e: EntityInfo) => void;
-  unleashRow: () => { label: string; cells: Cell[] } | null;
+  unleashRow: () => { label: string; groups: Group[] } | null;
   startForce: (req: ForceRequest, painting?: boolean) => void;
   steerTiles: (path: readonly PathPoint[], downhill: boolean) => { origin: [number, number]; end: [number, number]; via: [number, number][]; reversed: boolean } | null;
   pathFrame: { current: number };
@@ -313,42 +313,35 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   }
 
   /** The row while an unleashed source's carve works: Carve's own controls. */
-  function unleashRow(): { label: string; cells: Cell[] } | null {
+  function unleashRow(): { label: string; groups: Group[] } | null {
     const st = forcer.current?.status ?? null;
     if (!unleashing || !st) return null;
     return {
       label: "Unleash at work",
-      cells: [
-        {
-          key: "status",
-          at: 1,
-          span: 5,
-          centre: true,
-          node: (
-            <span class="bar-status" role="status">
-              {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
-            </span>
-          ),
-        },
+      groups: [
+        { key: "status", row: 1, at: 1, span: 7, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
         {
           key: "pause",
-          at: 6,
-          span: 1,
+          row: 1,
+          at: 8,
+          span: 2,
+          rows: 2,
           centre: true,
           node: (
-            <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
+            <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
               {st.paused ? "Resume" : "Pause"}
             </button>
           ),
         },
-        { key: "keys", at: 7, span: 3, centre: true, node: <ForceKeys /> },
         {
           key: "revert",
+          row: 1,
           at: 10,
           span: 2,
+          rows: 2,
           centre: true,
           node: (
-            <button type="button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
+            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
               Revert
             </button>
           ),

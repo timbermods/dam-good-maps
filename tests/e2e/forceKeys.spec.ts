@@ -72,16 +72,17 @@ async function spot(page: Page): Promise<[number, number]> {
   return best;
 }
 
-test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
+test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto lit while Size follows Power", async ({ page }) => {
   await openTopDown(page);
   const at = await spot(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
-  const size = row.locator(".size-control output");
-  const power = row.locator('label.slider-field:has(input[aria-label="Power"])').locator("output");
-  // numbers: Power's, and Size's on Auto as "Auto (n)"
+  const size = row.locator('.set:has(input[aria-label="Size"]) .set-value');
+  const power = row.locator('.set:has(input[aria-label="Power"]) .set-value');
+  // numbers: Power's, and Size's on Auto (its Auto lit) the number Power gives
   await expect(power).toHaveText(/^\d+$/);
-  await expect(size).toHaveText(/^Auto \(\d+\)$/);
+  await expect(size).toHaveText(/^\d+$/);
+  await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
   const p = await client(page, at[0], at[1]);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
@@ -122,15 +123,17 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await expect(power).toHaveText(String(Math.min(100, p0 + 5)));
   await page.keyboard.press("[");
   await expect(power).toHaveText(String(p0));
-  // back to Auto: "Auto (n)"
+  // back to Auto: Auto lit, the number Power gives
   await row.getByRole("button", { name: "Size follows Power" }).click();
-  await expect(size).toHaveText(/^Auto \(\d+\)$/);
+  await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
+  await expect(size).toHaveText(/^\d+$/);
 
   // Carve's Size is its width: F sizes it too
   await page.keyboard.press("7");
   const carve = page.getByRole("group", { name: "Carve options" });
-  await expect(carve.locator(".size-control output")).toHaveText(/^Auto \([\d.]+\)$/);
-  await expect(carve.locator('label.slider-field:has(input[aria-label="Power"])').locator("output")).toHaveText(/^\d+$/);
+  await expect(carve.locator('.set:has(input[aria-label="Size"]) .set-value')).toHaveText(/^[\d.]+$/);
+  await expect(carve.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
+  await expect(carve.locator('.set:has(input[aria-label="Power"]) .set-value')).toHaveText(/^\d+$/);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
@@ -139,7 +142,7 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await page.mouse.move(c.x, c.y, { steps: 6 });
   await expect(note(page)).toHaveText(/^size (9|10|11)$/);
   await page.keyboard.up("f");
-  await expect(carve.locator(".size-control output")).toHaveText(/^(9|10|11)$/);
+  await expect(carve.locator('.set:has(input[aria-label="Size"]) .set-value')).toHaveText(/^(9|10|11)$/);
 });
 
 test("A3, A4: every drawn gesture is a band of its width along the line with no ring, and Esc while it is drawn cancels it, nothing starting; a painted Lift goes back at once", async ({ page }) => {
@@ -196,7 +199,7 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
   await page.getByRole("group", { name: "Quake options" }).getByRole("button", { name: "Lift" }).click();
   await draw();
   await expect.poll(() => status(page)).not.toBeNull();
-  await expect(page.getByRole("group", { name: "Quake at work" }).locator(".force-keys")).toHaveText("Esc to cancel");
+  await expect(page.getByRole("group", { name: "Quake at work" }).getByRole("button", { name: "Revert" })).toHaveAttribute("title", "Take the fault back");
   await page.keyboard.press("Escape");
   await expect.poll(() => status(page)).toBeNull();
   await page.mouse.up();
@@ -340,11 +343,11 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     const power = row.getByRole("slider", { name: "Power" });
     await power.fill("50");
     const hasSize = name !== "Quake";
-    const size = row.locator(".size-control output");
+    const size = row.locator('.set:has(input[aria-label="Size"]) .set-value');
     await point(false);
     if (hasSize) {
       // F with the mouse: its Size, off Auto
-      await expect(size).toHaveText(/^Auto/);
+      await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
       await fSize(false);
       await expect(size, `${name}: F sizes it`).toHaveText(/^[\d.]+$/);
       const s0 = Number(await size.textContent());
@@ -370,7 +373,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     await page.keyboard.press("[");
     await page.keyboard.press("[");
     await expect(power).toHaveValue("45");
-    if (hasSize) await expect(size, `${name}: [ ] leave its Size`).toHaveText(/^Auto/);
+    if (hasSize) await expect(row.getByRole("button", { name: "Size follows Power" }), `${name}: [ ] leave its Size`).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press(key);
   }
 });

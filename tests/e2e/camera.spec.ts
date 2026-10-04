@@ -72,14 +72,14 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   // typing in a field or choosing from a list moves nothing (a toggle just clicked does not hold the
   // keys: the camera moves on)
   await page.keyboard.press("3");
-  const toggle = page.getByRole("group", { name: "Flatten options" }).getByLabel("Square");
+  const toggle = page.getByRole("group", { name: "Flatten options" }).getByRole("group", { name: "Brush" }).getByRole("button", { name: "Square" });
   await toggle.focus();
   const t1 = (await view(page)).target;
   await page.keyboard.down("d");
   await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t1);
   await page.keyboard.up("d");
   await rests(page);
-  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" });
+  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Level", exact: true });
   await field.focus();
   const t0 = (await view(page)).target;
   await page.keyboard.down("d");

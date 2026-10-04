@@ -4,7 +4,7 @@
 // stroke starts, and kept in its operation; each brush remembers its mode.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setLevel } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -45,7 +45,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   await page.keyboard.press("2");
   const row = page.getByRole("group", { name: "Lower options" });
   await row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Ground" }).click();
-  await row.getByRole("combobox", { name: "Target level" }).selectOption("0");
+  await setLevel(row, 0);
   const before = await state(page);
   const W = before.W;
   const p = await client(page, x, y - 3);
@@ -75,7 +75,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   const frow = page.getByRole("group", { name: "Flatten options" });
   await frow.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Water" }).click();
   const bed = after.heights[y * W + x];
-  await frow.getByRole("combobox", { name: "Target level" }).selectOption(String(bed + 1));
+  await setLevel(frow, bed + 1);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const w0 = await state(page);
   const q = await client(page, x, y);

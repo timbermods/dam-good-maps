@@ -5,7 +5,7 @@
 // Start, Pine, then the rest.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { choose, openEditor, setLevel, settingValue } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -35,13 +35,13 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });
     await expect(row.getByRole("slider", { name: "Size" })).toBeVisible();
-    await expect(row.locator(".size-control output")).toHaveText(/^\d+(\.5)?$/);
+    await expect(settingValue(page, "Size")).toHaveText(/^\d+(\.5)?$/);
   }
   // set on Lower's slider, a stroke is that size
   await page.keyboard.press("2");
   const lower = page.getByRole("group", { name: "Lower options" });
   await lower.getByRole("slider", { name: "Size" }).fill("8");
-  await expect(lower.locator(".size-control output")).toHaveText("8");
+  await expect(settingValue(page, "Size")).toHaveText("8");
   const i = await page.evaluate(() => window.dgmEditor!.info());
   const a = await client(page, Math.round(i.W * 0.3), Math.round(i.H * 0.3));
   const b = await client(page, Math.round(i.W * 0.3) + 6, Math.round(i.H * 0.3));
@@ -58,8 +58,8 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   const big = String(Math.ceil(Math.max(i.W, i.H) / 2));
   await expect(flat.getByRole("slider", { name: "Size" })).toHaveAttribute("max", big);
   await flat.getByRole("slider", { name: "Size" }).fill(big);
-  await flat.getByLabel("Square").check();
-  await flat.getByRole("combobox", { name: "Target level" }).selectOption("6");
+  await choose(flat, "Brush", "Square");
+  await setLevel(flat, 6);
   const mid = await client(page, Math.floor(i.W / 2), Math.floor(i.H / 2));
   await page.mouse.click(mid.x, mid.y);
   await idle(page);
@@ -68,7 +68,7 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   expect(hs.filter((h) => h === 6).length).toBeGreaterThan(hs.length * 0.95);
   await page.keyboard.press("Control+z");
   await idle(page);
-  await flat.getByLabel("Square").uncheck();
+  await choose(flat, "Brush", "Round");
   await flat.getByRole("slider", { name: "Size" }).fill("5");
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("2");

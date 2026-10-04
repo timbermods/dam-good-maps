@@ -973,188 +973,265 @@
   background: var(--rule);
 }
 
-/* later rows stack upward: the first sits on the bar, and the bar never moves */
+/* the held tool's settings (Kyler's option B, 2026-10-03): one panel at the bar's width and one height, 120px, for
+   every tool; two rows on one grid, the bar's own cells, every group spanning whole cells; one look per kind */
 .tool-dock > .tool-settings {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 6px;
-  padding: 6px 4px;
+  display: block;
+  box-sizing: border-box;
+  height: 120px;
+  padding: 4px;
 }
 
-.cell-stack,
-.cell-rows {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 6px;
-}
-
-.cell-row {
+.settings-grid {
   display: grid;
   grid-template-columns: var(--cells);
-  column-gap: 2px;
-  align-items: start;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px 2px;
+  height: 100%;
 }
 
-.cell-group {
+.set-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
   min-width: 0;
-  padding: 0 2px;
-}
-
-.cell-head {
-  height: 15px;
-  overflow: hidden;
-  font-size: 0.75rem;
-  line-height: 15px;
-  color: var(--muted);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.cell-body {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 37px;
-  font-size: 0.8rem;
-}
-
-/* a group with no name line, centred across its cells and down (Select's instruction, a force at work) */
-.cell-group.centre {
-  align-self: stretch;
-  justify-content: center;
-}
-
-.cell-group.centre .cell-body {
-  flex: 1;
-  justify-content: center;
   min-height: 0;
 }
 
-.cell-body > .slider-field,
-.cell-body > .size-control,
-.cell-body > .size-control > .slider-field {
+.set-group.centre {
+  justify-content: center;
+  align-items: center;
+}
+
+.set {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* each setting a plate on its exact cells, as the bar's buttons are: its edges on the cells, 2px between plates */
+.set.plate {
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+/* the name line: the name at the left; the value, then Auto, at the right; one size, readable */
+.set-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.set-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.set-right {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  min-width: 0;
 }
 
-.cell-body input[type="range"] {
-  flex: 1;
-  width: auto;
-  min-width: 0;
-}
-
-.cell-body output {
-  flex: none;
+.set-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-.cell-body select,
-.cell-body input[type="number"] {
+/* Auto: one small word in the same place on every control that has it, lit while the land decides */
+.set-auto {
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 11px;
+  line-height: 14px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.set-auto[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* a number: a slider across the whole group, filled to its value; on Auto the land's value, hollow and unfilled */
+.set-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
   width: 100%;
-  min-width: 0;
+  height: 26px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.cell-body > .segmented,
-.cell-body > .size-control > .segmented {
+.set-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill), color-mix(in srgb, var(--ink) 20%, transparent) var(--fill));
+}
+
+.set-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.set-range::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.set-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.set-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.set.auto .set-value {
+  font-weight: 400;
+}
+
+.set.auto .set-range::-webkit-slider-runnable-track {
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.set.auto .set-range::-webkit-slider-thumb {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+}
+
+.set.auto .set-range::-moz-range-progress {
+  background: transparent;
+}
+
+.set.auto .set-range::-moz-range-thumb {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+}
+
+.set-range:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* a choice: one segmented look, two options or four, a toggle as Off and On; the player's pick filled, the land's
+   (Auto) outlined */
+.set-seg {
   display: flex;
-  flex: 1;
-  min-width: 0;
+  height: 26px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.cell-body .segmented > button {
+.set-seg button {
   flex: 1 1 0;
   min-width: 0;
-  padding-left: 4px;
-  padding-right: 4px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
   white-space: nowrap;
+  color: var(--ink);
 }
 
-.cell-body > button,
-.cell-end > button:not(.linkish) {
-  flex: 1;
-  min-width: 0;
-  padding-left: 6px;
-  padding-right: 6px;
-  white-space: nowrap;
+.set-seg button + button {
+  border-left: 1px solid var(--rule);
 }
 
-.cell-body label.check {
-  white-space: nowrap;
+.set-seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
-.cell-body .bar-status {
-  padding: 0;
-  line-height: 1.25;
-  white-space: nowrap;
+.set.auto .set-seg button[aria-pressed="true"] {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 5px;
 }
 
-.cell-body .source-readout-label {
-  display: none;
-}
-
-.cell-end {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
+/* a button: the controls' height, the group's width */
+.set-button {
   width: 100%;
+  height: 100%;
+  padding: 0 6px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
-/* Select's shapes: one cell each, icon above its name, the bar's 2px gaps */
-.cell-body > .segmented.shapes {
+.set-group.centre .set-button {
+  width: calc(100% - 8px);
+}
+
+.set-words {
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Select's shapes: one cell each, icon above its name, the group's full height */
+.set-group > .segmented.shapes {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 2px;
-  width: 100%;
+  height: 100%;
 }
 
-.segmented.shapes > button {
+.set-group > .segmented.shapes > button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  height: 44px;
+  gap: 4px;
+  height: 100%;
   margin: 0;
-  padding: 3px 2px;
+  padding: 2px;
   border-radius: 6px;
 }
 
-.segmented.shapes > button .icon-word {
+.set-group > .segmented.shapes > button .icon-word {
   display: block;
   padding: 0;
-  font-size: 0.75rem;
-  line-height: 1.1;
+  font-size: 13px;
   white-space: nowrap;
-}
-
-/* the shapes' cells are the bar's own, so they lose the segmented switch's joined edges */
-.cell-group:has(> .cell-body > .shapes) {
-  padding: 0;
-}
-
-/* Select's line: what a drag does, then Shift and Alt as key caps */
-.sel-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--ink);
-  font-size: 0.85rem;
-}
-
-.sel-keys {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.sel-keys kbd.cap {
-  margin: 0 2px;
 }
 
 /* a menu in the settings opens upward, over the map */
@@ -1162,6 +1239,7 @@
   position: relative;
   display: flex;
   flex: 1;
+  min-height: 0;
 }
 
 .tool-settings .menu-wrap > button {
@@ -1171,6 +1249,19 @@
 .tool-settings .select-menu {
   top: auto;
   bottom: calc(100% + 4px);
+}
+
+/* the working area while a brush or a force is out with a selection, above the panel */
+.tool-dock > .working-note {
+  align-self: center;
+}
+
+.working-note .select-chip {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
 }
 
 /* the first steps' hints sit above the bar's settings */
@@ -1260,4 +1351,79 @@
   resize: none;
   overflow: hidden;
   line-height: 1.45;
+}
+
+/* the object window's settings: each name above its control, the panel's name size and colour */
+.object-window .cell-head {
+  height: 16px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.object-window .cell-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.object-window .cell-body > .slider-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.object-window .cell-body input[type="range"] {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.object-window .cell-body output {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.object-window .cell-body select {
+  width: 100%;
+  min-width: 0;
+}
+
+.object-window .cell-body > .segmented {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.object-window .cell-body .segmented > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+  white-space: nowrap;
+}
+
+.object-window .cell-body > button {
+  flex: 1;
+  min-width: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+
+.object-window .cell-body .bar-status {
+  padding: 0;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.object-window .cell-body .source-readout-label {
+  display: none;
 }

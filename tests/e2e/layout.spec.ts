@@ -118,8 +118,9 @@ const settle = async (page: Page, w: number, h: number) => {
   await page.waitForTimeout(300);
 };
 
-/** The held tool's settings stand on the bar's cells: every group starts at a cell's left edge and ends at a cell's
- *  right edge, and the panel is the bar's exact width. */
+/** The held tool's settings stand on the bar's cells (Kyler's option B): one panel at the bar's exact width and one
+ *  height, 120px, for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
+ *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
 async function onTheCells(page: Page, state: string) {
   const r = await page.evaluate(() => {
     const box = (e: Element) => e.getBoundingClientRect();
@@ -128,19 +129,28 @@ async function onTheCells(page: Page, state: string) {
     const settings = document.querySelector(".tool-settings");
     return {
       bar: [box(bar).left, box(bar).right],
-      settings: settings ? [box(settings).left, box(settings).right] : null,
+      settings: settings ? [box(settings).left, box(settings).right, box(settings).height] : null,
       lefts: cells.map((c) => c.left),
       rights: cells.map((c) => c.right),
-      groups: [...document.querySelectorAll(".tool-settings .cell-group")].map((g) => ({ name: g.querySelector(".cell-head")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right })),
+      groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
   expect(r.lefts.length, "the bar's eleven cells").toBe(11);
   if (!r.settings) return;
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
+  same(r.settings[2], 120, `the settings' one height (${state})`);
   for (const g of r.groups) {
     expect(Math.min(...r.lefts.map((x) => Math.abs(x - g.l))), `${g.name} starts on a cell (${state})`).toBeLessThanOrEqual(0.6);
     expect(Math.min(...r.rights.map((x) => Math.abs(x - g.r))), `${g.name} ends on a cell (${state})`).toBeLessThanOrEqual(0.6);
+  }
+  // no empty cells: each row's groups cover its eleven cells (a group on both rows counts in each)
+  const width = r.rights[10] - r.lefts[0];
+  const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
+  for (const top of tops.slice(0, 2)) {
+    const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
+    const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[5] && g.r > r.lefts[6]) ? 0 : r.lefts[6] - r.rights[5] - 2);
+    same(covered, width, `the row at ${top} has no empty cells (${state})`, 1);
   }
 }
 
@@ -246,17 +256,16 @@ for (const [w, h] of SIZES) {
       }
       if (panel) await header.getByRole("button", { name: "Map Generator", exact: true }).click();
     }
-    // the held tools' settings on the bar's cells: a brush, a force and its More, an object's
-    for (const [key, what] of [["1", "Raise"], ["3", "Flatten"], ["7", "Carve"], ["9", "Quake"]] as const) {
+    // every tool's settings on the bar's cells, one height (Select's in hand at first)
+    await onTheCells(page, "Select");
+    for (const [key, what] of [["1", "Raise"], ["2", "Lower"], ["3", "Flatten"], ["4", "Smooth"], ["5", "Naturalize"], ["7", "Carve"], ["8", "Craterize"], ["0", "Erupt"], ["9", "Quake"], ["-", "Glaciate"]] as const) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
-      if (what === "Carve") {
-        await page.getByRole("button", { name: "More", exact: true }).click();
-        await onTheCells(page, "Carve's More");
-        await page.getByRole("button", { name: "Less", exact: true }).click();
-      }
       await page.keyboard.press("Escape");
     }
+    await page.keyboard.press("Control+a");
+    await onTheCells(page, "Select, with a selection");
+    await page.keyboard.press("Escape");
     // an object's settings in its window directly above the objects list, on its edges, one gap between; no row above
     // the bar for it (Kyler's sitting, 2026-10-03): picked in the list, and picked on the map
     const objectWindow = async (state: string) => {

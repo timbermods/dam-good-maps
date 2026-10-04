@@ -103,12 +103,12 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   await page.keyboard.down("Control");
   await page.mouse.click(tp.x, tp.y);
   await page.keyboard.up("Control");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(h0[t[1] * W + t[0]]));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(h0[t[1] * W + t[0]]));
   // the level reaches the editor's one ceiling, 22 on every map (D244, D259)
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveAttribute("max", "22");
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveAttribute("max", "22");
   // Flatten (one level above it): exactly the circle's tiles, one undo step
   const L = Math.min(22, h0[t[1] * W + t[0]] + 1);
-  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
+  await row.getByRole("slider", { name: "Level", exact: true }).fill(String(L));
   const n0 = (await labels(page)).length;
   await row.getByRole("button", { name: "Flatten" }).click();
   await idle(page);
@@ -125,7 +125,8 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
   // the land inside it, a level a tile at most from its edge
   await page.keyboard.press("1");
   await expect(row).toHaveCount(0);
-  await expect(page.locator(".select-chip")).toHaveText("Working inside 9 × 9 · Esc to clear");
+  await expect(page.locator(".select-chip")).toHaveText("Working inside 9 × 9");
+  await expect(page.locator(".select-chip")).toHaveAttribute("data-keys", /Esc clears it/);
   const e0 = await client(page, c[0] - 7, c[1]);
   const e1 = await client(page, c[0] - 1, c[1]);
   await page.mouse.move(e0.x, e0.y);
@@ -228,7 +229,7 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   // Flatten on the water's selection: its bed at that level, one step
   await page.getByRole("button", { name: "Select (M)" }).click();
   const L = Math.min(...sel.map((i) => h0[i])) + 1;
-  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
+  await row.getByRole("slider", { name: "Level", exact: true }).fill(String(L));
   const n0 = (await labels(page)).length;
   await row.getByRole("button", { name: "Flatten" }).click();
   await idle(page);
@@ -244,7 +245,7 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");
   const h0 = await heights(page);
   const L = 8;
-  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(L));
+  await row.getByRole("slider", { name: "Level", exact: true }).fill(String(L));
   await row.getByRole("button", { name: "Cut down" }).click();
   await idle(page);
   expect((await labels(page)).at(-1)).toMatch(new RegExp(`^Cut [\\d,]+ tiles down to level ${L}$`));

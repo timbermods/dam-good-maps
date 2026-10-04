@@ -61,7 +61,7 @@ async function places(page: Page): Promise<{ start: [number, number]; far: [numb
       // (clear of the top row, and of the bar with its settings, which grow upward with the force picked: its More
       // takes further rows, and the first-run hints sit above them)
       const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
-      const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - (document.querySelector('.tool-settings [aria-label$=" details"]') ? 20 : 140);
+      const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - 20;
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
         return p.y > below && p.y < above && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
@@ -98,12 +98,12 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await page.keyboard.press("8");
   await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });
-  // its row: Power and Size, and a More button (D289: the click or drag is the mode; its walls,
-  // centre, debris and rays come from the land and the seed, behind More, D309)
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "More"]);
+  // its settings, all shown (Kyler's option B, no More): Power, Size, then its walls, centre, debris and rays from
+  // the land and the seed until pinned (D309), the Floor and Try another; the click or drag is the mode (D289)
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Floor"]);
+  for (const g of ["Walls", "Centre", "Debris", "Rays"]) await expect(row.getByRole("group", { name: g, exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   await expect(row.getByRole("combobox")).toHaveCount(0);
-  await expect(page.getByRole("group", { name: "Craterize details" })).toHaveCount(0);
   // a smaller one, so the test map stays readable
   await row.getByRole("slider", { name: "Power" }).fill("30");
 
@@ -125,7 +125,7 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   expect((await labels(page)).length).toBe(n0);
   // Esc as it strikes: straight to its end, kept as one step (D344, A4); undo takes it back
   await clickTile(page, far[0], far[1]);
-  await expect(page.getByRole("group", { name: "Craterize at work" }).locator(".force-keys")).toHaveText("Esc to skip · Ctrl+Z to undo");
+  await expect(page.getByRole("group", { name: "Craterize at work" }).getByRole("button", { name: "Revert" })).toHaveAttribute("data-keys", /Ctrl\+Z.*Esc skips to its end/);
   await page.keyboard.press("Escape");
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Craterize");
@@ -245,17 +245,14 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   }
 });
 
-test("Craterize's More (D309): closed by default, its details on Auto (select, segmented and toggle controls); a pin survives Try another", async ({ page }) => {
+test("Craterize's details (D309): always shown, each on Auto (choices and an Off and On); a pin survives Try another", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
-  await row.getByRole("button", { name: "More" }).click();
-  const details = page.getByRole("group", { name: "Craterize details" });
-  await expect(details).toBeVisible();
-  await expect(details.getByRole("combobox", { name: "Walls" })).toBeVisible();
-  await expect(details.getByRole("combobox", { name: "Centre" })).toBeVisible();
-  expect(await details.getByRole("group", { name: "Debris" }).getByRole("button").allTextContents()).toEqual(["Light debris", "Heavy debris"]);
-  await expect(details.getByRole("checkbox", { name: "Rays" })).toBeVisible();
+  const details = row;
+  for (const g of ["Walls", "Centre"]) await expect(details.getByRole("group", { name: g, exact: true })).toBeVisible();
+  expect(await details.getByRole("group", { name: "Debris" }).getByRole("button").allTextContents()).toEqual(["Light", "Heavy"]);
+  expect(await details.getByRole("group", { name: "Rays" }).getByRole("button").allTextContents()).toEqual(["Off", "On"]);
   for (const name of ["Walls follows the land", "Centre follows the land", "Debris follows the land", "Rays follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
 
   await row.getByRole("slider", { name: "Power" }).fill("30");
@@ -263,23 +260,24 @@ test("Craterize's More (D309): closed by default, its details on Auto (select, s
   await clickTile(page, far[0], far[1]);
   await settled(page);
   // pin Rays to whatever it just took (D309 (3)); Try another keeps that pin
-  const rays = await details.getByRole("checkbox", { name: "Rays" }).isChecked();
+  const raysOn = async () => (await details.getByRole("group", { name: "Rays" }).getByRole("button", { name: "On" }).getAttribute("aria-pressed")) === "true";
+  const rays = await raysOn();
   await details.getByRole("button", { name: "Rays follows the land" }).click();
   await expect(details.getByRole("button", { name: "Rays follows the land" })).toHaveAttribute("aria-pressed", "false");
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Try another");
-  expect(await details.getByRole("checkbox", { name: "Rays" }).isChecked()).toBe(rays);
+  expect(await raysOn()).toBe(rays);
 });
 
 test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mode); each one step; undo takes it back", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("0");
   const row = page.getByRole("group", { name: "Erupt options" });
-  // its row: Power and Size, and a More button (its shape, summit, flows and ridges from the land and
-  // the seed, behind More, D309)
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "More"]);
+  // its settings, all shown (no More): Power, Size, its shape, summit, flows and ridges from the land and the seed
+  // until pinned (D309), the Floor and Try another
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Floor"]);
+  for (const g of ["Shape", "Summit", "Flows", "Ridges"]) await expect(row.getByRole("group", { name: g, exact: true })).toBeVisible();
   await expect(row.getByRole("combobox")).toHaveCount(0);
   await row.getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
@@ -359,16 +357,19 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
   await openTopDown(page);
   await page.keyboard.press("9");
   const row = page.getByRole("group", { name: "Quake options" });
-  // its row: its one choice, Lift or Slide, then Power (its line sets its length), and a More button
-  // (D289: its scarp from the land and the seed, behind More, D309; V flips the side that moves)
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Lift", "Slide", "More"]);
-  await expect(row.locator("button").first()).toHaveAttribute("aria-pressed", "true");
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power"]);
-  await expect(row.getByRole("group", { name: "Side that moves" })).toHaveCount(0);
+  // its settings: its one choice, Lift or Slide, Power (its line sets its length), the Side that moves (V flips it),
+  // its scarp from the land and the seed until pinned (D309), the Floor and Try another; no More
+  await expect(row.getByRole("group", { name: "Mode" }).getByRole("button")).toHaveText(["Lift", "Slide"]);
+  await expect(row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Lift" })).toHaveAttribute("aria-pressed", "true");
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Floor"]);
+  const side = row.getByRole("group", { name: "Side" });
+  await expect(side.getByRole("button", { name: "Left" })).toHaveAttribute("aria-pressed", "true");
   expect((await gesture(page)).side).toBe(1);
   await page.keyboard.press("v");
   expect((await gesture(page)).side).toBe(-1);
-  await page.keyboard.press("v");
+  // (Side shows what V set, and sets it too)
+  await expect(side.getByRole("button", { name: "Right" })).toHaveAttribute("aria-pressed", "true");
+  await side.getByRole("button", { name: "Left" }).click();
   expect((await gesture(page)).side).toBe(1);
   await row.getByRole("slider", { name: "Power" }).fill("20");
 

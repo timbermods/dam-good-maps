@@ -230,20 +230,20 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   await page.keyboard.down("Control");
   await page.mouse.click(p.x, p.y);
   await page.keyboard.up("Control");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h));
   // Shift+scroll dials it
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -120);
   await page.keyboard.up("Shift");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h + 1));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h + 1));
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, 120);
   await page.mouse.wheel(0, 120);
   await page.keyboard.up("Shift");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h - 1));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h - 1));
   // the depth control's tooltip, when the selection holds deep water
-  const depth = row.getByRole("button", { name: "Max water depth" });
+  const depth = row.getByRole("button", { name: "Apply" });
   if (await depth.count()) await expect(depth).toHaveAttribute("title", "Make the water no deeper than this");
 });
 

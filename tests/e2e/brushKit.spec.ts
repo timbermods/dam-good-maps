@@ -10,7 +10,7 @@
 // size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { choose, openEditor, setLevel, settingValue } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -114,12 +114,13 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await page.keyboard.press("2");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });
-  for (const t of ["Square", "Straight lines"]) await expect(lowerRow.getByLabel(t)).not.toBeChecked();
+  // (the brush round, not square and not straight lines: one choice of three)
+  await expect(lowerRow.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Round" })).toHaveAttribute("aria-pressed", "true");
   // no Precise and no Stop at (D322); Both and Ride by default (items 2 and 31)
   for (const t of ["Precise", "Stop at", "Clear sources"]) await expect(lowerRow.getByLabel(t, { exact: true })).toHaveCount(0);
   await expect(lowerRow.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Both" })).toHaveAttribute("aria-pressed", "true");
   await expect(lowerRow.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");
-  await expect(lowerRow.getByLabel("In steps")).toHaveCount(0);
+  await expect(lowerRow.getByRole("group", { name: "Steps" })).toHaveCount(0);
   await expect(lowerRow.getByLabel("Level lines")).toHaveCount(0);
 
   // level lines: a view switch, Lines, right under Heights in the Show column (D248), the same with a brush out or none
@@ -144,7 +145,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   const pit = (await flatDry(page, start, 3))!;
   expect(pit).not.toBeNull();
   const h0 = await heightAt(page, ...pit);
-  await lowerRow.getByLabel("Square").check();
+  await choose(lowerRow, "Brush", "Square");
   const pp = await client(page, ...pit);
   // (the keys go to the map, not to the toggle just used)
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -156,7 +157,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await page.mouse.wheel(0, 100);
   await page.keyboard.up("Shift");
   await expect(note).toHaveText(`down to ${h0 - 2}`);
-  await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue(String(h0 - 2));
+  await expect(settingValue(page, "Level")).toHaveText(String(h0 - 2));
   // a small brush: 3 × 3 tiles ({ steps the size down: 5, 4, 3, 2)
   for (let k = 0; k < 3; k++) await page.keyboard.press("{");
   await page.waitForTimeout(100);
@@ -178,17 +179,17 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   expect(await heightAt(page, pit[0] + 2, pit[1])).toBe(h0);
   // Esc: the target follows the ground again (the brush stays out); Free past the list's end
   await page.keyboard.press("Escape");
-  await expect(lowerRow.getByRole("combobox", { name: "Target level" })).toHaveValue("follow");
-  await lowerRow.getByRole("combobox", { name: "Target level" }).selectOption("free");
+  await expect(settingValue(page, "Level")).toHaveText("−1");
+  await setLevel(lowerRow, "free");
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.mouse.move(pp.x + 2, pp.y);
   await expect(note).toHaveText("Free");
   await page.keyboard.press("Escape");
   for (let k = 0; k < 3; k++) await page.keyboard.press("}");
-  await lowerRow.getByLabel("Square").uncheck();
+  await choose(lowerRow, "Brush", "Round");
 
   // straight lines: the stroke is one straight line, its length beside the pointer (D183)
-  await lowerRow.getByLabel("Straight lines").check();
+  await choose(lowerRow, "Brush", "Lines");
   const a = (await flatDry(page, start, 2, [pit]))!;
   const pa = await client(page, a[0], a[1]);
   const pb = await client(page, a[0] + 8, a[1]);
@@ -203,16 +204,15 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   const ys = new Set<number>();
   for (let k = 1; k < st.dabs.length; k += 2) ys.add(Math.floor(st.dabs[k] / 4));
   expect(ys.size).toBeLessThanOrEqual(2);
-  await lowerRow.getByLabel("Straight lines").uncheck();
+  await choose(lowerRow, "Brush", "Round");
 
   // Flatten in steps: in the stroke's operation
   await page.keyboard.press("3");
   const flatRow = page.getByRole("group", { name: "Flatten options" });
-  await flatRow.getByLabel("In steps").check();
   // benches every 3 levels from a level just below this ground: the click takes it down to one
   const hb = await heightAt(page, a[0], a[1] + 6);
-  await flatRow.getByRole("combobox", { name: "Steps apart" }).selectOption("3");
-  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(hb - 1));
+  await choose(flatRow, "Steps", "3");
+  await setLevel(flatRow, hb - 1);
   const b = await client(page, a[0], a[1] + 6);
   await page.mouse.click(b.x, b.y);
   await settle(page);
@@ -220,12 +220,12 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   expect(await heightAt(page, a[0], a[1] + 6)).toBe(hb - 1);
   // no Ramped edges (D322: a walkable edge is the shelf's Slope); a level up from the ground: a
   // plateau the start fits on
-  await flatRow.getByLabel("In steps").uncheck();
+  await choose(flatRow, "Steps", "Off");
   await expect(flatRow.getByRole("combobox", { name: "Edges" })).toHaveCount(0);
   const f = (await flatDry(page, start, 4, [pit, a]))!;
   expect(f).not.toBeNull();
   const hf = await heightAt(page, ...f);
-  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(hf + 1));
+  await setLevel(flatRow, hf + 1);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const pf = await client(page, ...f);
   await page.mouse.move(pf.x, pf.y);
@@ -247,7 +247,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await idle(page);
   await expect.poll(async () => ((await info(page)).features.find((g) => g.kind === "start")!.params as { position: [number, number] }).position).toEqual([hint.x, hint.y]);
   for (let k = 0; k < 2; k++) await page.keyboard.press("{");
-  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
+  await setLevel(flatRow, "follow");
 
   // hold F and move the mouse: the ring's size follows, a click sets it (D205)
   const s0 = await client(page, ...f);
@@ -296,7 +296,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
     return null;
   }))!;
   expect(mine).not.toBeNull();
-  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption(String(Math.max(0, mine[2] - 2)));
+  await setLevel(flatRow, Math.max(0, mine[2] - 2));
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   // (below the rows over the map, which are three now: D323 item 9)
   // (a stroke that runs up to the mine site's west edge and holds there: its rim crosses the site
@@ -319,7 +319,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   st = (await lastStroke(page))!;
   expect(st.keep?.length ?? 0).toBeGreaterThan(0);
   expect((await page.evaluate(() => window.dgmEditor!.instant())).filter((c) => /floating|buried/i.test(c.message))).toEqual([]);
-  await flatRow.getByRole("combobox", { name: "Target level" }).selectOption("follow");
+  await setLevel(flatRow, "follow");
   // (the map framed again, as it was)
   await page.evaluate(() => window.dgm3d!.renderer.frameMap());
 
@@ -328,11 +328,12 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // its stroke over the pit's walls carries none
   const smoothRow = page.getByRole("group", { name: "Smooth options" });
   await expect(smoothRow).toBeVisible();
-  // (only the toggles all five brushes share: Square and Straight lines; its mode and sources)
-  await expect(smoothRow.getByRole("checkbox")).toHaveCount(2);
+  // (the brush all five share, round, square or straight lines; its strength, mode and sources)
+  await expect(smoothRow.getByRole("group", { name: "Brush" }).getByRole("button")).toHaveText(["Round", "Square", "Lines"]);
+  await expect(smoothRow.getByRole("slider", { name: "Strength", exact: true })).toBeVisible();
   await expect(smoothRow.getByRole("group", { name: "Sources" }).getByRole("button")).toHaveText(["Ride", "Keep", "Clear"]);
   await expect(smoothRow.getByRole("group", { name: "Mode" }).getByRole("button")).toHaveText(["Ground", "Water", "Both"]);
-  await expect(smoothRow.getByRole("combobox", { name: "Target level" })).toHaveCount(0);
+  await expect(smoothRow.getByRole("slider", { name: "Level", exact: true })).toHaveCount(0);
   await expect(smoothRow.getByLabel(/walkable/i)).toHaveCount(0);
   await page.mouse.click(pp.x, pp.y);
   await settle(page);
@@ -377,7 +378,9 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await page.mouse.move(q1.x, q1.y, { steps: 5 });
   await page.mouse.up();
   await page.keyboard.up("Control");
-  await expect(page.locator(".select-chip")).toHaveText("Working inside 6 × 5 · Esc to clear");
+  await expect(page.locator(".select-chip")).toHaveText("Working inside 6 × 5");
+  // (Esc clears it: in its tooltip, no keys written in the panel)
+  await expect(page.locator(".select-chip")).toHaveAttribute("data-keys", /Esc clears it/);
   await expect(page.getByRole("group", { name: "Selection" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Raise brush/ })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);

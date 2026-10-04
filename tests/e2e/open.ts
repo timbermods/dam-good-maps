@@ -76,3 +76,22 @@ export async function centreOn(page: Page, x: number, y: number): Promise<void> 
   }, [x, y] as [number, number]);
   await page.waitForTimeout(300);
 }
+
+/** A number setting's value as the panel shows it at the right of its name (the settings above the bar). */
+export const settingValue = (page: Page, label: string): Locator => page.locator(`.tool-settings .set:has(input[aria-label="${label}"]) .set-value`);
+
+/** Pick an option of a choice setting (one segmented look) inside `scope`. */
+export async function choose(scope: Locator, label: string, option: string): Promise<void> {
+  await scope.getByRole("group", { name: label, exact: true }).getByRole("button", { name: option, exact: true }).click();
+}
+
+/** Set a brush's Level inside `scope`: a number, "free" (Raise and Lower's last stop) or "follow" (Auto: the ground). */
+export async function setLevel(scope: Locator, v: number | "free" | "follow"): Promise<void> {
+  const auto = scope.getByRole("button", { name: "Level follows the ground" });
+  if (v === "follow") {
+    if ((await auto.getAttribute("aria-pressed")) !== "true") await auto.click();
+    return;
+  }
+  const s = scope.getByRole("slider", { name: "Level", exact: true });
+  await s.fill(v === "free" ? (await s.getAttribute("max"))! : String(v));
+}

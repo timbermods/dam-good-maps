@@ -50,7 +50,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   const tiles = await selection(page);
   expect(tiles.length).toBe(49);
   const lowest = Math.min(...tiles.map((i) => h0[i]));
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(lowest));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(lowest));
   // Raise: one level per click, one step; Lower likewise
   const n0 = (await labels(page)).length;
   await row.getByRole("button", { name: "Up 1" }).click();
@@ -80,7 +80,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   }
   await expect.poll(() => heights(page)).toEqual(h0);
   // Cut down to the level acts at once: nothing in the box is above it after
-  await row.getByRole("spinbutton", { name: "Level", exact: true }).fill(String(lowest));
+  await row.getByRole("slider", { name: "Level", exact: true }).fill(String(lowest));
   await row.getByRole("button", { name: "Cut down" }).click();
   await idle(page);
   const cut = await heights(page);

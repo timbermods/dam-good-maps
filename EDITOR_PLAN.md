@@ -92,20 +92,26 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a
   hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
   Craterize, Erupt, Quake, Glaciate, keys 7, 8, 0, 9, -; a force not adopted yet takes its place in the list):
-  eleven 76px cells, icon above name, keys only in tooltips. **The held tool's settings sit directly above it at its
-  exact width, on a grid whose columns are the bar's cells** (`Cell`, `CellRow` in `TopBar.tsx`): each group spans
-  whole cells, its name above its control, on one row, each in the same place on every tool of its kind (an empty
-  place left empty, so nothing jumps between tools):
-  - Select: How to select (cells 1–6, one shape per cell, icon above its name: Rectangle, Circle, Freehand, Brush,
-    Wand, Whole map) and, in cells 7–11 with no heading, "Drag on the map" with Shift and Alt as key caps (with a
-    selection, its size); a selection's actions take the row above, one per cell (Up 1, Down 1, Level, Flatten, Cut
-    down, Fill up, Delete, and Max water depth over water). No close button: Esc or X closes it.
-  - The brushes: Size 1 (4 where there is no Level) · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight
-    lines); Flatten's In steps takes cells 9–11 of the row above.
-  - The forces: Power 3 · Size 3 (with Auto) · its one choice 3 (Carve's What it leaves, Quake's Lift or Slide,
-    Glaciate's Meltwater) · Try another and More 2. **More** opens upward inside the panel: its details take
-    further rows of the same grid above the first, three cells each, the Floor last; the bar never moves. A force
-    at work: its status, Pause (Carve), the keys and Revert.
+  eleven 76px cells, icon above name, keys only in tooltips. **The held tool's settings sit directly above it**
+  (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
+  120px, for every tool; two rows on one grid, the bar's own 11 cells, every group spanning whole cells, so each edge
+  in one row lines up with the other and with the bar; no empty cells, a tool with fewer settings giving each more
+  room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
+  bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
+  toggle is Off and On); **Auto**, one small word in the same place on every control that has it, is lit while the
+  land (or Power, for a force's Size; the ground, for a brush's Level) decides, and Auto's pick is outlined (a
+  hollow slider, an outlined option) where the player's is filled; labels are said once, at one size; no dropdowns;
+  keys only in tooltips.
+  - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
+    selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it.
+  - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
+    Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
+    joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
+  - The forces: Power · Size (Auto: it follows Power) · their choices (Carve's What it leaves, Wander, Walls, Canyon
+    depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
+    Flows, Ridges; Quake's Mode, Side (V) and Scarp; Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
+    Try another, always in its place, ready once a run is kept. A force at work: its status, Pause (Carve) and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px

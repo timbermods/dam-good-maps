@@ -292,9 +292,9 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   expect(await tooltipOf(shelf.getByRole("button", { name: "Water source (6)" }))).toMatchObject({ text: "Where water starts", caps: ["6"] });
   expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
   await page.keyboard.press("7");
-  const size = page.getByRole("group", { name: "Carve options" }).locator(".size-control .slider-field");
+  const size = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Size"])');
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
-  const power = page.getByRole("group", { name: "Carve options" }).locator('label.slider-field:has(input[aria-label="Power"])');
+  const power = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Power"])');
   expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });

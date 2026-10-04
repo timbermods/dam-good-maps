@@ -7,7 +7,7 @@
 // the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, setLevel } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -89,7 +89,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   const row = page.getByRole("group", { name: "Raise options" });
   const sourcesChoice = row.getByRole("group", { name: "Sources" });
   await expect(sourcesChoice.getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");
-  await row.getByRole("combobox", { name: "Target level" }).selectOption("free");
+  await setLevel(row, "free");
 
   // off: a stroke over A leaves it standing on its raised tile
   const a0 = (await sources(page)).find((s) => s.x === ax && s.y === ay)!;
