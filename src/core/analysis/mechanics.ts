@@ -16,7 +16,7 @@
 // map's water does, or its wet tiles differ from the map's on 10% or more of the map (official maps
 // without a cause differ by at most 9%). A start under a roof is approximate on its own.
 
-import { FOOTPRINTS, worldBlocks } from "../format/footprints";
+import { startMiddleTile } from "../format/footprints";
 import { isDelayed, specifiedStrength, type MapObject } from "../sim/model";
 
 export const CAVE_SHARE = 0.05;
@@ -59,15 +59,7 @@ export function mechanicsOf(objects: readonly MapObject[], floors: Uint8Array, s
   const caveShare = floors.length ? caves / floors.length : 0;
   let startUnderRoof = false;
   if (starts.length === 1) {
-    const cells = worldBlocks(FOOTPRINTS.StartingLocation, starts[0]).filter((b) => b.localZ === 0);
-    let sx = 0;
-    let sy = 0;
-    for (const b of cells) {
-      sx += b.x;
-      sy += b.y;
-    }
-    const x = Math.round(sx / cells.length);
-    const y = Math.round(sy / cells.length);
+    const [x, y] = startMiddleTile(starts[0]);
     if (x >= 0 && y >= 0 && x < W && y < H && surface[y * W + x] !== starts[0].z) startUnderRoof = true;
   }
   const clean = cleanRunning + cleanDelayed + aquifers + seeps;
@@ -115,15 +107,7 @@ export function storedWetMask(stored: { tile: ArrayLike<number>; depth: ArrayLik
 export function startRing(objects: readonly MapObject[], W: number, H: number): number[] | null {
   const starts = objects.filter((o) => o.template === "StartingLocation");
   if (starts.length !== 1) return null;
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, starts[0]).filter((b) => b.localZ === 0);
-  let sx = 0;
-  let sy = 0;
-  for (const b of cells) {
-    sx += b.x;
-    sy += b.y;
-  }
-  const cx = Math.round(sx / cells.length);
-  const cy = Math.round(sy / cells.length);
+  const [cx, cy] = startMiddleTile(starts[0]);
   const out: number[] = [];
   for (let y = cy - 2; y <= cy + 2; y++) for (let x = cx - 2; x <= cx + 2; x++) if (x >= 0 && y >= 0 && x < W && y < H) out.push(y * W + x);
   return out;

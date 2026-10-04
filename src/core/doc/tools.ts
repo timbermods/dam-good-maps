@@ -20,7 +20,7 @@ import { distanceFrom } from "../math/grid";
 import { channelWidth, routeChannel } from "../features/route";
 import { BUILDERS, planSetPiece, type PlanContext, type PlanRecord } from "../features/setpieces";
 import { FLOW_PRESETS, type Facing } from "../features/setpieces/common";
-import { startEntranceTile, type Orientation } from "../format/footprints";
+import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
 import type { Edge, Feature, LakeFeature, LandformFeature, Point, RiverFeature, SetPieceFeature, SetPieceKind, StartFeature } from "../features/schema";
 import type { Runs } from "../math/grid";
 import { clone } from "../spec/mergepatch";
@@ -65,23 +65,10 @@ function startZone(s: MapSession, b: BuildResult): PlanContext["start"] {
   if (f) return { x: f.params.position[0], y: f.params.position[1], radius: Math.max(f.params.benchRadius, START_CLEAR_RADIUS) + 1 };
   const e = b.entities.find((g) => g.template === "StartingLocation");
   if (!e) return null;
-  const c = startCentre(e.x, e.y, e.orientation);
+  const c = startMiddleTile({ x: e.x, y: e.y, orientation: e.orientation });
   return { x: c[0], y: c[1], radius: START_CLEAR_RADIUS + 1 };
 }
 
-/** The middle tile of a StartingLocation placed at (x, y) with orientation o. */
-export function startCentre(x: number, y: number, o: Orientation): [number, number] {
-  switch (o) {
-    case "Cw0":
-      return [x + 1, y + 1];
-    case "Cw90":
-      return [x + 1, y - 1];
-    case "Cw180":
-      return [x - 1, y - 1];
-    case "Cw270":
-      return [x - 1, y + 1];
-  }
-}
 
 // ------------------------------------------------------------------------------------- rivers
 
@@ -1113,7 +1100,7 @@ export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): bool
   const ent = b.entities.find((e) => e.template === "StartingLocation");
   if (!feat && !ent) return false;
   const o: Orientation = feat ? feat.params.orientation : ent!.orientation;
-  const [x, y] = feat ? feat.params.position : startCentre(ent!.x, ent!.y, o);
+  const [x, y] = feat ? feat.params.position : startMiddleTile({ x: ent!.x, y: ent!.y, orientation: o });
   const corner = cornerFor(x, y, o);
   const door = startEntranceTile(corner[0], corner[1], o);
   const tiles = [door[1] * W + door[0]];
@@ -1128,7 +1115,7 @@ export function startMiddle(s: MapSession): [number, number] | null {
   const feat = s.features.find((f): f is StartFeature => f.kind === "start");
   if (feat) return [feat.params.position[0], feat.params.position[1]];
   const e = s.built.entities.find((g) => g.template === "StartingLocation");
-  return e ? startCentre(e.x, e.y, e.orientation) : null;
+  return e ? startMiddleTile({ x: e.x, y: e.y, orientation: e.orientation }) : null;
 }
 
 /** A force that broke the start's own ground carries the start to the nearest level ground where it

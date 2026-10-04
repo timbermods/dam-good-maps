@@ -6,9 +6,9 @@
 // over the walk the way the land offers it. This measures the arrangement, so the tests and the
 // batch tools can tell a ring from a planting that leans to one side or reaches farther out.
 
-import * as portable from "../math/portable";
-import type { Feature } from "../features/schema";
-import { runsToTiles } from "../math/grid";
+import * as portable from "../../src/core/math/portable";
+import type { Feature } from "../../src/core/features/schema";
+import { runsToTiles } from "../../src/core/math/grid";
 
 /** Within this many tiles of the start (straight-line, from its middle) a planting is "close". */
 export const RING_RADIUS = 10;

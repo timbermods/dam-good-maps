@@ -1,14 +1,14 @@
 {
- "written": "647e45e1 (weathering: 2)",
+ "written": "647e45e1 (weathering: 2); alone re-pinned once when Naturalize's flood moved onto land/drainage (D462 answer 6, D308)",
  "alone": [
-  "adde1aef8a069f97",
+  "cfa8f326549951e6",
   "3bff7ec2c68339be",
-  "17c1d598cc5182c3",
-  "e4989be3d0778765",
-  "6b17564d60f5bebc",
+  "20550a29b6b3fa9a",
+  "c70f1d106d1c77ed",
+  "a2c75f517244de05",
   "73feb01b2ce9aa5c",
   "2817626307af0263",
-  "caafb124b91bf16e"
+  "f82856eb4be81758"
  ],
  "final": {
   "heights": "185efdec955e8bb0",

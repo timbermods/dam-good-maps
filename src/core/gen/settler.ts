@@ -14,16 +14,14 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
-import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from "../analysis/walk";
+import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
-import { coordinatesForMinCorner, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, ORIENTATIONS, rotate, type Orientation } from "../format/footprints";
 import type { Hydro } from "../land/hydro";
-import { distanceFrom, levelRegions, MinHeap } from "../math/grid";
+import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
 import * as portable from "../math/portable";
-
-const N4: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 export interface StartPick {
   x: number;
@@ -43,7 +41,7 @@ export interface StartPick {
   intent?: number;
 }
 
-export type DroughtPolicy = "off" | "prefer" | "require";
+export type DroughtPolicy = "prefer" | "require";
 
 /** The least land (joined by one-level steps) the last-resort start by a bank must join, at 128²
  *  (in proportion to the map's area). */
@@ -151,15 +149,7 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
-  const links: [number, number][] = [];
-  for (const s of slopes) {
-    const [dx, dy] = slopeHighSide(s.orientation);
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    if (hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([s.y * W + s.x, hy * W + hx]);
-  }
-  const d = walkDistance(h, W, H, null, links, { x, y }, Math.max(20, rule));
+  const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
   let water = Infinity;
@@ -171,7 +161,6 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
 }
 
 const S2 = Math.SQRT2;
-const DIRS: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 /** Walking distance on each level from that level's shores of pumpable water (no slopes). */
 export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): Float64Array {
@@ -182,7 +171,7 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
     const L = h[i];
     const x = i % W;
     const y = (i - x) / W;
-    for (const [dx, dy] of DIRS.slice(0, 4)) {
+    for (const [dx, dy] of N8.slice(0, 4)) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -202,7 +191,7 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
     const x = c % W;
     const y = (c - x) / W;
     const lv = h[c];
-    for (const [dx, dy] of DIRS) {
+    for (const [dx, dy] of N8) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -240,7 +229,7 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   const walk = shoreWalkFrom(h, W, H, D, water.contamination, waterRule);
   // the water rule: shores on other levels count when a walk over the map's own slopes reaches them
   const walkAny = shoreWalkAny(h, W, H, D, water.contamination, waterRule);
-  const walkKept = opts.kept && opts.drought && opts.drought !== "off" ? shoreWalkAny(h, W, H, opts.kept, water.contamination, waterRule) : null;
+  const walkKept = opts.kept && opts.drought ? shoreWalkAny(h, W, H, opts.kept, water.contamination, waterRule) : null;
   const wetNear = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wetNear[i] = 1;
   const dWet = distanceFrom(wetNear, W, H);

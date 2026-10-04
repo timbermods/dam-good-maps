@@ -13,7 +13,9 @@
 // the file (the Python validator reads `spec` and `features`) and checked against the log when the
 // file is opened. `dropRetired` migrates a project file that still holds a lock, a `setLock` or
 // `regenerateRegion` operation, or a "stamp" origin (all removed): they are dropped or converted
-// quietly, and the land they held stays as it was saved.
+// quietly, and the land they held stays as it was saved. `upgradeCarves` turns a project's `carve`
+// operations, from before the forces shared `forceResult` (D220), into that one; they build exactly
+// as they did.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -27,6 +29,7 @@ import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
+import { forceOfCarve, type SavedCarve } from "../forces/op";
 import { replay, type AppliedOp } from "./ops";
 
 export { fromBase64, toBase64 } from "../format/base64";
@@ -237,6 +240,24 @@ function dropRetired(raw: Record<string, unknown>): string[] {
   return notes;
 }
 
+/** A project saved before D220 keeps its carves as the `carve` operation: each becomes the forces'
+ *  one operation, `forceResult` (forces/op.ts `forceOfCarve`, the conversion the build always made of
+ *  it), in the log and in a Try another's undo data. Quiet: the map is the same. Mutates `raw`. */
+function upgradeCarves(raw: Record<string, unknown>): void {
+  const upgrade = (op: unknown) => {
+    const o = op as { op?: string; params?: unknown } | null;
+    if (o?.op === "carve" && o.params && typeof o.params === "object") {
+      o.op = "forceResult";
+      o.params = forceOfCarve(o.params as SavedCarve);
+    }
+  };
+  if (!Array.isArray(raw.edits)) return;
+  for (const e of raw.edits as { undo?: { replaced?: { op?: unknown } } }[]) {
+    upgrade(e);
+    upgrade(e?.undo?.replaced?.op);
+  }
+}
+
 /** Open a project file. Version 1 files (M1, M2) hold the spec, the features and the heights; they
  *  open with a base that has no stored map, and the session rebuilds it from the features. */
 export function decodeProject(bytes: Uint8Array): MapDocument {
@@ -254,6 +275,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
   const notes = dropRetired(raw as Record<string, unknown>);
+  upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
   upgradeSpec((raw as { spec?: unknown }).spec);
   // a spec saved before every map had two mine sites may ask for fewer; it opens asking for two

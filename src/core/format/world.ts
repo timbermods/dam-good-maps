@@ -3,6 +3,7 @@
 // through untouched and an unedited file re-serializes byte for byte.
 
 import { F, formatFloat, isObject, num, parse, stringify, type JsonObject, type JsonValue } from "./json";
+import { evapModifier } from "../sim/moisture";
 
 export const GAME_VERSION = "1.1.2.4-52e959e-sw";
 export const LAYERS = 23; // MaxGameTerrainHeight 22 + 1
@@ -229,10 +230,7 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
     moist[i] = numToken(st.moisture[i]);
     soil[i] = numToken(st.soilContamination[i]);
     const sat = st.sat[i];
-    if (sat > 0) {
-      const t = 10 - sat;
-      evap[i] = numToken(0.0595 * (t * t) + 0.101 * t + 0.72);
-    } else evap[i] = "1";
+    evap[i] = sat > 0 ? numToken(evapModifier(sat)) : "1";
   }
   (s.WaterMapNew as JsonObject).WaterColumns = { Array: water.join(" ") };
   if (flows) (s.WaterMapNew as JsonObject).ColumnOutflows = { Array: flows.join(" ") };
