@@ -19,12 +19,13 @@ const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("Select's actions on a one-tile selection change that tile (D259, D264)", () => {
-  // ((15, 8) on M9b's map, D148: dev's (18, 3) is not a lone level tile there)
-  it("Highlands 64², seed 3: the dry level tile (15, 8), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
+  // ((15, 8) on M9b's map, D148: dev's (18, 3) is not a lone level tile there; (44, 10) since the 96²
+  // round's flow moved the map, investigation/canyon-highlands-96)
+  it("Highlands 64², seed 3: the dry level tile (44, 10), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
-    const t = 8 * W + 15;
+    const t = 10 * W + 44;
     const b = open().built;
     expect(b.heights[t]).toBe(7);
     expect(b.water[t]).toBe(0);

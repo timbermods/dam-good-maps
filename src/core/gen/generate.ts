@@ -52,6 +52,8 @@ import { lakeRise, shallowSheet, SHEET_MOST } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
+import { shapeCanyon } from "../land/canyon";
+import { shapeHighlands } from "../land/highlands";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -444,6 +446,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       if (specIn.theme === "lakeBasin") shapeLakeBasin(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
+      shapeCanyon(g, W, H, seed, genomes);
+      shapeHighlands(g, W, H);
       genomes++;
       replans = 0;
       // (every theme's land from the field's processes: D370's Islands and Delta templates are

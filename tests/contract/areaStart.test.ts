@@ -20,24 +20,25 @@ import * as ed from "../../src/worker/session";
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("a force leaves the locked land, and the ground above the layer showing, as they are (D254, D259, D207)", () => {
-  // (on M9b's map, D148: its start stands at (19, 22), so the area lies east of it, across its west edge,
-  // and the Erupt 9 tiles from it)
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 27 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // (on M9b's map, D148: its start stood at (19, 22), so the area lies east of it, across its west edge,
+  // and the Erupt 9 tiles from it; (17, 16) since the 96² round's flow moved the map,
+  // investigation/canyon-highlands-96, the area and the Erupt moved with it)
+  it("Highlands 64², seed 3: an Erupt (Power 69) at (26, 16) inside a 27 × 12 area from (19, 10) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 16; y < 28; y++) area.push([y, 21, 47]);
+    for (let y = 10; y < 22; y++) area.push([y, 19, 45]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
     // (the start stands across the area's west edge, partly inside it)
-    expect([start.x, start.y]).toEqual([19, 22]);
+    expect([start.x, start.y]).toEqual([17, 16]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [28, 22], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [26, 16], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
@@ -51,19 +52,20 @@ describe("a force leaves the locked land, and the ground above the layer showing
   });
 
   // (seed 10 on M9b's maps, D148: seed 3's start stands at level 13, with few objects above it; seed 10's
-  // at (50, 29), level 10, with 149)
-  it("Highlands 64², seed 10: a Craterize (Power 44) at (51, 28) with the layer cut at level 10 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
+  // at (50, 29), level 10, with 149; at (50, 32), level 13, with 102 above 14, since the 96² round's
+  // flow moved the map, investigation/canyon-highlands-96)
+  it("Highlands 64², seed 10: a Craterize (Power 44) at (51, 31) with the layer cut at level 14 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 10, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
-    const cut = 10;
+    const cut = 14;
     const before = open().built;
     const hidden = (i: number) => before.heights[i] > cut;
     const above = before.entities.filter((e) => e.template !== "StartingLocation" && hidden(e.y * W + e.x));
     expect(above.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [51, 28], cut, natural: true }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [51, 31], cut, natural: true }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;

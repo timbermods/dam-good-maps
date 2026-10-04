@@ -526,11 +526,13 @@ describe("a carve in the document (breakage rule)", () => {
     // (48, 86) toward (48, 10); Canyon 96² seed 5 until M9b turned and replanned the land, seed 11
     // until its water took the game's rules, seed 22 until batch 5 raised the land on its floor, seed
     // 44 until D333's maps, where no Canyon seed to 400 seals one; Highlands 96² seed 8 with the carve's seed 4 since
-    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none, D148)
+    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; the carve's
+    // seed 1 since the 96² round's flow moved the map, investigation/canyon-highlands-96, where seed 4
+    // seals none and seed 1 a lake of 104 tiles, D148)
     const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 4, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
@@ -621,9 +623,12 @@ describe("a carve in the document (breakage rule)", () => {
 });
 
 describe("a carve at work in the editor's worker", () => {
+  // (Highlands 96² seed 22 since the 96² round moved the theme's small maps, investigation/canyon-highlands-96:
+  // from seed 21's far tile the carve now runs 30 steps and the cut's origin stands on ground the
+  // layer hides, D148)
   it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const open = ed.sessionView();
@@ -700,7 +705,7 @@ describe("a carve at work in the editor's worker", () => {
 
   it("carves only the land showing: under a cut, the ground above it stays as it is (D207)", async () => {
     const W = 96;
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
     ed.setEditorWaterMode("defer");
     ed.refine();
     const ground = ed.sessionView().view.heights.slice();

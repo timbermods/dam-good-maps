@@ -29,6 +29,10 @@ check passed). Before it, 2026-10-01: `forces-done` (D375), `map-look-2-done` (D
 Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`).
 
 **The milestone session's work now:**
+- **Canyon and Highlands' height round** (the theme critique's first point; `investigation/canyon-highlands-height`,
+  its PR into `dev`, labelled needs-kyler): a product change on both themes from 128² up, with the 96² round's rules,
+  generator 0.9.0 and the contract tests re-pinned (D148); it waits for Kyler's eye on the sheets in `docs/sheets/`.
+
 - **Timing cut (D453):** no quiet window, no timings; Lake Basin round 2 is adopted on its merits, on every Lake Basin
   map (Kyler, 2026-10-03: whatever its settings, intentions or siblings; `fix/m9b-generator-findings`, the release-gate
   generator hunt's fixes, `docs/progress/m9b.md`).

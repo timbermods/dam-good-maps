@@ -305,10 +305,10 @@ describe("generated maps: every new object passes the placement emulation (ROADM
     expect(["SmallRelic", "MediumRelic", "LargeRelic"].some((t) => templates.has(t))).toBe(true);
   };
   it.each(themes.filter((t) => t !== "canyon"))("%s, every map object on, 96²", (theme) => everyObject(theme));
-  // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): with every object on and
-  // three mine sites, M9b's Canyon 96² seed 3 finds no start on its shown land (one map of 60 such);
-  // M9b's work on starts that run out on a shown land. When it passes, `fails` comes off.
-  it.fails("canyon, every map object on, 96²: no start on the shown land with three mine sites", () => everyObject("canyon"));
+  // (an expected failure from 2026-10-02 to the 96² round, investigation/canyon-highlands-96: with
+  // every object on and three mine sites, M9b's Canyon 96² seed 3 found no start on its shown land;
+  // with its few springs and deeper incision the land holds one, D148)
+  it("canyon, every map object on, 96²", () => everyObject("canyon"));
 });
 
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */
@@ -366,9 +366,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
-    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise, D148)
+    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise, D148;
+    // highlands 1 and canyon 5 for highlands 2 and 7 since the height round's terraces and plateau, investigation/canyon-highlands-height:
+    // canyon 1's rise is reached by no flight of stairs)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 2], ["canyon", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 1], ["canyon", 5], ["riverValley", 2], ["canyon", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -402,8 +404,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     let seen = 0;
     // maps with a weir at generator 0.8.0 (half the maps try one, where a river's channel takes it;
     // re-seeded for M9b's maps, for batch 5's, for D333's and for M9b's small starts and speed rounds, which left canyon 10 and highlands 2 without a weir, D148;
-    // canyon 3 for canyon 1, whose river after D447's bank rule takes no weir)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 3], ["canyon", 16], ["highlands", 1]] as [ThemeId, number][]) {
+    // canyon 3 for canyon 1, whose river after D447's bank rule takes no weir; canyon 4 and highlands 4
+    // for canyon 3 and highlands 1 since the 96² round's few springs and more flow, investigation/canyon-highlands-96:
+    // highlands 1 takes no weir there and highlands 2's holds 0.43)
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 4], ["canyon", 16], ["highlands", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

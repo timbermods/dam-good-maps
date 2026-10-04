@@ -411,7 +411,10 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  await refine(page);
+  // (seed 4244 since the 96² round moved Highlands' small maps, investigation/canyon-highlands-96: on
+  // 4242 the far tile's ground falls away west, so the crater's lowered tiles centre 2.4 tiles off
+  // the press, D148)
+  await refine(page, "s=4244&z=96&d=n&t=highlands");
   await page.keyboard.press("8");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");

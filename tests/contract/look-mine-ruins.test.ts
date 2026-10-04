@@ -33,7 +33,9 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "80f7c5ef5388bedc68adbb0e33f671b6c0e5971a1e4c11b0d99fedc97b518f05";
+// (`9d5982c7…` from generator 0.9.0, the Canyon and Highlands rounds, investigation/canyon-highlands-height:
+// River Valley's land is untouched, the file's version line moved; `80f7c5ef…` from M9b's release)
+const LIVE_SHA = "9d5982c793fa6be2b5bd9ce34f3eee148997ea4d29e008bc1675b3c62bffb2b3";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

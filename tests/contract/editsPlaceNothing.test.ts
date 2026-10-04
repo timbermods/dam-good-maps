@@ -193,7 +193,9 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
   it("walling the mine site off from the start adds no slope and reports resources.mine_site", async () => {
     // a generated map whose mine site the colony reaches
     let mine: { x: number; y: number; z: number } | null = null;
-    for (const seed of [4, 2, 5, 6]) {
+    // (seeds 7 and 8 first since the 96² round moved Highlands' small maps, investigation/canyon-highlands-96:
+    // seed 4's site is at the edge again and seed 2's stands at 16, where no wall can rise above it, D148)
+    for (const seed of [7, 8, 4, 2, 5, 6]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;
