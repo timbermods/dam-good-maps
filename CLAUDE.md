@@ -145,5 +145,8 @@ text.
 - The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`. The slot
   belongs to the page session while it works (D396): ask Kyler before publishing anything else there. Small changes to the
   deploy workflow itself are released as their own tag, like `preview-workflow-done`.
+- The roadmap canvas (`tools/roadmap-canvas/index.html`) is published at `/roadmap/` from dev, not main, always noindex:
+  deploy.yml copies dev's file when it builds, and `roadmap-sync.yml` runs that deploy again when dev's copy changes,
+  keeping `/preview/` (its `ref.txt`).
 - Tokens and secrets are Kyler's to create and store with `gh secret set`. Never ask Kyler to paste one into chat.
 - Kyler has said Claude may merge tagged releases into `main` and manage the Pages setting.
